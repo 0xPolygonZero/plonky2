@@ -9,14 +9,14 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 
 /// NB: Tests for equality, but only on the assumption that the limbs
 /// in `larger` are all at least as big as those in `smaller`, and
-/// that the limbs in `larger are at most (LIMB_BITS + 1) bits.
+/// that the limbs in `larger` are at most (LIMB_BITS + 1) bits.
 pub fn eval_packed_generic_are_equal<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
-    larger: &[P; columns::N_LIMBS_32],
-    smaller: &[P; columns::N_LIMBS_32],
+    larger: &[P; columns::N_LIMBS],
+    smaller: &[P; columns::N_LIMBS],
 ) {
-    let overflow = P::Scalar::from_canonical_u64(1 << 32);
+    let overflow = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
     let overflow_inv = overflow.inverse();
     let mut cy = P::ZEROS;
     for &(a, b) in larger.zip(*smaller).iter() {
@@ -35,15 +35,15 @@ pub fn eval_ext_circuit_are_equal<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     is_op: ExtensionTarget<D>,
-    larger: &[ExtensionTarget<D>; columns::N_LIMBS_32],
-    smaller: &[ExtensionTarget<D>; columns::N_LIMBS_32],
+    larger: &[ExtensionTarget<D>; columns::N_LIMBS],
+    smaller: &[ExtensionTarget<D>; columns::N_LIMBS],
 ) {
-    // 2^32 in the base field
-    let overflow_base = F::from_canonical_u64(1 << 32);
-    // 2^32 in the extension field as an ExtensionTarget
+    // 2^16 in the base field
+    let overflow_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+    // 2^16 in the extension field as an ExtensionTarget
     let overflow = builder.constant_extension(F::Extension::from(overflow_base));
-    // 2^-32 in the base field.
-    let overflow_inv = F::inverse_2exp(32);
+    // 2^-16 in the base field.
+    let overflow_inv = F::inverse_2exp(columns::LIMB_BITS);
 
     let mut cy = builder.zero_extension();
     for &(a, b) in larger.zip(*smaller).iter() {

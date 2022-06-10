@@ -9,14 +9,15 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 
 #[allow(clippy::needless_range_loop)]
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
-    // NB: multiplication inputs are given as 16-bit limbs, not 32.
     let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
-    debug_assert_eq!(input0_limbs.len(), columns::N_LIMBS_16);
+    debug_assert_eq!(input0_limbs.len(), columns::N_LIMBS);
 
-    // Output has 16-bit limbs, same as the input
-    let mut output_limbs = [0u16; columns::N_LIMBS_16];
-    let mut aux_in_limbs = [0u64; columns::N_LIMBS_16];
+    const MASK: u64 = (1u64 << columns::LIMB_BITS) - 1u64;
+
+    // Input and output have 16-bit limbs
+    let mut output_limbs = [0u64; columns::N_LIMBS];
+    let mut aux_in_limbs = [0u64; columns::N_LIMBS];
 
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // We have heaps of space at the top of each limb, so by
@@ -24,7 +25,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     // avoid a bunch of carry propagation handling (at the expense of
     // slightly worse cache coherency).
     let mut cy = 0u64;
-    for col in 0..columns::N_LIMBS_16 {
+    for col in 0..columns::N_LIMBS {
         for i in 0..col {
             // Invariant: i + j = col
             let j = col - i;
@@ -32,23 +33,23 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
             aux_in_limbs[col] += p;
         }
         let t = aux_in_limbs[col] + cy;
-        cy = t >> 16;
-        output_limbs[col] = t as u16;
+        cy = t >> columns::LIMB_BITS;
+        output_limbs[col] = t & MASK;
     }
     // last acc_col_hi is dropped because this is multiplication modulo 2^256.
 
     for &(c, output_limb) in columns::MUL_OUTPUT.zip(output_limbs).iter() {
-        lv[c] = F::from_canonical_u16(output_limb);
+        lv[c] = F::from_canonical_u64(output_limb);
     }
     aux_in_limbs = aux_in_limbs.zip(output_limbs).map(|(ab, c)| ab - c as u64);
     // FIXME: Check minus signs
-    aux_in_limbs[0] >>= 16;
-    for deg in 1..columns::N_LIMBS_16 - 1 {
-        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> 16;
+    aux_in_limbs[0] >>= columns::LIMB_BITS;
+    for deg in 1..columns::N_LIMBS - 1 {
+        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> columns::LIMB_BITS;
     }
     // Can ignore the last element of aux_in_limbs
 
-    for deg in 0..columns::N_LIMBS_16 - 1 {
+    for deg in 0..columns::N_LIMBS - 1 {
         let c = columns::MUL_AUX_INPUT[deg];
         lv[c] = F::from_canonical_u64(aux_in_limbs[deg]);
     }
@@ -70,25 +71,25 @@ pub fn eval_packed_generic<P: PackedField>(
     // output.
     let mut constr_poly = columns::MUL_OUTPUT.map(|c| -lv[c]);
 
-    debug_assert_eq!(constr_poly.len(), columns::N_LIMBS_16);
+    debug_assert_eq!(constr_poly.len(), columns::N_LIMBS);
 
     // Invariant: i + j = deg
-    for deg in 0..columns::N_LIMBS_16 {
+    for deg in 0..columns::N_LIMBS {
         for i in 0..deg {
             let j = deg - i;
             constr_poly[deg] += input0_limbs[i] * input1_limbs[j];
         }
     }
 
-    debug_assert_eq!(aux_in_limbs.len(), columns::N_LIMBS_16 - 1);
+    debug_assert_eq!(aux_in_limbs.len(), columns::N_LIMBS - 1);
 
     // This subtracts (x - 2^16) * AUX_IN from constr_poly.
-    let base = P::Scalar::from_canonical_u64(1 << 16);
+    let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
     constr_poly[0] += base * aux_in_limbs[0];
-    for deg in 1..columns::N_LIMBS_16 - 1 {
+    for deg in 1..columns::N_LIMBS - 1 {
         constr_poly[deg] += (base * aux_in_limbs[deg]) - aux_in_limbs[deg - 1];
     }
-    constr_poly[columns::N_LIMBS_16 - 1] -= aux_in_limbs[columns::N_LIMBS_16 - 2];
+    constr_poly[columns::N_LIMBS - 1] -= aux_in_limbs[columns::N_LIMBS - 2];
 
     for &c in &constr_poly {
         yield_constr.constraint(is_mul * c);
@@ -108,10 +109,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let output_limbs = columns::MUL_OUTPUT.map(|c| lv[c]);
 
     let zero = builder.zero_extension();
-    let mut constr_poly = [zero; columns::N_LIMBS_16]; // pointless init
+    let mut constr_poly = [zero; columns::N_LIMBS]; // pointless init
 
     // Invariant: i + j = deg
-    for deg in 0..columns::N_LIMBS_16 {
+    for deg in 0..columns::N_LIMBS {
         let mut acc = zero;
         for i in 0..deg {
             let j = deg - i;
@@ -120,16 +121,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         constr_poly[deg] = builder.sub_extension(acc, output_limbs[deg]);
     }
 
-    let base = F::from_canonical_u64(1 << 16);
+    let base = F::from_canonical_u64(1 << columns::LIMB_BITS);
     constr_poly[0] = builder.mul_const_add_extension(base, aux_in_limbs[0], constr_poly[0]);
-    for deg in 1..columns::N_LIMBS_16 - 1 {
+    for deg in 1..columns::N_LIMBS - 1 {
         constr_poly[deg] =
             builder.mul_const_add_extension(base, aux_in_limbs[deg], constr_poly[deg]);
         constr_poly[deg] = builder.sub_extension(constr_poly[deg], aux_in_limbs[deg - 1]);
     }
-    constr_poly[columns::N_LIMBS_16] = builder.sub_extension(
-        constr_poly[columns::N_LIMBS_16],
-        aux_in_limbs[columns::N_LIMBS_16 - 1],
+    constr_poly[columns::N_LIMBS] = builder.sub_extension(
+        constr_poly[columns::N_LIMBS],
+        aux_in_limbs[columns::N_LIMBS - 1],
     );
 
     for &c in &constr_poly {

@@ -1,8 +1,8 @@
 //! Arithmetic and logic unit
 
+pub const LIMB_BITS: usize = 16;
 pub const EVM_REGISTER_BITS: usize = 256;
-pub const N_LIMBS_32: usize = EVM_REGISTER_BITS / 32;
-pub const N_LIMBS_16: usize = EVM_REGISTER_BITS / 16;
+pub const N_LIMBS: usize = EVM_REGISTER_BITS / LIMB_BITS;
 
 pub const IS_ADD: usize = 0;
 pub const IS_MUL: usize = IS_ADD + 1;
@@ -72,19 +72,19 @@ const fn gen_rc_output_regs<const N: usize>(start: usize) -> [usize; N] {
     regs
 }
 
-pub(crate) const ADD_INPUT_0: [usize; N_LIMBS_32] = gen_input_regs::<N_LIMBS_32>(0);
-pub(crate) const ADD_INPUT_1: [usize; N_LIMBS_32] = gen_input_regs::<N_LIMBS_32>(N_LIMBS_32);
-pub(crate) const ADD_OUTPUT: [usize; N_LIMBS_16] = gen_rc_output_regs::<N_LIMBS_16>(0);
+pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
+pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const ADD_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 
 // TODO: Rather than repeating these for every binary operation,
 // perhaps we should just declare them once and reuse?
-pub(crate) const SUB_INPUT_0: [usize; N_LIMBS_32] = gen_input_regs::<N_LIMBS_32>(0);
-pub(crate) const SUB_INPUT_1: [usize; N_LIMBS_32] = gen_input_regs::<N_LIMBS_32>(N_LIMBS_32);
-pub(crate) const SUB_OUTPUT: [usize; N_LIMBS_16] = gen_rc_output_regs::<N_LIMBS_16>(0);
+pub(crate) const SUB_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
+pub(crate) const SUB_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const SUB_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 
-pub(crate) const MUL_INPUT_0: [usize; N_LIMBS_16] = gen_input_regs::<N_LIMBS_16>(0);
-pub(crate) const MUL_INPUT_1: [usize; N_LIMBS_16] = gen_input_regs::<N_LIMBS_16>(N_LIMBS_16);
-pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS_16] = gen_input_regs::<N_LIMBS_16>(2 * N_LIMBS_16);
-pub(crate) const MUL_OUTPUT: [usize; N_LIMBS_16] = gen_rc_output_regs::<N_LIMBS_16>(0);
+pub(crate) const MUL_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
+pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS - 1);
+pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 
 pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
