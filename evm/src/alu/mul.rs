@@ -11,13 +11,12 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
-    debug_assert_eq!(input0_limbs.len(), columns::N_LIMBS);
 
     const MASK: u64 = (1u64 << columns::LIMB_BITS) - 1u64;
 
     // Input and output have 16-bit limbs
-    let mut output_limbs = [0u64; columns::N_LIMBS];
     let mut aux_in_limbs = [0u64; columns::N_LIMBS];
+    let mut output_limbs = [0u64; columns::N_LIMBS];
 
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // We have heaps of space at the top of each limb, so by
@@ -29,20 +28,19 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
         for i in 0..col {
             // Invariant: i + j = col
             let j = col - i;
-            let p = input0_limbs[i] * input1_limbs[j];
-            aux_in_limbs[col] += p;
+            let ai_x_bj = input0_limbs[i] * input1_limbs[j];
+            aux_in_limbs[col] += ai_x_bj;
         }
         let t = aux_in_limbs[col] + cy;
         cy = t >> columns::LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
-    // last acc_col_hi is dropped because this is multiplication modulo 2^256.
+    // last cy is dropped because this is multiplication modulo 2^256.
 
     for &(c, output_limb) in columns::MUL_OUTPUT.zip(output_limbs).iter() {
         lv[c] = F::from_canonical_u64(output_limb);
     }
     aux_in_limbs = aux_in_limbs.zip(output_limbs).map(|(ab, c)| ab - c as u64);
-    // FIXME: Check minus signs
     aux_in_limbs[0] >>= columns::LIMB_BITS;
     for deg in 1..columns::N_LIMBS - 1 {
         aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> columns::LIMB_BITS;
