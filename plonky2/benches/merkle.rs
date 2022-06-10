@@ -12,7 +12,7 @@ use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 
-const SIZE_LOG: usize = 23;
+const SIZE_LOG: usize = 25;
 const SIZE: usize = 1 << SIZE_LOG;
 
 pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion)
