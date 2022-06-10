@@ -4,6 +4,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::polynomial::PolynomialCoeffs;
+use plonky2_field::polynomial::PolynomialValues;
 use rayon::prelude::*;
 use tynm::type_name;
 
@@ -42,16 +43,11 @@ pub(crate) fn bench_ldes<F: Field>(c: &mut Criterion) {
             BenchmarkId::from_parameter(num_polys),
             &num_polys,
             |b, _| {
-                let coeffs = PolynomialCoeffs::new(F::rand_vec(SIZE));
+                let values = PolynomialValues::new(F::rand_vec(SIZE));
                 b.iter(|| {
-                    let padded_coeffs = coeffs.lde(RATE_BITS);
                     (0..num_polys)
                         .into_par_iter()
-                        .map(|_| {
-                            padded_coeffs
-                                .clone()
-                                .fft_with_options(Some(RATE_BITS), None)
-                        })
+                        .map(|_| values.clone().lde_onto_coset(RATE_BITS))
                         .collect::<Vec<_>>()
                 });
             },
