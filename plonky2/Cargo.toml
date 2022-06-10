@@ -53,6 +53,10 @@ name = "merkle"
 harness = false
 
 [[bench]]
+name = "lde_merkle"
+harness = false
+
+[[bench]]
 name = "transpose"
 harness = false
 
