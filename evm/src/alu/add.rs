@@ -16,7 +16,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
 
     const MASK: u64 = (1u64 << columns::LIMB_BITS) - 1u64;
     let cy = 0u64;
-    for (i, &(a, b)) in input0_limbs.zip(input1_limbs).iter().enumerate() {
+    for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
         let s = a + b + cy;
         let cy = s >> columns::LIMB_BITS;
         debug_assert!(cy <= 1u64, "input limbs were larger than 16 bits");
@@ -24,7 +24,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     }
     // last carry is dropped because this is addition modulo 2^256.
 
-    for &(c, output_limb) in columns::ADD_OUTPUT.zip(output_limbs).iter() {
+    for (&c, &output_limb) in columns::ADD_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
@@ -34,15 +34,15 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_add = lv[columns::IS_ADD];
-    let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c]);
-    let output_limbs = columns::ADD_OUTPUT.map(|c| lv[c]);
+    let input0_limbs = columns::ADD_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = columns::ADD_OUTPUT.iter().map(|&c| lv[c]);
 
     // This computed output is not yet reduced; i.e. some limbs may be
     // more than 16 bits.
     let output_computed = input0_limbs.zip(input1_limbs).map(|(a, b)| a + b);
 
-    utils::eval_packed_generic_are_equal(yield_constr, is_add, &output_computed, &output_limbs);
+    utils::eval_packed_generic_are_equal(yield_constr, is_add, output_computed, output_limbs);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -51,19 +51,19 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_add = lv[columns::IS_ADD];
-    let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c]);
-    let output_limbs = columns::ADD_OUTPUT.map(|c| lv[c]);
+    let input0_limbs = columns::ADD_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = columns::ADD_OUTPUT.iter().map(|&c| lv[c]);
 
-    let output_computed = input0_limbs
-        .zip(input1_limbs)
-        .map(|(a, b)| builder.add_extension(a, b));
+    let output_computed = input0_limbs.zip(input1_limbs).map(
+        |(a, b)| builder.add_extension(a, b)
+    ).collect::<Vec<ExtensionTarget<D>>>();
 
     utils::eval_ext_circuit_are_equal(
         builder,
         yield_constr,
         is_add,
-        &output_computed,
-        &output_limbs,
+        output_computed.into_iter(),
+        output_limbs,
     );
 }

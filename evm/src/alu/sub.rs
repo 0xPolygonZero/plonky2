@@ -19,18 +19,17 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     const MASK: u64 = LIMB_BOUNDARY - 1u64;
 
     let br = 0u64;
-    for (i, &(a, b)) in input0_limbs.zip(input1_limbs).iter().enumerate() {
+    for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
         let d = LIMB_BOUNDARY + a - b - br;
-        // if a < b, then d < 2^32 so br = 1
-        // if a >= b, then d >= 2^32 so br = 0
+        // if a < b, then d < 2^16 so br = 1
+        // if a >= b, then d >= 2^16 so br = 0
         let br = 1u64 - (d >> columns::LIMB_BITS);
         debug_assert!(br <= 1u64, "input limbs were larger than 16 bits");
-
         output_limbs[i] = d & MASK;
     }
     // last borrow is dropped because this is subtraction modulo 2^256.
 
-    for &(c, output_limb) in columns::SUB_OUTPUT.zip(output_limbs).iter() {
+    for (&c, &output_limb) in columns::SUB_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
@@ -40,16 +39,15 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_sub = lv[columns::IS_SUB];
-    let input0_limbs = columns::SUB_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::SUB_INPUT_1.map(|c| lv[c]);
-    let output_limbs = columns::SUB_OUTPUT.map(|c| lv[c]);
+    let input0_limbs = columns::SUB_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = columns::SUB_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = columns::SUB_OUTPUT.iter().map(|&c| lv[c]);
 
-    let limb_boundary = P::Scalar::from_canonical_u64(1 << 32);
-    let output_computed = input0_limbs
-        .zip(input1_limbs)
-        .map(|(a, b)| limb_boundary + a - b);
+    let limb_boundary = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
+    let output_computed = input0_limbs.zip(input1_limbs).map(
+        |(a, b)| limb_boundary + a - b);
 
-    utils::eval_packed_generic_are_equal(yield_constr, is_sub, &output_computed, &output_limbs);
+    utils::eval_packed_generic_are_equal(yield_constr, is_sub, output_computed, output_limbs);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -58,23 +56,24 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_sub = lv[columns::IS_SUB];
-    let input0_limbs = columns::SUB_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::SUB_INPUT_1.map(|c| lv[c]);
-    let output_limbs = columns::SUB_OUTPUT.map(|c| lv[c]);
+    let input0_limbs = columns::SUB_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = columns::SUB_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = columns::SUB_OUTPUT.iter().map(|&c| lv[c]);
 
-    // 2^32 in the base field
-    let limb_boundary = F::from_canonical_u64(1 << 32);
+    // 2^16 in the base field
+    let limb_boundary = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let output_computed = input0_limbs.zip(input1_limbs).map(|(a, b)| {
-        let t = builder.add_const_extension(a, limb_boundary);
-        builder.sub_extension(t, b)
-    });
+    let output_computed = input0_limbs.zip(input1_limbs).map(
+        |(a, b)| {
+            let t = builder.add_const_extension(a, limb_boundary);
+            builder.sub_extension(t, b)
+        }).collect::<Vec<ExtensionTarget<D>>>();
 
     utils::eval_ext_circuit_are_equal(
         builder,
         yield_constr,
         is_sub,
-        &output_computed,
-        &output_limbs,
+        output_computed.into_iter(),
+        output_limbs,
     );
 }
