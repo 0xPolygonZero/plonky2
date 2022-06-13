@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use itertools::{izip, multiunzip};
+use itertools::{izip, multiunzip, Itertools};
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -72,12 +72,7 @@ pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F,
             let virt = F::from_canonical_usize(rng.gen_range(0..20));
 
             let val: [u32; 8] = rng.gen();
-            let vals: [F; 8] = val
-                .iter()
-                .map(|&x| F::from_canonical_u32(x))
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap();
+            let vals: [F; 8] = val.map(F::from_canonical_u32);
 
             current_memory_values.insert((context, segment, virt), vals);
 
@@ -97,11 +92,11 @@ pub fn sort_memory_ops<F: RichField>(
     context: &[F],
     segment: &[F],
     virtuals: &[F],
-    values: &[Vec<F>],
+    values: &Vec<[F; 8]>,
     is_read: &[F],
     timestamp: &[F],
-) -> (Vec<F>, Vec<F>, Vec<F>, Vec<Vec<F>>, Vec<F>, Vec<F>) {
-    let mut ops: Vec<(F, F, F, Vec<F>, F, F)> = izip!(
+) -> (Vec<F>, Vec<F>, Vec<F>, Vec<[F; 8]>, Vec<F>, Vec<F>) {
+    let mut ops: Vec<(F, F, F, [F; 8], F, F)> = izip!(
         context.iter().cloned(),
         segment.iter().cloned(),
         virtuals.iter().cloned(),
@@ -111,19 +106,13 @@ pub fn sort_memory_ops<F: RichField>(
     )
     .collect();
 
-    ops.sort_by(|&(c1, s1, v1, _, _, t1), &(c2, s2, v2, _, _, t2)| {
+    ops.sort_by_key(|&(c, s, v, _, _, t)| {
         (
-            c1.to_noncanonical_u64(),
-            s1.to_noncanonical_u64(),
-            v1.to_noncanonical_u64(),
-            t1.to_noncanonical_u64(),
+            c.to_noncanonical_u64(),
+            s.to_noncanonical_u64(),
+            v.to_noncanonical_u64(),
+            t.to_noncanonical_u64(),
         )
-            .cmp(&(
-                c2.to_noncanonical_u64(),
-                s2.to_noncanonical_u64(),
-                v2.to_noncanonical_u64(),
-                t2.to_noncanonical_u64(),
-            ))
     });
 
     multiunzip(ops)
@@ -236,12 +225,21 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     }
 
     fn generate_memory(&self, trace_cols: &mut [Vec<F>]) {
+        let num_trace_rows = trace_cols[0].len();
+
         let context = &trace_cols[MEMORY_ADDR_CONTEXT];
         let segment = &trace_cols[MEMORY_ADDR_SEGMENT];
         let virtuals = &trace_cols[MEMORY_ADDR_VIRTUAL];
-        let values: Vec<Vec<F>> = (0..8)
-            .map(|i| &trace_cols[memory_value_limb(i)])
-            .cloned()
+        let values: Vec<[F; 8]> = (0..num_trace_rows)
+            .map(|i| {
+                let arr: [F; 8] = (0..8)
+                    .map(|j| &trace_cols[memory_value_limb(j)][i])
+                    .cloned()
+                    .collect_vec()
+                    .try_into()
+                    .unwrap();
+                arr
+            })
             .collect();
         let is_read = &trace_cols[MEMORY_IS_READ];
         let timestamp = &trace_cols[MEMORY_TIMESTAMP];
@@ -271,8 +269,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[SORTED_MEMORY_ADDR_CONTEXT] = sorted_context;
         trace_cols[SORTED_MEMORY_ADDR_SEGMENT] = sorted_segment;
         trace_cols[SORTED_MEMORY_ADDR_VIRTUAL] = sorted_virtual;
-        for i in 0..8 {
-            trace_cols[sorted_memory_value_limb(i)] = sorted_values[i].clone();
+        for i in 0..num_trace_rows {
+            for j in 0..8 {
+                trace_cols[sorted_memory_value_limb(j)][i] = sorted_values[i][j];
+            }
         }
         trace_cols[SORTED_MEMORY_IS_READ] = sorted_is_read;
         trace_cols[SORTED_MEMORY_TIMESTAMP] = sorted_timestamp;
@@ -367,19 +367,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint(timestamp_first_change * not_timestamp_first_change);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
-        yield_constr.constraint_transition(segment_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(virtual_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(timestamp_first_change * (next_addr_context - addr_context));
-        // yield_constr.constraint_transition(timestamp_first_change * (next_addr_segment - addr_segment));
-        // yield_constr.constraint_transition(timestamp_first_change * (next_addr_virtual - addr_virtual));
+        yield_constr
+            .constraint_transition(segment_first_change * (next_addr_context - addr_context));
+        yield_constr
+            .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
+        yield_constr
+            .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
+        yield_constr
+            .constraint_transition(timestamp_first_change * (next_addr_context - addr_context));
+        yield_constr.constraint_transition(timestamp_first_change * (next_addr_segment - addr_segment));
+        yield_constr.constraint_transition(timestamp_first_change * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let range_check_value = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + timestamp_first_change * (next_timestamp - timestamp - one);
-        // yield_constr.constraint(range_check - range_check_value);
+        yield_constr.constraint(range_check - range_check_value);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
@@ -478,10 +482,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(builder, timestamp_first_change_check_1);
         let timestamp_first_change_check_2 =
             builder.mul_extension(timestamp_first_change, addr_segment_diff);
-        // yield_constr.constraint_transition(builder, timestamp_first_change_check_2);
+        yield_constr.constraint_transition(builder, timestamp_first_change_check_2);
         let timestamp_first_change_check_3 =
             builder.mul_extension(timestamp_first_change, addr_virtual_diff);
-        // yield_constr.constraint_transition(builder, timestamp_first_change_check_3);
+        yield_constr.constraint_transition(builder, timestamp_first_change_check_3);
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let context_diff = {
@@ -511,7 +515,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.add_extension(sum, timestamp_range_check)
         };
         let range_check_diff = builder.sub_extension(range_check, range_check_value);
-        // yield_constr.constraint(builder, range_check_diff);
+        yield_constr.constraint(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
