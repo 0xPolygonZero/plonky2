@@ -383,12 +383,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + timestamp_first_change * (next_timestamp - timestamp - one);
-        yield_constr.constraint(range_check - range_check_value);
+        yield_constr.constraint_transition(range_check - range_check_value);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            // yield_constr
-            //     .constraint(next_is_read * timestamp_first_change * (next_values[i] - values[i]));
+            yield_constr
+                .constraint(next_is_read * timestamp_first_change * (next_values[i] - values[i]));
         }
 
         // Lookup argument for the range check.
@@ -401,12 +401,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // A "horizontal" diff between the next permuted input and permuted table value.
         let diff_input_table = next_perm_input - next_perm_table;
 
-        // yield_constr.constraint(diff_input_prev * diff_input_table);
+        yield_constr.constraint(diff_input_prev * diff_input_table);
 
         // This is actually constraining the first row, as per the spec, since `diff_input_table`
         // is a diff of the next row's values. In the context of `constraint_last_row`, the next
         // row is the first row.
-        // yield_constr.constraint_last_row(diff_input_table);
+        yield_constr.constraint_last_row(diff_input_table);
     }
 
     fn eval_ext_circuit(
@@ -515,14 +515,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.add_extension(sum, timestamp_range_check)
         };
         let range_check_diff = builder.sub_extension(range_check, range_check_value);
-        yield_constr.constraint(builder, range_check_diff);
+        yield_constr.constraint_transition(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
             let value_diff = builder.sub_extension(next_values[i], values[i]);
             let zero_if_read = builder.mul_extension(timestamp_first_change, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
-            // yield_constr.constraint(builder, read_constraint);
+            yield_constr.constraint(builder, read_constraint);
         }
 
         // Lookup argument for range check.
@@ -536,12 +536,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
 
         let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
-        // yield_constr.constraint(builder, diff_product);
+        yield_constr.constraint(builder, diff_product);
 
         // This is actually constraining the first row, as per the spec, since `diff_input_table`
         // is a diff of the next row's values. In the context of `constraint_last_row`, the next
         // row is the first row.
-        // yield_constr.constraint_last_row(builder, diff_input_table);
+        yield_constr.constraint_last_row(builder, diff_input_table);
     }
 
     fn constraint_degree(&self) -> usize {
