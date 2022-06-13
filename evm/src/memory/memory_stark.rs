@@ -375,8 +375,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
         yield_constr
             .constraint_transition(timestamp_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(timestamp_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(timestamp_first_change * (next_addr_virtual - addr_virtual));
+        yield_constr
+            .constraint_transition(timestamp_first_change * (next_addr_segment - addr_segment));
+        yield_constr
+            .constraint_transition(timestamp_first_change * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let range_check_value = context_first_change * (next_addr_context - addr_context - one)
