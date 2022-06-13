@@ -30,7 +30,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Takes an iterator of bits `(b_i)` and returns `sum b_i * 2^i`, i.e.,
     /// the number with little-endian bit representation given by `bits`.
-    pub(crate) fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
+    pub fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
         let bits = bits.map(|b| *b.borrow()).collect_vec();
         let num_bits = bits.len();
         if num_bits == 0 {

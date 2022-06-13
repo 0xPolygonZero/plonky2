@@ -392,14 +392,14 @@ where
                 .iter()
                 .enumerate()
                 .map(
-                    |(i, (_, columns, filter_columns))| CtlCheckVars::<F, F, P, 1> {
+                    |(i, (_, columns, filter_column))| CtlCheckVars::<F, F, P, 1> {
                         local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
                             [num_permutation_zs + i],
                         next_z: permutation_ctl_zs_commitment
                             .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
                         challenges: ctl_data.challenges.challenges[i % config.num_challenges],
                         columns,
-                        filter_columns,
+                        filter_column,
                     },
                 )
                 .collect::<Vec<_>>();
@@ -510,14 +510,14 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .iter()
                 .enumerate()
                 .map(
-                    |(iii, (_, columns, filter_columns))| CtlCheckVars::<F, F, F, 1> {
+                    |(iii, (_, columns, filter_column))| CtlCheckVars::<F, F, F, 1> {
                         local_z: get_comm_values(permutation_ctl_zs_commitment, i)
                             [num_permutation_zs + iii],
                         next_z: get_comm_values(permutation_ctl_zs_commitment, i_next)
                             [num_permutation_zs + iii],
                         challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
                         columns,
-                        filter_columns,
+                        filter_column,
                     },
                 )
                 .collect::<Vec<_>>();

@@ -62,7 +62,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+    use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -148,13 +148,13 @@ mod tests {
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![TableWithColumns::new(
                 Table::Cpu,
-                cpu_keccak_input_output,
-                vec![cpu::columns::IS_KECCAK],
+                Column::singles(cpu_keccak_input_output),
+                Column::single(cpu::columns::IS_KECCAK),
             )],
             TableWithColumns::new(
                 Table::Keccak,
-                keccak_keccak_input_output,
-                vec![keccak::registers::reg_step(NUM_ROUNDS - 1)],
+                Column::singles(keccak_keccak_input_output),
+                Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1)),
             ),
             None,
         )];
