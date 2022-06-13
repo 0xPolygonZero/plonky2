@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
@@ -34,7 +33,7 @@ pub struct TableWithColumns {
 impl TableWithColumns {
     pub fn new(table: Table, columns: Vec<usize>, filter_columns: Vec<usize>) -> Self {
         debug_assert_eq!(
-            filter_columns.iter().collect::<HashSet<_>>().len(),
+            filter_columns.iter().unique().count(),
             filter_columns.len(),
             "Duplicate filter columns."
         );
@@ -66,8 +65,7 @@ impl<F: Field> CrossTableLookup<F> {
         assert!(
             looking_tables
                 .iter()
-                .all(|twc| twc.filter_columns.is_empty())
-                == default.is_some()
+                .all(|twc| twc.filter_columns.is_empty() == default.is_some())
                 && default.is_some() == looked_table.filter_columns.is_empty(),
             "Default values should be provided iff there are no filter columns."
         );
@@ -200,12 +198,10 @@ fn partial_products<F: Field>(
         } else {
             filter_columns.iter().map(|&j| trace[j].values[i]).sum()
         };
-        partial_prod *= if filter.is_zero() {
-            F::ONE
-        } else if filter.is_one() {
-            challenge.combine(columns.iter().map(|&j| &trace[j].values[i]))
+        if filter.is_one() {
+            partial_prod *= challenge.combine(columns.iter().map(|&j| &trace[j].values[i]));
         } else {
-            panic!("Non-binary filter?")
+            assert_eq!(filter, F::ZERO, "Non-binary filter?")
         };
         res.push(partial_prod);
     }

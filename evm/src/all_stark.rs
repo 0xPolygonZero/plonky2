@@ -49,7 +49,7 @@ impl Table {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use itertools::Itertools;
+    use itertools::{izip, Itertools};
     use plonky2::field::field_types::Field;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -60,6 +60,7 @@ mod tests {
 
     use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
+    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
@@ -88,12 +89,12 @@ mod tests {
         };
 
         let mut rng = thread_rng();
-        let num_inputs = 2;
-        let keccak_inputs = (0..num_inputs)
+        let num_keccak_perms = 2;
+        let keccak_inputs = (0..num_keccak_perms)
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
         let keccak_trace = keccak_stark.generate_trace(keccak_inputs);
-        let keccak_input_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_inputs)
+        let keccak_input_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_keccak_perms)
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
@@ -105,7 +106,7 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        let keccak_output_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_inputs)
+        let keccak_output_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_keccak_perms)
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
@@ -126,16 +127,18 @@ mod tests {
             cpu_stark.generate(&mut cpu_trace_row);
             cpu_trace_rows.push(cpu_trace_row);
         }
-        for i in 0..num_inputs {
+        for i in 0..num_keccak_perms {
             cpu_trace_rows[i][cpu::columns::IS_KECCAK] = F::ONE;
-            for j in 0..2 * NUM_INPUTS {
-                cpu_trace_rows[i][cpu::columns::KECCAK_INPUT_LIMBS[j]] = keccak_input_limbs[i][j];
-                cpu_trace_rows[i][cpu::columns::KECCAK_OUTPUT_LIMBS[j]] = keccak_output_limbs[i][j];
+            for (j, input, output) in
+                izip!(0..2 * NUM_INPUTS, KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS)
+            {
+                cpu_trace_rows[i][input] = keccak_input_limbs[i][j];
+                cpu_trace_rows[i][output] = keccak_output_limbs[i][j];
             }
         }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
-        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.to_vec();
+        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
         cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
         let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
             .map(keccak::registers::reg_input_limb)
