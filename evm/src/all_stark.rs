@@ -98,8 +98,8 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        keccak_trace[keccak::registers::reg_input_limb(j)].values
-                            [(i + 1) * NUM_ROUNDS - 1]
+                        keccak::registers::reg_input_limb(j)
+                            .eval_table(&keccak_trace, (i + 1) * NUM_ROUNDS - 1)
                     })
                     .collect::<Vec<_>>()
                     .try_into()
@@ -143,8 +143,11 @@ mod tests {
         let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
             .map(keccak::registers::reg_input_limb)
             .collect::<Vec<_>>();
-        keccak_keccak_input_output
-            .extend((0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb));
+        keccak_keccak_input_output.extend(Column::singles(
+            (0..2 * NUM_INPUTS)
+                .map(keccak::registers::reg_output_limb)
+                .collect(),
+        ));
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![TableWithColumns::new(
                 Table::Cpu,
@@ -153,7 +156,7 @@ mod tests {
             )],
             TableWithColumns::new(
                 Table::Keccak,
-                Column::singles(keccak_keccak_input_output),
+                keccak_keccak_input_output,
                 Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1)),
             ),
             None,

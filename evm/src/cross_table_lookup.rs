@@ -51,8 +51,8 @@ impl<F: Field> Column<F> {
         Self::LinearCombination(v)
     }
 
-    pub fn le_bits(cs: &[usize]) -> Self {
-        Self::linear_combination(cs.iter().copied().zip(F::TWO.powers()))
+    pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
     }
 
     pub fn sum(cs: &[usize]) -> Self {
