@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use itertools::izip;
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
@@ -22,32 +22,59 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Clone)]
+pub struct TableWithColumns {
+    table: Table,
+    columns: Vec<usize>,
+    /// Vector of columns `[c_1,...,c_k]` used as a filter using the sum `c_1 + ... + c_k`.
+    /// An empty vector corresponds to no filter.
+    filter_columns: Vec<usize>,
+}
+
+impl TableWithColumns {
+    pub fn new(table: Table, columns: Vec<usize>, filter_columns: Vec<usize>) -> Self {
+        debug_assert_eq!(
+            filter_columns.iter().unique().count(),
+            filter_columns.len(),
+            "Duplicate filter columns."
+        );
+        Self {
+            table,
+            columns,
+            filter_columns,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct CrossTableLookup<F: Field> {
-    looking_tables: Vec<Table>,
-    looking_columns: Vec<Vec<usize>>,
-    looked_table: Table,
-    looked_columns: Vec<usize>,
-    default: Vec<F>,
+    looking_tables: Vec<TableWithColumns>,
+    looked_table: TableWithColumns,
+    /// Default value if filters are not used.
+    default: Option<Vec<F>>,
 }
 
 impl<F: Field> CrossTableLookup<F> {
     pub fn new(
-        looking_tables: Vec<Table>,
-        looking_columns: Vec<Vec<usize>>,
-        looked_table: Table,
-        looked_columns: Vec<usize>,
-        default: Vec<F>,
+        looking_tables: Vec<TableWithColumns>,
+        looked_table: TableWithColumns,
+        default: Option<Vec<F>>,
     ) -> Self {
-        assert_eq!(looking_tables.len(), looking_columns.len());
-        assert!(looking_columns
+        assert!(looking_tables
             .iter()
-            .all(|cols| cols.len() == looked_columns.len()));
-        assert!(default.len() == looked_columns.len());
+            .all(|twc| twc.columns.len() == looked_table.columns.len()));
+        assert!(
+            looking_tables
+                .iter()
+                .all(|twc| twc.filter_columns.is_empty() == default.is_some())
+                && default.is_some() == looked_table.filter_columns.is_empty(),
+            "Default values should be provided iff there are no filter columns."
+        );
+        if let Some(default) = &default {
+            assert_eq!(default.len(), looked_table.columns.len());
+        }
         Self {
             looking_tables,
-            looking_columns,
             looked_table,
-            looked_columns,
             default,
         }
     }
@@ -58,8 +85,9 @@ impl<F: Field> CrossTableLookup<F> {
 pub struct CtlData<F: Field> {
     /// Challenges used in the argument.
     pub(crate) challenges: GrandProductChallengeSet<F>,
-    /// Vector of `(Z, columns)` where `Z` is a Z-polynomial for a lookup on columns `columns`.
-    pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>)>,
+    /// Vector of `(Z, columns, filter_columns)` where `Z` is a Z-polynomial for a lookup
+    /// on columns `columns` with filter columns `filter_columns`.
+    pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>, Vec<usize>)>,
 }
 
 impl<F: Field> CtlData<F> {
@@ -79,7 +107,7 @@ impl<F: Field> CtlData<F> {
     }
 
     pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
-        self.zs_columns.iter().map(|(p, _)| p.clone()).collect()
+        self.zs_columns.iter().map(|(p, _, _)| p.clone()).collect()
     }
 }
 
@@ -93,22 +121,23 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
     let mut ctl_data_per_table = vec![CtlData::new(challenges.clone()); trace_poly_values.len()];
     for CrossTableLookup {
         looking_tables,
-        looking_columns,
         looked_table,
-        looked_columns,
         default,
     } in cross_table_lookups
     {
         for &challenge in &challenges.challenges {
-            let zs_looking = looking_tables
-                .iter()
-                .zip(looking_columns)
-                .map(|(table, columns)| {
-                    partial_products(&trace_poly_values[*table as usize], columns, challenge)
-                });
+            let zs_looking = looking_tables.iter().map(|table| {
+                partial_products(
+                    &trace_poly_values[table.table as usize],
+                    &table.columns,
+                    &table.filter_columns,
+                    challenge,
+                )
+            });
             let z_looked = partial_products(
-                &trace_poly_values[*looked_table as usize],
-                looked_columns,
+                &trace_poly_values[looked_table.table as usize],
+                &looked_table.columns,
+                &looked_table.filter_columns,
                 challenge,
             );
 
@@ -118,23 +147,37 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                     .map(|z| *z.values.last().unwrap())
                     .product::<F>(),
                 *z_looked.values.last().unwrap()
-                    * challenge.combine(default).exp_u64(
-                        looking_tables
-                            .iter()
-                            .map(|table| trace_poly_values[*table as usize][0].len() as u64)
-                            .sum::<u64>()
-                            - trace_poly_values[*looked_table as usize][0].len() as u64
-                    )
+                    * default
+                        .as_ref()
+                        .map(|default| {
+                            challenge.combine(default).exp_u64(
+                                looking_tables
+                                    .iter()
+                                    .map(|table| {
+                                        trace_poly_values[table.table as usize][0].len() as u64
+                                    })
+                                    .sum::<u64>()
+                                    - trace_poly_values[looked_table.table as usize][0].len()
+                                        as u64,
+                            )
+                        })
+                        .unwrap_or(F::ONE)
             );
 
-            for (table, columns, z) in izip!(looking_tables, looking_columns, zs_looking) {
-                ctl_data_per_table[*table as usize]
-                    .zs_columns
-                    .push((z, columns.clone()));
+            for (table, z) in looking_tables.iter().zip(zs_looking) {
+                ctl_data_per_table[table.table as usize].zs_columns.push((
+                    z,
+                    table.columns.clone(),
+                    table.filter_columns.clone(),
+                ));
             }
-            ctl_data_per_table[*looked_table as usize]
+            ctl_data_per_table[looked_table.table as usize]
                 .zs_columns
-                .push((z_looked, looked_columns.clone()));
+                .push((
+                    z_looked,
+                    looked_table.columns.clone(),
+                    looked_table.filter_columns.clone(),
+                ));
         }
     }
     ctl_data_per_table
@@ -143,13 +186,23 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
 fn partial_products<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[usize],
+    filter_columns: &[usize],
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
     for i in 0..degree {
-        partial_prod *= challenge.combine(columns.iter().map(|&j| &trace[j].values[i]));
+        let filter = if filter_columns.is_empty() {
+            F::ONE
+        } else {
+            filter_columns.iter().map(|&j| trace[j].values[i]).sum()
+        };
+        if filter.is_one() {
+            partial_prod *= challenge.combine(columns.iter().map(|&j| &trace[j].values[i]));
+        } else {
+            assert_eq!(filter, F::ZERO, "Non-binary filter?")
+        };
         res.push(partial_prod);
     }
     res.into()
@@ -166,6 +219,7 @@ where
     pub(crate) next_z: P,
     pub(crate) challenges: GrandProductChallenge<F>,
     pub(crate) columns: &'a [usize],
+    pub(crate) filter_columns: &'a [usize],
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
@@ -192,29 +246,29 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
         for CrossTableLookup {
             looking_tables,
-            looking_columns,
             looked_table,
-            looked_columns,
             ..
         } in cross_table_lookups
         {
             for &challenges in &ctl_challenges.challenges {
-                for (table, columns) in looking_tables.iter().zip(looking_columns) {
-                    let (looking_z, looking_z_next) = ctl_zs[*table as usize].next().unwrap();
-                    ctl_vars_per_table[*table as usize].push(Self {
+                for table in looking_tables {
+                    let (looking_z, looking_z_next) = ctl_zs[table.table as usize].next().unwrap();
+                    ctl_vars_per_table[table.table as usize].push(Self {
                         local_z: *looking_z,
                         next_z: *looking_z_next,
                         challenges,
-                        columns,
+                        columns: &table.columns,
+                        filter_columns: &table.filter_columns,
                     });
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[*looked_table as usize].next().unwrap();
-                ctl_vars_per_table[*looked_table as usize].push(Self {
+                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize].next().unwrap();
+                ctl_vars_per_table[looked_table.table as usize].push(Self {
                     local_z: *looked_z,
                     next_z: *looked_z_next,
                     challenges,
-                    columns: looked_columns,
+                    columns: &looked_table.columns,
+                    filter_columns: &looked_table.filter_columns,
                 });
             }
         }
@@ -239,13 +293,26 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
             next_z,
             challenges,
             columns,
+            filter_columns,
         } = lookup_vars;
         let combine = |v: &[P]| -> P { challenges.combine(columns.iter().map(|&i| &v[i])) };
+        let filter = |v: &[P]| -> P {
+            if filter_columns.is_empty() {
+                P::ONES
+            } else {
+                filter_columns.iter().map(|&i| v[i]).sum()
+            }
+        };
+        let local_filter = filter(vars.local_values);
+        let next_filter = filter(vars.next_values);
+        let select = |filter, x| filter * x + P::ONES - filter;
 
         // Check value of `Z(1)`
-        consumer.constraint_first_row(*local_z - combine(vars.local_values));
+        consumer.constraint_first_row(*local_z - select(local_filter, combine(vars.local_values)));
         // Check `Z(gw) = combination * Z(w)`
-        consumer.constraint_transition(*next_z - *local_z * combine(vars.next_values));
+        consumer.constraint_transition(
+            *next_z - *local_z * select(next_filter, combine(vars.next_values)),
+        );
     }
 }
 
@@ -255,6 +322,7 @@ pub struct CtlCheckVarsTarget<'a, const D: usize> {
     pub(crate) next_z: ExtensionTarget<D>,
     pub(crate) challenges: GrandProductChallenge<Target>,
     pub(crate) columns: &'a [usize],
+    pub(crate) filter_columns: &'a [usize],
 }
 
 impl<'a, const D: usize> CtlCheckVarsTarget<'a, D> {
@@ -279,29 +347,29 @@ impl<'a, const D: usize> CtlCheckVarsTarget<'a, D> {
         let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
         for CrossTableLookup {
             looking_tables,
-            looking_columns,
             looked_table,
-            looked_columns,
             ..
         } in cross_table_lookups
         {
             for &challenges in &ctl_challenges.challenges {
-                for (table, columns) in looking_tables.iter().zip(looking_columns) {
-                    let (looking_z, looking_z_next) = ctl_zs[*table as usize].next().unwrap();
-                    ctl_vars_per_table[*table as usize].push(Self {
+                for table in looking_tables {
+                    let (looking_z, looking_z_next) = ctl_zs[table.table as usize].next().unwrap();
+                    ctl_vars_per_table[table.table as usize].push(Self {
                         local_z: *looking_z,
                         next_z: *looking_z_next,
                         challenges,
-                        columns,
+                        columns: &table.columns,
+                        filter_columns: &table.filter_columns,
                     });
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[*looked_table as usize].next().unwrap();
-                ctl_vars_per_table[*looked_table as usize].push(Self {
+                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize].next().unwrap();
+                ctl_vars_per_table[looked_table.table as usize].push(Self {
                     local_z: *looked_z,
                     next_z: *looked_z_next,
                     challenges,
-                    columns: looked_columns,
+                    columns: &looked_table.columns,
+                    filter_columns: &looked_table.filter_columns,
                 });
             }
         }
@@ -325,7 +393,29 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             next_z,
             challenges,
             columns,
+            filter_columns,
         } = lookup_vars;
+
+        let one = builder.one_extension();
+        let local_filter = if filter_columns.is_empty() {
+            one
+        } else {
+            builder.add_many_extension(filter_columns.iter().map(|&i| vars.local_values[i]))
+        };
+        let next_filter = if filter_columns.is_empty() {
+            one
+        } else {
+            builder.add_many_extension(filter_columns.iter().map(|&i| vars.next_values[i]))
+        };
+        fn select<F: RichField + Extendable<D>, const D: usize>(
+            builder: &mut CircuitBuilder<F, D>,
+            filter: ExtensionTarget<D>,
+            x: ExtensionTarget<D>,
+        ) -> ExtensionTarget<D> {
+            let one = builder.one_extension();
+            let tmp = builder.sub_extension(one, filter);
+            builder.mul_add_extension(filter, x, tmp) // filter * x + 1 - filter
+        }
 
         // Check value of `Z(1)`
         let combined_local = challenges.combine_circuit(
@@ -335,7 +425,8 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
                 .map(|&i| vars.local_values[i])
                 .collect::<Vec<_>>(),
         );
-        let first_row = builder.sub_extension(*local_z, combined_local);
+        let selected_local = select(builder, local_filter, combined_local);
+        let first_row = builder.sub_extension(*local_z, selected_local);
         consumer.constraint_first_row(builder, first_row);
         // Check `Z(gw) = combination * Z(w)`
         let combined_next = challenges.combine_circuit(
@@ -345,7 +436,8 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
                 .map(|&i| vars.next_values[i])
                 .collect::<Vec<_>>(),
         );
-        let mut transition = builder.mul_extension(*local_z, combined_next);
+        let selected_next = select(builder, next_filter, combined_next);
+        let mut transition = builder.mul_extension(*local_z, selected_next);
         transition = builder.sub_extension(*next_z, transition);
         consumer.constraint_transition(builder, transition);
     }
@@ -381,16 +473,18 @@ pub(crate) fn verify_cross_table_lookups<
     {
         let looking_degrees_sum = looking_tables
             .iter()
-            .map(|&table| 1 << degrees_bits[table as usize])
+            .map(|table| 1 << degrees_bits[table.table as usize])
             .sum::<u64>();
-        let looked_degree = 1 << degrees_bits[looked_table as usize];
+        let looked_degree = 1 << degrees_bits[looked_table.table as usize];
         let looking_zs_prod = looking_tables
             .into_iter()
-            .map(|table| *ctl_zs_openings[table as usize].next().unwrap())
+            .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
             .product::<F>();
-        let looked_z = *ctl_zs_openings[looked_table as usize].next().unwrap();
+        let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
         let challenge = challenges.challenges[i % config.num_challenges];
-        let combined_default = challenge.combine(default.iter());
+        let combined_default = default
+            .map(|default| challenge.combine(default.iter()))
+            .unwrap_or(F::ONE);
 
         ensure!(
             looking_zs_prod
@@ -433,24 +527,28 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     {
         let looking_degrees_sum = looking_tables
             .iter()
-            .map(|&table| 1 << degrees_bits[table as usize])
+            .map(|table| 1 << degrees_bits[table.table as usize])
             .sum::<u64>();
-        let looked_degree = 1 << degrees_bits[looked_table as usize];
+        let looked_degree = 1 << degrees_bits[looked_table.table as usize];
         let looking_zs_prod = builder.mul_many(
             looking_tables
                 .into_iter()
-                .map(|table| *ctl_zs_openings[table as usize].next().unwrap()),
+                .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
         );
-        let looked_z = *ctl_zs_openings[looked_table as usize].next().unwrap();
+        let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
         let challenge = challenges.challenges[i % inner_config.num_challenges];
-        let default = default
-            .into_iter()
-            .map(|x| builder.constant(x))
-            .collect::<Vec<_>>();
-        let combined_default = challenge.combine_base_circuit(builder, &default);
+        if let Some(default) = default {
+            let default = default
+                .into_iter()
+                .map(|x| builder.constant(x))
+                .collect::<Vec<_>>();
+            let combined_default = challenge.combine_base_circuit(builder, &default);
 
-        let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
-        let padded_looked_z = builder.mul(looked_z, pad);
-        builder.connect(looking_zs_prod, padded_looked_z);
+            let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
+            let padded_looked_z = builder.mul(looked_z, pad);
+            builder.connect(looking_zs_prod, padded_looked_z);
+        } else {
+            builder.connect(looking_zs_prod, looked_z);
+        }
     }
 }
