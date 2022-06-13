@@ -12,6 +12,7 @@ pub mod cross_table_lookup;
 mod get_challenges;
 pub mod keccak;
 pub mod logic;
+pub mod memory;
 pub mod permutation;
 pub mod proof;
 pub mod prover;
