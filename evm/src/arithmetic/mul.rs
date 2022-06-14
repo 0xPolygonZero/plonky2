@@ -40,7 +40,10 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
     for (&c, &output_limb) in columns::MUL_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
-    aux_in_limbs = aux_in_limbs.zip(output_limbs).map(|(ab, c)| ab - c as u64);
+    for deg in 0..columns::N_LIMBS {
+        // deg'th element <- a*b - c
+        aux_in_limbs[deg] -= output_limbs[deg];
+    }
     aux_in_limbs[0] >>= columns::LIMB_BITS;
     for deg in 1..columns::N_LIMBS - 1 {
         aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> columns::LIMB_BITS;

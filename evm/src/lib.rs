@@ -2,7 +2,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![feature(generic_const_exprs)]
-#![feature(array_zip)]
 
 pub mod all_stark;
 pub mod arithmetic;
