@@ -23,24 +23,29 @@ use crate::proof::{StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget}
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-/// Represent a column or a linear combination of columns.
+/// Represent a linear combination of columns.
 #[derive(Clone)]
-pub enum Column<F: Field> {
-    Single(usize),
-    LinearCombination(Vec<(usize, F)>),
-    Empty,
+pub struct Column<F: Field> {
+    linear_combination: Vec<(usize, F)>,
+    constant: F,
 }
 
 impl<F: Field> Column<F> {
     pub fn single(c: usize) -> Self {
-        Self::Single(c)
+        Self {
+            linear_combination: vec![(c, F::ONE)],
+            constant: F::ZERO,
+        }
     }
 
     pub fn singles(cs: Vec<usize>) -> Vec<Self> {
         cs.into_iter().map(Self::single).collect()
     }
 
-    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
+    pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
+        iter: I,
+        constant: F,
+    ) -> Self {
         let v = iter.into_iter().collect::<Vec<_>>();
         assert!(!v.is_empty());
         debug_assert_eq!(
@@ -48,7 +53,14 @@ impl<F: Field> Column<F> {
             v.len(),
             "Duplicate columns."
         );
-        Self::LinearCombination(v)
+        Self {
+            linear_combination: v,
+            constant,
+        }
+    }
+
+    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
+        Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
     pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
@@ -59,33 +71,25 @@ impl<F: Field> Column<F> {
         Self::linear_combination(cs.iter().copied().zip(repeat(F::ONE)))
     }
 
-    pub fn is_empty(&self) -> bool {
-        matches!(self, Self::Empty)
-    }
-
     pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
     where
         FE: FieldExtension<D, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        match self {
-            Column::Single(c) => v[*c],
-            Column::LinearCombination(cs) => {
-                cs.iter().map(|&(c, f)| v[c] * FE::from_basefield(f)).sum()
-            }
-            Column::Empty => panic!("Cannot eval with empty column."),
-        }
+        self.linear_combination
+            .iter()
+            .map(|&(c, f)| v[c] * FE::from_basefield(f))
+            .sum::<P>()
+            + FE::from_basefield(self.constant)
     }
 
     /// Evaluate on an row of a table given in column-major form.
     pub fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
-        match self {
-            Column::Single(c) => table[*c].values[row],
-            Column::LinearCombination(cs) => {
-                cs.iter().map(|&(c, f)| table[c].values[row] * f).sum()
-            }
-            Column::Empty => panic!("Cannot eval with empty column."),
-        }
+        self.linear_combination
+            .iter()
+            .map(|&(c, f)| table[c].values[row] * f)
+            .sum::<F>()
+            + self.constant
     }
 
     pub fn eval_circuit<const D: usize>(
@@ -96,23 +100,18 @@ impl<F: Field> Column<F> {
     where
         F: RichField + Extendable<D>,
     {
-        match self {
-            Column::Single(c) => v[*c],
-            Column::LinearCombination(cs) => {
-                let pairs = cs
-                    .iter()
-                    .map(|&(c, f)| {
-                        (
-                            v[c],
-                            builder.constant_extension(F::Extension::from_basefield(f)),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                let zero = builder.zero_extension();
-                builder.inner_product_extension(F::ONE, zero, pairs)
-            }
-            Column::Empty => panic!("Cannot eval with empty column."),
-        }
+        let pairs = self
+            .linear_combination
+            .iter()
+            .map(|&(c, f)| {
+                (
+                    v[c],
+                    builder.constant_extension(F::Extension::from_basefield(f)),
+                )
+            })
+            .collect::<Vec<_>>();
+        let constant = builder.constant_extension(F::Extension::from_basefield(self.constant));
+        builder.inner_product_extension(F::ONE, constant, pairs)
     }
 }
 
@@ -120,12 +119,11 @@ impl<F: Field> Column<F> {
 pub struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
-    filter_column: Column<F>,
+    filter_column: Option<Column<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
-    pub fn new(table: Table, columns: Vec<Column<F>>, filter_column: Column<F>) -> Self {
-        assert!(columns.iter().all(|c| !c.is_empty()));
+    pub fn new(table: Table, columns: Vec<Column<F>>, filter_column: Option<Column<F>>) -> Self {
         Self {
             table,
             columns,
@@ -154,8 +152,8 @@ impl<F: Field> CrossTableLookup<F> {
         assert!(
             looking_tables
                 .iter()
-                .all(|twc| twc.filter_column.is_empty() == default.is_some())
-                && default.is_some() == looked_table.filter_column.is_empty(),
+                .all(|twc| twc.filter_column.is_none() == default.is_some())
+                && default.is_some() == looked_table.filter_column.is_none(),
             "Default values should be provided iff there are no filter columns."
         );
         if let Some(default) = &default {
@@ -176,7 +174,7 @@ pub struct CtlData<F: Field> {
     pub(crate) challenges: GrandProductChallengeSet<F>,
     /// Vector of `(Z, columns, filter_columns)` where `Z` is a Z-polynomial for a lookup
     /// on columns `columns` with filter columns `filter_columns`.
-    pub zs_columns: Vec<(PolynomialValues<F>, Vec<Column<F>>, Column<F>)>,
+    pub zs_columns: Vec<(PolynomialValues<F>, Vec<Column<F>>, Option<Column<F>>)>,
 }
 
 impl<F: Field> CtlData<F> {
@@ -275,17 +273,17 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
 fn partial_products<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[Column<F>],
-    filter_column: &Column<F>,
+    filter_column: &Option<Column<F>>,
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
     for i in 0..degree {
-        let filter = if filter_column.is_empty() {
-            F::ONE
+        let filter = if let Some(column) = filter_column {
+            column.eval_table(trace, i)
         } else {
-            filter_column.eval_table(trace, i)
+            F::ONE
         };
         if filter.is_one() {
             let evals = columns
@@ -312,7 +310,7 @@ where
     pub(crate) next_z: P,
     pub(crate) challenges: GrandProductChallenge<F>,
     pub(crate) columns: &'a [Column<F>],
-    pub(crate) filter_column: &'a Column<F>,
+    pub(crate) filter_column: &'a Option<Column<F>>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
@@ -393,10 +391,10 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
             challenges.combine(evals.iter())
         };
         let filter = |v: &[P]| -> P {
-            if filter_column.is_empty() {
-                P::ONES
+            if let Some(column) = filter_column {
+                column.eval(v)
             } else {
-                filter_column.eval(v)
+                P::ONES
             }
         };
         let local_filter = filter(vars.local_values);
@@ -418,7 +416,7 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
     pub(crate) next_z: ExtensionTarget<D>,
     pub(crate) challenges: GrandProductChallenge<Target>,
     pub(crate) columns: &'a [Column<F>],
-    pub(crate) filter_column: &'a Column<F>,
+    pub(crate) filter_column: &'a Option<Column<F>>,
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
@@ -493,15 +491,15 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
         } = lookup_vars;
 
         let one = builder.one_extension();
-        let local_filter = if filter_column.is_empty() {
-            one
+        let local_filter = if let Some(column) = filter_column {
+            column.eval_circuit(builder, vars.local_values)
         } else {
-            filter_column.eval_circuit(builder, vars.local_values)
+            one
         };
-        let next_filter = if filter_column.is_empty() {
-            one
+        let next_filter = if let Some(column) = filter_column {
+            column.eval_circuit(builder, vars.next_values)
         } else {
-            filter_column.eval_circuit(builder, vars.next_values)
+            one
         };
         fn select<F: RichField + Extendable<D>, const D: usize>(
             builder: &mut CircuitBuilder<F, D>,

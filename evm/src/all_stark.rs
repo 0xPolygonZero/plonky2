@@ -152,12 +152,12 @@ mod tests {
             vec![TableWithColumns::new(
                 Table::Cpu,
                 Column::singles(cpu_keccak_input_output),
-                Column::single(cpu::columns::IS_KECCAK),
+                Some(Column::single(cpu::columns::IS_KECCAK)),
             )],
             TableWithColumns::new(
                 Table::Keccak,
                 keccak_keccak_input_output,
-                Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1)),
+                Some(Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1))),
             ),
             None,
         )];
