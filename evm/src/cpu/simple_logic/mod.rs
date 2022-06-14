@@ -9,6 +9,12 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns;
 
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
+    let cycle_filter = lv[columns::IS_CPU_CYCLE].to_canonical_u64();
+    if cycle_filter == 0 {
+        return;
+    }
+    assert_eq!(cycle_filter, 1);
+
     not::generate(lv);
 }
 

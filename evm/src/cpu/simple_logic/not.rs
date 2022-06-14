@@ -11,12 +11,6 @@ const LIMB_SIZE: usize = 16;
 const ALL_1_LIMB: u64 = (1 << LIMB_SIZE) - 1;
 
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
-    let cycle_filter = lv[columns::IS_CPU_CYCLE].to_canonical_u64();
-    if cycle_filter == 0 {
-        return;
-    }
-    assert_eq!(cycle_filter, 1);
-
     let is_not_filter = lv[columns::IS_NOT].to_canonical_u64();
     if is_not_filter == 0 {
         return;
