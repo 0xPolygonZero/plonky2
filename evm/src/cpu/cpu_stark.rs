@@ -5,8 +5,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns;
-use crate::cpu::decode;
+use crate::cpu::{columns, decode, simple_logic};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -19,6 +18,7 @@ pub struct CpuStark<F, const D: usize> {
 impl<F: RichField, const D: usize> CpuStark<F, D> {
     pub fn generate(&self, local_values: &mut [F; columns::NUM_CPU_COLUMNS]) {
         decode::generate(local_values);
+        simple_logic::generate(local_values);
     }
 }
 
@@ -35,6 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         P: PackedField<Scalar = FE>,
     {
         decode::eval_packed_generic(vars.local_values, yield_constr);
+        simple_logic::eval_packed(vars.local_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -44,6 +45,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         decode::eval_ext_circuit(builder, vars.local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, vars.local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
