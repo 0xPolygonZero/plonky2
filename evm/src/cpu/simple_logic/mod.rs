@@ -1,3 +1,4 @@
+mod eq_iszero;
 mod not;
 
 use plonky2::field::extension_field::Extendable;
@@ -16,6 +17,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     assert_eq!(cycle_filter, 1);
 
     not::generate(lv);
+    eq_iszero::generate(lv);
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -23,6 +25,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     not::eval_packed(lv, yield_constr);
+    eq_iszero::eval_packed(lv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -31,4 +34,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     not::eval_ext_circuit(builder, lv, yield_constr);
+    eq_iszero::eval_ext_circuit(builder, lv, yield_constr);
 }
