@@ -144,4 +144,8 @@ pub const KECCAK_INPUT_LIMBS: Range<usize> = START_KECCAK_INPUT..START_KECCAK_IN
 pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
 pub const KECCAK_OUTPUT_LIMBS: Range<usize> = START_KECCAK_OUTPUT..START_KECCAK_OUTPUT + 50;
 
-pub const NUM_CPU_COLUMNS: usize = KECCAK_OUTPUT_LIMBS.end;
+// Assuming a limb size of 16 bits.
+pub const SIMPLE_LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
+pub const SIMPLE_LOGIC_OUTPUT: Range<usize> = SIMPLE_LOGIC_INPUT0.end..SIMPLE_LOGIC_INPUT0.end + 16;
+
+pub const NUM_CPU_COLUMNS: usize = SIMPLE_LOGIC_OUTPUT.end;
