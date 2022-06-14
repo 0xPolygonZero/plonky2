@@ -3,13 +3,13 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::alu::add;
-use crate::alu::columns;
-use crate::alu::mul;
-use crate::alu::sub;
+use crate::arithmetic::add;
+use crate::arithmetic::columns;
+use crate::arithmetic::mul;
+use crate::arithmetic::sub;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
+pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
     if lv[columns::IS_ADD].is_one() {
         add::generate(lv);
     } else if lv[columns::IS_SUB].is_one() {
@@ -44,7 +44,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
 }
 
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; columns::NUM_ALU_COLUMNS],
+    lv: &[P; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // FIXME: Not sure this is needed; should be enforced by the CPU?
@@ -71,7 +71,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_ALU_COLUMNS],
+    lv: &[ExtensionTarget<D>; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // FIXME: Not sure this is needed; should be enforced by the CPU?

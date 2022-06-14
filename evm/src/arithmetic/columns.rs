@@ -1,4 +1,4 @@
-//! Arithmetic and logic unit
+//! Arithmetic unit
 
 pub const LIMB_BITS: usize = 16;
 pub const EVM_REGISTER_BITS: usize = 256;
@@ -32,9 +32,10 @@ pub const IS_SAR: usize = IS_SHR + 1;
 
 const START_SHARED_COLS: usize = IS_SAR + 1;
 
-/// Within the ALU, there are shared columns which can be used by any
-/// arithmetic/logic circuit, depending on which one is active this cycle.
-/// Can be increased as needed as other operations are implemented.
+/// Within the Arithmetic Unit, there are shared columns which can be
+/// used by any arithmetic circuit, depending on which one is active
+/// this cycle.  Can be increased as needed as other operations are
+/// implemented.
 const NUM_SHARED_COLS: usize = 64;
 
 const fn shared_col(i: usize) -> usize {
@@ -55,7 +56,7 @@ const fn gen_input_regs<const N: usize>(start: usize) -> [usize; N] {
 // Note: Addition outputs 16-bit limbs, and since these values need to
 // be range-checked, we might as well use the range check unit's
 // columns as our addition outputs. So the columns defined here are
-// basically aliases, not columns owned by the ALU.
+// basically aliases, not columns owned by the Arithmetic Unit.
 //
 // FIXME: I have no idea if this is the right thing to do.
 const fn gen_rc_output_regs<const N: usize>(start: usize) -> [usize; N] {
@@ -88,4 +89,4 @@ pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIM
 pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS - 1);
 pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 
-pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
+pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

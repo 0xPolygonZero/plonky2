@@ -4,11 +4,11 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::alu::columns;
+use crate::arithmetic::columns;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 #[allow(clippy::needless_range_loop)]
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
+pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
     let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
 
@@ -55,7 +55,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
 
 #[allow(clippy::needless_range_loop)]
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; columns::NUM_ALU_COLUMNS],
+    lv: &[P; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_mul = lv[columns::IS_MUL];
@@ -110,7 +110,7 @@ pub fn eval_packed_generic<P: PackedField>(
 #[allow(clippy::needless_range_loop)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_ALU_COLUMNS],
+    lv: &[ExtensionTarget<D>; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_mul = lv[columns::IS_MUL];
