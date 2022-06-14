@@ -17,7 +17,7 @@ use crate::keccak::logic::{
 };
 use crate::keccak::registers::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_step, NUM_REGISTERS,
+    reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
