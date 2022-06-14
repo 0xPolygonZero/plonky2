@@ -84,7 +84,8 @@ pub(crate) const SUB_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0)
 
 pub(crate) const MUL_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
 pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS - 1);
+// FIXME: These need to be range-checked
+pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS - 1);
 pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 
 pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

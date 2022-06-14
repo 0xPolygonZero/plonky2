@@ -90,7 +90,7 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   Q(x) = \sum_i aux_in_limbs[i] * 2^LIMB_BITS
 
-    // This subtracts (x - 2^16) * AUX_IN from constr_poly.
+    // This subtracts (x - 2^LIMB_BITS) * AUX_IN from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
     constr_poly[0] += base * aux_in_limbs[0];
     for deg in 1..columns::N_LIMBS - 1 {
