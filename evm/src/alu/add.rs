@@ -43,11 +43,11 @@ fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     I: Iterator<Item = ExtensionTarget<D>>,
     J: Iterator<Item = ExtensionTarget<D>>,
 {
-    // 2^16 in the base field
+    // 2^LIMB_BITS in the base field
     let overflow_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-    // 2^16 in the extension field as an ExtensionTarget
+    // 2^LIMB_BITS in the extension field as an ExtensionTarget
     let overflow = builder.constant_extension(F::Extension::from(overflow_base));
-    // 2^-16 in the base field.
+    // 2^-LIMB_BITS in the base field.
     let overflow_inv = F::inverse_2exp(columns::LIMB_BITS);
 
     let mut cy = builder.zero_extension();
