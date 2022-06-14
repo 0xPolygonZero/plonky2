@@ -5,7 +5,7 @@
 #![feature(array_zip)]
 
 pub mod all_stark;
-pub mod alu;
+pub mod arithmetic;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
