@@ -46,7 +46,7 @@ impl<F: Field> Column<F> {
         debug_assert_eq!(
             v.iter().map(|(c, _)| c).unique().count(),
             v.len(),
-            "Duplicate filter columns."
+            "Duplicate columns."
         );
         Self::LinearCombination(v)
     }
