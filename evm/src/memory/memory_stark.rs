@@ -45,14 +45,15 @@ pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
+#[derive(Debug)]
 pub struct MemoryOp<F> {
-    channel_index: usize,
-    timestamp: F,
-    is_read: F,
-    context: F,
-    segment: F,
-    virt: F,
-    value: [F; 8],
+    pub channel_index: usize,
+    pub timestamp: usize,
+    pub is_read: bool,
+    pub context: usize,
+    pub segment: usize,
+    pub virt: usize,
+    pub value: [F; 8],
 }
 
 pub fn generate_random_memory_ops<F: RichField, R: Rng>(
@@ -61,10 +62,9 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
 ) -> Vec<MemoryOp<F>> {
     let mut memory_ops = Vec::new();
 
-    let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
+    let mut current_memory_values: HashMap<(usize, usize, usize), [F; 8]> = HashMap::new();
     let num_cycles = num_ops / 2;
     for i in 0..num_cycles {
-        let timestamp = F::from_canonical_usize(i);
         let mut used_indices = HashSet::new();
         let mut new_writes_this_cycle = HashMap::new();
         let mut has_read = false;
@@ -81,7 +81,6 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
                 !has_read && rng.gen()
             };
             has_read = has_read || is_read;
-            let is_read_field = F::from_bool(is_read);
 
             let (context, segment, virt, vals) = if is_read {
                 let written: Vec<_> = current_memory_values.keys().collect();
@@ -94,13 +93,13 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
             } else {
                 // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
                 // test larger address values.
-                let mut context = F::from_canonical_usize(rng.gen_range(0..40));
-                let mut segment = F::from_canonical_usize(rng.gen_range(0..8));
-                let mut virt = F::from_canonical_usize(rng.gen_range(0..20));
+                let mut context = rng.gen_range(0..40);
+                let mut segment = rng.gen_range(0..8);
+                let mut virt = rng.gen_range(0..20);
                 while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                    context = F::from_canonical_usize(rng.gen_range(0..40));
-                    segment = F::from_canonical_usize(rng.gen_range(0..8));
-                    virt = F::from_canonical_usize(rng.gen_range(0..20));
+                    context = rng.gen_range(0..40);
+                    segment = rng.gen_range(0..8);
+                    virt = rng.gen_range(0..20);
                 }
 
                 let val: [u32; 8] = rng.gen();
@@ -113,8 +112,8 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
 
             memory_ops.push(MemoryOp {
                 channel_index,
-                timestamp,
-                is_read: is_read_field,
+                timestamp: i,
+                is_read,
                 context,
                 segment,
                 virt,
@@ -242,11 +241,11 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 value,
             } = memory_ops[i];
             trace_cols[is_channel(channel_index)][i] = F::ONE;
-            trace_cols[TIMESTAMP][i] = timestamp;
-            trace_cols[IS_READ][i] = is_read;
-            trace_cols[ADDR_CONTEXT][i] = context;
-            trace_cols[ADDR_SEGMENT][i] = segment;
-            trace_cols[ADDR_VIRTUAL][i] = virt;
+            trace_cols[TIMESTAMP][i] = F::from_canonical_usize(timestamp);
+            trace_cols[IS_READ][i] = F::from_bool(is_read);
+            trace_cols[ADDR_CONTEXT][i] = F::from_canonical_usize(context);
+            trace_cols[ADDR_SEGMENT][i] = F::from_canonical_usize(segment);
+            trace_cols[ADDR_VIRTUAL][i] = F::from_canonical_usize(virt);
             for j in 0..8 {
                 trace_cols[value_limb(j)][i] = value[j];
             }
