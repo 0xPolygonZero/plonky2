@@ -1,0 +1,25 @@
+// Grammar for our EVM assembly code.
+// Loosely based on https://gist.github.com/axic/17ddbbce4738ccf4040d30cbb5de484e
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+
+identifier_first_char = _{ ASCII_ALPHA | "_" }
+identifier_char = _{ ASCII_ALPHANUMERIC | "_" }
+identifier = @{ identifier_first_char ~ identifier_char* }
+
+literal_decimal = @{ ASCII_DIGIT+ }
+literal_hex = @{ "0x" ~ ASCII_HEX_DIGIT+ }
+literal = { literal_decimal | literal_hex }
+
+function = { "function " ~ identifier ~ body }
+body = { "{" ~ item* ~ "}" }
+
+item = { label | literal_item | push_instruction | nullary_instruction }
+label = { identifier ~ ":" }
+literal_item = { "LIT " ~ literal_hex }
+push_instruction = { "PUSH " ~ (literal | identifier) }
+nullary_instruction = { identifier }
+
+file = { SOI ~ function* ~ silent_eoi }
+silent_eoi = _{ !ANY }

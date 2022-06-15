@@ -1,15 +1,21 @@
 use std::ops::Range;
 
-// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-// Lets us re-use decode columns in non-cycle rows.
-pub const IS_CPU_CYCLE: usize = 0;
+/// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
+pub const IS_BOOTSTRAP_KERNEL: usize = 0;
 
-// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
+/// Filter. 1 if the row is part of bootstrapping a contract's code, 0 otherwise.
+pub const IS_BOOTSTRAP_CONTRACT: usize = IS_BOOTSTRAP_KERNEL + 1;
+
+/// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
+/// Lets us re-use decode columns in non-cycle rows.
+pub const IS_CPU_CYCLE: usize = IS_BOOTSTRAP_CONTRACT + 1;
+
+/// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
 pub const OPCODE: usize = IS_CPU_CYCLE + 1;
 
-// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
-// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
-// must be 1.
+/// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
+/// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
+/// must be 1.
 pub const IS_STOP: usize = OPCODE + 1;
 pub const IS_ADD: usize = IS_STOP + 1;
 pub const IS_MUL: usize = IS_ADD + 1;
@@ -121,8 +127,8 @@ pub const IS_INVALID_20: usize = IS_INVALID_19 + 1;
 pub const START_INSTRUCTION_FLAGS: usize = IS_STOP;
 pub const END_INSTRUCTION_FLAGS: usize = IS_INVALID_20 + 1;
 
-// If CPU cycle: the opcode, broken up into bits.
-// **big-endian** order
+/// If CPU cycle: the opcode, broken up into bits.
+/// **Big-endian** order.
 pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS,
     END_INSTRUCTION_FLAGS + 1,
