@@ -64,7 +64,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_mul = lv[columns::IS_MUL];
     let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c]);
     let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c]);
-    let aux_in_limbs = columns::MUL_AUX_INPUT.map(|c| lv[c]);
+    let aux_limbs = columns::MUL_AUX_INPUT.map(|c| lv[c]);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -73,14 +73,6 @@ pub fn eval_packed_generic<P: PackedField>(
     let mut constr_poly = columns::MUL_OUTPUT.map(|c| -lv[c]);
 
     debug_assert_eq!(constr_poly.len(), columns::N_LIMBS);
-
-    // Invariant: i + j = deg
-    for deg in 0..columns::N_LIMBS {
-        for i in 0..deg {
-            let j = deg - i;
-            constr_poly[deg] += input0_limbs[i] * input1_limbs[j];
-        }
-    }
 
     // At this point constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
@@ -91,18 +83,26 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     // This polynomial should equal (x - 2^LIMB_BITS) * Q(x) where Q is
     //
-    //   Q(x) = \sum_i aux_in_limbs[i] * 2^LIMB_BITS
-
-    // This subtracts (x - 2^LIMB_BITS) * AUX_IN from constr_poly.
-    let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
-    constr_poly[0] += base * aux_in_limbs[0];
-    for deg in 1..columns::N_LIMBS - 1 {
-        constr_poly[deg] += (base * aux_in_limbs[deg]) - aux_in_limbs[deg - 1];
+    //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
+    //
+    for deg in 0..columns::N_LIMBS {
+        // Invariant: i + j = deg
+        for i in 0..deg {
+            let j = deg - i;
+            constr_poly[deg] += input0_limbs[i] * input1_limbs[j];
+        }
     }
-    constr_poly[columns::N_LIMBS - 1] -= aux_in_limbs[columns::N_LIMBS - 2];
+
+    // This subtracts (x - 2^LIMB_BITS) * Q(x) from constr_poly.
+    let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
+    constr_poly[0] += base * aux_limbs[0];
+    for deg in 1..columns::N_LIMBS - 1 {
+        constr_poly[deg] += (base * aux_limbs[deg]) - aux_limbs[deg - 1];
+    }
+    constr_poly[columns::N_LIMBS - 1] -= aux_limbs[columns::N_LIMBS - 2];
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS) Q(x). The
+    // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS)*Q(x). The
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {

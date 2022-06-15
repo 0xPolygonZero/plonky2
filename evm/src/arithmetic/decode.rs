@@ -19,28 +19,6 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
     } else {
         todo!("the requested operation has not yet been implemented");
     }
-
-    /*
-    else if lv[IS_DIV].is_one() {
-        generate_division(lv);
-    } else if lv[IS_AND].is_one() {
-        generate_bitop(lv, IS_AND);
-    } else if lv[IS_IOR].is_one() {
-        generate_bitop(lv, IS_IOR);
-    } else if lv[IS_XOR].is_one() {
-        generate_bitop(lv, IS_XOR);
-    } else if lv[IS_ANDNOT].is_one() {
-        generate_bitop(lv, IS_ANDNOT);
-    } else if lv[IS_ROTATE_LEFT].is_one() {
-        generate_rotate_shift(lv, IS_ROTATE_LEFT);
-    } else if lv[IS_ROTATE_RIGHT].is_one() {
-        generate_rotate_shift(lv, IS_ROTATE_RIGHT);
-    } else if lv[IS_SHIFT_LEFT].is_one() {
-        generate_rotate_shift(lv, IS_SHIFT_LEFT);
-    } else if lv[IS_SHIFT_RIGHT].is_one() {
-        generate_rotate_shift(lv, IS_SHIFT_RIGHT);
-    }
-     */
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -48,6 +26,8 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // FIXME: Not sure this is needed; should be enforced by the CPU?
+    // And if it is needed, shouldn't we also require that only one
+    // value is non-zero?
     /*
     // Check that the operation flag values are binary.
     for col in ALL_OPERATIONS {
@@ -59,14 +39,6 @@ pub fn eval_packed_generic<P: PackedField>(
     add::eval_packed_generic(lv, yield_constr);
     sub::eval_packed_generic(lv, yield_constr);
     mul::eval_packed_generic(lv, yield_constr);
-    /*
-    eval_division(lv, yield_constr);
-    eval_bitop(lv, yield_constr);
-    eval_rotate_left(lv, yield_constr);
-    eval_rotate_right(lv, yield_constr);
-    eval_shift_left(lv, yield_constr);
-    eval_shift_right(lv, yield_constr);
-    */
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -75,6 +47,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // FIXME: Not sure this is needed; should be enforced by the CPU?
+    // And if it is needed, shouldn't we also require that only one
+    // value is non-zero?
     /*
     // Check that the operation flag values are binary.
     for col in ALL_OPERATIONS {
@@ -87,12 +61,4 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     add::eval_ext_circuit(builder, lv, yield_constr);
     sub::eval_ext_circuit(builder, lv, yield_constr);
     mul::eval_ext_circuit(builder, lv, yield_constr);
-    /*
-    eval_division_circuit(builder, lv, yield_constr);
-    eval_bitop_circuit(builder, lv, yield_constr);
-    eval_rotate_left_circuit(builder, lv, yield_constr);
-    eval_rotate_right_circuit(builder, lv, yield_constr);
-    eval_shift_left_circuit(builder, lv, yield_constr);
-    eval_shift_right_circuit(builder, lv, yield_constr);
-    */
 }
