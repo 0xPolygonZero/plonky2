@@ -21,6 +21,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::logic::LogicStark;
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
@@ -46,6 +47,8 @@ where
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
 {
     let num_starks = Table::num_tables();
     debug_assert_eq!(num_starks, trace_poly_values.len());
@@ -116,8 +119,21 @@ where
         &mut challenger,
         timing,
     )?;
+    let logic_proof = prove_single_table(
+        &all_stark.keccak_stark,
+        config,
+        &trace_poly_values[Table::Logic as usize],
+        &trace_commitments[Table::Logic as usize],
+        &ctl_data_per_table[Table::Logic as usize],
+        public_inputs[Table::Logic as usize]
+            .clone()
+            .try_into()
+            .unwrap(),
+        &mut challenger,
+        timing,
+    )?;
 
-    let stark_proofs = vec![cpu_proof, keccak_proof];
+    let stark_proofs = vec![cpu_proof, keccak_proof, logic_proof];
     debug_assert_eq!(stark_proofs.len(), num_starks);
 
     Ok(AllProof { stark_proofs })

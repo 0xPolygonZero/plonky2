@@ -17,7 +17,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     }
     assert_eq!(is_not_filter, 1);
 
-    for (input_col, output_col) in columns::SIMPLE_LOGIC_INPUT0.zip(columns::SIMPLE_LOGIC_OUTPUT) {
+    for (input_col, output_col) in columns::LOGIC_INPUT0.zip(columns::LOGIC_OUTPUT) {
         let input = lv[input_col].to_canonical_u64();
         assert_eq!(input >> LIMB_SIZE, 0);
         let output = input ^ ALL_1_LIMB;
@@ -33,7 +33,7 @@ pub fn eval_packed<P: PackedField>(
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
     let is_not_filter = lv[columns::IS_NOT];
     let filter = cycle_filter * is_not_filter;
-    for (input_col, output_col) in columns::SIMPLE_LOGIC_INPUT0.zip(columns::SIMPLE_LOGIC_OUTPUT) {
+    for (input_col, output_col) in columns::LOGIC_INPUT0.zip(columns::LOGIC_OUTPUT) {
         let input = lv[input_col];
         let output = lv[output_col];
         yield_constr
@@ -49,7 +49,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
     let is_not_filter = lv[columns::IS_NOT];
     let filter = builder.mul_extension(cycle_filter, is_not_filter);
-    for (input_col, output_col) in columns::SIMPLE_LOGIC_INPUT0.zip(columns::SIMPLE_LOGIC_OUTPUT) {
+    for (input_col, output_col) in columns::LOGIC_INPUT0.zip(columns::LOGIC_OUTPUT) {
         let input = lv[input_col];
         let output = lv[output_col];
         let constr = builder.add_extension(output, input);
