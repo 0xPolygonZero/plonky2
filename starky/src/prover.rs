@@ -42,7 +42,6 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
     let degree = trace_poly_values[0].len();
@@ -216,7 +215,6 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); P::WIDTH]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;

@@ -41,7 +41,6 @@ pub fn prove<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
@@ -139,7 +138,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
@@ -313,7 +311,6 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); P::WIDTH]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
