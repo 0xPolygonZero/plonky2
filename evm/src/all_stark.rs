@@ -62,7 +62,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+    use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -98,8 +98,8 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        keccak_trace[keccak::registers::reg_input_limb(j)].values
-                            [(i + 1) * NUM_ROUNDS - 1]
+                        keccak::registers::reg_input_limb(j)
+                            .eval_table(&keccak_trace, (i + 1) * NUM_ROUNDS - 1)
                     })
                     .collect::<Vec<_>>()
                     .try_into()
@@ -143,18 +143,19 @@ mod tests {
         let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
             .map(keccak::registers::reg_input_limb)
             .collect::<Vec<_>>();
-        keccak_keccak_input_output
-            .extend((0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb));
+        keccak_keccak_input_output.extend(Column::singles(
+            (0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb),
+        ));
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![TableWithColumns::new(
                 Table::Cpu,
-                cpu_keccak_input_output,
-                vec![cpu::columns::IS_KECCAK],
+                Column::singles(cpu_keccak_input_output).collect(),
+                Some(Column::single(cpu::columns::IS_KECCAK)),
             )],
             TableWithColumns::new(
                 Table::Keccak,
                 keccak_keccak_input_output,
-                vec![keccak::registers::reg_step(NUM_ROUNDS - 1)],
+                Some(Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1))),
             ),
             None,
         )];

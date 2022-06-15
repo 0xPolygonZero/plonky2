@@ -100,7 +100,7 @@ fn verify_stark_proof_with_challenges_circuit<
     stark: S,
     proof_with_pis: &StarkProofWithPublicInputsTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
-    ctl_vars: &[CtlCheckVarsTarget<D>],
+    ctl_vars: &[CtlCheckVarsTarget<F, D>],
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,

@@ -1,3 +1,6 @@
+use plonky2::field::field_types::Field;
+
+use crate::cross_table_lookup::Column;
 use crate::keccak::keccak_stark::{NUM_INPUTS, NUM_ROUNDS};
 
 /// A register which is set to 1 if we are in the `i`th round, otherwise 0.
@@ -9,9 +12,11 @@ pub const fn reg_step(i: usize) -> usize {
 /// Registers to hold permutation inputs.
 /// `reg_input_limb(2*i) -> input[i] as u32`
 /// `reg_input_limb(2*i+1) -> input[i] >> 32`
-pub const fn reg_input_limb(i: usize) -> usize {
+pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
     debug_assert!(i < 2 * NUM_INPUTS);
-    NUM_ROUNDS + i
+    let range = if i % 2 == 0 { 0..32 } else { 32..64 };
+    let bits = range.map(|j| reg_a((i / 2) / 5, (i / 2) % 5, j));
+    Column::le_bits(bits)
 }
 
 /// Registers to hold permutation outputs.
@@ -37,7 +42,7 @@ const R: [[u8; 5]; 5] = [
     [27, 20, 39, 8, 14],
 ];
 
-const START_A: usize = NUM_ROUNDS + 2 * NUM_INPUTS;
+const START_A: usize = NUM_ROUNDS;
 pub(crate) const fn reg_a(x: usize, y: usize, z: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);
