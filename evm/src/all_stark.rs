@@ -144,14 +144,12 @@ mod tests {
             .map(keccak::registers::reg_input_limb)
             .collect::<Vec<_>>();
         keccak_keccak_input_output.extend(Column::singles(
-            (0..2 * NUM_INPUTS)
-                .map(keccak::registers::reg_output_limb)
-                .collect(),
+            (0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb),
         ));
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![TableWithColumns::new(
                 Table::Cpu,
-                Column::singles(cpu_keccak_input_output),
+                Column::singles(cpu_keccak_input_output).collect(),
                 Some(Column::single(cpu::columns::IS_KECCAK)),
             )],
             TableWithColumns::new(

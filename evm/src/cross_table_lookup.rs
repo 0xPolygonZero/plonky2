@@ -38,8 +38,8 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn singles(cs: Vec<usize>) -> Vec<Self> {
-        cs.into_iter().map(Self::single).collect()
+    pub fn singles<I: IntoIterator<Item = usize>>(cs: I) -> impl Iterator<Item = Self> {
+        cs.into_iter().map(Self::single)
     }
 
     pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
@@ -67,8 +67,8 @@ impl<F: Field> Column<F> {
         Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
     }
 
-    pub fn sum(cs: &[usize]) -> Self {
-        Self::linear_combination(cs.iter().copied().zip(repeat(F::ONE)))
+    pub fn sum<I: IntoIterator<Item = usize>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().zip(repeat(F::ONE)))
     }
 
     pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
