@@ -117,6 +117,7 @@ mod tests {
     use std::borrow::BorrowMut;
 
     use anyhow::Result;
+    use ethereum_types::U256;
     use itertools::{izip, Itertools};
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
@@ -131,7 +132,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::logic::{self, LogicStark};
+    use crate::logic::{self, LogicStark, Operation};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
     use crate::memory::NUM_CHANNELS;
     use crate::proof::AllProof;
@@ -164,32 +165,20 @@ mod tests {
         logic_stark: &LogicStark<F, D>,
         rng: &mut R,
     ) -> Vec<PolynomialValues<F>> {
-        let mut trace_rows = vec![];
-        for _ in 0..num_rows {
-            let mut row = [F::ZERO; logic::columns::NUM_COLUMNS];
-
-            assert_eq!(logic::PACKED_LIMB_BITS, 16);
-            for col in logic::columns::INPUT0 {
-                row[col] = F::from_bool(rng.gen());
-            }
-            for col in logic::columns::INPUT1 {
-                row[col] = F::from_bool(rng.gen());
-            }
-            let op: usize = rng.gen_range(0..3);
-            let op_col = [
-                logic::columns::IS_AND,
-                logic::columns::IS_OR,
-                logic::columns::IS_XOR,
-            ][op];
-            row[op_col] = F::ONE;
-            logic_stark.generate(&mut row);
-            trace_rows.push(row);
-        }
-
-        for _ in num_rows..num_rows.next_power_of_two() {
-            trace_rows.push([F::ZERO; logic::columns::NUM_COLUMNS])
-        }
-        trace_rows_to_poly_values(trace_rows)
+        let ops = (0..num_rows)
+            .map(|_| {
+                let input0 = U256(rng.gen());
+                let input1 = U256(rng.gen());
+                let result = input0 ^ input1;
+                Operation {
+                    operator: logic::Op::Xor,
+                    input0,
+                    input1,
+                    result,
+                }
+            })
+            .collect();
+        logic_stark.generate_trace(ops)
     }
 
     fn make_memory_trace<R: Rng>(
