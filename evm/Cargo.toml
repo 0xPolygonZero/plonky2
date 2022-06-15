@@ -13,3 +13,5 @@ itertools = "0.10.0"
 log = "0.4.14"
 rayon = "1.5.1"
 rand = "0.8.5"
+rand_chacha = "0.3.1"
+keccak-rust = { git = "https://github.com/npwardberkeley/keccak-rust" }

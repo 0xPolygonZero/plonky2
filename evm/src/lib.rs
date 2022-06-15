@@ -1,4 +1,5 @@
 #![allow(incomplete_features)]
+#![allow(clippy::needless_range_loop)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![feature(generic_const_exprs)]
@@ -11,6 +12,7 @@ pub mod cpu;
 pub mod cross_table_lookup;
 mod get_challenges;
 pub mod keccak;
+pub mod logic;
 pub mod permutation;
 pub mod proof;
 pub mod prover;

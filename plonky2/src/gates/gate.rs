@@ -265,5 +265,5 @@ fn compute_filter_circuit<F: RichField + Extendable<D>, const D: usize>(
             builder.sub_extension(c, s)
         })
         .collect::<Vec<_>>();
-    builder.mul_many_extension(&v)
+    builder.mul_many_extension(v)
 }

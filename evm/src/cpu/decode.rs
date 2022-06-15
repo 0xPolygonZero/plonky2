@@ -124,6 +124,9 @@ const OPCODES: [(u64, usize, usize); 102] = [
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
     if cycle_filter == F::ZERO {
+        // These columns cannot be shared.
+        lv[columns::IS_EQ] = F::ZERO;
+        lv[columns::IS_ISZERO] = F::ZERO;
         return;
     }
     // This assert is not _strictly_ necessary, but I include it as a sanity check.
@@ -159,6 +162,10 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
+
+    // If cycle_filter = 0, then we require is_eq = 0 and is_iszero = 0.
+    yield_constr.constraint((cycle_filter - P::ONES) * lv[columns::IS_EQ]);
+    yield_constr.constraint((cycle_filter - P::ONES) * lv[columns::IS_ISZERO]);
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.
@@ -206,6 +213,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
+
+    // If cycle_filter = 0, then we require is_eq = 0 and is_iszero = 0.
+    for flag in [lv[columns::IS_EQ], lv[columns::IS_ISZERO]] {
+        let constr = builder.mul_sub_extension(cycle_filter, flag, flag);
+        yield_constr.constraint(builder, constr);
+    }
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.

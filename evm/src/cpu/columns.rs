@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 // Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
 // Lets us re-use decode columns in non-cycle rows.
 pub const IS_CPU_CYCLE: usize = 0;
@@ -24,8 +26,8 @@ pub const IS_LT: usize = IS_SIGNEXTEND + 1;
 pub const IS_GT: usize = IS_LT + 1;
 pub const IS_SLT: usize = IS_GT + 1;
 pub const IS_SGT: usize = IS_SLT + 1;
-pub const IS_EQ: usize = IS_SGT + 1;
-pub const IS_ISZERO: usize = IS_EQ + 1;
+pub const IS_EQ: usize = IS_SGT + 1; // Note: This column must be 0 when is_cpu_cycle = 0.
+pub const IS_ISZERO: usize = IS_EQ + 1; // Note: This column must be 0 when is_cpu_cycle = 0.
 pub const IS_AND: usize = IS_ISZERO + 1;
 pub const IS_OR: usize = IS_AND + 1;
 pub const IS_XOR: usize = IS_OR + 1;
@@ -132,4 +134,23 @@ pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS + 7,
 ];
 
-pub const NUM_CPU_COLUMNS: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
+/// Filter. 1 iff a Keccak permutation is computed on this row.
+pub const IS_KECCAK: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
+
+pub const START_KECCAK_INPUT: usize = IS_KECCAK + 1;
+#[allow(dead_code)] // TODO: Remove when used
+pub const KECCAK_INPUT_LIMBS: Range<usize> = START_KECCAK_INPUT..START_KECCAK_INPUT + 50;
+
+pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
+pub const KECCAK_OUTPUT_LIMBS: Range<usize> = START_KECCAK_OUTPUT..START_KECCAK_OUTPUT + 50;
+
+// Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
+// TODO: These input/output columns can be shared between the simple logic operations and others.
+pub const SIMPLE_LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
+pub const SIMPLE_LOGIC_INPUT1: Range<usize> = SIMPLE_LOGIC_INPUT0.end..SIMPLE_LOGIC_INPUT0.end + 16;
+pub const SIMPLE_LOGIC_OUTPUT: Range<usize> = SIMPLE_LOGIC_INPUT1.end..SIMPLE_LOGIC_INPUT1.end + 16;
+
+pub const SIMPLE_LOGIC_DIFF: usize = SIMPLE_LOGIC_OUTPUT.end;
+pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
+
+pub const NUM_CPU_COLUMNS: usize = SIMPLE_LOGIC_DIFF_INV + 1;
