@@ -163,10 +163,6 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
 
-    // If cycle_filter = 0, then we require is_eq = 0 and is_iszero = 0.
-    yield_constr.constraint((cycle_filter - P::ONES) * lv[columns::IS_EQ]);
-    yield_constr.constraint((cycle_filter - P::ONES) * lv[columns::IS_ISZERO]);
-
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.
     let bits = columns::OPCODE_BITS.map(|i| lv[i]);
@@ -213,12 +209,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
-
-    // If cycle_filter = 0, then we require is_eq = 0 and is_iszero = 0.
-    for flag in [lv[columns::IS_EQ], lv[columns::IS_ISZERO]] {
-        let constr = builder.mul_sub_extension(cycle_filter, flag, flag);
-        yield_constr.constraint(builder, constr);
-    }
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.
