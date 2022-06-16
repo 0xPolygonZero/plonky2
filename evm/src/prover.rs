@@ -120,7 +120,7 @@ where
         timing,
     )?;
     let logic_proof = prove_single_table(
-        &all_stark.keccak_stark,
+        &all_stark.logic_stark,
         config,
         &trace_poly_values[Table::Logic as usize],
         &trace_commitments[Table::Logic as usize],

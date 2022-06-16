@@ -192,8 +192,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::RESULT,
             columns::INPUT0_PACKED,
             columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_PACKED),
-            columns::limb_bit_cols_for_input(columns::INPUT1_PACKED),
+            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
         ) {
             let x = lv[x_col];
             let y = lv[y_col];
@@ -267,8 +267,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::RESULT,
             columns::INPUT0_PACKED,
             columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_PACKED),
-            columns::limb_bit_cols_for_input(columns::INPUT1_PACKED),
+            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
         ) {
             let x = lv[x_col];
             let y = lv[y_col];

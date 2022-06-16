@@ -277,6 +277,20 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
                 public_inputs,
             }
         },
+        {
+            let proof = add_virtual_stark_proof(
+                builder,
+                all_stark.logic_stark,
+                config,
+                degree_bits[Table::Logic as usize],
+                nums_ctl_zs[Table::Logic as usize],
+            );
+            let public_inputs = builder.add_virtual_targets(LogicStark::<F, D>::PUBLIC_INPUTS);
+            StarkProofWithPublicInputsTarget {
+                proof,
+                public_inputs,
+            }
+        },
     ];
 
     assert_eq!(stark_proofs.len(), Table::num_tables());

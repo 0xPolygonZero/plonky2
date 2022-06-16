@@ -316,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_all_stark_nonrecursive() -> Result<()> {
+    fn test_all_stark() -> Result<()> {
         let config = StarkConfig::standard_fast_config();
         let (all_stark, proof) = get_proof(&config)?;
         verify_proof(all_stark, proof, &config)
