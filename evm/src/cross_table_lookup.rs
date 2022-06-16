@@ -561,26 +561,29 @@ pub(crate) fn verify_cross_table_lookups<
         },
     ) in cross_table_lookups.into_iter().enumerate()
     {
-        let looking_degrees_sum = looking_tables
-            .iter()
-            .map(|table| 1 << degrees_bits[table.table as usize])
-            .sum::<u64>();
-        let looked_degree = 1 << degrees_bits[looked_table.table as usize];
-        let looking_zs_prod = looking_tables
-            .into_iter()
-            .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
-            .product::<F>();
-        let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-        let challenge = challenges.challenges[i % config.num_challenges];
-        let combined_default = default
-            .map(|default| challenge.combine(default.iter()))
-            .unwrap_or(F::ONE);
+        for _ in 0..config.num_challenges {
+            let looking_degrees_sum = looking_tables
+                .iter()
+                .map(|table| 1 << degrees_bits[table.table as usize])
+                .sum::<u64>();
+            let looked_degree = 1 << degrees_bits[looked_table.table as usize];
+            let looking_zs_prod = looking_tables
+                .iter()
+                .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
+                .product::<F>();
+            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
+            let challenge = challenges.challenges[i % config.num_challenges];
+            let combined_default = default
+                .as_ref()
+                .map(|default| challenge.combine(default.iter()))
+                .unwrap_or(F::ONE);
 
-        ensure!(
-            looking_zs_prod
-                == looked_z * combined_default.exp_u64(looking_degrees_sum - looked_degree),
-            "Cross-table lookup verification failed."
-        );
+            ensure!(
+                looking_zs_prod
+                    == looked_z * combined_default.exp_u64(looking_degrees_sum - looked_degree),
+                "Cross-table lookup verification failed."
+            );
+        }
     }
 
     Ok(())
@@ -615,30 +618,32 @@ pub(crate) fn verify_cross_table_lookups_circuit<
         },
     ) in cross_table_lookups.into_iter().enumerate()
     {
-        let looking_degrees_sum = looking_tables
-            .iter()
-            .map(|table| 1 << degrees_bits[table.table as usize])
-            .sum::<u64>();
-        let looked_degree = 1 << degrees_bits[looked_table.table as usize];
-        let looking_zs_prod = builder.mul_many(
-            looking_tables
-                .into_iter()
-                .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
-        );
-        let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-        let challenge = challenges.challenges[i % inner_config.num_challenges];
-        if let Some(default) = default {
-            let default = default
-                .into_iter()
-                .map(|x| builder.constant(x))
-                .collect::<Vec<_>>();
-            let combined_default = challenge.combine_base_circuit(builder, &default);
+        for _ in 0..inner_config.num_challenges {
+            let looking_degrees_sum = looking_tables
+                .iter()
+                .map(|table| 1 << degrees_bits[table.table as usize])
+                .sum::<u64>();
+            let looked_degree = 1 << degrees_bits[looked_table.table as usize];
+            let looking_zs_prod = builder.mul_many(
+                looking_tables
+                    .iter()
+                    .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
+            );
+            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
+            let challenge = challenges.challenges[i % inner_config.num_challenges];
+            if let Some(default) = default.as_ref() {
+                let default = default
+                    .iter()
+                    .map(|&x| builder.constant(x))
+                    .collect::<Vec<_>>();
+                let combined_default = challenge.combine_base_circuit(builder, &default);
 
-            let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
-            let padded_looked_z = builder.mul(looked_z, pad);
-            builder.connect(looking_zs_prod, padded_looked_z);
-        } else {
-            builder.connect(looking_zs_prod, looked_z);
+                let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
+                let padded_looked_z = builder.mul(looked_z, pad);
+                builder.connect(looking_zs_prod, padded_looked_z);
+            } else {
+                builder.connect(looking_zs_prod, looked_z);
+            }
         }
     }
 }
