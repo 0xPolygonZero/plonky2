@@ -24,6 +24,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
+            self.memory_stark.num_permutation_batches(config),
         ];
         debug_assert_eq!(ans.len(), Table::num_tables());
         ans
@@ -34,6 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
+            self.memory_stark.permutation_batch_size(),
         ];
         debug_assert_eq!(ans.len(), Table::num_tables());
         ans

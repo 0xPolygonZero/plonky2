@@ -361,30 +361,30 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let not_timestamp_first_change = one - timestamp_first_change;
 
         // First set of ordering constraint: first_change flags are boolean.
-        // yield_constr.constraint(context_first_change * not_context_first_change);
-        // yield_constr.constraint(segment_first_change * not_segment_first_change);
-        // yield_constr.constraint(virtual_first_change * not_virtual_first_change);
-        // yield_constr.constraint(timestamp_first_change * not_timestamp_first_change);
+        yield_constr.constraint(context_first_change * not_context_first_change);
+        yield_constr.constraint(segment_first_change * not_segment_first_change);
+        yield_constr.constraint(virtual_first_change * not_virtual_first_change);
+        yield_constr.constraint(timestamp_first_change * not_timestamp_first_change);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
-        yield_constr.constraint(segment_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint(virtual_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint(virtual_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint(timestamp_first_change * (next_addr_context - addr_context));
-        yield_constr.constraint(timestamp_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint(timestamp_first_change * (next_addr_virtual - addr_virtual));
+        yield_constr.constraint_transition(segment_first_change * (next_addr_context - addr_context));
+        yield_constr.constraint_transition(virtual_first_change * (next_addr_context - addr_context));
+        yield_constr.constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
+        yield_constr.constraint_transition(timestamp_first_change * (next_addr_context - addr_context));
+        // yield_constr.constraint_transition(timestamp_first_change * (next_addr_segment - addr_segment));
+        // yield_constr.constraint_transition(timestamp_first_change * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let range_check_value = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + timestamp_first_change * (next_timestamp - timestamp - one);
-        yield_constr.constraint(range_check - range_check_value);
+        // yield_constr.constraint(range_check - range_check_value);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            yield_constr
-                .constraint(next_is_read * timestamp_first_change * (next_values[i] - values[i]));
+            // yield_constr
+            //     .constraint(next_is_read * timestamp_first_change * (next_values[i] - values[i]));
         }
 
         // Lookup argument for the range check.
@@ -397,12 +397,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // A "horizontal" diff between the next permuted input and permuted table value.
         let diff_input_table = next_perm_input - next_perm_table;
 
-        yield_constr.constraint(diff_input_prev * diff_input_table);
+        // yield_constr.constraint(diff_input_prev * diff_input_table);
 
         // This is actually constraining the first row, as per the spec, since `diff_input_table`
         // is a diff of the next row's values. In the context of `constraint_last_row`, the next
         // row is the first row.
-        yield_constr.constraint_last_row(diff_input_table);
+        // yield_constr.constraint_last_row(diff_input_table);
     }
 
     fn eval_ext_circuit(
@@ -466,22 +466,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
         let segment_first_change_check =
             builder.mul_extension(segment_first_change, addr_context_diff);
-        yield_constr.constraint(builder, segment_first_change_check);
+        yield_constr.constraint_transition(builder, segment_first_change_check);
         let virtual_first_change_check_1 =
             builder.mul_extension(virtual_first_change, addr_context_diff);
-        yield_constr.constraint(builder, virtual_first_change_check_1);
+        yield_constr.constraint_transition(builder, virtual_first_change_check_1);
         let virtual_first_change_check_2 =
             builder.mul_extension(virtual_first_change, addr_segment_diff);
-        yield_constr.constraint(builder, virtual_first_change_check_2);
+        yield_constr.constraint_transition(builder, virtual_first_change_check_2);
         let timestamp_first_change_check_1 =
             builder.mul_extension(timestamp_first_change, addr_context_diff);
-        yield_constr.constraint(builder, timestamp_first_change_check_1);
+        yield_constr.constraint_transition(builder, timestamp_first_change_check_1);
         let timestamp_first_change_check_2 =
             builder.mul_extension(timestamp_first_change, addr_segment_diff);
-        yield_constr.constraint(builder, timestamp_first_change_check_2);
+        // yield_constr.constraint_transition(builder, timestamp_first_change_check_2);
         let timestamp_first_change_check_3 =
             builder.mul_extension(timestamp_first_change, addr_virtual_diff);
-        yield_constr.constraint(builder, timestamp_first_change_check_3);
+        // yield_constr.constraint_transition(builder, timestamp_first_change_check_3);
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let context_diff = {
@@ -511,14 +511,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.add_extension(sum, timestamp_range_check)
         };
         let range_check_diff = builder.sub_extension(range_check, range_check_value);
-        yield_constr.constraint(builder, range_check_diff);
+        // yield_constr.constraint(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
             let value_diff = builder.sub_extension(next_values[i], values[i]);
             let zero_if_read = builder.mul_extension(timestamp_first_change, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
-            yield_constr.constraint(builder, read_constraint);
+            // yield_constr.constraint(builder, read_constraint);
         }
 
         // Lookup argument for range check.
@@ -532,12 +532,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
 
         let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
-        yield_constr.constraint(builder, diff_product);
+        // yield_constr.constraint(builder, diff_product);
 
         // This is actually constraining the first row, as per the spec, since `diff_input_table`
         // is a diff of the next row's values. In the context of `constraint_last_row`, the next
         // row is the first row.
-        yield_constr.constraint_last_row(builder, diff_input_table);
+        // yield_constr.constraint_last_row(builder, diff_input_table);
     }
 
     fn constraint_degree(&self) -> usize {
