@@ -8,8 +8,8 @@ pub(crate) const IS_READ: usize = TIMESTAMP + 1;
 pub(crate) const ADDR_CONTEXT: usize = IS_READ + 1;
 pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
-pub(crate) const VALUE_START: usize = ADDR_VIRTUAL + 1;
 
+const VALUE_START: usize = ADDR_VIRTUAL + 1;
 pub(crate) const fn value_limb(i: usize) -> usize {
     debug_assert!(i < NUM_MEMORY_VALUE_LIMBS);
     VALUE_START + i
@@ -20,8 +20,8 @@ pub(crate) const SORTED_IS_READ: usize = SORTED_TIMESTAMP + 1;
 pub(crate) const SORTED_ADDR_CONTEXT: usize = SORTED_IS_READ + 1;
 pub(crate) const SORTED_ADDR_SEGMENT: usize = SORTED_ADDR_CONTEXT + 1;
 pub(crate) const SORTED_ADDR_VIRTUAL: usize = SORTED_ADDR_SEGMENT + 1;
-pub(crate) const SORTED_VALUE_START: usize = SORTED_ADDR_VIRTUAL + 1;
 
+const SORTED_VALUE_START: usize = SORTED_ADDR_VIRTUAL + 1;
 pub(crate) const fn sorted_value_limb(i: usize) -> usize {
     debug_assert!(i < NUM_MEMORY_VALUE_LIMBS);
     SORTED_VALUE_START + i
@@ -36,9 +36,10 @@ pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 pub(crate) const RANGE_CHECK_PERMUTED: usize = COUNTER + 1;
 pub(crate) const COUNTER_PERMUTED: usize = RANGE_CHECK_PERMUTED + 1;
 
+const IS_MEMOP_START: usize = COUNTER_PERMUTED + 1;
 pub(crate) const fn is_memop(i: usize) -> usize {
     debug_assert!(i < NUM_MEMORY_OPS);
-    COUNTER_PERMUTED + i
+    IS_MEMOP_START + i
 }
 
-pub(crate) const NUM_REGISTERS: usize = COUNTER_PERMUTED + NUM_MEMORY_OPS;
+pub(crate) const NUM_REGISTERS: usize = IS_MEMOP_START + NUM_MEMORY_OPS;

@@ -206,7 +206,6 @@ mod tests {
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
         }
-
         for i in 0..num_memory_ops {
             let mem_timestamp: usize = memory_trace[memory::registers::TIMESTAMP].values[i]
                 .to_canonical_u64()

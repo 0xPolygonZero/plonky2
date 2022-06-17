@@ -90,7 +90,7 @@ pub fn sort_memory_ops<F: RichField>(
     context: &[F],
     segment: &[F],
     virtuals: &[F],
-    values: &Vec<[F; 8]>,
+    values: &[[F; 8]],
 ) -> (Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<F>, Vec<[F; 8]>) {
     let mut ops: Vec<(F, F, F, F, F, [F; 8])> = izip!(
         timestamp.iter().cloned(),
@@ -115,9 +115,9 @@ pub fn sort_memory_ops<F: RichField>(
 }
 
 pub fn generate_first_change_flags<F: RichField>(
-    context: &Vec<F>,
-    segment: &Vec<F>,
-    virtuals: &Vec<F>,
+    context: &[F],
+    segment: &[F],
+    virtuals: &[F],
 ) -> (Vec<F>, Vec<F>, Vec<F>) {
     let num_ops = context.len();
     let mut context_first_change = Vec::new();
@@ -157,13 +157,13 @@ pub fn generate_first_change_flags<F: RichField>(
 }
 
 pub fn generate_range_check_value<F: RichField>(
-    context: &Vec<F>,
-    segment: &Vec<F>,
-    virtuals: &Vec<F>,
-    timestamp: &Vec<F>,
-    context_first_change: &Vec<F>,
-    segment_first_change: &Vec<F>,
-    virtual_first_change: &Vec<F>,
+    context: &[F],
+    segment: &[F],
+    virtuals: &[F],
+    timestamp: &[F],
+    context_first_change: &[F],
+    segment_first_change: &[F],
+    virtual_first_change: &[F],
 ) -> Vec<F> {
     let num_ops = context.len();
     let mut range_check = Vec::new();
