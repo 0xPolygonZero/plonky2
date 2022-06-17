@@ -87,7 +87,7 @@ mod tests {
     use crate::stark::Stark;
     use crate::util::trace_rows_to_poly_values;
     use crate::verifier::verify_proof;
-    use crate::{cpu, keccak};
+    use crate::{cpu, keccak, memory};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -206,6 +206,7 @@ mod tests {
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
         }
+
         for i in 0..num_memory_ops {
             let mem_timestamp: usize = memory_trace[memory::registers::TIMESTAMP].values[i]
                 .to_canonical_u64()

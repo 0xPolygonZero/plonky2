@@ -12,12 +12,10 @@ use rand::{thread_rng, Rng};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::memory::registers::{
-    memory_value_limb, sorted_memory_value_limb, MEMORY_ADDR_CONTEXT, MEMORY_ADDR_SEGMENT,
-    MEMORY_ADDR_VIRTUAL, MEMORY_CONTEXT_FIRST_CHANGE, MEMORY_COUNTER, MEMORY_COUNTER_PERMUTED,
-    MEMORY_IS_READ, MEMORY_RANGE_CHECK, MEMORY_RANGE_CHECK_PERMUTED, MEMORY_SEGMENT_FIRST_CHANGE,
-    MEMORY_TIMESTAMP, MEMORY_VIRTUAL_FIRST_CHANGE, NUM_REGISTERS, SORTED_MEMORY_ADDR_CONTEXT,
-    SORTED_MEMORY_ADDR_SEGMENT, SORTED_MEMORY_ADDR_VIRTUAL, SORTED_MEMORY_IS_READ,
-    SORTED_MEMORY_TIMESTAMP,
+    sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
+    COUNTER, COUNTER_PERMUTED, IS_READ, NUM_REGISTERS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
+    SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
+    SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::stark::Stark;
 use crate::util::{permuted_cols, trace_rows_to_poly_values};
@@ -203,13 +201,13 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             .unwrap();
         for i in 0..num_ops {
             let (timestamp, is_read, context, segment, virt, values) = memory_ops[i];
-            trace_cols[MEMORY_TIMESTAMP][i] = timestamp;
-            trace_cols[MEMORY_IS_READ][i] = is_read;
-            trace_cols[MEMORY_ADDR_CONTEXT][i] = context;
-            trace_cols[MEMORY_ADDR_SEGMENT][i] = segment;
-            trace_cols[MEMORY_ADDR_VIRTUAL][i] = virt;
+            trace_cols[TIMESTAMP][i] = timestamp;
+            trace_cols[IS_READ][i] = is_read;
+            trace_cols[ADDR_CONTEXT][i] = context;
+            trace_cols[ADDR_SEGMENT][i] = segment;
+            trace_cols[ADDR_VIRTUAL][i] = virt;
             for j in 0..8 {
-                trace_cols[memory_value_limb(j)][i] = values[j];
+                trace_cols[value_limb(j)][i] = values[j];
             }
         }
 
@@ -227,15 +225,15 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     fn generate_memory(&self, trace_cols: &mut [Vec<F>]) {
         let num_trace_rows = trace_cols[0].len();
 
-        let timestamp = &trace_cols[MEMORY_TIMESTAMP];
-        let is_read = &trace_cols[MEMORY_IS_READ];
-        let context = &trace_cols[MEMORY_ADDR_CONTEXT];
-        let segment = &trace_cols[MEMORY_ADDR_SEGMENT];
-        let virtuals = &trace_cols[MEMORY_ADDR_VIRTUAL];
+        let timestamp = &trace_cols[TIMESTAMP];
+        let is_read = &trace_cols[IS_READ];
+        let context = &trace_cols[ADDR_CONTEXT];
+        let segment = &trace_cols[ADDR_SEGMENT];
+        let virtuals = &trace_cols[ADDR_VIRTUAL];
         let values: Vec<[F; 8]> = (0..num_trace_rows)
             .map(|i| {
                 let arr: [F; 8] = (0..8)
-                    .map(|j| &trace_cols[memory_value_limb(j)][i])
+                    .map(|j| &trace_cols[value_limb(j)][i])
                     .cloned()
                     .collect_vec()
                     .try_into()
@@ -266,30 +264,30 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &virtual_first_change,
         );
 
-        trace_cols[SORTED_MEMORY_TIMESTAMP] = sorted_timestamp;
-        trace_cols[SORTED_MEMORY_IS_READ] = sorted_is_read;
-        trace_cols[SORTED_MEMORY_ADDR_CONTEXT] = sorted_context;
-        trace_cols[SORTED_MEMORY_ADDR_SEGMENT] = sorted_segment;
-        trace_cols[SORTED_MEMORY_ADDR_VIRTUAL] = sorted_virtual;
+        trace_cols[SORTED_TIMESTAMP] = sorted_timestamp;
+        trace_cols[SORTED_IS_READ] = sorted_is_read;
+        trace_cols[SORTED_ADDR_CONTEXT] = sorted_context;
+        trace_cols[SORTED_ADDR_SEGMENT] = sorted_segment;
+        trace_cols[SORTED_ADDR_VIRTUAL] = sorted_virtual;
         for i in 0..num_trace_rows {
             for j in 0..8 {
-                trace_cols[sorted_memory_value_limb(j)][i] = sorted_values[i][j];
+                trace_cols[sorted_value_limb(j)][i] = sorted_values[i][j];
             }
         }
 
-        trace_cols[MEMORY_CONTEXT_FIRST_CHANGE] = context_first_change;
-        trace_cols[MEMORY_SEGMENT_FIRST_CHANGE] = segment_first_change;
-        trace_cols[MEMORY_VIRTUAL_FIRST_CHANGE] = virtual_first_change;
+        trace_cols[CONTEXT_FIRST_CHANGE] = context_first_change;
+        trace_cols[SEGMENT_FIRST_CHANGE] = segment_first_change;
+        trace_cols[VIRTUAL_FIRST_CHANGE] = virtual_first_change;
 
-        trace_cols[MEMORY_RANGE_CHECK] = range_check_value;
-        trace_cols[MEMORY_COUNTER] = (0..trace_cols[0].len())
+        trace_cols[RANGE_CHECK] = range_check_value;
+        trace_cols[COUNTER] = (0..trace_cols[0].len())
             .map(|i| F::from_canonical_usize(i))
             .collect();
 
         let (permuted_inputs, permuted_table) =
-            permuted_cols(&trace_cols[MEMORY_RANGE_CHECK], &trace_cols[MEMORY_COUNTER]);
-        trace_cols[MEMORY_RANGE_CHECK_PERMUTED] = permuted_inputs;
-        trace_cols[MEMORY_COUNTER_PERMUTED] = permuted_table;
+            permuted_cols(&trace_cols[RANGE_CHECK], &trace_cols[COUNTER]);
+        trace_cols[RANGE_CHECK_PERMUTED] = permuted_inputs;
+        trace_cols[COUNTER_PERMUTED] = permuted_table;
     }
 
     pub fn generate_trace(
@@ -330,30 +328,30 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     {
         let one = P::from(FE::ONE);
 
-        let timestamp = vars.local_values[SORTED_MEMORY_TIMESTAMP];
-        let addr_context = vars.local_values[SORTED_MEMORY_ADDR_CONTEXT];
-        let addr_segment = vars.local_values[SORTED_MEMORY_ADDR_SEGMENT];
-        let addr_virtual = vars.local_values[SORTED_MEMORY_ADDR_VIRTUAL];
+        let timestamp = vars.local_values[SORTED_TIMESTAMP];
+        let addr_context = vars.local_values[SORTED_ADDR_CONTEXT];
+        let addr_segment = vars.local_values[SORTED_ADDR_SEGMENT];
+        let addr_virtual = vars.local_values[SORTED_ADDR_VIRTUAL];
         let values: Vec<_> = (0..8)
-            .map(|i| vars.local_values[sorted_memory_value_limb(i)])
+            .map(|i| vars.local_values[sorted_value_limb(i)])
             .collect();
 
-        let next_timestamp = vars.next_values[SORTED_MEMORY_TIMESTAMP];
-        let next_is_read = vars.next_values[SORTED_MEMORY_IS_READ];
-        let next_addr_context = vars.next_values[SORTED_MEMORY_ADDR_CONTEXT];
-        let next_addr_segment = vars.next_values[SORTED_MEMORY_ADDR_SEGMENT];
-        let next_addr_virtual = vars.next_values[SORTED_MEMORY_ADDR_VIRTUAL];
+        let next_timestamp = vars.next_values[SORTED_TIMESTAMP];
+        let next_is_read = vars.next_values[SORTED_IS_READ];
+        let next_addr_context = vars.next_values[SORTED_ADDR_CONTEXT];
+        let next_addr_segment = vars.next_values[SORTED_ADDR_SEGMENT];
+        let next_addr_virtual = vars.next_values[SORTED_ADDR_VIRTUAL];
         let next_values: Vec<_> = (0..8)
-            .map(|i| vars.next_values[sorted_memory_value_limb(i)])
+            .map(|i| vars.next_values[sorted_value_limb(i)])
             .collect();
 
-        let context_first_change = vars.local_values[MEMORY_CONTEXT_FIRST_CHANGE];
-        let segment_first_change = vars.local_values[MEMORY_SEGMENT_FIRST_CHANGE];
-        let virtual_first_change = vars.local_values[MEMORY_VIRTUAL_FIRST_CHANGE];
+        let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
+        let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
+        let virtual_first_change = vars.local_values[VIRTUAL_FIRST_CHANGE];
         let address_unchanged =
             one - context_first_change - segment_first_change - virtual_first_change;
 
-        let range_check = vars.local_values[MEMORY_RANGE_CHECK];
+        let range_check = vars.local_values[RANGE_CHECK];
 
         let not_context_first_change = one - context_first_change;
         let not_segment_first_change = one - segment_first_change;
@@ -391,9 +389,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         }
 
         // Lookup argument for the range check.
-        let local_perm_input = vars.local_values[MEMORY_RANGE_CHECK_PERMUTED];
-        let next_perm_table = vars.next_values[MEMORY_COUNTER_PERMUTED];
-        let next_perm_input = vars.next_values[MEMORY_COUNTER_PERMUTED];
+        let local_perm_input = vars.local_values[RANGE_CHECK_PERMUTED];
+        let next_perm_table = vars.next_values[COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[COUNTER_PERMUTED];
 
         // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = next_perm_input - local_perm_input;
@@ -416,33 +414,33 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     ) {
         let one = builder.one_extension();
 
-        let addr_context = vars.local_values[SORTED_MEMORY_ADDR_CONTEXT];
-        let addr_segment = vars.local_values[SORTED_MEMORY_ADDR_SEGMENT];
-        let addr_virtual = vars.local_values[SORTED_MEMORY_ADDR_VIRTUAL];
+        let addr_context = vars.local_values[SORTED_ADDR_CONTEXT];
+        let addr_segment = vars.local_values[SORTED_ADDR_SEGMENT];
+        let addr_virtual = vars.local_values[SORTED_ADDR_VIRTUAL];
         let values: Vec<_> = (0..8)
-            .map(|i| vars.local_values[sorted_memory_value_limb(i)])
+            .map(|i| vars.local_values[sorted_value_limb(i)])
             .collect();
-        let timestamp = vars.local_values[SORTED_MEMORY_TIMESTAMP];
+        let timestamp = vars.local_values[SORTED_TIMESTAMP];
 
-        let next_addr_context = vars.next_values[SORTED_MEMORY_ADDR_CONTEXT];
-        let next_addr_segment = vars.next_values[SORTED_MEMORY_ADDR_SEGMENT];
-        let next_addr_virtual = vars.next_values[SORTED_MEMORY_ADDR_VIRTUAL];
+        let next_addr_context = vars.next_values[SORTED_ADDR_CONTEXT];
+        let next_addr_segment = vars.next_values[SORTED_ADDR_SEGMENT];
+        let next_addr_virtual = vars.next_values[SORTED_ADDR_VIRTUAL];
         let next_values: Vec<_> = (0..8)
-            .map(|i| vars.next_values[sorted_memory_value_limb(i)])
+            .map(|i| vars.next_values[sorted_value_limb(i)])
             .collect();
-        let next_is_read = vars.next_values[SORTED_MEMORY_IS_READ];
-        let next_timestamp = vars.next_values[SORTED_MEMORY_TIMESTAMP];
+        let next_is_read = vars.next_values[SORTED_IS_READ];
+        let next_timestamp = vars.next_values[SORTED_TIMESTAMP];
 
-        let context_first_change = vars.local_values[MEMORY_CONTEXT_FIRST_CHANGE];
-        let segment_first_change = vars.local_values[MEMORY_SEGMENT_FIRST_CHANGE];
-        let virtual_first_change = vars.local_values[MEMORY_VIRTUAL_FIRST_CHANGE];
+        let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
+        let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
+        let virtual_first_change = vars.local_values[VIRTUAL_FIRST_CHANGE];
         let address_unchanged = {
             let mut cur = builder.sub_extension(one, context_first_change);
             cur = builder.sub_extension(cur, segment_first_change);
             builder.sub_extension(cur, virtual_first_change)
         };
 
-        let range_check = vars.local_values[MEMORY_RANGE_CHECK];
+        let range_check = vars.local_values[RANGE_CHECK];
 
         let not_context_first_change = builder.sub_extension(one, context_first_change);
         let not_segment_first_change = builder.sub_extension(one, segment_first_change);
@@ -522,9 +520,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         }
 
         // Lookup argument for range check.
-        let local_perm_input = vars.local_values[MEMORY_RANGE_CHECK_PERMUTED];
-        let next_perm_table = vars.next_values[MEMORY_COUNTER_PERMUTED];
-        let next_perm_input = vars.next_values[MEMORY_COUNTER_PERMUTED];
+        let local_perm_input = vars.local_values[RANGE_CHECK_PERMUTED];
+        let next_perm_table = vars.next_values[COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[COUNTER_PERMUTED];
 
         // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
