@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::ops::Range;
 
 /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.

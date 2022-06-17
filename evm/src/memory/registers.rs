@@ -48,6 +48,7 @@ pub(crate) const COUNTER_PERMUTED: usize = RANGE_CHECK_PERMUTED + 1;
 // Flags to indicate if this operation corresponds to the `i`th memory op in a certain row of the
 // CPU table.
 const IS_MEMOP_START: usize = COUNTER_PERMUTED + 1;
+#[allow(dead_code)]
 pub(crate) const fn is_memop(i: usize) -> usize {
     debug_assert!(i < NUM_MEMORY_OPS);
     IS_MEMOP_START + i
