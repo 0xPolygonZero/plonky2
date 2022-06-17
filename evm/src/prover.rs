@@ -493,10 +493,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             };
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
-                    local_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i, step)
+                    local_zs: get_comm_values(permutation_ctl_zs_commitment, i)
                         [..num_permutation_zs]
                         .to_vec(),
-                    next_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i_next, step)
+                    next_zs: get_comm_values(permutation_ctl_zs_commitment, i_next)
                         [..num_permutation_zs]
                         .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
