@@ -4,20 +4,20 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::arithmetic::columns;
+use crate::arithmetic::columns::*;
 use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 #[allow(clippy::needless_range_loop)]
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
-    let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
+pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+    let input0_limbs = MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
+    let input1_limbs = MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
 
-    const MASK: u64 = (1u64 << columns::LIMB_BITS) - 1u64;
+    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
 
     // Input and output have 16-bit limbs
-    let mut aux_in_limbs = [0u64; columns::N_LIMBS];
-    let mut output_limbs = [0u64; columns::N_LIMBS];
+    let mut aux_in_limbs = [0u64; N_LIMBS];
+    let mut output_limbs = [0u64; N_LIMBS];
 
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // We have heaps of space at the top of each limb, so by
@@ -25,7 +25,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
     // avoid a bunch of carry propagation handling (at the expense of
     // slightly worse cache coherency).
     let mut cy = 0u64;
-    for col in 0..columns::N_LIMBS {
+    for col in 0..N_LIMBS {
         for i in 0..col {
             // Invariant: i + j = col
             let j = col - i;
@@ -33,33 +33,33 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
             aux_in_limbs[col] += ai_x_bj;
         }
         let t = aux_in_limbs[col] + cy;
-        cy = t >> columns::LIMB_BITS;
+        cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
     // last cy is dropped because this is multiplication modulo 2^256.
 
-    for (&c, &output_limb) in columns::MUL_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, &output_limb) in MUL_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
-    for deg in 0..columns::N_LIMBS {
+    for deg in 0..N_LIMBS {
         // deg'th element <- a*b - c
         aux_in_limbs[deg] -= output_limbs[deg];
     }
-    aux_in_limbs[0] >>= columns::LIMB_BITS;
-    for deg in 1..columns::N_LIMBS - 1 {
-        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> columns::LIMB_BITS;
+    aux_in_limbs[0] >>= LIMB_BITS;
+    for deg in 1..N_LIMBS - 1 {
+        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> LIMB_BITS;
     }
     // Can ignore the last element of aux_in_limbs
 
-    for deg in 0..columns::N_LIMBS - 1 {
-        let c = columns::MUL_AUX_INPUT[deg];
+    for deg in 0..N_LIMBS - 1 {
+        let c = MUL_AUX_INPUT[deg];
         lv[c] = F::from_canonical_u64(aux_in_limbs[deg]);
     }
 }
 
 #[allow(clippy::needless_range_loop)]
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; columns::NUM_ARITH_COLUMNS],
+    lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     range_check_error!(MUL_INPUT_0, 16);
@@ -67,18 +67,18 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_OUTPUT, 16);
     range_check_error!(MUL_AUX_INPUT, 32);
 
-    let is_mul = lv[columns::IS_MUL];
-    let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c]);
-    let aux_limbs = columns::MUL_AUX_INPUT.map(|c| lv[c]);
+    let is_mul = lv[IS_MUL];
+    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
+    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
+    let aux_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
     // verified. It is initialised to the /negative/ of the claimed
     // output.
-    let mut constr_poly = columns::MUL_OUTPUT.map(|c| -lv[c]);
+    let mut constr_poly = MUL_OUTPUT.map(|c| -lv[c]);
 
-    debug_assert_eq!(constr_poly.len(), columns::N_LIMBS);
+    debug_assert_eq!(constr_poly.len(), N_LIMBS);
 
     // After this loop constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
@@ -91,7 +91,7 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
-    for deg in 0..columns::N_LIMBS {
+    for deg in 0..N_LIMBS {
         // Invariant: i + j = deg
         for i in 0..deg {
             let j = deg - i;
@@ -100,12 +100,12 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 
     // This subtracts (x - 2^LIMB_BITS) * Q(x) from constr_poly.
-    let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     constr_poly[0] += base * aux_limbs[0];
-    for deg in 1..columns::N_LIMBS - 1 {
+    for deg in 1..N_LIMBS - 1 {
         constr_poly[deg] += (base * aux_limbs[deg]) - aux_limbs[deg - 1];
     }
-    constr_poly[columns::N_LIMBS - 1] -= aux_limbs[columns::N_LIMBS - 2];
+    constr_poly[N_LIMBS - 1] -= aux_limbs[N_LIMBS - 2];
 
     // At this point constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS)*Q(x). The
@@ -119,20 +119,20 @@ pub fn eval_packed_generic<P: PackedField>(
 #[allow(clippy::needless_range_loop)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_ARITH_COLUMNS],
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_mul = lv[columns::IS_MUL];
-    let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c]);
-    let aux_in_limbs = columns::MUL_AUX_INPUT.map(|c| lv[c]);
-    let output_limbs = columns::MUL_OUTPUT.map(|c| lv[c]);
+    let is_mul = lv[IS_MUL];
+    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
+    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
+    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
+    let aux_in_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
 
     let zero = builder.zero_extension();
-    let mut constr_poly = [zero; columns::N_LIMBS]; // pointless init
+    let mut constr_poly = [zero; N_LIMBS]; // pointless init
 
     // Invariant: i + j = deg
-    for deg in 0..columns::N_LIMBS {
+    for deg in 0..N_LIMBS {
         let mut acc = zero;
         for i in 0..deg {
             let j = deg - i;
@@ -141,16 +141,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         constr_poly[deg] = builder.sub_extension(acc, output_limbs[deg]);
     }
 
-    let base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+    let base = F::from_canonical_u64(1 << LIMB_BITS);
     constr_poly[0] = builder.mul_const_add_extension(base, aux_in_limbs[0], constr_poly[0]);
-    for deg in 1..columns::N_LIMBS - 1 {
+    for deg in 1..N_LIMBS - 1 {
         constr_poly[deg] =
             builder.mul_const_add_extension(base, aux_in_limbs[deg], constr_poly[deg]);
         constr_poly[deg] = builder.sub_extension(constr_poly[deg], aux_in_limbs[deg - 1]);
     }
-    constr_poly[columns::N_LIMBS] = builder.sub_extension(
-        constr_poly[columns::N_LIMBS],
-        aux_in_limbs[columns::N_LIMBS - 1],
+    constr_poly[N_LIMBS] = builder.sub_extension(
+        constr_poly[N_LIMBS],
+        aux_in_limbs[N_LIMBS - 1],
     );
 
     for &c in &constr_poly {

@@ -4,7 +4,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::arithmetic::columns;
+use crate::arithmetic::columns::*;
 use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
@@ -21,7 +21,7 @@ fn eval_packed_generic_are_equal<P, I, J>(
     I: Iterator<Item = P>,
     J: Iterator<Item = P>,
 {
-    let overflow = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
+    let overflow = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     let overflow_inv = overflow.inverse();
     let mut cy = P::ZEROS;
     for (a, b) in larger.zip(smaller) {
@@ -47,11 +47,11 @@ fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     J: Iterator<Item = ExtensionTarget<D>>,
 {
     // 2^LIMB_BITS in the base field
-    let overflow_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+    let overflow_base = F::from_canonical_u64(1 << LIMB_BITS);
     // 2^LIMB_BITS in the extension field as an ExtensionTarget
     let overflow = builder.constant_extension(F::Extension::from(overflow_base));
     // 2^-LIMB_BITS in the base field.
-    let overflow_inv = F::inverse_2exp(columns::LIMB_BITS);
+    let overflow_inv = F::inverse_2exp(LIMB_BITS);
 
     let mut cy = builder.zero_extension();
     for (a, b) in larger.zip(smaller) {
@@ -71,40 +71,40 @@ fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     }
 }
 
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ARITH_COLUMNS]) {
-    let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
+pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+    let input0_limbs = ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
+    let input1_limbs = ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
 
     // Input and output have 16-bit limbs
-    let mut output_limbs = [0u64; columns::N_LIMBS];
+    let mut output_limbs = [0u64; N_LIMBS];
 
-    const MASK: u64 = (1u64 << columns::LIMB_BITS) - 1u64;
+    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
     let cy = 0u64;
     for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
         let s = a + b + cy;
-        let cy = s >> columns::LIMB_BITS;
+        let cy = s >> LIMB_BITS;
         debug_assert!(cy <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = s & MASK;
     }
     // last carry is dropped because this is addition modulo 2^256.
 
-    for (&c, &output_limb) in columns::ADD_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, &output_limb) in ADD_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
 
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; columns::NUM_ARITH_COLUMNS],
+    lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     range_check_error!(ADD_INPUT_0, 16);
     range_check_error!(ADD_INPUT_1, 16);
     range_check_error!(ADD_OUTPUT, 16);
 
-    let is_add = lv[columns::IS_ADD];
-    let input0_limbs = columns::ADD_INPUT_0.iter().map(|&c| lv[c]);
-    let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);
-    let output_limbs = columns::ADD_OUTPUT.iter().map(|&c| lv[c]);
+    let is_add = lv[IS_ADD];
+    let input0_limbs = ADD_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
 
     // This computed output is not yet reduced; i.e. some limbs may be
     // more than 16 bits.
@@ -116,13 +116,13 @@ pub fn eval_packed_generic<P: PackedField>(
 #[allow(clippy::needless_collect)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_ARITH_COLUMNS],
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_add = lv[columns::IS_ADD];
-    let input0_limbs = columns::ADD_INPUT_0.iter().map(|&c| lv[c]);
-    let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);
-    let output_limbs = columns::ADD_OUTPUT.iter().map(|&c| lv[c]);
+    let is_add = lv[IS_ADD];
+    let input0_limbs = ADD_INPUT_0.iter().map(|&c| lv[c]);
+    let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
+    let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
 
     let output_computed = input0_limbs
         .zip(input1_limbs)

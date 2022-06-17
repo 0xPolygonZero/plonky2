@@ -12,6 +12,6 @@ pub(crate) fn _range_check_error<const RC_BITS: u32>(
 #[macro_export]
 macro_rules! range_check_error {
     ($cols:ident, $rc_bits:expr) => {
-        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &columns::$cols);
+        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &$cols);
     }
 }
