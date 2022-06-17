@@ -5,6 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns;
+use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 #[allow(clippy::needless_range_loop)]
@@ -61,6 +62,11 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    range_check_error!(MUL_INPUT_0, 16);
+    range_check_error!(MUL_INPUT_1, 16);
+    range_check_error!(MUL_OUTPUT, 16);
+    range_check_error!(MUL_AUX_INPUT, 32);
+
     let is_mul = lv[columns::IS_MUL];
     let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c]);
     let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c]);
@@ -74,7 +80,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
     debug_assert_eq!(constr_poly.len(), columns::N_LIMBS);
 
-    // At this point constr_poly holds the coefficients of the
+    // After this loop constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
     //
     //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS

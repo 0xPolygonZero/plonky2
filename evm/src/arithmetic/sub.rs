@@ -5,6 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns;
+use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// NB: Tests for equality, but only on the assumption that the limbs
@@ -88,6 +89,10 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    range_check_error!(SUB_INPUT_0, 16);
+    range_check_error!(SUB_INPUT_1, 16);
+    range_check_error!(SUB_OUTPUT, 16);
+
     let is_sub = lv[columns::IS_SUB];
     let input0_limbs = columns::SUB_INPUT_0.iter().map(|&c| lv[c]);
     let input1_limbs = columns::SUB_INPUT_1.iter().map(|&c| lv[c]);

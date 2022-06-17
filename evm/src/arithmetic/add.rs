@@ -5,6 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns;
+use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// NB: Tests for equality, but only on the assumption that the limbs
@@ -28,6 +29,8 @@ fn eval_packed_generic_are_equal<P, I, J>(
         let t = cy + a - b;
         yield_constr.constraint(is_op * t * (overflow - t));
         // cy <-- 0 or 1
+        // NB: this is multiplication by a constant, so doesn't
+        // increase the degree of the constraint.
         cy = t * overflow_inv;
     }
 }
@@ -94,6 +97,10 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; columns::NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    range_check_error!(ADD_INPUT_0, 16);
+    range_check_error!(ADD_INPUT_1, 16);
+    range_check_error!(ADD_OUTPUT, 16);
+
     let is_add = lv[columns::IS_ADD];
     let input0_limbs = columns::ADD_INPUT_0.iter().map(|&c| lv[c]);
     let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);

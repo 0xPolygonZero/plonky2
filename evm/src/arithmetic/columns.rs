@@ -34,50 +34,32 @@ const fn shared_col(i: usize) -> usize {
     START_SHARED_COLS + i
 }
 
-const fn gen_input_regs<const N: usize>(start: usize) -> [usize; N] {
-    let mut regs = [0usize; N];
+const fn gen_input_cols<const N: usize>(start: usize) -> [usize; N] {
+    let mut cols = [0usize; N];
     let mut i = 0;
     while i < N {
-        regs[i] = shared_col(start + i);
+        cols[i] = shared_col(start + i);
         i += 1;
     }
-    regs
+    cols
 }
 
-// Note: Addition outputs 16-bit limbs, and since these values need to
-// be range-checked, we might as well use the range check unit's
-// columns as our addition outputs. So the columns defined here are
-// basically aliases, not columns owned by the Arithmetic Unit.
-//
-// FIXME: I have no idea if this is the right thing to do.
-const fn gen_rc_output_regs<const N: usize>(start: usize) -> [usize; N] {
-    let mut regs = [0usize; N];
-    let mut i = 0;
-    while i < N {
-        // FIXME: This doesn't work
-        //regs[i] = super::range_check_16::col_rc_16_input(start + i);
+const GENERAL_INPUT_0: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(0);
+const GENERAL_INPUT_1: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(N_LIMBS);
+const GENERAL_INPUT_2: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(2*N_LIMBS);
+const AUX_INPUT_0: [usize; N_LIMBS-1] = gen_input_cols::<{N_LIMBS-1}>(3*N_LIMBS);
 
-        // FIXME: This will override the input columns!
-        regs[i] = shared_col(start + i);
-        i += 1;
-    }
-    regs
-}
+pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
+pub(crate) const ADD_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_2;
 
-pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
-pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-pub(crate) const ADD_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
+pub(crate) const SUB_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const SUB_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
+pub(crate) const SUB_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_2;
 
-// TODO: Rather than repeating these for every binary operation,
-// perhaps we should just declare them once and reuse?
-pub(crate) const SUB_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
-pub(crate) const SUB_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-pub(crate) const SUB_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
-
-pub(crate) const MUL_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
-pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-// FIXME: These need to be range-checked
-pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS - 1);
-pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
+pub(crate) const MUL_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS-1] = AUX_INPUT_0;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
