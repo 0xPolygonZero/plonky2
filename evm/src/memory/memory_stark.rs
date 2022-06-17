@@ -152,7 +152,34 @@ pub fn generate_range_check_value<F: RichField>(
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
-    pub(crate) fn generate_memory(trace_cols: &mut [Vec<F>]) {
+    fn generate_trace_rows(&self, memory_ops: Vec<(F, F, F, [F; 8], F, F)>) -> Vec<[F; NUM_REGISTERS]> {
+        let num_ops = memory_ops.len();
+
+        let mut trace_cols: [Vec<F>; NUM_REGISTERS] = vec![vec![F::ZERO; num_ops]; NUM_REGISTERS].try_into().unwrap();
+        for i in 0..num_ops {
+            let (context, segment, virt, values, is_read, timestamp) = memory_ops[i];
+            trace_cols[MEMORY_ADDR_CONTEXT][i] = context;
+            trace_cols[MEMORY_ADDR_SEGMENT][i] = segment;
+            trace_cols[MEMORY_ADDR_VIRTUAL][i] = virt;
+            for j in 0..8 {
+                trace_cols[memory_value_limb(j)][i] = values[j];
+            }
+            trace_cols[MEMORY_IS_READ][i] = is_read;
+            trace_cols[MEMORY_TIMESTAMP][i] = timestamp;
+        }
+
+        self.generate_memory(&mut trace_cols);
+
+        let mut trace_rows = vec![[F::ZERO; NUM_REGISTERS]];
+        for (i, col) in trace_cols.iter().enumerate() {
+            for (j, &val) in col.iter().enumerate() {
+                trace_rows[j][i] = val;
+            }
+        }
+        trace_rows
+    }
+
+    fn generate_memory(&self, trace_cols: &mut [Vec<F>]) {
         let context = &trace_cols[MEMORY_ADDR_CONTEXT];
         let segment = &trace_cols[MEMORY_ADDR_SEGMENT];
         let virtuals = &trace_cols[MEMORY_ADDR_VIRTUAL];
@@ -441,8 +468,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::iter::Map;
+
     use anyhow::Result;
+    use plonky2::field::field_types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use rand::{thread_rng, Rng};
 
     use crate::memory::memory_stark::MemoryStark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
@@ -471,5 +503,60 @@ mod tests {
             f: Default::default(),
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+
+    #[test]
+    fn test_memory_stark() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = MemoryStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+
+        const MAX_CONTEXT: usize = 256;
+        const MAX_SEGMENT: usize = 8;
+        const MAX_VIRTUAL: usize = 1 << 12;
+
+        let mut rng = thread_rng();
+
+        let num_ops = 20;
+        let mut memory_ops = Vec::new();
+        let current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
+        let mut cur_timestamp = 0;
+        for i in 0..num_ops {
+            let is_read = if i == 0 { false } else { rng.gen() };
+            let is_read_F = F::from_bool(is_read);
+
+            let (context, segment, virt, vals) = if is_read {
+                let written: Vec<_> = current_memory_values.keys().collect();
+                let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
+                let &vals = current_memory_values.get(&(context, segment, virt)).unwrap();
+                
+                (context, segment, virt, vals)
+            } else {
+                let context = F::from_canonical_usize(rng.gen_range(0..256));
+                let segment = F::from_canonical_usize(rng.gen_range(0..8));
+                let virt = F::from_canonical_usize(rng.gen_range(0..20));
+
+                let val: [u32; 8] = rng.gen();
+                let vals: [F; 8] = val.iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+
+                current_memory_values.insert((context, segment, virt), vals);
+
+                (context, segment, virt, vals)
+            };
+
+            let timestamp = F::from_canonical_usize(cur_timestamp);
+            cur_timestamp += 1;
+
+            memory_ops.push((context, segment, virt, is_read_F, vals, timestamp))
+        }
+
+        let rows = stark.generate_trace_rows(memory_ops);
+
+        Ok(())
     }
 }

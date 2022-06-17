@@ -162,6 +162,10 @@ mod tests {
                     .unwrap()
             })
             .collect();
+        let memory_trace = memory_stark.generate_trace(keccak_inputs);
+        let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
+
+        let default = vec![F::ONE; 1];
 
         let mut cpu_trace_rows = vec![];
         for i in 0..num_keccak_perms {
