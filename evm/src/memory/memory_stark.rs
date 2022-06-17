@@ -124,25 +124,16 @@ pub fn generate_first_change_flags<F: RichField>(
     let mut segment_first_change = Vec::new();
     let mut virtual_first_change = Vec::new();
     for idx in 0..num_ops - 1 {
-        let this_context_first_change = if context[idx] != context[idx + 1] {
-            F::ONE
-        } else {
-            F::ZERO
-        };
-        let this_segment_first_change = if segment[idx] != segment[idx + 1] {
-            F::ONE * (F::ONE - this_context_first_change)
-        } else {
-            F::ZERO
-        };
-        let this_virtual_first_change = if virtuals[idx] != virtuals[idx + 1] {
-            F::ONE * (F::ONE - this_context_first_change) * (F::ONE - this_segment_first_change)
-        } else {
-            F::ZERO
-        };
+        let this_context_first_change = context[idx] != context[idx + 1];
+        let this_segment_first_change =
+            segment[idx] != segment[idx + 1] && !this_context_first_change;
+        let this_virtual_first_change = virtuals[idx] != virtuals[idx + 1]
+            && !this_segment_first_change
+            && !this_context_first_change;
 
-        context_first_change.push(this_context_first_change);
-        segment_first_change.push(this_segment_first_change);
-        virtual_first_change.push(this_virtual_first_change);
+        context_first_change.push(F::from_bool(this_context_first_change));
+        segment_first_change.push(F::from_bool(this_segment_first_change));
+        virtual_first_change.push(F::from_bool(this_virtual_first_change));
     }
 
     context_first_change.push(F::ZERO);

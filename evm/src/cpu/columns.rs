@@ -163,7 +163,6 @@ const NUM_MEMORY_VALUE_LIMBS: usize = 8;
 
 pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
 
-
 const USES_MEMOP_START: usize = CLOCK + 1;
 pub const fn uses_memop(op: usize) -> usize {
     debug_assert!(op < NUM_MEMORY_OPS);
