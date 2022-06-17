@@ -145,12 +145,12 @@ pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
 pub const KECCAK_OUTPUT_LIMBS: Range<usize> = START_KECCAK_OUTPUT..START_KECCAK_OUTPUT + 50;
 
 // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
-// TODO: These input/output columns can be shared between the simple logic operations and others.
-pub const SIMPLE_LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
-pub const SIMPLE_LOGIC_INPUT1: Range<usize> = SIMPLE_LOGIC_INPUT0.end..SIMPLE_LOGIC_INPUT0.end + 16;
-pub const SIMPLE_LOGIC_OUTPUT: Range<usize> = SIMPLE_LOGIC_INPUT1.end..SIMPLE_LOGIC_INPUT1.end + 16;
+// TODO: These input/output columns can be shared between the logic operations and others.
+pub const LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
+pub const LOGIC_INPUT1: Range<usize> = LOGIC_INPUT0.end..LOGIC_INPUT0.end + 16;
+pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
 
-pub const SIMPLE_LOGIC_DIFF: usize = SIMPLE_LOGIC_OUTPUT.end;
+pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
 pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
 
 pub const NUM_CPU_COLUMNS: usize = SIMPLE_LOGIC_DIFF_INV + 1;

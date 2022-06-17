@@ -17,6 +17,7 @@ use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVarsTarget};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::logic::LogicStark;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
     AllProof, AllProofChallengesTarget, AllProofTarget, StarkOpeningSetTarget, StarkProof,
@@ -41,6 +42,8 @@ pub fn verify_proof_circuit<
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     C::Hasher: AlgebraicHasher<F>,
 {
     let AllProofChallengesTarget {
@@ -53,6 +56,7 @@ pub fn verify_proof_circuit<
     let AllStark {
         cpu_stark,
         keccak_stark,
+        logic_stark,
         cross_table_lookups,
     } = all_stark;
 
@@ -77,6 +81,14 @@ pub fn verify_proof_circuit<
         &all_proof.stark_proofs[Table::Keccak as usize],
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
+        inner_config,
+    );
+    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+        builder,
+        logic_stark,
+        &all_proof.stark_proofs[Table::Logic as usize],
+        &stark_challenges[Table::Logic as usize],
+        &ctl_vars_per_table[Table::Logic as usize],
         inner_config,
     );
 
@@ -260,6 +272,20 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
                 nums_ctl_zs[Table::Keccak as usize],
             );
             let public_inputs = builder.add_virtual_targets(KeccakStark::<F, D>::PUBLIC_INPUTS);
+            StarkProofWithPublicInputsTarget {
+                proof,
+                public_inputs,
+            }
+        },
+        {
+            let proof = add_virtual_stark_proof(
+                builder,
+                all_stark.logic_stark,
+                config,
+                degree_bits[Table::Logic as usize],
+                nums_ctl_zs[Table::Logic as usize],
+            );
+            let public_inputs = builder.add_virtual_targets(LogicStark::<F, D>::PUBLIC_INPUTS);
             StarkProofWithPublicInputsTarget {
                 proof,
                 public_inputs,

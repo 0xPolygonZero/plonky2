@@ -12,7 +12,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 // Total number of bits per input/output.
 const VAL_BITS: usize = 256;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
-const PACKED_LIMB_BITS: usize = 16;
+pub(crate) const PACKED_LIMB_BITS: usize = 16;
 // Number of field elements needed to store each input/output at the specified packing.
 const PACKED_LEN: usize = (VAL_BITS + PACKED_LIMB_BITS - 1) / PACKED_LIMB_BITS;
 
@@ -192,8 +192,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::RESULT,
             columns::INPUT0_PACKED,
             columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_PACKED),
-            columns::limb_bit_cols_for_input(columns::INPUT1_PACKED),
+            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
         ) {
             let x = lv[x_col];
             let y = lv[y_col];
@@ -267,8 +267,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::RESULT,
             columns::INPUT0_PACKED,
             columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_PACKED),
-            columns::limb_bit_cols_for_input(columns::INPUT1_PACKED),
+            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
         ) {
             let x = lv[x_col];
             let y = lv[y_col];
