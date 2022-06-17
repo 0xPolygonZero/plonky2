@@ -17,6 +17,7 @@ use crate::memory::registers::{
     SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
     SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
+use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::util::{permuted_cols, trace_rows_to_poly_values};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -28,7 +29,16 @@ pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
-pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F, F, F, [F; 8])> {
+pub struct MemoryOp<F> {
+    timestamp: F,
+    is_read: F,
+    context: F,
+    segment: F,
+    virt: F,
+    value: [F; 8],
+}
+
+pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<MemoryOp<F>> {
     let mut memory_ops = Vec::new();
 
     let mut rng = thread_rng();
@@ -61,7 +71,14 @@ pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F,
 
         let timestamp = F::from_canonical_usize(i);
 
-        memory_ops.push((timestamp, is_read_field, context, segment, virt, vals))
+        memory_ops.push(MemoryOp {
+            timestamp,
+            is_read: is_read_field,
+            context,
+            segment,
+            virt,
+            value: vals,
+        });
     }
 
     memory_ops
@@ -164,22 +181,27 @@ pub fn generate_range_check_value<F: RichField>(
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     pub(crate) fn generate_trace_rows(
         &self,
-        memory_ops: Vec<(F, F, F, F, F, [F; 8])>,
+        memory_ops: Vec<MemoryOp<F>>,
     ) -> Vec<[F; NUM_REGISTERS]> {
         let num_ops = memory_ops.len();
 
-        let mut trace_cols: [Vec<F>; NUM_REGISTERS] = vec![vec![F::ZERO; num_ops]; NUM_REGISTERS]
-            .try_into()
-            .unwrap();
+        let mut trace_cols = [(); NUM_REGISTERS].map(|_| vec![F::ZERO; num_ops]);
         for i in 0..num_ops {
-            let (timestamp, is_read, context, segment, virt, values) = memory_ops[i];
+            let MemoryOp {
+                timestamp,
+                is_read,
+                context,
+                segment,
+                virt,
+                value,
+            } = memory_ops[i];
             trace_cols[TIMESTAMP][i] = timestamp;
             trace_cols[IS_READ][i] = is_read;
             trace_cols[ADDR_CONTEXT][i] = context;
             trace_cols[ADDR_SEGMENT][i] = segment;
             trace_cols[ADDR_VIRTUAL][i] = virt;
             for j in 0..8 {
-                trace_cols[value_limb(j)][i] = values[j];
+                trace_cols[value_limb(j)][i] = value[j];
             }
         }
 
@@ -252,7 +274,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[VIRTUAL_FIRST_CHANGE] = virtual_first_change;
 
         trace_cols[RANGE_CHECK] = range_check_value;
-        trace_cols[COUNTER] = (0..trace_cols[0].len())
+        trace_cols[COUNTER] = (0..num_trace_rows)
             .map(|i| F::from_canonical_usize(i))
             .collect();
 
@@ -262,13 +284,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[COUNTER_PERMUTED] = permuted_table;
     }
 
-    pub fn generate_trace(
-        &self,
-        memory_ops: Vec<(F, F, F, F, F, [F; 8])>,
-    ) -> Vec<PolynomialValues<F>> {
+    pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
-        // Generate the witness, except for permuted columns in the lookup argument.
+        // Generate the witness.
         let trace_rows = timed!(
             &mut timing,
             "generate trace rows",
@@ -363,7 +382,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // Lookup argument for the range check.
         let local_perm_input = vars.local_values[RANGE_CHECK_PERMUTED];
         let next_perm_table = vars.next_values[COUNTER_PERMUTED];
-        let next_perm_input = vars.next_values[COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[RANGE_CHECK_PERMUTED];
 
         // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = next_perm_input - local_perm_input;
@@ -512,6 +531,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![
+            PermutationPair::singletons(RANGE_CHECK, RANGE_CHECK_PERMUTED),
+            PermutationPair::singletons(COUNTER, COUNTER_PERMUTED),
+        ]
     }
 }
 
