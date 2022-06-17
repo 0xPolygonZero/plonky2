@@ -53,7 +53,7 @@ pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F,
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
     for i in 0..num_ops {
         let is_read = if i == 0 { false } else { rng.gen() };
-        let is_read_F = F::from_bool(is_read);
+        let is_read_field = F::from_bool(is_read);
 
         let (context, segment, virt, vals) = if is_read {
             let written: Vec<_> = current_memory_values.keys().collect();
@@ -78,7 +78,7 @@ pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F,
 
         let timestamp = F::from_canonical_usize(i);
 
-        memory_ops.push((timestamp, is_read_F, context, segment, virt, vals))
+        memory_ops.push((timestamp, is_read_field, context, segment, virt, vals))
     }
 
     memory_ops
