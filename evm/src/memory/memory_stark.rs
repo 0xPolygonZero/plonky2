@@ -120,9 +120,9 @@ pub fn generate_first_change_flags<F: RichField>(
     virtuals: &[F],
 ) -> (Vec<F>, Vec<F>, Vec<F>) {
     let num_ops = context.len();
-    let mut context_first_change = Vec::new();
-    let mut segment_first_change = Vec::new();
-    let mut virtual_first_change = Vec::new();
+    let mut context_first_change = Vec::with_capacity(num_ops);
+    let mut segment_first_change = Vec::with_capacity(num_ops);
+    let mut virtual_first_change = Vec::with_capacity(num_ops);
     for idx in 0..num_ops - 1 {
         let this_context_first_change = context[idx] != context[idx + 1];
         let this_segment_first_change =
