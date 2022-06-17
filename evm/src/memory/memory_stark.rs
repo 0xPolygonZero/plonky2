@@ -57,7 +57,9 @@ pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<MemoryOp<
 
             (context, segment, virt, vals)
         } else {
-            let context = F::from_canonical_usize(rng.gen_range(0..256));
+            // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
+            // test larger address values.
+            let context = F::from_canonical_usize(rng.gen_range(0..40));
             let segment = F::from_canonical_usize(rng.gen_range(0..8));
             let virt = F::from_canonical_usize(rng.gen_range(0..20));
 
@@ -513,7 +515,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // Lookup argument for range check.
         let local_perm_input = vars.local_values[RANGE_CHECK_PERMUTED];
         let next_perm_table = vars.next_values[COUNTER_PERMUTED];
-        let next_perm_input = vars.next_values[COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[RANGE_CHECK_PERMUTED];
 
         // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
