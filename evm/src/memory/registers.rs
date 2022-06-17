@@ -22,7 +22,7 @@ pub const fn sorted_memory_value_limb(i: usize) -> usize {
     SORTED_MEMORY_VALUE_START + i
 }
 
-pub(crate) const MEMORY_CONTEXT_FIRST_CHANGE: usize = SORTED_MEMORY_TIMESTAMP + 1;
+pub(crate) const MEMORY_CONTEXT_FIRST_CHANGE: usize = SORTED_MEMORY_VALUE_START + 8;
 pub(crate) const MEMORY_SEGMENT_FIRST_CHANGE: usize = MEMORY_CONTEXT_FIRST_CHANGE + 1;
 pub(crate) const MEMORY_VIRTUAL_FIRST_CHANGE: usize = MEMORY_SEGMENT_FIRST_CHANGE + 1;
 
