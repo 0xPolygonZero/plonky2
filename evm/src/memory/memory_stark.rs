@@ -21,23 +21,6 @@ use crate::stark::Stark;
 use crate::util::{permuted_cols, trace_rows_to_poly_values};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-#[derive(Default)]
-pub struct TransactionMemory {
-    pub calls: Vec<ContractMemory>,
-}
-
-/// A virtual memory space specific to the current contract call.
-pub struct ContractMemory {
-    pub code: MemorySegment,
-    pub main: MemorySegment,
-    pub calldata: MemorySegment,
-    pub returndata: MemorySegment,
-}
-
-pub struct MemorySegment {
-    pub content: Vec<u8>,
-}
-
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
 #[derive(Copy, Clone)]
@@ -102,7 +85,7 @@ pub fn sort_memory_ops<F: RichField>(
     )
     .collect();
 
-    ops.sort_by_key(|&(t, _, c, s, v, _)| {
+    ops.sort_unstable_by_key(|&(t, _, c, s, v, _)| {
         (
             c.to_noncanonical_u64(),
             s.to_noncanonical_u64(),
