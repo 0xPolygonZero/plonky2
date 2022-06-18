@@ -1,3 +1,4 @@
+// TODO: remove when possible.
 #![allow(dead_code)]
 
 use std::ops::Range;
@@ -164,6 +165,7 @@ pub(crate) const NUM_MEMORY_OPS: usize = 4;
 pub(crate) const NUM_MEMORY_VALUE_LIMBS: usize = 8;
 
 pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
+
 
 // Uses_memop(i) is `F::ONE` iff this row includes a memory operation in its `i`th spot.
 const USES_MEMOP_START: usize = CLOCK + 1;

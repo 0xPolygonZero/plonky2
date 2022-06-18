@@ -370,11 +370,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(address_unchanged * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
-        let range_check_value = context_first_change * (next_addr_context - addr_context - one)
+        let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + address_unchanged * (next_timestamp - timestamp - one);
-        yield_constr.constraint_transition(range_check - range_check_value);
+        yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
@@ -497,12 +497,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         };
         let timestamp_range_check = builder.mul_extension(address_unchanged, timestamp_diff);
 
-        let range_check_value = {
+        let computed_range_check = {
             let mut sum = builder.add_extension(context_range_check, segment_range_check);
             sum = builder.add_extension(sum, virtual_range_check);
             builder.add_extension(sum, timestamp_range_check)
         };
-        let range_check_diff = builder.sub_extension(range_check, range_check_value);
+        let range_check_diff = builder.sub_extension(range_check, computed_range_check);
         yield_constr.constraint_transition(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
