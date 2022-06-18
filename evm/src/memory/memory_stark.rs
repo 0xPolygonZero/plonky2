@@ -38,7 +38,10 @@ pub struct MemoryOp<F> {
     value: [F; 8],
 }
 
-pub fn generate_random_memory_ops<F: RichField, R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp<F>> {
+pub fn generate_random_memory_ops<F: RichField, R: Rng>(
+    num_ops: usize,
+    rng: &mut R,
+) -> Vec<MemoryOp<F>> {
     let mut memory_ops = Vec::new();
 
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();

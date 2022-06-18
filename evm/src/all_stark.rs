@@ -136,7 +136,7 @@ mod tests {
         }
         trace_rows_to_poly_values(trace_rows)
     }
-    
+
     fn make_memory_trace<R: Rng>(
         num_memory_ops: usize,
         memory_stark: &MemoryStark<F, D>,
@@ -277,7 +277,6 @@ mod tests {
             &logic_trace,
             &mut memory_trace,
         );
-
 
         let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
         cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
