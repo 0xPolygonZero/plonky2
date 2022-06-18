@@ -60,7 +60,7 @@ impl Table {
 mod tests {
     use anyhow::Result;
     use itertools::{izip, Itertools};
-    use plonky2::field::field_types::Field;
+    use plonky2::field::field_types::{Field, PrimeField64};
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -136,14 +136,24 @@ mod tests {
         }
         trace_rows_to_poly_values(trace_rows)
     }
+    
+    fn make_memory_trace<R: Rng>(
+        num_memory_ops: usize,
+        memory_stark: &MemoryStark<F, D>,
+        rng: &mut R,
+    ) -> Vec<PolynomialValues<F>> {
+        let memory_ops = generate_random_memory_ops(num_memory_ops, rng);
+        memory_stark.generate_trace(memory_ops)
+    }
 
     fn make_cpu_trace(
         num_keccak_perms: usize,
         num_logic_rows: usize,
+        num_memory_ops: usize,
         cpu_stark: &CpuStark<F, D>,
         keccak_trace: &[PolynomialValues<F>],
         logic_trace: &[PolynomialValues<F>],
-        memory_trace: &[PolynomialValues<F>],
+        memory_trace: &mut [PolynomialValues<F>],
     ) -> Vec<PolynomialValues<F>> {
         let keccak_input_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_keccak_perms)
             .map(|i| {
@@ -257,6 +267,7 @@ mod tests {
 
         let keccak_trace = make_keccak_trace(num_keccak_perms, &keccak_stark, &mut rng);
         let logic_trace = make_logic_trace(num_logic_rows, &logic_stark, &mut rng);
+        let mut memory_trace = make_memory_trace(num_memory_ops, &memory_stark, &mut rng);
         let cpu_trace = make_cpu_trace(
             num_keccak_perms,
             num_logic_rows,
@@ -264,10 +275,9 @@ mod tests {
             &cpu_stark,
             &keccak_trace,
             &logic_trace,
+            &mut memory_trace,
         );
 
-        let memory_ops = generate_random_memory_ops(num_memory_ops);
-        let memory_trace = memory_stark.generate_trace(memory_ops);
 
         let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
         cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
@@ -301,7 +311,34 @@ mod tests {
             res
         };
 
-        let cross_table_lookups = vec![
+        let cpu_memory_cols: Vec<Vec<_>> = (0..NUM_MEMORY_OPS)
+            .map(|op| {
+                let mut cols = vec![Column::linear_combination_with_constant(
+                    [(cpu::columns::CLOCK, F::from_canonical_usize(NUM_MEMORY_OPS))],
+                    F::from_canonical_usize(op),
+                )];
+                cols.extend(Column::singles([
+                    cpu::columns::memop_is_read(op),
+                    cpu::columns::memop_addr_context(op),
+                    cpu::columns::memop_addr_segment(op),
+                    cpu::columns::memop_addr_virtual(op),
+                ]));
+                cols.extend(Column::singles(
+                    (0..8).map(|j| cpu::columns::memop_value(op, j)),
+                ));
+                cols
+            })
+            .collect();
+        let mut memory_memory_cols = vec![
+            memory::registers::TIMESTAMP,
+            memory::registers::IS_READ,
+            memory::registers::ADDR_CONTEXT,
+            memory::registers::ADDR_SEGMENT,
+            memory::registers::ADDR_VIRTUAL,
+        ];
+        memory_memory_cols.extend((0..8).map(memory::registers::value_limb));
+
+        let mut cross_table_lookups = vec![
             CrossTableLookup::new(
                 vec![TableWithColumns::new(
                     Table::Cpu,
@@ -325,6 +362,21 @@ mod tests {
                 None,
             ),
         ];
+        cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(|op| {
+            CrossTableLookup::new(
+                vec![TableWithColumns::new(
+                    Table::Cpu,
+                    cpu_memory_cols[op].clone(),
+                    Some(Column::single(cpu::columns::uses_memop(op))),
+                )],
+                TableWithColumns::new(
+                    Table::Memory,
+                    Column::singles(memory_memory_cols.clone()).collect(),
+                    Some(Column::single(memory::registers::is_memop(op))),
+                ),
+                None,
+            )
+        }));
 
         let all_stark = AllStark {
             cpu_stark,
@@ -338,7 +390,7 @@ mod tests {
             &all_stark,
             config,
             vec![cpu_trace, keccak_trace, logic_trace, memory_trace],
-            vec![vec![]; 3],
+            vec![vec![]; 4],
             &mut TimingTree::default(),
         )?;
 

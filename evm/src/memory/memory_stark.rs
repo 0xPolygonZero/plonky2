@@ -8,7 +8,7 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::memory::registers::{
@@ -38,10 +38,8 @@ pub struct MemoryOp<F> {
     value: [F; 8],
 }
 
-pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<MemoryOp<F>> {
+pub fn generate_random_memory_ops<F: RichField, R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp<F>> {
     let mut memory_ops = Vec::new();
-
-    let mut rng = thread_rng();
 
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
     for i in 0..num_ops {
