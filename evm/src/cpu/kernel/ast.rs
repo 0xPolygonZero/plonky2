@@ -42,19 +42,21 @@ impl Literal {
     }
 
     pub(crate) fn to_u256(&self) -> U256 {
-        match self {
-            Literal::Decimal(dec) => U256::from_dec_str(dec).expect("Bad decimal string"),
-            Literal::Hex(hex) => U256::from_str_radix(hex, 16).expect("Bad hex string"),
-        }
+        let (src, radix) = match self {
+            Literal::Decimal(s) => (s, 10),
+            Literal::Hex(s) => (s, 16),
+        };
+        U256::from_str_radix(src, radix)
+            .unwrap_or_else(|_| panic!("Not a valid u256 literal: {:?}", self))
     }
 
-    pub(crate) fn to_byte(&self) -> u8 {
+    pub(crate) fn to_u8(&self) -> u8 {
         let (src, radix) = match self {
             Literal::Decimal(s) => (s, 10),
             Literal::Hex(s) => (s, 16),
         };
         u8::from_str_radix(src, radix)
-            .unwrap_or_else(|_| panic!("Not a valid byte literal: {}", src))
+            .unwrap_or_else(|_| panic!("Not a valid u8 literal: {:?}", self))
     }
 }
 

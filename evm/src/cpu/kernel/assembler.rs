@@ -74,7 +74,7 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
             }
-            Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_byte())),
+            Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_u8())),
         }
     }
 
