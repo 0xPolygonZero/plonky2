@@ -9,17 +9,15 @@ identifier_char = _{ ASCII_ALPHANUMERIC | "_" }
 identifier = @{ identifier_first_char ~ identifier_char* }
 
 literal_decimal = @{ ASCII_DIGIT+ }
-literal_hex = @{ "0x" ~ ASCII_HEX_DIGIT+ }
-literal = { literal_decimal | literal_hex }
+literal_hex = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
+literal = { literal_hex | literal_decimal }
 
-function = { "function " ~ identifier ~ body }
-body = { "{" ~ item* ~ "}" }
-
-item = { label | literal_item | push_instruction | nullary_instruction }
-label = { identifier ~ ":" }
-literal_item = { "LIT " ~ literal_hex }
-push_instruction = { "PUSH " ~ (literal | identifier) }
+item = { global_label | local_label | bytes_item | push_instruction | nullary_instruction }
+global_label = { ^"GLOBAL " ~ identifier ~ ":" }
+local_label = { identifier ~ ":" }
+bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
+push_instruction = { ^"PUSH " ~ (literal | identifier) }
 nullary_instruction = { identifier }
 
-file = { SOI ~ function* ~ silent_eoi }
+file = { SOI ~ item* ~ silent_eoi }
 silent_eoi = _{ !ANY }

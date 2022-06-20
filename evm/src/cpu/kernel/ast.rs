@@ -2,21 +2,22 @@ use ethereum_types::U256;
 use plonky2_util::ceil_div_usize;
 
 #[derive(Debug)]
-pub(crate) struct Function {
-    pub(crate) name: String,
+pub(crate) struct File {
     pub(crate) body: Vec<Item>,
 }
 
 #[derive(Debug)]
 pub(crate) enum Item {
-    /// Declares a label that is local to the current function.
-    LabelDeclaration(String),
+    /// Declares a global label.
+    GlobalLabelDeclaration(String),
+    /// Declares a label that is local to the current file.
+    LocalLabelDeclaration(String),
     /// A `PUSH` operation.
     Push(PushTarget),
     /// Any opcode besides a PUSH opcode.
     StandardOp(String),
     /// Literal hex data; should contain an even number of hex chars.
-    Literal(HexStr),
+    Bytes(Vec<Literal>),
 }
 
 /// The target of a `PUSH` operation.
@@ -29,7 +30,7 @@ pub(crate) enum PushTarget {
 #[derive(Debug)]
 pub(crate) enum Literal {
     Decimal(String),
-    Hex(HexStr),
+    Hex(String),
 }
 
 impl Literal {
@@ -43,29 +44,17 @@ impl Literal {
     pub(crate) fn to_u256(&self) -> U256 {
         match self {
             Literal::Decimal(dec) => U256::from_dec_str(dec).expect("Bad decimal string"),
-            Literal::Hex(hex) => U256::from_big_endian(&hex.to_bytes()),
+            Literal::Hex(hex) => U256::from_str_radix(hex, 16).expect("Bad hex string"),
         }
     }
-}
 
-#[derive(Debug)]
-pub(crate) struct HexStr {
-    pub(crate) nibbles: String,
-}
-
-impl HexStr {
-    pub(crate) fn to_bytes(&self) -> Vec<u8> {
-        assert_eq!(
-            self.nibbles.len() % 2,
-            0,
-            "Odd number of nibbles in hex string"
-        );
-        (0..self.nibbles.len())
-            .step_by(2)
-            .map(|i| {
-                u8::from_str_radix(&self.nibbles[i..i + 2], 16).expect("Hex nibble out of range")
-            })
-            .collect()
+    pub(crate) fn to_byte(&self) -> u8 {
+        let (src, radix) = match self {
+            Literal::Decimal(s) => (s, 10),
+            Literal::Hex(s) => (s, 16),
+        };
+        u8::from_str_radix(src, radix)
+            .unwrap_or_else(|_| panic!("Not a valid byte literal: {}", src))
     }
 }
 
@@ -81,11 +70,13 @@ mod tests {
         );
 
         assert_eq!(
-            Literal::Hex(HexStr {
-                nibbles: "a1b2".into()
-            })
-            .to_trimmed_be_bytes(),
+            Literal::Hex("a1b2".into()).to_trimmed_be_bytes(),
             vec![0xa1, 0xb2]
+        );
+
+        assert_eq!(
+            Literal::Hex("1b2".into()).to_trimmed_be_bytes(),
+            vec![0x1, 0xb2]
         );
     }
 }

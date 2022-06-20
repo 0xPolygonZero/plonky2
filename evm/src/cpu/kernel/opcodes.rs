@@ -1,13 +1,13 @@
-/// The ordinal of the `PUSH[n]` opcode, given a byte count `n`.
-pub(crate) fn push_ordinal(n: usize) -> u8 {
+/// The opcode of the `PUSH[n]` opcode, given a byte count `n`.
+pub(crate) fn get_push_opcode(n: u8) -> u8 {
     assert!(n > 0);
     assert!(n <= 32);
     0x60 + (n as u8 - 1)
 }
 
-/// The ordinal of a standard opcode (not a `PUSH`).
-pub(crate) fn opcode_ordinal(opcode: &str) -> u8 {
-    match opcode {
+/// The opcode of a standard opcode (not a `PUSH`).
+pub(crate) fn get_opcode(mnemonic: &str) -> u8 {
+    match mnemonic.to_uppercase().as_str() {
         "STOP" => 0x00,
         "ADD" => 0x01,
         "MUL" => 0x02,
@@ -118,6 +118,6 @@ pub(crate) fn opcode_ordinal(opcode: &str) -> u8 {
         "REVERT" => 0xfd,
         "INVALID" => 0xfe,
         "SELFDESTRUCT" => 0xff,
-        _ => panic!("Unrecognized opcode {}", opcode),
+        _ => panic!("Unrecognized opcode {}", mnemonic),
     }
 }

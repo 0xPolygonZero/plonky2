@@ -1,22 +1,19 @@
-//! Loads each kernel function assembly file and concatenates them.
+//! Loads each kernel assembly file and concatenates them.
+
+use itertools::Itertools;
 
 use super::assembler::{assemble, Kernel};
-use crate::cpu::kernel::ast::Function;
 use crate::cpu::kernel::parser::parse;
 
-fn combined_asm() -> String {
-    let mut combined = String::new();
-    combined.push_str(include_str!("functions/storage_read.asm"));
-    combined.push_str(include_str!("functions/storage_write.asm"));
-    combined
-}
+#[allow(dead_code)] // TODO: Should be used once witness generation is done.
+pub(crate) fn combined_kernel() -> Kernel {
+    let files = vec![
+        include_str!("asm/storage_read.asm"),
+        include_str!("asm/storage_write.asm"),
+    ];
 
-fn combined_ast() -> Vec<Function> {
-    parse(&combined_asm())
-}
-
-pub fn combined_kernel() -> Kernel {
-    assemble(combined_ast())
+    let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
+    assemble(parsed_files)
 }
 
 #[cfg(test)]
@@ -26,6 +23,6 @@ mod tests {
     #[test]
     fn make_kernel() {
         // Make sure we can parse and assemble the entire kernel.
-        dbg!(combined_kernel());
+        combined_kernel();
     }
 }

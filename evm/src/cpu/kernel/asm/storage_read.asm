@@ -1,12 +1,10 @@
 // TODO: Dummy code for now.
-function storage_read {
+global storage_read:
     JUMPDEST
     PUSH 1234
     POP
-
     // An infinite loop:
-  mylabel:
+mylabel:
     JUMPDEST
     PUSH mylabel
     JUMP
-}

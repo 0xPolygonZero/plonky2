@@ -2,76 +2,79 @@ use std::collections::HashMap;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::{
-    ast::{Function, Item},
-    opcodes::{opcode_ordinal, push_ordinal},
+    ast::{File, Item},
+    opcodes::{get_opcode, get_push_opcode},
 };
 
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
 /// nontrivial given the circular dependency between an offset and its size.
-const BYTES_PER_OFFSET: usize = 3;
+const BYTES_PER_OFFSET: u8 = 3;
 
 #[derive(PartialEq, Eq, Debug)]
-#[allow(dead_code)] // TODO: Should be used once witness generation is done.
 pub struct Kernel {
     code: Vec<u8>,
-    function_offsets: HashMap<String, usize>,
+    global_labels: HashMap<String, usize>,
 }
 
-pub(crate) fn assemble(functions: Vec<Function>) -> Kernel {
+pub(crate) fn assemble(files: Vec<File>) -> Kernel {
     let mut code = vec![];
-    let mut function_offsets = HashMap::new();
-    for function in functions {
-        function_offsets.insert(function.name, code.len());
-        assemble_function(function.body, &mut code);
+    let mut global_labels = HashMap::new();
+    for file in files {
+        assemble_file(file.body, &mut code, &mut global_labels);
     }
     Kernel {
         code,
-        function_offsets,
+        global_labels,
     }
 }
 
-fn assemble_function(body: Vec<Item>, code: &mut Vec<u8>) {
+fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMap<String, usize>) {
     // First discover the offset of each label  in this function.
-    let mut label_offsets = HashMap::<String, usize>::new();
+    let mut local_labels = HashMap::<String, usize>::new();
     let mut offset = code.len();
     for item in &body {
         match item {
-            Item::LabelDeclaration(label) => {
-                label_offsets.insert(label.clone(), offset);
+            Item::GlobalLabelDeclaration(label) => {
+                let old = global_labels.insert(label.clone(), offset);
+                assert!(old.is_none(), "Duplicate global label: {}", label);
             }
-            Item::Push(target) => offset += 1 + push_target_size(target),
+            Item::LocalLabelDeclaration(label) => {
+                let old = local_labels.insert(label.clone(), offset);
+                assert!(old.is_none(), "Duplicate local label: {}", label);
+            }
+            Item::Push(target) => offset += 1 + push_target_size(target) as usize,
             Item::StandardOp(_) => offset += 1,
-            Item::Literal(hex) => offset += hex.to_bytes().len(),
+            Item::Bytes(bytes) => offset += bytes.len(),
         }
     }
 
     // Now that we have label offsets, we can assemble the function.
     for item in body {
         match item {
-            Item::LabelDeclaration(_) => {
+            Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
             }
             Item::Push(target) => {
                 let target_bytes: Vec<u8> = match target {
                     PushTarget::Literal(literal) => literal.to_trimmed_be_bytes(),
                     PushTarget::Label(label) => {
-                        let offset = label_offsets[&label];
+                        let offset = local_labels[&label];
                         // We want the BYTES_PER_OFFSET least significant bytes in BE order.
                         // It's easiest to rev the first BYTES_PER_OFFSET bytes of the LE encoding.
                         (0..BYTES_PER_OFFSET)
                             .rev()
-                            .map(|i| offset.to_le_bytes()[i])
+                            .map(|i| offset.to_le_bytes()[i as usize])
                             .collect()
                     }
                 };
-                code.push(push_ordinal(target_bytes.len()));
+                code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
             }
             Item::StandardOp(opcode) => {
-                code.push(opcode_ordinal(&opcode));
+                code.push(get_opcode(&opcode));
             }
-            Item::Literal(hex) => code.extend(hex.to_bytes()),
+            Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_byte())),
         }
     }
 
@@ -83,9 +86,9 @@ fn assemble_function(body: Vec<Item>, code: &mut Vec<u8>) {
 }
 
 /// The size of a `PushTarget`, in bytes.
-fn push_target_size(target: &PushTarget) -> usize {
+fn push_target_size(target: &PushTarget) -> u8 {
     match target {
-        PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len(),
+        PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
     }
 }
@@ -97,23 +100,25 @@ mod tests {
     use crate::cpu::kernel::{assembler::*, ast::*};
 
     #[test]
-    fn two_functions() {
-        // We will test two simple functions, with a label and a jump, to ensure that jump offsets
-        // are correctly shifted based on the offset of the containing function.
+    fn two_files() {
+        // We will test two simple files, with a label and a jump, to ensure that jump offsets
+        // are correctly shifted based on the offset of the containing file.
 
-        let function_1 = Function {
-            name: "function_1".to_string(),
+        let file_1 = File {
             body: vec![
+                Item::GlobalLabelDeclaration("function_1".to_string()),
+                Item::StandardOp("JUMPDEST".to_string()),
                 Item::StandardOp("ADD".to_string()),
                 Item::StandardOp("MUL".to_string()),
             ],
         };
 
-        let function_2 = Function {
-            name: "function_2".to_string(),
+        let file_2 = File {
             body: vec![
+                Item::GlobalLabelDeclaration("function_2".to_string()),
+                Item::StandardOp("JUMPDEST".to_string()),
                 Item::StandardOp("DIV".to_string()),
-                Item::LabelDeclaration("mylabel".to_string()),
+                Item::LocalLabelDeclaration("mylabel".to_string()),
                 Item::StandardOp("JUMPDEST".to_string()),
                 Item::StandardOp("MOD".to_string()),
                 Item::Push(PushTarget::Label("mylabel".to_string())),
@@ -122,29 +127,81 @@ mod tests {
         };
 
         let expected_code = vec![
-            opcode_ordinal("ADD"),
-            opcode_ordinal("MUL"),
-            opcode_ordinal("DIV"),
-            opcode_ordinal("JUMPDEST"),
-            opcode_ordinal("MOD"),
-            push_ordinal(BYTES_PER_OFFSET),
-            // The label offset, 3, in 3-byte BE form.
+            get_opcode("JUMPDEST"),
+            get_opcode("ADD"),
+            get_opcode("MUL"),
+            get_opcode("JUMPDEST"),
+            get_opcode("DIV"),
+            get_opcode("JUMPDEST"),
+            get_opcode("MOD"),
+            get_push_opcode(BYTES_PER_OFFSET),
+            // The label offset, 5, in 3-byte BE form.
             0,
             0,
-            3,
-            opcode_ordinal("JUMP"),
+            5,
+            get_opcode("JUMP"),
         ];
 
         let mut expected_function_offsets = HashMap::new();
         expected_function_offsets.insert("function_1".to_string(), 0);
-        expected_function_offsets.insert("function_2".to_string(), 2);
+        expected_function_offsets.insert("function_2".to_string(), 3);
 
         let expected_kernel = Kernel {
             code: expected_code,
-            function_offsets: expected_function_offsets,
+            global_labels: expected_function_offsets,
         };
 
-        let program = vec![function_1, function_2];
+        let program = vec![file_1, file_2];
         assert_eq!(assemble(program), expected_kernel);
+    }
+
+    #[test]
+    #[should_panic]
+    fn global_label_collision() {
+        let file_1 = File {
+            body: vec![
+                Item::GlobalLabelDeclaration("foo".to_string()),
+                Item::StandardOp("JUMPDEST".to_string()),
+            ],
+        };
+        let file_2 = File {
+            body: vec![
+                Item::GlobalLabelDeclaration("foo".to_string()),
+                Item::StandardOp("JUMPDEST".to_string()),
+            ],
+        };
+        assemble(vec![file_1, file_2]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn local_label_collision() {
+        let file = File {
+            body: vec![
+                Item::LocalLabelDeclaration("foo".to_string()),
+                Item::StandardOp("JUMPDEST".to_string()),
+                Item::LocalLabelDeclaration("foo".to_string()),
+                Item::StandardOp("ADD".to_string()),
+            ],
+        };
+        assemble(vec![file]);
+    }
+
+    #[test]
+    fn literal_bytes() {
+        let file = File {
+            body: vec![
+                Item::Bytes(vec![
+                    Literal::Hex("12".to_string()),
+                    Literal::Decimal("42".to_string()),
+                ]),
+                Item::Bytes(vec![
+                    Literal::Hex("fe".to_string()),
+                    Literal::Decimal("255".to_string()),
+                ]),
+            ],
+        };
+        let code = assemble(vec![file]).code;
+        assert_eq!(code, vec![0x12, 42, 0xfe, 255])
     }
 }
