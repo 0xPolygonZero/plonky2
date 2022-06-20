@@ -30,7 +30,7 @@ pub(crate) fn assemble(files: Vec<File>) -> Kernel {
 }
 
 fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMap<String, usize>) {
-    // First discover the offset of each label  in this function.
+    // First discover the offset of each label  in this file.
     let mut local_labels = HashMap::<String, usize>::new();
     let mut offset = code.len();
     for item in &body {
@@ -49,7 +49,7 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
         }
     }
 
-    // Now that we have label offsets, we can assemble the function.
+    // Now that we have label offsets, we can assemble the file.
     for item in body {
         match item {
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
@@ -142,13 +142,13 @@ mod tests {
             get_opcode("JUMP"),
         ];
 
-        let mut expected_function_offsets = HashMap::new();
-        expected_function_offsets.insert("function_1".to_string(), 0);
-        expected_function_offsets.insert("function_2".to_string(), 3);
+        let mut expected_global_labels = HashMap::new();
+        expected_global_labels.insert("function_1".to_string(), 0);
+        expected_global_labels.insert("function_2".to_string(), 3);
 
         let expected_kernel = Kernel {
             code: expected_code,
-            global_labels: expected_function_offsets,
+            global_labels: expected_global_labels,
         };
 
         let program = vec![file_1, file_2];
