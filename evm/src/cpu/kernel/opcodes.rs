@@ -1,4 +1,4 @@
-/// The opcode of the `PUSH[n]` opcode, given a byte count `n`.
+/// The opcode of the `PUSH[n]` instruction, given a byte count `n`.
 pub(crate) fn get_push_opcode(n: u8) -> u8 {
     assert!(n > 0);
     assert!(n <= 32);
