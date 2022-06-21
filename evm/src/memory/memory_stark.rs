@@ -49,17 +49,18 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
 
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
     for i in 0..num_ops {
-        let is_read = if i == 0 { false } else { rng.gen() };
-        let is_read_field = F::from_bool(is_read);
-
         let timestamp = F::from_canonical_usize(i);
         let mut used_indices = HashSet::new();
+        let mut new_writes_this_cycle = HashSet::new();
         for _ in 0..2 {
             let mut channel_index = rng.gen_range(0..4);
             while used_indices.contains(&channel_index) {
                 channel_index = rng.gen_range(0..4);
             }
             used_indices.insert(channel_index);
+
+            let is_read = if i == 0 { false } else { rng.gen() };
+            let is_read_field = F::from_bool(is_read);
 
             let (context, segment, virt, vals) = if is_read {
                 let written: Vec<_> = current_memory_values.keys().collect();
@@ -79,7 +80,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
                 let val: [u32; 8] = rng.gen();
                 let vals: [F; 8] = val.map(F::from_canonical_u32);
 
-                current_memory_values.insert((context, segment, virt), vals);
+                new_writes_this_cycle.insert(((context, segment, virt), vals));
 
                 (context, segment, virt, vals)
             };
@@ -94,6 +95,10 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
                 value: vals,
             });
         }
+        for (k, v) in new_writes_this_cycle {
+            current_memory_values.insert(k, v);
+        }
+
     }
 
     memory_ops

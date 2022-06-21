@@ -216,6 +216,8 @@ mod tests {
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
         }
+        let mut current_cpu_index = 0;
+        let mut last_timestamp = memory_trace[memory::registers::TIMESTAMP].values[0];
         for i in 0..num_memory_ops {
             let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
             let clock = mem_timestamp;
@@ -223,19 +225,24 @@ mod tests {
                 .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
-            cpu_trace_rows[i][cpu::columns::uses_memop(op)] = F::ONE;
-            cpu_trace_rows[i][cpu::columns::CLOCK] = clock;
-            cpu_trace_rows[i][cpu::columns::memop_is_read(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::uses_memop(op)] = F::ONE;
+            cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
+            cpu_trace_rows[current_cpu_index][cpu::columns::memop_is_read(op)] =
                 memory_trace[memory::registers::IS_READ].values[i];
-            cpu_trace_rows[i][cpu::columns::memop_addr_context(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_context(op)] =
                 memory_trace[memory::registers::ADDR_CONTEXT].values[i];
-            cpu_trace_rows[i][cpu::columns::memop_addr_segment(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_segment(op)] =
                 memory_trace[memory::registers::ADDR_SEGMENT].values[i];
-            cpu_trace_rows[i][cpu::columns::memop_addr_virtual(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_virtual(op)] =
                 memory_trace[memory::registers::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
-                cpu_trace_rows[i][cpu::columns::memop_value(op, j)] =
+                cpu_trace_rows[current_cpu_index][cpu::columns::memop_value(op, j)] =
                     memory_trace[memory::registers::value_limb(j)].values[i];
+            }
+
+            if mem_timestamp != last_timestamp {
+                current_cpu_index += 1;
+                last_timestamp = mem_timestamp;
             }
         }
         trace_rows_to_poly_values(cpu_trace_rows)
