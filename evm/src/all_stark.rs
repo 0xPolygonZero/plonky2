@@ -316,7 +316,8 @@ mod tests {
                     cpu::columns::memop_addr_context(op),
                     cpu::columns::memop_addr_segment(op),
                     cpu::columns::memop_addr_virtual(op),
-                ]).collect_vec();
+                ])
+                .collect_vec();
                 cols.extend(Column::singles(
                     (0..8).map(|j| cpu::columns::memop_value(op, j)),
                 ));
