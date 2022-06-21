@@ -5,8 +5,8 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::range_check_error;
 
 #[allow(clippy::needless_range_loop)]
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
@@ -148,10 +148,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             builder.mul_const_add_extension(base, aux_in_limbs[deg], constr_poly[deg]);
         constr_poly[deg] = builder.sub_extension(constr_poly[deg], aux_in_limbs[deg - 1]);
     }
-    constr_poly[N_LIMBS] = builder.sub_extension(
-        constr_poly[N_LIMBS],
-        aux_in_limbs[N_LIMBS - 1],
-    );
+    constr_poly[N_LIMBS] = builder.sub_extension(constr_poly[N_LIMBS], aux_in_limbs[N_LIMBS - 1]);
 
     for &c in &constr_poly {
         let filter = builder.mul_extension(is_mul, c);

@@ -5,8 +5,8 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::range_check_error;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::range_check_error;
 
 /// NB: Tests for equality, but only on the assumption that the limbs
 /// in `larger` are all at least as big as those in `smaller`, and
