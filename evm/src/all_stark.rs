@@ -221,11 +221,12 @@ mod tests {
                 .to_canonical_u64()
                 .try_into()
                 .unwrap();
-            let clock = mem_timestamp / NUM_MEMORY_OPS;
-            let op = mem_timestamp % NUM_MEMORY_OPS;
+            let clock = mem_timestamp;
+            let op = (0..4)
+                .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
+                .collect_vec()[0];
 
             cpu_trace_rows[i][cpu::columns::uses_memop(op)] = F::ONE;
-            memory_trace[memory::registers::is_memop(op)].values[i] = F::ONE;
             cpu_trace_rows[i][cpu::columns::CLOCK] = F::from_canonical_usize(clock);
             cpu_trace_rows[i][cpu::columns::memop_is_read(op)] =
                 memory_trace[memory::registers::IS_READ].values[i];
