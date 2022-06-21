@@ -5,7 +5,7 @@ pub(crate) fn get_push_opcode(n: u8) -> u8 {
     0x60 + (n as u8 - 1)
 }
 
-/// The opcode of a standard opcode (not a `PUSH`).
+/// The opcode of a standard instruction (not a `PUSH`).
 pub(crate) fn get_opcode(mnemonic: &str) -> u8 {
     match mnemonic.to_uppercase().as_str() {
         "STOP" => 0x00,
