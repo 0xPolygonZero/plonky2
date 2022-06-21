@@ -2,10 +2,12 @@ use std::marker::PhantomData;
 
 use itertools::izip;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -40,6 +42,22 @@ pub(crate) mod columns {
     }
 
     pub const NUM_COLUMNS: usize = INPUT1_BITS.end;
+}
+
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    let mut res = vec![
+        Column::single(columns::IS_AND),
+        Column::single(columns::IS_OR),
+        Column::single(columns::IS_XOR),
+    ];
+    res.extend(columns::INPUT0_PACKED.map(Column::single));
+    res.extend(columns::INPUT1_PACKED.map(Column::single));
+    res.extend(columns::RESULT.map(Column::single));
+    res
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
 #[derive(Copy, Clone)]

@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use itertools::Itertools;
 use log::info;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -11,13 +12,14 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::registers::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
+    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -31,6 +33,16 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 pub(crate) const NUM_INPUTS: usize = 25;
 
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
+
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
+    res.extend(Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)));
+    res
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::single(reg_step(NUM_ROUNDS - 1))
+}
 
 #[derive(Copy, Clone)]
 pub struct KeccakStark<F, const D: usize> {

@@ -67,11 +67,12 @@ mod tests {
     use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
     use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
-    use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
-    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::logic;
-    use crate::logic::LogicStark;
+    use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+    use crate::keccak::keccak_stark::{
+        self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
+    };
+    use crate::logic::{self, LogicStark};
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -228,71 +229,27 @@ mod tests {
             &logic_trace,
         );
 
-        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
-        cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
-        let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
-            .map(keccak::registers::reg_input_limb)
-            .collect::<Vec<_>>();
-        keccak_keccak_input_output.extend(Column::singles(
-            (0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb),
-        ));
-
-        let cpu_logic_input_output = {
-            let mut res = vec![
-                cpu::columns::IS_AND,
-                cpu::columns::IS_OR,
-                cpu::columns::IS_XOR,
-            ];
-            res.extend(cpu::columns::LOGIC_INPUT0);
-            res.extend(cpu::columns::LOGIC_INPUT1);
-            res.extend(cpu::columns::LOGIC_OUTPUT);
-            res
-        };
-        let logic_logic_input_output = {
-            let mut res = vec![
-                logic::columns::IS_AND,
-                logic::columns::IS_OR,
-                logic::columns::IS_XOR,
-            ];
-            res.extend(logic::columns::INPUT0_PACKED);
-            res.extend(logic::columns::INPUT1_PACKED);
-            res.extend(logic::columns::RESULT);
-            res
-        };
-
         let cross_table_lookups = vec![
             CrossTableLookup::new(
                 vec![TableWithColumns::new(
                     Table::Cpu,
-                    Column::singles(cpu_keccak_input_output).collect(),
-                    Some(Column::single(cpu::columns::IS_KECCAK)),
+                    cpu_stark_mod::ctl_data_keccak(),
+                    Some(cpu_stark_mod::ctl_filter_keccak()),
                 )],
                 TableWithColumns::new(
                     Table::Keccak,
-                    keccak_keccak_input_output,
-                    Some(Column::single(keccak::registers::reg_step(NUM_ROUNDS - 1))),
+                    keccak_stark_mod::ctl_data(),
+                    Some(keccak_stark_mod::ctl_filter()),
                 ),
                 None,
             ),
             CrossTableLookup::new(
                 vec![TableWithColumns::new(
                     Table::Cpu,
-                    Column::singles(cpu_logic_input_output).collect(),
-                    Some(Column::sum([
-                        cpu::columns::IS_AND,
-                        cpu::columns::IS_OR,
-                        cpu::columns::IS_XOR,
-                    ])),
+                    cpu_stark_mod::ctl_data_logic(),
+                    Some(cpu_stark_mod::ctl_filter_logic()),
                 )],
-                TableWithColumns::new(
-                    Table::Logic,
-                    Column::singles(logic_logic_input_output).collect(),
-                    Some(Column::sum([
-                        logic::columns::IS_AND,
-                        logic::columns::IS_OR,
-                        logic::columns::IS_XOR,
-                    ])),
-                ),
+                TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
                 None,
             ),
         ];
