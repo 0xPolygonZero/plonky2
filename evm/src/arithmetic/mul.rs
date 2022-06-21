@@ -16,8 +16,10 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
 
     // Input and output have 16-bit limbs
-    let mut aux_in_limbs = [0u64; N_LIMBS];
+    let mut aux_in_limbs = [0u64; N_LIMBS - 1];
     let mut output_limbs = [0u64; N_LIMBS];
+
+    let mut unreduced_prod = [0u64; N_LIMBS];
 
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // We have heaps of space at the top of each limb, so by
@@ -30,9 +32,9 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
             // Invariant: i + j = col
             let j = col - i;
             let ai_x_bj = input0_limbs[i] * input1_limbs[j];
-            aux_in_limbs[col] += ai_x_bj;
+            unreduced_prod[col] += ai_x_bj;
         }
-        let t = aux_in_limbs[col] + cy;
+        let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
@@ -43,13 +45,24 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     }
     for deg in 0..N_LIMBS {
         // deg'th element <- a*b - c
-        aux_in_limbs[deg] -= output_limbs[deg];
+        unreduced_prod[deg] -= output_limbs[deg];
     }
-    aux_in_limbs[0] >>= LIMB_BITS;
-    for deg in 1..N_LIMBS - 1 {
-        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> LIMB_BITS;
+
+    // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
+    // This must be zero when evaluated at x = B = 2^LIMB_BITS, hence it's
+    // divisible by (x - B). If we write unreduced_prod as
+    //
+    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i
+    //                    = (x - B) \sum_{i=0}^{n-1} q_i x^i
+    //
+    // then by comparing coefficients it is easy to see that
+    //
+    //   q_{n-1} = p_n  and  q_{i-1} = p_i + q_i*B for 0 < i < n-1.
+    //
+    aux_in_limbs[N_LIMBS - 2] = unreduced_prod[N_LIMBS - 1];
+    for deg in (1..N_LIMBS - 1).rev() {
+        aux_in_limbs[deg - 1] = unreduced_prod[deg] + (aux_in_limbs[deg] << LIMB_BITS);
     }
-    // Can ignore the last element of aux_in_limbs
 
     for deg in 0..N_LIMBS - 1 {
         let c = MUL_AUX_INPUT[deg];
