@@ -118,6 +118,6 @@ pub(crate) fn get_opcode(mnemonic: &str) -> u8 {
         "REVERT" => 0xfd,
         "INVALID" => 0xfe,
         "SELFDESTRUCT" => 0xff,
-        _ => panic!("Unrecognized opcode {}", mnemonic),
+        _ => panic!("Unrecognized mnemonic {}", mnemonic),
     }
 }
