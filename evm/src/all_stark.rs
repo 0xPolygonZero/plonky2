@@ -217,17 +217,14 @@ mod tests {
             cpu_trace_rows.push(row);
         }
         for i in 0..num_memory_ops {
-            let mem_timestamp: usize = memory_trace[memory::registers::TIMESTAMP].values[i]
-                .to_canonical_u64()
-                .try_into()
-                .unwrap();
+            let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
             let clock = mem_timestamp;
             let op = (0..4)
                 .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
             cpu_trace_rows[i][cpu::columns::uses_memop(op)] = F::ONE;
-            cpu_trace_rows[i][cpu::columns::CLOCK] = F::from_canonical_usize(clock);
+            cpu_trace_rows[i][cpu::columns::CLOCK] = clock;
             cpu_trace_rows[i][cpu::columns::memop_is_read(op)] =
                 memory_trace[memory::registers::IS_READ].values[i];
             cpu_trace_rows[i][cpu::columns::memop_addr_context(op)] =
@@ -313,16 +310,13 @@ mod tests {
 
         let cpu_memory_cols: Vec<Vec<_>> = (0..NUM_MEMORY_OPS)
             .map(|op| {
-                let mut cols = vec![Column::linear_combination_with_constant(
-                    [(cpu::columns::CLOCK, F::from_canonical_usize(NUM_MEMORY_OPS))],
-                    F::from_canonical_usize(op),
-                )];
-                cols.extend(Column::singles([
+                let mut cols = Column::singles([
+                    cpu::columns::CLOCK,
                     cpu::columns::memop_is_read(op),
                     cpu::columns::memop_addr_context(op),
                     cpu::columns::memop_addr_segment(op),
                     cpu::columns::memop_addr_virtual(op),
-                ]));
+                ]).collect_vec();
                 cols.extend(Column::singles(
                     (0..8).map(|j| cpu::columns::memop_value(op, j)),
                 ));
