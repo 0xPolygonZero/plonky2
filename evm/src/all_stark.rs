@@ -224,6 +224,16 @@ mod tests {
             let op = (0..4)
                 .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
                 .collect_vec()[0];
+            
+            if mem_timestamp != last_timestamp {
+                current_cpu_index += 1;
+                last_timestamp = mem_timestamp;
+            }
+            
+            dbg!(i);
+            dbg!(mem_timestamp);
+            dbg!(current_cpu_index);
+            dbg!(op);
 
             cpu_trace_rows[current_cpu_index][cpu::columns::uses_memop(op)] = F::ONE;
             cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
@@ -240,10 +250,6 @@ mod tests {
                     memory_trace[memory::registers::value_limb(j)].values[i];
             }
 
-            if mem_timestamp != last_timestamp {
-                current_cpu_index += 1;
-                last_timestamp = mem_timestamp;
-            }
         }
         trace_rows_to_poly_values(cpu_trace_rows)
     }
@@ -318,27 +324,27 @@ mod tests {
         let cpu_memory_cols: Vec<Vec<_>> = (0..NUM_MEMORY_OPS)
             .map(|op| {
                 let mut cols = Column::singles([
-                    cpu::columns::CLOCK,
+                    // cpu::columns::CLOCK,
                     cpu::columns::memop_is_read(op),
-                    cpu::columns::memop_addr_context(op),
-                    cpu::columns::memop_addr_segment(op),
-                    cpu::columns::memop_addr_virtual(op),
+                    // cpu::columns::memop_addr_context(op),
+                    // cpu::columns::memop_addr_segment(op),
+                    // cpu::columns::memop_addr_virtual(op),
                 ])
                 .collect_vec();
-                cols.extend(Column::singles(
-                    (0..8).map(|j| cpu::columns::memop_value(op, j)),
-                ));
+                // cols.extend(Column::singles(
+                //     (0..8).map(|j| cpu::columns::memop_value(op, j)),
+                // ));
                 cols
             })
             .collect();
         let mut memory_memory_cols = vec![
-            memory::registers::TIMESTAMP,
+            // memory::registers::TIMESTAMP,
             memory::registers::IS_READ,
-            memory::registers::ADDR_CONTEXT,
-            memory::registers::ADDR_SEGMENT,
-            memory::registers::ADDR_VIRTUAL,
+            // memory::registers::ADDR_CONTEXT,
+            // memory::registers::ADDR_SEGMENT,
+            // memory::registers::ADDR_VIRTUAL,
         ];
-        memory_memory_cols.extend((0..8).map(memory::registers::value_limb));
+        // memory_memory_cols.extend((0..8).map(memory::registers::value_limb));
 
         let mut cross_table_lookups = vec![
             CrossTableLookup::new(
