@@ -8,6 +8,7 @@ use crate::cpu::kernel::parser::parse;
 #[allow(dead_code)] // TODO: Should be used once witness generation is done.
 pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
+        include_str!("asm/exp.asm"),
         include_str!("asm/storage_read.asm"),
         include_str!("asm/storage_write.asm"),
     ];
