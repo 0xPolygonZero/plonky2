@@ -50,15 +50,14 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
     for i in 0..num_ops {
         let timestamp = F::from_canonical_usize(i);
-        // let mut used_indices = HashSet::new();
+        let mut used_indices = HashSet::new();
         let mut new_writes_this_cycle = HashSet::new();
-        for _ in 0..1 {
-            // let mut channel_index = rng.gen_range(0..4);
-            // while used_indices.contains(&channel_index) {
-            //     channel_index = rng.gen_range(0..4);
-            // }
-            // used_indices.insert(channel_index);
-            let channel_index = rng.gen_range(0..4);
+        for _ in 0..2 {
+            let mut channel_index = rng.gen_range(0..4);
+            while used_indices.contains(&channel_index) {
+                channel_index = rng.gen_range(0..4);
+            }
+            used_indices.insert(channel_index);
 
             let is_read = if i == 0 { false } else { rng.gen() };
             let is_read_field = F::from_bool(is_read);
