@@ -8,7 +8,6 @@ use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-#[allow(clippy::needless_range_loop)]
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let input0_limbs = MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
@@ -70,7 +69,6 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
@@ -78,7 +76,8 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_INPUT_0, 16);
     range_check_error!(MUL_INPUT_1, 16);
     range_check_error!(MUL_OUTPUT, 16);
-    range_check_error!(MUL_AUX_INPUT, 32);
+    // FIXME: Check that overflow can be at most 15 (= 4 bits)
+    range_check_error!(MUL_AUX_INPUT, {16 + 4});
 
     let is_mul = lv[IS_MUL];
     let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
@@ -129,7 +128,6 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
