@@ -8,9 +8,16 @@ use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-/// NB: Tests for equality, but only on the assumption that the limbs
-/// in `larger` are all at least as big as those in `smaller`, and
-/// that the limbs in `larger` are at most (LIMB_BITS + 1) bits.
+/// Given two sequences `larger` and `smaller` of equal length (not
+/// checked), verifies that \sum_i larger[i] 2^(LIMB_BITS * i) ==
+/// \sum_i smaller[i] 2^(LIMB_BITS * i).
+///
+/// The sequences must have been produced by `eval_packed_generic()`
+/// below; specifically, if `a` and `b` are two numbers, then `larger`
+/// should be a sequence consisting of 2^LIMB_BITS + a_i - b_i where
+/// a_i and b_i are corresponding digits, while `smaller` should be
+/// the digits of the reduced value `a - b` after carry propagation
+/// has taken place.
 fn eval_packed_generic_are_equal<P, I, J>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
