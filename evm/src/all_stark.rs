@@ -60,7 +60,7 @@ impl Table {
 mod tests {
     use anyhow::Result;
     use itertools::{izip, Itertools};
-    use plonky2::field::field_types::{Field, PrimeField64};
+    use plonky2::field::field_types::Field;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
