@@ -158,8 +158,8 @@ pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
 pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
 pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
 
-const NUM_MEMORY_OPS: usize = 4;
-const NUM_MEMORY_VALUE_LIMBS: usize = 8;
+pub(crate) const NUM_MEMORY_OPS: usize = 4;
+pub(crate) const NUM_MEMORY_VALUE_LIMBS: usize = 8;
 
 pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
 

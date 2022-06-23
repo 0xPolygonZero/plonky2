@@ -71,12 +71,12 @@ mod tests {
 
     use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
-    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
     use crate::keccak::keccak_stark::{
         self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
     };
     use crate::logic::{self, LogicStark};
+    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS, NUM_MEMORY_OPS};
     use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
     use crate::proof::AllProof;
