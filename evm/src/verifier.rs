@@ -13,6 +13,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::logic::LogicStark;
+use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
@@ -33,6 +34,8 @@ where
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
     let AllProofChallenges {
@@ -46,6 +49,7 @@ where
         cpu_stark,
         keccak_stark,
         logic_stark,
+        memory_stark,
         cross_table_lookups,
     } = all_stark;
 
@@ -68,6 +72,13 @@ where
         &all_proof.stark_proofs[Table::Keccak as usize],
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        memory_stark,
+        &all_proof.stark_proofs[Table::Memory as usize],
+        &stark_challenges[Table::Memory as usize],
+        &ctl_vars_per_table[Table::Memory as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
