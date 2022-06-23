@@ -6,6 +6,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::CrossTableLookup;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::logic::LogicStark;
+use crate::memory::memory_stark::MemoryStark;
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -13,6 +14,7 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
+    pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
@@ -43,11 +45,12 @@ pub enum Table {
     Cpu = 0,
     Keccak = 1,
     Logic = 2,
+    Memory = 3,
 }
 
 impl Table {
     pub(crate) fn num_tables() -> usize {
-        Table::Logic as usize + 1
+        Table::Memory as usize + 1
     }
 }
 
@@ -68,11 +71,12 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{
         self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
     };
     use crate::logic::{self, LogicStark};
+    use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
+    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -137,6 +141,7 @@ mod tests {
         cpu_stark: &CpuStark<F, D>,
         keccak_trace: &[PolynomialValues<F>],
         logic_trace: &[PolynomialValues<F>],
+        memory_trace: &[PolynomialValues<F>],
     ) -> Vec<PolynomialValues<F>> {
         let keccak_input_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_keccak_perms)
             .map(|i| {
@@ -162,10 +167,6 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        let memory_trace = memory_stark.generate_trace(keccak_inputs);
-        let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
-
-        let default = vec![F::ONE; 1];
 
         let mut cpu_trace_rows = vec![];
         for i in 0..num_keccak_perms {
@@ -203,6 +204,30 @@ mod tests {
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
         }
+        for i in 0..num_memory_ops {
+            let mem_timestamp: usize = memory_trace[memory::registers::TIMESTAMP].values[i]
+                .to_canonical_u64()
+                .try_into()
+                .unwrap();
+            let clock = mem_timestamp / NUM_MEMORY_OPS;
+            let op = mem_timestamp % NUM_MEMORY_OPS;
+
+            cpu_trace_rows[i][cpu::columns::uses_memop(op)] = F::ONE;
+            memory_trace[memory::registers::is_memop(op)].values[i] = F::ONE;
+            cpu_trace_rows[i][cpu::columns::CLOCK] = F::from_canonical_usize(clock);
+            cpu_trace_rows[i][cpu::columns::memop_is_read(op)] =
+                memory_trace[memory::registers::IS_READ].values[i];
+            cpu_trace_rows[i][cpu::columns::memop_addr_context(op)] =
+                memory_trace[memory::registers::ADDR_CONTEXT].values[i];
+            cpu_trace_rows[i][cpu::columns::memop_addr_segment(op)] =
+                memory_trace[memory::registers::ADDR_SEGMENT].values[i];
+            cpu_trace_rows[i][cpu::columns::memop_addr_virtual(op)] =
+                memory_trace[memory::registers::ADDR_VIRTUAL].values[i];
+            for j in 0..8 {
+                cpu_trace_rows[i][cpu::columns::memop_value(op, j)] =
+                    memory_trace[memory::registers::value_limb(j)].values[i];
+            }
+        }
         trace_rows_to_poly_values(cpu_trace_rows)
     }
 
@@ -220,6 +245,11 @@ mod tests {
         };
         let num_logic_rows = 62;
 
+        let memory_stark = MemoryStark::<F, D> {
+            f: Default::default(),
+        };
+        let num_memory_ops = 1 << 5;
+
         let mut rng = thread_rng();
         let num_keccak_perms = 2;
 
@@ -228,10 +258,46 @@ mod tests {
         let cpu_trace = make_cpu_trace(
             num_keccak_perms,
             num_logic_rows,
+            num_memory_ops,
             &cpu_stark,
             &keccak_trace,
             &logic_trace,
         );
+
+        let memory_ops = generate_random_memory_ops(num_memory_ops);
+        let memory_trace = memory_stark.generate_trace(memory_ops);
+
+        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
+        cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
+        let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
+            .map(keccak::registers::reg_input_limb)
+            .collect::<Vec<_>>();
+        keccak_keccak_input_output.extend(Column::singles(
+            (0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb),
+        ));
+
+        let cpu_logic_input_output = {
+            let mut res = vec![
+                cpu::columns::IS_AND,
+                cpu::columns::IS_OR,
+                cpu::columns::IS_XOR,
+            ];
+            res.extend(cpu::columns::LOGIC_INPUT0);
+            res.extend(cpu::columns::LOGIC_INPUT1);
+            res.extend(cpu::columns::LOGIC_OUTPUT);
+            res
+        };
+        let logic_logic_input_output = {
+            let mut res = vec![
+                logic::columns::IS_AND,
+                logic::columns::IS_OR,
+                logic::columns::IS_XOR,
+            ];
+            res.extend(logic::columns::INPUT0_PACKED);
+            res.extend(logic::columns::INPUT1_PACKED);
+            res.extend(logic::columns::RESULT);
+            res
+        };
 
         let cross_table_lookups = vec![
             CrossTableLookup::new(
@@ -262,13 +328,14 @@ mod tests {
             cpu_stark,
             keccak_stark,
             logic_stark,
+            memory_stark,
             cross_table_lookups,
         };
 
         let proof = prove::<F, C, D>(
             &all_stark,
             config,
-            vec![cpu_trace, keccak_trace, logic_trace],
+            vec![cpu_trace, keccak_trace, logic_trace, memory_trace],
             vec![vec![]; 3],
             &mut TimingTree::default(),
         )?;

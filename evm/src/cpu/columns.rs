@@ -13,10 +13,20 @@ pub const IS_CPU_CYCLE: usize = IS_BOOTSTRAP_CONTRACT + 1;
 /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
 pub const OPCODE: usize = IS_CPU_CYCLE + 1;
 
+<<<<<<< HEAD
 /// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
 /// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
 /// must be 1.
 pub const IS_STOP: usize = OPCODE + 1;
+=======
+pub const KECCAK_DUMMY: usize = OPCODE + 1;
+pub const MEMORY_DUMMY: usize = KECCAK_DUMMY + 1;
+
+// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
+// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
+// must be 1.
+pub const IS_STOP: usize = MEMORY_DUMMY + 1;
+>>>>>>> ade7e5e0 (updated all_stark framework to include memory stark (doesn't pass yet))
 pub const IS_ADD: usize = IS_STOP + 1;
 pub const IS_MUL: usize = IS_ADD + 1;
 pub const IS_SUB: usize = IS_MUL + 1;

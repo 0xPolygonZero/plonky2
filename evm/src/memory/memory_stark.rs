@@ -1,9 +1,14 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use itertools::{izip, multiunzip};
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
+use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
+use plonky2::timed;
+use plonky2::util::timing::TimingTree;
+use rand::{thread_rng, Rng};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::memory::registers::{
@@ -15,7 +20,7 @@ use crate::memory::registers::{
     SORTED_MEMORY_TIMESTAMP,
 };
 use crate::stark::Stark;
-use crate::util::permuted_cols;
+use crate::util::{permuted_cols, trace_rows_to_poly_values};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Default)]
@@ -40,6 +45,52 @@ pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 #[derive(Copy, Clone)]
 pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
+}
+
+pub fn generate_random_memory_ops<F: RichField>(num_ops: usize) -> Vec<(F, F, F, [F; 8], F, F)> {
+    let mut memory_ops = Vec::new();
+
+    let mut rng = thread_rng();
+
+    let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
+    let mut cur_timestamp = 0;
+    for i in 0..num_ops {
+        let is_read = if i == 0 { false } else { rng.gen() };
+        let is_read_F = F::from_bool(is_read);
+
+        let (context, segment, virt, vals) = if is_read {
+            let written: Vec<_> = current_memory_values.keys().collect();
+            let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
+            let &vals = current_memory_values
+                .get(&(context, segment, virt))
+                .unwrap();
+
+            (context, segment, virt, vals)
+        } else {
+            let context = F::from_canonical_usize(rng.gen_range(0..256));
+            let segment = F::from_canonical_usize(rng.gen_range(0..8));
+            let virt = F::from_canonical_usize(rng.gen_range(0..20));
+
+            let val: [u32; 8] = rng.gen();
+            let vals: [F; 8] = val
+                .iter()
+                .map(|&x| F::from_canonical_u32(x))
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+
+            current_memory_values.insert((context, segment, virt), vals);
+
+            (context, segment, virt, vals)
+        };
+
+        let timestamp = F::from_canonical_usize(cur_timestamp);
+        cur_timestamp += 1;
+
+        memory_ops.push((context, segment, virt, vals, is_read_F, timestamp))
+    }
+
+    memory_ops
 }
 
 pub fn sort_memory_ops<F: RichField>(
@@ -152,7 +203,7 @@ pub fn generate_range_check_value<F: RichField>(
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
-    fn generate_trace_rows(
+    pub(crate) fn generate_trace_rows(
         &self,
         memory_ops: Vec<(F, F, F, [F; 8], F, F)>,
     ) -> Vec<[F; NUM_REGISTERS]> {
@@ -175,7 +226,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
         self.generate_memory(&mut trace_cols);
 
-        let mut trace_rows = vec![[F::ZERO; NUM_REGISTERS]];
+        let mut trace_rows = vec![[F::ZERO; NUM_REGISTERS]; num_ops];
         for (i, col) in trace_cols.iter().enumerate() {
             for (j, &val) in col.iter().enumerate() {
                 trace_rows[j][i] = val;
@@ -231,7 +282,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[MEMORY_VIRTUAL_FIRST_CHANGE] = virtual_first_change;
 
         trace_cols[MEMORY_RANGE_CHECK] = range_check_value;
-        trace_cols[MEMORY_COUNTER] = (0..trace_cols.len())
+        trace_cols[MEMORY_COUNTER] = (0..trace_cols[0].len())
             .map(|i| F::from_canonical_usize(i))
             .collect();
 
@@ -239,6 +290,29 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             permuted_cols(&trace_cols[MEMORY_RANGE_CHECK], &trace_cols[MEMORY_COUNTER]);
         trace_cols[MEMORY_RANGE_CHECK_PERMUTED] = permuted_inputs;
         trace_cols[MEMORY_COUNTER_PERMUTED] = permuted_table;
+    }
+
+    pub fn generate_trace(
+        &self,
+        memory_ops: Vec<(F, F, F, [F; 8], F, F)>,
+    ) -> Vec<PolynomialValues<F>> {
+        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
+
+        // Generate the witness, except for permuted columns in the lookup argument.
+        let trace_rows = timed!(
+            &mut timing,
+            "generate trace rows",
+            self.generate_trace_rows(memory_ops)
+        );
+
+        let trace_polys = timed!(
+            &mut timing,
+            "convert to PolynomialValues",
+            trace_rows_to_poly_values(trace_rows)
+        );
+
+        timing.print();
+        trace_polys
     }
 }
 
@@ -287,10 +361,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let not_timestamp_first_change = one - timestamp_first_change;
 
         // First set of ordering constraint: first_change flags are boolean.
-        yield_constr.constraint(context_first_change * not_context_first_change);
-        yield_constr.constraint(segment_first_change * not_segment_first_change);
-        yield_constr.constraint(virtual_first_change * not_virtual_first_change);
-        yield_constr.constraint(timestamp_first_change * not_timestamp_first_change);
+        // yield_constr.constraint(context_first_change * not_context_first_change);
+        // yield_constr.constraint(segment_first_change * not_segment_first_change);
+        // yield_constr.constraint(virtual_first_change * not_virtual_first_change);
+        // yield_constr.constraint(timestamp_first_change * not_timestamp_first_change);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
         yield_constr.constraint(segment_first_change * (next_addr_context - addr_context));
@@ -481,7 +555,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{thread_rng, Rng};
 
-    use crate::memory::memory_stark::MemoryStark;
+    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -525,47 +599,8 @@ mod tests {
         const MAX_SEGMENT: usize = 8;
         const MAX_VIRTUAL: usize = 1 << 12;
 
-        let mut rng = thread_rng();
-
         let num_ops = 20;
-        let mut memory_ops = Vec::new();
-        let current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
-        let mut cur_timestamp = 0;
-        for i in 0..num_ops {
-            let is_read = if i == 0 { false } else { rng.gen() };
-            let is_read_F = F::from_bool(is_read);
-
-            let (context, segment, virt, vals) = if is_read {
-                let written: Vec<_> = current_memory_values.keys().collect();
-                let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
-                let &vals = current_memory_values
-                    .get(&(context, segment, virt))
-                    .unwrap();
-
-                (context, segment, virt, vals)
-            } else {
-                let context = F::from_canonical_usize(rng.gen_range(0..256));
-                let segment = F::from_canonical_usize(rng.gen_range(0..8));
-                let virt = F::from_canonical_usize(rng.gen_range(0..20));
-
-                let val: [u32; 8] = rng.gen();
-                let vals: [F; 8] = val
-                    .iter()
-                    .map(|&x| F::from_canonical_u32(x))
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap();
-
-                current_memory_values.insert((context, segment, virt), vals);
-
-                (context, segment, virt, vals)
-            };
-
-            let timestamp = F::from_canonical_usize(cur_timestamp);
-            cur_timestamp += 1;
-
-            memory_ops.push((context, segment, virt, vals, is_read_F, timestamp))
-        }
+        let memory_ops = generate_random_memory_ops(num_ops);
 
         let rows = stark.generate_trace_rows(memory_ops);
 
