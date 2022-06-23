@@ -53,6 +53,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
         let timestamp = F::from_canonical_usize(i);
         let mut used_indices = HashSet::new();
         let mut new_writes_this_cycle = HashMap::new();
+        let mut has_read = false;
         for _ in 0..2 {
             let mut channel_index = rng.gen_range(0..4);
             while used_indices.contains(&channel_index) {
@@ -60,7 +61,12 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
             }
             used_indices.insert(channel_index);
 
-            let is_read = if i == 0 { false } else { rng.gen() };
+            let is_read = if i == 0 {
+                false
+            } else {
+                !has_read && rng.gen()
+            };
+            has_read = has_read || is_read;
             let is_read_field = F::from_bool(is_read);
 
             let (context, segment, virt, vals) = if is_read {
@@ -104,7 +110,6 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
         for (k, v) in new_writes_this_cycle {
             current_memory_values.insert(k, v);
         }
-
     }
 
     memory_ops
@@ -378,33 +383,33 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let not_address_unchanged = one - address_unchanged;
 
         // First set of ordering constraint: first_change flags are boolean.
-        // yield_constr.constraint(context_first_change * not_context_first_change);
-        // yield_constr.constraint(segment_first_change * not_segment_first_change);
-        // yield_constr.constraint(virtual_first_change * not_virtual_first_change);
-        // yield_constr.constraint(address_unchanged * not_address_unchanged);
+        yield_constr.constraint(context_first_change * not_context_first_change);
+        yield_constr.constraint(segment_first_change * not_segment_first_change);
+        yield_constr.constraint(virtual_first_change * not_virtual_first_change);
+        yield_constr.constraint(address_unchanged * not_address_unchanged);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
-        // yield_constr
-        //     .constraint_transition(segment_first_change * (next_addr_context - addr_context));
-        // yield_constr
-        //     .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
-        // yield_constr
-        //     .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
-        // yield_constr.constraint_transition(address_unchanged * (next_addr_context - addr_context));
-        // yield_constr.constraint_transition(address_unchanged * (next_addr_segment - addr_segment));
-        // yield_constr.constraint_transition(address_unchanged * (next_addr_virtual - addr_virtual));
+        yield_constr
+            .constraint_transition(segment_first_change * (next_addr_context - addr_context));
+        yield_constr
+            .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
+        yield_constr
+            .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
+        yield_constr.constraint_transition(address_unchanged * (next_addr_context - addr_context));
+        yield_constr.constraint_transition(address_unchanged * (next_addr_segment - addr_segment));
+        yield_constr.constraint_transition(address_unchanged * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + address_unchanged * (next_timestamp - timestamp - one);
-        // yield_constr.constraint_transition(range_check - computed_range_check);
+        yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            // yield_constr
-            //     .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
+            yield_constr
+                .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
         }
 
         eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)

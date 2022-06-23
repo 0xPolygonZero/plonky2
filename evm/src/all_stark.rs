@@ -224,7 +224,7 @@ mod tests {
             let op = (0..4)
                 .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
                 .collect_vec()[0];
-            
+
             if mem_timestamp != last_timestamp {
                 current_cpu_index += 1;
                 last_timestamp = mem_timestamp;
@@ -244,7 +244,6 @@ mod tests {
                 cpu_trace_rows[current_cpu_index][cpu::columns::memop_value(op, j)] =
                     memory_trace[memory::registers::value_limb(j)].values[i];
             }
-
         }
         trace_rows_to_poly_values(cpu_trace_rows)
     }
