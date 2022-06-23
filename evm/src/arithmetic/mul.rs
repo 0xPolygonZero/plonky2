@@ -1,3 +1,33 @@
+//! Support for the EVM MUL instruction.
+//!
+//! This crate verifies an EVM MUL instruction, which takes two
+//! 256-bit inputs A and B, and produces a 256-bit output C satisfying
+//!
+//!    C = A*B (mod 2^256).
+//!
+//! Inputs A and B, and output C, are given as arrays of 16-bit
+//! limbs. For example, if the limbs of A are a[0]...a[15], then
+//!
+//!    A = \sum_{i=0}^15 a[i] β^i,
+//!
+//! where β = 2^16. To verify that A, B and C satisfy the equation we
+//! proceed as follows. Define a(x) = \sum_{i=0}^15 a[i] x^i (so A = a(β))
+//! and similarly for b(x) and c(x). Then A*B = C (mod 2^256) if and only
+//! if there exist polynomials q and m such that
+//!
+//!    a(x)*b(x) - c(x) - m(x)*x^16 - (x - β)*q(x) == 0.
+//!
+//! Because A, B and C are 256-bit numbers, the degrees of a, b and c
+//! are (at most) 15. Thus deg(a*b) <= 30, so deg(m) <= 14 and deg(q)
+//! <= 29. However, the fact that we're verifying the equality modulo
+//! 2^256 means that we can ignore terms of degree >= 16, since for
+//! them evaluating at β gives a factor of β^16 = 2^256 which is 0.
+//!
+//! Hence, to verify the equality, we don't need m(x) at all, and we
+//! only need to know q(x) up to degree 14 (so that (x-β)*q(x) has
+//! degree 15). On the other hand, the coefficients of q(x) can be as
+//! large as 16*(β-2) or 20 bits.
+
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
@@ -24,7 +54,8 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // We have heaps of space at the top of each limb, so by
     // calculating column-wise (instead of the usual row-wise) we
     // avoid a bunch of carry propagation handling (at the expense of
-    // slightly worse cache coherency).
+    // slightly worse cache coherency), and it makes it easy to
+    // calculate the coefficients of a(x)*b(x) (in unreduced_prod).
     let mut cy = 0u64;
     for col in 0..N_LIMBS {
         for i in 0..col {
@@ -76,8 +107,7 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_INPUT_0, 16);
     range_check_error!(MUL_INPUT_1, 16);
     range_check_error!(MUL_OUTPUT, 16);
-    // FIXME: Check that overflow can be at most 15 (= 4 bits)
-    range_check_error!(MUL_AUX_INPUT, {16 + 4});
+    range_check_error!(MUL_AUX_INPUT, 20);
 
     let is_mul = lv[IS_MUL];
     let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
