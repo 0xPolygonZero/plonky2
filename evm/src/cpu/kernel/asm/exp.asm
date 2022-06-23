@@ -1,5 +1,16 @@
+/// Recursive implementation of exp.
+/// Equivalent to:
+///     def exp(x, e):
+///         if e == 0:
+///             # The path where JUMPI does not jump to `step_case`
+///             return 1
+///         else:
+///             # This is under the `step_case` label
+///             return (x if e % 2 else 1) * exp(x * x, e // 2)
+/// Note that this correctly handles exp(0, 0) == 1.
+
 global exp:
-// we don't seem to handle global labels yet, so this function has a local label too for now:
+// We don't seem to handle global labels yet, so this function has a local label too for now:
 exp:
     // stack: x, e, retdest
     dup2
@@ -60,11 +71,11 @@ recursion_return:
     mul
     // stack: (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2), x, e, retdest
     swap3
-    // stack: retdest, x, e, (x / (e % 2)) * exp(x * x, e / 2)
+    // stack: retdest, x, e, (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2)
     swap2
-    // stack: e, x, retdest, (x / (e % 2)) * exp(x * x, e / 2)
+    // stack: e, x, retdest, (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2)
     pop
-    // stack: x, retdest, (x / (e % 2)) * exp(x * x, e / 2)
+    // stack: x, retdest, (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2)
     pop
-    // stack: retdest, (x / (e % 2)) * exp(x * x, e / 2)
+    // stack: retdest, (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2)
     jump
