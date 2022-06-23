@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 
 use itertools::{izip, multiunzip, Itertools};
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -12,6 +13,7 @@ use rand::Rng;
 
 use super::registers::is_memop;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::registers::{
     sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
@@ -25,6 +27,17 @@ use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
+
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    let mut res = Column::singles([TIMESTAMP, IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
+        .collect_vec();
+    res.extend(Column::singles((0..8).map(value_limb)));
+    res
+}
+
+pub fn ctl_filter<F: Field>(op: usize) -> Column<F> {
+    Column::single(is_memop(op))
+}
 
 #[derive(Copy, Clone)]
 pub struct MemoryStark<F, const D: usize> {

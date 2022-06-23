@@ -71,14 +71,16 @@ mod tests {
 
     use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
+    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS, NUM_MEMORY_OPS};
     use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{
         self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
     };
     use crate::logic::{self, LogicStark};
-    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS, NUM_MEMORY_OPS};
-    use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
-    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
+    use crate::memory::memory_stark::{
+        self as memory_stark_mod, generate_random_memory_ops, MemoryStark,
+    };
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -283,63 +285,6 @@ mod tests {
             &mut memory_trace,
         );
 
-        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.collect::<Vec<_>>();
-        cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
-        let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
-            .map(keccak::registers::reg_input_limb)
-            .collect::<Vec<_>>();
-        keccak_keccak_input_output.extend(Column::singles(
-            (0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb),
-        ));
-
-        let cpu_logic_input_output = {
-            let mut res = vec![
-                cpu::columns::IS_AND,
-                cpu::columns::IS_OR,
-                cpu::columns::IS_XOR,
-            ];
-            res.extend(cpu::columns::LOGIC_INPUT0);
-            res.extend(cpu::columns::LOGIC_INPUT1);
-            res.extend(cpu::columns::LOGIC_OUTPUT);
-            res
-        };
-        let logic_logic_input_output = {
-            let mut res = vec![
-                logic::columns::IS_AND,
-                logic::columns::IS_OR,
-                logic::columns::IS_XOR,
-            ];
-            res.extend(logic::columns::INPUT0_PACKED);
-            res.extend(logic::columns::INPUT1_PACKED);
-            res.extend(logic::columns::RESULT);
-            res
-        };
-
-        let cpu_memory_cols: Vec<Vec<_>> = (0..NUM_MEMORY_OPS)
-            .map(|op| {
-                let mut cols: Vec<Column<F>> = Column::singles([
-                    cpu::columns::CLOCK,
-                    cpu::columns::memop_is_read(op),
-                    cpu::columns::memop_addr_context(op),
-                    cpu::columns::memop_addr_segment(op),
-                    cpu::columns::memop_addr_virtual(op),
-                ])
-                .collect_vec();
-                cols.extend(Column::singles(
-                    (0..8).map(|j| cpu::columns::memop_value(op, j)),
-                ));
-                cols
-            })
-            .collect();
-        let mut memory_memory_cols = vec![
-            memory::registers::TIMESTAMP,
-            memory::registers::IS_READ,
-            memory::registers::ADDR_CONTEXT,
-            memory::registers::ADDR_SEGMENT,
-            memory::registers::ADDR_VIRTUAL,
-        ];
-        memory_memory_cols.extend((0..8).map(memory::registers::value_limb));
-
         let mut cross_table_lookups = vec![
             CrossTableLookup::new(
                 vec![TableWithColumns::new(
@@ -364,17 +309,17 @@ mod tests {
                 None,
             ),
         ];
-        cross_table_lookups.extend((0..1).map(|op| {
+        cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(|op| {
             CrossTableLookup::new(
                 vec![TableWithColumns::new(
                     Table::Cpu,
-                    cpu_memory_cols[op].clone(),
-                    Some(Column::single(cpu::columns::uses_memop(op))),
+                    cpu_stark_mod::ctl_data_memory(op),
+                    Some(cpu_stark_mod::ctl_filter_memory(op)),
                 )],
                 TableWithColumns::new(
                     Table::Memory,
-                    Column::singles(memory_memory_cols.clone()).collect(),
-                    Some(Column::single(memory::registers::is_memop(op))),
+                    memory_stark_mod::ctl_data(),
+                    Some(memory_stark_mod::ctl_filter(op)),
                 ),
                 None,
             )
