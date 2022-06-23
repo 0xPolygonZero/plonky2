@@ -13,12 +13,6 @@ pub const IS_CPU_CYCLE: usize = IS_BOOTSTRAP_CONTRACT + 1;
 /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
 pub const OPCODE: usize = IS_CPU_CYCLE + 1;
 
-<<<<<<< HEAD
-/// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
-/// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
-/// must be 1.
-pub const IS_STOP: usize = OPCODE + 1;
-=======
 pub const KECCAK_DUMMY: usize = OPCODE + 1;
 pub const MEMORY_DUMMY: usize = KECCAK_DUMMY + 1;
 
@@ -26,7 +20,6 @@ pub const MEMORY_DUMMY: usize = KECCAK_DUMMY + 1;
 // opcodes are split between a number of flags for practical reasons. Exactly one of these flags
 // must be 1.
 pub const IS_STOP: usize = MEMORY_DUMMY + 1;
->>>>>>> ade7e5e0 (updated all_stark framework to include memory stark (doesn't pass yet))
 pub const IS_ADD: usize = IS_STOP + 1;
 pub const IS_MUL: usize = IS_ADD + 1;
 pub const IS_SUB: usize = IS_MUL + 1;
@@ -154,7 +147,7 @@ pub const OPCODE_BITS: [usize; 8] = [
 pub const IS_KECCAK: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
 
 pub const START_KECCAK_INPUT: usize = IS_KECCAK + 1;
-#[allow(dead_code)] // TODO: Remove when used
+// TODO: Remove when used
 pub const KECCAK_INPUT_LIMBS: Range<usize> = START_KECCAK_INPUT..START_KECCAK_INPUT + 50;
 
 pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
@@ -169,4 +162,40 @@ pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
 pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
 pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
 
-pub const NUM_CPU_COLUMNS: usize = SIMPLE_LOGIC_DIFF_INV + 1;
+const NUM_MEMORY_OPS: usize = 4;
+const NUM_MEMORY_VALUE_LIMBS: usize = 8;
+
+pub(crate) const MEMORY_TIMESTAMP: usize = SIMPLE_LOGIC_DIFF_INV + 1;
+
+const USES_MEMOP_START: usize = MEMORY_TIMESTAMP + 1;
+pub const fn uses_memop(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    USES_MEMOP_START + op
+}
+
+const MEMOP_ISREAD_START: usize = USES_MEMOP_START + NUM_MEMORY_OPS;
+pub const fn memop_is_read(op: usize) -> usize {
+    MEMOP_ISREAD_START + op
+}
+
+const MEMOP_ADDR_CONTEXT_START: usize = MEMOP_ISREAD_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_context(op: usize) -> usize {
+    MEMOP_ADDR_CONTEXT_START + op
+}
+
+const MEMOP_ADDR_SEGMENT_START: usize = MEMOP_ADDR_CONTEXT_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_segment(op: usize) -> usize {
+    MEMOP_ADDR_SEGMENT_START + op
+}
+
+const MEMOP_ADDR_VIRTUAL_START: usize = MEMOP_ADDR_SEGMENT_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_virtual(op: usize) -> usize {
+    MEMOP_ADDR_VIRTUAL_START + op
+}
+
+const MEMOP_ADDR_VALUE_START: usize = MEMOP_ADDR_VIRTUAL_START + NUM_MEMORY_OPS;
+pub const fn memop_value(op: usize, limb: usize) -> usize {
+    MEMOP_ADDR_VALUE_START + op * NUM_MEMORY_VALUE_LIMBS + limb
+}
+
+pub const NUM_CPU_COLUMNS: usize = MEMOP_ADDR_VALUE_START + NUM_MEMORY_OPS * NUM_MEMORY_VALUE_LIMBS;

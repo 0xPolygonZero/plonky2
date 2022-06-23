@@ -3,6 +3,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![feature(generic_const_exprs)]
+#![allow(dead_code)]
 
 pub mod all_stark;
 pub mod config;
