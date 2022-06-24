@@ -148,7 +148,6 @@ mod tests {
         memory_stark.generate_trace(memory_ops)
     }
 
-    // JNTODO
     fn make_cpu_trace(
         num_keccak_perms: usize,
         num_logic_rows: usize,
