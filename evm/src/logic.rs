@@ -27,11 +27,11 @@ pub(crate) mod columns {
     pub const IS_AND: usize = 0;
     pub const IS_OR: usize = IS_AND + 1;
     pub const IS_XOR: usize = IS_OR + 1;
-    pub const INPUT0_PACKED: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + PACKED_LEN;
-    pub const INPUT1_PACKED: Range<usize> = INPUT0_PACKED.end..INPUT0_PACKED.end + PACKED_LEN;
-    pub const RESULT: Range<usize> = INPUT1_PACKED.end..INPUT1_PACKED.end + PACKED_LEN;
-    pub const INPUT0_BITS: Range<usize> = RESULT.end..RESULT.end + VAL_BITS;
-    pub const INPUT1_BITS: Range<usize> = INPUT0_BITS.end..INPUT0_BITS.end + VAL_BITS;
+    // The inputs are decomposed into bits.
+    pub const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
+    pub const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
+    // The result is packed in limbs of `PACKED_LIMB_BITS` bits.
+    pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
 
     pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item = Range<usize>> {
         (0..PACKED_LEN).map(move |i| {
@@ -41,7 +41,7 @@ pub(crate) mod columns {
         })
     }
 
-    pub const NUM_COLUMNS: usize = INPUT1_BITS.end;
+    pub const NUM_COLUMNS: usize = RESULT.end;
 }
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
@@ -50,8 +50,8 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
         Column::single(columns::IS_OR),
         Column::single(columns::IS_XOR),
     ];
-    res.extend(columns::INPUT0_PACKED.map(Column::single));
-    res.extend(columns::INPUT1_PACKED.map(Column::single));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
     res.extend(columns::RESULT.map(Column::single));
     res
 }
@@ -66,6 +66,7 @@ pub struct LogicStark<F, const D: usize> {
 }
 
 enum Op {
+    Zero,
     And,
     Or,
     Xor,
@@ -78,7 +79,7 @@ fn check_op_flags<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) -> Op {
     assert!(is_or <= 1);
     let is_xor = lv[columns::IS_XOR].to_canonical_u64();
     assert!(is_xor <= 1);
-    assert_eq!(is_and + is_or + is_xor, 1);
+    assert!(is_and + is_or + is_xor <= 1);
     if is_and == 1 {
         Op::And
     } else if is_or == 1 {
@@ -86,54 +87,35 @@ fn check_op_flags<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) -> Op {
     } else if is_xor == 1 {
         Op::Xor
     } else {
-        panic!("unknown operation")
+        Op::Zero
     }
 }
 
-fn check_limb_length<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) {
-    for (packed_input_cols, bit_cols) in [
-        (columns::INPUT0_PACKED, columns::INPUT0_BITS),
-        (columns::INPUT1_PACKED, columns::INPUT1_BITS),
-    ] {
-        let limb_bit_cols_iter = columns::limb_bit_cols_for_input(bit_cols);
-        // Not actually reading/writing the bit columns, but this is a convenient way of
-        // calculating the size of each limb.
-        for (packed_limb_col, limb_bit_cols) in packed_input_cols.zip(limb_bit_cols_iter) {
-            let packed_limb = lv[packed_limb_col].to_canonical_u64();
-            let limb_length = limb_bit_cols.end - limb_bit_cols.start;
-            assert_eq!(packed_limb >> limb_length, 0);
-        }
-    }
-}
-
-fn make_bit_decomposition<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS]) {
-    for (packed_input_cols, bit_cols) in [
-        (columns::INPUT0_PACKED, columns::INPUT0_BITS),
-        (columns::INPUT1_PACKED, columns::INPUT1_BITS),
-    ] {
-        for (i, limb_col) in packed_input_cols.enumerate() {
-            let limb = lv[limb_col].to_canonical_u64();
-            let limb_bits_cols = bit_cols
-                .clone()
-                .skip(i * PACKED_LIMB_BITS)
-                .take(PACKED_LIMB_BITS);
-            for (j, col) in limb_bits_cols.enumerate() {
-                let bit = (limb >> j) & 1;
-                lv[col] = F::from_canonical_u64(bit);
-            }
+fn check_bits<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) {
+    for bit_cols in [columns::INPUT0, columns::INPUT1] {
+        for bit_col in bit_cols {
+            let bit = lv[bit_col].to_canonical_u64();
+            assert!(bit <= 1);
         }
     }
 }
 
 fn make_result<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS], op: Op) {
-    for (res_col, limb_in0_col, limb_in1_col) in izip!(
+    for (res_col, limb_in0_cols, limb_in1_cols) in izip!(
         columns::RESULT,
-        columns::INPUT0_PACKED,
-        columns::INPUT1_PACKED
+        columns::limb_bit_cols_for_input(columns::INPUT0),
+        columns::limb_bit_cols_for_input(columns::INPUT1),
     ) {
-        let limb_in0 = lv[limb_in0_col].to_canonical_u64();
-        let limb_in1 = lv[limb_in1_col].to_canonical_u64();
+        let limb_in0: u64 = limb_in0_cols
+            .enumerate()
+            .map(|(i, col)| lv[col].to_canonical_u64() << i)
+            .sum();
+        let limb_in1: u64 = limb_in1_cols
+            .enumerate()
+            .map(|(i, col)| lv[col].to_canonical_u64() << i)
+            .sum();
         let res = match op {
+            Op::Zero => 0,
             Op::And => limb_in0 & limb_in1,
             Op::Or => limb_in0 | limb_in1,
             Op::Xor => limb_in0 ^ limb_in1,
@@ -145,8 +127,7 @@ fn make_result<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS], op: Op) {
 impl<F: RichField, const D: usize> LogicStark<F, D> {
     pub fn generate(&self, lv: &mut [F; columns::NUM_COLUMNS]) {
         let op = check_op_flags(lv);
-        check_limb_length(lv);
-        make_bit_decomposition(lv);
+        check_bits(lv);
         make_result(lv, op);
     }
 }
@@ -178,43 +159,30 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let and_coeff = is_and - is_or - is_xor * FE::TWO;
 
         // Ensure that all bits are indeed bits.
-        for input_bits_cols in [columns::INPUT0_BITS, columns::INPUT1_BITS] {
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
             for i in input_bits_cols {
                 let bit = lv[i];
                 yield_constr.constraint(bit * (bit - P::ONES));
             }
         }
 
-        // Check that the bits match the packed inputs.
-        for (input_bits_cols, input_packed_cols) in [
-            (columns::INPUT0_BITS, columns::INPUT0_PACKED),
-            (columns::INPUT1_BITS, columns::INPUT1_PACKED),
-        ] {
-            for (limb_bits_cols, limb_col) in
-                columns::limb_bit_cols_for_input(input_bits_cols).zip(input_packed_cols)
-            {
-                let limb_from_bits: P = limb_bits_cols
-                    .enumerate()
-                    .map(|(i, bit_col)| {
-                        let bit = lv[bit_col];
-                        bit * FE::from_canonical_u64(1 << i)
-                    })
-                    .sum();
-                let limb = lv[limb_col];
-                yield_constr.constraint(limb - limb_from_bits);
-            }
-        }
-
         // Form the result
-        for (result_col, x_col, y_col, x_bits_cols, y_bits_cols) in izip!(
+        for (result_col, x_bits_cols, y_bits_cols) in izip!(
             columns::RESULT,
-            columns::INPUT0_PACKED,
-            columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
-            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
-            let x = lv[x_col];
-            let y = lv[y_col];
+            let x: P = x_bits_cols
+                .clone()
+                .enumerate()
+                .map(|(i, bit_col)| lv[bit_col] * FE::from_canonical_u64(1 << i))
+                .sum();
+            let y: P = y_bits_cols
+                .clone()
+                .enumerate()
+                .map(|(i, bit_col)| lv[bit_col] * FE::from_canonical_u64(1 << i))
+                .sum();
+
             let x_bits = x_bits_cols.map(|i| lv[i]);
             let y_bits = y_bits_cols.map(|i| lv[i]);
 
@@ -251,7 +219,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         };
 
         // Ensure that all bits are indeed bits.
-        for input_bits_cols in [columns::INPUT0_BITS, columns::INPUT1_BITS] {
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
             for i in input_bits_cols {
                 let bit = lv[i];
                 let constr = builder.mul_sub_extension(bit, bit, bit);
@@ -259,37 +227,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             }
         }
 
-        // Check that the bits match the packed inputs.
-        for (input_bits_cols, input_packed_cols) in [
-            (columns::INPUT0_BITS, columns::INPUT0_PACKED),
-            (columns::INPUT1_BITS, columns::INPUT1_PACKED),
-        ] {
-            for (limb_bits_cols, limb_col) in
-                columns::limb_bit_cols_for_input(input_bits_cols).zip(input_packed_cols)
-            {
-                let limb_from_bits = limb_bits_cols.enumerate().fold(
-                    builder.zero_extension(),
-                    |acc, (i, bit_col)| {
-                        let bit = lv[bit_col];
-                        builder.mul_const_add_extension(F::from_canonical_u64(1 << i), bit, acc)
-                    },
-                );
-                let limb = lv[limb_col];
-                let constr = builder.sub_extension(limb, limb_from_bits);
-                yield_constr.constraint(builder, constr);
-            }
-        }
-
         // Form the result
-        for (result_col, x_col, y_col, x_bits_cols, y_bits_cols) in izip!(
+        for (result_col, x_bits_cols, y_bits_cols) in izip!(
             columns::RESULT,
-            columns::INPUT0_PACKED,
-            columns::INPUT1_PACKED,
-            columns::limb_bit_cols_for_input(columns::INPUT0_BITS),
-            columns::limb_bit_cols_for_input(columns::INPUT1_BITS),
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
-            let x = lv[x_col];
-            let y = lv[y_col];
+            let x = x_bits_cols.clone().enumerate().fold(
+                builder.zero_extension(),
+                |acc, (i, bit_col)| {
+                    builder.mul_const_add_extension(F::from_canonical_u64(1 << i), lv[bit_col], acc)
+                },
+            );
+            let y = y_bits_cols.clone().enumerate().fold(
+                builder.zero_extension(),
+                |acc, (i, bit_col)| {
+                    builder.mul_const_add_extension(F::from_canonical_u64(1 << i), lv[bit_col], acc)
+                },
+            );
             let x_bits = x_bits_cols.map(|i| lv[i]);
             let y_bits = y_bits_cols.map(|i| lv[i]);
 
