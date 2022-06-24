@@ -87,7 +87,7 @@ mod tests {
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
     use crate::stark::Stark;
-    use crate::util::trace_rows_to_poly_values;
+    use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
     use crate::{cpu, keccak, memory};
 
@@ -213,12 +213,8 @@ mod tests {
                 for (col_cpu, limb_cols_logic) in
                     cols_cpu.zip(logic::columns::limb_bit_cols_for_input(cols_logic))
                 {
-                    row[col_cpu] = limb_cols_logic
-                        .enumerate()
-                        .map(|(j, col_logic)| {
-                            logic_trace[col_logic].values[i] * F::from_canonical_u64(1 << j)
-                        })
-                        .sum();
+                    row[col_cpu] =
+                        limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
                 }
             }
             for (col_cpu, col_logic) in cpu::columns::LOGIC_OUTPUT.zip(logic::columns::RESULT) {

@@ -9,6 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 // Total number of bits per input/output.
@@ -108,14 +109,8 @@ fn make_result<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS], op: Op) {
         columns::limb_bit_cols_for_input(columns::INPUT0),
         columns::limb_bit_cols_for_input(columns::INPUT1),
     ) {
-        let limb_in0: u64 = limb_in0_cols
-            .enumerate()
-            .map(|(i, col)| lv[col].to_canonical_u64() << i)
-            .sum();
-        let limb_in1: u64 = limb_in1_cols
-            .enumerate()
-            .map(|(i, col)| lv[col].to_canonical_u64() << i)
-            .sum();
+        let limb_in0: u64 = limb_from_bits_le(limb_in0_cols.map(|col| lv[col])).to_canonical_u64();
+        let limb_in1: u64 = limb_from_bits_le(limb_in1_cols.map(|col| lv[col])).to_canonical_u64();
         let res = match op {
             Op::Zero => 0,
             Op::And => limb_in0 & limb_in1,
@@ -174,16 +169,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::limb_bit_cols_for_input(columns::INPUT0),
             columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
-            let x: P = x_bits_cols
-                .clone()
-                .enumerate()
-                .map(|(i, bit_col)| lv[bit_col] * FE::from_canonical_u64(1 << i))
-                .sum();
-            let y: P = y_bits_cols
-                .clone()
-                .enumerate()
-                .map(|(i, bit_col)| lv[bit_col] * FE::from_canonical_u64(1 << i))
-                .sum();
+            let x: P = limb_from_bits_le(x_bits_cols.clone().map(|col| lv[col]));
+            let y: P = limb_from_bits_le(y_bits_cols.clone().map(|col| lv[col]));
 
             let x_bits = x_bits_cols.map(|i| lv[i]);
             let y_bits = y_bits_cols.map(|i| lv[i]);
@@ -235,18 +222,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
             columns::limb_bit_cols_for_input(columns::INPUT0),
             columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
-            let x = x_bits_cols.clone().enumerate().fold(
-                builder.zero_extension(),
-                |acc, (i, bit_col)| {
-                    builder.mul_const_add_extension(F::from_canonical_u64(1 << i), lv[bit_col], acc)
-                },
-            );
-            let y = y_bits_cols.clone().enumerate().fold(
-                builder.zero_extension(),
-                |acc, (i, bit_col)| {
-                    builder.mul_const_add_extension(F::from_canonical_u64(1 << i), lv[bit_col], acc)
-                },
-            );
+            let x = limb_from_bits_le_recursive(builder, x_bits_cols.clone().map(|i| lv[i]));
+            let y = limb_from_bits_le_recursive(builder, y_bits_cols.clone().map(|i| lv[i]));
             let x_bits = x_bits_cols.map(|i| lv[i]);
             let y_bits = y_bits_cols.map(|i| lv[i]);
 
