@@ -66,6 +66,8 @@ pub struct LogicStark<F, const D: usize> {
 }
 
 enum Op {
+    // The `Zero` op is just for convenience. The all-zero row already satisfies the constraints;
+    // `Zero` lets us  call `generate` on it without crashing.
     Zero,
     And,
     Or,
