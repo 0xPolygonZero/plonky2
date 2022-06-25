@@ -143,3 +143,70 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         output_limbs,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::field_types::Field;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
+    use crate::constraint_consumer::{ConstraintConsumer /*, RecursiveConstraintConsumer*/};
+
+    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use super::*;
+
+    // TODO: Should be able to refactor this test to apply to all operations.
+    #[test]
+    fn generate_eval_consistency_not_add() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        // TODO: Instantiate for other PackedFields?
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS]
+            .map(|_| F::rand_from_rng(&mut rng));
+
+        // if `IS_ADD == 0`, then the constraints should be met even
+        // if all values are garbage.
+        lv[IS_ADD] = F::ZERO;
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_div() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // set `IS_ADD == 1` and ensure all constraints are satisfied.
+        lv[IS_ADD] = F::ONE;
+        // set inputs to random values
+        for (&ai, &bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1.iter()) {
+            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
+            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+        }
+
+        generate(&mut lv);
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
+}
