@@ -17,7 +17,7 @@ use crate::range_check_error;
 /// should be a sequence consisting of the sums of corresponding
 /// digits, while `smaller` should be the digits of the reduced value
 /// `a + b` after carry propagation has taken place.
-fn eval_packed_generic_are_equal<P, I, J>(
+pub(crate) fn eval_packed_generic_are_equal<P, I, J>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
     larger: I,
@@ -41,7 +41,7 @@ fn eval_packed_generic_are_equal<P, I, J>(
     }
 }
 
-fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
+pub(crate) fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     is_op: ExtensionTarget<D>,
