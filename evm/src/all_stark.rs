@@ -87,7 +87,7 @@ mod tests {
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
     use crate::stark::Stark;
-    use crate::util::trace_rows_to_poly_values;
+    use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
     use crate::{cpu, keccak, memory};
 
@@ -116,11 +116,11 @@ mod tests {
             let mut row = [F::ZERO; logic::columns::NUM_COLUMNS];
 
             assert_eq!(logic::PACKED_LIMB_BITS, 16);
-            for col in logic::columns::INPUT0_PACKED {
-                row[col] = F::from_canonical_u16(rng.gen());
+            for col in logic::columns::INPUT0 {
+                row[col] = F::from_bool(rng.gen());
             }
-            for col in logic::columns::INPUT1_PACKED {
-                row[col] = F::from_canonical_u16(rng.gen());
+            for col in logic::columns::INPUT1 {
+                row[col] = F::from_bool(rng.gen());
             }
             let op: usize = rng.gen_range(0..3);
             let op_col = [
@@ -207,13 +207,18 @@ mod tests {
             .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
             .sum();
             for (cols_cpu, cols_logic) in [
-                (cpu::columns::LOGIC_INPUT0, logic::columns::INPUT0_PACKED),
-                (cpu::columns::LOGIC_INPUT1, logic::columns::INPUT1_PACKED),
-                (cpu::columns::LOGIC_OUTPUT, logic::columns::RESULT),
+                (cpu::columns::LOGIC_INPUT0, logic::columns::INPUT0),
+                (cpu::columns::LOGIC_INPUT1, logic::columns::INPUT1),
             ] {
-                for (col_cpu, col_logic) in cols_cpu.zip(cols_logic) {
-                    row[col_cpu] = logic_trace[col_logic].values[i];
+                for (col_cpu, limb_cols_logic) in
+                    cols_cpu.zip(logic::columns::limb_bit_cols_for_input(cols_logic))
+                {
+                    row[col_cpu] =
+                        limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
                 }
+            }
+            for (col_cpu, col_logic) in cpu::columns::LOGIC_OUTPUT.zip(logic::columns::RESULT) {
+                row[col_cpu] = logic_trace[col_logic].values[i];
             }
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
