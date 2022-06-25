@@ -150,10 +150,10 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use crate::constraint_consumer::ConstraintConsumer;
 
-    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use super::*;
+    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use crate::constraint_consumer::ConstraintConsumer;
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
@@ -161,8 +161,7 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS]
-            .map(|_| F::rand_from_rng(&mut rng));
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
         // if `IS_ADD == 0`, then the constraints should be met even
         // if all values are garbage.

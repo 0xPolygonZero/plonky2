@@ -3,7 +3,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::arithmetic::add::{eval_packed_generic_are_equal, eval_ext_circuit_are_equal};
+use crate::arithmetic::add::{eval_ext_circuit_are_equal, eval_packed_generic_are_equal};
 use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
@@ -47,9 +47,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let input1_limbs = SUB_INPUT_1.iter().map(|&c| lv[c]);
     let output_limbs = SUB_OUTPUT.iter().map(|&c| lv[c]);
 
-    let output_computed = input0_limbs
-        .zip(input1_limbs)
-        .map(|(a, b)| a - b);
+    let output_computed = input0_limbs.zip(input1_limbs).map(|(a, b)| a - b);
 
     eval_packed_generic_are_equal(yield_constr, is_sub, output_limbs, output_computed);
 }
@@ -84,10 +82,10 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use crate::constraint_consumer::ConstraintConsumer;
 
-    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use super::*;
+    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use crate::constraint_consumer::ConstraintConsumer;
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
@@ -95,8 +93,7 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS]
-            .map(|_| F::rand_from_rng(&mut rng));
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
         // if `IS_SUB == 0`, then the constraints should be met even
         // if all values are garbage.
