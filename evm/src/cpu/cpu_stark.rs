@@ -38,18 +38,18 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 pub fn ctl_data_memory<F: Field>(op: usize) -> Vec<Column<F>> {
     let mut cols: Vec<Column<F>> = Column::singles([
         columns::CLOCK,
-        columns::memop_is_read(op),
-        columns::memop_addr_context(op),
-        columns::memop_addr_segment(op),
-        columns::memop_addr_virtual(op),
+        columns::mem_is_read(op),
+        columns::mem_addr_context(op),
+        columns::mem_addr_segment(op),
+        columns::mem_addr_virtual(op),
     ])
     .collect_vec();
-    cols.extend(Column::singles((0..8).map(|j| columns::memop_value(op, j))));
+    cols.extend(Column::singles((0..8).map(|j| columns::mem_value(op, j))));
     cols
 }
 
 pub fn ctl_filter_memory<F: Field>(op: usize) -> Column<F> {
-    Column::single(columns::uses_memop(op))
+    Column::single(columns::mem_channel_used(op))
 }
 
 #[derive(Copy, Clone)]

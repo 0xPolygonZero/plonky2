@@ -1,7 +1,6 @@
-//! Memory unit.
+//! Memory registers.
 
-const NUM_MEMORY_OPS: usize = 4;
-const NUM_MEMORY_VALUE_LIMBS: usize = 8;
+use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 
 pub(crate) const TIMESTAMP: usize = 0;
 pub(crate) const IS_READ: usize = TIMESTAMP + 1;
@@ -12,12 +11,12 @@ pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
 // Eight limbs to hold up to a 256-bit value.
 const VALUE_START: usize = ADDR_VIRTUAL + 1;
 pub(crate) const fn value_limb(i: usize) -> usize {
-    debug_assert!(i < NUM_MEMORY_VALUE_LIMBS);
+    debug_assert!(i < VALUE_LIMBS);
     VALUE_START + i
 }
 
 // Separate columns for the same memory operations, sorted by (addr, timestamp).
-pub(crate) const SORTED_TIMESTAMP: usize = VALUE_START + NUM_MEMORY_VALUE_LIMBS;
+pub(crate) const SORTED_TIMESTAMP: usize = VALUE_START + VALUE_LIMBS;
 pub(crate) const SORTED_IS_READ: usize = SORTED_TIMESTAMP + 1;
 pub(crate) const SORTED_ADDR_CONTEXT: usize = SORTED_IS_READ + 1;
 pub(crate) const SORTED_ADDR_SEGMENT: usize = SORTED_ADDR_CONTEXT + 1;
@@ -25,7 +24,7 @@ pub(crate) const SORTED_ADDR_VIRTUAL: usize = SORTED_ADDR_SEGMENT + 1;
 
 const SORTED_VALUE_START: usize = SORTED_ADDR_VIRTUAL + 1;
 pub(crate) const fn sorted_value_limb(i: usize) -> usize {
-    debug_assert!(i < NUM_MEMORY_VALUE_LIMBS);
+    debug_assert!(i < VALUE_LIMBS);
     SORTED_VALUE_START + i
 }
 
@@ -33,7 +32,7 @@ pub(crate) const fn sorted_value_limb(i: usize) -> usize {
 // columns), and the previous parts do not differ.
 // That is, e.g., `SEGMENT_FIRST_CHANGE` is `F::ONE` iff `SORTED_ADDR_CONTEXT` is the same in this
 // row and the next, but `SORTED_ADDR_SEGMENT` is not.
-pub(crate) const CONTEXT_FIRST_CHANGE: usize = SORTED_VALUE_START + NUM_MEMORY_VALUE_LIMBS;
+pub(crate) const CONTEXT_FIRST_CHANGE: usize = SORTED_VALUE_START + VALUE_LIMBS;
 pub(crate) const SEGMENT_FIRST_CHANGE: usize = CONTEXT_FIRST_CHANGE + 1;
 pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 
@@ -45,13 +44,12 @@ pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 pub(crate) const RANGE_CHECK_PERMUTED: usize = COUNTER + 1;
 pub(crate) const COUNTER_PERMUTED: usize = RANGE_CHECK_PERMUTED + 1;
 
-// Flags to indicate if this operation corresponds to the `i`th memory op in a certain row of the
-// CPU table.
-const IS_MEMOP_START: usize = COUNTER_PERMUTED + 1;
+// Flags to indicate if this operation came from the `i`th channel of the memory bus.
+const IS_CHANNEL_START: usize = COUNTER_PERMUTED + 1;
 #[allow(dead_code)]
-pub(crate) const fn is_memop(i: usize) -> usize {
-    debug_assert!(i < NUM_MEMORY_OPS);
-    IS_MEMOP_START + i
+pub(crate) const fn is_channel(channel: usize) -> usize {
+    debug_assert!(channel < NUM_CHANNELS);
+    IS_CHANNEL_START + channel
 }
 
-pub(crate) const NUM_REGISTERS: usize = IS_MEMOP_START + NUM_MEMORY_OPS;
+pub(crate) const NUM_REGISTERS: usize = IS_CHANNEL_START + NUM_CHANNELS;

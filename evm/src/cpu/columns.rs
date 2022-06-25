@@ -3,6 +3,8 @@
 
 use std::ops::Range;
 
+use crate::memory;
+
 /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
 pub const IS_BOOTSTRAP_KERNEL: usize = 0;
 
@@ -161,47 +163,45 @@ pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
 pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
 pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
 
-pub(crate) const NUM_MEMORY_OPS: usize = 4;
-pub(crate) const NUM_MEMORY_VALUE_LIMBS: usize = 8;
-
 pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
 
-// Uses_memop(i) is `F::ONE` iff this row includes a memory operation in its `i`th spot.
-const USES_MEMOP_START: usize = CLOCK + 1;
-pub const fn uses_memop(op: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    USES_MEMOP_START + op
+/// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise 0.
+const MEM_CHANNEL_USED_START: usize = CLOCK + 1;
+pub const fn mem_channel_used(channel: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    MEM_CHANNEL_USED_START + channel
 }
 
-const MEMOP_ISREAD_START: usize = USES_MEMOP_START + NUM_MEMORY_OPS;
-pub const fn memop_is_read(op: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    MEMOP_ISREAD_START + op
+const MEM_ISREAD_START: usize = MEM_CHANNEL_USED_START + memory::NUM_CHANNELS;
+pub const fn mem_is_read(channel: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    MEM_ISREAD_START + channel
 }
 
-const MEMOP_ADDR_CONTEXT_START: usize = MEMOP_ISREAD_START + NUM_MEMORY_OPS;
-pub const fn memop_addr_context(op: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    MEMOP_ADDR_CONTEXT_START + op
+const MEM_ADDR_CONTEXT_START: usize = MEM_ISREAD_START + memory::NUM_CHANNELS;
+pub const fn mem_addr_context(channel: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    MEM_ADDR_CONTEXT_START + channel
 }
 
-const MEMOP_ADDR_SEGMENT_START: usize = MEMOP_ADDR_CONTEXT_START + NUM_MEMORY_OPS;
-pub const fn memop_addr_segment(op: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    MEMOP_ADDR_SEGMENT_START + op
+const MEM_ADDR_SEGMENT_START: usize = MEM_ADDR_CONTEXT_START + memory::NUM_CHANNELS;
+pub const fn mem_addr_segment(channel: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    MEM_ADDR_SEGMENT_START + channel
 }
 
-const MEMOP_ADDR_VIRTUAL_START: usize = MEMOP_ADDR_SEGMENT_START + NUM_MEMORY_OPS;
-pub const fn memop_addr_virtual(op: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    MEMOP_ADDR_VIRTUAL_START + op
+const MEM_ADDR_VIRTUAL_START: usize = MEM_ADDR_SEGMENT_START + memory::NUM_CHANNELS;
+pub const fn mem_addr_virtual(channel: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    MEM_ADDR_VIRTUAL_START + channel
 }
 
-const MEMOP_ADDR_VALUE_START: usize = MEMOP_ADDR_VIRTUAL_START + NUM_MEMORY_OPS;
-pub const fn memop_value(op: usize, limb: usize) -> usize {
-    debug_assert!(op < NUM_MEMORY_OPS);
-    debug_assert!(limb < NUM_MEMORY_VALUE_LIMBS);
-    MEMOP_ADDR_VALUE_START + op * NUM_MEMORY_VALUE_LIMBS + limb
+const MEM_ADDR_VALUE_START: usize = MEM_ADDR_VIRTUAL_START + memory::NUM_CHANNELS;
+pub const fn mem_value(channel: usize, limb: usize) -> usize {
+    debug_assert!(channel < memory::NUM_CHANNELS);
+    debug_assert!(limb < memory::VALUE_LIMBS);
+    MEM_ADDR_VALUE_START + channel * memory::VALUE_LIMBS + limb
 }
 
-pub const NUM_CPU_COLUMNS: usize = MEMOP_ADDR_VALUE_START + NUM_MEMORY_OPS * NUM_MEMORY_VALUE_LIMBS;
+pub const NUM_CPU_COLUMNS: usize =
+    MEM_ADDR_VALUE_START + memory::NUM_CHANNELS * memory::VALUE_LIMBS;

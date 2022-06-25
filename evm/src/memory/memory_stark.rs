@@ -11,7 +11,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use rand::Rng;
 
-use super::registers::is_memop;
+use super::registers::is_channel;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
@@ -36,7 +36,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter<F: Field>(op: usize) -> Column<F> {
-    Column::single(is_memop(op))
+    Column::single(is_channel(op))
 }
 
 #[derive(Copy, Clone)]
@@ -240,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 virt,
                 value,
             } = memory_ops[i];
-            trace_cols[is_memop(channel_index)][i] = F::ONE;
+            trace_cols[is_channel(channel_index)][i] = F::ONE;
             trace_cols[TIMESTAMP][i] = timestamp;
             trace_cols[IS_READ][i] = is_read;
             trace_cols[ADDR_CONTEXT][i] = context;
