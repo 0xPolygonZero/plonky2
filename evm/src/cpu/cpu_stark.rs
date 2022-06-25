@@ -1,14 +1,56 @@
 use std::marker::PhantomData;
 
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::{columns, decode, simple_logic};
+use crate::cross_table_lookup::Column;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+
+pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = columns::KECCAK_INPUT_LIMBS.map(Column::single).collect();
+    res.extend(columns::KECCAK_OUTPUT_LIMBS.map(Column::single));
+    res
+}
+
+pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
+    Column::single(columns::IS_KECCAK)
+}
+
+pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
+    let mut res = Column::singles([columns::IS_AND, columns::IS_OR, columns::IS_XOR]).collect_vec();
+    res.extend(columns::LOGIC_INPUT0.map(Column::single));
+    res.extend(columns::LOGIC_INPUT1.map(Column::single));
+    res.extend(columns::LOGIC_OUTPUT.map(Column::single));
+    res
+}
+
+pub fn ctl_filter_logic<F: Field>() -> Column<F> {
+    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+}
+
+pub fn ctl_data_memory<F: Field>(op: usize) -> Vec<Column<F>> {
+    let mut cols: Vec<Column<F>> = Column::singles([
+        columns::CLOCK,
+        columns::memop_is_read(op),
+        columns::memop_addr_context(op),
+        columns::memop_addr_segment(op),
+        columns::memop_addr_virtual(op),
+    ])
+    .collect_vec();
+    cols.extend(Column::singles((0..8).map(|j| columns::memop_value(op, j))));
+    cols
+}
+
+pub fn ctl_filter_memory<F: Field>(op: usize) -> Column<F> {
+    Column::single(columns::uses_memop(op))
+}
 
 #[derive(Copy, Clone)]
 pub struct CpuStark<F, const D: usize> {

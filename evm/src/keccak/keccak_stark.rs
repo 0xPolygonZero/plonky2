@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use itertools::Itertools;
 use log::info;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -11,13 +12,14 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::registers::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_step, NUM_REGISTERS,
+    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -31,6 +33,16 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 pub(crate) const NUM_INPUTS: usize = 25;
 
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
+
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
+    res.extend(Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)));
+    res
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::single(reg_step(NUM_ROUNDS - 1))
+}
 
 #[derive(Copy, Clone)]
 pub struct KeccakStark<F, const D: usize> {
@@ -62,7 +74,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     fn generate_trace_rows_for_perm(&self, input: [u64; NUM_INPUTS]) -> Vec<[F; NUM_REGISTERS]> {
         let mut rows = vec![[F::ZERO; NUM_REGISTERS]; NUM_ROUNDS];
 
-        self.copy_input(input, &mut rows[0]);
         for x in 0..5 {
             for y in 0..5 {
                 let input_xy = input[x * 5 + y];
@@ -74,7 +85,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
         self.generate_trace_row_for_round(&mut rows[0], 0);
         for round in 1..24 {
-            self.copy_input(input, &mut rows[round]);
             self.copy_output_to_input(rows[round - 1], &mut rows[round]);
             self.generate_trace_row_for_round(&mut rows[round], round);
         }
@@ -187,14 +197,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
-    fn copy_input(&self, input: [u64; NUM_INPUTS], row: &mut [F; NUM_REGISTERS]) {
-        for i in 0..NUM_INPUTS {
-            let (low, high) = (input[i] as u32, input[i] >> 32);
-            row[reg_input_limb(2 * i)] = F::from_canonical_u32(low);
-            row[reg_input_limb(2 * i + 1)] = F::from_canonical_u64(high);
-        }
-    }
-
     pub fn generate_trace(&self, inputs: Vec<[u64; NUM_INPUTS]>) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
@@ -229,23 +231,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         P: PackedField<Scalar = FE>,
     {
         eval_round_flags(vars, yield_constr);
-
-        for i in 0..2 * NUM_INPUTS {
-            let local_input_limb = vars.local_values[reg_input_limb(i)];
-            let next_input_limb = vars.next_values[reg_input_limb(i)];
-            let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
-            // Constrain the input registers to be equal throughout the rounds of a permutation.
-            yield_constr.constraint_transition(
-                (P::ONES - is_last_round) * (next_input_limb - local_input_limb),
-            );
-
-            // Verify that the bit decomposition is done correctly.
-            let range = if i % 2 == 0 { 0..32 } else { 32..64 };
-            let bits = range.map(|j| vars.local_values[reg_a((i / 2) / 5, (i / 2) % 5, j)]);
-            let expected_input_limb = bits.rev().fold(P::ZEROS, |acc, b| acc.doubles() + b);
-            let is_first_round = vars.local_values[reg_step(0)];
-            yield_constr.constraint(is_first_round * (local_input_limb - expected_input_limb));
-        }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
         for x in 0..5 {
@@ -389,25 +374,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let two = builder.two();
 
         eval_round_flags_recursively(builder, vars, yield_constr);
-
-        for i in 0..2 * NUM_INPUTS {
-            let local_input_limb = vars.local_values[reg_input_limb(i)];
-            let next_input_limb = vars.next_values[reg_input_limb(i)];
-            let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
-            let diff = builder.sub_extension(local_input_limb, next_input_limb);
-            let constraint = builder.mul_sub_extension(is_last_round, diff, diff);
-            yield_constr.constraint_transition(builder, constraint);
-
-            let range = if i % 2 == 0 { 0..32 } else { 32..64 };
-            let bits = range
-                .map(|j| vars.local_values[reg_a((i / 2) / 5, (i / 2) % 5, j)])
-                .collect::<Vec<_>>();
-            let expected_input_limb = reduce_with_powers_ext_circuit(builder, &bits, two);
-            let is_first_round = vars.local_values[reg_step(0)];
-            let diff = builder.sub_extension(local_input_limb, expected_input_limb);
-            let constraint = builder.mul_extension(is_first_round, diff);
-            yield_constr.constraint(builder, constraint);
-        }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
         for x in 0..5 {

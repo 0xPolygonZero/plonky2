@@ -1,10 +1,19 @@
+// TODO: remove when possible.
+#![allow(dead_code)]
+
 use std::ops::Range;
 
-// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-// Lets us re-use decode columns in non-cycle rows.
-pub const IS_CPU_CYCLE: usize = 0;
+/// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
+pub const IS_BOOTSTRAP_KERNEL: usize = 0;
 
-// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
+/// Filter. 1 if the row is part of bootstrapping a contract's code, 0 otherwise.
+pub const IS_BOOTSTRAP_CONTRACT: usize = IS_BOOTSTRAP_KERNEL + 1;
+
+/// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
+/// Lets us re-use decode columns in non-cycle rows.
+pub const IS_CPU_CYCLE: usize = IS_BOOTSTRAP_CONTRACT + 1;
+
+/// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
 pub const OPCODE: usize = IS_CPU_CYCLE + 1;
 
 // If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
@@ -121,8 +130,8 @@ pub const IS_INVALID_20: usize = IS_INVALID_19 + 1;
 pub const START_INSTRUCTION_FLAGS: usize = IS_STOP;
 pub const END_INSTRUCTION_FLAGS: usize = IS_INVALID_20 + 1;
 
-// If CPU cycle: the opcode, broken up into bits.
-// **big-endian** order
+/// If CPU cycle: the opcode, broken up into bits.
+/// **Big-endian** order.
 pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS,
     END_INSTRUCTION_FLAGS + 1,
@@ -138,19 +147,61 @@ pub const OPCODE_BITS: [usize; 8] = [
 pub const IS_KECCAK: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
 
 pub const START_KECCAK_INPUT: usize = IS_KECCAK + 1;
-#[allow(dead_code)] // TODO: Remove when used
 pub const KECCAK_INPUT_LIMBS: Range<usize> = START_KECCAK_INPUT..START_KECCAK_INPUT + 50;
 
 pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
 pub const KECCAK_OUTPUT_LIMBS: Range<usize> = START_KECCAK_OUTPUT..START_KECCAK_OUTPUT + 50;
 
 // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
-// TODO: These input/output columns can be shared between the simple logic operations and others.
-pub const SIMPLE_LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
-pub const SIMPLE_LOGIC_INPUT1: Range<usize> = SIMPLE_LOGIC_INPUT0.end..SIMPLE_LOGIC_INPUT0.end + 16;
-pub const SIMPLE_LOGIC_OUTPUT: Range<usize> = SIMPLE_LOGIC_INPUT1.end..SIMPLE_LOGIC_INPUT1.end + 16;
+// TODO: These input/output columns can be shared between the logic operations and others.
+pub const LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
+pub const LOGIC_INPUT1: Range<usize> = LOGIC_INPUT0.end..LOGIC_INPUT0.end + 16;
+pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
 
-pub const SIMPLE_LOGIC_DIFF: usize = SIMPLE_LOGIC_OUTPUT.end;
+pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
 pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
 
-pub const NUM_CPU_COLUMNS: usize = SIMPLE_LOGIC_DIFF_INV + 1;
+pub(crate) const NUM_MEMORY_OPS: usize = 4;
+pub(crate) const NUM_MEMORY_VALUE_LIMBS: usize = 8;
+
+pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
+
+// Uses_memop(i) is `F::ONE` iff this row includes a memory operation in its `i`th spot.
+const USES_MEMOP_START: usize = CLOCK + 1;
+pub const fn uses_memop(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    USES_MEMOP_START + op
+}
+
+const MEMOP_ISREAD_START: usize = USES_MEMOP_START + NUM_MEMORY_OPS;
+pub const fn memop_is_read(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    MEMOP_ISREAD_START + op
+}
+
+const MEMOP_ADDR_CONTEXT_START: usize = MEMOP_ISREAD_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_context(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    MEMOP_ADDR_CONTEXT_START + op
+}
+
+const MEMOP_ADDR_SEGMENT_START: usize = MEMOP_ADDR_CONTEXT_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_segment(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    MEMOP_ADDR_SEGMENT_START + op
+}
+
+const MEMOP_ADDR_VIRTUAL_START: usize = MEMOP_ADDR_SEGMENT_START + NUM_MEMORY_OPS;
+pub const fn memop_addr_virtual(op: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    MEMOP_ADDR_VIRTUAL_START + op
+}
+
+const MEMOP_ADDR_VALUE_START: usize = MEMOP_ADDR_VIRTUAL_START + NUM_MEMORY_OPS;
+pub const fn memop_value(op: usize, limb: usize) -> usize {
+    debug_assert!(op < NUM_MEMORY_OPS);
+    debug_assert!(limb < NUM_MEMORY_VALUE_LIMBS);
+    MEMOP_ADDR_VALUE_START + op * NUM_MEMORY_VALUE_LIMBS + limb
+}
+
+pub const NUM_CPU_COLUMNS: usize = MEMOP_ADDR_VALUE_START + NUM_MEMORY_OPS * NUM_MEMORY_VALUE_LIMBS;

@@ -50,7 +50,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
     config: &StarkConfig,
     vars: StarkEvaluationTargets<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
     permutation_data: Option<PermutationCheckDataTarget<D>>,
-    ctl_vars: &[CtlCheckVarsTarget<D>],
+    ctl_vars: &[CtlCheckVarsTarget<F, D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,

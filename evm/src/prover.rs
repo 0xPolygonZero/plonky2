@@ -21,6 +21,8 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::logic::LogicStark;
+use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
@@ -41,12 +43,15 @@ pub fn prove<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::PUBLIC_INPUTS]:,
 {
     let num_starks = Table::num_tables();
     debug_assert_eq!(num_starks, trace_poly_values.len());
@@ -117,8 +122,34 @@ where
         &mut challenger,
         timing,
     )?;
+    let logic_proof = prove_single_table(
+        &all_stark.logic_stark,
+        config,
+        &trace_poly_values[Table::Logic as usize],
+        &trace_commitments[Table::Logic as usize],
+        &ctl_data_per_table[Table::Logic as usize],
+        public_inputs[Table::Logic as usize]
+            .clone()
+            .try_into()
+            .unwrap(),
+        &mut challenger,
+        timing,
+    )?;
+    let memory_proof = prove_single_table(
+        &all_stark.memory_stark,
+        config,
+        &trace_poly_values[Table::Memory as usize],
+        &trace_commitments[Table::Memory as usize],
+        &ctl_data_per_table[Table::Memory as usize],
+        public_inputs[Table::Memory as usize]
+            .clone()
+            .try_into()
+            .unwrap(),
+        &mut challenger,
+        timing,
+    )?;
 
-    let stark_proofs = vec![cpu_proof, keccak_proof];
+    let stark_proofs = vec![cpu_proof, keccak_proof, logic_proof, memory_proof];
     debug_assert_eq!(stark_proofs.len(), num_starks);
 
     Ok(AllProof { stark_proofs })
@@ -139,7 +170,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
@@ -313,7 +343,6 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); P::WIDTH]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
@@ -392,14 +421,14 @@ where
                 .iter()
                 .enumerate()
                 .map(
-                    |(i, (_, columns, filter_columns))| CtlCheckVars::<F, F, P, 1> {
+                    |(i, (_, columns, filter_column))| CtlCheckVars::<F, F, P, 1> {
                         local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
                             [num_permutation_zs + i],
                         next_z: permutation_ctl_zs_commitment
                             .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
                         challenges: ctl_data.challenges.challenges[i % config.num_challenges],
                         columns,
-                        filter_columns,
+                        filter_column,
                     },
                 )
                 .collect::<Vec<_>>();
@@ -496,10 +525,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             };
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
-                    local_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i, step)
+                    local_zs: get_comm_values(permutation_ctl_zs_commitment, i)
                         [..num_permutation_zs]
                         .to_vec(),
-                    next_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i_next, step)
+                    next_zs: get_comm_values(permutation_ctl_zs_commitment, i_next)
                         [..num_permutation_zs]
                         .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
@@ -510,14 +539,14 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .iter()
                 .enumerate()
                 .map(
-                    |(iii, (_, columns, filter_columns))| CtlCheckVars::<F, F, F, 1> {
+                    |(iii, (_, columns, filter_column))| CtlCheckVars::<F, F, F, 1> {
                         local_z: get_comm_values(permutation_ctl_zs_commitment, i)
                             [num_permutation_zs + iii],
                         next_z: get_comm_values(permutation_ctl_zs_commitment, i_next)
                             [num_permutation_zs + iii],
                         challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
                         columns,
-                        filter_columns,
+                        filter_column,
                     },
                 )
                 .collect::<Vec<_>>();

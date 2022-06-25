@@ -20,8 +20,8 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     }
 
     let diffs = if eq_filter == 1 {
-        columns::SIMPLE_LOGIC_INPUT0
-            .zip(columns::SIMPLE_LOGIC_INPUT1)
+        columns::LOGIC_INPUT0
+            .zip(columns::LOGIC_INPUT1)
             .map(|(in0_col, in1_col)| {
                 let in0 = lv[in0_col];
                 let in1 = lv[in1_col];
@@ -32,7 +32,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
             })
             .sum()
     } else if iszero_filter == 1 {
-        columns::SIMPLE_LOGIC_INPUT0.map(|i| lv[i]).sum()
+        columns::LOGIC_INPUT0.map(|i| lv[i]).sum()
     } else {
         panic!()
     };
@@ -40,8 +40,8 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     lv[columns::SIMPLE_LOGIC_DIFF] = diffs;
     lv[columns::SIMPLE_LOGIC_DIFF_INV] = diffs.try_inverse().unwrap_or(F::ZERO);
 
-    lv[columns::SIMPLE_LOGIC_OUTPUT.start] = F::from_bool(diffs == F::ZERO);
-    for i in columns::SIMPLE_LOGIC_OUTPUT.start + 1..columns::SIMPLE_LOGIC_OUTPUT.end {
+    lv[columns::LOGIC_OUTPUT.start] = F::from_bool(diffs == F::ZERO);
+    for i in columns::LOGIC_OUTPUT.start + 1..columns::LOGIC_OUTPUT.end {
         lv[i] = F::ZERO;
     }
 }
@@ -54,13 +54,13 @@ pub fn eval_packed<P: PackedField>(
     let iszero_filter = lv[columns::IS_ISZERO];
     let eq_or_iszero_filter = eq_filter + iszero_filter;
 
-    let ls_bit = lv[columns::SIMPLE_LOGIC_OUTPUT.start];
+    let ls_bit = lv[columns::LOGIC_OUTPUT.start];
 
     // Handle EQ and ISZERO. Most limbs of the output are 0, but the least-significant one is
     // either 0 or 1.
     yield_constr.constraint(eq_or_iszero_filter * ls_bit * (ls_bit - P::ONES));
 
-    for bit_col in columns::SIMPLE_LOGIC_OUTPUT.start + 1..columns::SIMPLE_LOGIC_OUTPUT.end {
+    for bit_col in columns::LOGIC_OUTPUT.start + 1..columns::LOGIC_OUTPUT.end {
         let bit = lv[bit_col];
         yield_constr.constraint(eq_or_iszero_filter * bit);
     }
@@ -69,11 +69,11 @@ pub fn eval_packed<P: PackedField>(
     let diffs = lv[columns::SIMPLE_LOGIC_DIFF];
     let diffs_inv = lv[columns::SIMPLE_LOGIC_DIFF_INV];
     {
-        let input0_sum: P = columns::SIMPLE_LOGIC_INPUT0.map(|i| lv[i]).sum();
+        let input0_sum: P = columns::LOGIC_INPUT0.map(|i| lv[i]).sum();
         yield_constr.constraint(iszero_filter * (diffs - input0_sum));
 
-        let sum_squared_diffs: P = columns::SIMPLE_LOGIC_INPUT0
-            .zip(columns::SIMPLE_LOGIC_INPUT1)
+        let sum_squared_diffs: P = columns::LOGIC_INPUT0
+            .zip(columns::LOGIC_INPUT1)
             .map(|(in0_col, in1_col)| {
                 let in0 = lv[in0_col];
                 let in1 = lv[in1_col];
@@ -99,7 +99,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let iszero_filter = lv[columns::IS_ISZERO];
     let eq_or_iszero_filter = builder.add_extension(eq_filter, iszero_filter);
 
-    let ls_bit = lv[columns::SIMPLE_LOGIC_OUTPUT.start];
+    let ls_bit = lv[columns::LOGIC_OUTPUT.start];
 
     // Handle EQ and ISZERO. Most limbs of the output are 0, but the least-significant one is
     // either 0 or 1.
@@ -109,7 +109,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    for bit_col in columns::SIMPLE_LOGIC_OUTPUT.start + 1..columns::SIMPLE_LOGIC_OUTPUT.end {
+    for bit_col in columns::LOGIC_OUTPUT.start + 1..columns::LOGIC_OUTPUT.end {
         let bit = lv[bit_col];
         let constr = builder.mul_extension(eq_or_iszero_filter, bit);
         yield_constr.constraint(builder, constr);
@@ -119,21 +119,22 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let diffs = lv[columns::SIMPLE_LOGIC_DIFF];
     let diffs_inv = lv[columns::SIMPLE_LOGIC_DIFF_INV];
     {
-        let input0_sum = builder.add_many_extension(columns::SIMPLE_LOGIC_INPUT0.map(|i| lv[i]));
+        let input0_sum = builder.add_many_extension(columns::LOGIC_INPUT0.map(|i| lv[i]));
         {
             let constr = builder.sub_extension(diffs, input0_sum);
             let constr = builder.mul_extension(iszero_filter, constr);
             yield_constr.constraint(builder, constr);
         }
 
-        let sum_squared_diffs = columns::SIMPLE_LOGIC_INPUT0
-            .zip(columns::SIMPLE_LOGIC_INPUT1)
-            .fold(builder.zero_extension(), |acc, (in0_col, in1_col)| {
+        let sum_squared_diffs = columns::LOGIC_INPUT0.zip(columns::LOGIC_INPUT1).fold(
+            builder.zero_extension(),
+            |acc, (in0_col, in1_col)| {
                 let in0 = lv[in0_col];
                 let in1 = lv[in1_col];
                 let diff = builder.sub_extension(in0, in1);
                 builder.mul_add_extension(diff, diff, acc)
-            });
+            },
+        );
         {
             let constr = builder.sub_extension(diffs, sum_squared_diffs);
             let constr = builder.mul_extension(eq_filter, constr);
