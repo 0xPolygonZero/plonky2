@@ -150,7 +150,7 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use crate::constraint_consumer::{ConstraintConsumer /*, RecursiveConstraintConsumer*/};
+    use crate::constraint_consumer::ConstraintConsumer;
 
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use super::*;
@@ -161,7 +161,6 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        // TODO: Instantiate for other PackedFields?
         let mut lv = [F::default(); NUM_ARITH_COLUMNS]
             .map(|_| F::rand_from_rng(&mut rng));
 
@@ -182,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_div() {
+    fn generate_eval_consistency_add() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
