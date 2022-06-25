@@ -85,10 +85,10 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut output_limbs = [0u64; N_LIMBS];
 
     const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
-    let cy = 0u64;
+    let mut cy = 0u64;
     for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
         let s = a + b + cy;
-        let cy = s >> LIMB_BITS;
+        cy = s >> LIMB_BITS;
         debug_assert!(cy <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = s & MASK;
     }
