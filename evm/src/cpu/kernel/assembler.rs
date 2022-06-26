@@ -144,6 +144,9 @@ fn push_target_size(target: &PushTarget) -> u8 {
 mod tests {
     use std::collections::HashMap;
 
+    use itertools::Itertools;
+
+    use crate::cpu::kernel::parser::parse;
     use crate::cpu::kernel::{assembler::*, ast::*};
 
     #[test]
@@ -249,6 +252,22 @@ mod tests {
             ],
         };
         let code = assemble(vec![file]).code;
-        assert_eq!(code, vec![0x12, 42, 0xfe, 255])
+        assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
+    }
+
+    #[test]
+    fn macro_in_macro() {
+        let kernel = parse_and_assemble(&[
+            "%macro foo %bar %bar %endmacro",
+            "%macro bar ADD %endmacro",
+            "%foo",
+        ]);
+        let add = get_opcode("ADD");
+        assert_eq!(kernel.code, vec![add, add]);
+    }
+
+    fn parse_and_assemble(files: &[&str]) -> Kernel {
+        let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
+        assemble(parsed_files)
     }
 }
