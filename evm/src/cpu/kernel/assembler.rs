@@ -18,10 +18,12 @@ pub struct Kernel {
 }
 
 pub(crate) fn assemble(files: Vec<File>) -> Kernel {
+    let macros = find_macros(&files);
     let mut code = vec![];
     let mut global_labels = HashMap::new();
     for file in files {
-        assemble_file(file.body, &mut code, &mut global_labels);
+        let expanded_file = expand_macros(file.body, &macros);
+        assemble_file(expanded_file, &mut code, &mut global_labels);
     }
     Kernel {
         code,
@@ -29,12 +31,51 @@ pub(crate) fn assemble(files: Vec<File>) -> Kernel {
     }
 }
 
+fn find_macros(files: &[File]) -> HashMap<String, Vec<Item>> {
+    let mut macros = HashMap::new();
+    for file in files {
+        for item in &file.body {
+            if let Item::MacroDef(name, items) = item {
+                macros.insert(name.clone(), items.clone());
+            }
+        }
+    }
+    macros
+}
+
+fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Vec<Item>>) -> Vec<Item> {
+    let mut expanded = vec![];
+    for item in body {
+        match item {
+            Item::MacroDef(_, _) => {
+                // At this phase, we no longer need macro definitions.
+            }
+            Item::MacroCall(m) => {
+                let mut expanded_item = macros
+                    .get(&m)
+                    .cloned()
+                    .unwrap_or_else(|| panic!("No such macro: {}", m));
+                // Recursively expand any macros in the expanded code.
+                expanded_item = expand_macros(expanded_item, macros);
+                expanded.extend(expanded_item);
+            }
+            item => {
+                expanded.push(item);
+            }
+        }
+    }
+    expanded
+}
+
 fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMap<String, usize>) {
-    // First discover the offset of each label  in this file.
+    // First discover the offset of each label in this file.
     let mut local_labels = HashMap::<String, usize>::new();
     let mut offset = code.len();
     for item in &body {
         match item {
+            Item::MacroDef(_, _) | Item::MacroCall(_) => {
+                panic!("Macros should have been expanded already")
+            }
             Item::GlobalLabelDeclaration(label) => {
                 let old = global_labels.insert(label.clone(), offset);
                 assert!(old.is_none(), "Duplicate global label: {}", label);
@@ -52,6 +93,9 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
     // Now that we have label offsets, we can assemble the file.
     for item in body {
         match item {
+            Item::MacroDef(_, _) | Item::MacroCall(_) => {
+                panic!("Macros should have been expanded already")
+            }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
             }
@@ -59,7 +103,10 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
                 let target_bytes: Vec<u8> = match target {
                     PushTarget::Literal(literal) => literal.to_trimmed_be_bytes(),
                     PushTarget::Label(label) => {
-                        let offset = local_labels[&label];
+                        let offset = local_labels
+                            .get(&label)
+                            .or_else(|| global_labels.get(&label))
+                            .unwrap_or_else(|| panic!("No such label: {}", label));
                         // We want the BYTES_PER_OFFSET least significant bytes in BE order.
                         // It's easiest to rev the first BYTES_PER_OFFSET bytes of the LE encoding.
                         (0..BYTES_PER_OFFSET)
@@ -97,6 +144,9 @@ fn push_target_size(target: &PushTarget) -> u8 {
 mod tests {
     use std::collections::HashMap;
 
+    use itertools::Itertools;
+
+    use crate::cpu::kernel::parser::parse;
     use crate::cpu::kernel::{assembler::*, ast::*};
 
     #[test]
@@ -202,6 +252,22 @@ mod tests {
             ],
         };
         let code = assemble(vec![file]).code;
-        assert_eq!(code, vec![0x12, 42, 0xfe, 255])
+        assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
+    }
+
+    #[test]
+    fn macro_in_macro() {
+        let kernel = parse_and_assemble(&[
+            "%macro foo %bar %bar %endmacro",
+            "%macro bar ADD %endmacro",
+            "%foo",
+        ]);
+        let add = get_opcode("ADD");
+        assert_eq!(kernel.code, vec![add, add]);
+    }
+
+    fn parse_and_assemble(files: &[&str]) -> Kernel {
+        let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
+        assemble(parsed_files)
     }
 }

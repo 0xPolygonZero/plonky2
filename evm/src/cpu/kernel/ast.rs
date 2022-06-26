@@ -6,8 +6,12 @@ pub(crate) struct File {
     pub(crate) body: Vec<Item>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum Item {
+    /// Defines a new macro.
+    MacroDef(String, Vec<Item>),
+    /// Calls a macro.
+    MacroCall(String),
     /// Declares a global label.
     GlobalLabelDeclaration(String),
     /// Declares a label that is local to the current file.
@@ -21,13 +25,13 @@ pub(crate) enum Item {
 }
 
 /// The target of a `PUSH` operation.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum PushTarget {
     Literal(Literal),
     Label(String),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum Literal {
     Decimal(String),
     Hex(String),
