@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use log::{debug, info, Level};
 use plonky2_field::cosets::get_unique_coset_shifts;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::fft::fft_root_table;
 use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;

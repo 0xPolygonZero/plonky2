@@ -1,4 +1,4 @@
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::gadgets::polynomial::PolynomialCoeffsExtTarget;

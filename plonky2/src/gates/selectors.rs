@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialValues;
 
 use crate::gates::gate::{GateInstance, GateRef};

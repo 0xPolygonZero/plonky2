@@ -1,6 +1,6 @@
 //! Concrete instantiation of a hash function.
 
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};

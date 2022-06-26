@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::hash::hash_types::RichField;

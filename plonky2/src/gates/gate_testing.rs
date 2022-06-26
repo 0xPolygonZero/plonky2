@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::log2_ceil;

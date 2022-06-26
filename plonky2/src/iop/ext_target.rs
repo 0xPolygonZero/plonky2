@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-use plonky2_field::extension_field::algebra::ExtensionAlgebra;
-use plonky2_field::extension_field::{Extendable, FieldExtension, OEF};
+use plonky2_field::extension::algebra::ExtensionAlgebra;
+use plonky2_field::extension::{Extendable, FieldExtension, OEF};
 use plonky2_field::field_types::Field;
 
 use crate::hash::hash_types::RichField;

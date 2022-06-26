@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use itertools::izip;
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::gates::assert_le::AssertLessThanGate;
 use plonky2::hash::hash_types::RichField;

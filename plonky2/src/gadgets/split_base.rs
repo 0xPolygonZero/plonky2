@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use itertools::Itertools;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::field_types::Field;
 
 use crate::gates::base_sum::BaseSumGate;

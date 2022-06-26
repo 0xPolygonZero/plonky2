@@ -3,7 +3,7 @@
 
 use std::ops::Range;
 
-use crate::field::extension_field::Extendable;
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 

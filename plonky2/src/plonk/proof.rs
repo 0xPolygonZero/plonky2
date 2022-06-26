@@ -1,5 +1,5 @@
 use anyhow::ensure;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::{Extendable, FieldExtension};
 
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};

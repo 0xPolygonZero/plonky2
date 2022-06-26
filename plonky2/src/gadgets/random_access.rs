@@ -1,4 +1,4 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_util::log2_strict;
 
 use crate::gates::random_access::RandomAccessGate;

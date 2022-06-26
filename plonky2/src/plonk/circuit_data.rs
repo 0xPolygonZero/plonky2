@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::fft::FftRootTable;
 
 use crate::field::field_types::Field;

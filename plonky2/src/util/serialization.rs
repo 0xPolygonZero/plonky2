@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::io::{Read, Result, Write};
 
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::field_types::{Field64, PrimeField64};
 use plonky2_field::polynomial::PolynomialCoeffs;
 

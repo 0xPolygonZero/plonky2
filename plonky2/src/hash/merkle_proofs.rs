@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;

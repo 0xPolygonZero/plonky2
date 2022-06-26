@@ -7,7 +7,7 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::PartitionWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::field_types::PrimeField;
-use plonky2_field::{extension_field::Extendable, field_types::Field};
+use plonky2_field::{extension::Extendable, field_types::Field};
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::range_check::range_check_u32_circuit;
 use plonky2_u32::witness::generated_values_set_u32_target;

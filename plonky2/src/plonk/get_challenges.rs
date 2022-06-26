@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};

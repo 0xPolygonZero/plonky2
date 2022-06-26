@@ -2,10 +2,10 @@ use std::ops::Mul;
 
 use static_assertions::const_assert;
 
-use crate::extension_field::quadratic::QuadraticExtension;
-use crate::extension_field::quartic::QuarticExtension;
-use crate::extension_field::quintic::QuinticExtension;
-use crate::extension_field::{Extendable, Frobenius};
+use crate::extension::quadratic::QuadraticExtension;
+use crate::extension::quartic::QuarticExtension;
+use crate::extension::quintic::QuinticExtension;
+use crate::extension::{Extendable, Frobenius};
 use crate::field_types::Field;
 use crate::goldilocks_field::{reduce160, GoldilocksField};
 

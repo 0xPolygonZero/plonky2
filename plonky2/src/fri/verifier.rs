@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension_field::{flatten, Extendable, FieldExtension};
+use plonky2_field::extension::{flatten, Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::interpolation::{barycentric_weights, interpolate};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};

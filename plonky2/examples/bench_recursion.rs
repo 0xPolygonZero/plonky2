@@ -25,7 +25,7 @@ use plonky2::{
     },
     util::timing::TimingTree,
 };
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;

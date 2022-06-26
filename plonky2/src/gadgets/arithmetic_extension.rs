@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
-use plonky2_field::extension_field::FieldExtension;
-use plonky2_field::extension_field::{Extendable, OEF};
+use plonky2_field::extension::FieldExtension;
+use plonky2_field::extension::{Extendable, OEF};
 use plonky2_field::field_types::{Field, Field64};
 use plonky2_util::bits_u64;
 
@@ -569,7 +569,7 @@ pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension_field::algebra::ExtensionAlgebra;
+    use plonky2_field::extension::algebra::ExtensionAlgebra;
     use plonky2_field::field_types::Field;
 
     use crate::iop::ext_target::ExtensionAlgebraTarget;
