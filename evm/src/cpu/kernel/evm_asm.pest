@@ -12,7 +12,9 @@ literal_decimal = @{ ASCII_DIGIT+ }
 literal_hex = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
 literal = { literal_hex | literal_decimal }
 
-item = { global_label | local_label | bytes_item | push_instruction | nullary_instruction }
+item = { macro_def | macro_call | global_label | local_label | bytes_item | push_instruction | nullary_instruction }
+macro_def = { ^"%macro" ~ identifier ~ item* ~ ^"%endmacro" }
+macro_call = ${ "%" ~ !(^"macro" | ^"endmacro") ~ identifier }
 global_label = { ^"GLOBAL " ~ identifier ~ ":" }
 local_label = { identifier ~ ":" }
 bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }

@@ -10,8 +10,6 @@
 /// Note that this correctly handles exp(0, 0) == 1.
 
 global exp:
-// We don't seem to handle global labels yet, so this function has a local label too for now:
-exp:
     // stack: x, e, retdest
     dup2
     // stack: e, x, e, retdest
@@ -41,9 +39,7 @@ step_case:
     // stack: e / 2, recursion_return, x, e, retdest
     dup3
     // stack: x, e / 2, recursion_return, x, e, retdest
-    dup1
-    // stack: x, x, e / 2, recursion_return, x, e, retdest
-    mul
+    %square
     // stack: x * x, e / 2, recursion_return, x, e, retdest
     push exp
     // stack: exp, x * x, e / 2, recursion_return, x, e, retdest
