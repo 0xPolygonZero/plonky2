@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 use plonky2_util::ceil_div_usize;
 
 /// A gate which can decompose a number into base B little-endian limbs.
@@ -211,8 +211,8 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::quartic::QuarticExtension;
-    use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
     use plonky2_util::ceil_div_usize;
     use rand::Rng;
 

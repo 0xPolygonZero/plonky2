@@ -194,8 +194,8 @@ mod tests {
 
     use crate::extension::algebra::ExtensionAlgebra;
     use crate::extension::{Extendable, FieldExtension};
-    use crate::field_types::Field;
     use crate::goldilocks_field::GoldilocksField;
+    use crate::types::Field;
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {

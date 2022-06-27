@@ -271,9 +271,9 @@ impl Poseidon for GoldilocksField {
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::field_types::Field;
-    use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField as F;
+    use plonky2_field::types::Field;
+    use plonky2_field::types::PrimeField64;
 
     use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};
 

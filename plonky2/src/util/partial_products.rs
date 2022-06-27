@@ -2,7 +2,7 @@ use std::iter;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 use plonky2_util::ceil_div_usize;
 
 use crate::hash::hash_types::RichField;

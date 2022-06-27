@@ -106,8 +106,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
     use plonky2_field::extension::FieldExtension;
-    use plonky2_field::field_types::Field;
     use plonky2_field::interpolation::interpolant;
+    use plonky2_field::types::Field;
 
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;

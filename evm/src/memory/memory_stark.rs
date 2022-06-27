@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 
 use itertools::{izip, multiunzip, Itertools};
 use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;

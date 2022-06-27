@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
@@ -506,8 +506,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
 
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;

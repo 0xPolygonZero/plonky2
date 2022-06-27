@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;
+use plonky2_field::types::Field;
 use rayon::prelude::*;
 
 use crate::iop::target::Target;

@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};

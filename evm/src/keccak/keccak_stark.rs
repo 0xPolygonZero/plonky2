@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use itertools::Itertools;
 use log::info;
 use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use plonky2::timed;
@@ -526,7 +526,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 mod tests {
     use anyhow::Result;
     use keccak_rust::{KeccakF, StateBitsWidth};
-    use plonky2::field::field_types::Field;
+    use plonky2::field::types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};

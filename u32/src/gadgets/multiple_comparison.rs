@@ -82,7 +82,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
     use rand::Rng;
 
     use crate::gadgets::multiple_comparison::list_le_circuit;

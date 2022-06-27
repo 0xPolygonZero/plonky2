@@ -254,8 +254,8 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
     use plonky2::hash::poseidon::Poseidon;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;

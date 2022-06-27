@@ -1,5 +1,5 @@
 use plonky2::field::extension::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::config::StarkConfig;
@@ -117,8 +117,8 @@ fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
 mod tests {
     use anyhow::Result;
     use itertools::{izip, Itertools};
-    use plonky2::field::field_types::Field;
     use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::Field;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;

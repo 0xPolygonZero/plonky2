@@ -1,5 +1,5 @@
-use plonky2_field::field_types::{Field, PrimeField64};
 use plonky2_field::goldilocks_field::GoldilocksField;
+use plonky2_field::types::{Field, PrimeField64};
 use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

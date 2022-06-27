@@ -2,8 +2,8 @@ mod allocator;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use itertools::Itertools;
-use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Field;
 use rand::{thread_rng, Rng};
 use system_zero::lookup::permuted_cols;
 
