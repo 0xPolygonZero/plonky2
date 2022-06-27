@@ -132,6 +132,7 @@ mod tests {
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
+    use crate::memory::NUM_CHANNELS;
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -141,7 +142,6 @@ mod tests {
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
     use crate::{cpu, keccak, memory};
-    use crate::memory::NUM_CHANNELS;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
