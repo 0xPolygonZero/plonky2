@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 use itertools::{izip, multiunzip, Itertools};
-use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;

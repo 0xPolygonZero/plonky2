@@ -133,7 +133,7 @@ impl<F: Field> PolynomialCoeffs<F> {
 mod tests {
     use rand::{thread_rng, Rng};
 
-    use crate::extension_field::quartic::QuarticExtension;
+    use crate::extension::quartic::QuarticExtension;
     use crate::field_types::Field;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;

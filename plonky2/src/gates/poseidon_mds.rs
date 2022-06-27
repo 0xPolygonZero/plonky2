@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use plonky2_field::extension_field::algebra::ExtensionAlgebra;
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::extension_field::FieldExtension;
+use plonky2_field::extension::algebra::ExtensionAlgebra;
+use plonky2_field::extension::Extendable;
+use plonky2_field::extension::FieldExtension;
 use plonky2_field::field_types::Field;
 
 use crate::gates::gate::Gate;

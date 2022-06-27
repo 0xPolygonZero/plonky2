@@ -2,7 +2,7 @@ use std::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;

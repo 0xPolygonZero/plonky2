@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::hash::hash_types::RichField;

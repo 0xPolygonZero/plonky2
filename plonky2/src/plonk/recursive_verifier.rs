@@ -1,4 +1,4 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 
 use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;

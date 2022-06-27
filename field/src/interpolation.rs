@@ -78,7 +78,7 @@ pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extension_field::quartic::QuarticExtension;
+    use crate::extension::quartic::QuarticExtension;
     use crate::field_types::Field;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;

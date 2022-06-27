@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use plonky2_field::extension_field::algebra::PolynomialCoeffsAlgebra;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::interpolation::interpolant;
 use plonky2_field::polynomial::PolynomialCoeffs;
 

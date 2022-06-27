@@ -15,7 +15,7 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::field_types::{Field, Field64};
 use plonky2_field::packed_field::PackedField;
 use plonky2_util::{bits_u64, ceil_div_usize};

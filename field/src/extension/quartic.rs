@@ -8,7 +8,7 @@ use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
+use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field_types::Field;
 use crate::ops::Square;
 
@@ -264,7 +264,7 @@ mod tests {
 
         test_field_extension!(crate::goldilocks_field::GoldilocksField, 4);
         test_field_arithmetic!(
-            crate::extension_field::quartic::QuarticExtension<
+            crate::extension::quartic::QuarticExtension<
                 crate::goldilocks_field::GoldilocksField,
             >
         );

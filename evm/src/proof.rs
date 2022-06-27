@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{
     CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,

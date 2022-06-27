@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed_field::PackedField;

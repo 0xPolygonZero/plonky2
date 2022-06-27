@@ -12,7 +12,7 @@
 pub(crate) mod arch;
 pub mod batch_util;
 pub mod cosets;
-pub mod extension_field;
+pub mod extension;
 pub mod fft;
 pub mod field_types;
 pub mod goldilocks_extensions;

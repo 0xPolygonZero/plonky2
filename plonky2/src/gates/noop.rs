@@ -1,4 +1,4 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
