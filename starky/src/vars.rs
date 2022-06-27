@@ -1,4 +1,4 @@
-use plonky2::field::field_types::Field;
+use plonky2::field::types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::iop::ext_target::ExtensionTarget;
 

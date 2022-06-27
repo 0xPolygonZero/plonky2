@@ -9,7 +9,7 @@ macro_rules! test_field_arithmetic {
         mod field_arithmetic {
             use num::bigint::BigUint;
             use rand::Rng;
-            use $crate::field_types::Field;
+            use $crate::types::Field;
 
             #[test]
             fn batch_inversion() {

@@ -70,7 +70,7 @@ macro_rules! test_prime_field_arithmetic {
         mod prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
-            use $crate::field_types::{Field, Field64};
+            use $crate::types::{Field, Field64};
             use $crate::ops::Square;
 
             #[test]
