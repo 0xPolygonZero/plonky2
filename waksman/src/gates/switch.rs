@@ -17,7 +17,7 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use plonky2_field::extension::Extendable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
 /// A gate for conditionally swapping input values based on a boolean.

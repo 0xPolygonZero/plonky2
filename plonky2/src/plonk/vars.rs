@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
 use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};

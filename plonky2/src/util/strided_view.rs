@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ops::{Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 
 /// Imagine a slice, but with a stride (a la a NumPy array).
 ///

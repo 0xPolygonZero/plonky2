@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::polynomial::PolynomialCoeffs;
 use plonky2_field::types::Field;
 

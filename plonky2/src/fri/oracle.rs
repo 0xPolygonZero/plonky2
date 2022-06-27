@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_field::fft::FftRootTable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::types::Field;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};

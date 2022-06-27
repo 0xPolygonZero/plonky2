@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::goldilocks_field::GoldilocksField;
 use crate::ops::Square;
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
 use crate::types::{Field, Field64};
 
 // Ideally `Avx2GoldilocksField` would wrap `__m256i`. Unfortunately, `__m256i` has an alignment of
@@ -512,7 +512,7 @@ mod tests {
     use crate::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
     use crate::goldilocks_field::GoldilocksField;
     use crate::ops::Square;
-    use crate::packed_field::PackedField;
+    use crate::packed::PackedField;
     use crate::types::Field64;
 
     fn test_vals_a() -> [GoldilocksField; 4] {

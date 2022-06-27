@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use plonky2_field::extension::Extendable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 
 use crate::gates::gate::Gate;
