@@ -6,8 +6,8 @@ use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::PartitionWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::field_types::PrimeField;
-use plonky2_field::{extension::Extendable, field_types::Field};
+use plonky2_field::types::PrimeField;
+use plonky2_field::{extension::Extendable, types::Field};
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::range_check::range_check_u32_circuit;
 use plonky2_u32::witness::generated_values_set_u32_target;
@@ -646,8 +646,8 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::field_types::{Field, PrimeField};
     use plonky2_field::secp256k1_base::Secp256K1Base;
+    use plonky2_field::types::{Field, PrimeField};
 
     use crate::gadgets::nonnative::CircuitBuilderNonNative;
 

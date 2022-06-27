@@ -14,7 +14,6 @@ pub mod batch_util;
 pub mod cosets;
 pub mod extension;
 pub mod fft;
-pub mod field_types;
 pub mod goldilocks_extensions;
 pub mod goldilocks_field;
 pub mod interpolation;
@@ -25,6 +24,7 @@ pub mod packed_field;
 pub mod polynomial;
 pub mod secp256k1_base;
 pub mod secp256k1_scalar;
+pub mod types;
 pub mod zero_poly_coset;
 
 #[cfg(test)]

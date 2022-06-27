@@ -2,7 +2,7 @@
 //! https://eprint.iacr.org/2019/458.pdf
 
 use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field, PrimeField64};
+use plonky2_field::types::{Field, PrimeField64};
 use unroll::unroll_for_loops;
 
 use crate::gates::gate::Gate;
@@ -684,7 +684,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
 
     use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;

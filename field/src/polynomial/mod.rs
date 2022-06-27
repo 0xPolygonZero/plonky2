@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension::{Extendable, FieldExtension};
 use crate::fft::{fft, fft_with_options, ifft, FftRootTable};
-use crate::field_types::Field;
+use crate::types::Field;
 
 /// A polynomial in point-value form.
 ///

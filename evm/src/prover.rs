@@ -1,9 +1,9 @@
 use anyhow::{ensure, Result};
 use plonky2::field::extension::Extendable;
-use plonky2::field::field_types::Field;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;

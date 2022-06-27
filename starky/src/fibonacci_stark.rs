@@ -123,7 +123,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 mod tests {
     use anyhow::Result;
     use plonky2::field::extension::Extendable;
-    use plonky2::field::field_types::Field;
+    use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;

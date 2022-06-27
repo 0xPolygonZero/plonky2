@@ -1,7 +1,7 @@
 use std::iter::Sum;
 
-use plonky2_field::field_types::Field;
 use plonky2_field::ops::Square;
+use plonky2_field::types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
 

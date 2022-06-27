@@ -7,7 +7,7 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericHashOut, Hasher};
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 
 use crate::curve::curve_types::{Curve, CurveScalar};
@@ -176,8 +176,8 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2_field::types::Field;
     use rand::Rng;
 
     use crate::curve::curve_types::{Curve, CurveScalar};

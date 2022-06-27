@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
+use plonky2::field::types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
@@ -320,8 +320,8 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
     use plonky2::gates::gate::Gate;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;

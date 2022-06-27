@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
@@ -99,7 +99,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
     use rand::{thread_rng, Rng};
 
     use crate::iop::witness::PartialWitness;

@@ -4,7 +4,7 @@ use plonky2::hash::keccak::KeccakHash;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericHashOut, Hasher};
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
@@ -66,9 +66,9 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::field_types::Field;
-    use plonky2_field::field_types::PrimeField;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2_field::types::Field;
+    use plonky2_field::types::PrimeField;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;

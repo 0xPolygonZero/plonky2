@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;
-use plonky2_field::field_types::Field;
 use plonky2_field::ops::Square;
 use plonky2_field::packed_field::PackedField;
+use plonky2_field::types::Field;
 
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
@@ -285,8 +285,8 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
     use plonky2_util::log2_ceil;
     use rand::Rng;
 

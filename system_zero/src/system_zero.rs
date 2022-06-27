@@ -176,8 +176,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
 mod tests {
     use anyhow::Result;
     use log::Level;
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use plonky2::util::timing::TimingTree;
     use starky::config::StarkConfig;

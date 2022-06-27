@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use itertools::izip;
 use plonky2::field::extension::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::types::Field;
 use plonky2::gates::assert_le::AssertLessThanGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -183,7 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::field_types::{Field, PrimeField64};
+    use plonky2::field::types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

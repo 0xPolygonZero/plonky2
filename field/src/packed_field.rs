@@ -3,8 +3,8 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::slice;
 
-use crate::field_types::Field;
 use crate::ops::Square;
+use crate::types::Field;
 
 /// # Safety
 /// - WIDTH is assumed to be a power of 2.

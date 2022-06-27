@@ -3,8 +3,8 @@ use std::io::Cursor;
 use std::io::{Read, Result, Write};
 
 use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field64, PrimeField64};
 use plonky2_field::polynomial::PolynomialCoeffs;
+use plonky2_field::types::{Field64, PrimeField64};
 
 use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,

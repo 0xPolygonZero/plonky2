@@ -6,8 +6,8 @@ use crate::extension::quadratic::QuadraticExtension;
 use crate::extension::quartic::QuarticExtension;
 use crate::extension::quintic::QuinticExtension;
 use crate::extension::{Extendable, Frobenius};
-use crate::field_types::Field;
 use crate::goldilocks_field::{reduce160, GoldilocksField};
+use crate::types::Field;
 
 impl Frobenius<1> for GoldilocksField {}
 

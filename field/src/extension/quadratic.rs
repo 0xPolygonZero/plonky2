@@ -8,8 +8,8 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
-use crate::field_types::Field;
 use crate::ops::Square;
+use crate::types::Field;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]

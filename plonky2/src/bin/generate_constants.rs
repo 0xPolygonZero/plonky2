@@ -2,8 +2,8 @@
 
 #![allow(clippy::needless_range_loop)]
 
-use plonky2_field::field_types::Field64;
 use plonky2_field::goldilocks_field::GoldilocksField;
+use plonky2_field::types::Field64;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
