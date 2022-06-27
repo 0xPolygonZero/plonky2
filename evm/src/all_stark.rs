@@ -1,11 +1,17 @@
 use plonky2::field::extension::Extendable;
+use plonky2::field::field_types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::config::StarkConfig;
+use crate::cpu::columns::NUM_MEMORY_OPS;
+use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::CrossTableLookup;
+use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::logic;
 use crate::logic::LogicStark;
+use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::stark::Stark;
 
@@ -56,6 +62,57 @@ impl Table {
     }
 }
 
+#[allow(unused)] // TODO: Should be used soon.
+pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
+    let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
+    cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(ctl_memory));
+    cross_table_lookups
+}
+
+fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_keccak(),
+            Some(cpu_stark::ctl_filter_keccak()),
+        )],
+        TableWithColumns::new(
+            Table::Keccak,
+            keccak_stark::ctl_data(),
+            Some(keccak_stark::ctl_filter()),
+        ),
+        None,
+    )
+}
+
+fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_logic(),
+            Some(cpu_stark::ctl_filter_logic()),
+        )],
+        TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
+        None,
+    )
+}
+
+fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_memory(channel),
+            Some(cpu_stark::ctl_filter_memory(channel)),
+        )],
+        TableWithColumns::new(
+            Table::Memory,
+            memory_stark::ctl_data(),
+            Some(memory_stark::ctl_filter(channel)),
+        ),
+        None,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
@@ -69,18 +126,13 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{AllStark, Table};
+    use crate::all_stark::{all_cross_table_lookups, AllStark};
     use crate::config::StarkConfig;
-    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS, NUM_MEMORY_OPS};
-    use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-    use crate::keccak::keccak_stark::{
-        self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
-    };
+    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
+    use crate::cpu::cpu_stark::CpuStark;
+    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
-    use crate::memory::memory_stark::{
-        self as memory_stark_mod, generate_random_memory_ops, MemoryStark,
-    };
+    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -290,52 +342,12 @@ mod tests {
             &mut memory_trace,
         );
 
-        let mut cross_table_lookups = vec![
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_keccak(),
-                    Some(cpu_stark_mod::ctl_filter_keccak()),
-                )],
-                TableWithColumns::new(
-                    Table::Keccak,
-                    keccak_stark_mod::ctl_data(),
-                    Some(keccak_stark_mod::ctl_filter()),
-                ),
-                None,
-            ),
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_logic(),
-                    Some(cpu_stark_mod::ctl_filter_logic()),
-                )],
-                TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
-                None,
-            ),
-        ];
-        cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(|op| {
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_memory(op),
-                    Some(cpu_stark_mod::ctl_filter_memory(op)),
-                )],
-                TableWithColumns::new(
-                    Table::Memory,
-                    memory_stark_mod::ctl_data(),
-                    Some(memory_stark_mod::ctl_filter(op)),
-                ),
-                None,
-            )
-        }));
-
         let all_stark = AllStark {
             cpu_stark,
             keccak_stark,
             logic_stark,
             memory_stark,
-            cross_table_lookups,
+            cross_table_lookups: all_cross_table_lookups(),
         };
 
         let proof = prove::<F, C, D>(
