@@ -17,7 +17,7 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use plonky2_field::extension::Extendable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).

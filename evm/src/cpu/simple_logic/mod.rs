@@ -2,7 +2,7 @@ mod eq_iszero;
 mod not;
 
 use plonky2::field::extension::Extendable;
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 

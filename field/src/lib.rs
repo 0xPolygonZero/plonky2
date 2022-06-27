@@ -20,7 +20,7 @@ pub mod interpolation;
 mod inversion;
 pub mod ops;
 pub mod packable;
-pub mod packed_field;
+pub mod packed;
 pub mod polynomial;
 pub mod secp256k1_base;
 pub mod secp256k1_scalar;

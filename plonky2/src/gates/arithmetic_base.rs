@@ -1,5 +1,5 @@
 use plonky2_field::extension::Extendable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;

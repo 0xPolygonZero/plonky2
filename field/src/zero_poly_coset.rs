@@ -1,4 +1,4 @@
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
 use crate::types::Field;
 
 /// Precomputations of the evaluation of `Z_H(X) = X^n - 1` on a coset `gK` with `H <= K`.

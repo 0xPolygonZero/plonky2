@@ -5,7 +5,7 @@ use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 use unroll::unroll_for_loops;
 
 use crate::packable::Packable;
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::types::Field;
 

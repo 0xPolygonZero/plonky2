@@ -1,4 +1,4 @@
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
 use crate::types::Field;
 
 /// Points us to the default packing for a particular field. There may me multiple choices of

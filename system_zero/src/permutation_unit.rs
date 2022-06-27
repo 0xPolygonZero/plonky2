@@ -1,5 +1,5 @@
 use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::poseidon::{Poseidon, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
