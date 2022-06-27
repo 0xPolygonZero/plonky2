@@ -209,7 +209,7 @@ mod tests {
     use plonky2_field::extension::Extendable;
 
     use super::*;
-    use crate::hash::merkle_proofs::verify_merkle_proof;
+    use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
@@ -226,7 +226,7 @@ mod tests {
         let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);
-            verify_merkle_proof(leaf, i, &tree.cap, &proof)?;
+            verify_merkle_proof_to_cap(leaf, i, &tree.cap, &proof)?;
         }
         Ok(())
     }

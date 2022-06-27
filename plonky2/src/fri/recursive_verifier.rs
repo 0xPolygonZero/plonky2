@@ -208,7 +208,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {}'th initial Merkle proof", i),
-                self.verify_merkle_proof_with_cap_index::<H>(
+                self.verify_merkle_proof_to_cap_with_cap_index::<H>(
                     evals.clone(),
                     x_index_bits,
                     cap_index,
@@ -351,7 +351,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof_with_cap_index::<C::Hasher>(
+                self.verify_merkle_proof_to_cap_with_cap_index::<C::Hasher>(
                     flatten_target(evals),
                     &coset_index_bits,
                     cap_index,

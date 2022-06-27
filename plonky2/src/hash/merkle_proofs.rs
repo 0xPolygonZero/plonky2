@@ -24,8 +24,23 @@ pub struct MerkleProofTarget {
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
+/// given root.
+pub fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
+    leaf_data: Vec<F>,
+    leaf_index: usize,
+    merkle_root: H::Hash,
+    proof: &MerkleProof<F, H>,
+) -> Result<()>
+where
+    [(); H::HASH_SIZE]:,
+{
+    let merkle_cap = MerkleCap(vec![merkle_root]);
+    verify_merkle_proof_to_cap(leaf_data, leaf_index, &merkle_cap, proof)
+}
+
+/// Verifies that the given leaf data is present at the given index in the Merkle tree with the
 /// given cap.
-pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
+pub fn verify_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     leaf_data: Vec<F>,
     leaf_index: usize,
     merkle_cap: &MerkleCap<F, H>,
@@ -55,37 +70,40 @@ where
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-    /// given cap. The index is given by it's little-endian bits.
-    #[cfg(test)]
-    pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
+    /// given root. The index is given by its little-endian bits.
+    pub fn verify_merkle_proof<H: AlgebraicHasher<F>>(
+        &mut self,
+        leaf_data: Vec<Target>,
+        leaf_index_bits: &[BoolTarget],
+        merkle_root: HashOutTarget,
+        proof: &MerkleProofTarget,
+    ) {
+        let merkle_cap = MerkleCapTarget(vec![merkle_root]);
+        self.verify_merkle_proof_to_cap::<H>(leaf_data, leaf_index_bits, &merkle_cap, proof);
+    }
+
+    /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
+    /// given cap. The index is given by its little-endian bits.
+    pub fn verify_merkle_proof_to_cap<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
-        let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
-
-        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let mut perm_inputs = [zero; SPONGE_WIDTH];
-            perm_inputs[..4].copy_from_slice(&state.elements);
-            perm_inputs[4..8].copy_from_slice(&sibling.elements);
-            let outputs = self.permute_swapped::<H>(perm_inputs, bit);
-            state = HashOutTarget::from_vec(outputs[0..4].to_vec());
-        }
-
-        let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
-
-        for i in 0..4 {
-            let result =
-                self.random_access(index, merkle_cap.0.iter().map(|h| h.elements[i]).collect());
-            self.connect(result, state.elements[i]);
-        }
+        let cap_index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
+        self.verify_merkle_proof_to_cap_with_cap_index::<H>(
+            leaf_data,
+            leaf_index_bits,
+            cap_index,
+            merkle_cap,
+            proof,
+        );
     }
 
-    /// Same as `verify_merkle_proof` but with the final "cap index" as extra parameter.
-    pub(crate) fn verify_merkle_proof_with_cap_index<H: AlgebraicHasher<F>>(
+    /// Same as `verify_merkle_proof_to_cap`, except with the final "cap index" as separate parameter,
+    /// rather than being contained in `leaf_index_bits`.
+    pub(crate) fn verify_merkle_proof_to_cap_with_cap_index<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
@@ -176,7 +194,7 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof::<<C as GenericConfig<D>>::InnerHasher>(
+        builder.verify_merkle_proof_to_cap::<<C as GenericConfig<D>>::InnerHasher>(
             data, &i_bits, &cap_t, &proof_t,
         );
 
