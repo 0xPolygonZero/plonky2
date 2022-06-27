@@ -64,46 +64,53 @@ impl Table {
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    let mut cross_table_lookups = vec![
-        CrossTableLookup::new(
-            vec![TableWithColumns::new(
-                Table::Cpu,
-                cpu_stark::ctl_data_keccak(),
-                Some(cpu_stark::ctl_filter_keccak()),
-            )],
-            TableWithColumns::new(
-                Table::Keccak,
-                keccak_stark::ctl_data(),
-                Some(keccak_stark::ctl_filter()),
-            ),
-            None,
-        ),
-        CrossTableLookup::new(
-            vec![TableWithColumns::new(
-                Table::Cpu,
-                cpu_stark::ctl_data_logic(),
-                Some(cpu_stark::ctl_filter_logic()),
-            )],
-            TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
-            None,
-        ),
-    ];
-    cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(|op| {
-        CrossTableLookup::new(
-            vec![TableWithColumns::new(
-                Table::Cpu,
-                cpu_stark::ctl_data_memory(op),
-                Some(cpu_stark::ctl_filter_memory(op)),
-            )],
-            TableWithColumns::new(
-                Table::Memory,
-                memory_stark::ctl_data(),
-                Some(memory_stark::ctl_filter(op)),
-            ),
-            None,
-        )
-    }));
+    let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
+    cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(ctl_memory));
     cross_table_lookups
+}
+
+fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_keccak(),
+            Some(cpu_stark::ctl_filter_keccak()),
+        )],
+        TableWithColumns::new(
+            Table::Keccak,
+            keccak_stark::ctl_data(),
+            Some(keccak_stark::ctl_filter()),
+        ),
+        None,
+    )
+}
+
+fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_logic(),
+            Some(cpu_stark::ctl_filter_logic()),
+        )],
+        TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
+        None,
+    )
+}
+
+fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_memory(channel),
+            Some(cpu_stark::ctl_filter_memory(channel)),
+        )],
+        TableWithColumns::new(
+            Table::Memory,
+            memory_stark::ctl_data(),
+            Some(memory_stark::ctl_filter(channel)),
+        ),
+        None,
+    )
 }
 
 #[cfg(test)]
