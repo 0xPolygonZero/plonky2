@@ -15,6 +15,7 @@ use super::registers::is_channel;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
+use crate::memory::NUM_CHANNELS;
 use crate::memory::registers::{
     sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
     COUNTER, COUNTER_PERMUTED, IS_READ, NUM_REGISTERS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
@@ -35,8 +36,8 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter<F: Field>(op: usize) -> Column<F> {
-    Column::single(is_channel(op))
+pub fn ctl_filter<F: Field>(channel: usize) -> Column<F> {
+    Column::single(is_channel(channel))
 }
 
 #[derive(Copy, Clone)]
@@ -68,9 +69,9 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
         let mut new_writes_this_cycle = HashMap::new();
         let mut has_read = false;
         for _ in 0..2 {
-            let mut channel_index = rng.gen_range(0..4);
+            let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
             while used_indices.contains(&channel_index) {
-                channel_index = rng.gen_range(0..4);
+                channel_index = rng.gen_range(0..NUM_CHANNELS);
             }
             used_indices.insert(channel_index);
 

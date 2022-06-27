@@ -141,6 +141,7 @@ mod tests {
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
     use crate::{cpu, keccak, memory};
+    use crate::memory::NUM_CHANNELS;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -279,7 +280,7 @@ mod tests {
         for i in 0..num_memory_ops {
             let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
             let clock = mem_timestamp;
-            let op = (0..4)
+            let op = (0..NUM_CHANNELS)
                 .filter(|&o| memory_trace[memory::registers::is_channel(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
