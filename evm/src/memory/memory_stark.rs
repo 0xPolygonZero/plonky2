@@ -11,7 +11,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use rand::Rng;
 
-use super::registers::is_memop;
+use super::registers::is_channel;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
@@ -21,6 +21,7 @@ use crate::memory::registers::{
     SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
     SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
+use crate::memory::NUM_CHANNELS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
@@ -35,8 +36,8 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter<F: Field>(op: usize) -> Column<F> {
-    Column::single(is_memop(op))
+pub fn ctl_filter<F: Field>(channel: usize) -> Column<F> {
+    Column::single(is_channel(channel))
 }
 
 #[derive(Copy, Clone)]
@@ -68,9 +69,9 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
         let mut new_writes_this_cycle = HashMap::new();
         let mut has_read = false;
         for _ in 0..2 {
-            let mut channel_index = rng.gen_range(0..4);
+            let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
             while used_indices.contains(&channel_index) {
-                channel_index = rng.gen_range(0..4);
+                channel_index = rng.gen_range(0..NUM_CHANNELS);
             }
             used_indices.insert(channel_index);
 
@@ -240,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 virt,
                 value,
             } = memory_ops[i];
-            trace_cols[is_memop(channel_index)][i] = F::ONE;
+            trace_cols[is_channel(channel_index)][i] = F::ONE;
             trace_cols[TIMESTAMP][i] = timestamp;
             trace_cols[IS_READ][i] = is_read;
             trace_cols[ADDR_CONTEXT][i] = context;

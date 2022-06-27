@@ -9,6 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::{columns, decode, simple_logic};
 use crate::cross_table_lookup::Column;
+use crate::memory::NUM_CHANNELS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -35,21 +36,24 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
-pub fn ctl_data_memory<F: Field>(op: usize) -> Vec<Column<F>> {
+pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
+    debug_assert!(channel < NUM_CHANNELS);
     let mut cols: Vec<Column<F>> = Column::singles([
         columns::CLOCK,
-        columns::memop_is_read(op),
-        columns::memop_addr_context(op),
-        columns::memop_addr_segment(op),
-        columns::memop_addr_virtual(op),
+        columns::mem_is_read(channel),
+        columns::mem_addr_context(channel),
+        columns::mem_addr_segment(channel),
+        columns::mem_addr_virtual(channel),
     ])
     .collect_vec();
-    cols.extend(Column::singles((0..8).map(|j| columns::memop_value(op, j))));
+    cols.extend(Column::singles(
+        (0..8).map(|j| columns::mem_value(channel, j)),
+    ));
     cols
 }
 
-pub fn ctl_filter_memory<F: Field>(op: usize) -> Column<F> {
-    Column::single(columns::uses_memop(op))
+pub fn ctl_filter_memory<F: Field>(channel: usize) -> Column<F> {
+    Column::single(columns::mem_channel_used(channel))
 }
 
 #[derive(Copy, Clone)]

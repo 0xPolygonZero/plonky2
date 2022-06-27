@@ -3,7 +3,6 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::config::StarkConfig;
-use crate::cpu::columns::NUM_MEMORY_OPS;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
@@ -11,8 +10,8 @@ use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::logic;
 use crate::logic::LogicStark;
-use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
+use crate::memory::{memory_stark, NUM_CHANNELS};
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -65,7 +64,7 @@ impl Table {
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
-    cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(ctl_memory));
+    cross_table_lookups.extend((0..NUM_CHANNELS).map(ctl_memory));
     cross_table_lookups
 }
 
@@ -133,6 +132,7 @@ mod tests {
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
+    use crate::memory::NUM_CHANNELS;
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -280,8 +280,8 @@ mod tests {
         for i in 0..num_memory_ops {
             let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
             let clock = mem_timestamp;
-            let op = (0..4)
-                .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
+            let op = (0..NUM_CHANNELS)
+                .filter(|&o| memory_trace[memory::registers::is_channel(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
             if mem_timestamp != last_timestamp {
@@ -289,18 +289,18 @@ mod tests {
                 last_timestamp = mem_timestamp;
             }
 
-            cpu_trace_rows[current_cpu_index][cpu::columns::uses_memop(op)] = F::ONE;
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_channel_used(op)] = F::ONE;
             cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_is_read(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_is_read(op)] =
                 memory_trace[memory::registers::IS_READ].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_context(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_context(op)] =
                 memory_trace[memory::registers::ADDR_CONTEXT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_segment(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_segment(op)] =
                 memory_trace[memory::registers::ADDR_SEGMENT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_virtual(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_virtual(op)] =
                 memory_trace[memory::registers::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
-                cpu_trace_rows[current_cpu_index][cpu::columns::memop_value(op, j)] =
+                cpu_trace_rows[current_cpu_index][cpu::columns::mem_value(op, j)] =
                     memory_trace[memory::registers::value_limb(j)].values[i];
             }
         }
