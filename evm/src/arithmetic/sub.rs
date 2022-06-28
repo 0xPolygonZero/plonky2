@@ -52,6 +52,7 @@ pub fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_are_equal(yield_constr, is_sub, output_limbs, output_computed);
 }
 
+#[allow(clippy::needless_collect)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
