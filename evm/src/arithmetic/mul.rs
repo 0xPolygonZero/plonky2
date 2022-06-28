@@ -45,7 +45,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
 
     // Input and output have 16-bit limbs
-    let mut aux_in_limbs = [0u64; N_LIMBS - 1];
+    let mut aux_in_limbs = [0u64; N_LIMBS];
     let mut output_limbs = [0u64; N_LIMBS];
 
     let mut unreduced_prod = [0u64; N_LIMBS];
@@ -58,7 +58,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // calculate the coefficients of a(x)*b(x) (in unreduced_prod).
     let mut cy = 0u64;
     for col in 0..N_LIMBS {
-        for i in 0..col {
+        for i in 0..col + 1 {
             // Invariant: i + j = col
             let j = col - i;
             let ai_x_bj = input0_limbs[i] * input1_limbs[j];
@@ -68,7 +68,10 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
-    // last cy is dropped because this is multiplication modulo 2^256.
+    // In principle, the last cy could be dropped because this is
+    // multiplication modulo 2^256. However, we need it below for
+    // aux_in_limbs to handle the fact that unreduced_prod will
+    // inevitably contain a one digit's worth that is > 2^256.
 
     for (&c, &output_limb) in MUL_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
@@ -80,21 +83,23 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
 
     // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
     // This must be zero when evaluated at x = B = 2^LIMB_BITS, hence it's
-    // divisible by (x - B). If we write unreduced_prod as
+    // divisible by (B - x). If we write unreduced_prod as
     //
     //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i
-    //                    = (x - B) \sum_{i=0}^{n-1} q_i x^i
+    //                    = (B - x) \sum_{i=0}^{n-1} q_i x^i
     //
     // then by comparing coefficients it is easy to see that
     //
-    //   q_{n-1} = p_n  and  q_{i-1} = p_i + q_i*B for 0 < i < n-1.
+    //   q_0 = p_0 / B  and  q_i = (p_i + q_{i-1}) / B
     //
-    aux_in_limbs[N_LIMBS - 2] = unreduced_prod[N_LIMBS - 1];
-    for deg in (1..N_LIMBS - 1).rev() {
-        aux_in_limbs[deg - 1] = unreduced_prod[deg] + (aux_in_limbs[deg] << LIMB_BITS);
+    // for 0 < i < n-1 (and the divisions are exact).
+    aux_in_limbs[0] = unreduced_prod[0] >> LIMB_BITS;
+    for deg in 1..N_LIMBS - 1 {
+        aux_in_limbs[deg] = (unreduced_prod[deg] + aux_in_limbs[deg - 1]) >> LIMB_BITS;
     }
+    aux_in_limbs[N_LIMBS - 1] = cy;
 
-    for deg in 0..N_LIMBS - 1 {
+    for deg in 0..N_LIMBS {
         let c = MUL_AUX_INPUT[deg];
         lv[c] = F::from_canonical_u64(aux_in_limbs[deg]);
     }
@@ -112,13 +117,14 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_mul = lv[IS_MUL];
     let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
     let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
+    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
     let aux_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
     // verified. It is initialised to the /negative/ of the claimed
     // output.
-    let mut constr_poly = MUL_OUTPUT.map(|c| -lv[c]);
+    let mut constr_poly = [P::ZEROS; N_LIMBS];
 
     debug_assert_eq!(constr_poly.len(), N_LIMBS);
 
@@ -129,25 +135,25 @@ pub fn eval_packed_generic<P: PackedField>(
     //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
     //   C(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
     //
-    // This polynomial should equal (x - 2^LIMB_BITS) * Q(x) where Q is
+    // This polynomial should equal (2^LIMB_BITS - x) * Q(x) where Q is
     //
     //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
-    for deg in 0..N_LIMBS {
-        // Invariant: i + j = deg
-        for i in 0..deg {
-            let j = deg - i;
-            constr_poly[deg] += input0_limbs[i] * input1_limbs[j];
+    for col in 0..N_LIMBS {
+        // Invariant: i + j = col
+        for i in 0..col + 1 {
+            let j = col - i;
+            constr_poly[col] += input0_limbs[i] * input1_limbs[j];
         }
+        constr_poly[col] -= output_limbs[col];
     }
 
-    // This subtracts (x - 2^LIMB_BITS) * Q(x) from constr_poly.
+    // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-    constr_poly[0] += base * aux_limbs[0];
-    for deg in 1..N_LIMBS - 1 {
-        constr_poly[deg] += (base * aux_limbs[deg]) - aux_limbs[deg - 1];
+    constr_poly[0] -= base * aux_limbs[0];
+    for deg in 1..N_LIMBS {
+        constr_poly[deg] -= (base * aux_limbs[deg]) - aux_limbs[deg - 1];
     }
-    constr_poly[N_LIMBS - 1] -= aux_limbs[N_LIMBS - 2];
 
     // At this point constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS)*Q(x). The
@@ -173,26 +179,91 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let mut constr_poly = [zero; N_LIMBS]; // pointless init
 
     // Invariant: i + j = deg
-    for deg in 0..N_LIMBS {
+    for col in 0..N_LIMBS {
         let mut acc = zero;
-        for i in 0..deg {
-            let j = deg - i;
+        for i in 0..col + 1 {
+            let j = col - i;
             acc = builder.mul_add_extension(input0_limbs[i], input1_limbs[j], acc);
         }
-        constr_poly[deg] = builder.sub_extension(acc, output_limbs[deg]);
+        constr_poly[col] = builder.sub_extension(acc, output_limbs[col]);
     }
 
     let base = F::from_canonical_u64(1 << LIMB_BITS);
-    constr_poly[0] = builder.mul_const_add_extension(base, aux_in_limbs[0], constr_poly[0]);
-    for deg in 1..N_LIMBS - 1 {
-        constr_poly[deg] =
-            builder.mul_const_add_extension(base, aux_in_limbs[deg], constr_poly[deg]);
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], aux_in_limbs[deg - 1]);
+    let t = builder.mul_const_extension(base, aux_in_limbs[0]);
+    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
+    for deg in 1..N_LIMBS {
+        let t0 = builder.mul_const_extension(base, aux_in_limbs[deg]);
+        let t1 = builder.sub_extension(t0, aux_in_limbs[deg - 1]);
+        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
     }
-    constr_poly[N_LIMBS] = builder.sub_extension(constr_poly[N_LIMBS], aux_in_limbs[N_LIMBS - 1]);
 
     for &c in &constr_poly {
         let filter = builder.mul_extension(is_mul, c);
         yield_constr.constraint(builder, filter);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::field_types::Field;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
+
+    use super::*;
+    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use crate::constraint_consumer::ConstraintConsumer;
+
+    // TODO: Should be able to refactor this test to apply to all operations.
+    #[test]
+    fn generate_eval_consistency_not_mul() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // if `IS_MUL == 0`, then the constraints should be met even
+        // if all values are garbage.
+        lv[IS_MUL] = F::ZERO;
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_mul() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // set `IS_MUL == 1` and ensure all constraints are satisfied.
+        lv[IS_MUL] = F::ONE;
+        // set inputs to random values
+        for (&ai, &bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1.iter()) {
+            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
+            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+        }
+
+        generate(&mut lv);
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
     }
 }
