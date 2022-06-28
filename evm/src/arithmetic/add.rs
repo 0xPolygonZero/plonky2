@@ -10,13 +10,9 @@ use crate::range_check_error;
 
 /// Given two sequences `larger` and `smaller` of equal length (not
 /// checked), verifies that \sum_i larger[i] 2^(LIMB_BITS * i) ==
-/// \sum_i smaller[i] 2^(LIMB_BITS * i).
+/// \sum_i smaller[i] 2^(LIMB_BITS * i), taking care of carry propagation.
 ///
-/// The sequences must have been produced by `eval_packed_generic()`
-/// below; specifically, if `a` and `b` are two numbers, then `larger`
-/// should be a sequence consisting of the sums of corresponding
-/// digits, while `smaller` should be the digits of the reduced value
-/// `a + b` after carry propagation has taken place.
+/// The sequences must have been produced by `{add,sub}::eval_packed_generic()`.
 pub(crate) fn eval_packed_generic_are_equal<P, I, J>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
