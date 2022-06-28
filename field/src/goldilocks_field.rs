@@ -9,8 +9,8 @@ use plonky2_util::{assume, branch_hint};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
 use crate::inversion::try_inverse_u64;
+use crate::types::{Field, Field64, PrimeField, PrimeField64};
 
 const EPSILON: u64 = (1 << 32) - 1;
 

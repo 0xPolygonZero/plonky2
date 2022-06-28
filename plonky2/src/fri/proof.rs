@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use itertools::izip;
-use plonky2_field::extension_field::{flatten, unflatten, Extendable};
+use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::PolynomialCoeffs;
 use serde::{Deserialize, Serialize};
 

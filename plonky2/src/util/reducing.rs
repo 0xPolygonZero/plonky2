@@ -1,9 +1,9 @@
 use std::borrow::Borrow;
 
-use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::{Extendable, FieldExtension};
+use plonky2_field::packed::PackedField;
 use plonky2_field::polynomial::PolynomialCoeffs;
+use plonky2_field::types::Field;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;

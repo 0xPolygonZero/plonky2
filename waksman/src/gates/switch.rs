@@ -16,9 +16,9 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::Field;
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Copy, Clone, Debug)]
@@ -333,8 +333,8 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
 
     use crate::gates::switch::SwitchGate;
 

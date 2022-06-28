@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 use itertools::Itertools;
-use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::{Field, PrimeField64};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::Extendable;
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 

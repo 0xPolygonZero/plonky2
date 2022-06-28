@@ -1,12 +1,17 @@
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::config::StarkConfig;
+use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::CrossTableLookup;
+use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
+use crate::memory::{memory_stark, NUM_CHANNELS};
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -56,12 +61,63 @@ impl Table {
     }
 }
 
+#[allow(unused)] // TODO: Should be used soon.
+pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
+    let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
+    cross_table_lookups.extend((0..NUM_CHANNELS).map(ctl_memory));
+    cross_table_lookups
+}
+
+fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_keccak(),
+            Some(cpu_stark::ctl_filter_keccak()),
+        )],
+        TableWithColumns::new(
+            Table::Keccak,
+            keccak_stark::ctl_data(),
+            Some(keccak_stark::ctl_filter()),
+        ),
+        None,
+    )
+}
+
+fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_logic(),
+            Some(cpu_stark::ctl_filter_logic()),
+        )],
+        TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
+        None,
+    )
+}
+
+fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_memory(channel),
+            Some(cpu_stark::ctl_filter_memory(channel)),
+        )],
+        TableWithColumns::new(
+            Table::Memory,
+            memory_stark::ctl_data(),
+            Some(memory_stark::ctl_filter(channel)),
+        ),
+        None,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
     use itertools::{izip, Itertools};
-    use plonky2::field::field_types::Field;
     use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::Field;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
@@ -69,25 +125,21 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{AllStark, Table};
+    use crate::all_stark::{all_cross_table_lookups, AllStark};
     use crate::config::StarkConfig;
-    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS, NUM_MEMORY_OPS};
-    use crate::cpu::cpu_stark::{self as cpu_stark_mod, CpuStark};
-    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
-    use crate::keccak::keccak_stark::{
-        self as keccak_stark_mod, KeccakStark, NUM_INPUTS, NUM_ROUNDS,
-    };
+    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
+    use crate::cpu::cpu_stark::CpuStark;
+    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
-    use crate::memory::memory_stark::{
-        self as memory_stark_mod, generate_random_memory_ops, MemoryStark,
-    };
+    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
+    use crate::memory::NUM_CHANNELS;
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
     use crate::stark::Stark;
-    use crate::util::trace_rows_to_poly_values;
+    use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
     use crate::{cpu, keccak, memory};
 
@@ -116,11 +168,11 @@ mod tests {
             let mut row = [F::ZERO; logic::columns::NUM_COLUMNS];
 
             assert_eq!(logic::PACKED_LIMB_BITS, 16);
-            for col in logic::columns::INPUT0_PACKED {
-                row[col] = F::from_canonical_u16(rng.gen());
+            for col in logic::columns::INPUT0 {
+                row[col] = F::from_bool(rng.gen());
             }
-            for col in logic::columns::INPUT1_PACKED {
-                row[col] = F::from_canonical_u16(rng.gen());
+            for col in logic::columns::INPUT1 {
+                row[col] = F::from_bool(rng.gen());
             }
             let op: usize = rng.gen_range(0..3);
             let op_col = [
@@ -207,13 +259,18 @@ mod tests {
             .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
             .sum();
             for (cols_cpu, cols_logic) in [
-                (cpu::columns::LOGIC_INPUT0, logic::columns::INPUT0_PACKED),
-                (cpu::columns::LOGIC_INPUT1, logic::columns::INPUT1_PACKED),
-                (cpu::columns::LOGIC_OUTPUT, logic::columns::RESULT),
+                (cpu::columns::LOGIC_INPUT0, logic::columns::INPUT0),
+                (cpu::columns::LOGIC_INPUT1, logic::columns::INPUT1),
             ] {
-                for (col_cpu, col_logic) in cols_cpu.zip(cols_logic) {
-                    row[col_cpu] = logic_trace[col_logic].values[i];
+                for (col_cpu, limb_cols_logic) in
+                    cols_cpu.zip(logic::columns::limb_bit_cols_for_input(cols_logic))
+                {
+                    row[col_cpu] =
+                        limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
                 }
+            }
+            for (col_cpu, col_logic) in cpu::columns::LOGIC_OUTPUT.zip(logic::columns::RESULT) {
+                row[col_cpu] = logic_trace[col_logic].values[i];
             }
             cpu_stark.generate(&mut row);
             cpu_trace_rows.push(row);
@@ -223,8 +280,8 @@ mod tests {
         for i in 0..num_memory_ops {
             let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
             let clock = mem_timestamp;
-            let op = (0..4)
-                .filter(|&o| memory_trace[memory::registers::is_memop(o)].values[i] == F::ONE)
+            let op = (0..NUM_CHANNELS)
+                .filter(|&o| memory_trace[memory::registers::is_channel(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
             if mem_timestamp != last_timestamp {
@@ -232,18 +289,18 @@ mod tests {
                 last_timestamp = mem_timestamp;
             }
 
-            cpu_trace_rows[current_cpu_index][cpu::columns::uses_memop(op)] = F::ONE;
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_channel_used(op)] = F::ONE;
             cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_is_read(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_is_read(op)] =
                 memory_trace[memory::registers::IS_READ].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_context(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_context(op)] =
                 memory_trace[memory::registers::ADDR_CONTEXT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_segment(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_segment(op)] =
                 memory_trace[memory::registers::ADDR_SEGMENT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::memop_addr_virtual(op)] =
+            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_virtual(op)] =
                 memory_trace[memory::registers::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
-                cpu_trace_rows[current_cpu_index][cpu::columns::memop_value(op, j)] =
+                cpu_trace_rows[current_cpu_index][cpu::columns::mem_value(op, j)] =
                     memory_trace[memory::registers::value_limb(j)].values[i];
             }
         }
@@ -285,52 +342,12 @@ mod tests {
             &mut memory_trace,
         );
 
-        let mut cross_table_lookups = vec![
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_keccak(),
-                    Some(cpu_stark_mod::ctl_filter_keccak()),
-                )],
-                TableWithColumns::new(
-                    Table::Keccak,
-                    keccak_stark_mod::ctl_data(),
-                    Some(keccak_stark_mod::ctl_filter()),
-                ),
-                None,
-            ),
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_logic(),
-                    Some(cpu_stark_mod::ctl_filter_logic()),
-                )],
-                TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter())),
-                None,
-            ),
-        ];
-        cross_table_lookups.extend((0..NUM_MEMORY_OPS).map(|op| {
-            CrossTableLookup::new(
-                vec![TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark_mod::ctl_data_memory(op),
-                    Some(cpu_stark_mod::ctl_filter_memory(op)),
-                )],
-                TableWithColumns::new(
-                    Table::Memory,
-                    memory_stark_mod::ctl_data(),
-                    Some(memory_stark_mod::ctl_filter(op)),
-                ),
-                None,
-            )
-        }));
-
         let all_stark = AllStark {
             cpu_stark,
             keccak_stark,
             logic_stark,
             memory_stark,
-            cross_table_lookups,
+            cross_table_lookups: all_cross_table_lookups(),
         };
 
         let proof = prove::<F, C, D>(

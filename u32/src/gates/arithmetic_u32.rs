@@ -16,9 +16,9 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::Field;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
@@ -349,8 +349,8 @@ mod tests {
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
     use rand::Rng;
 
     use crate::gates::arithmetic_u32::U32ArithmeticGate;

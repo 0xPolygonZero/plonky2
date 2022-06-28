@@ -1,8 +1,8 @@
 use anyhow::{ensure, Result};
-use plonky2::field::extension_field::Extendable;
-use plonky2::field::extension_field::FieldExtension;
-use plonky2::field::field_types::Field;
+use plonky2::field::extension::Extendable;
+use plonky2::field::extension::FieldExtension;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::iop::witness::Witness;

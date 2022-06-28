@@ -1,4 +1,4 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_util::log2_strict;
 
 use crate::gates::random_access::RandomAccessGate;
@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
 
     use super::*;
     use crate::iop::witness::PartialWitness;

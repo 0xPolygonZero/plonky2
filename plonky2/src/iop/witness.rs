@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::extension::{Extendable, FieldExtension};
+use plonky2_field::types::Field;
 
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;

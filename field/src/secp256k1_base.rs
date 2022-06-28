@@ -10,7 +10,7 @@ use num::{Integer, One};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field_types::{Field, PrimeField};
+use crate::types::{Field, PrimeField};
 
 /// The base field of the secp256k1 elliptic curve.
 ///

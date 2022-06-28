@@ -2,7 +2,7 @@ use std::arch::asm;
 use std::arch::x86_64::*;
 use std::mem::size_of;
 
-use plonky2_field::field_types::Field;
+use plonky2_field::types::Field;
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_util::branch_hint;
 use static_assertions::const_assert;

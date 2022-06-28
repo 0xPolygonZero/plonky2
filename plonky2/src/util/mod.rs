@@ -1,5 +1,5 @@
-use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;
+use plonky2_field::types::Field;
 
 pub(crate) mod context_tree;
 pub(crate) mod partial_products;

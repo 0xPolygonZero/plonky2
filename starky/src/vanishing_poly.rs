@@ -1,5 +1,5 @@
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;

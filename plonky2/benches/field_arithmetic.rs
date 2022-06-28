@@ -1,11 +1,11 @@
 mod allocator;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use plonky2::field::extension_field::quadratic::QuadraticExtension;
-use plonky2::field::extension_field::quartic::QuarticExtension;
-use plonky2::field::extension_field::quintic::QuinticExtension;
-use plonky2::field::field_types::Field;
+use plonky2::field::extension::quadratic::QuadraticExtension;
+use plonky2::field::extension::quartic::QuarticExtension;
+use plonky2::field::extension::quintic::QuinticExtension;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Field;
 use tynm::type_name;
 
 pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {

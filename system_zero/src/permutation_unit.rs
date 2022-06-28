@@ -1,5 +1,5 @@
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::poseidon::{Poseidon, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
@@ -254,8 +254,8 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
     use plonky2::hash::poseidon::Poseidon;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;

@@ -1,6 +1,6 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::packable::Packable;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::packed::PackedField;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;

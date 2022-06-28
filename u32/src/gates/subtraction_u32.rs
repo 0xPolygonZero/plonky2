@@ -15,9 +15,9 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::Field;
 
 /// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
 /// the result `x - y - borrow` and, if this underflows, a new `borrow`. Inputs are not range-checked.
@@ -337,10 +337,10 @@ mod tests {
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::extension_field::quartic::QuarticExtension;
-    use plonky2_field::field_types::Field;
-    use plonky2_field::field_types::PrimeField64;
+    use plonky2_field::extension::quartic::QuarticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
+    use plonky2_field::types::PrimeField64;
     use rand::Rng;
 
     use crate::gates::subtraction_u32::U32SubtractionGate;

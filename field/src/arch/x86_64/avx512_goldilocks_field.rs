@@ -5,10 +5,10 @@ use std::iter::{Product, Sum};
 use std::mem::transmute;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::field_types::{Field, Field64};
 use crate::goldilocks_field::GoldilocksField;
 use crate::ops::Square;
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
+use crate::types::{Field, Field64};
 
 // Ideally `Avx512GoldilocksField` would wrap `__m512i`. Unfortunately, `__m512i` has an alignment
 // of 64B, which would preclude us from casting `[GoldilocksField; 8]` (alignment 8B) to
@@ -407,10 +407,10 @@ unsafe fn interleave4(x: __m512i, y: __m512i) -> (__m512i, __m512i) {
 #[cfg(test)]
 mod tests {
     use crate::arch::x86_64::avx512_goldilocks_field::Avx512GoldilocksField;
-    use crate::field_types::Field64;
     use crate::goldilocks_field::GoldilocksField;
     use crate::ops::Square;
-    use crate::packed_field::PackedField;
+    use crate::packed::PackedField;
+    use crate::types::Field64;
 
     fn test_vals_a() -> [GoldilocksField; 8] {
         [

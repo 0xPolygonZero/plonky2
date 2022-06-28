@@ -1,7 +1,7 @@
 use plonky2_util::log2_ceil;
 
-use crate::field_types::Field;
 use crate::polynomial::PolynomialCoeffs;
+use crate::types::Field;
 
 impl<F: Field> PolynomialCoeffs<F> {
     /// Polynomial division.
@@ -133,10 +133,10 @@ impl<F: Field> PolynomialCoeffs<F> {
 mod tests {
     use rand::{thread_rng, Rng};
 
-    use crate::extension_field::quartic::QuarticExtension;
-    use crate::field_types::Field;
+    use crate::extension::quartic::QuarticExtension;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
+    use crate::types::Field;
 
     #[test]
     fn test_division_by_linear() {

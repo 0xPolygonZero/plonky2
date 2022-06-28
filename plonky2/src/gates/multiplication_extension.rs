@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::extension_field::FieldExtension;
+use plonky2_field::extension::Extendable;
+use plonky2_field::extension::FieldExtension;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;

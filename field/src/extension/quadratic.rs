@@ -7,9 +7,9 @@ use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
-use crate::field_types::Field;
+use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::ops::Square;
+use crate::types::Field;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -231,7 +231,7 @@ mod tests {
 
         test_field_extension!(crate::goldilocks_field::GoldilocksField, 2);
         test_field_arithmetic!(
-            crate::extension_field::quadratic::QuadraticExtension<
+            crate::extension::quadratic::QuadraticExtension<
                 crate::goldilocks_field::GoldilocksField,
             >
         );

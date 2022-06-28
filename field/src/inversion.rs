@@ -1,4 +1,4 @@
-use crate::field_types::PrimeField64;
+use crate::types::PrimeField64;
 
 /// This is a 'safe' iteration for the modular inversion algorithm. It
 /// is safe in the sense that it will produce the right answer even

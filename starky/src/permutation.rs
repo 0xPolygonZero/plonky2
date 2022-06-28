@@ -2,10 +2,10 @@
 
 use itertools::Itertools;
 use plonky2::field::batch_util::batch_multiply_inplace;
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;

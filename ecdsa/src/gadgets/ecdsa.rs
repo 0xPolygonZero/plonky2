@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
 use crate::curve::curve_types::Curve;
@@ -56,8 +56,8 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2_field::types::Field;
 
     use super::{ECDSAPublicKeyTarget, ECDSASignatureTarget};
     use crate::curve::curve_types::{Curve, CurveScalar};

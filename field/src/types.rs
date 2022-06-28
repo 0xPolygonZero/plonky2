@@ -10,7 +10,7 @@ use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::extension_field::Frobenius;
+use crate::extension::Frobenius;
 use crate::ops::Square;
 
 /// A finite field.

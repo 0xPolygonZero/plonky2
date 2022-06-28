@@ -1,4 +1,4 @@
-use crate::field_types::PrimeField64;
+use crate::types::PrimeField64;
 
 /// Generates a series of non-negative integers less than `modulus` which cover a range of
 /// interesting test values.
@@ -70,8 +70,8 @@ macro_rules! test_prime_field_arithmetic {
         mod prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
-            use $crate::field_types::{Field, Field64};
             use $crate::ops::Square;
+            use $crate::types::{Field, Field64};
 
             #[test]
             fn arithmetic_addition() {

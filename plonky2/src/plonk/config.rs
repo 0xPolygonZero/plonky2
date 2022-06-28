@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use plonky2_field::extension_field::quadratic::QuadraticExtension;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::quadratic::QuadraticExtension;
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use serde::{de::DeserializeOwned, Serialize};
 

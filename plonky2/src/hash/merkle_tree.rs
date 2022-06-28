@@ -206,7 +206,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension_field::Extendable;
+    use plonky2_field::extension::Extendable;
 
     use super::*;
     use crate::hash::merkle_proofs::verify_merkle_proof;

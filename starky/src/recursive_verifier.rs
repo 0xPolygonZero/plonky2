@@ -2,8 +2,8 @@ use std::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;

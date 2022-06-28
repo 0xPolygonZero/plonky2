@@ -5,8 +5,8 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::extension::{Extendable, FieldExtension};
+use plonky2_field::types::Field;
 
 use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;

@@ -1,6 +1,6 @@
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::Field;
 
 use crate::fri::oracle::SALT_SIZE;
 use crate::fri::structure::FriOracleInfo;

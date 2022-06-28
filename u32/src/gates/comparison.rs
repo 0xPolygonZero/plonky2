@@ -15,9 +15,9 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::{Field, Field64};
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::{Field, Field64};
 use plonky2_util::{bits_u64, ceil_div_usize};
 
 /// A gate for checking that one value is less than or equal to another.
@@ -520,9 +520,9 @@ mod tests {
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::field_types::Field;
-    use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::types::Field;
+    use plonky2_field::types::PrimeField64;
     use rand::Rng;
 
     use crate::gates::comparison::ComparisonGate;

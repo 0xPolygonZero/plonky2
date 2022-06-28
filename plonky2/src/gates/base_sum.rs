@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::{Field, Field64};
-use plonky2_field::packed_field::PackedField;
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::{Field, Field64};
 
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;

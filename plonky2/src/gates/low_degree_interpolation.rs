@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use plonky2_field::extension_field::algebra::PolynomialCoeffsAlgebra;
-use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::interpolation::interpolant;
 use plonky2_field::polynomial::PolynomialCoeffs;
+use plonky2_field::types::Field;
 
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
@@ -382,10 +382,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension_field::quadratic::QuadraticExtension;
-    use plonky2_field::field_types::Field;
+    use plonky2_field::extension::quadratic::QuadraticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::polynomial::PolynomialCoeffs;
+    use plonky2_field::types::Field;
 
     use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::gate::Gate;

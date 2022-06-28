@@ -2,8 +2,8 @@ use std::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
+use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::{GenericConfig, Hasher};
@@ -185,9 +185,9 @@ fn check_permutation_options<
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::Field;
 
     use crate::verifier::eval_l_1_and_l_last;
 

@@ -20,6 +20,12 @@ pub(crate) fn parse(s: &str) -> File {
 fn parse_item(item: Pair<Rule>) -> Item {
     let item = item.into_inner().next().unwrap();
     match item.as_rule() {
+        Rule::macro_def => {
+            let mut inner = item.into_inner();
+            let name = inner.next().unwrap().as_str().into();
+            Item::MacroDef(name, inner.map(parse_item).collect())
+        }
+        Rule::macro_call => Item::MacroCall(item.into_inner().next().unwrap().as_str().into()),
         Rule::global_label => {
             Item::GlobalLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }

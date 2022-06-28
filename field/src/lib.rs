@@ -12,19 +12,19 @@
 pub(crate) mod arch;
 pub mod batch_util;
 pub mod cosets;
-pub mod extension_field;
+pub mod extension;
 pub mod fft;
-pub mod field_types;
 pub mod goldilocks_extensions;
 pub mod goldilocks_field;
 pub mod interpolation;
 mod inversion;
 pub mod ops;
 pub mod packable;
-pub mod packed_field;
+pub mod packed;
 pub mod polynomial;
 pub mod secp256k1_base;
 pub mod secp256k1_scalar;
+pub mod types;
 pub mod zero_poly_coset;
 
 #[cfg(test)]

@@ -2,13 +2,13 @@ use std::mem::swap;
 
 use anyhow::ensure;
 use anyhow::Result;
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2_util::{ceil_div_usize, log2_ceil};
 use rayon::prelude::*;
 
-use crate::field::field_types::Field;
+use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;

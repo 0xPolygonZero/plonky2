@@ -1,4 +1,4 @@
-use plonky2::field::field_types::Field;
+use plonky2::field::types::Field;
 
 use crate::cross_table_lookup::Column;
 use crate::keccak::keccak_stark::{NUM_INPUTS, NUM_ROUNDS};

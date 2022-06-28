@@ -1,6 +1,6 @@
-use plonky2_field::field_types::Field;
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+use plonky2_field::types::Field;
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_types::{AffinePoint, Curve};
@@ -40,9 +40,9 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 #[cfg(test)]
 mod tests {
     use num::BigUint;
-    use plonky2_field::field_types::Field;
-    use plonky2_field::field_types::PrimeField;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2_field::types::Field;
+    use plonky2_field::types::PrimeField;
 
     use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
     use crate::curve::secp256k1::Secp256K1;

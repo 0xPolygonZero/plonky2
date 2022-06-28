@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
-use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::extension::{Extendable, FieldExtension};
 
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
@@ -274,7 +274,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
 
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;

@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
@@ -126,7 +126,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2_field::types::Field;
     use rand::{thread_rng, Rng};
 
     use super::*;

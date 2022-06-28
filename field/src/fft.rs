@@ -4,10 +4,10 @@ use std::option::Option;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 use unroll::unroll_for_loops;
 
-use crate::field_types::Field;
 use crate::packable::Packable;
-use crate::packed_field::PackedField;
+use crate::packed::PackedField;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::types::Field;
 
 pub type FftRootTable<F> = Vec<Vec<F>>;
 
@@ -210,9 +210,9 @@ mod tests {
     use plonky2_util::{log2_ceil, log2_strict};
 
     use crate::fft::{fft, fft_with_options, ifft};
-    use crate::field_types::Field;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
+    use crate::types::Field;
 
     #[test]
     fn fft_and_ifft() {

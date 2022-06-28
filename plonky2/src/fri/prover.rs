@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use plonky2_field::extension_field::{flatten, unflatten, Extendable};
+use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::reverse_index_bits_in_place;
 use rayon::prelude::*;

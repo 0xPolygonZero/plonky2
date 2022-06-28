@@ -1,6 +1,6 @@
-use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::Extendable;
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
@@ -142,8 +142,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 

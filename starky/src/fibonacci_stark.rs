@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -122,8 +122,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::extension_field::Extendable;
-    use plonky2::field::field_types::Field;
+    use plonky2::field::extension::Extendable;
+    use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;

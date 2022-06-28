@@ -1,6 +1,6 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::extension::Extendable;
+use plonky2_field::types::Field;
 
 use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hash_types::RichField;

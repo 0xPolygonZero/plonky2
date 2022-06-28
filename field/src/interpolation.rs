@@ -1,8 +1,8 @@
 use plonky2_util::log2_ceil;
 
 use crate::fft::ifft;
-use crate::field_types::Field;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::types::Field;
 
 /// Computes the unique degree < n interpolant of an arbitrary list of n (point, value) pairs.
 ///
@@ -78,10 +78,10 @@ pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extension_field::quartic::QuarticExtension;
-    use crate::field_types::Field;
+    use crate::extension::quartic::QuarticExtension;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
+    use crate::types::Field;
 
     #[test]
     fn interpolant_random() {
