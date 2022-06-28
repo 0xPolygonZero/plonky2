@@ -7,7 +7,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::{columns, decode, simple_logic};
+use crate::cpu::{decode, registers, simple_logic};
 use crate::cross_table_lookup::Column;
 use crate::memory::NUM_CHANNELS;
 use crate::permutation::PermutationPair;
@@ -15,45 +15,46 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
-    let mut res: Vec<_> = columns::KECCAK_INPUT_LIMBS.map(Column::single).collect();
-    res.extend(columns::KECCAK_OUTPUT_LIMBS.map(Column::single));
+    let mut res: Vec<_> = registers::KECCAK_INPUT_LIMBS.map(Column::single).collect();
+    res.extend(registers::KECCAK_OUTPUT_LIMBS.map(Column::single));
     res
 }
 
 pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
-    Column::single(columns::IS_KECCAK)
+    Column::single(registers::IS_KECCAK)
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([columns::IS_AND, columns::IS_OR, columns::IS_XOR]).collect_vec();
-    res.extend(columns::LOGIC_INPUT0.map(Column::single));
-    res.extend(columns::LOGIC_INPUT1.map(Column::single));
-    res.extend(columns::LOGIC_OUTPUT.map(Column::single));
+    let mut res =
+        Column::singles([registers::IS_AND, registers::IS_OR, registers::IS_XOR]).collect_vec();
+    res.extend(registers::LOGIC_INPUT0.map(Column::single));
+    res.extend(registers::LOGIC_INPUT1.map(Column::single));
+    res.extend(registers::LOGIC_OUTPUT.map(Column::single));
     res
 }
 
 pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+    Column::sum([registers::IS_AND, registers::IS_OR, registers::IS_XOR])
 }
 
 pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     debug_assert!(channel < NUM_CHANNELS);
     let mut cols: Vec<Column<F>> = Column::singles([
-        columns::CLOCK,
-        columns::mem_is_read(channel),
-        columns::mem_addr_context(channel),
-        columns::mem_addr_segment(channel),
-        columns::mem_addr_virtual(channel),
+        registers::CLOCK,
+        registers::mem_is_read(channel),
+        registers::mem_addr_context(channel),
+        registers::mem_addr_segment(channel),
+        registers::mem_addr_virtual(channel),
     ])
     .collect_vec();
     cols.extend(Column::singles(
-        (0..8).map(|j| columns::mem_value(channel, j)),
+        (0..8).map(|j| registers::mem_value(channel, j)),
     ));
     cols
 }
 
 pub fn ctl_filter_memory<F: Field>(channel: usize) -> Column<F> {
-    Column::single(columns::mem_channel_used(channel))
+    Column::single(registers::mem_channel_used(channel))
 }
 
 #[derive(Copy, Clone)]
@@ -62,14 +63,14 @@ pub struct CpuStark<F, const D: usize> {
 }
 
 impl<F: RichField, const D: usize> CpuStark<F, D> {
-    pub fn generate(&self, local_values: &mut [F; columns::NUM_CPU_COLUMNS]) {
+    pub fn generate(&self, local_values: &mut [F; registers::NUM_CPU_COLUMNS]) {
         decode::generate(local_values);
         simple_logic::generate(local_values);
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = columns::NUM_CPU_COLUMNS;
+    const COLUMNS: usize = registers::NUM_CPU_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
