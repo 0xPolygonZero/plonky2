@@ -10,6 +10,7 @@ plonky2_util = { path = "../util" }
 anyhow = "1.0.40"
 env_logger = "0.9.0"
 ethereum-types = "0.13.1"
+hex = { version = "0.4.3", optional = true }
 itertools = "0.10.3"
 log = "0.4.14"
 pest = "2.1.3"
@@ -18,3 +19,10 @@ rayon = "1.5.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 keccak-rust = { git = "https://github.com/npwardberkeley/keccak-rust" }
+
+[features]
+asmtools = ["hex"]
+
+[[bin]]
+name = "assemble"
+required-features = ["asmtools"]

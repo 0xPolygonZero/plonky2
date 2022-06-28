@@ -13,7 +13,7 @@ const BYTES_PER_OFFSET: u8 = 3;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Kernel {
-    code: Vec<u8>,
+    pub code: Vec<u8>,
     global_labels: HashMap<String, usize>,
 }
 
