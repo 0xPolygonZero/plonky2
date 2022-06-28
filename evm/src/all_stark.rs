@@ -115,7 +115,7 @@ fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
 #[cfg(test)]
 mod tests {
     use std::borrow::BorrowMut;
-    
+
     use anyhow::Result;
     use itertools::{izip, Itertools};
     use plonky2::field::polynomial::PolynomialValues;
@@ -297,7 +297,8 @@ mod tests {
                 last_timestamp = mem_timestamp;
             }
 
-            let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[current_cpu_index].borrow_mut();
+            let row: &mut cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[current_cpu_index].borrow_mut();
 
             row.mem_channel_used[op] = F::ONE;
             row.clock = clock;
@@ -306,8 +307,7 @@ mod tests {
             row.mem_addr_segment[op] = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
             row.mem_addr_virtual[op] = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
-                row.mem_value[op][j] =
-                    memory_trace[memory::columns::value_limb(j)].values[i];
+                row.mem_value[op][j] = memory_trace[memory::columns::value_limb(j)].values[i];
             }
         }
         trace_rows_to_poly_values(cpu_trace_rows)
