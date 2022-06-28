@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
@@ -20,6 +21,9 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 // TODO: replace/merge this gate with `ComparisonGate`.
 
@@ -86,6 +90,21 @@ impl<F: RichField + Extendable<D>, const D: usize> AssertLessThanGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThanGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::AssertLe
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.num_bits)?;
+        dst.write_usize(self.num_chunks)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_bits = src.read_usize()?;
+        let num_chunks = src.read_usize()?;
+        Ok(Self::new(num_bits, num_chunks))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

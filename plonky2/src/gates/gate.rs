@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
+use std::io::Result as IoResult;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -17,10 +18,36 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
 };
+use crate::util::serialization::Buffer;
+
+pub enum GateKind {
+    ArithmeticBase,
+    ArithmeticExt,
+    AssertLe,
+    BaseSum,
+    Constant,
+    Exponentiation,
+    Interpolation,
+    LowDegreeInterpolation,
+    MulExt,
+    Noop,
+    PoseidonMds,
+    Poseidon,
+    PublicInput,
+    RandomAccess,
+    ReducingExt,
+    Reducing,
+}
+
 
 /// A custom gate.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
+
+    fn kind(&self) -> GateKind;
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()>;
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> where Self: Sized;
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
 

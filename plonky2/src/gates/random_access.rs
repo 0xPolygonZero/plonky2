@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::io::Result as IoResult;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
@@ -20,6 +21,9 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
@@ -100,6 +104,24 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::RandomAccess
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.bits)?;
+        dst.write_usize(self.num_copies)?;
+        dst.write_usize(self.num_extra_constants)?;
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let bits = src.read_usize()?;
+        let num_copies = src.read_usize()?;
+        let num_extra_constants = src.read_usize()?;
+        Ok(Self::new(num_copies, bits, num_extra_constants))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

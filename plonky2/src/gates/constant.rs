@@ -1,3 +1,4 @@
+use std::io::Result as IoResult;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 
@@ -12,6 +13,9 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate which takes a single constant parameter and outputs that value.
 #[derive(Copy, Clone, Debug)]
@@ -34,6 +38,19 @@ impl ConstantGate {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         format!("{:?}", self)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::Constant
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.num_consts)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_consts = src.read_usize()?;
+        Ok(Self { num_consts })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

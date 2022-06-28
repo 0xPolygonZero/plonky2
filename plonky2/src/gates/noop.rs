@@ -1,4 +1,5 @@
 use plonky2_field::extension::Extendable;
+use std::io::Result as IoResult;
 
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
@@ -6,6 +7,9 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate which does nothing.
 pub struct NoopGate;
@@ -13,6 +17,18 @@ pub struct NoopGate;
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::Noop
+    }
+
+    fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
+        Ok(Self)
     }
 
     fn eval_unfiltered(&self, _vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

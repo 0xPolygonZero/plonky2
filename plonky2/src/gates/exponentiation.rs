@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::ops::Square;
@@ -20,6 +21,9 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
@@ -71,6 +75,19 @@ impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::Exponentiation
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.num_power_bits)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_power_bits = src.read_usize()?;
+        Ok(Self::new(num_power_bits))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

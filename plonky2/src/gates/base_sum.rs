@@ -1,10 +1,11 @@
 use std::ops::Range;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 
-use crate::gates::gate::Gate;
+use crate::gates::gate::{Gate, GateKind};
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -19,6 +20,7 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -48,6 +50,19 @@ impl<const B: usize> BaseSumGate<B> {
 impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
         format!("{:?} + Base: {}", self, B)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::BaseSum
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.num_limbs)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_limbs = src.read_usize()?;
+        Ok(Self { num_limbs })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

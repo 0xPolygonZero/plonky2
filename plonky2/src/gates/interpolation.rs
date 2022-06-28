@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Range;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
 use plonky2_field::extension::{Extendable, FieldExtension};
@@ -18,6 +19,9 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
 /// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
@@ -86,6 +90,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
 {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
+    }
+    
+    fn kind(&self) -> GateKind {
+        GateKind::Interpolation
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.subgroup_bits)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let subgroup_bits = src.read_usize()?;
+        Ok(Self::new(subgroup_bits))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

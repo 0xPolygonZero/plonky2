@@ -1,24 +1,84 @@
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::io::{Read, Result, Write};
+use std::io::{Read, Result, Error, ErrorKind, Write};
+use std::ops::Range;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::polynomial::PolynomialCoeffs;
 use plonky2_field::types::{Field64, PrimeField64};
 
+use crate::fri::{FriConfig, FriParams};
 use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
+use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::gates::arithmetic_base::ArithmeticGate;
+use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
+use crate::gates::assert_le::AssertLessThanGate;
+use crate::gates::base_sum::BaseSumGate;
+use crate::gates::constant::ConstantGate;
+use crate::gates::exponentiation::ExponentiationGate;
+use crate::gates::interpolation::HighDegreeInterpolationGate;
+use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
+use crate::gates::multiplication_extension::MulExtensionGate;
+use crate::gates::noop::NoopGate;
+use crate::gates::poseidon_mds::PoseidonMdsGate;
+use crate::gates::poseidon::PoseidonGate;
+use crate::gates::public_input::PublicInputGate;
+use crate::gates::random_access::RandomAccessGate;
+use crate::gates::reducing_extension::ReducingExtensionGate;
+use crate::gates::reducing::ReducingGate;
+
+use crate::gates::gate::{Gate, GateKind, GateRef};
+use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::circuit_data::{CommonCircuitData, CircuitConfig};
 use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
+
+pub(crate) const ARITHMETIC_BASE_TAG: u8 = 0;
+pub(crate) const ARITHMETIC_EXT_TAG: u8 = 1;
+pub(crate) const ASSERT_LE_TAG: u8 = 2;
+pub(crate) const BASE_SUM_TAG: u8 = 3;
+pub(crate) const CONSTANT_TAG: u8 = 4;
+pub(crate) const EXPONENTIATION_TAG: u8 = 5;
+pub(crate) const INTERPOLATION_TAG: u8 = 6;
+pub(crate) const LOW_DEGREE_INTERPOLATION_TAG: u8 = 7;
+pub(crate) const MUL_EXT_TAG: u8 = 8;
+pub(crate) const NOOP_TAG: u8 = 9;
+pub(crate) const POSEIDON_MDS_TAG: u8 = 10;
+pub(crate) const POSEIDON_TAG: u8 = 11;
+pub(crate) const PUBLIC_INPUT_TAG: u8 = 12;
+pub(crate) const RANDOM_ACCESS_TAG: u8 = 13;
+pub(crate) const REDUCING_EXT_TAG: u8 = 14;
+pub(crate) const REDUCING_TAG: u8 = 15;
+
+pub(crate) fn gate_kind_tag(gate_kind: GateKind) -> u8 {
+    match gate_kind {
+        GateKind::ArithmeticBase => ARITHMETIC_BASE_TAG,
+        GateKind::ArithmeticExt => ARITHMETIC_EXT_TAG,
+        GateKind::AssertLe => ASSERT_LE_TAG,
+        GateKind::BaseSum => BASE_SUM_TAG,
+        GateKind::Constant => CONSTANT_TAG,
+        GateKind::Exponentiation => EXPONENTIATION_TAG,
+        GateKind::Interpolation => INTERPOLATION_TAG,
+        GateKind::LowDegreeInterpolation => LOW_DEGREE_INTERPOLATION_TAG,
+        GateKind::MulExt => MUL_EXT_TAG,
+        GateKind::Noop => NOOP_TAG,
+        GateKind::PoseidonMds => POSEIDON_MDS_TAG,
+        GateKind::Poseidon => POSEIDON_TAG,
+        GateKind::PublicInput => PUBLIC_INPUT_TAG,
+        GateKind::RandomAccess => RANDOM_ACCESS_TAG,
+        GateKind::ReducingExt => REDUCING_EXT_TAG,
+        GateKind::Reducing => REDUCING_TAG,
+    }
+}
 
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);
@@ -34,6 +94,17 @@ impl Buffer {
 
     pub fn bytes(self) -> Vec<u8> {
         self.0.into_inner()
+    }
+
+    pub(crate) fn write_bool(&mut self, x: bool) -> Result<()> {
+        self.write_u8(u8::from(x))
+    }
+    pub(crate) fn read_bool(&mut self) -> Result<bool> {
+         match self.read_u8()? {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(Error::from(ErrorKind::InvalidData))
+        }
     }
 
     fn write_u8(&mut self, x: u8) -> Result<()> {
@@ -52,6 +123,15 @@ impl Buffer {
         let mut buf = [0; std::mem::size_of::<u32>()];
         self.0.read_exact(&mut buf)?;
         Ok(u32::from_le_bytes(buf))
+    }
+
+    pub(crate) fn write_usize(&mut self, x: usize) -> Result<()> {
+        self.0.write_all(&(x as u64).to_le_bytes())
+    }
+    pub(crate) fn read_usize(&mut self) -> Result<usize> {
+        let mut buf = [0; std::mem::size_of::<u64>()];
+        self.0.read_exact(&mut buf)?;
+        Ok(u64::from_le_bytes(buf) as usize)
     }
 
     fn write_field<F: PrimeField64>(&mut self, x: F) -> Result<()> {
@@ -117,6 +197,24 @@ impl Buffer {
         ))
     }
 
+    pub fn write_usize_vec(&mut self, v: &[usize]) -> Result<()> {
+        self.write_usize(v.len())?;
+        for &elem in v.iter() {
+            self.write_usize(elem)?;
+        }
+
+        Ok(())
+    }
+    pub fn read_usize_vec(&mut self) -> Result<Vec<usize>> {
+        let len = self.read_usize()?;
+        let mut res = Vec::with_capacity(len);
+        for _ in 0..len {
+            res.push(self.read_usize()?);
+        }
+
+        Ok(res)
+    }
+    
     pub fn write_field_vec<F: PrimeField64>(&mut self, v: &[F]) -> Result<()> {
         for &a in v {
             self.write_field(a)?;
@@ -611,4 +709,394 @@ impl Buffer {
             public_inputs,
         })
     }
+
+    // circuit data serialization
+
+    pub fn write_fri_reduction_strategy(
+        &mut self,
+        reduction_strategy: &FriReductionStrategy
+    ) -> Result<()> {
+        match reduction_strategy {
+            FriReductionStrategy::Fixed(seq) => {
+                self.write_u8(0)?;
+                self.write_usize_vec(seq.as_slice())?;
+
+                Ok(())
+            },
+            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+                self.write_u8(1)?;
+                self.write_usize(*arity_bits)?;
+                self.write_usize(*final_poly_bits)?;
+
+                Ok(())
+            },
+            FriReductionStrategy::MinSize(max) => {
+                self.write_u8(2)?;
+                if let Some(max) = max {
+                    self.write_u8(1)?;
+                    self.write_usize(*max)?;
+                } else {
+                    self.write_u8(0)?;
+                }
+                
+                Ok(())
+            }
+        }
+    }
+    pub fn read_fri_reduction_strategy(&mut self) -> Result<FriReductionStrategy> {
+        let variant = self.read_u8()?;
+        match variant {
+            0 => {
+                let arities = self.read_usize_vec()?;
+                Ok(FriReductionStrategy::Fixed(arities))
+            }
+            1 => {
+                let arity_bits = self.read_usize()?;
+                let final_poly_bits = self.read_usize()?;
+
+                Ok(FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits))
+            },
+            2 => {
+                let is_some = self.read_u8()?;
+                match is_some {
+                    0 => Ok(FriReductionStrategy::MinSize(None)),
+                    1 => {
+                        let max = self.read_usize()?;
+                        Ok(FriReductionStrategy::MinSize(Some(max)))
+                    }
+                    _ => Err(Error::from(ErrorKind::InvalidData))
+                }
+            },
+            _ => Err(Error::from(ErrorKind::InvalidData))
+        }
+    }
+
+    pub fn write_fri_config(
+        &mut self,
+        config: &FriConfig,
+    ) -> Result<()> {
+        let FriConfig {
+            rate_bits,
+            cap_height,
+            num_query_rounds,
+            proof_of_work_bits,
+            reduction_strategy,
+        } = &config;
+
+        self.write_usize(*rate_bits)?;
+        self.write_usize(*cap_height)?;
+        self.write_usize(*num_query_rounds)?;
+        self.write_u32(*proof_of_work_bits)?;
+        self.write_fri_reduction_strategy(reduction_strategy)?;
+
+        Ok(())
+    }
+    pub fn read_fri_config(&mut self) -> Result<FriConfig> {
+        let rate_bits = self.read_usize()?;
+        let cap_height = self.read_usize()?;
+        let num_query_rounds = self.read_usize()?;
+        let proof_of_work_bits = self.read_u32()?;
+        let reduction_strategy = self.read_fri_reduction_strategy()?;
+
+        Ok(
+            FriConfig {
+                rate_bits,
+                cap_height,
+                num_query_rounds,
+                proof_of_work_bits,
+                reduction_strategy
+            }
+        )
+    }
+
+    pub fn write_circuit_config(
+        &mut self,
+        config: &CircuitConfig,
+    ) -> Result<()> {
+        let CircuitConfig {
+            num_wires,
+            num_routed_wires,
+            num_constants,
+            security_bits,
+            num_challenges,
+            max_quotient_degree_factor,
+            use_base_arithmetic_gate,
+            zero_knowledge,
+            fri_config,
+        } = config;
+
+        self.write_usize(*num_wires)?;
+        self.write_usize(*num_routed_wires)?;
+        self.write_usize(*num_constants)?;
+        self.write_usize(*security_bits)?;
+        self.write_usize(*num_challenges)?;
+        self.write_usize(*max_quotient_degree_factor)?;
+        self.write_bool(*use_base_arithmetic_gate)?;
+        self.write_bool(*zero_knowledge)?;
+        self.write_fri_config(fri_config)?;
+
+        Ok(())
+    }
+    pub fn read_circuit_config(&mut self) -> Result<CircuitConfig> {
+        let num_wires = self.read_usize()?;
+        let num_routed_wires = self.read_usize()?;
+        let num_constants = self.read_usize()?;
+        let security_bits = self.read_usize()?;
+        let num_challenges = self.read_usize()?;
+        let max_quotient_degree_factor = self.read_usize()?;
+        let use_base_arithmetic_gate = self.read_bool()?;
+        let zero_knowledge = self.read_bool()?;
+        let fri_config = self.read_fri_config()?;
+
+        Ok(
+            CircuitConfig {
+                num_wires,
+                num_routed_wires,
+                num_constants,
+                security_bits,
+                num_challenges,
+                max_quotient_degree_factor,
+                use_base_arithmetic_gate,
+                zero_knowledge,
+                fri_config    
+            } 
+        )
+    }
+
+    pub fn write_fri_params(&mut self, fri_params: &FriParams) -> Result<()> {
+        let FriParams {
+            config,
+            reduction_arity_bits,
+            degree_bits,
+            hiding,
+        } = fri_params;
+
+        self.write_fri_config(config)?;
+        self.write_usize_vec(reduction_arity_bits.as_slice())?;
+        self.write_usize(*degree_bits)?;
+        self.write_bool(*hiding)?;
+
+        Ok(())
+    }
+    pub fn read_fri_params(&mut self) -> Result<FriParams> {
+        let config = self.read_fri_config()?;
+        let reduction_arity_bits = self.read_usize_vec()?;
+        let degree_bits = self.read_usize()?;
+        let hiding = self.read_bool()?;
+
+        Ok(FriParams {
+            config,
+            reduction_arity_bits,
+            degree_bits,
+            hiding
+        })
+    }
+
+    pub fn write_gate<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+    >(&mut self, gate: &dyn Gate<F, D>) -> Result<()> {
+        let tag = gate_kind_tag(gate.kind());
+        self.write_u8(tag)?;
+        gate.serialize(self)?;
+        Ok(())
+    }
+    pub fn read_gate<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+    >(&mut self) -> Result<GateRef<F, D>> {
+        let tag = self.read_u8()?;
+
+        match tag {
+            ARITHMETIC_BASE_TAG => {
+                let gate = <ArithmeticGate as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            ARITHMETIC_EXT_TAG => {
+                let gate = <ArithmeticExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            ASSERT_LE_TAG => {
+                let gate = AssertLessThanGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            BASE_SUM_TAG => {
+                let gate = <BaseSumGate<D> as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            CONSTANT_TAG => {
+                let gate = <ConstantGate as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            EXPONENTIATION_TAG => {
+                let gate = ExponentiationGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            INTERPOLATION_TAG => {
+                let gate = HighDegreeInterpolationGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            LOW_DEGREE_INTERPOLATION_TAG => {
+                let gate = LowDegreeInterpolationGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            MUL_EXT_TAG => {
+                let gate = <MulExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            NOOP_TAG => {
+                let gate = <NoopGate as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            POSEIDON_MDS_TAG => {
+                let gate = PoseidonMdsGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            POSEIDON_TAG => {
+                let gate = PoseidonGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            PUBLIC_INPUT_TAG => {
+                let gate = <PublicInputGate as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            RANDOM_ACCESS_TAG => {
+                let gate = RandomAccessGate::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            REDUCING_EXT_TAG => {
+                let gate = <ReducingExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            REDUCING_TAG => {
+                let gate = <ReducingGate<D> as Gate<F, D>>::deserialize(self)?;
+                Ok(GateRef::new(gate))
+            },
+            _ => Err(Error::from(ErrorKind::InvalidData))
+        }
+    }
+
+    pub fn write_selectors_info(&mut self, selectors_info: &SelectorsInfo) -> Result<()> {
+        let SelectorsInfo {
+            selector_indices,
+            groups
+        } = selectors_info;
+
+        self.write_usize_vec(selector_indices.as_slice())?;
+        self.write_usize(groups.len())?;
+        for group in groups.iter() {
+            self.write_usize(group.start)?;
+            self.write_usize(group.end)?;
+        }
+        Ok(())
+    }
+    pub fn read_selectors_info(&mut self) -> Result<SelectorsInfo> {
+        let selector_indices = self.read_usize_vec()?;
+        let groups_len = self.read_usize()?;
+        let mut groups = Vec::with_capacity(groups_len);
+        for _ in 0..groups_len {
+            let start = self.read_usize()?;
+            let end = self.read_usize()?;
+            groups.push(Range { start, end });
+        }
+
+        Ok(SelectorsInfo {
+            selector_indices,
+            groups
+        })
+    }
+
+
+    pub fn write_common_circuit_data<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+    >(&mut self, common_data: &CommonCircuitData<F, C, D>) -> Result<()> {
+        let CommonCircuitData {
+            degree_bits,
+            quotient_degree_factor,
+            num_gate_constraints,
+            num_constants,
+            num_virtual_targets,
+            num_public_inputs,
+            num_partial_products,
+            circuit_digest,
+            k_is,
+            gates,
+            config,
+            fri_params,
+            selectors_info,
+        } = common_data;
+        
+        self.write_usize(*degree_bits)?;
+        self.write_usize(*quotient_degree_factor)?;
+        self.write_usize(*num_gate_constraints)?;
+        self.write_usize(*num_constants)?;
+        self.write_usize(*num_virtual_targets)?;
+        self.write_usize(*num_public_inputs)?;
+        self.write_usize(*num_partial_products)?;
+        self.write_hash::<F, C::Hasher>(*circuit_digest)?;
+
+        self.write_usize(k_is.len())?;
+        self.write_field_vec(k_is.as_slice())?;
+
+        self.write_usize(gates.len())?;
+        for gate in gates.iter() {
+            self.write_gate::<F, C, D>(gate.0.as_ref())?;
+        }
+
+        self.write_circuit_config(config)?;
+        self.write_fri_params(fri_params)?;
+        self.write_selectors_info(selectors_info)?;
+
+        Ok(())
+    }
+    pub fn read_common_circuit_data<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+    >(&mut self) -> Result<CommonCircuitData<F, C, D>> {
+        let degree_bits = self.read_usize()?;
+        let quotient_degree_factor = self.read_usize()?;
+        let num_gate_constraints = self.read_usize()?;
+        let num_constants = self.read_usize()?;
+        let num_virtual_targets = self.read_usize()?;
+        let num_public_inputs = self.read_usize()?;
+        let num_partial_products = self.read_usize()?;
+        let circuit_digest = self.read_hash::<F, C::Hasher>()?;
+
+        let k_is_len = self.read_usize()?;
+        let k_is = self.read_field_vec(k_is_len)?;
+
+        let gates_len = self.read_usize()?;
+        let mut gates = Vec::with_capacity(gates_len);
+        for _ in 0..gates_len {
+            let gate = self.read_gate::<F, C, D>()?;
+            gates.push(gate);
+        }
+
+        let config = self.read_circuit_config()?;
+        let fri_params = self.read_fri_params()?;
+        let selectors_info = self.read_selectors_info()?;
+
+        Ok(CommonCircuitData {
+            degree_bits,
+            quotient_degree_factor,
+            num_gate_constraints,
+            num_constants,
+            num_virtual_targets,
+            num_public_inputs,
+            num_partial_products,
+            circuit_digest,
+            k_is,
+            gates,
+            config,
+            fri_params,
+            selectors_info,
+        })
+    }
 }
+
+

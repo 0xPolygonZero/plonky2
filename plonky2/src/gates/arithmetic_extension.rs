@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::extension::FieldExtension;
@@ -13,6 +14,9 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
@@ -52,6 +56,19 @@ impl<const D: usize> ArithmeticExtensionGate<D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::ArithmeticExt
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        dst.write_usize(self.num_ops)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_ops = src.read_usize()?;
+        Ok(Self { num_ops })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
@@ -17,6 +18,9 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// Evaluates a full Poseidon permutation with 12 state elements.
 ///
@@ -99,6 +103,18 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::Poseidon
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        Ok(PoseidonGate::new())
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

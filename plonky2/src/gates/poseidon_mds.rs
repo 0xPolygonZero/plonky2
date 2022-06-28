@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Range;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
 use plonky2_field::extension::Extendable;
@@ -17,6 +18,9 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 #[derive(Debug)]
 pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
@@ -118,6 +122,18 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
 impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for PoseidonMdsGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::PoseidonMds
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        Ok(PoseidonMdsGate::new())
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

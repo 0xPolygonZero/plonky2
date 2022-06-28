@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
@@ -14,6 +15,9 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::Buffer;
+
+use super::gate::GateKind;
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
 pub struct PublicInputGate;
@@ -27,6 +31,18 @@ impl PublicInputGate {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
     fn id(&self) -> String {
         "PublicInputGate".into()
+    }
+
+    fn kind(&self) -> GateKind {
+        GateKind::PublicInput
+    }
+
+    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        Ok(Self)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
