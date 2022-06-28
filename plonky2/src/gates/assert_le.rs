@@ -1,11 +1,12 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 use plonky2_util::{bits_u64, ceil_div_usize};
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -22,8 +23,6 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 // TODO: replace/merge this gate with `ComparisonGate`.
 

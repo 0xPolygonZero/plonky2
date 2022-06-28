@@ -1,11 +1,12 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -22,8 +23,6 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]

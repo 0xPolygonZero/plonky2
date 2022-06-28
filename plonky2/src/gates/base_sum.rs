@@ -1,5 +1,5 @@
-use std::ops::Range;
 use std::io::Result as IoResult;
+use std::ops::Range;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;

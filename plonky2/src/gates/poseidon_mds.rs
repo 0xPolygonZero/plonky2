@@ -1,12 +1,13 @@
+use std::io::Result as IoResult;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::io::Result as IoResult;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
 use plonky2_field::extension::Extendable;
 use plonky2_field::extension::FieldExtension;
 use plonky2_field::types::Field;
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -19,8 +20,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 #[derive(Debug)]
 pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
@@ -128,11 +127,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         GateKind::PoseidonMds
     }
 
-    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+    fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
         Ok(PoseidonMdsGate::new())
     }
 

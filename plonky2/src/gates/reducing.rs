@@ -1,9 +1,10 @@
-use std::ops::Range;
 use std::io::Result as IoResult;
+use std::ops::Range;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::extension::FieldExtension;
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -14,8 +15,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// Computes `sum alpha^i c_i` for a vector `c_i` of `num_coeffs` elements of the base field.
 #[derive(Debug, Clone)]
@@ -71,7 +70,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> where Self: Sized {
+    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    where
+        Self: Sized,
+    {
         let num_coeffs = src.read_usize()?;
         Ok(Self::new(num_coeffs))
     }

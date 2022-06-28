@@ -1,9 +1,10 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -19,8 +20,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// Evaluates a full Poseidon permutation with 12 state elements.
 ///
@@ -109,11 +108,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         GateKind::Poseidon
     }
 
-    fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
+    fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
         Ok(PoseidonGate::new())
     }
 

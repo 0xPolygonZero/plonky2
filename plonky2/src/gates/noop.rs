@@ -1,6 +1,8 @@
-use plonky2_field::extension::Extendable;
 use std::io::Result as IoResult;
 
+use plonky2_field::extension::Extendable;
+
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -8,8 +10,6 @@ use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// A gate which does nothing.
 pub struct NoopGate;

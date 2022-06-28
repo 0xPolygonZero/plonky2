@@ -1,7 +1,9 @@
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
 use std::io::Result as IoResult;
 
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -17,8 +19,6 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.

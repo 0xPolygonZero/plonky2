@@ -1,6 +1,6 @@
+use std::io::Result as IoResult;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::io::Result as IoResult;
 
 use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
 use plonky2_field::extension::{Extendable, FieldExtension};
@@ -8,6 +8,7 @@ use plonky2_field::interpolation::interpolant;
 use plonky2_field::polynomial::PolynomialCoeffs;
 use plonky2_field::types::Field;
 
+use super::gate::GateKind;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
@@ -21,8 +22,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// Interpolation gate with constraints of degree 2.
 /// `eval_unfiltered_recursively` uses more gates than `HighDegreeInterpolationGate`.
@@ -91,7 +90,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
     }
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {
-       dst.write_usize(self.subgroup_bits)
+        dst.write_usize(self.subgroup_bits)
     }
 
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {

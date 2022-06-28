@@ -39,7 +39,6 @@ pub enum GateKind {
     Reducing,
 }
 
-
 /// A custom gate.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
@@ -47,7 +46,9 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn kind(&self) -> GateKind;
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()>;
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> where Self: Sized;
+    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    where
+        Self: Sized;
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
 

@@ -1,7 +1,9 @@
 use std::io::Result as IoResult;
+
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 
+use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -14,8 +16,6 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use crate::util::serialization::Buffer;
-
-use super::gate::GateKind;
 
 /// A gate which takes a single constant parameter and outputs that value.
 #[derive(Copy, Clone, Debug)]
