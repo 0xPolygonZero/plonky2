@@ -41,24 +41,24 @@ use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
 
- const ARITHMETIC_BASE_TAG: u8 = 0;
- const ARITHMETIC_EXT_TAG: u8 = 1;
- const ASSERT_LE_TAG: u8 = 2;
- const BASE_SUM_TAG: u8 = 3;
- const CONSTANT_TAG: u8 = 4;
- const EXPONENTIATION_TAG: u8 = 5;
- const INTERPOLATION_TAG: u8 = 6;
- const LOW_DEGREE_INTERPOLATION_TAG: u8 = 7;
- const MUL_EXT_TAG: u8 = 8;
- const NOOP_TAG: u8 = 9;
- const POSEIDON_MDS_TAG: u8 = 10;
- const POSEIDON_TAG: u8 = 11;
- const PUBLIC_INPUT_TAG: u8 = 12;
- const RANDOM_ACCESS_TAG: u8 = 13;
- const REDUCING_EXT_TAG: u8 = 14;
- const REDUCING_TAG: u8 = 15;
+const ARITHMETIC_BASE_TAG: u8 = 0;
+const ARITHMETIC_EXT_TAG: u8 = 1;
+const ASSERT_LE_TAG: u8 = 2;
+const BASE_SUM_TAG: u8 = 3;
+const CONSTANT_TAG: u8 = 4;
+const EXPONENTIATION_TAG: u8 = 5;
+const INTERPOLATION_TAG: u8 = 6;
+const LOW_DEGREE_INTERPOLATION_TAG: u8 = 7;
+const MUL_EXT_TAG: u8 = 8;
+const NOOP_TAG: u8 = 9;
+const POSEIDON_MDS_TAG: u8 = 10;
+const POSEIDON_TAG: u8 = 11;
+const PUBLIC_INPUT_TAG: u8 = 12;
+const RANDOM_ACCESS_TAG: u8 = 13;
+const REDUCING_EXT_TAG: u8 = 14;
+const REDUCING_TAG: u8 = 15;
 
- fn gate_kind_tag(gate_kind: GateKind) -> u8 {
+fn gate_kind_tag(gate_kind: GateKind) -> u8 {
     match gate_kind {
         GateKind::ArithmeticBase => ARITHMETIC_BASE_TAG,
         GateKind::ArithmeticExt => ARITHMETIC_EXT_TAG,
