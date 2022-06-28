@@ -195,7 +195,7 @@ pub fn eval_packed_generic<P: PackedField>(
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
     // Now check that exactly one is 1.
-    let flag_sum: P = (OPCODES)
+    let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, flag_col)| lv[flag_col])
         .sum();
