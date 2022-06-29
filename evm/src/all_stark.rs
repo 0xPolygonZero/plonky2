@@ -114,6 +114,8 @@ fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::BorrowMut;
+
     use anyhow::Result;
     use itertools::{izip, Itertools};
     use plonky2::field::polynomial::PolynomialValues;
@@ -127,7 +129,6 @@ mod tests {
 
     use crate::all_stark::{all_cross_table_lookups, AllStark};
     use crate::config::StarkConfig;
-    use crate::cpu::columns::{KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS};
     use crate::cpu::cpu_stark::CpuStark;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
@@ -234,23 +235,28 @@ mod tests {
             })
             .collect();
 
-        let mut cpu_trace_rows = vec![];
+        let mut cpu_trace_rows: Vec<[F; CpuStark::<F, D>::COLUMNS]> = vec![];
         for i in 0..num_keccak_perms {
-            let mut row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
-            row[cpu::columns::IS_KECCAK] = F::ONE;
-            for (j, input, output) in
-                izip!(0..2 * NUM_INPUTS, KECCAK_INPUT_LIMBS, KECCAK_OUTPUT_LIMBS)
-            {
-                row[input] = keccak_input_limbs[i][j];
-                row[output] = keccak_output_limbs[i][j];
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_keccak = F::ONE;
+            for (j, input, output) in izip!(
+                0..2 * NUM_INPUTS,
+                row.keccak_input_limbs.iter_mut(),
+                row.keccak_output_limbs.iter_mut()
+            ) {
+                *input = keccak_input_limbs[i][j];
+                *output = keccak_output_limbs[i][j];
             }
-            cpu_stark.generate(&mut row);
-            cpu_trace_rows.push(row);
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
         }
+
         for i in 0..num_logic_rows {
-            let mut row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
-            row[cpu::columns::IS_CPU_CYCLE] = F::ONE;
-            row[cpu::columns::OPCODE] = [
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = [
                 (logic::columns::IS_AND, 0x16),
                 (logic::columns::IS_OR, 0x17),
                 (logic::columns::IS_XOR, 0x18),
@@ -259,22 +265,24 @@ mod tests {
             .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
             .sum();
             for (cols_cpu, cols_logic) in [
-                (cpu::columns::LOGIC_INPUT0, logic::columns::INPUT0),
-                (cpu::columns::LOGIC_INPUT1, logic::columns::INPUT1),
+                (&mut row.logic_input0, logic::columns::INPUT0),
+                (&mut row.logic_input1, logic::columns::INPUT1),
             ] {
-                for (col_cpu, limb_cols_logic) in
-                    cols_cpu.zip(logic::columns::limb_bit_cols_for_input(cols_logic))
+                for (col_cpu, limb_cols_logic) in cols_cpu
+                    .iter_mut()
+                    .zip(logic::columns::limb_bit_cols_for_input(cols_logic))
                 {
-                    row[col_cpu] =
+                    *col_cpu =
                         limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
                 }
             }
-            for (col_cpu, col_logic) in cpu::columns::LOGIC_OUTPUT.zip(logic::columns::RESULT) {
-                row[col_cpu] = logic_trace[col_logic].values[i];
+            for (col_cpu, col_logic) in row.logic_output.iter_mut().zip(logic::columns::RESULT) {
+                *col_cpu = logic_trace[col_logic].values[i];
             }
-            cpu_stark.generate(&mut row);
-            cpu_trace_rows.push(row);
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
         }
+
         let mut current_cpu_index = 0;
         let mut last_timestamp = memory_trace[memory::columns::TIMESTAMP].values[0];
         for i in 0..num_memory_ops {
@@ -289,19 +297,17 @@ mod tests {
                 last_timestamp = mem_timestamp;
             }
 
-            cpu_trace_rows[current_cpu_index][cpu::columns::mem_channel_used(op)] = F::ONE;
-            cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
-            cpu_trace_rows[current_cpu_index][cpu::columns::mem_is_read(op)] =
-                memory_trace[memory::columns::IS_READ].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_context(op)] =
-                memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_segment(op)] =
-                memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-            cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_virtual(op)] =
-                memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+            let row: &mut cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[current_cpu_index].borrow_mut();
+
+            row.mem_channel_used[op] = F::ONE;
+            row.clock = clock;
+            row.mem_is_read[op] = memory_trace[memory::columns::IS_READ].values[i];
+            row.mem_addr_context[op] = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+            row.mem_addr_segment[op] = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+            row.mem_addr_virtual[op] = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
-                cpu_trace_rows[current_cpu_index][cpu::columns::mem_value(op, j)] =
-                    memory_trace[memory::columns::value_limb(j)].values[i];
+                row.mem_value[op][j] = memory_trace[memory::columns::value_limb(j)].values[i];
             }
         }
         trace_rows_to_poly_values(cpu_trace_rows)

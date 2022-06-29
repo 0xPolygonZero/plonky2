@@ -5,7 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns;
+use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
 // List of opcode blocks
 // Each block corresponds to exactly one flag, and each flag corresponds to exactly one block.
@@ -17,127 +17,126 @@ use crate::cpu::columns;
 // top 8-n bits.
 const OPCODES: [(u64, usize, usize); 102] = [
     // (start index of block, number of top bits to check (log2), flag column)
-    (0x00, 0, columns::IS_STOP),
-    (0x01, 0, columns::IS_ADD),
-    (0x02, 0, columns::IS_MUL),
-    (0x03, 0, columns::IS_SUB),
-    (0x04, 0, columns::IS_DIV),
-    (0x05, 0, columns::IS_SDIV),
-    (0x06, 0, columns::IS_MOD),
-    (0x07, 0, columns::IS_SMOD),
-    (0x08, 0, columns::IS_ADDMOD),
-    (0x09, 0, columns::IS_MULMOD),
-    (0x0a, 0, columns::IS_EXP),
-    (0x0b, 0, columns::IS_SIGNEXTEND),
-    (0x0c, 2, columns::IS_INVALID_0), // 0x0c-0x0f
-    (0x10, 0, columns::IS_LT),
-    (0x11, 0, columns::IS_GT),
-    (0x12, 0, columns::IS_SLT),
-    (0x13, 0, columns::IS_SGT),
-    (0x14, 0, columns::IS_EQ),
-    (0x15, 0, columns::IS_ISZERO),
-    (0x16, 0, columns::IS_AND),
-    (0x17, 0, columns::IS_OR),
-    (0x18, 0, columns::IS_XOR),
-    (0x19, 0, columns::IS_NOT),
-    (0x1a, 0, columns::IS_BYTE),
-    (0x1b, 0, columns::IS_SHL),
-    (0x1c, 0, columns::IS_SHR),
-    (0x1d, 0, columns::IS_SAR),
-    (0x1e, 1, columns::IS_INVALID_1), // 0x1e-0x1f
-    (0x20, 0, columns::IS_SHA3),
-    (0x21, 0, columns::IS_INVALID_2),
-    (0x22, 1, columns::IS_INVALID_3), // 0x22-0x23
-    (0x24, 2, columns::IS_INVALID_4), // 0x24-0x27
-    (0x28, 3, columns::IS_INVALID_5), // 0x28-0x2f
-    (0x30, 0, columns::IS_ADDRESS),
-    (0x31, 0, columns::IS_BALANCE),
-    (0x32, 0, columns::IS_ORIGIN),
-    (0x33, 0, columns::IS_CALLER),
-    (0x34, 0, columns::IS_CALLVALUE),
-    (0x35, 0, columns::IS_CALLDATALOAD),
-    (0x36, 0, columns::IS_CALLDATASIZE),
-    (0x37, 0, columns::IS_CALLDATACOPY),
-    (0x38, 0, columns::IS_CODESIZE),
-    (0x39, 0, columns::IS_CODECOPY),
-    (0x3a, 0, columns::IS_GASPRICE),
-    (0x3b, 0, columns::IS_EXTCODESIZE),
-    (0x3c, 0, columns::IS_EXTCODECOPY),
-    (0x3d, 0, columns::IS_RETURNDATASIZE),
-    (0x3e, 0, columns::IS_RETURNDATACOPY),
-    (0x3f, 0, columns::IS_EXTCODEHASH),
-    (0x40, 0, columns::IS_BLOCKHASH),
-    (0x41, 0, columns::IS_COINBASE),
-    (0x42, 0, columns::IS_TIMESTAMP),
-    (0x43, 0, columns::IS_NUMBER),
-    (0x44, 0, columns::IS_DIFFICULTY),
-    (0x45, 0, columns::IS_GASLIMIT),
-    (0x46, 0, columns::IS_CHAINID),
-    (0x47, 0, columns::IS_SELFBALANCE),
-    (0x48, 0, columns::IS_BASEFEE),
-    (0x49, 0, columns::IS_INVALID_6),
-    (0x4a, 1, columns::IS_INVALID_7), // 0x4a-0x4b
-    (0x4c, 2, columns::IS_INVALID_8), // 0x4c-0x4f
-    (0x50, 0, columns::IS_POP),
-    (0x51, 0, columns::IS_MLOAD),
-    (0x52, 0, columns::IS_MSTORE),
-    (0x53, 0, columns::IS_MSTORE8),
-    (0x54, 0, columns::IS_SLOAD),
-    (0x55, 0, columns::IS_SSTORE),
-    (0x56, 0, columns::IS_JUMP),
-    (0x57, 0, columns::IS_JUMPI),
-    (0x58, 0, columns::IS_PC),
-    (0x59, 0, columns::IS_MSIZE),
-    (0x5a, 0, columns::IS_GAS),
-    (0x5b, 0, columns::IS_JUMPDEST),
-    (0x5c, 2, columns::IS_INVALID_9), // 0x5c-0x5f
-    (0x60, 5, columns::IS_PUSH),      // 0x60-0x7f
-    (0x80, 4, columns::IS_DUP),       // 0x80-0x8f
-    (0x90, 4, columns::IS_SWAP),      // 0x90-0x9f
-    (0xa0, 0, columns::IS_LOG0),
-    (0xa1, 0, columns::IS_LOG1),
-    (0xa2, 0, columns::IS_LOG2),
-    (0xa3, 0, columns::IS_LOG3),
-    (0xa4, 0, columns::IS_LOG4),
-    (0xa5, 0, columns::IS_INVALID_10),
-    (0xa6, 1, columns::IS_INVALID_11), // 0xa6-0xa7
-    (0xa8, 3, columns::IS_INVALID_12), // 0xa8-0xaf
-    (0xb0, 4, columns::IS_INVALID_13), // 0xb0-0xbf
-    (0xc0, 5, columns::IS_INVALID_14), // 0xc0-0xdf
-    (0xe0, 4, columns::IS_INVALID_15), // 0xe0-0xef
-    (0xf0, 0, columns::IS_CREATE),
-    (0xf1, 0, columns::IS_CALL),
-    (0xf2, 0, columns::IS_CALLCODE),
-    (0xf3, 0, columns::IS_RETURN),
-    (0xf4, 0, columns::IS_DELEGATECALL),
-    (0xf5, 0, columns::IS_CREATE2),
-    (0xf6, 1, columns::IS_INVALID_16), // 0xf6-0xf7
-    (0xf8, 1, columns::IS_INVALID_17), // 0xf8-0xf9
-    (0xfa, 0, columns::IS_STATICCALL),
-    (0xfb, 0, columns::IS_INVALID_18),
-    (0xfc, 0, columns::IS_INVALID_19),
-    (0xfd, 0, columns::IS_REVERT),
-    (0xfe, 0, columns::IS_INVALID_20),
-    (0xff, 0, columns::IS_SELFDESTRUCT),
+    (0x00, 0, COL_MAP.is_stop),
+    (0x01, 0, COL_MAP.is_add),
+    (0x02, 0, COL_MAP.is_mul),
+    (0x03, 0, COL_MAP.is_sub),
+    (0x04, 0, COL_MAP.is_div),
+    (0x05, 0, COL_MAP.is_sdiv),
+    (0x06, 0, COL_MAP.is_mod),
+    (0x07, 0, COL_MAP.is_smod),
+    (0x08, 0, COL_MAP.is_addmod),
+    (0x09, 0, COL_MAP.is_mulmod),
+    (0x0a, 0, COL_MAP.is_exp),
+    (0x0b, 0, COL_MAP.is_signextend),
+    (0x0c, 2, COL_MAP.is_invalid_0), // 0x0c-0x0f
+    (0x10, 0, COL_MAP.is_lt),
+    (0x11, 0, COL_MAP.is_gt),
+    (0x12, 0, COL_MAP.is_slt),
+    (0x13, 0, COL_MAP.is_sgt),
+    (0x14, 0, COL_MAP.is_eq),
+    (0x15, 0, COL_MAP.is_iszero),
+    (0x16, 0, COL_MAP.is_and),
+    (0x17, 0, COL_MAP.is_or),
+    (0x18, 0, COL_MAP.is_xor),
+    (0x19, 0, COL_MAP.is_not),
+    (0x1a, 0, COL_MAP.is_byte),
+    (0x1b, 0, COL_MAP.is_shl),
+    (0x1c, 0, COL_MAP.is_shr),
+    (0x1d, 0, COL_MAP.is_sar),
+    (0x1e, 1, COL_MAP.is_invalid_1), // 0x1e-0x1f
+    (0x20, 0, COL_MAP.is_sha3),
+    (0x21, 0, COL_MAP.is_invalid_2),
+    (0x22, 1, COL_MAP.is_invalid_3), // 0x22-0x23
+    (0x24, 2, COL_MAP.is_invalid_4), // 0x24-0x27
+    (0x28, 3, COL_MAP.is_invalid_5), // 0x28-0x2f
+    (0x30, 0, COL_MAP.is_address),
+    (0x31, 0, COL_MAP.is_balance),
+    (0x32, 0, COL_MAP.is_origin),
+    (0x33, 0, COL_MAP.is_caller),
+    (0x34, 0, COL_MAP.is_callvalue),
+    (0x35, 0, COL_MAP.is_calldataload),
+    (0x36, 0, COL_MAP.is_calldatasize),
+    (0x37, 0, COL_MAP.is_calldatacopy),
+    (0x38, 0, COL_MAP.is_codesize),
+    (0x39, 0, COL_MAP.is_codecopy),
+    (0x3a, 0, COL_MAP.is_gasprice),
+    (0x3b, 0, COL_MAP.is_extcodesize),
+    (0x3c, 0, COL_MAP.is_extcodecopy),
+    (0x3d, 0, COL_MAP.is_returndatasize),
+    (0x3e, 0, COL_MAP.is_returndatacopy),
+    (0x3f, 0, COL_MAP.is_extcodehash),
+    (0x40, 0, COL_MAP.is_blockhash),
+    (0x41, 0, COL_MAP.is_coinbase),
+    (0x42, 0, COL_MAP.is_timestamp),
+    (0x43, 0, COL_MAP.is_number),
+    (0x44, 0, COL_MAP.is_difficulty),
+    (0x45, 0, COL_MAP.is_gaslimit),
+    (0x46, 0, COL_MAP.is_chainid),
+    (0x47, 0, COL_MAP.is_selfbalance),
+    (0x48, 0, COL_MAP.is_basefee),
+    (0x49, 0, COL_MAP.is_invalid_6),
+    (0x4a, 1, COL_MAP.is_invalid_7), // 0x4a-0x4b
+    (0x4c, 2, COL_MAP.is_invalid_8), // 0x4c-0x4f
+    (0x50, 0, COL_MAP.is_pop),
+    (0x51, 0, COL_MAP.is_mload),
+    (0x52, 0, COL_MAP.is_mstore),
+    (0x53, 0, COL_MAP.is_mstore8),
+    (0x54, 0, COL_MAP.is_sload),
+    (0x55, 0, COL_MAP.is_sstore),
+    (0x56, 0, COL_MAP.is_jump),
+    (0x57, 0, COL_MAP.is_jumpi),
+    (0x58, 0, COL_MAP.is_pc),
+    (0x59, 0, COL_MAP.is_msize),
+    (0x5a, 0, COL_MAP.is_gas),
+    (0x5b, 0, COL_MAP.is_jumpdest),
+    (0x5c, 2, COL_MAP.is_invalid_9), // 0x5c-0x5f
+    (0x60, 5, COL_MAP.is_push),      // 0x60-0x7f
+    (0x80, 4, COL_MAP.is_dup),       // 0x80-0x8f
+    (0x90, 4, COL_MAP.is_swap),      // 0x90-0x9f
+    (0xa0, 0, COL_MAP.is_log0),
+    (0xa1, 0, COL_MAP.is_log1),
+    (0xa2, 0, COL_MAP.is_log2),
+    (0xa3, 0, COL_MAP.is_log3),
+    (0xa4, 0, COL_MAP.is_log4),
+    (0xa5, 0, COL_MAP.is_invalid_10),
+    (0xa6, 1, COL_MAP.is_invalid_11), // 0xa6-0xa7
+    (0xa8, 3, COL_MAP.is_invalid_12), // 0xa8-0xaf
+    (0xb0, 4, COL_MAP.is_invalid_13), // 0xb0-0xbf
+    (0xc0, 5, COL_MAP.is_invalid_14), // 0xc0-0xdf
+    (0xe0, 4, COL_MAP.is_invalid_15), // 0xe0-0xef
+    (0xf0, 0, COL_MAP.is_create),
+    (0xf1, 0, COL_MAP.is_call),
+    (0xf2, 0, COL_MAP.is_callcode),
+    (0xf3, 0, COL_MAP.is_return),
+    (0xf4, 0, COL_MAP.is_delegatecall),
+    (0xf5, 0, COL_MAP.is_create2),
+    (0xf6, 1, COL_MAP.is_invalid_16), // 0xf6-0xf7
+    (0xf8, 1, COL_MAP.is_invalid_17), // 0xf8-0xf9
+    (0xfa, 0, COL_MAP.is_staticcall),
+    (0xfb, 0, COL_MAP.is_invalid_18),
+    (0xfc, 0, COL_MAP.is_invalid_19),
+    (0xfd, 0, COL_MAP.is_revert),
+    (0xfe, 0, COL_MAP.is_invalid_20),
+    (0xff, 0, COL_MAP.is_selfdestruct),
 ];
 
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
-    let cycle_filter = lv[columns::IS_CPU_CYCLE];
+pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
+    let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter == F::ZERO {
         // These columns cannot be shared.
-        lv[columns::IS_EQ] = F::ZERO;
-        lv[columns::IS_ISZERO] = F::ZERO;
+        lv.is_eq = F::ZERO;
+        lv.is_iszero = F::ZERO;
         return;
     }
     // This assert is not _strictly_ necessary, but I include it as a sanity check.
     assert_eq!(cycle_filter, F::ONE, "cycle_filter should be 0 or 1");
 
-    let opcode = lv[columns::OPCODE].to_canonical_u64();
+    let opcode = lv.opcode.to_canonical_u64();
     assert!(opcode < 256, "opcode should be in {{0, ..., 255}}");
 
-    for (i, &col) in columns::OPCODE_BITS.iter().enumerate() {
-        let bit = (opcode >> (7 - i)) & 1;
-        lv[col] = F::from_canonical_u64(bit);
+    for (i, bit) in lv.opcode_bits.iter_mut().enumerate() {
+        *bit = F::from_canonical_u64((opcode >> (7 - i)) & 1);
     }
 
     let top_bits: [u64; 9] = [
@@ -158,14 +157,14 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
 }
 
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; columns::NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let cycle_filter = lv[columns::IS_CPU_CYCLE];
+    let cycle_filter = lv.is_cpu_cycle;
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.
-    let bits = columns::OPCODE_BITS.map(|i| lv[i]);
+    let bits = lv.opcode_bits;
     // First check that the bits are either 0 or 1.
     for bit in bits {
         yield_constr.constraint(cycle_filter * bit * (bit - P::ONES));
@@ -181,18 +180,19 @@ pub fn eval_packed_generic<P: PackedField>(
     };
 
     // Now check that they match the opcode.
-    let opcode = lv[columns::OPCODE];
+    let opcode = lv.opcode;
     yield_constr.constraint(cycle_filter * (opcode - top_bits[8]));
 
     // Check that the instruction flags are valid.
     // First, check that they are all either 0 or 1.
-    for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
+    for (_, _, flag_col) in OPCODES {
+        let flag = lv[flag_col];
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
     // Now check that exactly one is 1.
-    let flag_sum: P = (columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS)
+    let flag_sum: P = OPCODES
         .into_iter()
-        .map(|i| lv[i])
+        .map(|(_, _, flag_col)| lv[flag_col])
         .sum();
     yield_constr.constraint(cycle_filter * (P::ONES - flag_sum));
 
@@ -205,14 +205,14 @@ pub fn eval_packed_generic<P: PackedField>(
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let cycle_filter = lv[columns::IS_CPU_CYCLE];
+    let cycle_filter = lv.is_cpu_cycle;
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
     // the opcode. Note that this also validates that this implicitly range-checks the opcode.
-    let bits = columns::OPCODE_BITS.map(|i| lv[i]);
+    let bits = lv.opcode_bits;
     // First check that the bits are either 0 or 1.
     for bit in bits {
         let constr = builder.mul_sub_extension(bit, bit, bit);
@@ -234,14 +234,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Now check that the bits match the opcode.
     {
-        let constr = builder.sub_extension(lv[columns::OPCODE], top_bits[8]);
+        let constr = builder.sub_extension(lv.opcode, top_bits[8]);
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     };
 
     // Check that the instruction flags are valid.
     // First, check that they are all either 0 or 1.
-    for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
+    for (_, _, flag_col) in OPCODES {
+        let flag = lv[flag_col];
         let constr = builder.mul_sub_extension(flag, flag, flag);
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
@@ -249,7 +250,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Now check that they sum to 1.
     {
         let mut constr = builder.one_extension();
-        for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
+        for (_, _, flag_col) in OPCODES {
+            let flag = lv[flag_col];
             constr = builder.sub_extension(constr, flag);
         }
         constr = builder.mul_extension(cycle_filter, constr);

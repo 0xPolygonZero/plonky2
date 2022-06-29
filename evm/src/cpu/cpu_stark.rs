@@ -1,3 +1,4 @@
+use std::borrow::{Borrow, BorrowMut};
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -7,53 +8,51 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::{columns, decode, simple_logic};
+use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::{decode, simple_logic};
 use crate::cross_table_lookup::Column;
 use crate::memory::NUM_CHANNELS;
-use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
-    let mut res: Vec<_> = columns::KECCAK_INPUT_LIMBS.map(Column::single).collect();
-    res.extend(columns::KECCAK_OUTPUT_LIMBS.map(Column::single));
+    let mut res: Vec<_> = Column::singles(COL_MAP.keccak_input_limbs).collect();
+    res.extend(Column::singles(COL_MAP.keccak_output_limbs));
     res
 }
 
 pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
-    Column::single(columns::IS_KECCAK)
+    Column::single(COL_MAP.is_keccak)
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([columns::IS_AND, columns::IS_OR, columns::IS_XOR]).collect_vec();
-    res.extend(columns::LOGIC_INPUT0.map(Column::single));
-    res.extend(columns::LOGIC_INPUT1.map(Column::single));
-    res.extend(columns::LOGIC_OUTPUT.map(Column::single));
+    let mut res = Column::singles([COL_MAP.is_and, COL_MAP.is_or, COL_MAP.is_xor]).collect_vec();
+    res.extend(Column::singles(COL_MAP.logic_input0));
+    res.extend(Column::singles(COL_MAP.logic_input1));
+    res.extend(Column::singles(COL_MAP.logic_output));
     res
 }
 
 pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+    Column::sum([COL_MAP.is_and, COL_MAP.is_or, COL_MAP.is_xor])
 }
 
 pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     debug_assert!(channel < NUM_CHANNELS);
     let mut cols: Vec<Column<F>> = Column::singles([
-        columns::CLOCK,
-        columns::mem_is_read(channel),
-        columns::mem_addr_context(channel),
-        columns::mem_addr_segment(channel),
-        columns::mem_addr_virtual(channel),
+        COL_MAP.clock,
+        COL_MAP.mem_is_read[channel],
+        COL_MAP.mem_addr_context[channel],
+        COL_MAP.mem_addr_segment[channel],
+        COL_MAP.mem_addr_virtual[channel],
     ])
     .collect_vec();
-    cols.extend(Column::singles(
-        (0..8).map(|j| columns::mem_value(channel, j)),
-    ));
+    cols.extend(Column::singles(COL_MAP.mem_value[channel]));
     cols
 }
 
 pub fn ctl_filter_memory<F: Field>(channel: usize) -> Column<F> {
-    Column::single(columns::mem_channel_used(channel))
+    Column::single(COL_MAP.mem_channel_used[channel])
 }
 
 #[derive(Copy, Clone)]
@@ -62,14 +61,15 @@ pub struct CpuStark<F, const D: usize> {
 }
 
 impl<F: RichField, const D: usize> CpuStark<F, D> {
-    pub fn generate(&self, local_values: &mut [F; columns::NUM_CPU_COLUMNS]) {
+    pub fn generate(&self, local_values: &mut [F; NUM_CPU_COLUMNS]) {
+        let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
         decode::generate(local_values);
         simple_logic::generate(local_values);
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = columns::NUM_CPU_COLUMNS;
+    const COLUMNS: usize = NUM_CPU_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -80,8 +80,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        decode::eval_packed_generic(vars.local_values, yield_constr);
-        simple_logic::eval_packed(vars.local_values, yield_constr);
+        let local_values = vars.local_values.borrow();
+        decode::eval_packed_generic(local_values, yield_constr);
+        simple_logic::eval_packed(local_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -90,16 +91,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        decode::eval_ext_circuit(builder, vars.local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, vars.local_values, yield_constr);
+        let local_values = vars.local_values.borrow();
+        decode::eval_ext_circuit(builder, local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
         3
-    }
-
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![]
     }
 }
 

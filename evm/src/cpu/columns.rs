@@ -1,207 +1,239 @@
 // TODO: remove when possible.
 #![allow(dead_code)]
 
-use std::ops::Range;
+use std::borrow::{Borrow, BorrowMut};
+use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
+use std::ops::{Index, IndexMut};
 
 use crate::memory;
 
-/// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-pub const IS_BOOTSTRAP_KERNEL: usize = 0;
+#[repr(C)]
+pub struct CpuColumnsView<T> {
+    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
+    pub is_bootstrap_kernel: T,
 
-/// Filter. 1 if the row is part of bootstrapping a contract's code, 0 otherwise.
-pub const IS_BOOTSTRAP_CONTRACT: usize = IS_BOOTSTRAP_KERNEL + 1;
+    /// Filter. 1 if the row is part of bootstrapping a contract's code, 0 otherwise.
+    pub is_bootstrap_contract: T,
 
-/// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-/// Lets us re-use decode columns in non-cycle rows.
-pub const IS_CPU_CYCLE: usize = IS_BOOTSTRAP_CONTRACT + 1;
+    /// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
+    /// Lets us re-use decode columns in non-cycle rows.
+    pub is_cpu_cycle: T,
 
-/// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
-pub const OPCODE: usize = IS_CPU_CYCLE + 1;
+    /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
+    pub opcode: T,
 
-// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
-// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
-// must be 1.
-pub const IS_STOP: usize = OPCODE + 1;
-pub const IS_ADD: usize = IS_STOP + 1;
-pub const IS_MUL: usize = IS_ADD + 1;
-pub const IS_SUB: usize = IS_MUL + 1;
-pub const IS_DIV: usize = IS_SUB + 1;
-pub const IS_SDIV: usize = IS_DIV + 1;
-pub const IS_MOD: usize = IS_SDIV + 1;
-pub const IS_SMOD: usize = IS_MOD + 1;
-pub const IS_ADDMOD: usize = IS_SMOD + 1;
-pub const IS_MULMOD: usize = IS_ADDMOD + 1;
-pub const IS_EXP: usize = IS_MULMOD + 1;
-pub const IS_SIGNEXTEND: usize = IS_EXP + 1;
-pub const IS_LT: usize = IS_SIGNEXTEND + 1;
-pub const IS_GT: usize = IS_LT + 1;
-pub const IS_SLT: usize = IS_GT + 1;
-pub const IS_SGT: usize = IS_SLT + 1;
-pub const IS_EQ: usize = IS_SGT + 1; // Note: This column must be 0 when is_cpu_cycle = 0.
-pub const IS_ISZERO: usize = IS_EQ + 1; // Note: This column must be 0 when is_cpu_cycle = 0.
-pub const IS_AND: usize = IS_ISZERO + 1;
-pub const IS_OR: usize = IS_AND + 1;
-pub const IS_XOR: usize = IS_OR + 1;
-pub const IS_NOT: usize = IS_XOR + 1;
-pub const IS_BYTE: usize = IS_NOT + 1;
-pub const IS_SHL: usize = IS_BYTE + 1;
-pub const IS_SHR: usize = IS_SHL + 1;
-pub const IS_SAR: usize = IS_SHR + 1;
-pub const IS_SHA3: usize = IS_SAR + 1;
-pub const IS_ADDRESS: usize = IS_SHA3 + 1;
-pub const IS_BALANCE: usize = IS_ADDRESS + 1;
-pub const IS_ORIGIN: usize = IS_BALANCE + 1;
-pub const IS_CALLER: usize = IS_ORIGIN + 1;
-pub const IS_CALLVALUE: usize = IS_CALLER + 1;
-pub const IS_CALLDATALOAD: usize = IS_CALLVALUE + 1;
-pub const IS_CALLDATASIZE: usize = IS_CALLDATALOAD + 1;
-pub const IS_CALLDATACOPY: usize = IS_CALLDATASIZE + 1;
-pub const IS_CODESIZE: usize = IS_CALLDATACOPY + 1;
-pub const IS_CODECOPY: usize = IS_CODESIZE + 1;
-pub const IS_GASPRICE: usize = IS_CODECOPY + 1;
-pub const IS_EXTCODESIZE: usize = IS_GASPRICE + 1;
-pub const IS_EXTCODECOPY: usize = IS_EXTCODESIZE + 1;
-pub const IS_RETURNDATASIZE: usize = IS_EXTCODECOPY + 1;
-pub const IS_RETURNDATACOPY: usize = IS_RETURNDATASIZE + 1;
-pub const IS_EXTCODEHASH: usize = IS_RETURNDATACOPY + 1;
-pub const IS_BLOCKHASH: usize = IS_EXTCODEHASH + 1;
-pub const IS_COINBASE: usize = IS_BLOCKHASH + 1;
-pub const IS_TIMESTAMP: usize = IS_COINBASE + 1;
-pub const IS_NUMBER: usize = IS_TIMESTAMP + 1;
-pub const IS_DIFFICULTY: usize = IS_NUMBER + 1;
-pub const IS_GASLIMIT: usize = IS_DIFFICULTY + 1;
-pub const IS_CHAINID: usize = IS_GASLIMIT + 1;
-pub const IS_SELFBALANCE: usize = IS_CHAINID + 1;
-pub const IS_BASEFEE: usize = IS_SELFBALANCE + 1;
-pub const IS_POP: usize = IS_BASEFEE + 1;
-pub const IS_MLOAD: usize = IS_POP + 1;
-pub const IS_MSTORE: usize = IS_MLOAD + 1;
-pub const IS_MSTORE8: usize = IS_MSTORE + 1;
-pub const IS_SLOAD: usize = IS_MSTORE8 + 1;
-pub const IS_SSTORE: usize = IS_SLOAD + 1;
-pub const IS_JUMP: usize = IS_SSTORE + 1;
-pub const IS_JUMPI: usize = IS_JUMP + 1;
-pub const IS_PC: usize = IS_JUMPI + 1;
-pub const IS_MSIZE: usize = IS_PC + 1;
-pub const IS_GAS: usize = IS_MSIZE + 1;
-pub const IS_JUMPDEST: usize = IS_GAS + 1;
-// Find the number of bytes to push by reading the bottom 5 bits of the opcode.
-pub const IS_PUSH: usize = IS_JUMPDEST + 1;
-// Find the stack offset to duplicate by reading the bottom 4 bits of the opcode.
-pub const IS_DUP: usize = IS_PUSH + 1;
-// Find the stack offset to swap with by reading the bottom 4 bits of the opcode.
-pub const IS_SWAP: usize = IS_DUP + 1;
-pub const IS_LOG0: usize = IS_SWAP + 1;
-pub const IS_LOG1: usize = IS_LOG0 + 1;
-pub const IS_LOG2: usize = IS_LOG1 + 1;
-pub const IS_LOG3: usize = IS_LOG2 + 1;
-pub const IS_LOG4: usize = IS_LOG3 + 1;
-pub const IS_CREATE: usize = IS_LOG4 + 1;
-pub const IS_CALL: usize = IS_CREATE + 1;
-pub const IS_CALLCODE: usize = IS_CALL + 1;
-pub const IS_RETURN: usize = IS_CALLCODE + 1;
-pub const IS_DELEGATECALL: usize = IS_RETURN + 1;
-pub const IS_CREATE2: usize = IS_DELEGATECALL + 1;
-pub const IS_STATICCALL: usize = IS_CREATE2 + 1;
-pub const IS_REVERT: usize = IS_STATICCALL + 1;
-pub const IS_SELFDESTRUCT: usize = IS_REVERT + 1;
+    // If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each.
+    // Invalid opcodes are split between a number of flags for practical reasons. Exactly one of
+    // these flags must be 1.
+    pub is_stop: T,
+    pub is_add: T,
+    pub is_mul: T,
+    pub is_sub: T,
+    pub is_div: T,
+    pub is_sdiv: T,
+    pub is_mod: T,
+    pub is_smod: T,
+    pub is_addmod: T,
+    pub is_mulmod: T,
+    pub is_exp: T,
+    pub is_signextend: T,
+    pub is_lt: T,
+    pub is_gt: T,
+    pub is_slt: T,
+    pub is_sgt: T,
+    pub is_eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub is_iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub is_and: T,
+    pub is_or: T,
+    pub is_xor: T,
+    pub is_not: T,
+    pub is_byte: T,
+    pub is_shl: T,
+    pub is_shr: T,
+    pub is_sar: T,
+    pub is_sha3: T,
+    pub is_address: T,
+    pub is_balance: T,
+    pub is_origin: T,
+    pub is_caller: T,
+    pub is_callvalue: T,
+    pub is_calldataload: T,
+    pub is_calldatasize: T,
+    pub is_calldatacopy: T,
+    pub is_codesize: T,
+    pub is_codecopy: T,
+    pub is_gasprice: T,
+    pub is_extcodesize: T,
+    pub is_extcodecopy: T,
+    pub is_returndatasize: T,
+    pub is_returndatacopy: T,
+    pub is_extcodehash: T,
+    pub is_blockhash: T,
+    pub is_coinbase: T,
+    pub is_timestamp: T,
+    pub is_number: T,
+    pub is_difficulty: T,
+    pub is_gaslimit: T,
+    pub is_chainid: T,
+    pub is_selfbalance: T,
+    pub is_basefee: T,
+    pub is_pop: T,
+    pub is_mload: T,
+    pub is_mstore: T,
+    pub is_mstore8: T,
+    pub is_sload: T,
+    pub is_sstore: T,
+    pub is_jump: T,
+    pub is_jumpi: T,
+    pub is_pc: T,
+    pub is_msize: T,
+    pub is_gas: T,
+    pub is_jumpdest: T,
+    pub is_push: T,
+    pub is_dup: T,
+    pub is_swap: T,
+    pub is_log0: T,
+    pub is_log1: T,
+    pub is_log2: T,
+    pub is_log3: T,
+    pub is_log4: T,
+    pub is_create: T,
+    pub is_call: T,
+    pub is_callcode: T,
+    pub is_return: T,
+    pub is_delegatecall: T,
+    pub is_create2: T,
+    pub is_staticcall: T,
+    pub is_revert: T,
+    pub is_selfdestruct: T,
 
-pub const IS_INVALID_0: usize = IS_SELFDESTRUCT + 1;
-pub const IS_INVALID_1: usize = IS_INVALID_0 + 1;
-pub const IS_INVALID_2: usize = IS_INVALID_1 + 1;
-pub const IS_INVALID_3: usize = IS_INVALID_2 + 1;
-pub const IS_INVALID_4: usize = IS_INVALID_3 + 1;
-pub const IS_INVALID_5: usize = IS_INVALID_4 + 1;
-pub const IS_INVALID_6: usize = IS_INVALID_5 + 1;
-pub const IS_INVALID_7: usize = IS_INVALID_6 + 1;
-pub const IS_INVALID_8: usize = IS_INVALID_7 + 1;
-pub const IS_INVALID_9: usize = IS_INVALID_8 + 1;
-pub const IS_INVALID_10: usize = IS_INVALID_9 + 1;
-pub const IS_INVALID_11: usize = IS_INVALID_10 + 1;
-pub const IS_INVALID_12: usize = IS_INVALID_11 + 1;
-pub const IS_INVALID_13: usize = IS_INVALID_12 + 1;
-pub const IS_INVALID_14: usize = IS_INVALID_13 + 1;
-pub const IS_INVALID_15: usize = IS_INVALID_14 + 1;
-pub const IS_INVALID_16: usize = IS_INVALID_15 + 1;
-pub const IS_INVALID_17: usize = IS_INVALID_16 + 1;
-pub const IS_INVALID_18: usize = IS_INVALID_17 + 1;
-pub const IS_INVALID_19: usize = IS_INVALID_18 + 1;
-pub const IS_INVALID_20: usize = IS_INVALID_19 + 1;
-// An instruction is invalid if _any_ of the above flags is 1.
+    // An instruction is invalid if _any_ of the below flags is 1.
+    pub is_invalid_0: T,
+    pub is_invalid_1: T,
+    pub is_invalid_2: T,
+    pub is_invalid_3: T,
+    pub is_invalid_4: T,
+    pub is_invalid_5: T,
+    pub is_invalid_6: T,
+    pub is_invalid_7: T,
+    pub is_invalid_8: T,
+    pub is_invalid_9: T,
+    pub is_invalid_10: T,
+    pub is_invalid_11: T,
+    pub is_invalid_12: T,
+    pub is_invalid_13: T,
+    pub is_invalid_14: T,
+    pub is_invalid_15: T,
+    pub is_invalid_16: T,
+    pub is_invalid_17: T,
+    pub is_invalid_18: T,
+    pub is_invalid_19: T,
+    pub is_invalid_20: T,
 
-pub const START_INSTRUCTION_FLAGS: usize = IS_STOP;
-pub const END_INSTRUCTION_FLAGS: usize = IS_INVALID_20 + 1;
+    /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
+    pub opcode_bits: [T; 8],
 
-/// If CPU cycle: the opcode, broken up into bits.
-/// **Big-endian** order.
-pub const OPCODE_BITS: [usize; 8] = [
-    END_INSTRUCTION_FLAGS,
-    END_INSTRUCTION_FLAGS + 1,
-    END_INSTRUCTION_FLAGS + 2,
-    END_INSTRUCTION_FLAGS + 3,
-    END_INSTRUCTION_FLAGS + 4,
-    END_INSTRUCTION_FLAGS + 5,
-    END_INSTRUCTION_FLAGS + 6,
-    END_INSTRUCTION_FLAGS + 7,
-];
+    /// Filter. 1 iff a Keccak permutation is computed on this row.
+    pub is_keccak: T,
+    pub keccak_input_limbs: [T; 50],
+    pub keccak_output_limbs: [T; 50],
 
-/// Filter. 1 iff a Keccak permutation is computed on this row.
-pub const IS_KECCAK: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
+    // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
+    // TODO: These input/output columns can be shared between the logic operations and others.
+    pub logic_input0: [T; 16],
+    pub logic_input1: [T; 16],
+    pub logic_output: [T; 16],
+    pub simple_logic_diff: T,
+    pub simple_logic_diff_inv: T,
 
-pub const START_KECCAK_INPUT: usize = IS_KECCAK + 1;
-pub const KECCAK_INPUT_LIMBS: Range<usize> = START_KECCAK_INPUT..START_KECCAK_INPUT + 50;
-
-pub const START_KECCAK_OUTPUT: usize = KECCAK_INPUT_LIMBS.end;
-pub const KECCAK_OUTPUT_LIMBS: Range<usize> = START_KECCAK_OUTPUT..START_KECCAK_OUTPUT + 50;
-
-// Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
-// TODO: These input/output columns can be shared between the logic operations and others.
-pub const LOGIC_INPUT0: Range<usize> = KECCAK_OUTPUT_LIMBS.end..KECCAK_OUTPUT_LIMBS.end + 16;
-pub const LOGIC_INPUT1: Range<usize> = LOGIC_INPUT0.end..LOGIC_INPUT0.end + 16;
-pub const LOGIC_OUTPUT: Range<usize> = LOGIC_INPUT1.end..LOGIC_INPUT1.end + 16;
-
-pub const SIMPLE_LOGIC_DIFF: usize = LOGIC_OUTPUT.end;
-pub const SIMPLE_LOGIC_DIFF_INV: usize = SIMPLE_LOGIC_DIFF + 1;
-
-pub(crate) const CLOCK: usize = SIMPLE_LOGIC_DIFF_INV + 1;
-
-/// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise 0.
-const MEM_CHANNEL_USED_START: usize = CLOCK + 1;
-pub const fn mem_channel_used(channel: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    MEM_CHANNEL_USED_START + channel
+    pub(crate) clock: T,
+    /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
+    /// 0.
+    pub mem_channel_used: [T; memory::NUM_CHANNELS],
+    pub mem_is_read: [T; memory::NUM_CHANNELS],
+    pub mem_addr_context: [T; memory::NUM_CHANNELS],
+    pub mem_addr_segment: [T; memory::NUM_CHANNELS],
+    pub mem_addr_virtual: [T; memory::NUM_CHANNELS],
+    pub mem_value: [[T; memory::VALUE_LIMBS]; memory::NUM_CHANNELS],
 }
 
-const MEM_ISREAD_START: usize = MEM_CHANNEL_USED_START + memory::NUM_CHANNELS;
-pub const fn mem_is_read(channel: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    MEM_ISREAD_START + channel
+// `u8` is guaranteed to have a `size_of` of 1.
+pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+
+unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U {
+    debug_assert_eq!(size_of::<T>(), size_of::<U>());
+    // Need ManuallyDrop so that `value` is not dropped by this function.
+    let value = ManuallyDrop::new(value);
+    // Copy the bit pattern. The original value is no longer safe to use.
+    transmute_copy(&value)
 }
 
-const MEM_ADDR_CONTEXT_START: usize = MEM_ISREAD_START + memory::NUM_CHANNELS;
-pub const fn mem_addr_context(channel: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    MEM_ADDR_CONTEXT_START + channel
+impl<T> From<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+    fn from(value: [T; NUM_CPU_COLUMNS]) -> Self {
+        unsafe { transmute_no_compile_time_size_checks(value) }
+    }
 }
 
-const MEM_ADDR_SEGMENT_START: usize = MEM_ADDR_CONTEXT_START + memory::NUM_CHANNELS;
-pub const fn mem_addr_segment(channel: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    MEM_ADDR_SEGMENT_START + channel
+impl<T> From<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+    fn from(value: CpuColumnsView<T>) -> Self {
+        unsafe { transmute_no_compile_time_size_checks(value) }
+    }
 }
 
-const MEM_ADDR_VIRTUAL_START: usize = MEM_ADDR_SEGMENT_START + memory::NUM_CHANNELS;
-pub const fn mem_addr_virtual(channel: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    MEM_ADDR_VIRTUAL_START + channel
+impl<T> Borrow<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+    fn borrow(&self) -> &CpuColumnsView<T> {
+        unsafe { transmute(self) }
+    }
 }
 
-const MEM_ADDR_VALUE_START: usize = MEM_ADDR_VIRTUAL_START + memory::NUM_CHANNELS;
-pub const fn mem_value(channel: usize, limb: usize) -> usize {
-    debug_assert!(channel < memory::NUM_CHANNELS);
-    debug_assert!(limb < memory::VALUE_LIMBS);
-    MEM_ADDR_VALUE_START + channel * memory::VALUE_LIMBS + limb
+impl<T> BorrowMut<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+    fn borrow_mut(&mut self) -> &mut CpuColumnsView<T> {
+        unsafe { transmute(self) }
+    }
 }
 
-pub const NUM_CPU_COLUMNS: usize =
-    MEM_ADDR_VALUE_START + memory::NUM_CHANNELS * memory::VALUE_LIMBS;
+impl<T> Borrow<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+    fn borrow(&self) -> &[T; NUM_CPU_COLUMNS] {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<T> BorrowMut<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+    fn borrow_mut(&mut self) -> &mut [T; NUM_CPU_COLUMNS] {
+        unsafe { transmute(self) }
+    }
+}
+
+impl<T, I> Index<I> for CpuColumnsView<T>
+where
+    [T]: Index<I>,
+{
+    type Output = <[T] as Index<I>>::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        let arr: &[T; NUM_CPU_COLUMNS] = self.borrow();
+        <[T] as Index<I>>::index(arr, index)
+    }
+}
+
+impl<T, I> IndexMut<I> for CpuColumnsView<T>
+where
+    [T]: IndexMut<I>,
+{
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        let arr: &mut [T; NUM_CPU_COLUMNS] = self.borrow_mut();
+        <[T] as IndexMut<I>>::index_mut(arr, index)
+    }
+}
+
+const fn make_col_map() -> CpuColumnsView<usize> {
+    let mut indices_arr = [0; NUM_CPU_COLUMNS];
+    let mut i = 0;
+    while i < NUM_CPU_COLUMNS {
+        indices_arr[i] = i;
+        i += 1;
+    }
+    unsafe { transmute::<[usize; NUM_CPU_COLUMNS], CpuColumnsView<usize>>(indices_arr) }
+}
+
+pub const COL_MAP: CpuColumnsView<usize> = make_col_map();
