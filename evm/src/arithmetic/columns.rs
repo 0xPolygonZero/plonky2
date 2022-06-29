@@ -47,7 +47,7 @@ pub(crate) const ALL_OPERATIONS: [usize; 16] = [
 const NUM_SHARED_COLS: usize = 64;
 
 const fn shared_col(i: usize) -> usize {
-    debug_assert!(i < NUM_SHARED_COLS);
+    assert!(i < NUM_SHARED_COLS);
     START_SHARED_COLS + i
 }
 

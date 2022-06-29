@@ -24,7 +24,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         // if a < b, then d < 2^16 so br = 1
         // if a >= b, then d >= 2^16 so br = 0
         br = 1u64 - (d >> LIMB_BITS);
-        debug_assert!(br <= 1u64, "input limbs were larger than 16 bits");
+        assert!(br <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = d & MASK;
     }
     // last borrow is dropped because this is subtraction modulo 2^256.

@@ -126,7 +126,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // output.
     let mut constr_poly = [P::ZEROS; N_LIMBS];
 
-    debug_assert_eq!(constr_poly.len(), N_LIMBS);
+    assert_eq!(constr_poly.len(), N_LIMBS);
 
     // After this loop constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials

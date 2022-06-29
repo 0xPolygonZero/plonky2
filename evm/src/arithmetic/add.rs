@@ -85,7 +85,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
         let s = a + b + cy;
         cy = s >> LIMB_BITS;
-        debug_assert!(cy <= 1u64, "input limbs were larger than 16 bits");
+        assert!(cy <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = s & MASK;
     }
     // last carry is dropped because this is addition modulo 2^256.
