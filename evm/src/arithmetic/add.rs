@@ -127,6 +127,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
     let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
 
+    // Since `map` is lazy and the closure passed to it borrows
+    // `builder`, we can't then borrow builder again below in the call
+    // to `eval_ext_circuit_are_equal`. The solution is to force
+    // evaluation with `collect`.
     let output_computed = input0_limbs
         .zip(input1_limbs)
         .map(|(a, b)| builder.add_extension(a, b))
