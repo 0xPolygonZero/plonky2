@@ -122,8 +122,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
-    // verified. It is initialised to the /negative/ of the claimed
-    // output.
+    // verified.
     let mut constr_poly = [P::ZEROS; N_LIMBS];
 
     debug_assert_eq!(constr_poly.len(), N_LIMBS);
