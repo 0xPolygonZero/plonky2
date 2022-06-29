@@ -1,5 +1,4 @@
 use itertools::izip;
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -188,8 +187,8 @@ mod tests {
         lv[IS_ADD] = F::ONE;
         // set inputs to random values
         for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
-            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
-            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
         }
 
         generate(&mut lv);

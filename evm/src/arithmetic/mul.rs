@@ -249,8 +249,8 @@ mod tests {
         lv[IS_MUL] = F::ONE;
         // set inputs to random values
         for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
-            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
-            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
         }
 
         generate(&mut lv);
