@@ -248,7 +248,7 @@ mod tests {
                 *input = keccak_input_limbs[i][j];
                 *output = keccak_output_limbs[i][j];
             }
-            cpu_stark.generate(&mut row);
+            cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
 
@@ -279,7 +279,7 @@ mod tests {
             for (col_cpu, col_logic) in row.logic_output.iter_mut().zip(logic::columns::RESULT) {
                 *col_cpu = logic_trace[col_logic].values[i];
             }
-            cpu_stark.generate(&mut row);
+            cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
 

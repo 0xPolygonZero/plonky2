@@ -3,20 +3,28 @@
 
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
-use std::ops::{Deref, DerefMut};
+use std::ops::{Index, IndexMut};
 
 use crate::memory;
 
 #[repr(C)]
 pub struct CpuColumnsView<T> {
+    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
 
+    /// Filter. 1 if the row is part of bootstrapping a contract's code, 0 otherwise.
     pub is_bootstrap_contract: T,
 
+    /// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
+    /// Lets us re-use decode columns in non-cycle rows.
     pub is_cpu_cycle: T,
 
+    /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
     pub opcode: T,
 
+    // If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each.
+    // Invalid opcodes are split between a number of flags for practical reasons. Exactly one of
+    // these flags must be 1.
     pub is_stop: T,
     pub is_add: T,
     pub is_mul: T,
@@ -33,8 +41,8 @@ pub struct CpuColumnsView<T> {
     pub is_gt: T,
     pub is_slt: T,
     pub is_sgt: T,
-    pub is_eq: T,
-    pub is_iszero: T,
+    pub is_eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub is_iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     pub is_and: T,
     pub is_or: T,
     pub is_xor: T,
@@ -98,6 +106,8 @@ pub struct CpuColumnsView<T> {
     pub is_staticcall: T,
     pub is_revert: T,
     pub is_selfdestruct: T,
+
+    // An instruction is invalid if _any_ of the below flags is 1.
     pub is_invalid_0: T,
     pub is_invalid_1: T,
     pub is_invalid_2: T,
@@ -120,12 +130,16 @@ pub struct CpuColumnsView<T> {
     pub is_invalid_19: T,
     pub is_invalid_20: T,
 
+    /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
     pub opcode_bits: [T; 8],
 
+    /// Filter. 1 iff a Keccak permutation is computed on this row.
     pub is_keccak: T,
     pub keccak_input_limbs: [T; 50],
     pub keccak_output_limbs: [T; 50],
 
+    // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
+    // TODO: These input/output columns can be shared between the logic operations and others.
     pub logic_input0: [T; 16],
     pub logic_input1: [T; 16],
     pub logic_output: [T; 16],
@@ -178,16 +192,37 @@ impl<T> BorrowMut<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
     }
 }
 
-impl<T> Deref for CpuColumnsView<T> {
-    type Target = [T; NUM_CPU_COLUMNS];
-    fn deref(&self) -> &Self::Target {
+impl<T> Borrow<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+    fn borrow(&self) -> &[T; NUM_CPU_COLUMNS] {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> DerefMut for CpuColumnsView<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl<T> BorrowMut<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+    fn borrow_mut(&mut self) -> &mut [T; NUM_CPU_COLUMNS] {
         unsafe { transmute(self) }
+    }
+}
+
+impl<T, I> Index<I> for CpuColumnsView<T>
+where
+    [T]: Index<I>,
+{
+    type Output = <[T] as Index<I>>::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        let arr: &[T; NUM_CPU_COLUMNS] = self.borrow();
+        <[T] as Index<I>>::index(arr, index)
+    }
+}
+
+impl<T, I> IndexMut<I> for CpuColumnsView<T>
+where
+    [T]: IndexMut<I>,
+{
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        let arr: &mut [T; NUM_CPU_COLUMNS] = self.borrow_mut();
+        <[T] as IndexMut<I>>::index_mut(arr, index)
     }
 }
 

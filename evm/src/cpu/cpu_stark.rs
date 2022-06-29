@@ -1,3 +1,4 @@
+use std::borrow::{Borrow, BorrowMut};
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -7,7 +8,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{decode, simple_logic};
 use crate::cross_table_lookup::Column;
 use crate::memory::NUM_CHANNELS;
@@ -61,6 +62,7 @@ pub struct CpuStark<F, const D: usize> {
 
 impl<F: RichField, const D: usize> CpuStark<F, D> {
     pub fn generate(&self, local_values: &mut [F; NUM_CPU_COLUMNS]) {
+        let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
         decode::generate(local_values);
         simple_logic::generate(local_values);
     }
@@ -78,8 +80,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        decode::eval_packed_generic(vars.local_values, yield_constr);
-        simple_logic::eval_packed(vars.local_values, yield_constr);
+        let local_values = vars.local_values.borrow();
+        decode::eval_packed_generic(local_values, yield_constr);
+        simple_logic::eval_packed(local_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -88,8 +91,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        decode::eval_ext_circuit(builder, vars.local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, vars.local_values, yield_constr);
+        let local_values = vars.local_values.borrow();
+        decode::eval_ext_circuit(builder, local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {

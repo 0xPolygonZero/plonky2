@@ -1,5 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -7,7 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
 // List of opcode blocks
 // Each block corresponds to exactly one flag, and each flag corresponds to exactly one block.
@@ -123,9 +121,7 @@ const OPCODES: [(u64, usize, usize); 102] = [
     (0xff, 0, COL_MAP.is_selfdestruct),
 ];
 
-pub fn generate<F: RichField>(lv: &mut [F; NUM_CPU_COLUMNS]) {
-    let lv: &mut CpuColumnsView<_> = lv.borrow_mut();
-
+pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter == F::ZERO {
         // These columns cannot be shared.
@@ -161,10 +157,9 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_CPU_COLUMNS]) {
 }
 
 pub fn eval_packed_generic<P: PackedField>(
-    lv: &[P; NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let lv: &CpuColumnsView<_> = lv.borrow();
     let cycle_filter = lv.is_cpu_cycle;
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
@@ -210,10 +205,9 @@ pub fn eval_packed_generic<P: PackedField>(
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let lv: &CpuColumnsView<_> = lv.borrow();
     let cycle_filter = lv.is_cpu_cycle;
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
