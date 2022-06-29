@@ -5,6 +5,7 @@
 #![feature(generic_const_exprs)]
 
 pub mod all_stark;
+pub mod arithmetic;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
