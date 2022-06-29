@@ -23,6 +23,11 @@ pub const IS_SAR: usize = IS_SHR + 1;
 
 const START_SHARED_COLS: usize = IS_SAR + 1;
 
+pub(crate) const ALL_OPERATIONS: [usize; 16] = [
+    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_SDIV, IS_MOD, IS_SMOD, IS_ADDMOD, IS_MULMOD, IS_LT, IS_GT,
+    IS_SLT, IS_SGT, IS_SHL, IS_SHR, IS_SAR,
+];
+
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.  Can be increased as needed as other operations are
