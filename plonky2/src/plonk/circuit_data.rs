@@ -26,9 +26,11 @@ use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
+use crate::util::serialization::Buffer;
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -239,6 +241,7 @@ pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
 
 /// Circuit data required by both the prover and the verifier.
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct CommonCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -283,6 +286,18 @@ pub struct CommonCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CommonCircuitData<F, C, D>
 {
+    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Buffer::new(Vec::new());
+        buffer.write_common_circuit_data(self)?;
+        Ok(buffer.bytes())
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> anyhow::Result<CommonCircuitData<F, C, D>> {
+        let mut buffer = Buffer::new(bytes);
+        let cd = buffer.read_common_circuit_data()?;
+        Ok(cd)
+    }
+
     pub fn degree(&self) -> usize {
         1 << self.degree_bits
     }

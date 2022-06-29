@@ -439,6 +439,13 @@ mod tests {
             CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
         assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
+        let cd_bytes = cd.to_bytes()?;
+        info!("Common circuit data len: {} bytes", cd_bytes.len());
+        let cd_from_bytes = CommonCircuitData::from_bytes(cd_bytes)?;
+
+        #[cfg(test)]
+        assert_eq!(cd, &cd_from_bytes);
+
         Ok(())
     }
 
