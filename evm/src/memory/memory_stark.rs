@@ -17,7 +17,7 @@ use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::columns::{
     sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
-    COUNTER, COUNTER_PERMUTED, IS_READ, NUM_REGISTERS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
+    COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
     SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
@@ -227,10 +227,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     pub(crate) fn generate_trace_rows(
         &self,
         memory_ops: Vec<MemoryOp<F>>,
-    ) -> Vec<[F; NUM_REGISTERS]> {
+    ) -> Vec<[F; NUM_COLUMNS]> {
         let num_ops = memory_ops.len();
 
-        let mut trace_cols = [(); NUM_REGISTERS].map(|_| vec![F::ZERO; num_ops]);
+        let mut trace_cols = [(); NUM_COLUMNS].map(|_| vec![F::ZERO; num_ops]);
         for i in 0..num_ops {
             let MemoryOp {
                 channel_index,
@@ -254,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
         self.generate_memory(&mut trace_cols);
 
-        let mut trace_rows = vec![[F::ZERO; NUM_REGISTERS]; num_ops];
+        let mut trace_rows = vec![[F::ZERO; NUM_COLUMNS]; num_ops];
         for (i, col) in trace_cols.iter().enumerate() {
             for (j, &val) in col.iter().enumerate() {
                 trace_rows[j][i] = val;
@@ -353,7 +353,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
-    const COLUMNS: usize = NUM_REGISTERS;
+    const COLUMNS: usize = NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(

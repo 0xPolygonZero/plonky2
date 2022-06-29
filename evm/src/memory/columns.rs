@@ -52,4 +52,4 @@ pub(crate) const fn is_channel(channel: usize) -> usize {
     IS_CHANNEL_START + channel
 }
 
-pub(crate) const NUM_REGISTERS: usize = IS_CHANNEL_START + NUM_CHANNELS;
+pub(crate) const NUM_COLUMNS: usize = IS_CHANNEL_START + NUM_CHANNELS;
