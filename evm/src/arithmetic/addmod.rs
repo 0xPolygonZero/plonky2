@@ -37,6 +37,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 
 fn input_to_biguint(limbs: &[u64; N_LIMBS]) -> BigUint {
     // Convert the base-2^16 representation into a base-2^32 representation
+    // BigUint only takes slices, not iterators, so we need to `collect` here.
     const BASE: u64 = 1u64 << LIMB_BITS;
     let limbs = (0..N_LIMBS / 2)
         .map(|i| (limbs[2 * i] + BASE * limbs[2 * i + 1]) as u32)
@@ -74,16 +75,51 @@ pub(crate) fn generate_addmod<F: RichField>(
     let lambda = (sum - res) / modulus; // exact division
     let quot_limbs = biguint_to_output(&lambda);
 
-    // FIXME: Need to populate auxiliary value too
-    let aux_limbs = [0u16; N_LIMBS];
+    // TODO: Most of the code below should be refactored with the
+    // original in 'mul.rs'.
+
+    // unreduced_sum is the coefficients of the polynomial
+    //
+    //   a(x) + b(x) - c(x) - s(x)*m(x).
+    //
+    let mut unreduced_sum = [0u64; N_LIMBS];
+    for col in 0..N_LIMBS {
+        unreduced_sum[col] = input0_limbs[col] + input1_limbs[col] - output_limbs[col];
+
+        for i in 0..=col {
+            // Invariant: i + j = col
+            let j = col - i;
+            let ai_x_bj = modulus_limbs[i] * quot_limbs[j];
+            unreduced_sum[col] -= ai_x_bj;
+        }
+    }
+
+    // unreduced_sum must be zero when evaluated at x = B =
+    // 2^LIMB_BITS, hence it's divisible by (B - x). If we write it as
+    //
+    //   a(x) + b(x) - c(x) - s(x)*m(x) = \sum_{i=0}^n p_i x^i
+    //                                  = (B - x) \sum_{i=0}^{n-1} q_i x^i
+    //
+    // then by comparing coefficients it is easy to see that
+    //
+    //   q_0 = p_0 / B  and  q_i = (p_i + q_{i-1}) / B
+    //
+    // for 0 < i < n-1 (and the divisions are exact).
+    let mut aux_limbs = [0u64; N_LIMBS];
+    aux_limbs[0] = unreduced_sum[0] >> LIMB_BITS;
+    for deg in 1..N_LIMBS - 1 {
+        aux_limbs[deg] = (unreduced_sum[deg] + aux_limbs[deg - 1]) >> LIMB_BITS;
+    }
+    // FIXME: Check this.
+    aux_limbs[N_LIMBS - 1] = 0u64;
 
     for deg in 0..N_LIMBS {
         let c = aux_cols[deg];
-        lv[c] = F::from_canonical_u16(aux_limbs[deg]);
+        lv[c] = F::from_canonical_u64(aux_limbs[deg]);
         let c = quot_cols[deg];
-        lv[c] = F::from_canonical_u16(quot_limbs[deg]);
+        lv[c] = F::from_canonical_u64(quot_limbs[deg]);
         let c = output_cols[deg];
-        lv[c] = F::from_canonical_u16(output_limbs[deg]);
+        lv[c] = F::from_canonical_u64(output_limbs[deg]);
     }
 }
 
@@ -116,28 +152,28 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
 ) {
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this modular addition to be
-    // verified. It is initialised to the /negative/ of the claimed
-    // output.
-    let mut constr_poly = output_limbs.map(|limb| -limb);
+    // verified.
+    let mut constr_poly = [P::ZEROS; N_LIMBS];
 
     // Set constr_poly[deg] to be the degree deg coefficient of the
-    // polynomial A(x) + B(x) - C(x) - S(x) * M(x) where
+    // polynomial a(x) + b(x) - c(x) - s(x) * m(x) where
     //
-    //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
-    //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
-    //   C(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
-    //   S(x) = \sum_i quot_limbs[i] * 2^LIMB_BITS
-    //   M(x) = \sum_i modulus_limbs[i] * 2^LIMB_BITS
+    //   a(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
+    //   b(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
+    //   c(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
+    //   s(x) = \sum_i quot_limbs[i] * 2^LIMB_BITS
+    //   m(x) = \sum_i modulus_limbs[i] * 2^LIMB_BITS
     //
-    // This polynomial should equal (2^LIMB_BITS - x) * Q(x) where Q is
+    // This polynomial should equal (2^LIMB_BITS - x) * q(x) where q is
     //
-    //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
+    //   q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
+    // TODO: Same code as in generate above; refactor.
     for deg in 0..N_LIMBS {
-        constr_poly[deg] += input0_limbs[deg] + input1_limbs[deg];
+        constr_poly[deg] += input0_limbs[deg] + input1_limbs[deg] - output_limbs[deg];
 
         // Invariant: i + j = deg
-        for i in 0..deg {
+        for i in 0..=deg {
             let j = deg - i;
             constr_poly[deg] -= quot_limbs[i] * modulus_limbs[j];
         }
@@ -145,16 +181,15 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
 
     // TODO: This is just copypasta from 'mul.rs'; really need to refactor.
 
-    // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
+    // This subtracts (2^LIMB_BITS - x) * q(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-    constr_poly[0] += base * aux_limbs[0];
-    for deg in 1..N_LIMBS - 1 {
-        constr_poly[deg] += (base * aux_limbs[deg]) - aux_limbs[deg - 1];
+    constr_poly[0] -= base * aux_limbs[0];
+    for deg in 1..N_LIMBS {
+        constr_poly[deg] -= (base * aux_limbs[deg]) - aux_limbs[deg - 1];
     }
-    constr_poly[N_LIMBS - 1] -= aux_limbs[N_LIMBS - 2];
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial A(x) + B(x) - C(x) - S(x)*M(x) - (2^LIMB_BITS - x)*Q(x).
+    // polynomial a(x) + b(x) - c(x) - s(x)*m(x) - (2^LIMB_BITS - x)*q(x).
     // The modular addition is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
@@ -224,4 +259,73 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder,
         yield_constr,
     );
+}
+
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Field;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
+
+    use super::*;
+    use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use crate::constraint_consumer::ConstraintConsumer;
+
+    // TODO: Should be able to refactor this test to apply to all operations.
+    #[test]
+    fn generate_eval_consistency_not_addmod() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // if `IS_ADDMOD == 0`, then the constraints should be met even
+        // if all values are garbage.
+        lv[IS_ADDMOD] = F::ZERO;
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_mul() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // TODO: Add tests with modulus much smaller than inputs.
+
+        // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
+        lv[IS_ADDMOD] = F::ONE;
+        // set inputs to random values
+        for (ai, bi, mi) in izip!(ADDMOD_INPUT_0.iter(), ADDMOD_INPUT_1.iter(), ADDMOD_MODULUS.iter()) {
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
+            lv[mi] = F::from_canonical_u16(rng.gen());
+        }
+
+        generate(&mut lv);
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_packed_generic(&lv, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
 }
