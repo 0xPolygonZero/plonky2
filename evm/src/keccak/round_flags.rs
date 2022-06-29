@@ -5,9 +5,9 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::keccak::columns::reg_step;
+use crate::keccak::columns::NUM_REGISTERS;
 use crate::keccak::keccak_stark::{NUM_PUBLIC_INPUTS, NUM_ROUNDS};
-use crate::keccak::registers::reg_step;
-use crate::keccak::registers::NUM_REGISTERS;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 

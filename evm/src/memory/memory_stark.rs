@@ -11,11 +11,11 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use rand::Rng;
 
-use super::registers::is_channel;
+use super::columns::is_channel;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
-use crate::memory::registers::{
+use crate::memory::columns::{
     sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
     COUNTER, COUNTER_PERMUTED, IS_READ, NUM_REGISTERS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,

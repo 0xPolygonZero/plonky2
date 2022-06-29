@@ -19,7 +19,7 @@ pub(crate) const PACKED_LIMB_BITS: usize = 16;
 // Number of field elements needed to store each input/output at the specified packing.
 const PACKED_LEN: usize = (VAL_BITS + PACKED_LIMB_BITS - 1) / PACKED_LIMB_BITS;
 
-pub(crate) mod registers {
+pub(crate) mod columns {
     use std::cmp::min;
     use std::ops::Range;
 
@@ -47,18 +47,18 @@ pub(crate) mod registers {
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res = vec![
-        Column::single(registers::IS_AND),
-        Column::single(registers::IS_OR),
-        Column::single(registers::IS_XOR),
+        Column::single(columns::IS_AND),
+        Column::single(columns::IS_OR),
+        Column::single(columns::IS_XOR),
     ];
-    res.extend(registers::limb_bit_cols_for_input(registers::INPUT0).map(Column::le_bits));
-    res.extend(registers::limb_bit_cols_for_input(registers::INPUT1).map(Column::le_bits));
-    res.extend(registers::RESULT.map(Column::single));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
+    res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
+    res.extend(columns::RESULT.map(Column::single));
     res
 }
 
 pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([registers::IS_AND, registers::IS_OR, registers::IS_XOR])
+    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
 #[derive(Copy, Clone)]
@@ -75,12 +75,12 @@ enum Op {
     Xor,
 }
 
-fn check_op_flags<F: RichField>(lv: &[F; registers::NUM_COLUMNS]) -> Op {
-    let is_and = lv[registers::IS_AND].to_canonical_u64();
+fn check_op_flags<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) -> Op {
+    let is_and = lv[columns::IS_AND].to_canonical_u64();
     assert!(is_and <= 1);
-    let is_or = lv[registers::IS_OR].to_canonical_u64();
+    let is_or = lv[columns::IS_OR].to_canonical_u64();
     assert!(is_or <= 1);
-    let is_xor = lv[registers::IS_XOR].to_canonical_u64();
+    let is_xor = lv[columns::IS_XOR].to_canonical_u64();
     assert!(is_xor <= 1);
     assert!(is_and + is_or + is_xor <= 1);
     if is_and == 1 {
@@ -94,8 +94,8 @@ fn check_op_flags<F: RichField>(lv: &[F; registers::NUM_COLUMNS]) -> Op {
     }
 }
 
-fn check_bits<F: RichField>(lv: &[F; registers::NUM_COLUMNS]) {
-    for bit_cols in [registers::INPUT0, registers::INPUT1] {
+fn check_bits<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) {
+    for bit_cols in [columns::INPUT0, columns::INPUT1] {
         for bit_col in bit_cols {
             let bit = lv[bit_col].to_canonical_u64();
             assert!(bit <= 1);
@@ -103,11 +103,11 @@ fn check_bits<F: RichField>(lv: &[F; registers::NUM_COLUMNS]) {
     }
 }
 
-fn make_result<F: RichField>(lv: &mut [F; registers::NUM_COLUMNS], op: Op) {
+fn make_result<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS], op: Op) {
     for (res_col, limb_in0_cols, limb_in1_cols) in izip!(
-        registers::RESULT,
-        registers::limb_bit_cols_for_input(registers::INPUT0),
-        registers::limb_bit_cols_for_input(registers::INPUT1),
+        columns::RESULT,
+        columns::limb_bit_cols_for_input(columns::INPUT0),
+        columns::limb_bit_cols_for_input(columns::INPUT1),
     ) {
         let limb_in0: u64 = limb_from_bits_le(limb_in0_cols.map(|col| lv[col])).to_canonical_u64();
         let limb_in1: u64 = limb_from_bits_le(limb_in1_cols.map(|col| lv[col])).to_canonical_u64();
@@ -122,7 +122,7 @@ fn make_result<F: RichField>(lv: &mut [F; registers::NUM_COLUMNS], op: Op) {
 }
 
 impl<F: RichField, const D: usize> LogicStark<F, D> {
-    pub fn generate(&self, lv: &mut [F; registers::NUM_COLUMNS]) {
+    pub fn generate(&self, lv: &mut [F; columns::NUM_COLUMNS]) {
         let op = check_op_flags(lv);
         check_bits(lv);
         make_result(lv, op);
@@ -130,7 +130,7 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
-    const COLUMNS: usize = registers::NUM_COLUMNS;
+    const COLUMNS: usize = columns::NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -144,9 +144,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let lv = &vars.local_values;
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
-        let is_and = lv[registers::IS_AND];
-        let is_or = lv[registers::IS_OR];
-        let is_xor = lv[registers::IS_XOR];
+        let is_and = lv[columns::IS_AND];
+        let is_or = lv[columns::IS_OR];
+        let is_xor = lv[columns::IS_XOR];
 
         // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
         // `AND => sum_coeff = 0, and_coeff = 1`
@@ -156,7 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let and_coeff = is_and - is_or - is_xor * FE::TWO;
 
         // Ensure that all bits are indeed bits.
-        for input_bits_cols in [registers::INPUT0, registers::INPUT1] {
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
             for i in input_bits_cols {
                 let bit = lv[i];
                 yield_constr.constraint(bit * (bit - P::ONES));
@@ -165,9 +165,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
         // Form the result
         for (result_col, x_bits_cols, y_bits_cols) in izip!(
-            registers::RESULT,
-            registers::limb_bit_cols_for_input(registers::INPUT0),
-            registers::limb_bit_cols_for_input(registers::INPUT1),
+            columns::RESULT,
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
             let x: P = limb_from_bits_le(x_bits_cols.clone().map(|col| lv[col]));
             let y: P = limb_from_bits_le(y_bits_cols.clone().map(|col| lv[col]));
@@ -193,9 +193,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         let lv = &vars.local_values;
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
-        let is_and = lv[registers::IS_AND];
-        let is_or = lv[registers::IS_OR];
-        let is_xor = lv[registers::IS_XOR];
+        let is_and = lv[columns::IS_AND];
+        let is_or = lv[columns::IS_OR];
+        let is_xor = lv[columns::IS_XOR];
 
         // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
         // `AND => sum_coeff = 0, and_coeff = 1`
@@ -208,7 +208,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         };
 
         // Ensure that all bits are indeed bits.
-        for input_bits_cols in [registers::INPUT0, registers::INPUT1] {
+        for input_bits_cols in [columns::INPUT0, columns::INPUT1] {
             for i in input_bits_cols {
                 let bit = lv[i];
                 let constr = builder.mul_sub_extension(bit, bit, bit);
@@ -218,9 +218,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 
         // Form the result
         for (result_col, x_bits_cols, y_bits_cols) in izip!(
-            registers::RESULT,
-            registers::limb_bit_cols_for_input(registers::INPUT0),
-            registers::limb_bit_cols_for_input(registers::INPUT1),
+            columns::RESULT,
+            columns::limb_bit_cols_for_input(columns::INPUT0),
+            columns::limb_bit_cols_for_input(columns::INPUT1),
         ) {
             let x = limb_from_bits_le_recursive(builder, x_bits_cols.clone().map(|i| lv[i]));
             let y = limb_from_bits_le_recursive(builder, y_bits_cols.clone().map(|i| lv[i]));

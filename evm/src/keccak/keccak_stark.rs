@@ -13,13 +13,13 @@ use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
+use crate::keccak::columns::{
+    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
+    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_REGISTERS,
+};
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
-};
-use crate::keccak::registers::{
-    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -529,8 +529,8 @@ mod tests {
     use plonky2::field::types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
+    use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::keccak::registers::reg_output_limb;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
