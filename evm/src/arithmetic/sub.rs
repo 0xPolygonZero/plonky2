@@ -1,3 +1,5 @@
+use itertools::izip;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
@@ -19,7 +21,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     const MASK: u64 = LIMB_BOUNDARY - 1u64;
 
     let mut br = 0u64;
-    for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
+    for (i, a, b) in izip!(0.., input0_limbs, input1_limbs) {
         let d = LIMB_BOUNDARY + a - b - br;
         // if a < b, then d < 2^16 so br = 1
         // if a >= b, then d >= 2^16 so br = 0
@@ -29,7 +31,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     }
     // last borrow is dropped because this is subtraction modulo 2^256.
 
-    for (&c, &output_limb) in SUB_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, output_limb) in SUB_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
@@ -122,7 +124,7 @@ mod tests {
         // set `IS_SUB == 1` and ensure all constraints are satisfied.
         lv[IS_SUB] = F::ONE;
         // set inputs to random values
-        for (&ai, &bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1.iter()) {
+        for (&ai, bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1) {
             lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
             lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
         }
