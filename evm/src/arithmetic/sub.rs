@@ -1,3 +1,4 @@
+use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
@@ -19,17 +20,17 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     const MASK: u64 = LIMB_BOUNDARY - 1u64;
 
     let mut br = 0u64;
-    for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
+    for (i, a, b) in izip!(0.., input0_limbs, input1_limbs) {
         let d = LIMB_BOUNDARY + a - b - br;
         // if a < b, then d < 2^16 so br = 1
         // if a >= b, then d >= 2^16 so br = 0
         br = 1u64 - (d >> LIMB_BITS);
-        debug_assert!(br <= 1u64, "input limbs were larger than 16 bits");
+        assert!(br <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = d & MASK;
     }
     // last borrow is dropped because this is subtraction modulo 2^256.
 
-    for (&c, &output_limb) in SUB_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, output_limb) in SUB_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
@@ -63,6 +64,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1_limbs = SUB_INPUT_1.iter().map(|&c| lv[c]);
     let output_limbs = SUB_OUTPUT.iter().map(|&c| lv[c]);
 
+    // Since `map` is lazy and the closure passed to it borrows
+    // `builder`, we can't then borrow builder again below in the call
+    // to `eval_ext_circuit_are_equal`. The solution is to force
+    // evaluation with `collect`.
     let output_computed = input0_limbs
         .zip(input1_limbs)
         .map(|(a, b)| builder.sub_extension(a, b))
@@ -122,9 +127,9 @@ mod tests {
         // set `IS_SUB == 1` and ensure all constraints are satisfied.
         lv[IS_SUB] = F::ONE;
         // set inputs to random values
-        for (&ai, &bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1.iter()) {
-            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
-            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+        for (&ai, bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1) {
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
         }
 
         generate(&mut lv);

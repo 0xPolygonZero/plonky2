@@ -1,8 +1,20 @@
 //! Arithmetic unit
 
 pub const LIMB_BITS: usize = 16;
-pub const EVM_REGISTER_BITS: usize = 256;
-pub const N_LIMBS: usize = EVM_REGISTER_BITS / LIMB_BITS;
+const EVM_REGISTER_BITS: usize = 256;
+
+/// Return the number of LIMB_BITS limbs that are in an EVM
+/// register-sized number, panicking if LIMB_BITS doesn't divide in
+/// the EVM register size.
+const fn n_limbs() -> usize {
+    if EVM_REGISTER_BITS % LIMB_BITS != 0 {
+        panic!("limb size must divide EVM register size");
+    }
+    EVM_REGISTER_BITS / LIMB_BITS
+}
+
+/// Number of LIMB_BITS limbs that are in on EVM register-sized number.
+pub const N_LIMBS: usize = n_limbs();
 
 pub const IS_ADD: usize = 0;
 pub const IS_MUL: usize = IS_ADD + 1;
@@ -23,6 +35,11 @@ pub const IS_SAR: usize = IS_SHR + 1;
 
 const START_SHARED_COLS: usize = IS_SAR + 1;
 
+pub(crate) const ALL_OPERATIONS: [usize; 16] = [
+    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_SDIV, IS_MOD, IS_SMOD, IS_ADDMOD, IS_MULMOD, IS_LT, IS_GT,
+    IS_SLT, IS_SGT, IS_SHL, IS_SHR, IS_SAR,
+];
+
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.  Can be increased as needed as other operations are
@@ -30,7 +47,7 @@ const START_SHARED_COLS: usize = IS_SAR + 1;
 const NUM_SHARED_COLS: usize = 64;
 
 const fn shared_col(i: usize) -> usize {
-    debug_assert!(i < NUM_SHARED_COLS);
+    assert!(i < NUM_SHARED_COLS);
     START_SHARED_COLS + i
 }
 

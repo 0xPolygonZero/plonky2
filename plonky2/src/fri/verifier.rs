@@ -8,7 +8,7 @@ use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRo
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
-use crate::hash::merkle_proofs::verify_merkle_proof;
+use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::util::reducing::ReducingFactor;
@@ -116,7 +116,7 @@ where
     [(); H::HASH_SIZE]:,
 {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
-        verify_merkle_proof::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
+        verify_merkle_proof_to_cap::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
 
     Ok(())
@@ -224,7 +224,7 @@ where
             challenges.fri_betas[i],
         );
 
-        verify_merkle_proof::<F, C::Hasher>(
+        verify_merkle_proof_to_cap::<F, C::Hasher>(
             flatten(evals),
             coset_index,
             &proof.commit_phase_merkle_caps[i],

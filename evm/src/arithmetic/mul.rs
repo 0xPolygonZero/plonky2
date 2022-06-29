@@ -58,7 +58,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // calculate the coefficients of a(x)*b(x) (in unreduced_prod).
     let mut cy = 0u64;
     for col in 0..N_LIMBS {
-        for i in 0..col + 1 {
+        for i in 0..=col {
             // Invariant: i + j = col
             let j = col - i;
             let ai_x_bj = input0_limbs[i] * input1_limbs[j];
@@ -73,7 +73,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // aux_in_limbs to handle the fact that unreduced_prod will
     // inevitably contain a one digit's worth that is > 2^256.
 
-    for (&c, &output_limb) in MUL_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, output_limb) in MUL_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
     for deg in 0..N_LIMBS {
@@ -125,7 +125,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // verified.
     let mut constr_poly = [P::ZEROS; N_LIMBS];
 
-    debug_assert_eq!(constr_poly.len(), N_LIMBS);
+    assert_eq!(constr_poly.len(), N_LIMBS);
 
     // After this loop constr_poly holds the coefficients of the
     // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
@@ -140,7 +140,7 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     for col in 0..N_LIMBS {
         // Invariant: i + j = col
-        for i in 0..col + 1 {
+        for i in 0..=col {
             let j = col - i;
             constr_poly[col] += input0_limbs[i] * input1_limbs[j];
         }
@@ -180,7 +180,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Invariant: i + j = deg
     for col in 0..N_LIMBS {
         let mut acc = zero;
-        for i in 0..col + 1 {
+        for i in 0..=col {
             let j = col - i;
             acc = builder.mul_add_extension(input0_limbs[i], input1_limbs[j], acc);
         }
@@ -247,9 +247,9 @@ mod tests {
         // set `IS_MUL == 1` and ensure all constraints are satisfied.
         lv[IS_MUL] = F::ONE;
         // set inputs to random values
-        for (&ai, &bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1.iter()) {
-            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
-            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+        for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
         }
 
         generate(&mut lv);

@@ -1,3 +1,4 @@
+use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -82,15 +83,15 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
 
     const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
     let mut cy = 0u64;
-    for (i, (&a, &b)) in input0_limbs.iter().zip(input1_limbs.iter()).enumerate() {
+    for (i, a, b) in izip!(0.., input0_limbs, input1_limbs) {
         let s = a + b + cy;
         cy = s >> LIMB_BITS;
-        debug_assert!(cy <= 1u64, "input limbs were larger than 16 bits");
+        assert!(cy <= 1u64, "input limbs were larger than 16 bits");
         output_limbs[i] = s & MASK;
     }
     // last carry is dropped because this is addition modulo 2^256.
 
-    for (&c, &output_limb) in ADD_OUTPUT.iter().zip(output_limbs.iter()) {
+    for (&c, output_limb) in ADD_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
 }
@@ -126,6 +127,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
     let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
 
+    // Since `map` is lazy and the closure passed to it borrows
+    // `builder`, we can't then borrow builder again below in the call
+    // to `eval_ext_circuit_are_equal`. The solution is to force
+    // evaluation with `collect`.
     let output_computed = input0_limbs
         .zip(input1_limbs)
         .map(|(a, b)| builder.add_extension(a, b))
@@ -185,9 +190,9 @@ mod tests {
         // set `IS_ADD == 1` and ensure all constraints are satisfied.
         lv[IS_ADD] = F::ONE;
         // set inputs to random values
-        for (&ai, &bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1.iter()) {
-            lv[ai] = F::from_canonical_u16(rng.gen::<u16>());
-            lv[bi] = F::from_canonical_u16(rng.gen::<u16>());
+        for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
+            lv[ai] = F::from_canonical_u16(rng.gen());
+            lv[bi] = F::from_canonical_u16(rng.gen());
         }
 
         generate(&mut lv);
