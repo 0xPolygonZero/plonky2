@@ -213,7 +213,7 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        keccak::registers::reg_input_limb(j)
+                        keccak::columns::reg_input_limb(j)
                             .eval_table(keccak_trace, (i + 1) * NUM_ROUNDS - 1)
                     })
                     .collect::<Vec<_>>()
@@ -225,7 +225,7 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        keccak_trace[keccak::registers::reg_output_limb(j)].values
+                        keccak_trace[keccak::columns::reg_output_limb(j)].values
                             [(i + 1) * NUM_ROUNDS - 1]
                     })
                     .collect::<Vec<_>>()
@@ -276,12 +276,12 @@ mod tests {
             cpu_trace_rows.push(row);
         }
         let mut current_cpu_index = 0;
-        let mut last_timestamp = memory_trace[memory::registers::TIMESTAMP].values[0];
+        let mut last_timestamp = memory_trace[memory::columns::TIMESTAMP].values[0];
         for i in 0..num_memory_ops {
-            let mem_timestamp = memory_trace[memory::registers::TIMESTAMP].values[i];
+            let mem_timestamp = memory_trace[memory::columns::TIMESTAMP].values[i];
             let clock = mem_timestamp;
             let op = (0..NUM_CHANNELS)
-                .filter(|&o| memory_trace[memory::registers::is_channel(o)].values[i] == F::ONE)
+                .filter(|&o| memory_trace[memory::columns::is_channel(o)].values[i] == F::ONE)
                 .collect_vec()[0];
 
             if mem_timestamp != last_timestamp {
@@ -292,16 +292,16 @@ mod tests {
             cpu_trace_rows[current_cpu_index][cpu::columns::mem_channel_used(op)] = F::ONE;
             cpu_trace_rows[current_cpu_index][cpu::columns::CLOCK] = clock;
             cpu_trace_rows[current_cpu_index][cpu::columns::mem_is_read(op)] =
-                memory_trace[memory::registers::IS_READ].values[i];
+                memory_trace[memory::columns::IS_READ].values[i];
             cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_context(op)] =
-                memory_trace[memory::registers::ADDR_CONTEXT].values[i];
+                memory_trace[memory::columns::ADDR_CONTEXT].values[i];
             cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_segment(op)] =
-                memory_trace[memory::registers::ADDR_SEGMENT].values[i];
+                memory_trace[memory::columns::ADDR_SEGMENT].values[i];
             cpu_trace_rows[current_cpu_index][cpu::columns::mem_addr_virtual(op)] =
-                memory_trace[memory::registers::ADDR_VIRTUAL].values[i];
+                memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
             for j in 0..8 {
                 cpu_trace_rows[current_cpu_index][cpu::columns::mem_value(op, j)] =
-                    memory_trace[memory::registers::value_limb(j)].values[i];
+                    memory_trace[memory::columns::value_limb(j)].values[i];
             }
         }
         trace_rows_to_poly_values(cpu_trace_rows)
