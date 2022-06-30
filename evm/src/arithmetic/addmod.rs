@@ -313,6 +313,8 @@ mod tests {
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use crate::constraint_consumer::ConstraintConsumer;
 
+    const N_RND_TESTS: usize = 1000;
+
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
     fn generate_eval_consistency_not_addmod() {
@@ -348,7 +350,7 @@ mod tests {
 
         // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
         lv[IS_ADDMOD] = F::ONE;
-        for i in 0..1000 {
+        for i in 0..N_RND_TESTS {
             // set inputs to random values
             for (&ai, &bi, &mi) in izip!(
                 ADDMOD_INPUT_0.iter(),
@@ -363,7 +365,7 @@ mod tests {
             // For the second half of the tests, set the top 16 - start
             // digits to zero, so the modulus is much smaller than the
             // inputs.
-            if i > 500 {
+            if i > N_RND_TESTS / 2 {
                 // 1 <= start < N_LIMBS
                 let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;
                 for &mi in &ADDMOD_MODULUS[start..N_LIMBS] {

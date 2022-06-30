@@ -107,6 +107,8 @@ mod tests {
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use crate::constraint_consumer::ConstraintConsumer;
 
+    const N_RND_TESTS: usize = 1000;
+
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
     fn generate_eval_consistency_not_mod() {
@@ -138,11 +140,9 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        // TODO: Add tests with modulus much smaller than inputs.
-
         // set `IS_MOD == 1` and ensure all constraints are satisfied.
         lv[IS_MOD] = F::ONE;
-        for i in 0..1000 {
+        for i in 0..N_RND_TESTS {
             // set inputs to random values
             for (&ai, &mi) in izip!(
                 MOD_INPUT.iter(),
@@ -155,7 +155,7 @@ mod tests {
             // For the second half of the tests, set the top 16 - start
             // digits to zero, so the modulus is much smaller than the
             // inputs.
-            if i > 500 {
+            if i > N_RND_TESTS / 2 {
                 // 1 <= start < N_LIMBS
                 let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;
                 for &mi in &MOD_MODULUS[start..N_LIMBS] {
