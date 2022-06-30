@@ -82,15 +82,15 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     }
 
     // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
-    // This must be zero when evaluated at x = B = 2^LIMB_BITS, hence it's
-    // divisible by (B - x). If we write unreduced_prod as
+    // This must be zero when evaluated at x = β = 2^LIMB_BITS, hence it's
+    // divisible by (β - x). If we write unreduced_prod as
     //
     //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i
-    //                    = (B - x) \sum_{i=0}^{n-1} q_i x^i
+    //                    = (β - x) \sum_{i=0}^{n-1} q_i x^i
     //
     // then by comparing coefficients it is easy to see that
     //
-    //   q_0 = p_0 / B  and  q_i = (p_i + q_{i-1}) / B
+    //   q_0 = p_0 / β  and  q_i = (p_i + q_{i-1}) / β
     //
     // for 0 < i < n-1 (and the divisions are exact).
     aux_in_limbs[0] = unreduced_prod[0] >> LIMB_BITS;
