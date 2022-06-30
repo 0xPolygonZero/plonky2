@@ -30,7 +30,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             state.commit_cpu_row();
         }
     }
-    todo!()
 }
 
 pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(

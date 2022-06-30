@@ -225,6 +225,11 @@ mod tests {
             .collect();
 
         let mut cpu_trace_rows: Vec<[F; CpuStark::<F, D>::COLUMNS]> = vec![];
+        let mut bootstrap_row: cpu::columns::CpuColumnsView<F> =
+            [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+        bootstrap_row.is_bootstrap_kernel = F::ONE;
+        cpu_trace_rows.push(bootstrap_row.into());
+
         for i in 0..num_keccak_perms {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
@@ -298,6 +303,11 @@ mod tests {
             for j in 0..8 {
                 row.mem_value[op][j] = memory_trace[memory::columns::value_limb(j)].values[i];
             }
+        }
+
+        // Pad to a power of two.
+        for _ in cpu_trace_rows.len()..cpu_trace_rows.len().next_power_of_two() {
+            cpu_trace_rows.push([F::ZERO; CpuStark::<F, D>::COLUMNS]);
         }
         trace_rows_to_poly_values(cpu_trace_rows)
     }
