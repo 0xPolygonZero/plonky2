@@ -189,23 +189,26 @@ mod tests {
 
         // set `IS_ADD == 1` and ensure all constraints are satisfied.
         lv[IS_ADD] = F::ONE;
-        // set inputs to random values
-        for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
-            lv[ai] = F::from_canonical_u16(rng.gen());
-            lv[bi] = F::from_canonical_u16(rng.gen());
-        }
 
-        generate(&mut lv);
+        for _i in 0..1000 {
+            // set inputs to random values
+            for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                lv[bi] = F::from_canonical_u16(rng.gen());
+            }
 
-        let mut constrant_consumer = ConstraintConsumer::new(
-            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-        );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
-            assert_eq!(acc, GoldilocksField::ZERO);
+            generate(&mut lv);
+
+            let mut constrant_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_packed_generic(&lv, &mut constrant_consumer);
+            for &acc in &constrant_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
         }
     }
 }
