@@ -88,4 +88,10 @@ pub(crate) const ADDMOD_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_3;
 pub(crate) const ADDMOD_AUX_INPUT: [usize; N_LIMBS] = AUX_INPUT_0;
 pub(crate) const ADDMOD_QUO_INPUT: [usize; N_LIMBS] = AUX_INPUT_1;
 
+pub(crate) const MOD_INPUT: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const MOD_MODULUS: [usize; N_LIMBS] = GENERAL_INPUT_1;
+pub(crate) const MOD_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_2;
+pub(crate) const MOD_AUX_INPUT: [usize; N_LIMBS] = AUX_INPUT_0;
+pub(crate) const MOD_QUO_INPUT: [usize; N_LIMBS] = AUX_INPUT_1;
+
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

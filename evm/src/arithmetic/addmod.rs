@@ -26,7 +26,6 @@
 //! bounds on their coefficients.
 
 use num::BigUint;
-use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -115,7 +114,6 @@ pub(crate) fn generate_addmod<F: RichField>(
     for deg in 1..N_LIMBS - 1 {
         aux_limbs[deg] = (unreduced_sum[deg] + aux_limbs[deg - 1]) >> LIMB_BITS;
     }
-    // FIXME: Check this.
     aux_limbs[N_LIMBS - 1] = 0i64;
 
     for deg in 0..N_LIMBS {
@@ -305,6 +303,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
+    use itertools::izip;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::Field;
     use rand::{Rng, SeedableRng};
