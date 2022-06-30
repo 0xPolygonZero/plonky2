@@ -3,12 +3,13 @@ use log::error;
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
 /// cols[0] + cols.len() - 1]`.
-pub(crate) fn _range_check_error<const RC_BITS: u32>(file: &str, line: u32, cols: &[usize]) {
+pub(crate) fn _range_check_error<const RC_BITS: u32>(file: &str, line: u32, cols: &[usize], signedness: &str) {
     error!(
-        "{}:{}: arithmetic unit skipped {}-bit range-checks on columns {}--{}: not yet implemented",
+        "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
         line,
         file,
         RC_BITS,
+        signedness,
         cols[0],
         cols[0] + cols.len() - 1
     );
@@ -17,6 +18,9 @@ pub(crate) fn _range_check_error<const RC_BITS: u32>(file: &str, line: u32, cols
 #[macro_export]
 macro_rules! range_check_error {
     ($cols:ident, $rc_bits:expr) => {
-        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &$cols);
+        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &$cols, "unsigned");
+    };
+    ($cols:ident, $rc_bits:expr, signed) => {
+        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &$cols, "signed");
     };
 }

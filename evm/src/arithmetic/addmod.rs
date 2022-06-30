@@ -25,15 +25,17 @@
 //! TODO: Write up analysis of degrees of the polynomials and the
 //! bounds on their coefficients.
 
-use num::bigint::BigUint;
+use num::BigUint;
+use itertools::izip;
 use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::range_check_error;
 
 fn input_to_biguint(limbs: &[u64; N_LIMBS]) -> BigUint {
     // Convert the base-2^16 representation into a base-2^32 representation
@@ -45,13 +47,13 @@ fn input_to_biguint(limbs: &[u64; N_LIMBS]) -> BigUint {
     BigUint::from_slice(&limbs)
 }
 
-fn biguint_to_output(num: &BigUint) -> [u16; N_LIMBS] {
+fn biguint_to_output(num: &BigUint) -> [u64; N_LIMBS] {
     // Convert the base-2^32 representation into a base-2^16 representation
     assert!(num.bits() <= 256);
-    let mut output = [0u16; N_LIMBS];
+    let mut output = [0u64; N_LIMBS];
     for (i, limb) in num.iter_u32_digits().enumerate() {
-        output[2 * i] = limb as u16;
-        output[2 * i + 1] = (limb >> LIMB_BITS) as u16;
+        output[2 * i] = limb as u16 as u64;
+        output[2 * i + 1] = (limb >> LIMB_BITS) as u64;
     }
     output
 }
@@ -82,42 +84,49 @@ pub(crate) fn generate_addmod<F: RichField>(
     //
     //   a(x) + b(x) - c(x) - s(x)*m(x).
     //
-    let mut unreduced_sum = [0u64; N_LIMBS];
+    // All the inputs have coefficients < 2^16, so the conversions to
+    // i64s are safe.
+    let mut unreduced_sum = [0i64; N_LIMBS];
     for col in 0..N_LIMBS {
-        unreduced_sum[col] = input0_limbs[col] + input1_limbs[col] - output_limbs[col];
+        unreduced_sum[col] = (input0_limbs[col] + input1_limbs[col]) as i64;
+        unreduced_sum[col] -= output_limbs[col] as i64;
 
         for i in 0..=col {
             // Invariant: i + j = col
             let j = col - i;
-            let ai_x_bj = modulus_limbs[i] * quot_limbs[j];
+            let ai_x_bj = (modulus_limbs[i] * quot_limbs[j]) as i64;
             unreduced_sum[col] -= ai_x_bj;
         }
     }
 
-    // unreduced_sum must be zero when evaluated at x = B =
-    // 2^LIMB_BITS, hence it's divisible by (B - x). If we write it as
+    // unreduced_sum must be zero when evaluated at x = β =
+    // 2^LIMB_BITS, hence it's divisible by (β - x). If we write it as
     //
     //   a(x) + b(x) - c(x) - s(x)*m(x) = \sum_{i=0}^n p_i x^i
-    //                                  = (B - x) \sum_{i=0}^{n-1} q_i x^i
+    //                                  = (β - x) \sum_{i=0}^{n-1} q_i x^i
     //
     // then by comparing coefficients it is easy to see that
     //
-    //   q_0 = p_0 / B  and  q_i = (p_i + q_{i-1}) / B
+    //   q_0 = p_0 / β  and  q_i = (p_i + q_{i-1}) / β
     //
     // for 0 < i < n-1 (and the divisions are exact).
-    let mut aux_limbs = [0u64; N_LIMBS];
+    let mut aux_limbs = [0i64; N_LIMBS];
     aux_limbs[0] = unreduced_sum[0] >> LIMB_BITS;
     for deg in 1..N_LIMBS - 1 {
         aux_limbs[deg] = (unreduced_sum[deg] + aux_limbs[deg - 1]) >> LIMB_BITS;
     }
     // FIXME: Check this.
-    aux_limbs[N_LIMBS - 1] = 0u64;
+    aux_limbs[N_LIMBS - 1] = 0i64;
 
     for deg in 0..N_LIMBS {
         let c = aux_cols[deg];
-        lv[c] = F::from_canonical_u64(aux_limbs[deg]);
+        let t = aux_limbs[deg];
+        let u = if t < 0 { F::ORDER - (-t as u64) } else { t as u64 };
+        lv[c] = F::from_canonical_u64(u);
+
         let c = quot_cols[deg];
         lv[c] = F::from_canonical_u64(quot_limbs[deg]);
+
         let c = output_cols[deg];
         lv[c] = F::from_canonical_u64(output_limbs[deg]);
     }
@@ -170,7 +179,7 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     //
     // TODO: Same code as in generate above; refactor.
     for deg in 0..N_LIMBS {
-        constr_poly[deg] += input0_limbs[deg] + input1_limbs[deg] - output_limbs[deg];
+        constr_poly[deg] = input0_limbs[deg] + input1_limbs[deg] - output_limbs[deg];
 
         // Invariant: i + j = deg
         for i in 0..=deg {
@@ -201,6 +210,13 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    range_check_error!(ADDMOD_INPUT_0, 16);
+    range_check_error!(ADDMOD_INPUT_1, 16);
+    range_check_error!(ADDMOD_MODULUS, 16);
+    range_check_error!(ADDMOD_QUO_INPUT, 16);
+    range_check_error!(ADDMOD_AUX_INPUT, 16, signed);
+    range_check_error!(ADDMOD_OUTPUT, 16);
+
     let is_addmod = lv[IS_ADDMOD];
     let input0_limbs = ADDMOD_INPUT_0.map(|c| lv[c]);
     let input1_limbs = ADDMOD_INPUT_1.map(|c| lv[c]);
@@ -222,17 +238,43 @@ pub fn eval_packed_generic<P: PackedField>(
 }
 
 pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usize>(
-    _is_op: ExtensionTarget<D>,
-    _input0_limbs: [ExtensionTarget<D>; N_LIMBS],
-    _input1_limbs: [ExtensionTarget<D>; N_LIMBS],
-    _modulus_limbs: [ExtensionTarget<D>; N_LIMBS],
-    _output_limbs: [ExtensionTarget<D>; N_LIMBS],
-    _quot_limbs: [ExtensionTarget<D>; N_LIMBS],
-    _aux_limbs: [ExtensionTarget<D>; N_LIMBS - 1],
-    _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    is_op: ExtensionTarget<D>,
+    input0_limbs: [ExtensionTarget<D>; N_LIMBS],
+    input1_limbs: [ExtensionTarget<D>; N_LIMBS],
+    modulus_limbs: [ExtensionTarget<D>; N_LIMBS],
+    output_limbs: [ExtensionTarget<D>; N_LIMBS],
+    quot_limbs: [ExtensionTarget<D>; N_LIMBS],
+    aux_limbs: [ExtensionTarget<D>; N_LIMBS],
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    todo!();
+    let zero = builder.zero_extension();
+    let mut constr_poly = [zero; N_LIMBS];
+
+    for deg in 0..N_LIMBS {
+        let t = builder.add_extension(input0_limbs[deg], input1_limbs[deg]);
+        constr_poly[deg] = builder.sub_extension(t, output_limbs[deg]);
+
+        for i in 0..=deg {
+            let j = deg - i;
+            let t = builder.mul_extension(quot_limbs[i], modulus_limbs[j]);
+            constr_poly[deg] = builder.sub_extension(constr_poly[deg], t);
+        }
+    }
+
+    let base = F::from_canonical_u64(1 << LIMB_BITS);
+    let t = builder.mul_const_extension(base, aux_limbs[0]);
+    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
+    for deg in 1..N_LIMBS {
+        let t0 = builder.mul_const_extension(base, aux_limbs[deg]);
+        let t1 = builder.sub_extension(t0, aux_limbs[deg - 1]);
+        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
+    }
+
+    for &c in &constr_poly {
+        let t = builder.mul_extension(is_op, c);
+        yield_constr.constraint(builder, t);
+    }
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -260,7 +302,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
     );
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -298,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_mul() {
+    fn generate_eval_consistency_addmod() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -308,24 +349,41 @@ mod tests {
 
         // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
         lv[IS_ADDMOD] = F::ONE;
-        // set inputs to random values
-        for (ai, bi, mi) in izip!(ADDMOD_INPUT_0.iter(), ADDMOD_INPUT_1.iter(), ADDMOD_MODULUS.iter()) {
-            lv[ai] = F::from_canonical_u16(rng.gen());
-            lv[bi] = F::from_canonical_u16(rng.gen());
-            lv[mi] = F::from_canonical_u16(rng.gen());
-        }
+        for i in 0..1000 {
+            // set inputs to random values
+            for (&ai, &bi, &mi) in izip!(
+                ADDMOD_INPUT_0.iter(),
+                ADDMOD_INPUT_1.iter(),
+                ADDMOD_MODULUS.iter()
+            ) {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                lv[bi] = F::from_canonical_u16(rng.gen());
+                lv[mi] = F::from_canonical_u16(rng.gen());
+            }
 
-        generate(&mut lv);
+            // For the second half of the tests, set the top 16 - start
+            // digits to zero, so the modulus is much smaller than the
+            // inputs.
+            if i > 500 {
+                // 1 <= start < N_LIMBS
+                let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;
+                for &mi in &ADDMOD_MODULUS[start..N_LIMBS] {
+                    lv[mi] = F::ZERO;
+                }
+            }
 
-        let mut constrant_consumer = ConstraintConsumer::new(
-            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-        );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
-            assert_eq!(acc, GoldilocksField::ZERO);
+            generate(&mut lv);
+
+            let mut constrant_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_packed_generic(&lv, &mut constrant_consumer);
+            for &acc in &constrant_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
         }
     }
 }
