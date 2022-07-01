@@ -40,7 +40,7 @@ pub(crate) enum Literal {
 impl Literal {
     pub(crate) fn to_trimmed_be_bytes(&self) -> Vec<u8> {
         let u256 = self.to_u256();
-        let num_bytes = ceil_div_usize(u256.bits(), 8);
+        let num_bytes = ceil_div_usize(u256.bits(), 8).max(1);
         // `byte` is little-endian, so we manually reverse it.
         (0..num_bytes).rev().map(|i| u256.byte(i)).collect()
     }
@@ -70,6 +70,11 @@ mod tests {
 
     #[test]
     fn literal_to_be_bytes() {
+        assert_eq!(
+            Literal::Decimal("0".into()).to_trimmed_be_bytes(),
+            vec![0x00]
+        );
+
         assert_eq!(
             Literal::Decimal("768".into()).to_trimmed_be_bytes(),
             vec![0x03, 0x00]
