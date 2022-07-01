@@ -40,7 +40,11 @@ pub(crate) enum Literal {
 impl Literal {
     pub(crate) fn to_trimmed_be_bytes(&self) -> Vec<u8> {
         let u256 = self.to_u256();
-        let num_bytes = ceil_div_usize(u256.bits(), 8);
+        let num_bytes = if u256.is_zero() {
+            1 // Hacky
+        } else {
+            ceil_div_usize(u256.bits(), 8)
+        };
         // `byte` is little-endian, so we manually reverse it.
         (0..num_bytes).rev().map(|i| u256.byte(i)).collect()
     }
