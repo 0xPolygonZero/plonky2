@@ -82,7 +82,7 @@ global ec_add_valid_points:
     // stack: x0, x1, y0 - y1, x0, y0, x1, y1, retdest
     %submod
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
-    //MODDIV // TODO: Implement this
+    %moddiv
     // stack: lambda, x0, y0, x1, y1, retdest
     PUSH ec_add_valid_points_with_lambda
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
@@ -193,14 +193,14 @@ ec_add_equal_points:
     // stack: 3/2 * x0^2, x0, y0, x1, y1, retdest
     DUP3
     // stack: y0, 3/2 * x0^2, x0, y0, x1, y1, retdest
-    //MODDIV // TODO: Implement this
+    %moddiv
     // stack: lambda, x0, y0, x1, y1, retdest
     PUSH ec_add_valid_points_with_lambda
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
-// Assumption: (x0,y0) is a valid point.
 global ec_double:
+// Assumption: (x0,y0) is a valid point.
     JUMPDEST
     // stack: x0, y0, retdest
     DUP2

@@ -9,10 +9,12 @@ use crate::cpu::kernel::parser::parse;
 pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/basic_macros.asm"),
-        include_str!("asm/exp.asm"),
+        // include_str!("asm/exp.asm"),
         include_str!("asm/curve_add.asm"),
-        include_str!("asm/storage_read.asm"),
-        include_str!("asm/storage_write.asm"),
+        // include_str!("asm/curve_mul.asm"),
+        include_str!("asm/moddiv.asm"),
+        // include_str!("asm/storage_read.asm"),
+        // include_str!("asm/storage_write.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
@@ -26,6 +28,7 @@ mod tests {
     #[test]
     fn make_kernel() {
         // Make sure we can parse and assemble the entire kernel.
-        combined_kernel();
+        let ker = combined_kernel();
+        println!("{:?}", ker.code)
     }
 }
