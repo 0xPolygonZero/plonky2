@@ -1,8 +1,8 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
 global ec_add:
-    PUSH 2
-    PUSH 1
+    PUSH 0x1bf9384aa3f0b3ad763aee81940cacdde1af71617c06f46e11510f14f3d5d121
+    PUSH 0xe7313274bb29566ff0c8220eb9841de1d96c2923c6a4028f7dd3c6a14cee770
     PUSH 2
     PUSH 1
     JUMPDEST
@@ -111,31 +111,31 @@ ec_add_valid_points_with_lambda:
     // stack: N, x2, lambda, x0, y0, x1, y1, retdest
     DUP2
     // stack: x2, N, x2, lambda, x0, y0, x1, y1, retdest
-    SWAP6
-    // stack: x1, x2, N, x2, lambda, x0, y0, y1, retdest
+    DUP7
+    // stack: x1, x2, N, x2, lambda, x0, y0, x1, y1, retdest
     %submod
-    // stack: x1 - x2, N, x2, lambda, x0, y0, y1, retdest
+    // stack: x1 - x2, N, x2, lambda, x0, y0, x1, y1, retdest
     DUP4
-    // stack: lambda, x1 - x2, N, x2, lambda, x0, y0, y1, retdest
+    // stack: lambda, x1 - x2, N, x2, lambda, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: lambda * (x1 - x2), x2, lambda, x0, y0, y1, retdest
-    DUP6
-    // stack: y1, lambda * (x1 - x2), x2, lambda, x0, y0, y1, retdest
+    // stack: lambda * (x1 - x2), x2, lambda, x0, y0, x1, y1, retdest
+    DUP7
+    // stack: y1, lambda * (x1 - x2), x2, lambda, x0, y0, x1, y1, retdest
     SWAP1
-    // stack: lambda * (x1 - x2), y1, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
+    // stack: lambda * (x1 - x2), y1, x2, lambda, x0, y0, x1, y1, retdest
     %submod
-    // stack: y2, x2, x0, y0, y1, retdest
+    // stack: y2, x2, x0, y0, x1, y1, retdest
     SWAP4
-    // stack: y1, x2, x0, y0, y2, retdest
+    // stack: x1, x2, x0, y0, y2, y1, retdest
     POP
-    // stack: x2, x0, y0, y2, retdest
-    SWAP2
-    // stack: y0, x0, x2, y2, retdest
+    // stack: x2, x0, y0, y2, y1, retdest
+    SWAP4
+    // stack: y1, x0, y0, y2, x2, retdest
     POP
-    // stack: x0, x2, y2, retdest
+    // stack: x0, y0, y2, x2, retdest
     POP
-    // stack: x2, y2, retdest
-    SWAP1
+    // stack: y0, y2, x2, retdest
+    POP
     // stack: y2, x2, retdest
     SWAP2
     // stack: retdest, x2, y2
@@ -265,4 +265,3 @@ global ec_double:
     EQ
     // stack: y0^2 % N == (x0^3 + 3) % N
 %endmacro
-

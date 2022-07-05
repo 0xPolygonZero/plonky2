@@ -26,6 +26,7 @@
 %endmacro
 
 %macro inverse
+    DUP1
     %squaremodn
     DUP2
     %mulmodn
@@ -497,4 +498,8 @@
     %squaremodn
     DUP2
     %mulmodn
+    SWAP1
+    // stack: x, x^-1
+    POP
+    // stack: x^-1
 %endmacro
