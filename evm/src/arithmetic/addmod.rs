@@ -25,7 +25,7 @@
 //! TODO: Write up analysis of degrees of the polynomials and the
 //! bounds on their coefficients.
 
-use num::BigUint;
+use num::{BigUint, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -69,6 +69,14 @@ pub(crate) fn generate_addmod<F: RichField>(
     let input0 = input_to_biguint(&input0_limbs);
     let input1 = input_to_biguint(&input1_limbs);
     let modulus = input_to_biguint(&modulus_limbs);
+
+    // The spec defines the result of remainder modulo zero to be zero.
+    if modulus.is_zero() {
+        for &c in &output_cols {
+            lv[c] = F::ZERO;
+        }
+        return;
+    }
 
     let sum = input0 + input1;
     let res = &sum % &modulus;
@@ -195,12 +203,26 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
         constr_poly[deg] -= (base * aux_limbs[deg]) - aux_limbs[deg - 1];
     }
 
+    // The modulus limbs have been range-checked to be in [0, 2^16),
+    // so the modulus is zero iff the sum of the limbs is zero.
+    let modulus_limb_sum: P = modulus_limbs.into_iter().sum();
+    // Idem. for the output
+    let output_limb_sum: P = output_limbs.into_iter().sum();
+    // This constraint ensures that the ouput is zero if the modulus
+    // was zero (as required by the spec).
+    let zero_mod = modulus_limb_sum + output_limb_sum;
+
+    // FIXME: The degree is too high.
+    // FIXME: If modulus is zero, but output is non-zero, can the
+    // prover find a value for the other inputs to produce a zero
+    // constr_poly?
+
     // At this point constr_poly holds the coefficients of the
     // polynomial a(x) + b(x) - c(x) - s(x)*m(x) - (2^LIMB_BITS - x)*q(x).
     // The modular addition is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
-        yield_constr.constraint(is_op * c);
+        yield_constr.constraint(is_op * zero_mod * c);
     }
 }
 
@@ -346,8 +368,6 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        // TODO: Add tests with modulus much smaller than inputs.
-
         // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
         lv[IS_ADDMOD] = F::ONE;
         for i in 0..N_RND_TESTS {
@@ -385,6 +405,61 @@ mod tests {
             for &acc in &constrant_consumer.constraint_accs {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
+        }
+    }
+
+    #[test]
+    fn addmod_zero_modulus() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
+        lv[IS_ADDMOD] = F::ONE;
+
+        for _i in 0..N_RND_TESTS {
+            // set inputs to random values and the modulus to zero;
+            // the output is defined to be zero when modulus is zero.
+            for (&ai, &bi, &mi) in izip!(
+                ADDMOD_INPUT_0.iter(),
+                ADDMOD_INPUT_1.iter(),
+                ADDMOD_MODULUS.iter()
+            ) {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                lv[bi] = F::from_canonical_u16(rng.gen());
+                lv[mi] = F::ZERO;
+            }
+
+            generate(&mut lv);
+
+            // check that the correct output was generated
+            for oi in ADDMOD_OUTPUT {
+                assert_eq!(lv[oi], F::ZERO);
+            }
+
+            let mut constrant_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_packed_generic(&lv, &mut constrant_consumer);
+            for &acc in &constrant_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
+
+            // Corrupt one output limb by setting it to a non-zero value
+            let random_oi = ADDMOD_OUTPUT[rng.gen::<usize>() % N_LIMBS];
+            lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
+
+            // TODO: Do I need a new constraint consumer?
+            eval_packed_generic(&lv, &mut constrant_consumer);
+
+            // Check that at least one of the constraints was non-zero
+            assert!(constrant_consumer.constraint_accs
+                    .iter()
+                    .any(|&acc| acc != F::ZERO));
         }
     }
 }
