@@ -1,11 +1,43 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
 global ec_add:
-    PUSH 0
-    PUSH 0
     PUSH 2
     PUSH 1
+    PUSH 0
+    PUSH 0
     JUMPDEST
+    // stack: x0, y0, x1, y1, retdest
+    DUP2
+    // stack: y0, x0, y0, x1, y1, retdest
+    DUP2
+    // stack: x0, y0, x0, y0, x1, y1, retdest
+    ISZERO
+    // stack: x0==0, y0, x0, y0, x1, y1, retdest
+    SWAP1
+    // stack: y0, x0==0, x0, y0, x1, y1, retdest
+    ISZERO
+    // stack: y0==0, x0==0, x0, y0, x1, y1, retdest
+    AND
+    // stack: y0==0 & x0==0, x0, y0, x1, y1, retdest
+    PUSH ec_add_first_zero
+    // stack: ec_add_first_zero, y0==0 & x0==0, x0, y0, x1, y1, retdest
+    JUMPI
+    // stack: x0, y0, x1, y1, retdest
+    DUP4
+    // stack: y1, x0, y0, x1, y1, retdest
+    DUP4
+    // stack: x1, y1, x0, y0, x1, y1, retdest
+    ISZERO
+    // stack: x1==0, y1, x0, y0, x1, y1, retdest
+    SWAP1
+    // stack: y1, x1==0, x0, y0, x1, y1, retdest
+    ISZERO
+    // stack: y1==0, x1==0, x0, y0, x1, y1, retdest
+    AND
+    // stack: y1==0 & x1==0, x0, y0, x1, y1, retdest
+    PUSH ec_add_snd_zero
+    // stack: ec_add_snd_zero, y1==0 & x1==0, x0, y0, x1, y1, retdest
+    JUMPI
     // stack: x0, y0, x1, y1, retdest
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
@@ -33,6 +65,100 @@ global ec_add:
     // stack: y1, retdest
     POP
     // stack: retdest
+    JUMP
+
+// Assumption (x0,y0) == (0,0)
+ec_add_first_zero:
+    JUMPDEST
+    // stack: x0, y0, x1, y1, retdest
+    POP
+    // stack: y0, x1, y1, retdest
+    POP
+    // stack: x1, y1, retdest
+    DUP2
+    // stack: y1, x1, y1, retdest
+    DUP2
+    // stack: x1, y1, x1, y1, retdest
+    ISZERO
+    // stack: x1==0, y1, x1, y1, retdest
+    SWAP1
+    // stack: y1, x1==0, x1, y1, retdest
+    ISZERO
+    // stack: y1==0, x1==0, x1, y1, retdest
+    AND
+    // stack: y1==0 & x1==0, x1, y1, retdest
+    PUSH ret_zero
+    // stack: ret_zero, y1==0 & x1==0, x1, y1, retdest
+    JUMPI
+    // stack: x1, y1, retdest
+    DUP2
+    // stack: y1, x1, y1, retdest
+    DUP2
+    // stack: x1, y1, x1, y1, retdest
+    %ec_check
+    // stack: isValid(x1, y1), x1, y1, retdest
+    PUSH ec_noop
+    // stack: ec_noop, isValid(x1, y1), x1, y1, retdest
+    JUMPI
+    // stack: x1, y1, retdest
+    POP
+    // stack: y1, retdest
+    POP
+    // stack: retdest
+    JUMP
+
+// Assumption (x1,y1) == (0,0) and (x0,y0) != (0,0)
+ec_add_snd_zero:
+    JUMPDEST
+    // stack: x0, y0, x1, y1, retdest
+    SWAP2
+    // stack: x1, y0, x0, y1, retdest
+    POP
+    // stack: y0, x0, y1, retdest
+    SWAP2
+    // stack: y1, x0, y0, retdest
+    POP
+    // stack: x0, y0, retdest
+    DUP2
+    // stack: y0, x0, y0, retdest
+    DUP2
+    // stack: x0, y0, x0, y0, retdest
+    %ec_check
+    // stack: isValid(x0, y0), x0, y0, retdest
+    PUSH ec_noop
+    // stack: ec_noop, isValid(x0, y0), x0, y0, retdest
+    JUMPI
+    // stack: x0, y0, retdest
+    POP
+    // stack: y0, retdest
+    POP
+    // stack: retdest
+    JUMP
+
+ec_noop:
+    JUMPDEST
+    // x, y, retdest
+    SWAP1
+    // y, x, retdest
+    SWAP2
+    // retdest, x, y
+    JUMP
+
+ret_zero:
+    JUMPDEST
+    // stack: x, y, retdest
+    POP
+    // stack: y, retdest
+    POP
+    // stack: retdest
+    PUSH 0
+    // stack: 0, retdest
+    PUSH 0
+    // stack: 0, 0, retdest
+    SWAP2
+    // stack:  0, retdest, 0
+    SWAP1
+    // stack:  retdest, 0, 0
     JUMP
 
 
