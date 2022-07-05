@@ -1,10 +1,10 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
 global ec_add:
-    PUSH 2
-    PUSH 1
-    PUSH 0
-    PUSH 0
+    //PUSH 2
+    //PUSH 1
+    //PUSH 0x1bf9384aa3f0b3ad763aee81940cacdde1af71617c06f46e11510f14f3d5d121
+    //PUSH 0xe7313274bb29566ff0c8220eb9841de1d96c2923c6a4028f7dd3c6a14cee770
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
     DUP2
@@ -250,13 +250,15 @@ ec_add_valid_points_with_lambda:
     SWAP1
     // stack: lambda * (x1 - x2), y1, x2, lambda, x0, y0, x1, y1, retdest
     %submod
-    // stack: y2, x2, x0, y0, x1, y1, retdest
-    SWAP4
-    // stack: x1, x2, x0, y0, y2, y1, retdest
+    // stack: y2, x2, lambda, x0, y0, x1, y1, retdest
+    SWAP5
+    // stack: x1, x2, lambda, x0, y0, y2, y1, retdest
     POP
-    // stack: x2, x0, y0, y2, y1, retdest
-    SWAP4
-    // stack: y1, x0, y0, y2, x2, retdest
+    // stack: x2, lambda, x0, y0, y2, y1, retdest
+    SWAP5
+    // stack: y1, lambda, x0, y0, y2, x2, retdest
+    POP
+    // stack: lambda, x0, y0, y2, x2, retdest
     POP
     // stack: x0, y0, y2, x2, retdest
     POP
@@ -267,6 +269,7 @@ ec_add_valid_points_with_lambda:
     // stack: retdest, x2, y2
     JUMP
 
+// Assumption: (x0,y0) and (x1,y1) are valid points and x0 == x1
 ec_add_equal_first_coord:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest with x0 == x1

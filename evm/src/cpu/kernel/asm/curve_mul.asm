@@ -1,4 +1,9 @@
 global ec_mul:
+    // Uncomment for test inputs.
+    // PUSH 0xdeadbeef
+    // PUSH 0xd
+    // PUSH 2
+    // PUSH 1
     JUMPDEST
     // stack: x, y, s, retdest
     DUP2
@@ -110,6 +115,6 @@ recursion_return:
 odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
-    PUSH ec_add_valid_points
-    // stack: ec_add_valid_points, x', y', x, y, retdest
+    PUSH ec_add
+    // stack: ec_add, x', y', x, y, retdest
     JUMP
