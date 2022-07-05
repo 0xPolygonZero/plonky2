@@ -1,15 +1,19 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
 global ecadd:
+    PUSH 2
+    PUSH 1
+    PUSH 2
+    PUSH 1
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
-    DUP3
+    DUP4
     // stack: y1, x0, y0, x1, y1, retdest
-    DUP3
+    DUP4
     // stack: x1, y1, x0, y0, x1, y1, retdest
-    DUP3
+    DUP4
     // stack: y0, x1, y1, x0, y0, x1, y1, retdest
-    DUP3
+    DUP4
     // stack: x0, y0, x1, y1, x0, y0, x1, y1, retdest
     %ec_check
     // stack: isValid(x0, y0), x1, y1, x0, y0, x1, y1, retdest
@@ -188,10 +192,8 @@ ec_add_equal_first_coord:
     // stack: y1, y0, N, x0, y0, x1, y1, retdest
     ADDMOD
     // stack: y1 + y0, x0, y0, x1, y1, retdest
-    ISZERO
-    // stack: y1 + y0 == 0, x0, y0, x1, y1, retdest
-    PUSH ec_add_equal
-    // stack: ec_add_equal, y1 + y0 == 0, x0, y0, x1, y1, retdest
+    PUSH ec_add_equal_points
+    // stack: ec_add_equal_points, y1 + y0, x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
     POP
@@ -211,7 +213,8 @@ ec_add_equal_first_coord:
     JUMP
 
 
-ec_add_equal:
+// Assumption: x0 == x1 and y0 == y1
+ec_add_equal_points:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
     PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
@@ -234,6 +237,17 @@ ec_add_equal:
     // stack: lambda, x0, y0, x1, y1, retdest
     PUSH ec_add_valid_points_with_lambda
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
+    JUMP
+
+ec_double:
+    JUMPDEST
+    // stack: x0, y0, retdest
+    DUP2
+    // stack: y0, x0, y0, retdest
+    DUP2
+    // stack: x0, y0, x0, y0, retdest
+    PUSH ec_add_equal_points
+    // stack: ec_add_equal_points, x0, y0, x0, y0, retdest
     JUMP
 
 submod:
