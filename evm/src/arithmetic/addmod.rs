@@ -349,14 +349,14 @@ mod tests {
         // if all values are garbage.
         lv[IS_ADDMOD] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
+        let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
             GoldilocksField::ONE,
             GoldilocksField::ONE,
             GoldilocksField::ONE,
         );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
+        eval_packed_generic(&lv, &mut constraint_consumer);
+        for &acc in &constraint_consumer.constraint_accs {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -395,14 +395,14 @@ mod tests {
 
             generate(&mut lv);
 
-            let mut constrant_consumer = ConstraintConsumer::new(
+            let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
             );
-            eval_packed_generic(&lv, &mut constrant_consumer);
-            for &acc in &constrant_consumer.constraint_accs {
+            eval_packed_generic(&lv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
@@ -438,14 +438,14 @@ mod tests {
                 assert_eq!(lv[oi], F::ZERO);
             }
 
-            let mut constrant_consumer = ConstraintConsumer::new(
+            let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
             );
-            eval_packed_generic(&lv, &mut constrant_consumer);
-            for &acc in &constrant_consumer.constraint_accs {
+            eval_packed_generic(&lv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
 
@@ -454,10 +454,10 @@ mod tests {
             lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
 
             // TODO: Do I need a new constraint consumer?
-            eval_packed_generic(&lv, &mut constrant_consumer);
+            eval_packed_generic(&lv, &mut constraint_consumer);
 
             // Check that at least one of the constraints was non-zero
-            assert!(constrant_consumer.constraint_accs
+            assert!(constraint_consumer.constraint_accs
                     .iter()
                     .any(|&acc| acc != F::ZERO));
         }

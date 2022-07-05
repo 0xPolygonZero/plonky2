@@ -107,14 +107,14 @@ mod tests {
         // if all values are garbage.
         lv[IS_SUB] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
+        let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
             GoldilocksField::ONE,
             GoldilocksField::ONE,
             GoldilocksField::ONE,
         );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
+        eval_packed_generic(&lv, &mut constraint_consumer);
+        for &acc in &constraint_consumer.constraint_accs {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -138,14 +138,14 @@ mod tests {
 
             generate(&mut lv);
 
-            let mut constrant_consumer = ConstraintConsumer::new(
+            let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
                 GoldilocksField::ONE,
             );
-            eval_packed_generic(&lv, &mut constrant_consumer);
-            for &acc in &constrant_consumer.constraint_accs {
+            eval_packed_generic(&lv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }
