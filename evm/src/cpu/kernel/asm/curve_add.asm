@@ -36,6 +36,7 @@ global ec_add:
     JUMP
 
 
+// Assumption: (x0,y0) is a valid point.
 ec_add_valid_first_point:
     JUMPDEST
     // stack: x1, y1, x0, y0, x1, y1, retdest
@@ -55,6 +56,7 @@ ec_add_valid_first_point:
     // stack: retdest
     JUMP
 
+// Assumption: (x0,y0) and (x1,y1) are valid points.
 ec_add_valid_points:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
@@ -68,32 +70,18 @@ ec_add_valid_points:
     // stack: ec_add_equal_first_coord, x0 == x1, x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd
-    // stack: ec_add_valid_points_contd, x0, y0, x1, y1, retdest
-    DUP5
-    // stack: y1, ec_add_valid_points_contd, x0, y0, x1, y1, retdest
     DUP4
-    // stack: y0, y1, ec_add_valid_points_contd, x0, y0, x1, y1, retdest
-    PUSH submod
-    // stack: submod, y0, y1, ec_add_valid_points_contd, x0, y0, x1, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd:
-    JUMPDEST
-    // stack: (y0 - y1) % N, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd2
-    // stack: ec_add_valid_points_contd2, (y0 - y1) % N, x0, y0, x1, y1, retdest
-    DUP5
-    // stack: x1, ec_add_valid_points_contd2, (y0 - y1) % N, x0, y0, x1, y1, retdest
+    // stack: y1, x0, y0, x1, y1, retdest
+    DUP3
+    // stack: y0, y1, x0, y0, x1, y1, retdest
+    %submod
+    // stack: y0 - y1, x0, y0, x1, y1, retdest
     DUP4
-    // stack: x0, x1, ec_add_valid_points_contd2, (y0 - y1) % N, x0, y0, x1, y1, retdest
-    PUSH submod
-    // stack: submod, x0, x1, ec_add_valid_points_contd2, (y0 - y1) % N, x0, y0, x1, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd2:
-    JUMPDEST
-    // stack: (x0 - x1) % N, (y0 - y1) % N, x0, y0, x1, y1, retdest
+    // stack: x1, y0 - y1, x0, y0, x1, y1, retdest
+    DUP3
+    // stack: x0, x1, y0 - y1, x0, y0, x1, y1, retdest
+    %submod
+    // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
     //MODDIV // TODO: Implement this
     // stack: lambda, x0, y0, x1, y1, retdest
     PUSH ec_add_valid_points_with_lambda
@@ -103,67 +91,39 @@ ec_add_valid_points_contd2:
 ec_add_valid_points_with_lambda:
     JUMPDEST
     // stack: lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd4
-    // stack: ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd3
-    // stack: ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    DUP7
-    // stack: x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    DUP6
-    // stack: lambda, N, x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    DUP1
-    // stack: lambda, lambda, N, x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    MULMOD
-    // stack: lambda^2, x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    PUSH submod
-    // stack: submod, lambda^2, x1, ec_add_valid_points_contd3, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd3:
-    JUMPDEST
-    // stack: lambda^2 - x1, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    PUSH submod
-    // stack: submod, lambda^2 - x1, x0, ec_add_valid_points_contd4, lambda, x0, y0, x1, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd4:
-    JUMPDEST
-    // stack: x2, lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd6
-    // stack: ec_add_valid_points_contd6, x2, lambda, x0, y0, x1, y1, retdest
-    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, ec_add_valid_points_contd6, x2, lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_contd5
-    // stack: ec_add_valid_points_contd5, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, x1, y1, retdest
-    DUP4
-    // stack: x2, ec_add_valid_points_contd5, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, x1, y1, retdest
-    SWAP8
-    // stack: x1, x2, ec_add_valid_points_contd5, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
-    PUSH submod
-    // stack: submod, x1, x2, ec_add_valid_points_contd5, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd5:
-    JUMPDEST
-    // stack: x1 - x2, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
+    DUP2
+    // stack: x0, lambda, x0, y0, x1, y1, retdest
     DUP5
-    // stack: lambda, x1 - x2, N, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
+    // stack: x1, x0, lambda, x0, y0, x1, y1, retdest
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, x1, x0, lambda, x0, y0, x1, y1, retdest
+    DUP4
+    // stack: lambda, N, x1, x0, lambda, x0, y0, x1, y1, retdest
+    DUP1
+    // stack: lambda, lambda, N, x1, x0, lambda, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: lambda * (x1 - x2), ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
-    DUP7
-    // stack: y1, lambda * (x1 - x2), ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
+    // stack: lambda^2, x1, x0, lambda, x0, y0, x1, y1, retdest
+    %submod
+    // stack: lambda^2 - x1, x0, lambda, x0, y0, x1, y1, retdest
+    %submod
+    // stack: x2, lambda, x0, y0, x1, y1, retdest
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, x2, lambda, x0, y0, x1, y1, retdest
+    DUP2
+    // stack: x2, N, x2, lambda, x0, y0, x1, y1, retdest
+    SWAP6
+    // stack: x1, x2, N, x2, lambda, x0, y0, y1, retdest
+    %submod
+    // stack: x1 - x2, N, x2, lambda, x0, y0, y1, retdest
+    DUP4
+    // stack: lambda, x1 - x2, N, x2, lambda, x0, y0, y1, retdest
+    MULMOD
+    // stack: lambda * (x1 - x2), x2, lambda, x0, y0, y1, retdest
+    DUP6
+    // stack: y1, lambda * (x1 - x2), x2, lambda, x0, y0, y1, retdest
     SWAP1
     // stack: lambda * (x1 - x2), y1, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
-    PUSH submod
-    // stack: submod, lambda * (x1 - x2), y1, ec_add_valid_points_contd6, x2, lambda, x0, y0, y1, retdest
-    JUMP
-
-ec_add_valid_points_contd6:
-    JUMPDEST
+    %submod
     // stack: y2, x2, x0, y0, y1, retdest
     SWAP4
     // stack: y1, x2, x0, y0, y2, retdest
@@ -250,32 +210,22 @@ global ec_double:
     // stack: ec_add_equal_points, x0, y0, x0, y0, retdest
     JUMP
 
-submod:
+%macro submod
     JUMPDEST
-    // stack: x, y, retdest
-    SWAP1
-    // stack: y, x, retdest
-    DUP1
-    // stack: y, y, x, retdest
-    DUP3
-    // stack: x, y, y, x, retdest
-    LT
-    // stack: x < y, y, x, retdest
-    PUSH submod
-    // stack: submod, x < y, y, x, retdest
-    JUMPI
-    // stack: y, x, retdest
+    // stack: x, y
     PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, y, x, retdest
-    SWAP2
-    // stack: x, y, N, retdest
+    // stack: N, x, y
+    ADD
+    // stack: N + x, y // Doesn't overflow since 2N < 2^256
     SUB
-    // stack: x - y, N, retdest,
-    MOD
-    // stack: (x - y) % N, retdest
+    // stack: N + x - y // Doesn't underflow since y < N
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, N + x - y
     SWAP1
-    // stack: retdest, (x - y) % N
-    JUMP
+    // stack: N + x - y, N
+    MOD
+    // stack: (N + x - y) % N = (x-y) % N
+%endmacro
 
 %macro ec_check
     // stack: x0, y0
