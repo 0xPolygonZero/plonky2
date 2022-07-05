@@ -57,7 +57,7 @@ ec_add_valid_first_point:
     JUMP
 
 // Assumption: (x0,y0) and (x1,y1) are valid points.
-ec_add_valid_points:
+global ec_add_valid_points:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
     DUP3
@@ -199,6 +199,7 @@ ec_add_equal_points:
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
+// Assumption: (x0,y0) is a valid point.
 global ec_double:
     JUMPDEST
     // stack: x0, y0, retdest
