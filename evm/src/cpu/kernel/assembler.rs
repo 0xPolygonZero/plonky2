@@ -34,11 +34,7 @@ pub(crate) fn assemble(files: Vec<File>) -> Kernel {
     for (file, locals) in izip!(expanded_files, local_labels) {
         assemble_file(file, &mut code, locals, &global_labels);
     }
-    assert_eq!(
-        code.len(),
-        offset,
-        "Code length {} doesn't match offset {}."
-    );
+    assert_eq!(code.len(), offset, "Code length doesn't match offset.");
     Kernel {
         code,
         global_labels,
