@@ -1,8 +1,8 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
 global ec_add:
-    PUSH 0x1bf9384aa3f0b3ad763aee81940cacdde1af71617c06f46e11510f14f3d5d121
-    PUSH 0xe7313274bb29566ff0c8220eb9841de1d96c2923c6a4028f7dd3c6a14cee770
+    PUSH 0
+    PUSH 0
     PUSH 2
     PUSH 1
     JUMPDEST
@@ -233,34 +233,54 @@ global ec_double:
     // stack: x0, y0
     PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
     // stack: N, x0, y0
-    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, N, x0, y0
-    SWAP2
-    // stack: x0, N, N, y0
-    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, x0, N, N, y0
     DUP2
-    // stack: x0, N, x0, N, N, y0
-    DUP1
-    // stack: x0, x0, N, x0, N, N, y0
-    MULMOD
-    // stack: x0^2 % N, x0, N, N, y0
-    MULMOD
-    // stack: x0^3 % N, N, y0
-    PUSH 3
-    // stack: 3, x0^3 % N, N, y0
-    ADDMOD
-    // stack: (x0^3 + 3) % N, y0
-    SWAP1
-    // stack: y0, (x0^3 + 3) % N
+    // stack: x0, N, x0, y0
+    LT
+    // stack: x0 < N, x0, y0
     PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-    // stack: N, y0, (x0^3 + 3) % N
+    // stack: N, x0 < N, x0, y0
+    DUP4
+    // stack: y0, N, x0 < N, x0, y0
+    LT
+    // stack: y0 < N, x0 < N, x0, y0
+    AND
+    // stack: (y0 < N) & (x0 < N), x0, y0
+    SWAP2
+    // stack: y0, x0, (y0 < N) & (x0 < N), x0
     SWAP1
-    // stack: y0, N, (x0^3 + 3) % N
+    // stack: x0, y0, (y0 < N) & (x0 < N)
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, x0, y0, b
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, N, x0, y0, b
+    SWAP2
+    // stack: x0, N, N, y0, b
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, x0, N, N, y0, b
+    DUP2
+    // stack: x0, N, x0, N, N, y0, b
     DUP1
-    // stack: y0, y0, N, (x0^3 + 3) % N
+    // stack: x0, x0, N, x0, N, N, y0, b
     MULMOD
-    // stack: y0^2 % N, (x0^3 + 3) % N
+    // stack: x0^2 % N, x0, N, N, y0, b
+    MULMOD
+    // stack: x0^3 % N, N, y0, b
+    PUSH 3
+    // stack: 3, x0^3 % N, N, y0, b
+    ADDMOD
+    // stack: (x0^3 + 3) % N, y0, b
+    SWAP1
+    // stack: y0, (x0^3 + 3) % N, b
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+    // stack: N, y0, (x0^3 + 3) % N, b
+    SWAP1
+    // stack: y0, N, (x0^3 + 3) % N, b
+    DUP1
+    // stack: y0, y0, N, (x0^3 + 3) % N, b
+    MULMOD
+    // stack: y0^2 % N, (x0^3 + 3) % N, b
     EQ
-    // stack: y0^2 % N == (x0^3 + 3) % N
+    // stack: y0^2 % N == (x0^3 + 3) % N, b
+    AND
+    // stack: y0^2 % N == (x0^3 + 3) % N & (x < N) & (y < N)
 %endmacro
