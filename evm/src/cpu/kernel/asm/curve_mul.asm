@@ -10,6 +10,22 @@ global ec_mul:
     // stack: y, x, y, s, retdest
     DUP2
     // stack: x, y, x, y, s, retdest
+    ISZERO
+    // stack: x==0, y, x, y, s, retdest
+    SWAP1
+    // stack: y, x==0, x, y, s, retdest
+    ISZERO
+    // stack: y==0, x==0, x, y, s, retdest
+    AND
+    // stack: y==0 & x==0, x, y, s, retdest
+    PUSH ret_zero
+    // stack: ret_zero, y==0 & x==0, x, y, s, retdest
+    JUMPI
+    // stack: x, y, s, retdest
+    DUP2
+    // stack: y, x, y, s, retdest
+    DUP2
+    // stack: x, y, x, y, s, retdest
     %ec_check
     // stack: isValid(x, y), x, y, s, retdest
     PUSH ec_mul_valid_point
@@ -117,4 +133,21 @@ odd_scalar:
     // stack: x', y', x, y, retdest
     PUSH ec_add
     // stack: ec_add, x', y', x, y, retdest
+    JUMP
+
+ret_zero:
+    JUMPDEST
+    // stack: x, y, s, retdest
+    POP
+    // stack: y, s, retdest
+    POP
+    // stack: s, retdest
+    POP
+    // stack: retdest
+    PUSH 0
+    // stack: 0, retdest
+    PUSH 0
+    // stack: 0, 0, retdest
+    SWAP2
+    // stack: retdest, 0, 0
     JUMP
