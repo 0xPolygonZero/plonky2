@@ -210,6 +210,8 @@ global ec_double:
     // stack: ec_add_equal_points, x0, y0, x0, y0, retdest
     JUMP
 
+// Assumption: x, y < N and 2N < 2^256.
+// Note: Doesn't hold for Secp256k1 base field.
 %macro submod
     JUMPDEST
     // stack: x, y
