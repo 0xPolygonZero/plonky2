@@ -23,6 +23,18 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
+impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
+    fn default() -> Self {
+        Self {
+            cpu_stark: CpuStark::default(),
+            keccak_stark: KeccakStark::default(),
+            logic_stark: LogicStark::default(),
+            memory_stark: MemoryStark::default(),
+            cross_table_lookups: all_cross_table_lookups(),
+        }
+    }
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
         let ans = vec![
@@ -128,7 +140,7 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{all_cross_table_lookups, AllStark};
+    use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
@@ -313,47 +325,26 @@ mod tests {
     }
 
     fn get_proof(config: &StarkConfig) -> Result<(AllStark<F, D>, AllProof<F, C, D>)> {
-        let cpu_stark = CpuStark::<F, D> {
-            f: Default::default(),
-        };
+        let all_stark = AllStark::default();
 
-        let keccak_stark = KeccakStark::<F, D> {
-            f: Default::default(),
-        };
-
-        let logic_stark = LogicStark::<F, D> {
-            f: Default::default(),
-        };
         let num_logic_rows = 62;
-
-        let memory_stark = MemoryStark::<F, D> {
-            f: Default::default(),
-        };
         let num_memory_ops = 1 << 5;
 
         let mut rng = thread_rng();
         let num_keccak_perms = 2;
 
-        let keccak_trace = make_keccak_trace(num_keccak_perms, &keccak_stark, &mut rng);
-        let logic_trace = make_logic_trace(num_logic_rows, &logic_stark, &mut rng);
-        let mut memory_trace = make_memory_trace(num_memory_ops, &memory_stark, &mut rng);
+        let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
+        let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
+        let mut memory_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
         let cpu_trace = make_cpu_trace(
             num_keccak_perms,
             num_logic_rows,
             num_memory_ops,
-            &cpu_stark,
+            &all_stark.cpu_stark,
             &keccak_trace,
             &logic_trace,
             &mut memory_trace,
         );
-
-        let all_stark = AllStark {
-            cpu_stark,
-            keccak_stark,
-            logic_stark,
-            memory_stark,
-            cross_table_lookups: all_cross_table_lookups(),
-        };
 
         let proof = prove::<F, C, D>(
             &all_stark,

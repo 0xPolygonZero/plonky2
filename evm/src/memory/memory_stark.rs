@@ -40,7 +40,7 @@ pub fn ctl_filter<F: Field>(channel: usize) -> Column<F> {
     Column::single(is_channel(channel))
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }

@@ -55,7 +55,7 @@ pub fn ctl_filter_memory<F: Field>(channel: usize) -> Column<F> {
     Column::single(COL_MAP.mem_channel_used[channel])
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
