@@ -199,8 +199,8 @@ ec_add_equal_points:
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
-global ec_double:
 // Assumption: (x0,y0) is a valid point.
+global ec_double:
     JUMPDEST
     // stack: x0, y0, retdest
     DUP2
@@ -214,7 +214,6 @@ global ec_double:
 // Assumption: x, y < N and 2N < 2^256.
 // Note: Doesn't hold for Secp256k1 base field.
 %macro submod
-    JUMPDEST
     // stack: x, y
     PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
     // stack: N, x, y
