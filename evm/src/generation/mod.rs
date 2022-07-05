@@ -16,14 +16,14 @@ pub type RlpMerkleProof = Vec<Vec<u8>>;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub struct TransactionData {
-    pub(crate) payload: Vec<u8>,
-    pub(crate) signature: Vec<u8>,
+    pub signed_txn: Vec<u8>,
+
     /// A Merkle proof for each interaction with the state trie, ordered chronologically.
-    pub(crate) trie_proofs: Vec<RlpMerkleProof>,
+    pub trie_proofs: Vec<RlpMerkleProof>,
 }
 
 #[allow(unused)] // TODO: Should be used soon.
-fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
+pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     txns: &[TransactionData],
 ) -> Vec<Vec<PolynomialValues<F>>> {

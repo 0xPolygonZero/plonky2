@@ -63,7 +63,7 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
