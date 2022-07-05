@@ -1,6 +1,6 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
-global ecadd:
+global ec_add:
     PUSH 2
     PUSH 1
     PUSH 2
@@ -239,7 +239,7 @@ ec_add_equal_points:
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
-ec_double:
+global ec_double:
     JUMPDEST
     // stack: x0, y0, retdest
     DUP2
