@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use itertools::izip;
+
 use super::ast::PushTarget;
 use crate::cpu::kernel::{
     ast::{File, Item},
@@ -19,12 +21,20 @@ pub struct Kernel {
 
 pub(crate) fn assemble(files: Vec<File>) -> Kernel {
     let macros = find_macros(&files);
-    let mut code = vec![];
     let mut global_labels = HashMap::new();
+    let mut offset = 0;
+    let mut expanded_files = Vec::with_capacity(files.len());
+    let mut local_labels = Vec::with_capacity(files.len());
     for file in files {
         let expanded_file = expand_macros(file.body, &macros);
-        assemble_file(expanded_file, &mut code, &mut global_labels);
+        local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
+        expanded_files.push(expanded_file);
     }
+    let mut code = vec![];
+    for (file, locals) in izip!(expanded_files, local_labels) {
+        assemble_file(file, &mut code, locals, &global_labels);
+    }
+    assert_eq!(code.len(), offset, "Code length doesn't match offset.");
     Kernel {
         code,
         global_labels,
@@ -67,30 +77,41 @@ fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Vec<Item>>) -> Vec<It
     expanded
 }
 
-fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMap<String, usize>) {
-    // First discover the offset of each label in this file.
+fn find_labels(
+    body: &[Item],
+    offset: &mut usize,
+    global_labels: &mut HashMap<String, usize>,
+) -> HashMap<String, usize> {
+    // Discover the offset of each label in this file.
     let mut local_labels = HashMap::<String, usize>::new();
-    let mut offset = code.len();
-    for item in &body {
+    for item in body {
         match item {
             Item::MacroDef(_, _) | Item::MacroCall(_) => {
                 panic!("Macros should have been expanded already")
             }
             Item::GlobalLabelDeclaration(label) => {
-                let old = global_labels.insert(label.clone(), offset);
+                let old = global_labels.insert(label.clone(), *offset);
                 assert!(old.is_none(), "Duplicate global label: {}", label);
             }
             Item::LocalLabelDeclaration(label) => {
-                let old = local_labels.insert(label.clone(), offset);
+                let old = local_labels.insert(label.clone(), *offset);
                 assert!(old.is_none(), "Duplicate local label: {}", label);
             }
-            Item::Push(target) => offset += 1 + push_target_size(target) as usize,
-            Item::StandardOp(_) => offset += 1,
-            Item::Bytes(bytes) => offset += bytes.len(),
+            Item::Push(target) => *offset += 1 + push_target_size(target) as usize,
+            Item::StandardOp(_) => *offset += 1,
+            Item::Bytes(bytes) => *offset += bytes.len(),
         }
     }
+    local_labels
+}
 
-    // Now that we have label offsets, we can assemble the file.
+fn assemble_file(
+    body: Vec<Item>,
+    code: &mut Vec<u8>,
+    local_labels: HashMap<String, usize>,
+    global_labels: &HashMap<String, usize>,
+) {
+    // Assemble the file.
     for item in body {
         match item {
             Item::MacroDef(_, _) | Item::MacroCall(_) => {
@@ -124,12 +145,6 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
             Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_u8())),
         }
     }
-
-    assert_eq!(
-        code.len(),
-        offset,
-        "The two phases gave different code lengths"
-    );
 }
 
 /// The size of a `PushTarget`, in bytes.
