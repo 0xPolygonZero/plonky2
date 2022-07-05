@@ -40,7 +40,7 @@ global ec_mul:
     // stack: retdest
     JUMP
 
-// Same algorithm as `exp`
+// Same algorithm as in `exp.asm`
 ec_mul_valid_point:
     JUMPDEST
     // stack: x, y, s, retdest

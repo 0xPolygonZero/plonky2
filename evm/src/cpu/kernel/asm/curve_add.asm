@@ -69,7 +69,7 @@ global ec_add:
     // stack: retdest
     JUMP
 
-// Assumption (x0,y0) == (0,0)
+// Assumption: (x0,y0) == (0,0)
 ec_add_first_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
@@ -109,7 +109,7 @@ ec_add_first_zero:
     // stack: retdest
     JUMP
 
-// Assumption (x1,y1) == (0,0) and (x0,y0) != (0,0)
+// Assumption: (x1,y1) == (0,0) and (x0,y0) != (0,0)
 ec_add_snd_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
