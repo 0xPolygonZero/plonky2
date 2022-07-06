@@ -578,7 +578,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     }
 
     fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        let mut unsorted_cols = vec![TIMESTAMP, IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL];
+        unsorted_cols.extend((0..VALUE_LIMBS).map(|i| value_limb(i)));
+        let mut sorted_cols = vec![SORTED_TIMESTAMP, SORTED_IS_READ, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL];
+        sorted_cols.extend((0..VALUE_LIMBS).map(|i| sorted_value_limb(i)));
+        let column_pairs: Vec<_> = unsorted_cols.iter().cloned().zip(sorted_cols.iter().cloned()).collect();
+
         vec![
+            PermutationPair {
+                column_pairs
+            },
             PermutationPair::singletons(RANGE_CHECK, RANGE_CHECK_PERMUTED),
             PermutationPair::singletons(COUNTER, COUNTER_PERMUTED),
         ]
