@@ -44,18 +44,8 @@ ec_mul_valid_point:
     // stack: step_case, s, x, y, s, retdest
     JUMPI
     // stack: x, y, s, retdest
-    POP
-    // stack: y, s, retdest
-    POP
-    // stack: s, retdest
-    POP
-    // stack: retdest
-    PUSH 0
-    // stack: 0, retdest
-    PUSH 0
-    // stack: 0, 0, retdest
-    SWAP2
-    // stack: retdest, 0, 0
+    PUSH ret_zero
+    // stack: ret_zero, x, y, s, retdest
     JUMP
 
 step_case:
