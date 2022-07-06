@@ -10,14 +10,8 @@ global ec_mul:
     // stack: y, x, y, s, retdest
     DUP2
     // stack: x, y, x, y, s, retdest
-    ISZERO
-    // stack: x==0, y, x, y, s, retdest
-    SWAP1
-    // stack: y, x==0, x, y, s, retdest
-    ISZERO
-    // stack: y==0, x==0, x, y, s, retdest
-    AND
-    // stack: y==0 & x==0, x, y, s, retdest
+    %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, s, retdest
     PUSH ret_zero
     // stack: ret_zero, y==0 & x==0, x, y, s, retdest
     JUMPI
@@ -38,7 +32,7 @@ global ec_mul:
     // stack: s, retdest
     POP
     // stack: retdest
-    JUMP
+    %ec_invalid_input
 
 // Same algorithm as in `exp.asm`
 ec_mul_valid_point:
@@ -131,8 +125,8 @@ recursion_return:
 odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
-    PUSH ec_add
-    // stack: ec_add, x', y', x, y, retdest
+    PUSH ec_add_valid_points
+    // stack: ec_add_valid_points, x', y', x, y, retdest
     JUMP
 
 ret_zero:
