@@ -1,3 +1,5 @@
+// BN254 elliptic curve scalar multiplication.
+// Recursive implementation, same algorithm as in `exp.asm`.
 global ec_mul:
     // Uncomment for test inputs.
     // PUSH 0xdeadbeef

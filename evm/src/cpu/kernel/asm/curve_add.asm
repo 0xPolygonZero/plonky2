@@ -1,5 +1,7 @@
 // #define N 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 // BN254 base field order
 
+// BN254 elliptic curve addition.
+// Uses the standard affine addition formula.
 global ec_add:
     // Uncomment for test inputs.
     // PUSH 0xdeadbeef
@@ -9,6 +11,8 @@ global ec_add:
     // PUSH 0xe7313274bb29566ff0c8220eb9841de1d96c2923c6a4028f7dd3c6a14cee770
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
+
+    // Check if points are valid BN254 points.
     DUP2
     // stack: y0, x0, y0, x1, y1, retdest
     DUP2
@@ -27,6 +31,8 @@ global ec_add:
     // stack: ec_add_valid_points, isValid(x1, y1) & isValid(x0, y0), x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
+
+    // Otherwise return
     POP
     // stack: y0, x1, y1, retdest
     POP
@@ -37,10 +43,13 @@ global ec_add:
     // stack: retdest
     %ec_invalid_input
 
+// BN254 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points.
 global ec_add_valid_points:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
+
+    // Check if the first point is the identity.
     DUP2
     // stack: y0, x0, y0, x1, y1, retdest
     DUP2
@@ -48,9 +57,11 @@ global ec_add_valid_points:
     %ec_isidentity
     // stack: (x0,y0)==(0,0), x0, y0, x1, y1, retdest
     PUSH ec_add_first_zero
-    // stack: ec_add_first_zero, y0==0 & x0==0, x0, y0, x1, y1, retdest
+    // stack: ec_add_first_zero, (x0,y0)==(0,0), x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
+
+    // Check if the first point is the identity.
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
     DUP4
@@ -58,9 +69,11 @@ global ec_add_valid_points:
     %ec_isidentity
     // stack: (x1,y1)==(0,0), x0, y0, x1, y1, retdest
     PUSH ec_add_snd_zero
-    // stack: ec_add_snd_zero, y1==0 & x1==0, x0, y0, x1, y1, retdest
+    // stack: ec_add_snd_zero, (x1,y1)==(0,0), x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
+
+    // Check if both points have the same x-coordinate.
     DUP3
     // stack: x1, x0, y0, x1, y1, retdest
     DUP2
@@ -71,6 +84,9 @@ global ec_add_valid_points:
     // stack: ec_add_equal_first_coord, x0 == x1, x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
+
+    // Otherwise, we can use the standard formula.
+    // Compute lambda = (y0 - y1)/(x0 - x1)
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
     DUP3
@@ -89,23 +105,16 @@ global ec_add_valid_points:
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
+// BN254 elliptic curve addition.
 // Assumption: (x0,y0) == (0,0)
 ec_add_first_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
+
+    // Just return (x1,y1)
     POP
     // stack: y0, x1, y1, retdest
     POP
-    // stack: x1, y1, retdest
-    DUP2
-    // stack: y1, x1, y1, retdest
-    DUP2
-    // stack: x1, y1, x1, y1, retdest
-    %ec_isidentity
-    // stack: (x1,y1)==(0,0), x1, y1, retdest
-    PUSH ret_zero
-    // stack: ret_zero, (x1,y1)==(0,0), x1, y1, retdest
-    JUMPI
     // stack: x1, y1, retdest
     SWAP1
     // stack: y1, x1, retdest
@@ -113,10 +122,13 @@ ec_add_first_zero:
     // stack: retdest, x1, y1
     JUMP
 
-// Assumption: (x1,y1) == (0,0) and (x0,y0) != (0,0)
+// BN254 elliptic curve addition.
+// Assumption: (x1,y1) == (0,0)
 ec_add_snd_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
+
+    // Just return (x1,y1)
     SWAP2
     // stack: x1, y0, x0, y1, retdest
     POP
@@ -131,24 +143,13 @@ ec_add_snd_zero:
     // stack: retdest, x0, y0
     JUMP
 
-ret_zero:
-    JUMPDEST
-    // stack: x, y, retdest
-    POP
-    // stack: y, retdest
-    POP
-    // stack: retdest
-    PUSH 0
-    // stack: 0, retdest
-    PUSH 0
-    // stack: 0, 0, retdest
-    SWAP2
-    // stack:  retdest, 0, 0
-    JUMP
-
+// BN254 elliptic curve addition.
+// Assumption: lambda = (y0 - y1)/(x0 - x1)
 ec_add_valid_points_with_lambda:
     JUMPDEST
     // stack: lambda, x0, y0, x1, y1, retdest
+
+    // Compute x2 = lambda^2 - x1 - x0
     DUP2
     // stack: x0, lambda, x0, y0, x1, y1, retdest
     DUP5
@@ -165,6 +166,8 @@ ec_add_valid_points_with_lambda:
     // stack: lambda^2 - x1, x0, lambda, x0, y0, x1, y1, retdest
     %submod
     // stack: x2, lambda, x0, y0, x1, y1, retdest
+
+    // Compute y2 = lambda*(x1 - x2) - y1
     %bn_base
     // stack: N, x2, lambda, x0, y0, x1, y1, retdest
     DUP2
@@ -183,6 +186,8 @@ ec_add_valid_points_with_lambda:
     // stack: lambda * (x1 - x2), y1, x2, lambda, x0, y0, x1, y1, retdest
     %submod
     // stack: y2, x2, lambda, x0, y0, x1, y1, retdest
+
+    // Return x2,y2
     SWAP5
     // stack: x1, x2, lambda, x0, y0, y2, y1, retdest
     POP
@@ -201,35 +206,50 @@ ec_add_valid_points_with_lambda:
     // stack: retdest, x2, y2
     JUMP
 
+// BN254 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points and x0 == x1
 ec_add_equal_first_coord:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest with x0 == x1
-    %bn_base
-    // stack: N, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: y0, N, x0, y0, x1, y1, retdest
-    DUP6
-    // stack: y1, y0, N, x0, y0, x1, y1, retdest
-    ADDMOD
-    // stack: y1 + y0, x0, y0, x1, y1, retdest
+
+    // Check if the points are equal
+    DUP2
+    // stack: y0, x0, y0, x1, y1, retdest
+    DUP5
+    // stack: y1, y0, x0, y0, x1, y1, retdest
+    EQ
+    // stack: y1 == y0, x0, y0, x1, y1, retdest
     PUSH ec_add_equal_points
-    // stack: ec_add_equal_points, y1 + y0, x0, y0, x1, y1, retdest
+    // stack: ec_add_equal_points, y1 == y0, x0, y0, x1, y1, retdest
     JUMPI
     // stack: x0, y0, x1, y1, retdest
+
+    // Otherwise, one is the negation of the other so we can return (0,0).
     POP
     // stack: y0, x1, y1, retdest
     POP
     // stack: x1, y1, retdest
-    PUSH ret_zero
-    // stack: ret_zero, x1, y1, retdest
+    POP
+    // stack: y1, retdest
+    POP
+    // stack: retdest
+    PUSH 0
+    // stack: 0, retdest
+    PUSH 0
+    // stack: 0, 0, retdest
+    SWAP2
+    // stack: retdest, 0, 0
     JUMP
 
 
+// BN254 elliptic curve addition.
 // Assumption: x0 == x1 and y0 == y1
+// Standard doubling formula.
 ec_add_equal_points:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
+
+    // Compute lambda = 3/2 * x0^2 / y0
     %bn_base
     // stack: N, x0, y0, x1, y1, retdest
     %bn_base
@@ -252,7 +272,9 @@ ec_add_equal_points:
     // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
     JUMP
 
+// BN254 elliptic curve doubling.
 // Assumption: (x0,y0) is a valid point.
+// Standard doubling formula.
 global ec_double:
     JUMPDEST
     // stack: x0, y0, retdest
@@ -343,13 +365,7 @@ global ec_double:
     // stack: y^2 % N == (x^3 + 3) % N, x, y, b
     SWAP2
     // stack: y, x, y^2 % N == (x^3 + 3) % N, b
-    ISZERO
-    // stack: y==0, x, y^2 % N == (x^3 + 3) % N, b
-    SWAP1
-    // stack: x, y==0, y^2 % N == (x^3 + 3) % N, b
-    ISZERO
-    // stack: x==0, y==0, y^2 % N == (x^3 + 3) % N, b
-    AND
+    %ec_isidentity
     // stack: (x,y)==(0,0), y^2 % N == (x^3 + 3) % N, b
     SWAP2
     // stack: b, y^2 % N == (x^3 + 3) % N, (x,y)==(0,0)
@@ -359,18 +375,16 @@ global ec_double:
     // stack: y^2 % N == (x^3 + 3) % N & (x < N) & (y < N) || (x,y)==(0,0)
 %endmacro
 
+// Check if (x,y)==(0,0)
 %macro ec_isidentity
     // stack: x, y
+    OR
+    // stack: x | y
     ISZERO
-    // stack: x==0, y
-    SWAP1
-    // stack: y, x==0
-    ISZERO
-    // stack: y==0, x==0
-    AND
-    // stack: y==0 & x==0
+    // stack: (x,y) == (0,0)
 %endmacro
 
+// Return (u256::MAX, u256::MAX) which is used to indicate the input was invalid.
 %macro ec_invalid_input
     // stack: retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff

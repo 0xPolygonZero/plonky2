@@ -25,6 +25,7 @@
     %mulmodn
 %endmacro
 
+// Computes the inverse modulo N using x^-1 = x^(N-2) mod N and square-and-multiply modular exponentiation.
 %macro inverse
     DUP1
     %squaremodn
