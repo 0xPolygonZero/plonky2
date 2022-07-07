@@ -33,7 +33,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
-    res.push(Column::single(TIMESTAMP));
+    // res.push(Column::single(TIMESTAMP));
     res
 }
 
@@ -64,8 +64,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
 
     let mut current_memory_values: HashMap<(F, F, F), [F; 8]> = HashMap::new();
     let num_cycles = num_ops / 2;
-    for i in 0..num_cycles {
-        let timestamp = F::from_canonical_usize(i);
+    for clock in 0..num_cycles {
         let mut used_indices = HashSet::new();
         let mut new_writes_this_cycle = HashMap::new();
         let mut has_read = false;
@@ -76,7 +75,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
             }
             used_indices.insert(channel_index);
 
-            let is_read = if i == 0 {
+            let is_read = if clock == 0 {
                 false
             } else {
                 !has_read && rng.gen()
@@ -112,6 +111,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
                 (context, segment, virt, vals)
             };
 
+            let timestamp = F::from_canonical_usize(clock * NUM_CHANNELS + channel_index);
             memory_ops.push(MemoryOp {
                 channel_index,
                 timestamp,

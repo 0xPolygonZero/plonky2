@@ -283,8 +283,8 @@ mod tests {
         }
         for i in 0..num_memory_ops {
             let mem_timestamp: usize = memory_trace[memory::columns::TIMESTAMP].values[i].to_canonical_u64().try_into().unwrap();
-            let clock = mem_timestamp / 4;
-            let channel = mem_timestamp % 4;
+            let clock = mem_timestamp / NUM_CHANNELS;
+            let channel = mem_timestamp % NUM_CHANNELS;
 
             let row: &mut cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[clock].borrow_mut();
