@@ -226,7 +226,7 @@ pub fn generate_range_check_value<F: RichField>(
 
     range_check.push(F::ZERO);
 
-    (range_check, max_timestamp_diff.try_into().unwrap())
+    (range_check, max_timestamp_diff as usize)
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
@@ -352,7 +352,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
     }
 
-    pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> Vec<PolynomialValues<F>> {
+    pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> (Vec<PolynomialValues<F>>, usize) {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness.
@@ -361,6 +361,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             "generate trace rows",
             self.generate_trace_rows(memory_ops)
         );
+        let num_ops = trace_rows.len();
 
         let trace_polys = timed!(
             &mut timing,
@@ -369,7 +370,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         );
 
         timing.print();
-        trace_polys
+        (trace_polys, num_ops)
     }
 }
 
