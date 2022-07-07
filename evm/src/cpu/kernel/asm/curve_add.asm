@@ -27,19 +27,11 @@ global ec_add:
     // stack: isValid(x1, y1), isValid(x0, y0), x0, y0, x1, y1, retdest
     AND
     // stack: isValid(x1, y1) & isValid(x0, y0), x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points
-    // stack: ec_add_valid_points, isValid(x1, y1) & isValid(x0, y0), x0, y0, x1, y1, retdest
-    JUMPI
+    %jumpi(ec_add_valid_points)
     // stack: x0, y0, x1, y1, retdest
 
     // Otherwise return
-    POP
-    // stack: y0, x1, y1, retdest
-    POP
-    // stack: x1, y1, retdest
-    POP
-    // stack: y1, retdest
-    POP
+    %pop4
     // stack: retdest
     %ec_invalid_input
 
@@ -56,9 +48,7 @@ global ec_add_valid_points:
     // stack: x0, y0, x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack: (x0,y0)==(0,0), x0, y0, x1, y1, retdest
-    PUSH ec_add_first_zero
-    // stack: ec_add_first_zero, (x0,y0)==(0,0), x0, y0, x1, y1, retdest
-    JUMPI
+    %jumpi(ec_add_first_zero)
     // stack: x0, y0, x1, y1, retdest
 
     // Check if the first point is the identity.
@@ -68,9 +58,7 @@ global ec_add_valid_points:
     // stack: x1, y1, x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack: (x1,y1)==(0,0), x0, y0, x1, y1, retdest
-    PUSH ec_add_snd_zero
-    // stack: ec_add_snd_zero, (x1,y1)==(0,0), x0, y0, x1, y1, retdest
-    JUMPI
+    %jumpi(ec_add_snd_zero)
     // stack: x0, y0, x1, y1, retdest
 
     // Check if both points have the same x-coordinate.
@@ -80,9 +68,7 @@ global ec_add_valid_points:
     // stack: x0, x1, x0, y0, x1, y1, retdest
     EQ
     // stack: x0 == x1, x0, y0, x1, y1, retdest
-    PUSH ec_add_equal_first_coord
-    // stack: ec_add_equal_first_coord, x0 == x1, x0, y0, x1, y1, retdest
-    JUMPI
+    %jumpi(ec_add_equal_first_coord)
     // stack: x0, y0, x1, y1, retdest
 
     // Otherwise, we can use the standard formula.
@@ -101,9 +87,7 @@ global ec_add_valid_points:
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
     %moddiv
     // stack: lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_with_lambda
-    // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
-    JUMP
+    %jump(ec_add_valid_points_with_lambda)
 
 // BN254 elliptic curve addition.
 // Assumption: (x0,y0) == (0,0)
@@ -112,9 +96,7 @@ ec_add_first_zero:
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
-    POP
-    // stack: y0, x1, y1, retdest
-    POP
+    %pop2
     // stack: x1, y1, retdest
     SWAP1
     // stack: y1, x1, retdest
@@ -194,13 +176,7 @@ ec_add_valid_points_with_lambda:
     // stack: x2, lambda, x0, y0, y2, y1, retdest
     SWAP5
     // stack: y1, lambda, x0, y0, y2, x2, retdest
-    POP
-    // stack: lambda, x0, y0, y2, x2, retdest
-    POP
-    // stack: x0, y0, y2, x2, retdest
-    POP
-    // stack: y0, y2, x2, retdest
-    POP
+    %pop4
     // stack: y2, x2, retdest
     SWAP2
     // stack: retdest, x2, y2
@@ -219,19 +195,11 @@ ec_add_equal_first_coord:
     // stack: y1, y0, x0, y0, x1, y1, retdest
     EQ
     // stack: y1 == y0, x0, y0, x1, y1, retdest
-    PUSH ec_add_equal_points
-    // stack: ec_add_equal_points, y1 == y0, x0, y0, x1, y1, retdest
-    JUMPI
+    %jumpi(ec_add_equal_points)
     // stack: x0, y0, x1, y1, retdest
 
     // Otherwise, one is the negation of the other so we can return (0,0).
-    POP
-    // stack: y0, x1, y1, retdest
-    POP
-    // stack: x1, y1, retdest
-    POP
-    // stack: y1, retdest
-    POP
+    %pop4
     // stack: retdest
     PUSH 0
     // stack: 0, retdest
@@ -268,9 +236,7 @@ ec_add_equal_points:
     // stack: y0, 3/2 * x0^2, x0, y0, x1, y1, retdest
     %moddiv
     // stack: lambda, x0, y0, x1, y1, retdest
-    PUSH ec_add_valid_points_with_lambda
-    // stack: ec_add_valid_points_with_lambda, lambda, x0, y0, x1, y1, retdest
-    JUMP
+    %jump(ec_add_valid_points_with_lambda)
 
 // BN254 elliptic curve doubling.
 // Assumption: (x0,y0) is a valid point.
@@ -282,9 +248,7 @@ global ec_double:
     // stack: y0, x0, y0, retdest
     DUP2
     // stack: x0, y0, x0, y0, retdest
-    PUSH ec_add_equal_points
-    // stack: ec_add_equal_points, x0, y0, x0, y0, retdest
-    JUMP
+    %jump(ec_add_equal_points)
 
 // Push the order of the BN254 base field.
 %macro bn_base
