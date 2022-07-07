@@ -14,9 +14,7 @@ global ec_mul:
     // stack: x, y, x, y, s, retdest
     %ec_isidentity
     // stack: (x,y)==(0,0), x, y, s, retdest
-    PUSH ret_zero
-    // stack: ret_zero, y==0 & x==0, x, y, s, retdest
-    JUMPI
+    %jumpi(ret_zero)
     // stack: x, y, s, retdest
     DUP2
     // stack: y, x, y, s, retdest
@@ -24,9 +22,7 @@ global ec_mul:
     // stack: x, y, x, y, s, retdest
     %ec_check
     // stack: isValid(x, y), x, y, s, retdest
-    PUSH ec_mul_valid_point
-    // stack: ec_mul_valid_point, isValid(x, y), x, y, s, retdest
-    JUMPI
+    %jumpi(ec_mul_valid_point)
     // stack: x, y, s, retdest
     %pop3
     %ec_invalid_input
@@ -37,9 +33,7 @@ ec_mul_valid_point:
     // stack: x, y, s, retdest
     DUP3
     // stack: s, x, y, s, retdest
-    PUSH step_case
-    // stack: step_case, s, x, y, s, retdest
-    JUMPI
+    %jumpi(step_case)
     // stack: x, y, s, retdest
     %jump(ret_zero)
 
