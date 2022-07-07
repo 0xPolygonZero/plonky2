@@ -1,12 +1,12 @@
 use ethereum_types::{U256, U512};
 
-struct Interpreter {
-    code: Vec<u8>,
+struct Interpreter<'a> {
+    code: &'a [u8],
     offset: usize,
     stack: Vec<U256>,
 }
 
-pub fn run(code: Vec<u8>, initial_offset: usize, initial_stack: Vec<U256>) -> Vec<U256> {
+pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<U256> {
     let mut interpreter = Interpreter {
         code,
         offset: initial_offset,
@@ -18,7 +18,7 @@ pub fn run(code: Vec<u8>, initial_offset: usize, initial_stack: Vec<U256>) -> Ve
     interpreter.stack
 }
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     fn slice(&self, n: usize) -> &[u8] {
         &self.code[self.offset..self.offset + n]
     }
@@ -37,12 +37,12 @@ impl Interpreter {
 
     fn run_opcode(&mut self) {
         let opcode = self.code[self.offset];
-        self.incr(1);
         match opcode {
             0x00 => todo!(),                                           // "STOP",
             0x01 => self.run_add(),                                    // "ADD",
             0x02 => self.run_mul(),                                    // "MUL",
             0x03 => self.run_sub(),                                    // "SUB",
+            0x04 => self.run_div(),                                    // "DIV",
             0x05 => todo!(),                                           // "SDIV",
             0x06 => self.run_mod(),                                    // "MOD",
             0x07 => todo!(),                                           // "SMOD",
@@ -89,7 +89,7 @@ impl Interpreter {
             0x45 => todo!(),                                           // "GASLIMIT",
             0x46 => todo!(),                                           // "CHAINID",
             0x48 => todo!(),                                           // "BASEFEE",
-            0x50 => todo!(),                                           // "POP",
+            0x50 => self.run_pop(),                                    // "POP",
             0x51 => todo!(),                                           // "MLOAD",
             0x52 => todo!(),                                           // "MSTORE",
             0x53 => todo!(),                                           // "MSTORE8",
@@ -119,7 +119,7 @@ impl Interpreter {
             0xfd => todo!(),                                           // "REVERT",
             0xfe => todo!(),                                           // "INVALID",
             0xff => todo!(),                                           // "SELFDESTRUCT",
-            _ => panic!("Unrecognized mnemonic."),
+            _ => panic!("Unrecognized opcode {}.", opcode),
         };
     }
 
@@ -141,6 +141,13 @@ impl Interpreter {
         let x = self.pop();
         let y = self.pop();
         self.push(x - y);
+        self.incr(1);
+    }
+
+    fn run_div(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(x / y);
         self.incr(1);
     }
 
@@ -234,13 +241,17 @@ impl Interpreter {
         self.incr(1);
     }
 
+    fn run_pop(&mut self) {
+        self.pop();
+        self.incr(1);
+    }
+
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
         self.offset = x;
-        assert_eq!(
-            self.code[self.offset], 0x5b,
-            "Destination is not a JUMPDEST."
-        );
+        if let Some(&landing_opcode) = self.code.get(self.offset) {
+            assert_eq!(landing_opcode, 0x5b, "Destination is not a JUMPDEST.");
+        }
     }
 
     fn run_jumpi(&mut self) {
@@ -248,28 +259,29 @@ impl Interpreter {
         let b = self.pop();
         if !b.is_zero() {
             self.offset = x;
-            assert_eq!(
-                self.code[self.offset], 0x5b,
-                "Destination is not a JUMPDEST."
-            );
+            if let Some(&landing_opcode) = self.code.get(self.offset) {
+                assert_eq!(landing_opcode, 0x5b, "Destination is not a JUMPDEST.");
+            }
         } else {
             self.incr(1);
         }
     }
 
     fn run_push(&mut self, num_bytes: u8) {
+        self.incr(1);
         let x = U256::from_big_endian(self.slice(num_bytes as usize));
         self.incr(num_bytes as usize);
         self.push(x);
     }
 
     fn run_dup(&mut self, n: u8) {
-        self.push(self.stack[n as usize - 1]);
+        self.push(self.stack[self.stack.len() - n as usize]);
         self.incr(1);
     }
 
     fn run_swap(&mut self, n: u8) {
-        self.stack.swap(0, n as usize);
+        let len = self.stack.len();
+        self.stack.swap(len - 1, len - n as usize - 1);
         self.incr(1);
     }
 }
@@ -282,6 +294,6 @@ mod tests {
     fn test_run() {
         //                        PUSH1   1  PUSH1   2  ADD
         let code = vec![0x60, 0x1, 0x60, 0x2, 0x1];
-        assert_eq!(run(code, 0, vec![]), vec![0x3.into()]);
+        assert_eq!(run(&code, 0, vec![]), vec![0x3.into()]);
     }
 }
