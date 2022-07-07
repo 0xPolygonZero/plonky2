@@ -28,6 +28,7 @@ mod tests {
     #[test]
     fn make_kernel() {
         // Make sure we can parse and assemble the entire kernel.
-        combined_kernel();
+        let kernel = combined_kernel();
+        println!("Kernel size: {} bytes", kernel.code.len());
     }
 }
