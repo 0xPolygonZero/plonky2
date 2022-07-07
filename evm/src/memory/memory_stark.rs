@@ -15,10 +15,11 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::columns::{
-    is_channel, COLUMNS_TO_PAD, sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
-    COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
-    SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
-    SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
+    is_channel, sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL,
+    COLUMNS_TO_PAD, CONTEXT_FIRST_CHANGE, COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS,
+    RANGE_CHECK, RANGE_CHECK_PERMUTED, SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT,
+    SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL, SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP,
+    VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::PermutationPair;
@@ -29,8 +30,8 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
-        .collect_vec();
+    let mut res =
+        Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
     // res.push(Column::single(TIMESTAMP));
     res
@@ -212,7 +213,9 @@ pub fn generate_range_check_value<F: RichField>(
             - segment_first_change[idx]
             - virtual_first_change[idx];
         let timestamp_diff = timestamp[idx + 1] - timestamp[idx] - F::ONE;
-        if this_address_unchanged == F::ONE && timestamp_diff.to_canonical_u64() > max_timestamp_diff {
+        if this_address_unchanged == F::ONE
+            && timestamp_diff.to_canonical_u64() > max_timestamp_diff
+        {
             max_timestamp_diff = timestamp_diff.to_canonical_u64();
         }
 
@@ -331,16 +334,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[CONTEXT_FIRST_CHANGE] = context_first_change;
         trace_cols[SEGMENT_FIRST_CHANGE] = segment_first_change;
         trace_cols[VIRTUAL_FIRST_CHANGE] = virtual_first_change;
-        
+
         trace_cols[RANGE_CHECK] = range_check_value;
 
         for col in COLUMNS_TO_PAD {
             trace_cols[col].splice(0..0, vec![F::ZERO; to_pad]);
         }
 
-        trace_cols[COUNTER] = (0..to_pad_to)
-            .map(|i| F::from_canonical_usize(i))
-            .collect();
+        trace_cols[COUNTER] = (0..to_pad_to).map(|i| F::from_canonical_usize(i)).collect();
 
         let (permuted_inputs, permuted_table) =
             permuted_cols(&trace_cols[RANGE_CHECK], &trace_cols[COUNTER]);
@@ -352,7 +353,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
     }
 
-    pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> (Vec<PolynomialValues<F>>, usize) {
+    pub fn generate_trace(
+        &self,
+        memory_ops: Vec<MemoryOp<F>>,
+    ) -> (Vec<PolynomialValues<F>>, usize) {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness.
@@ -404,9 +408,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_values: Vec<_> = (0..8)
             .map(|i| vars.next_values[sorted_value_limb(i)])
             .collect();
-        
+
         // Indicator that this is a real row, not a row of padding.
-        let valid_row: P = (0..NUM_CHANNELS).map(|c| vars.local_values[is_channel(c)]).sum();
+        let valid_row: P = (0..NUM_CHANNELS)
+            .map(|c| vars.local_values[is_channel(c)])
+            .sum();
 
         let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
         let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
@@ -434,9 +440,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
         yield_constr
             .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_virtual - addr_virtual));
+        yield_constr.constraint_transition(
+            valid_row * address_unchanged * (next_addr_context - addr_context),
+        );
+        yield_constr.constraint_transition(
+            valid_row * address_unchanged * (next_addr_segment - addr_segment),
+        );
+        yield_constr.constraint_transition(
+            valid_row * address_unchanged * (next_addr_virtual - addr_virtual),
+        );
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
@@ -529,13 +541,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.mul_extension(virtual_first_change, addr_segment_diff);
         yield_constr.constraint_transition(builder, virtual_first_change_check_2);
         let address_unchanged_check_1 = builder.mul_extension(address_unchanged, addr_context_diff);
-        let address_unchanged_check_1_valid = builder.mul_extension(valid_row, address_unchanged_check_1);
+        let address_unchanged_check_1_valid =
+            builder.mul_extension(valid_row, address_unchanged_check_1);
         yield_constr.constraint_transition(builder, address_unchanged_check_1_valid);
         let address_unchanged_check_2 = builder.mul_extension(address_unchanged, addr_segment_diff);
-        let address_unchanged_check_2_valid = builder.mul_extension(valid_row, address_unchanged_check_2);
+        let address_unchanged_check_2_valid =
+            builder.mul_extension(valid_row, address_unchanged_check_2);
         yield_constr.constraint_transition(builder, address_unchanged_check_2_valid);
         let address_unchanged_check_3 = builder.mul_extension(address_unchanged, addr_virtual_diff);
-        let address_unchanged_check_3_valid = builder.mul_extension(valid_row, address_unchanged_check_3);
+        let address_unchanged_check_3_valid =
+            builder.mul_extension(valid_row, address_unchanged_check_3);
         yield_constr.constraint_transition(builder, address_unchanged_check_3_valid);
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
@@ -593,14 +608,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     fn permutation_pairs(&self) -> Vec<PermutationPair> {
         let mut unsorted_cols = vec![TIMESTAMP, IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL];
         unsorted_cols.extend((0..VALUE_LIMBS).map(|i| value_limb(i)));
-        let mut sorted_cols = vec![SORTED_TIMESTAMP, SORTED_IS_READ, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL];
+        let mut sorted_cols = vec![
+            SORTED_TIMESTAMP,
+            SORTED_IS_READ,
+            SORTED_ADDR_CONTEXT,
+            SORTED_ADDR_SEGMENT,
+            SORTED_ADDR_VIRTUAL,
+        ];
         sorted_cols.extend((0..VALUE_LIMBS).map(|i| sorted_value_limb(i)));
-        let column_pairs: Vec<_> = unsorted_cols.iter().cloned().zip(sorted_cols.iter().cloned()).collect();
+        let column_pairs: Vec<_> = unsorted_cols
+            .iter()
+            .cloned()
+            .zip(sorted_cols.iter().cloned())
+            .collect();
 
         vec![
-            PermutationPair {
-                column_pairs
-            },
+            PermutationPair { column_pairs },
             PermutationPair::singletons(RANGE_CHECK, RANGE_CHECK_PERMUTED),
             PermutationPair::singletons(COUNTER, COUNTER_PERMUTED),
         ]
