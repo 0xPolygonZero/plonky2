@@ -443,12 +443,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
             + address_unchanged * (next_timestamp - timestamp - one);
-        yield_constr.constraint_transition(range_check - computed_range_check);
+        // yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            yield_constr
-                .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
+            // yield_constr
+            //     .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
         }
 
         eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
@@ -478,6 +478,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             .collect();
         let next_is_read = vars.next_values[SORTED_IS_READ];
         let next_timestamp = vars.next_values[SORTED_TIMESTAMP];
+
+        // Indicator that this is a real row, not a row of padding.
+        let mut valid_row = vars.local_values[is_channel(0)];
+        for c in 1..NUM_CHANNELS {
+            valid_row = builder.add_extension(valid_row, vars.local_values[is_channel(c)]);
+        }
 
         let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
         let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
@@ -523,11 +529,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.mul_extension(virtual_first_change, addr_segment_diff);
         yield_constr.constraint_transition(builder, virtual_first_change_check_2);
         let address_unchanged_check_1 = builder.mul_extension(address_unchanged, addr_context_diff);
-        yield_constr.constraint_transition(builder, address_unchanged_check_1);
+        let address_unchanged_check_1_valid = builder.mul_extension(valid_row, address_unchanged_check_1);
+        yield_constr.constraint_transition(builder, address_unchanged_check_1_valid);
         let address_unchanged_check_2 = builder.mul_extension(address_unchanged, addr_segment_diff);
-        yield_constr.constraint_transition(builder, address_unchanged_check_2);
+        let address_unchanged_check_2_valid = builder.mul_extension(valid_row, address_unchanged_check_2);
+        yield_constr.constraint_transition(builder, address_unchanged_check_2_valid);
         let address_unchanged_check_3 = builder.mul_extension(address_unchanged, addr_virtual_diff);
-        yield_constr.constraint_transition(builder, address_unchanged_check_3);
+        let address_unchanged_check_3_valid = builder.mul_extension(valid_row, address_unchanged_check_3);
+        yield_constr.constraint_transition(builder, address_unchanged_check_3_valid);
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let context_diff = {
