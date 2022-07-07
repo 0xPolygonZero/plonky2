@@ -46,7 +46,14 @@ pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
         COL_MAP.mem_addr_virtual[channel],
     ])
     .collect_vec();
-    cols.extend(Column::singles(COL_MAP.mem_value[channel]));
+cols.extend(Column::singles(COL_MAP.mem_value[channel]));
+
+    let scalar = F::from_canonical_usize(NUM_CHANNELS);
+    let addend = F::from_canonical_usize(channel);
+    cols.push(Column::linear_combination_with_constant(
+        vec![(columns::CLOCK, scalar)],
+        addend,
+    ));
 
     let scalar = F::from_canonical_usize(NUM_CHANNELS);
     let addend = F::from_canonical_usize(channel);
