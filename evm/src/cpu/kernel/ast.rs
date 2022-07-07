@@ -29,7 +29,7 @@ pub(crate) enum Item {
 pub(crate) enum PushTarget {
     Literal(Literal),
     Label(String),
-    Var(String),
+    MacroVar(String),
 }
 
 #[derive(Clone, Debug)]

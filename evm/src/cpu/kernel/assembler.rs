@@ -111,7 +111,7 @@ fn expand_macro_call(
         .items
         .iter()
         .map(|item| {
-            if let Item::Push(PushTarget::Var(var)) = item {
+            if let Item::Push(PushTarget::MacroVar(var)) = item {
                 let param_index = _macro.get_param_index(var);
                 Item::Push(args[param_index].clone())
             } else {
@@ -182,7 +182,7 @@ fn assemble_file(
                             .map(|i| offset.to_le_bytes()[i as usize])
                             .collect()
                     }
-                    PushTarget::Var(v) => panic!("Variable not in a macro: {}", v),
+                    PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
@@ -200,7 +200,7 @@ fn push_target_size(target: &PushTarget) -> u8 {
     match target {
         PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
-        PushTarget::Var(v) => panic!("Variable not in a macro: {}", v),
+        PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
     }
 }
 
