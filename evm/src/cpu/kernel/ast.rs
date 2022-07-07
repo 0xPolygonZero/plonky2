@@ -30,6 +30,7 @@ pub(crate) enum PushTarget {
     Literal(Literal),
     Label(String),
     MacroVar(String),
+    Constant(String),
 }
 
 #[derive(Clone, Debug)]

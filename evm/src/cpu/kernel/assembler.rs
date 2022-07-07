@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use ethereum_types::U256;
 use itertools::izip;
 
 use super::ast::PushTarget;
+use crate::cpu::kernel::ast::Literal;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -33,7 +35,7 @@ impl Macro {
     }
 }
 
-pub(crate) fn assemble(files: Vec<File>) -> Kernel {
+pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Kernel {
     let macros = find_macros(&files);
     let mut global_labels = HashMap::new();
     let mut offset = 0;
@@ -41,6 +43,7 @@ pub(crate) fn assemble(files: Vec<File>) -> Kernel {
     let mut local_labels = Vec::with_capacity(files.len());
     for file in files {
         let expanded_file = expand_macros(file.body, &macros);
+        let expanded_file = inline_constants(expanded_file, &constants);
         local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
         expanded_files.push(expanded_file);
     }
@@ -124,6 +127,22 @@ fn expand_macro_call(
     expand_macros(expanded_item, macros)
 }
 
+fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
+    body.into_iter()
+        .map(|item| {
+            if let Item::Push(PushTarget::Constant(c)) = item {
+                let value = constants
+                    .get(&c)
+                    .unwrap_or_else(|| panic!("No such constant: {}", c));
+                let literal = Literal::Decimal(value.to_string());
+                Item::Push(PushTarget::Literal(literal))
+            } else {
+                item
+            }
+        })
+        .collect()
+}
+
 fn find_labels(
     body: &[Item],
     offset: &mut usize,
@@ -183,6 +202,7 @@ fn assemble_file(
                             .collect()
                     }
                     PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
+                    PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
@@ -201,6 +221,7 @@ fn push_target_size(target: &PushTarget) -> u8 {
         PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
         PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
+        PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
     }
 }
 
@@ -266,7 +287,7 @@ mod tests {
         };
 
         let program = vec![file_1, file_2];
-        assert_eq!(assemble(program), expected_kernel);
+        assert_eq!(assemble(program, HashMap::new()), expected_kernel);
     }
 
     #[test]
@@ -284,7 +305,7 @@ mod tests {
                 Item::StandardOp("JUMPDEST".to_string()),
             ],
         };
-        assemble(vec![file_1, file_2]);
+        assemble(vec![file_1, file_2], HashMap::new());
     }
 
     #[test]
@@ -298,7 +319,7 @@ mod tests {
                 Item::StandardOp("ADD".to_string()),
             ],
         };
-        assemble(vec![file]);
+        assemble(vec![file], HashMap::new());
     }
 
     #[test]
@@ -315,7 +336,7 @@ mod tests {
                 ]),
             ],
         };
-        let code = assemble(vec![file]).code;
+        let code = assemble(vec![file], HashMap::new()).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
     }
 
@@ -356,8 +377,26 @@ mod tests {
         parse_and_assemble(&["push $abc"]);
     }
 
+    #[test]
+    fn constants() {
+        let code = &["PUSH @DEAD_BEEF"];
+        let mut constants = HashMap::new();
+        constants.insert("DEAD_BEEF".into(), 0xDEADBEEFu64.into());
+
+        let kernel = parse_and_assemble_with_constants(code, constants);
+        let push4 = get_push_opcode(4);
+        assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
+    }
+
     fn parse_and_assemble(files: &[&str]) -> Kernel {
+        parse_and_assemble_with_constants(files, HashMap::new())
+    }
+
+    fn parse_and_assemble_with_constants(
+        files: &[&str],
+        constants: HashMap<String, U256>,
+    ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files)
+        assemble(parsed_files, constants)
     }
 }
