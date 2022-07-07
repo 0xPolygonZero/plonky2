@@ -14,9 +14,7 @@ global ec_mul:
     // stack: x, y, x, y, s, retdest
     %ec_isidentity
     // stack: (x,y)==(0,0), x, y, s, retdest
-    PUSH ret_zero
-    // stack: ret_zero, y==0 & x==0, x, y, s, retdest
-    JUMPI
+    %jumpi(ret_zero)
     // stack: x, y, s, retdest
     DUP2
     // stack: y, x, y, s, retdest
@@ -24,16 +22,9 @@ global ec_mul:
     // stack: x, y, x, y, s, retdest
     %ec_check
     // stack: isValid(x, y), x, y, s, retdest
-    PUSH ec_mul_valid_point
-    // stack: ec_mul_valid_point, isValid(x, y), x, y, s, retdest
-    JUMPI
+    %jumpi(ec_mul_valid_point)
     // stack: x, y, s, retdest
-    POP
-    // stack: y, s, retdest
-    POP
-    // stack: s, retdest
-    POP
-    // stack: retdest
+    %pop3
     %ec_invalid_input
 
 // Same algorithm as in `exp.asm`
@@ -42,13 +33,9 @@ ec_mul_valid_point:
     // stack: x, y, s, retdest
     DUP3
     // stack: s, x, y, s, retdest
-    PUSH step_case
-    // stack: step_case, s, x, y, s, retdest
-    JUMPI
+    %jumpi(step_case)
     // stack: x, y, s, retdest
-    PUSH ret_zero
-    // stack: ret_zero, x, y, s, retdest
-    JUMP
+    %jump(ret_zero)
 
 step_case:
     JUMPDEST
@@ -67,17 +54,13 @@ step_case:
     // stack: y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
     DUP5
     // stack: x, y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    PUSH ec_double
-    // stack: ec_double, x, y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    JUMP
+    %jump(ec_double)
 
 // Assumption: 2(x,y) = (x',y')
 step_case_contd:
     JUMPDEST
     // stack: x', y', s / 2, recursion_return, x, y, s, retdest
-    PUSH ec_mul_valid_point
-    // stack: ec_mul_valid_point, x', y', s / 2, recursion_return, x, y, s, retdest
-    JUMP
+    %jump(ec_mul_valid_point)
 
 recursion_return:
     JUMPDEST
@@ -98,9 +81,7 @@ recursion_return:
     // stack: x', s & 1, y', x, y, retdest
     SWAP1
     // stack: s & 1, x', y', x, y, retdest
-    PUSH odd_scalar
-    // stack: odd_scalar, s & 1, x', y', x, y, retdest
-    JUMPI
+    %jumpi(odd_scalar)
     // stack: x', y', x, y, retdest
     SWAP3
     // stack: y, y', x, x', retdest
@@ -117,18 +98,12 @@ recursion_return:
 odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
-    PUSH ec_add_valid_points
-    // stack: ec_add_valid_points, x', y', x, y, retdest
-    JUMP
+    %jump(ec_add_valid_points)
 
 ret_zero:
     JUMPDEST
     // stack: x, y, s, retdest
-    POP
-    // stack: y, s, retdest
-    POP
-    // stack: s, retdest
-    POP
+    %pop3
     // stack: retdest
     PUSH 0
     // stack: 0, retdest
