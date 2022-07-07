@@ -12,7 +12,8 @@ pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<
         offset: initial_offset,
         stack: initial_stack,
     };
-    while interpreter.offset < interpreter.code.len() {
+    // Halt the execution if a jump to 0xdeadbeef was done.
+    while interpreter.offset != 0xdeadbeef {
         interpreter.run_opcode();
     }
     interpreter.stack
