@@ -40,7 +40,6 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     debug_assert!(channel < NUM_CHANNELS);
     let mut cols: Vec<Column<F>> = Column::singles([
-        COL_MAP.clock,
         COL_MAP.mem_is_read[channel],
         COL_MAP.mem_addr_context[channel],
         COL_MAP.mem_addr_segment[channel],
@@ -48,6 +47,13 @@ pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     ])
     .collect_vec();
     cols.extend(Column::singles(COL_MAP.mem_value[channel]));
+
+    let scalar = F::from_canonical_usize(NUM_CHANNELS);
+    let addend = F::from_canonical_usize(channel);
+    cols.push(Column::linear_combination_with_constant(
+        vec![(COL_MAP.clock, scalar)],
+        addend,
+    ));
     cols
 }
 

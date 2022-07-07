@@ -30,9 +30,10 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([TIMESTAMP, IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
+    let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
+    res.push(Column::single(TIMESTAMP));
     res
 }
 
