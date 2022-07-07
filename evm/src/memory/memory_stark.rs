@@ -442,13 +442,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
-            + address_unchanged * (next_timestamp - timestamp - one);
-        // yield_constr.constraint_transition(range_check - computed_range_check);
+            + valid_row * address_unchanged * (next_timestamp - timestamp - one);
+        yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            // yield_constr
-            //     .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
+            yield_constr
+                .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
         }
 
         eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
@@ -559,6 +559,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(diff, one)
         };
         let timestamp_range_check = builder.mul_extension(address_unchanged, timestamp_diff);
+        let timestamp_range_check = builder.mul_extension(valid_row, timestamp_range_check);
 
         let computed_range_check = {
             let mut sum = builder.add_extension(context_range_check, segment_range_check);
