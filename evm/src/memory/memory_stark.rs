@@ -32,7 +32,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
-    res.push(Column::single(TIMESTAMP));
+    // res.push(Column::single(TIMESTAMP));
     res
 }
 
@@ -404,6 +404,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_values: Vec<_> = (0..8)
             .map(|i| vars.next_values[sorted_value_limb(i)])
             .collect();
+        
+        // Indicator that this is a real row, not a row of padding.
+        let valid_row: P = (0..NUM_CHANNELS).map(|c| vars.local_values[is_channel(c)]).sum();
 
         let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
         let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
@@ -431,9 +434,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             .constraint_transition(virtual_first_change * (next_addr_context - addr_context));
         yield_constr
             .constraint_transition(virtual_first_change * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(address_unchanged * (next_addr_context - addr_context));
-        yield_constr.constraint_transition(address_unchanged * (next_addr_segment - addr_segment));
-        yield_constr.constraint_transition(address_unchanged * (next_addr_virtual - addr_virtual));
+        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_context - addr_context));
+        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_segment - addr_segment));
+        yield_constr.constraint_transition(valid_row * address_unchanged * (next_addr_virtual - addr_virtual));
 
         // Third set of ordering constraints: range-check difference in the column that should be increasing.
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)

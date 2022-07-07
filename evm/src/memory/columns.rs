@@ -54,7 +54,7 @@ pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 pub(crate) const RANGE_CHECK_PERMUTED: usize = COUNTER + 1;
 pub(crate) const COUNTER_PERMUTED: usize = RANGE_CHECK_PERMUTED + 1;
 
-// Columns to be padded with zeroes, before the permutation argument takes place.
+// Columns to be padded at the top with zeroes, before the permutation argument takes place.
 pub(crate) const COLUMNS_TO_PAD: Range<usize> = TIMESTAMP..RANGE_CHECK + 1;
 
 pub(crate) const NUM_COLUMNS: usize = COUNTER_PERMUTED + 1;
