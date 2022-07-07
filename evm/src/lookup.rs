@@ -133,6 +133,5 @@ pub fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec
         permuted_table[ind] = val;
     }
 
-    dbg!((sorted_inputs.clone(), permuted_table.clone()));
     (sorted_inputs, permuted_table)
 }

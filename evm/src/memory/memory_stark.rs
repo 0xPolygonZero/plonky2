@@ -112,7 +112,6 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
             };
 
             let timestamp = F::from_canonical_usize(clock * NUM_CHANNELS + channel_index);
-            dbg!(timestamp);
             memory_ops.push(MemoryOp {
                 channel_index,
                 timestamp,
@@ -316,7 +315,6 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
-        dbg!(max_timestamp_diff);
         let to_pad_to = max_timestamp_diff.next_power_of_two();
         let to_pad = to_pad_to - num_trace_rows;
 
@@ -347,10 +345,6 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             permuted_cols(&trace_cols[RANGE_CHECK], &trace_cols[COUNTER]);
         trace_cols[RANGE_CHECK_PERMUTED] = permuted_inputs;
         trace_cols[COUNTER_PERMUTED] = permuted_table;
-
-        for i in 0..NUM_COLUMNS {
-            dbg!(i, trace_cols[i].len());
-        }
     }
 
     pub fn generate_trace(
