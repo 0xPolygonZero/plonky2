@@ -11,17 +11,16 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use rand::Rng;
 
-use super::columns::is_channel;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::columns::{
-    sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
+    is_channel, COLUMNS_TO_PAD, sorted_value_limb, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
     COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, SORTED_ADDR_CONTEXT, SORTED_ADDR_SEGMENT, SORTED_ADDR_VIRTUAL,
     SORTED_IS_READ, SORTED_TIMESTAMP, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
-use crate::memory::NUM_CHANNELS;
+use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
@@ -33,7 +32,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
-    // res.push(Column::single(TIMESTAMP));
+    res.push(Column::single(TIMESTAMP));
     res
 }
 
@@ -112,6 +111,7 @@ pub fn generate_random_memory_ops<F: RichField, R: Rng>(
             };
 
             let timestamp = F::from_canonical_usize(clock * NUM_CHANNELS + channel_index);
+            dbg!(timestamp);
             memory_ops.push(MemoryOp {
                 channel_index,
                 timestamp,
@@ -201,27 +201,32 @@ pub fn generate_range_check_value<F: RichField>(
     context_first_change: &[F],
     segment_first_change: &[F],
     virtual_first_change: &[F],
-) -> Vec<F> {
+) -> (Vec<F>, usize) {
     let num_ops = context.len();
     let mut range_check = Vec::new();
 
+    let mut max_timestamp_diff = 0;
     for idx in 0..num_ops - 1 {
         let this_address_unchanged = F::ONE
             - context_first_change[idx]
             - segment_first_change[idx]
             - virtual_first_change[idx];
+        let timestamp_diff = timestamp[idx + 1] - timestamp[idx] - F::ONE;
+        if this_address_unchanged == F::ONE && timestamp_diff.to_canonical_u64() > max_timestamp_diff {
+            max_timestamp_diff = timestamp_diff.to_canonical_u64();
+        }
 
         range_check.push(
             context_first_change[idx] * (context[idx + 1] - context[idx] - F::ONE)
                 + segment_first_change[idx] * (segment[idx + 1] - segment[idx] - F::ONE)
                 + virtual_first_change[idx] * (virtuals[idx + 1] - virtuals[idx] - F::ONE)
-                + this_address_unchanged * (timestamp[idx + 1] - timestamp[idx] - F::ONE),
+                + this_address_unchanged * timestamp_diff,
         );
     }
 
     range_check.push(F::ZERO);
 
-    range_check
+    (range_check, max_timestamp_diff.try_into().unwrap())
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
@@ -254,6 +259,9 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
 
         self.generate_memory(&mut trace_cols);
+
+        // The number of rows may have changed, if the range check required padding.
+        let num_ops = trace_cols[0].len();
 
         let mut trace_rows = vec![[F::ZERO; NUM_COLUMNS]; num_ops];
         for (i, col) in trace_cols.iter().enumerate() {
@@ -296,7 +304,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let (context_first_change, segment_first_change, virtual_first_change) =
             generate_first_change_flags(&sorted_context, &sorted_segment, &sorted_virtual);
 
-        let range_check_value = generate_range_check_value(
+        let (range_check_value, max_timestamp_diff) = generate_range_check_value(
             &sorted_context,
             &sorted_segment,
             &sorted_virtual,
@@ -305,6 +313,9 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
+        dbg!(max_timestamp_diff);
+        let to_pad_to = max_timestamp_diff.next_power_of_two();
+        let to_pad = to_pad_to - num_trace_rows;
 
         trace_cols[SORTED_TIMESTAMP] = sorted_timestamp;
         trace_cols[SORTED_IS_READ] = sorted_is_read;
@@ -312,7 +323,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[SORTED_ADDR_SEGMENT] = sorted_segment;
         trace_cols[SORTED_ADDR_VIRTUAL] = sorted_virtual;
         for i in 0..num_trace_rows {
-            for j in 0..8 {
+            for j in 0..VALUE_LIMBS {
                 trace_cols[sorted_value_limb(j)][i] = sorted_values[i][j];
             }
         }
@@ -320,9 +331,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[CONTEXT_FIRST_CHANGE] = context_first_change;
         trace_cols[SEGMENT_FIRST_CHANGE] = segment_first_change;
         trace_cols[VIRTUAL_FIRST_CHANGE] = virtual_first_change;
-
+        
         trace_cols[RANGE_CHECK] = range_check_value;
-        trace_cols[COUNTER] = (0..num_trace_rows)
+
+        for col in COLUMNS_TO_PAD {
+            trace_cols[col].splice(0..0, vec![F::ZERO; to_pad]);
+        }
+
+        trace_cols[COUNTER] = (0..to_pad_to)
             .map(|i| F::from_canonical_usize(i))
             .collect();
 
@@ -330,6 +346,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             permuted_cols(&trace_cols[RANGE_CHECK], &trace_cols[COUNTER]);
         trace_cols[RANGE_CHECK_PERMUTED] = permuted_inputs;
         trace_cols[COUNTER_PERMUTED] = permuted_table;
+
+        for i in 0..NUM_COLUMNS {
+            dbg!(i, trace_cols[i].len());
+        }
     }
 
     pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> Vec<PolynomialValues<F>> {

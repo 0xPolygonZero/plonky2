@@ -364,6 +364,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_all_stark_recursive_verifier() -> Result<()> {
         init_logger();
 
