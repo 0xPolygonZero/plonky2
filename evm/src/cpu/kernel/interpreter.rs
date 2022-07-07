@@ -127,21 +127,21 @@ impl<'a> Interpreter<'a> {
     fn run_add(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x + y);
+        self.push(x.overflowing_add(y).0);
         self.incr(1);
     }
 
     fn run_mul(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x * y);
+        self.push(x.overflowing_mul(y).0);
         self.incr(1);
     }
 
     fn run_sub(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x - y);
+        self.push(x.overflowing_sub(y).0);
         self.incr(1);
     }
 
@@ -180,7 +180,7 @@ impl<'a> Interpreter<'a> {
     fn run_exp(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x.pow(y));
+        self.push(x.overflowing_pow(y).0);
         self.incr(1);
     }
 
