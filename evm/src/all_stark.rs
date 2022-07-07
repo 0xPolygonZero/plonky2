@@ -290,16 +290,26 @@ mod tests {
             let clock = mem_timestamp / NUM_CHANNELS;
             let channel = mem_timestamp % NUM_CHANNELS;
 
-            let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
+            let is_padding_row = (0..NUM_CHANNELS)
+                .map(|c| memory_trace[memory::columns::is_channel(c)].values[i])
+                .all(|x| x == F::ZERO);
 
-            row.mem_channel_used[channel] = F::ONE;
-            row.clock = F::from_canonical_usize(clock);
-            row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
-            row.mem_addr_context[channel] = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-            row.mem_addr_segment[channel] = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-            row.mem_addr_virtual[channel] = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
-            for j in 0..8 {
-                row.mem_value[channel][j] = memory_trace[memory::columns::value_limb(j)].values[i];
+            if !is_padding_row {
+                let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
+
+                row.mem_channel_used[channel] = F::ONE;
+                row.clock = F::from_canonical_usize(clock);
+                row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
+                row.mem_addr_context[channel] =
+                    memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+                row.mem_addr_segment[channel] =
+                    memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+                row.mem_addr_virtual[channel] =
+                    memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+                for j in 0..8 {
+                    row.mem_value[channel][j] =
+                        memory_trace[memory::columns::value_limb(j)].values[i];
+                }
             }
         }
         trace_rows_to_poly_values(cpu_trace_rows)
