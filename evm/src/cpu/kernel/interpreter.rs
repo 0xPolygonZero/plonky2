@@ -12,7 +12,8 @@ pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<
         offset: initial_offset,
         stack: initial_stack,
     };
-    while interpreter.offset < interpreter.code.len() {
+    // Halt the execution if a jump to 0xdeadbeef was done.
+    while interpreter.offset != 0xdeadbeef {
         interpreter.run_opcode();
     }
     interpreter.stack
@@ -292,8 +293,9 @@ mod tests {
 
     #[test]
     fn test_run() {
-        //                        PUSH1   1  PUSH1   2  ADD
-        let code = vec![0x60, 0x1, 0x60, 0x2, 0x1];
+        let code = vec![
+            0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
+        ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
         assert_eq!(run(&code, 0, vec![]), vec![0x3.into()]);
     }
 }
