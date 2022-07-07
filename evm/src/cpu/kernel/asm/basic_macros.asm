@@ -1,3 +1,28 @@
+%macro jump(dst)
+    push $dst
+    jump
+%endmacro
+
+%macro jumpi(dst)
+    push $dst
+    jumpi
+%endmacro
+
+%macro pop2
+    pop
+    pop
+%endmacro
+
+%macro pop3
+    pop
+    %pop2
+%endmacro
+
+%macro pop4
+    %pop2
+    %pop2
+%endmacro
+
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z
