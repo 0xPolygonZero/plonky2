@@ -13,6 +13,7 @@ literal_hex = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
 literal = { literal_hex | literal_decimal }
 
 variable = ${ "$" ~ identifier }
+constant = ${ "@" ~ identifier }
 
 item = { macro_def | macro_call | global_label | local_label | bytes_item | push_instruction | nullary_instruction }
 macro_def = { ^"%macro" ~ identifier ~ macro_paramlist? ~ item* ~ ^"%endmacro" }
@@ -23,7 +24,7 @@ global_label = { ^"GLOBAL " ~ identifier ~ ":" }
 local_label = { identifier ~ ":" }
 bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
 push_instruction = { ^"PUSH " ~ push_target }
-push_target = { literal | identifier | variable }
+push_target = { literal | identifier | variable | constant }
 nullary_instruction = { identifier }
 
 file = { SOI ~ item* ~ silent_eoi }

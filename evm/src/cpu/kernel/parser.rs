@@ -77,6 +77,7 @@ fn parse_push_target(target: Pair<Rule>) -> PushTarget {
         Rule::literal => PushTarget::Literal(parse_literal(inner)),
         Rule::identifier => PushTarget::Label(inner.as_str().into()),
         Rule::variable => PushTarget::MacroVar(inner.into_inner().next().unwrap().as_str().into()),
+        Rule::constant => PushTarget::Constant(inner.into_inner().next().unwrap().as_str().into()),
         _ => panic!("Unexpected {:?}", inner.as_rule()),
     }
 }
