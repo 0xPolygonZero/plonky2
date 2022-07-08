@@ -198,7 +198,9 @@ mod tests {
         rng: &mut R,
     ) -> (Vec<PolynomialValues<F>>, usize) {
         let memory_ops = generate_random_memory_ops(num_memory_ops, rng);
-        memory_stark.generate_trace(memory_ops)
+        let trace = memory_stark.generate_trace(memory_ops);
+        let num_ops = trace[0].values.len();
+        (trace, num_ops)
     }
 
     fn make_cpu_trace(

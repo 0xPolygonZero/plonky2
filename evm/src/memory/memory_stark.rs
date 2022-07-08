@@ -308,7 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
-        let to_pad_to = max_diff.next_power_of_two().max(num_trace_rows);
+        let to_pad_to = (max_diff + 1).next_power_of_two().max(num_trace_rows);
         let to_pad = to_pad_to - num_trace_rows;
 
         trace_cols[SORTED_TIMESTAMP] = sorted_timestamp;
@@ -343,7 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     pub fn generate_trace(
         &self,
         memory_ops: Vec<MemoryOp<F>>,
-    ) -> (Vec<PolynomialValues<F>>, usize) {
+    ) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness.
@@ -352,7 +352,6 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             "generate trace rows",
             self.generate_trace_rows(memory_ops)
         );
-        let num_ops = trace_rows.len();
 
         let trace_polys = timed!(
             &mut timing,
@@ -361,7 +360,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         );
 
         timing.print();
-        (trace_polys, num_ops)
+        trace_polys
     }
 }
 
@@ -604,8 +603,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         ];
         sorted_cols.extend((0..VALUE_LIMBS).map(sorted_value_limb));
         let column_pairs: Vec<_> = unsorted_cols
-            .iter()
-            .cloned()
+            .into_iter()
             .zip(sorted_cols.iter().cloned())
             .collect();
 
