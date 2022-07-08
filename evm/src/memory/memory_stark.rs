@@ -205,30 +205,23 @@ pub fn generate_range_check_value<F: RichField>(
     let num_ops = context.len();
     let mut range_check = Vec::new();
 
-    let mut max_timestamp_diff = 0;
     for idx in 0..num_ops - 1 {
         let this_address_unchanged = F::ONE
             - context_first_change[idx]
             - segment_first_change[idx]
             - virtual_first_change[idx];
-        let timestamp_diff = timestamp[idx + 1] - timestamp[idx] - F::ONE;
-        if this_address_unchanged == F::ONE
-            && timestamp_diff.to_canonical_u64() > max_timestamp_diff
-        {
-            max_timestamp_diff = timestamp_diff.to_canonical_u64();
-        }
-
         range_check.push(
             context_first_change[idx] * (context[idx + 1] - context[idx] - F::ONE)
                 + segment_first_change[idx] * (segment[idx + 1] - segment[idx] - F::ONE)
                 + virtual_first_change[idx] * (virtuals[idx + 1] - virtuals[idx] - F::ONE)
-                + this_address_unchanged * timestamp_diff,
+                + this_address_unchanged * (timestamp[idx + 1] - timestamp[idx] - F::ONE),
         );
     }
-
     range_check.push(F::ZERO);
 
-    (range_check, max_timestamp_diff as usize)
+    let max_diff = range_check.iter().map(F::to_canonical_u64).max().unwrap() as usize;
+
+    (range_check, max_diff)
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
@@ -306,7 +299,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let (context_first_change, segment_first_change, virtual_first_change) =
             generate_first_change_flags(&sorted_context, &sorted_segment, &sorted_virtual);
 
-        let (range_check_value, max_timestamp_diff) = generate_range_check_value(
+        let (range_check_value, max_diff) = generate_range_check_value(
             &sorted_context,
             &sorted_segment,
             &sorted_virtual,
@@ -315,7 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
-        let to_pad_to = max_timestamp_diff.next_power_of_two().max(num_trace_rows);
+        let to_pad_to = max_diff.next_power_of_two().max(num_trace_rows);
         let to_pad = to_pad_to - num_trace_rows;
 
         trace_cols[SORTED_TIMESTAMP] = sorted_timestamp;

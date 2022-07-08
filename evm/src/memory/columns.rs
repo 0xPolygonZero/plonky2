@@ -40,7 +40,6 @@ pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 
 // Flags to indicate if this operation came from the `i`th channel of the memory bus.
 const IS_CHANNEL_START: usize = VIRTUAL_FIRST_CHANGE + 1;
-#[allow(dead_code)]
 pub(crate) const fn is_channel(channel: usize) -> usize {
     debug_assert!(channel < NUM_CHANNELS);
     IS_CHANNEL_START + channel
