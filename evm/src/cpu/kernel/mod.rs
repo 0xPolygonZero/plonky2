@@ -4,6 +4,9 @@ mod ast;
 mod opcodes;
 mod parser;
 
+#[cfg(test)]
+mod interpreter;
+
 use assembler::assemble;
 use parser::parse;
 
