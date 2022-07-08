@@ -308,7 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
-        let to_pad_to = (max_diff + 1).next_power_of_two().max(num_trace_rows);
+        let to_pad_to = (max_diff + 1).max(num_trace_rows).next_power_of_two();
         let to_pad = to_pad_to - num_trace_rows;
 
         trace_cols[SORTED_TIMESTAMP] = sorted_timestamp;
