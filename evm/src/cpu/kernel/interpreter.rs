@@ -32,12 +32,17 @@ impl<'a> Interpreter<'a> {
         self.stack.push(x);
     }
 
+    fn push_bool(&mut self, x: bool) {
+        self.stack.push(if x { U256::one() } else { U256::zero() });
+    }
+
     fn pop(&mut self) -> U256 {
         self.stack.pop().expect("Pop on empty stack.")
     }
 
     fn run_opcode(&mut self) {
         let opcode = self.code[self.offset];
+        self.incr(1);
         match opcode {
             0x00 => todo!(),                                           // "STOP",
             0x01 => self.run_add(),                                    // "ADD",
@@ -101,7 +106,7 @@ impl<'a> Interpreter<'a> {
             0x58 => todo!(),                                           // "GETPC",
             0x59 => todo!(),                                           // "MSIZE",
             0x5a => todo!(),                                           // "GAS",
-            0x5b => self.incr(1),                                      // "JUMPDEST",
+            0x5b => (),                                                // "JUMPDEST",
             x if (0x60..0x80).contains(&x) => self.run_push(x - 0x5f), // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),  // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f), // "SWAP"
@@ -128,123 +133,108 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_add(y).0);
-        self.incr(1);
     }
 
     fn run_mul(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_mul(y).0);
-        self.incr(1);
     }
 
     fn run_sub(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_sub(y).0);
-        self.incr(1);
     }
 
     fn run_div(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x / y);
-        self.incr(1);
+        self.push(if y.is_zero() { U256::zero() } else { x / y });
     }
 
     fn run_mod(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(x % y);
-        self.incr(1);
+        self.push(if y.is_zero() { U256::zero() } else { x % y });
     }
 
     fn run_addmod(&mut self) {
         let x = U512::from(self.pop());
         let y = U512::from(self.pop());
         let z = U512::from(self.pop());
-        let res = (x + y) % z;
-        self.push(U256([0, 1, 2, 3].map(|i| res.0[i])));
-        self.incr(1);
+        self.push(if z.is_zero() {
+            U256::zero()
+        } else {
+            U256::try_from((x + y) % z).unwrap()
+        });
     }
 
     fn run_mulmod(&mut self) {
         let x = self.pop();
         let y = self.pop();
         let z = U512::from(self.pop());
-        let res = x.full_mul(y) % z;
-        self.push(U256([0, 1, 2, 3].map(|i| res.0[i])));
-        self.incr(1);
+        self.push(if z.is_zero() {
+            U256::zero()
+        } else {
+            U256::try_from(x.full_mul(y) % z).unwrap()
+        });
     }
 
     fn run_exp(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_pow(y).0);
-        self.incr(1);
     }
 
     fn run_lt(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(if x < y { U256::one() } else { U256::zero() });
-        self.incr(1);
+        self.push_bool(x < y);
     }
 
     fn run_gt(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(if x > y { U256::one() } else { U256::zero() });
-        self.incr(1);
+        self.push_bool(x > y);
     }
 
     fn run_eq(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(if x == y { U256::one() } else { U256::zero() });
-        self.incr(1);
+        self.push_bool(x == y);
     }
 
     fn run_iszero(&mut self) {
         let x = self.pop();
-        self.push(if x.is_zero() {
-            U256::one()
-        } else {
-            U256::zero()
-        });
-        self.incr(1);
+        self.push_bool(x.is_zero());
     }
 
     fn run_and(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x & y);
-        self.incr(1);
     }
 
     fn run_or(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x | y);
-        self.incr(1);
     }
 
     fn run_xor(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x ^ y);
-        self.incr(1);
     }
 
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
-        self.incr(1);
     }
 
     fn run_pop(&mut self) {
         self.pop();
-        self.incr(1);
     }
 
     fn run_jump(&mut self) {
@@ -263,13 +253,10 @@ impl<'a> Interpreter<'a> {
             if let Some(&landing_opcode) = self.code.get(self.offset) {
                 assert_eq!(landing_opcode, 0x5b, "Destination is not a JUMPDEST.");
             }
-        } else {
-            self.incr(1);
         }
     }
 
     fn run_push(&mut self, num_bytes: u8) {
-        self.incr(1);
         let x = U256::from_big_endian(self.slice(num_bytes as usize));
         self.incr(num_bytes as usize);
         self.push(x);
@@ -277,13 +264,11 @@ impl<'a> Interpreter<'a> {
 
     fn run_dup(&mut self, n: u8) {
         self.push(self.stack[self.stack.len() - n as usize]);
-        self.incr(1);
     }
 
     fn run_swap(&mut self, n: u8) {
         let len = self.stack.len();
         self.stack.swap(len - 1, len - n as usize - 1);
-        self.incr(1);
     }
 }
 
