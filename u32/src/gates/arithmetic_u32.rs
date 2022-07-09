@@ -461,4 +461,39 @@ mod tests {
             "Gate constraints are not satisfied."
         );
     }
+
+    #[test]
+    fn test_canonicity() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
+        const NUM_U32_ARITHMETIC_OPS: usize = 3;
+
+        let multiplicands_0 = vec![0; NUM_U32_ARITHMETIC_OPS];
+        let multiplicands_1 = vec![0; NUM_U32_ARITHMETIC_OPS];
+        // A non-canonical addend will produce a non-canonical output using
+        // get_wires.
+        let addends = vec![0xFFFFFFFF00000001; NUM_U32_ARITHMETIC_OPS];
+
+        let gate = U32ArithmeticGate::<F, D> {
+            num_ops: NUM_U32_ARITHMETIC_OPS,
+            _phantom: PhantomData,
+        };
+
+        let vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires::<F, FF, D, NUM_U32_ARITHMETIC_OPS>(
+                multiplicands_0,
+                multiplicands_1,
+                addends,
+            ),
+            public_inputs_hash: &HashOut::rand(),
+        };
+
+        assert!(
+            !gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            "Non-canonical output should not pass constraints."
+        );
+    }
 }
