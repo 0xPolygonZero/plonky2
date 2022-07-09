@@ -57,9 +57,15 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
         debug_assert!(i < self.num_ops);
         Self::routed_wires_per_op() * i + 3
     }
+
     pub fn wire_ith_output_high_half(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
         Self::routed_wires_per_op() * i + 4
+    }
+
+    pub fn wire_ith_inverse(&self, i: usize) -> usize {
+        debug_assert!(i < self.num_ops);
+        Self::routed_wires_per_op() * i + 5
     }
 
     pub fn limb_bits() -> usize {
@@ -68,11 +74,9 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     pub fn num_limbs() -> usize {
         64 / Self::limb_bits()
     }
-
     pub fn routed_wires_per_op() -> usize {
-        5
+        6
     }
-
     pub fn wire_ith_output_jth_limb(&self, i: usize, j: usize) -> usize {
         debug_assert!(i < self.num_ops);
         debug_assert!(j < Self::num_limbs());
@@ -96,9 +100,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
             let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let inverse = vars.local_wires[self.wire_ith_inverse(i)];
 
-            let base = F::Extension::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
+            // Check canonicity of combined_output = output_high * 2^32 + output_low
+            let combined_output = {
+                let base = F::Extension::from_canonical_u64(1 << 32u64);
+                let one = F::Extension::ONE;
+                let u32_max = F::Extension::from_canonical_u32(u32::MAX);
+
+                // This is zero if and only if the high limb is `u32::MAX`.
+                // u32::MAX - output_high
+                let diff = u32_max - output_high;
+                // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
+                // inverse * diff - 1
+                let hi_not_max = inverse * diff - one;
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
+                // hi_not_max * limb_0_u32
+                let hi_not_max_or_lo_zero = hi_not_max * output_low;
+
+                constraints.push(hi_not_max_or_lo_zero);
+
+                output_high * base + output_low
+            };
 
             constraints.push(combined_output - computed_output);
 
@@ -155,10 +178,27 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
             let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let inverse = vars.local_wires[self.wire_ith_inverse(i)];
 
-            let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
-            let base_target = builder.constant_extension(base);
-            let combined_output = builder.mul_add_extension(output_high, base_target, output_low);
+            // Check canonicity of combined_output = output_high * 2^32 + output_low
+            let combined_output = {
+                let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
+                let base_target = builder.constant_extension(base);
+                let one = builder.one_extension();
+                let u32_max =
+                    builder.constant_extension(F::Extension::from_canonical_u32(u32::MAX));
+
+                // This is zero if and only if the high limb is `u32::MAX`.
+                let diff = builder.sub_extension(u32_max, output_high);
+                // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
+                let hi_not_max = builder.mul_sub_extension(inverse, diff, one);
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
+                let hi_not_max_or_lo_zero = builder.mul_extension(hi_not_max, output_low);
+
+                constraints.push(hi_not_max_or_lo_zero);
+
+                builder.mul_add_extension(output_high, base_target, output_low)
+            };
 
             constraints.push(builder.sub_extension(combined_output, computed_output));
 
@@ -226,7 +266,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     }
 
     fn num_constraints(&self) -> usize {
-        self.num_ops * (3 + Self::num_limbs())
+        self.num_ops * (4 + Self::num_limbs())
     }
 }
 
@@ -247,9 +287,27 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
             let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
             let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let inverse = vars.local_wires[self.wire_ith_inverse(i)];
 
-            let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
+            let combined_output = {
+                let base = P::from(F::from_canonical_u64(1 << 32u64));
+                let one = P::ONES;
+                let u32_max = P::from(F::from_canonical_u32(u32::MAX));
+
+                // This is zero if and only if the high limb is `u32::MAX`.
+                // u32::MAX - output_high
+                let diff = u32_max - output_high;
+                // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
+                // inverse * diff - 1
+                let hi_not_max = inverse * diff - one;
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
+                // hi_not_max * limb_0_u32
+                let hi_not_max_or_lo_zero = hi_not_max * output_low;
+
+                yield_constr.one(hi_not_max_or_lo_zero);
+
+                output_high * base + output_low
+            };
 
             yield_constr.one(combined_output - computed_output);
 
@@ -324,6 +382,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         out_buffer.set_wire(output_high_wire, output_high);
         out_buffer.set_wire(output_low_wire, output_low);
+
+        let diff = u32::MAX as u64 - output_high_u64;
+        let inverse = if diff == 0 {
+            F::ZERO
+        } else {
+            F::from_canonical_u64(diff).inverse()
+        };
+        let inverse_wire = local_wire(self.gate.wire_ith_inverse(self.i));
+        out_buffer.set_wire(inverse_wire, inverse);
 
         let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
         let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
@@ -403,6 +470,12 @@ mod tests {
             let mut output = m0 * m1 + a;
             let output_low = output & ((1 << 32) - 1);
             let output_high = output >> 32;
+            let diff = u32::MAX as u64 - output_high;
+            let inverse = if diff == 0 {
+                F::ZERO
+            } else {
+                F::from_canonical_u64(diff).inverse()
+            };
 
             let mut output_limbs = Vec::with_capacity(num_limbs);
             for _i in 0..num_limbs {
@@ -419,6 +492,7 @@ mod tests {
             v0.push(F::from_noncanonical_u64(a));
             v0.push(F::from_canonical_u64(output_low));
             v0.push(F::from_canonical_u64(output_high));
+            v0.push(inverse);
             v1.append(&mut output_limbs_f);
         }
 
