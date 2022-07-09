@@ -36,31 +36,30 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     }
 
     pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
-        let wires_per_op = 5 + Self::num_limbs();
-        let routed_wires_per_op = 5;
-        (config.num_wires / wires_per_op).min(config.num_routed_wires / routed_wires_per_op)
+        let wires_per_op = Self::routed_wires_per_op() + Self::num_limbs();
+        (config.num_wires / wires_per_op).min(config.num_routed_wires / Self::routed_wires_per_op())
     }
 
     pub fn wire_ith_multiplicand_0(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        5 * i
+        Self::routed_wires_per_op() * i
     }
     pub fn wire_ith_multiplicand_1(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        5 * i + 1
+        Self::routed_wires_per_op() * i + 1
     }
     pub fn wire_ith_addend(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        5 * i + 2
+        Self::routed_wires_per_op() * i + 2
     }
 
     pub fn wire_ith_output_low_half(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        5 * i + 3
+        Self::routed_wires_per_op() * i + 3
     }
     pub fn wire_ith_output_high_half(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        5 * i + 4
+        Self::routed_wires_per_op() * i + 4
     }
 
     pub fn limb_bits() -> usize {
@@ -70,10 +69,14 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
         64 / Self::limb_bits()
     }
 
+    pub fn routed_wires_per_op() -> usize {
+        5
+    }
+
     pub fn wire_ith_output_jth_limb(&self, i: usize, j: usize) -> usize {
         debug_assert!(i < self.num_ops);
         debug_assert!(j < Self::num_limbs());
-        5 * self.num_ops + Self::num_limbs() * i + j
+        Self::routed_wires_per_op() * self.num_ops + Self::num_limbs() * i + j
     }
 }
 
@@ -211,7 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     }
 
     fn num_wires(&self) -> usize {
-        self.num_ops * (5 + Self::num_limbs())
+        self.num_ops * (Self::routed_wires_per_op() + Self::num_limbs())
     }
 
     fn num_constants(&self) -> usize {
