@@ -696,18 +696,32 @@ pub(crate) mod testutils {
         let empty = &vec![];
         // Check that every row in the looking tables appears in the looked table the same number of times
         // with some special logic for the default row.
-        let mut extra_default_count = default.as_ref().map(|_| 0);
         for (row, looking_locations) in &looking_multiset {
             let looked_locations = looked_multiset.get(row).unwrap_or(empty);
             if let Some(default) = default {
                 if row == default {
-                    *extra_default_count.as_mut().unwrap() +=
-                        looking_locations.len() - looked_locations.len();
                     continue;
                 }
             }
             check_locations(looking_locations, looked_locations, ctl_index, row);
         }
+        let extra_default_count = default.as_ref().map(|d| {
+            let looking_default_locations = looking_multiset.get(d).unwrap_or(empty);
+            let looked_default_locations = looked_multiset.get(d).unwrap_or(empty);
+            looking_default_locations
+                .len()
+                .checked_sub(looked_default_locations.len())
+                .unwrap_or_else(|| {
+                    // If underflow, panic. There should be more default rows in the looking side.
+                    check_locations(
+                        looking_default_locations,
+                        looked_default_locations,
+                        ctl_index,
+                        d,
+                    );
+                    unreachable!()
+                })
+        });
         // Check that the number of extra default rows is correct.
         if let Some(count) = extra_default_count {
             assert_eq!(
