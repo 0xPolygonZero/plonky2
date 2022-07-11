@@ -393,6 +393,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             .collect();
 
         // Indicator that this is a real row, not a row of padding.
+        // TODO: enforce that all padding is at the beginning.
         let valid_row: P = (0..NUM_CHANNELS)
             .map(|c| vars.local_values[is_channel(c)])
             .sum();
