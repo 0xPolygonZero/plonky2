@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
+use ethereum_types::U256;
+use itertools::izip;
+
 use super::ast::PushTarget;
+use crate::cpu::kernel::ast::Literal;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -17,47 +21,68 @@ pub struct Kernel {
     pub(crate) global_labels: HashMap<String, usize>,
 }
 
-pub(crate) fn assemble(files: Vec<File>) -> Kernel {
+struct Macro {
+    params: Vec<String>,
+    items: Vec<Item>,
+}
+
+impl Macro {
+    fn get_param_index(&self, param: &str) -> usize {
+        self.params
+            .iter()
+            .position(|p| p == param)
+            .unwrap_or_else(|| panic!("No such param: {} {:?}", param, &self.params))
+    }
+}
+
+pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Kernel {
     let macros = find_macros(&files);
-    let mut code = vec![];
     let mut global_labels = HashMap::new();
+    let mut offset = 0;
+    let mut expanded_files = Vec::with_capacity(files.len());
+    let mut local_labels = Vec::with_capacity(files.len());
     for file in files {
         let expanded_file = expand_macros(file.body, &macros);
-        assemble_file(expanded_file, &mut code, &mut global_labels);
+        let expanded_file = inline_constants(expanded_file, &constants);
+        local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
+        expanded_files.push(expanded_file);
     }
+    let mut code = vec![];
+    for (file, locals) in izip!(expanded_files, local_labels) {
+        assemble_file(file, &mut code, locals, &global_labels);
+    }
+    assert_eq!(code.len(), offset, "Code length doesn't match offset.");
     Kernel {
         code,
         global_labels,
     }
 }
 
-fn find_macros(files: &[File]) -> HashMap<String, Vec<Item>> {
+fn find_macros(files: &[File]) -> HashMap<String, Macro> {
     let mut macros = HashMap::new();
     for file in files {
         for item in &file.body {
-            if let Item::MacroDef(name, items) = item {
-                macros.insert(name.clone(), items.clone());
+            if let Item::MacroDef(name, params, items) = item {
+                let _macro = Macro {
+                    params: params.clone(),
+                    items: items.clone(),
+                };
+                macros.insert(name.clone(), _macro);
             }
         }
     }
     macros
 }
 
-fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Vec<Item>>) -> Vec<Item> {
+fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Macro>) -> Vec<Item> {
     let mut expanded = vec![];
     for item in body {
         match item {
-            Item::MacroDef(_, _) => {
+            Item::MacroDef(_, _, _) => {
                 // At this phase, we no longer need macro definitions.
             }
-            Item::MacroCall(m) => {
-                let mut expanded_item = macros
-                    .get(&m)
-                    .cloned()
-                    .unwrap_or_else(|| panic!("No such macro: {}", m));
-                // Recursively expand any macros in the expanded code.
-                expanded_item = expand_macros(expanded_item, macros);
-                expanded.extend(expanded_item);
+            Item::MacroCall(m, args) => {
+                expanded.extend(expand_macro_call(m, args, macros));
             }
             item => {
                 expanded.push(item);
@@ -67,33 +92,95 @@ fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Vec<Item>>) -> Vec<It
     expanded
 }
 
-fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMap<String, usize>) {
-    // First discover the offset of each label in this file.
+fn expand_macro_call(
+    name: String,
+    args: Vec<PushTarget>,
+    macros: &HashMap<String, Macro>,
+) -> Vec<Item> {
+    let _macro = macros
+        .get(&name)
+        .unwrap_or_else(|| panic!("No such macro: {}", name));
+
+    assert_eq!(
+        args.len(),
+        _macro.params.len(),
+        "Macro `{}`: expected {} arguments, got {}",
+        name,
+        _macro.params.len(),
+        args.len()
+    );
+
+    let expanded_item = _macro
+        .items
+        .iter()
+        .map(|item| {
+            if let Item::Push(PushTarget::MacroVar(var)) = item {
+                let param_index = _macro.get_param_index(var);
+                Item::Push(args[param_index].clone())
+            } else {
+                item.clone()
+            }
+        })
+        .collect();
+
+    // Recursively expand any macros in the expanded code.
+    expand_macros(expanded_item, macros)
+}
+
+fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
+    body.into_iter()
+        .map(|item| {
+            if let Item::Push(PushTarget::Constant(c)) = item {
+                let value = constants
+                    .get(&c)
+                    .unwrap_or_else(|| panic!("No such constant: {}", c));
+                let literal = Literal::Decimal(value.to_string());
+                Item::Push(PushTarget::Literal(literal))
+            } else {
+                item
+            }
+        })
+        .collect()
+}
+
+fn find_labels(
+    body: &[Item],
+    offset: &mut usize,
+    global_labels: &mut HashMap<String, usize>,
+) -> HashMap<String, usize> {
+    // Discover the offset of each label in this file.
     let mut local_labels = HashMap::<String, usize>::new();
-    let mut offset = code.len();
-    for item in &body {
+    for item in body {
         match item {
-            Item::MacroDef(_, _) | Item::MacroCall(_) => {
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
                 panic!("Macros should have been expanded already")
             }
             Item::GlobalLabelDeclaration(label) => {
-                let old = global_labels.insert(label.clone(), offset);
+                let old = global_labels.insert(label.clone(), *offset);
                 assert!(old.is_none(), "Duplicate global label: {}", label);
             }
             Item::LocalLabelDeclaration(label) => {
-                let old = local_labels.insert(label.clone(), offset);
+                let old = local_labels.insert(label.clone(), *offset);
                 assert!(old.is_none(), "Duplicate local label: {}", label);
             }
-            Item::Push(target) => offset += 1 + push_target_size(target) as usize,
-            Item::StandardOp(_) => offset += 1,
-            Item::Bytes(bytes) => offset += bytes.len(),
+            Item::Push(target) => *offset += 1 + push_target_size(target) as usize,
+            Item::StandardOp(_) => *offset += 1,
+            Item::Bytes(bytes) => *offset += bytes.len(),
         }
     }
+    local_labels
+}
 
-    // Now that we have label offsets, we can assemble the file.
+fn assemble_file(
+    body: Vec<Item>,
+    code: &mut Vec<u8>,
+    local_labels: HashMap<String, usize>,
+    global_labels: &HashMap<String, usize>,
+) {
+    // Assemble the file.
     for item in body {
         match item {
-            Item::MacroDef(_, _) | Item::MacroCall(_) => {
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
                 panic!("Macros should have been expanded already")
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
@@ -114,6 +201,8 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
                             .map(|i| offset.to_le_bytes()[i as usize])
                             .collect()
                     }
+                    PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
+                    PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
@@ -124,12 +213,6 @@ fn assemble_file(body: Vec<Item>, code: &mut Vec<u8>, global_labels: &mut HashMa
             Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_u8())),
         }
     }
-
-    assert_eq!(
-        code.len(),
-        offset,
-        "The two phases gave different code lengths"
-    );
 }
 
 /// The size of a `PushTarget`, in bytes.
@@ -137,6 +220,8 @@ fn push_target_size(target: &PushTarget) -> u8 {
     match target {
         PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
+        PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
+        PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
     }
 }
 
@@ -202,7 +287,7 @@ mod tests {
         };
 
         let program = vec![file_1, file_2];
-        assert_eq!(assemble(program), expected_kernel);
+        assert_eq!(assemble(program, HashMap::new()), expected_kernel);
     }
 
     #[test]
@@ -220,7 +305,7 @@ mod tests {
                 Item::StandardOp("JUMPDEST".to_string()),
             ],
         };
-        assemble(vec![file_1, file_2]);
+        assemble(vec![file_1, file_2], HashMap::new());
     }
 
     #[test]
@@ -234,7 +319,7 @@ mod tests {
                 Item::StandardOp("ADD".to_string()),
             ],
         };
-        assemble(vec![file]);
+        assemble(vec![file], HashMap::new());
     }
 
     #[test]
@@ -251,7 +336,7 @@ mod tests {
                 ]),
             ],
         };
-        let code = assemble(vec![file]).code;
+        let code = assemble(vec![file], HashMap::new()).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
     }
 
@@ -266,8 +351,52 @@ mod tests {
         assert_eq!(kernel.code, vec![add, add]);
     }
 
+    #[test]
+    fn macro_with_vars() {
+        let kernel = parse_and_assemble(&[
+            "%macro add(x, y) PUSH $x PUSH $y ADD %endmacro",
+            "%add(2, 3)",
+        ]);
+        let push1 = get_push_opcode(1);
+        let add = get_opcode("ADD");
+        assert_eq!(kernel.code, vec![push1, 2, push1, 3, add]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn macro_with_wrong_vars() {
+        parse_and_assemble(&[
+            "%macro add(x, y) PUSH $x PUSH $y ADD %endmacro",
+            "%add(2, 3, 4)",
+        ]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn var_not_in_macro() {
+        parse_and_assemble(&["push $abc"]);
+    }
+
+    #[test]
+    fn constants() {
+        let code = &["PUSH @DEAD_BEEF"];
+        let mut constants = HashMap::new();
+        constants.insert("DEAD_BEEF".into(), 0xDEADBEEFu64.into());
+
+        let kernel = parse_and_assemble_with_constants(code, constants);
+        let push4 = get_push_opcode(4);
+        assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
+    }
+
     fn parse_and_assemble(files: &[&str]) -> Kernel {
+        parse_and_assemble_with_constants(files, HashMap::new())
+    }
+
+    fn parse_and_assemble_with_constants(
+        files: &[&str],
+        constants: HashMap<String, U256>,
+    ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files)
+        assemble(parsed_files, constants)
     }
 }
