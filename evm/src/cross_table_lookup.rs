@@ -662,6 +662,67 @@ pub(crate) mod testutils {
 
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
+    /// Check that the provided traces and cross-table lookups are consistent.
+    pub(crate) fn check_ctls<F: Field>(
+        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        cross_table_lookups: &[CrossTableLookup<F>],
+    ) {
+        for (i, ctl) in cross_table_lookups.iter().enumerate() {
+            check_ctl(trace_poly_values, ctl, i);
+        }
+    }
+
+    fn check_ctl<F: Field>(
+        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        ctl: &CrossTableLookup<F>,
+        ctl_index: usize,
+    ) {
+        let CrossTableLookup {
+            looking_tables,
+            looked_table,
+            default,
+        } = ctl;
+        let mut looking_multiset = MultiSet::<F>::new();
+        let mut looked_multiset = MultiSet::<F>::new();
+
+        for table in looking_tables {
+            process_table(trace_poly_values, table, &mut looking_multiset);
+        }
+        process_table(trace_poly_values, looked_table, &mut looked_multiset);
+
+        let empty = &vec![];
+        // Check that every row in the looking tables appears in the looked table the same number of times
+        // with some special logic for the default row.
+        let mut extra_default_count = default.as_ref().map(|_| 0);
+        for (row, looking_locations) in &looking_multiset {
+            let looked_locations = looked_multiset.get(row).unwrap_or_else(|| empty);
+            if let Some(default) = default {
+                if row == default {
+                    *extra_default_count.as_mut().unwrap() +=
+                        looking_locations.len() - looked_locations.len();
+                    continue;
+                }
+            }
+            check_locations(looking_locations, looked_locations, ctl_index, row);
+        }
+        // Check that the number of extra default rows is correct.
+        if let Some(count) = extra_default_count {
+            assert_eq!(
+                count,
+                looking_tables
+                    .iter()
+                    .map(|table| trace_poly_values[table.table as usize][0].len())
+                    .sum::<usize>()
+                    - trace_poly_values[looked_table.table as usize][0].len()
+            );
+        }
+        // Check that every row in the looked tables appears in the looked table the same number of times.
+        for (row, looked_locations) in &looked_multiset {
+            let looking_locations = looking_multiset.get(row).unwrap_or_else(|| empty);
+            check_locations(looking_locations, looked_locations, ctl_index, row);
+        }
+    }
+
     fn process_table<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         table: &TableWithColumns<F>,
@@ -687,53 +748,6 @@ pub(crate) mod testutils {
         }
     }
 
-    fn check_ctl<F: Field>(
-        trace_poly_values: &[Vec<PolynomialValues<F>>],
-        ctl: &CrossTableLookup<F>,
-        ctl_index: usize,
-    ) {
-        let CrossTableLookup {
-            looking_tables,
-            looked_table,
-            default,
-        } = ctl;
-        let mut looking_multiset = MultiSet::<F>::new();
-        let mut looked_multiset = MultiSet::<F>::new();
-
-        for table in looking_tables {
-            process_table(trace_poly_values, table, &mut looking_multiset);
-        }
-        process_table(trace_poly_values, looked_table, &mut looked_multiset);
-
-        let empty = &vec![];
-        let mut extra_default_count = default.as_ref().map(|_| 0);
-        for (row, looking_locations) in &looking_multiset {
-            let looked_locations = looked_multiset.get(row).unwrap_or_else(|| empty);
-            if let Some(default) = default {
-                if row == default {
-                    *extra_default_count.as_mut().unwrap() +=
-                        looking_locations.len() - looked_locations.len();
-                    continue;
-                }
-            }
-            check_locations(looking_locations, looked_locations, ctl_index, row);
-        }
-        if let Some(count) = extra_default_count {
-            assert_eq!(
-                count,
-                looking_tables
-                    .iter()
-                    .map(|table| trace_poly_values[table.table as usize][0].len())
-                    .sum::<usize>()
-                    - trace_poly_values[looked_table.table as usize][0].len()
-            );
-        }
-        for (row, looked_locations) in &looked_multiset {
-            let looking_locations = looking_multiset.get(row).unwrap_or_else(|| empty);
-            check_locations(looking_locations, looked_locations, ctl_index, row);
-        }
-    }
-
     fn check_locations<F: Field>(
         looking_locations: &[(Table, usize)],
         looked_locations: &[(Table, usize)],
@@ -749,15 +763,6 @@ pub(crate) mod testutils {
                 l0 = looking_locations.len(),
                 l1 = looked_locations.len(),
             );
-        }
-    }
-
-    pub(crate) fn check_ctls<F: Field>(
-        trace_poly_values: &[Vec<PolynomialValues<F>>],
-        cross_table_lookups: &[CrossTableLookup<F>],
-    ) {
-        for (i, ctl) in cross_table_lookups.iter().enumerate() {
-            check_ctl(trace_poly_values, ctl, i);
         }
     }
 }
