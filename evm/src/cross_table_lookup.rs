@@ -649,3 +649,115 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
 }
+
+#[cfg(test)]
+pub(crate) mod testutils {
+    use std::collections::HashMap;
+
+    use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::Field;
+
+    use crate::all_stark::Table;
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+
+    type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
+
+    fn process_table<F: Field>(
+        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        table: &TableWithColumns<F>,
+        multiset: &mut MultiSet<F>,
+    ) {
+        let trace = &trace_poly_values[table.table as usize];
+        for i in 0..trace[0].len() {
+            let filter = if let Some(column) = &table.filter_column {
+                column.eval_table(trace, i)
+            } else {
+                F::ONE
+            };
+            if filter.is_one() {
+                let row = table
+                    .columns
+                    .iter()
+                    .map(|c| c.eval_table(trace, i))
+                    .collect::<Vec<_>>();
+                multiset.entry(row).or_default().push((table.table, i));
+            } else {
+                assert_eq!(filter, F::ZERO, "Non-binary filter?")
+            }
+        }
+    }
+
+    fn check_ctl<F: Field>(
+        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        ctl: &CrossTableLookup<F>,
+        ctl_index: usize,
+    ) {
+        let CrossTableLookup {
+            looking_tables,
+            looked_table,
+            default,
+        } = ctl;
+        let mut looking_multiset = MultiSet::<F>::new();
+        let mut looked_multiset = MultiSet::<F>::new();
+
+        for table in looking_tables {
+            process_table(trace_poly_values, table, &mut looking_multiset);
+        }
+        process_table(trace_poly_values, looked_table, &mut looked_multiset);
+
+        let empty = &vec![];
+        let mut extra_default_count = default.as_ref().map(|_| 0);
+        for (row, looking_locations) in &looking_multiset {
+            let looked_locations = looked_multiset.get(row).unwrap_or_else(|| empty);
+            if let Some(default) = default {
+                if row == default {
+                    *extra_default_count.as_mut().unwrap() +=
+                        looking_locations.len() - looked_locations.len();
+                    continue;
+                }
+            }
+            check_locations(looking_locations, looked_locations, ctl_index, row);
+        }
+        if let Some(count) = extra_default_count {
+            assert_eq!(
+                count,
+                looking_tables
+                    .iter()
+                    .map(|table| trace_poly_values[table.table as usize][0].len())
+                    .sum::<usize>()
+                    - trace_poly_values[looked_table.table as usize][0].len()
+            );
+        }
+        for (row, looked_locations) in &looked_multiset {
+            let looking_locations = looking_multiset.get(row).unwrap_or_else(|| empty);
+            check_locations(looking_locations, looked_locations, ctl_index, row);
+        }
+    }
+
+    fn check_locations<F: Field>(
+        looking_locations: &[(Table, usize)],
+        looked_locations: &[(Table, usize)],
+        ctl_index: usize,
+        row: &[F],
+    ) {
+        if looking_locations.len() != looked_locations.len() {
+            panic!(
+                "CTL #{ctl_index}:\n\
+                        Row {row:?} is present {l0} times in the looking tables, but {l1} times in the looked table.\n\
+                        Looking locations (Table, Row index): {looking_locations:?}.\n\
+                        Looked locations (Table, Row index): {looked_locations:?}.",
+                l0 = looking_locations.len(),
+                l1 = looked_locations.len(),
+            );
+        }
+    }
+
+    pub(crate) fn check_ctls<F: Field>(
+        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        cross_table_lookups: &[CrossTableLookup<F>],
+    ) {
+        for (i, ctl) in cross_table_lookups.iter().enumerate() {
+            check_ctl(trace_poly_values, ctl, i);
+        }
+    }
+}

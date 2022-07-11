@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
@@ -130,6 +130,7 @@ mod tests {
     use crate::all_stark::{all_cross_table_lookups, AllStark};
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
+    use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
@@ -356,10 +357,13 @@ mod tests {
             cross_table_lookups: all_cross_table_lookups(),
         };
 
+        let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+        check_ctls(&traces, &all_stark.cross_table_lookups);
+
         let proof = prove::<F, C, D>(
             &all_stark,
             config,
-            vec![cpu_trace, keccak_trace, logic_trace, memory_trace],
+            traces,
             vec![vec![]; 4],
             &mut TimingTree::default(),
         )?;
