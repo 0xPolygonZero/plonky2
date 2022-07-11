@@ -698,7 +698,7 @@ pub(crate) mod testutils {
         // with some special logic for the default row.
         let mut extra_default_count = default.as_ref().map(|_| 0);
         for (row, looking_locations) in &looking_multiset {
-            let looked_locations = looked_multiset.get(row).unwrap_or_else(|| empty);
+            let looked_locations = looked_multiset.get(row).unwrap_or(empty);
             if let Some(default) = default {
                 if row == default {
                     *extra_default_count.as_mut().unwrap() +=
@@ -721,7 +721,7 @@ pub(crate) mod testutils {
         }
         // Check that every row in the looked tables appears in the looked table the same number of times.
         for (row, looked_locations) in &looked_multiset {
-            let looking_locations = looking_multiset.get(row).unwrap_or_else(|| empty);
+            let looking_locations = looking_multiset.get(row).unwrap_or(empty);
             check_locations(looking_locations, looked_locations, ctl_index, row);
         }
     }
