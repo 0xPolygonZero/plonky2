@@ -757,9 +757,9 @@ pub(crate) mod testutils {
         if looking_locations.len() != looked_locations.len() {
             panic!(
                 "CTL #{ctl_index}:\n\
-                        Row {row:?} is present {l0} times in the looking tables, but {l1} times in the looked table.\n\
-                        Looking locations (Table, Row index): {looking_locations:?}.\n\
-                        Looked locations (Table, Row index): {looked_locations:?}.",
+                 Row {row:?} is present {l0} times in the looking tables, but {l1} times in the looked table.\n\
+                 Looking locations (Table, Row index): {looking_locations:?}.\n\
+                 Looked locations (Table, Row index): {looked_locations:?}.",
                 l0 = looking_locations.len(),
                 l1 = looked_locations.len(),
             );
