@@ -682,6 +682,9 @@ pub(crate) mod testutils {
             looked_table,
             default,
         } = ctl;
+
+        // Maps `m` with `(table, i) in m[row]` iff the `i`-th row of `table` is equal to `row` and
+        // the filter is 1. Without default values, the CTL check holds iff `looking_multiset == looked_multiset`.
         let mut looking_multiset = MultiSet::<F>::new();
         let mut looked_multiset = MultiSet::<F>::new();
 
