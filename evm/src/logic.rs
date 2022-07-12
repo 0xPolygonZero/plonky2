@@ -68,7 +68,7 @@ pub struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum Op {
     And,
     Or,
@@ -77,10 +77,26 @@ pub(crate) enum Op {
 
 #[derive(Debug)]
 pub(crate) struct Operation {
-    pub(crate) operator: Op,
-    pub(crate) input0: U256,
-    pub(crate) input1: U256,
+    operator: Op,
+    input0: U256,
+    input1: U256,
     pub(crate) result: U256,
+}
+
+impl Operation {
+    pub(crate) fn new(operator: Op, input0: U256, input1: U256) -> Self {
+        let result = match operator {
+            Op::And => input0 & input1,
+            Op::Or => input0 | input1,
+            Op::Xor => input0 ^ input1,
+        };
+        Operation {
+            operator,
+            input0,
+            input1,
+            result,
+        }
+    }
 }
 
 impl<F: RichField, const D: usize> LogicStark<F, D> {

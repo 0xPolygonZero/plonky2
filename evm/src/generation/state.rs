@@ -5,7 +5,7 @@ use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::generation::memory::MemoryState;
-use crate::logic::Operation;
+use crate::logic::{Op, Operation};
 use crate::memory::memory_stark::MemoryOp;
 use crate::{keccak, logic};
 
@@ -27,39 +27,26 @@ impl<F: Field> GenerationState<F> {
     /// Compute logical AND, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn and(&mut self, input0: U256, input1: U256) -> U256 {
-        let result = input0 & input1;
-        self.logic_ops.push(Operation {
-            operator: logic::Op::And,
-            input0,
-            input1,
-            result,
-        });
-        result
+        self.logic_op(Op::And, input0, input1)
     }
 
     /// Compute logical OR, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn or(&mut self, input0: U256, input1: U256) -> U256 {
-        let result = input0 | input1;
-        self.logic_ops.push(Operation {
-            operator: logic::Op::Or,
-            input0,
-            input1,
-            result,
-        });
-        result
+        self.logic_op(Op::Or, input0, input1)
     }
 
     /// Compute logical XOR, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn xor(&mut self, input0: U256, input1: U256) -> U256 {
-        let result = input0 ^ input1;
-        self.logic_ops.push(Operation {
-            operator: logic::Op::Xor,
-            input0,
-            input1,
-            result,
-        });
+        self.logic_op(Op::Xor, input0, input1)
+    }
+
+    /// Compute logical AND, and record the operation to be added in the logic table later.
+    pub(crate) fn logic_op(&mut self, op: Op, input0: U256, input1: U256) -> U256 {
+        let operation = Operation::new(op, input0, input1);
+        let result = operation.result;
+        self.logic_ops.push(operation);
         result
     }
 

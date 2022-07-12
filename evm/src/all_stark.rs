@@ -178,17 +178,13 @@ mod tests {
         logic_stark: &LogicStark<F, D>,
         rng: &mut R,
     ) -> Vec<PolynomialValues<F>> {
+        let all_ops = [logic::Op::And, logic::Op::Or, logic::Op::Xor];
         let ops = (0..num_rows)
             .map(|_| {
+                let op = all_ops[rng.gen_range(0..all_ops.len())];
                 let input0 = U256(rng.gen());
                 let input1 = U256(rng.gen());
-                let result = input0 ^ input1;
-                Operation {
-                    operator: logic::Op::Xor,
-                    input0,
-                    input1,
-                    result,
-                }
+                Operation::new(op, input0, input1)
             })
             .collect();
         logic_stark.generate_trace(ops)

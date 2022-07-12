@@ -12,7 +12,10 @@ use crate::util::trace_rows_to_poly_values;
 mod memory;
 pub(crate) mod state;
 
-pub type RlpMerkleProof = Vec<Vec<u8>>;
+pub type RlpBlob = Vec<u8>;
+
+/// Merkle proofs are encoded using an RLP blob for each node in the path.
+pub type RlpMerkleProof = Vec<RlpBlob>;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub struct TransactionData {
