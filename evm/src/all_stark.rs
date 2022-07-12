@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
@@ -132,7 +132,7 @@ mod tests {
     use ethereum_types::U256;
     use itertools::{izip, Itertools};
     use plonky2::field::polynomial::PolynomialValues;
-    use plonky2::field::types::Field;
+    use plonky2::field::types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
@@ -143,6 +143,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
+    use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark, Operation};
     use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
@@ -197,9 +198,11 @@ mod tests {
         num_memory_ops: usize,
         memory_stark: &MemoryStark<F, D>,
         rng: &mut R,
-    ) -> Vec<PolynomialValues<F>> {
+    ) -> (Vec<PolynomialValues<F>>, usize) {
         let memory_ops = generate_random_memory_ops(num_memory_ops, rng);
-        memory_stark.generate_trace(memory_ops)
+        let trace = memory_stark.generate_trace(memory_ops);
+        let num_ops = trace[0].values.len();
+        (trace, num_ops)
     }
 
     fn make_cpu_trace(
@@ -288,32 +291,34 @@ mod tests {
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
-
-        let mut current_cpu_index = 0;
-        let mut last_timestamp = memory_trace[memory::columns::TIMESTAMP].values[0];
         for i in 0..num_memory_ops {
-            let mem_timestamp = memory_trace[memory::columns::TIMESTAMP].values[i];
-            let clock = mem_timestamp;
-            let op = (0..NUM_CHANNELS)
-                .filter(|&o| memory_trace[memory::columns::is_channel(o)].values[i] == F::ONE)
-                .collect_vec()[0];
+            let mem_timestamp: usize = memory_trace[memory::columns::TIMESTAMP].values[i]
+                .to_canonical_u64()
+                .try_into()
+                .unwrap();
+            let clock = mem_timestamp / NUM_CHANNELS;
+            let channel = mem_timestamp % NUM_CHANNELS;
 
-            if mem_timestamp != last_timestamp {
-                current_cpu_index += 1;
-                last_timestamp = mem_timestamp;
-            }
+            let is_padding_row = (0..NUM_CHANNELS)
+                .map(|c| memory_trace[memory::columns::is_channel(c)].values[i])
+                .all(|x| x == F::ZERO);
 
-            let row: &mut cpu::columns::CpuColumnsView<F> =
-                cpu_trace_rows[current_cpu_index].borrow_mut();
+            if !is_padding_row {
+                let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
 
-            row.mem_channel_used[op] = F::ONE;
-            row.clock = clock;
-            row.mem_is_read[op] = memory_trace[memory::columns::IS_READ].values[i];
-            row.mem_addr_context[op] = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-            row.mem_addr_segment[op] = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-            row.mem_addr_virtual[op] = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
-            for j in 0..8 {
-                row.mem_value[op][j] = memory_trace[memory::columns::value_limb(j)].values[i];
+                row.mem_channel_used[channel] = F::ONE;
+                row.clock = F::from_canonical_usize(clock);
+                row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
+                row.mem_addr_context[channel] =
+                    memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+                row.mem_addr_segment[channel] =
+                    memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+                row.mem_addr_virtual[channel] =
+                    memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+                for j in 0..8 {
+                    row.mem_value[channel][j] =
+                        memory_trace[memory::columns::value_limb(j)].values[i];
+                }
             }
         }
 
@@ -336,6 +341,8 @@ mod tests {
         let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
         let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
         let mut memory_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
+        let mut memory_trace = mem_trace.0;
+        let num_memory_ops = mem_trace.1;
         let cpu_trace = make_cpu_trace(
             num_keccak_perms,
             num_logic_rows,
@@ -346,10 +353,13 @@ mod tests {
             &mut memory_trace,
         );
 
+        let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+        check_ctls(&traces, &all_stark.cross_table_lookups);
+
         let proof = prove::<F, C, D>(
             &all_stark,
             config,
-            vec![cpu_trace, keccak_trace, logic_trace, memory_trace],
+            traces,
             vec![vec![]; 4],
             &mut TimingTree::default(),
         )?;

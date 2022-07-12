@@ -1,5 +1,7 @@
 //! Memory registers.
 
+use std::ops::Range;
+
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 
 pub(crate) const TIMESTAMP: usize = 0;
@@ -36,20 +38,22 @@ pub(crate) const CONTEXT_FIRST_CHANGE: usize = SORTED_VALUE_START + VALUE_LIMBS;
 pub(crate) const SEGMENT_FIRST_CHANGE: usize = CONTEXT_FIRST_CHANGE + 1;
 pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 
+// Flags to indicate if this operation came from the `i`th channel of the memory bus.
+const IS_CHANNEL_START: usize = VIRTUAL_FIRST_CHANGE + 1;
+pub(crate) const fn is_channel(channel: usize) -> usize {
+    debug_assert!(channel < NUM_CHANNELS);
+    IS_CHANNEL_START + channel
+}
+
 // We use a range check to ensure sorting.
-pub(crate) const RANGE_CHECK: usize = VIRTUAL_FIRST_CHANGE + 1;
+pub(crate) const RANGE_CHECK: usize = IS_CHANNEL_START + NUM_CHANNELS;
 // The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 // Helper columns for the permutation argument used to enforce the range check.
 pub(crate) const RANGE_CHECK_PERMUTED: usize = COUNTER + 1;
 pub(crate) const COUNTER_PERMUTED: usize = RANGE_CHECK_PERMUTED + 1;
 
-// Flags to indicate if this operation came from the `i`th channel of the memory bus.
-const IS_CHANNEL_START: usize = COUNTER_PERMUTED + 1;
-#[allow(dead_code)]
-pub(crate) const fn is_channel(channel: usize) -> usize {
-    debug_assert!(channel < NUM_CHANNELS);
-    IS_CHANNEL_START + channel
-}
+// Columns to be padded at the top with zeroes, before the permutation argument takes place.
+pub(crate) const COLUMNS_TO_PAD: Range<usize> = TIMESTAMP..RANGE_CHECK + 1;
 
-pub(crate) const NUM_COLUMNS: usize = IS_CHANNEL_START + NUM_CHANNELS;
+pub(crate) const NUM_COLUMNS: usize = COUNTER_PERMUTED + 1;
