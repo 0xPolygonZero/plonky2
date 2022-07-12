@@ -44,7 +44,7 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(reg_step(NUM_ROUNDS - 1))
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct KeccakStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }

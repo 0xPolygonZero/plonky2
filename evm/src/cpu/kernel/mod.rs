@@ -1,5 +1,5 @@
 pub mod aggregator;
-mod assembler;
+pub mod assembler;
 mod ast;
 mod opcodes;
 mod parser;

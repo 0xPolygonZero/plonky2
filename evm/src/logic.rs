@@ -1,15 +1,17 @@
 use std::marker::PhantomData;
 
+use ethereum_types::U256;
 use itertools::izip;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
+use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
-use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 // Total number of bits per input/output.
@@ -61,71 +63,78 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
-enum Op {
-    // The `Zero` op is just for convenience. The all-zero row already satisfies the constraints;
-    // `Zero` lets us  call `generate` on it without crashing.
-    Zero,
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum Op {
     And,
     Or,
     Xor,
 }
 
-fn check_op_flags<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) -> Op {
-    let is_and = lv[columns::IS_AND].to_canonical_u64();
-    assert!(is_and <= 1);
-    let is_or = lv[columns::IS_OR].to_canonical_u64();
-    assert!(is_or <= 1);
-    let is_xor = lv[columns::IS_XOR].to_canonical_u64();
-    assert!(is_xor <= 1);
-    assert!(is_and + is_or + is_xor <= 1);
-    if is_and == 1 {
-        Op::And
-    } else if is_or == 1 {
-        Op::Or
-    } else if is_xor == 1 {
-        Op::Xor
-    } else {
-        Op::Zero
-    }
+#[derive(Debug)]
+pub(crate) struct Operation {
+    operator: Op,
+    input0: U256,
+    input1: U256,
+    pub(crate) result: U256,
 }
 
-fn check_bits<F: RichField>(lv: &[F; columns::NUM_COLUMNS]) {
-    for bit_cols in [columns::INPUT0, columns::INPUT1] {
-        for bit_col in bit_cols {
-            let bit = lv[bit_col].to_canonical_u64();
-            assert!(bit <= 1);
+impl Operation {
+    pub(crate) fn new(operator: Op, input0: U256, input1: U256) -> Self {
+        let result = match operator {
+            Op::And => input0 & input1,
+            Op::Or => input0 | input1,
+            Op::Xor => input0 ^ input1,
+        };
+        Operation {
+            operator,
+            input0,
+            input1,
+            result,
         }
     }
 }
 
-fn make_result<F: RichField>(lv: &mut [F; columns::NUM_COLUMNS], op: Op) {
-    for (res_col, limb_in0_cols, limb_in1_cols) in izip!(
-        columns::RESULT,
-        columns::limb_bit_cols_for_input(columns::INPUT0),
-        columns::limb_bit_cols_for_input(columns::INPUT1),
-    ) {
-        let limb_in0: u64 = limb_from_bits_le(limb_in0_cols.map(|col| lv[col])).to_canonical_u64();
-        let limb_in1: u64 = limb_from_bits_le(limb_in1_cols.map(|col| lv[col])).to_canonical_u64();
-        let res = match op {
-            Op::Zero => 0,
-            Op::And => limb_in0 & limb_in1,
-            Op::Or => limb_in0 | limb_in1,
-            Op::Xor => limb_in0 ^ limb_in1,
-        };
-        lv[res_col] = F::from_canonical_u64(res);
-    }
-}
-
 impl<F: RichField, const D: usize> LogicStark<F, D> {
-    pub fn generate(&self, lv: &mut [F; columns::NUM_COLUMNS]) {
-        let op = check_op_flags(lv);
-        check_bits(lv);
-        make_result(lv, op);
+    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+        let len = operations.len();
+        let padded_len = len.next_power_of_two();
+
+        let mut rows = Vec::with_capacity(padded_len);
+        for op in operations {
+            rows.push(Self::generate_row(op));
+        }
+
+        // Pad to a power of two.
+        for _ in len..padded_len {
+            rows.push([F::ZERO; columns::NUM_COLUMNS]);
+        }
+
+        trace_rows_to_poly_values(rows)
+    }
+
+    fn generate_row(operation: Operation) -> [F; columns::NUM_COLUMNS] {
+        let mut row = [F::ZERO; columns::NUM_COLUMNS];
+        match operation.operator {
+            Op::And => row[columns::IS_AND] = F::ONE,
+            Op::Or => row[columns::IS_OR] = F::ONE,
+            Op::Xor => row[columns::IS_XOR] = F::ONE,
+        }
+        for (i, col) in columns::INPUT0.enumerate() {
+            row[col] = F::from_bool(operation.input0.bit(i));
+        }
+        for (i, col) in columns::INPUT1.enumerate() {
+            row[col] = F::from_bool(operation.input1.bit(i));
+        }
+        for (i, col) in columns::RESULT.enumerate() {
+            let bit_range = i * PACKED_LIMB_BITS..(i + 1) * PACKED_LIMB_BITS;
+            row[col] = limb_from_bits_le(bit_range.map(|j| F::from_bool(operation.result.bit(j))));
+        }
+        row
     }
 }
 

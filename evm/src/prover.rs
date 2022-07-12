@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::{ensure, Result};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
@@ -563,6 +565,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         .collect::<Vec<_>>();
 
     for v in constraint_values {
-        assert!(v.iter().all(|x| x.is_zero()));
+        assert!(
+            v.iter().all(|x| x.is_zero()),
+            "Constraint failed in {}",
+            type_name::<S>()
+        );
     }
 }

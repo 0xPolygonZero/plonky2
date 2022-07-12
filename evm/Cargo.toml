@@ -18,7 +18,11 @@ pest_derive = "2.1.0"
 rayon = "1.5.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+rlp = "0.5.1"
 keccak-rust = { git = "https://github.com/npwardberkeley/keccak-rust" }
+
+[dev-dependencies]
+hex-literal = "0.3.4"
 
 [features]
 asmtools = ["hex"]
