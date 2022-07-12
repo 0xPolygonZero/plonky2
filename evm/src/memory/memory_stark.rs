@@ -197,14 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         &self,
         mut memory_ops: Vec<MemoryOp<F>>,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        memory_ops.sort_by_key(|op| {
-            (
-                op.context.to_canonical_u64(),
-                op.segment.to_canonical_u64(),
-                op.virt.to_canonical_u64(),
-                op.timestamp.to_canonical_u64(),
-            )
-        });
+        memory_ops.sort_by_key(|op| (op.context, op.segment, op.virt, op.timestamp));
 
         let num_ops = memory_ops.len();
 
