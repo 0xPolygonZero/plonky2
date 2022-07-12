@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 
-// Columns for the same memory operations, ordered by (addr, timestamp).
+// Columns for memory operations, ordered by (addr, timestamp).
 pub(crate) const TIMESTAMP: usize = 0;
 pub(crate) const IS_READ: usize = TIMESTAMP + 1;
 pub(crate) const ADDR_CONTEXT: usize = IS_READ + 1;
