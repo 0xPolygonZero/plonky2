@@ -340,7 +340,7 @@ mod tests {
 
         let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
         let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
-        let mut memory_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
+        let mem_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
         let mut memory_trace = mem_trace.0;
         let num_memory_ops = mem_trace.1;
         let cpu_trace = make_cpu_trace(
