@@ -4,9 +4,9 @@
 // Returns y * (x^-1) where the inverse is taken modulo N
 %macro moddiv_secp
     // stack: x, y
-    %inverse
+    %inverse_secp
     // stack: x^-1, y
-    %mulmodn
+    %mulmodn_secp
 %endmacro
 
 %macro mulmodn_secp
@@ -26,761 +26,759 @@
 %endmacro
 
 // Computes the inverse modulo N using x^-1 = x^(N-2) mod N and square-and-multiply modular exponentiation.
-%macro inverse
+%macro inverse_secp
     DUP1
-    %squaremodn
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
-    %squaremodn
-    %squaremodn
-    %squaremodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
+    %mulmodn_secp
+    %squaremodn_secp
+    %squaremodn_secp
     DUP2
-    %mulmodn
-    %squaremodn
-    DUP2
-    %mulmodn
+    %mulmodn_secp
     SWAP1
     // stack: x, x^-1
     POP
