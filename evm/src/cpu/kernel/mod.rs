@@ -6,6 +6,8 @@ mod parser;
 
 #[cfg(test)]
 mod interpreter;
+#[cfg(test)]
+mod tests;
 
 use assembler::assemble;
 use parser::parse;
