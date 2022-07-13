@@ -148,7 +148,7 @@ mod secp {
         let kernel = combined_kernel();
         let ec_add = kernel.global_labels["ec_add_secp"];
         let ec_double = kernel.global_labels["ec_double_secp"];
-        let ec_mul = kernel.global_labels["ec_mul"];
+        let ec_mul = kernel.global_labels["ec_mul_secp"];
         let identity = ("0x0", "0x0");
         let invalid = ("0x0", "0x3"); // Not on curve
         let point0 = (
