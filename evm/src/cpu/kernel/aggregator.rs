@@ -36,6 +36,7 @@ mod tests {
 
     use anyhow::Result;
     use ethereum_types::U256;
+    use log::debug;
     use rand::{thread_rng, Rng};
 
     use crate::cpu::kernel::aggregator::combined_kernel;
@@ -43,9 +44,13 @@ mod tests {
 
     #[test]
     fn make_kernel() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_timestamp(None)
+            .try_init();
+
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        println!("Kernel size: {} bytes", kernel.code.len());
+        debug!("Total kernel size: {} bytes", kernel.code.len());
     }
 
     fn u256ify<'a>(hexes: impl IntoIterator<Item = &'a str>) -> Result<Vec<U256>> {
