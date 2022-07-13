@@ -256,7 +256,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
     fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp<F>>) {
         let num_ops = memory_ops.len();
-        let max_range_check = get_max_range_check(&memory_ops);
+        let max_range_check = get_max_range_check(memory_ops);
         let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
         let to_pad = num_ops_padded - num_ops;
 
