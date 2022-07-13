@@ -67,7 +67,8 @@ fn find_macros(files: &[File]) -> HashMap<String, Macro> {
                     params: params.clone(),
                     items: items.clone(),
                 };
-                macros.insert(name.clone(), _macro);
+                let old = macros.insert(name.clone(), _macro);
+                assert!(old.is_none(), "Duplicate macro: {name}");
             }
         }
     }
