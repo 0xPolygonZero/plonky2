@@ -229,3 +229,27 @@
     %select_bool
     // stack: max
 %endmacro
+
+%macro increment
+    push 1
+    swap1
+    sub
+%endmacro
+
+%macro decrement
+    push 1
+    swap1
+    sub
+%endmacro
+
+%macro div2
+    push 2
+    swap1
+    div
+%endmacro
+
+%macro eq(x)
+    dup1
+    push $x
+    eq
+%endmacro
