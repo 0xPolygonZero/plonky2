@@ -23,11 +23,6 @@
     %pop2
 %endmacro
 
-%macro pop5
-    %pop2
-    %pop3
-%endmacro
-
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z

@@ -1,26 +1,33 @@
+// ecrecover precompile.
 global ecrecover:
     JUMPDEST
     // stack: hash, v, r, s, retdest
+
+    // Check if inputs are valid.
     %ecrecover_input_check
     // stack: isValid(v,r,s), hash, v, r, s, retdest
+
+    // Lift r to an elliptic curve point if possible.
     SWAP2
     // stack: v, hash, isValid(v,r,s), r, s, retdest
     DUP4
     // stack: r, v, hash, isValid(v,r,s), r, s, retdest
     %secp_lift_x
-    // stack: sqrtOk, x, y, hash, isValid(v,r,s), r, s, retdest
-    SWAP1
-    // stack: x, sqrtOk, y, hash, isValid(v,r,s), r, s, retdest
-    SWAP4
-    // stack: isValid(v,r,s), sqrtOk, y, hash, x, r, s, retdest
+    // stack: y, sqrtOk, hash, isValid(v,r,s), r, s, retdest
+
+    // If inputs are invalid or lifting fails, abort.
+    SWAP3
+    // stack: isValid(v,r,s), sqrtOk, hash, y, r, s, retdest
     AND
-    // stack: isValid(v,r,s) & sqrtOk, y, hash, x, r, s, retdest
+    // stack: isValid(v,r,s) & sqrtOk, hash, y, r, s, retdest
     %jumpi(ecrecover_valid_input)
-    // stack: y, hash, x, r, s, retdest
-    %pop5
+    // stack: hash, y, r, s, retdest
+    %pop4
     // stack: retdest
     %ecrecover_invalid_input
 
+// ecrecover precompile.
+// Assumption: Inputs are valid.
 // Pseudo-code:
 // let P = lift_x(r, recovery_id);
 // let r_inv = r.inverse();
@@ -29,13 +36,10 @@ global ecrecover:
 // return u1*P + u2*GENERATOR;
 ecrecover_valid_input:
     JUMPDEST
-    // stack: y, hash, x, r, s, retdest
-    SWAP1
-    // stack: hash, y, x, r, s, retdest
-    SWAP2
-    // stack: x, y, hash, r, s, retdest
-    SWAP3
-    // stack: r, y, hash, x, s, retdest
+    // stack: hash, y, r, s, retdest
+    DUP3
+    // stack: r, y, hash, r, s, retdest
+    STOP
     %inverse_secp_scalar
     // stack: r^(-1), y, hash, x, s, retdest
     DUP1

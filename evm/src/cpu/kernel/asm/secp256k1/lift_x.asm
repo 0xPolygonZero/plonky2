@@ -1,55 +1,51 @@
 %macro secp_lift_x
     // stack: x, v
-    DUP1
-    // stack: x, x, v
     %cubemodn_secp
-    // stack: x^3, x, v
+    // stack: x^3, v
     PUSH 7
-    // stack: 7, x^3, x, v
+    // stack: 7, x^3, v
     %addmodn_secp
     // stack: x^3+7, x, v
     DUP1
-    // stack: x^3+7, x^3+7, x, v
+    // stack: x^3+7, x^3+7, v
     %sqrt_secp
     // stack: y, x^3+7, x, v
     SWAP1
-    // stack: x^3+7, y, x, v
+    // stack: x^3+7, y, v
     DUP2
-    // stack: y, x^3+7, y, x, v
+    // stack: y, x^3+7, y, v
     %squaremodn_secp
-    // stack: y^2, x^3+7, y, x, v
+    // stack: y^2, x^3+7, y, v
     EQ
-    // stack: sqrtOk, y, x, v
-    SWAP3
-    // stack: v, y, x, sqrtOk
+    // stack: sqrtOk, y, v
+    SWAP2
+    // stack: v, y, sqrtOk
     DUP2
-    // stack: y, v, y, x, sqrtOk
+    // stack: y, v, y, sqrtOk
     PUSH 1
-    // stack: 1, y, v, y, x, sqrtOk
+    // stack: 1, y, v, y, sqrtOk
     AND
-    // stack: 1 & y, v, y, x, sqrtOk
+    // stack: 1 & y, v, y, sqrtOk
     PUSH 27
-    // stack: 27, 1 & y, v, y, x, sqrtOk
+    // stack: 27, 1 & y, v, y, sqrtOk
     SWAP1
-    // stack: 1 & y, 27, v, y, x, sqrtOk
+    // stack: 1 & y, 27, v, y, sqrtOk
     SWAP2
-    // stack: v, 27, 1 & y, y, x, sqrtOk
+    // stack: v, 27, 1 & y, y, sqrtOk
     SUB
-    // stack: v - 27, 1 & y, y, x, sqrtOk
+    // stack: v - 27, 1 & y, y, sqrtOk
     EQ
-    // stack: correctParity, y, x, sqrtOk
+    // stack: correctParity, y, sqrtOk
     DUP2
-    // stack: y, correctParity, y, x, sqrtOk
+    // stack: y, correctParity, y, sqrtOk
     %secp_base
-    // stack: N, y, correctParity, y, x, sqrtOk
+    // stack: N, y, correctParity, y, sqrtOk
     SUB
-    // stack: N - y, correctParity, y, x, sqrtOk
+    // stack: N - y, correctParity, y, sqrtOk
     SWAP1
-    // stack: correctParity, N - y, y, x, sqrtOk
+    // stack: correctParity, N - y, y, sqrtOk
     %select_bool
-    // stack: goody, x, sqrtOk
-    SWAP2
-    // stack: sqrtOk, x, goody
+    // stack: goody, sqrtOk
 %endmacro
 
 %macro cubemodn_secp
