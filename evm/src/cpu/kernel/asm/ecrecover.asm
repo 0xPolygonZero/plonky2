@@ -5,7 +5,7 @@ global ecrecover:
     // stack: isValid(v,r,s), hash, v, r, s, retdest
     %jumpi(ecrecover_valid_input)
     // stack: hash, v, r, s, retdest
-    %pop(4)
+    %pop4
     // stack: retdest
     %ecrecover_invalid_input
 
