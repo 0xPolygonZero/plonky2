@@ -8,36 +8,48 @@
     // stack: 7, x^3, x, v
     %addmodn_secp
     // stack: x^3+7, x, v
-    %sqrt_secp
-    // stack: y, x, v
     DUP1
-    // stack: y, y, x, v
-    PUSH 1
-    // stack: 1, y, y, x, v
-    AND
-    // stack: 1 & y, y, x, v
-    PUSH 27
-    // stack: 27, 1 & y, y, x, v
-    DUP5
-    // stack: v, 27, 1 & y, y, x, v
-    SUB
-    // stack: v - 27, 1 & y, y, x, v
-    EQ
-    // stack: correctParity, y, x, v
-    DUP2
-    // stack: y, correctParity, y, x, v
-    %secp_base
-    // stack: N, y, correctParity, y, x, v
-    SUB
-    // stack: N - y, correctParity, y, x, v
+    // stack: x^3+7, x^3+7, x, v
+    %sqrt_secp
+    // stack: y, x^3+7, x, v
     SWAP1
-    // stack: correctParity, N - y, y, x, v
-    %select_bool
-    // stack: goody, x, v
+    // stack: x^3+7, y, x, v
+    DUP2
+    // stack: y, x^3+7, y, x, v
+    %squaremodn_secp
+    // stack: y^2, x^3+7, y, x, v
+    EQ
+    // stack: sqrtOk, y, x, v
+    SWAP3
+    // stack: v, y, x, sqrtOk
+    DUP2
+    // stack: y, v, y, x, sqrtOk
+    PUSH 1
+    // stack: 1, y, v, y, x, sqrtOk
+    AND
+    // stack: 1 & y, v, y, x, sqrtOk
+    PUSH 27
+    // stack: 27, 1 & y, v, y, x, sqrtOk
+    SWAP1
+    // stack: 1 & y, 27, v, y, x, sqrtOk
     SWAP2
-    // stack: v, x, goody
-    POP
-    // stack: x, goody
+    // stack: v, 27, 1 & y, y, x, sqrtOk
+    SUB
+    // stack: v - 27, 1 & y, y, x, sqrtOk
+    EQ
+    // stack: correctParity, y, x, sqrtOk
+    DUP2
+    // stack: y, correctParity, y, x, sqrtOk
+    %secp_base
+    // stack: N, y, correctParity, y, x, sqrtOk
+    SUB
+    // stack: N - y, correctParity, y, x, sqrtOk
+    SWAP1
+    // stack: correctParity, N - y, y, x, sqrtOk
+    %select_bool
+    // stack: goody, x, sqrtOk
+    SWAP2
+    // stack: sqrtOk, x, goody
 %endmacro
 
 %macro cubemodn_secp

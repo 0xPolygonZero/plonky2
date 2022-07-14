@@ -3,9 +3,21 @@ global ecrecover:
     // stack: hash, v, r, s, retdest
     %ecrecover_input_check
     // stack: isValid(v,r,s), hash, v, r, s, retdest
+    SWAP2
+    // stack: v, hash, isValid(v,r,s), r, s, retdest
+    DUP4
+    // stack: r, v, hash, isValid(v,r,s), r, s, retdest
+    %secp_lift_x
+    // stack: sqrtOk, x, y, hash, isValid(v,r,s), r, s, retdest
+    SWAP1
+    // stack: x, sqrtOk, y, hash, isValid(v,r,s), r, s, retdest
+    SWAP4
+    // stack: isValid(v,r,s), sqrtOk, y, hash, x, r, s, retdest
+    AND
+    // stack: isValid(v,r,s) & sqrtOk, y, hash, x, r, s, retdest
     %jumpi(ecrecover_valid_input)
-    // stack: hash, v, r, s, retdest
-    %pop4
+    // stack: y, hash, x, r, s, retdest
+    %pop5
     // stack: retdest
     %ecrecover_invalid_input
 
@@ -17,12 +29,10 @@ global ecrecover:
 // return u1*P + u2*GENERATOR;
 ecrecover_valid_input:
     JUMPDEST
-    // stack: hash, v, r, s, retdest
+    // stack: y, hash, x, r, s, retdest
     SWAP1
-    // stack:  v, hash, r, s, retdest
-    DUP3
-    // stack:  r, v, hash, r, s, retdest
-    %secp_lift_x
+    // stack: hash, y, x, r, s, retdest
+    SWAP2
     // stack: x, y, hash, r, s, retdest
     SWAP3
     // stack: r, y, hash, x, s, retdest
