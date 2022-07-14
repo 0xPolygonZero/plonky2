@@ -138,7 +138,6 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_stop(&mut self) {
-        dbg!(&self.stack);
         self.running = false;
     }
 

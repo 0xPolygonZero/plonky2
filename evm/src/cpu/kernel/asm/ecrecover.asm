@@ -37,9 +37,12 @@ global ecrecover:
 ecrecover_valid_input:
     JUMPDEST
     // stack: hash, y, r, s, retdest
+
+    // Compute u1 = s * r^(-1)
+    SWAP1
+    // stack: y, hash, r, s, retdest
     DUP3
-    // stack: r, y, hash, r, s, retdest
-    STOP
+    // stack: r, y, hash, x, s, retdest (r=x)
     %inverse_secp_scalar
     // stack: r^(-1), y, hash, x, s, retdest
     DUP1
@@ -48,6 +51,9 @@ ecrecover_valid_input:
     // stack: s, r^(-1), y, hash, x, r^(-1), retdest
     %mulmodn_secp_scalar
     // stack: u1, y, hash, x, r^(-1), retdest
+
+
+    // Compute (X,Y) = u1 * (x,y)
     PUSH ecrecover_with_first_point
     // stack: ecrecover_with_first_point, u1, y, hash, x, r^(-1), retdest
     SWAP1
@@ -62,6 +68,8 @@ ecrecover_valid_input:
     // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
     %jump(ec_mul_valid_point_secp)
 
+// ecrecover precompile.
+// Assumption: (X,Y) = u1 * P. Result is (X,Y) + u2*GENERATOR
 ecrecover_with_first_point:
     JUMPDEST
     // stack: X, Y, hash, r^(-1), retdest
@@ -75,6 +83,8 @@ ecrecover_with_first_point:
     // stack: Y, p, r^(-1), hash, X, retdest
     SWAP3
     // stack: hash, p, r^(-1), Y, X, retdest
+
+    // Compute u2 = -hash * r^(-1)
     MOD
     // stack: hash%p, r^(-1), Y, X, retdest
     %secp_scalar
@@ -83,6 +93,9 @@ ecrecover_with_first_point:
     // stack: -hash, r^(-1), Y, X, retdest
     %mulmodn_secp_scalar
     // stack: u2, Y, X, retdest
+
+    // Compute u2 * GENERATOR and chain the call to `ec_mul` with a call to `ec_add` to compute PUBKEY = (X,Y) + u2 * GENERATOR,
+    // and a call to `final_hashing` to get the final result `SHA3(PUBKEY)[-20:]`.
     PUSH final_hashing
     // stack: final_hashing, u2, Y, X, retdest
     SWAP3

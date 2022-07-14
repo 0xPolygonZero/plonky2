@@ -1,3 +1,5 @@
+// Returns y such that (x,y) is on Secp256k1 and y&1 = v - 27,
+// as well as a flag indicating whether such a y exists.
 %macro secp_lift_x
     // stack: x, v
     %cubemodn_secp
