@@ -48,23 +48,6 @@ ecrecover_valid_input:
     // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
     %jump(ec_mul_valid_point_secp)
 
-    SWAP2
-    // stack: hash, y, u1, x, r^(-1), retdest
-    SWAP3
-    // stack: x, y, u1, hash, r^(-1), retdest
-    SWAP4
-    // stack: r^(-1), y, hash, x, u1, retdest
-    SWAP1
-    // stack: y, r^(-1), hash, x, u1, retdest
-    SWAP2
-    // stack: hash, r^(-1), y, x, u1, retdest
-    %secp_scalar
-    // stack: p, hash, r^(-1), y, x, u1, retdest
-    SUB
-    // stack: p - hash, r^(-1), y, x, u1, retdest // Assume hash < p, should be hard (127-bit) to find a hash larger than p.
-    %mulmodn_secp_scalar
-    // stack: u2, y, x, u1, retdest // Assume hash < p, should be hard (127-bit) to find a hash larger than p.
-
 ecrecover_with_first_point:
     JUMPDEST
     // stack: X, Y, hash, r^(-1), retdest
