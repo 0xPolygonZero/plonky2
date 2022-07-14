@@ -1,21 +1,29 @@
 use ethereum_types::{U256, U512};
 
+/// Halt interpreter execution whenever a jump to this offset is done.
+const HALT_OFFSET: usize = 0xdeadbeef;
+
 struct Interpreter<'a> {
     code: &'a [u8],
+    jumpdests: Vec<usize>,
     offset: usize,
     stack: Vec<U256>,
+    running: bool,
 }
 
 pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<U256> {
     let mut interpreter = Interpreter {
         code,
+        jumpdests: find_jumpdests(code),
         offset: initial_offset,
         stack: initial_stack,
+        running: true,
     };
-    // Halt the execution if a jump to 0xdeadbeef was done.
-    while interpreter.offset != 0xdeadbeef {
+
+    while interpreter.running {
         interpreter.run_opcode();
     }
+
     interpreter.stack
 }
 
@@ -41,10 +49,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_opcode(&mut self) {
-        let opcode = self.code[self.offset];
+        let opcode = self.code.get(self.offset).copied().unwrap_or_default();
         self.incr(1);
         match opcode {
-            0x00 => todo!(),                                           // "STOP",
+            0x00 => self.run_stop(),                                   // "STOP",
             0x01 => self.run_add(),                                    // "ADD",
             0x02 => self.run_mul(),                                    // "MUL",
             0x03 => self.run_sub(),                                    // "SUB",
@@ -127,6 +135,10 @@ impl<'a> Interpreter<'a> {
             0xff => todo!(),                                           // "SELFDESTRUCT",
             _ => panic!("Unrecognized opcode {}.", opcode),
         };
+    }
+
+    fn run_stop(&mut self) {
+        self.running = false;
     }
 
     fn run_add(&mut self) {
@@ -240,8 +252,10 @@ impl<'a> Interpreter<'a> {
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
         self.offset = x;
-        if let Some(&landing_opcode) = self.code.get(self.offset) {
-            assert_eq!(landing_opcode, 0x5b, "Destination is not a JUMPDEST.");
+        if self.offset == HALT_OFFSET {
+            self.running = false;
+        } else if self.jumpdests.binary_search(&self.offset).is_err() {
+            panic!("Destination is not a JUMPDEST.");
         }
     }
 
@@ -250,8 +264,10 @@ impl<'a> Interpreter<'a> {
         let b = self.pop();
         if !b.is_zero() {
             self.offset = x;
-            if let Some(&landing_opcode) = self.code.get(self.offset) {
-                assert_eq!(landing_opcode, 0x5b, "Destination is not a JUMPDEST.");
+            if self.offset == HALT_OFFSET {
+                self.running = false;
+            } else if self.jumpdests.binary_search(&self.offset).is_err() {
+                panic!("Destination is not a JUMPDEST.");
             }
         }
     }
@@ -270,6 +286,22 @@ impl<'a> Interpreter<'a> {
         let len = self.stack.len();
         self.stack.swap(len - 1, len - n as usize - 1);
     }
+}
+
+/// Return the (ordered) JUMPDEST offsets in the code.
+fn find_jumpdests(code: &[u8]) -> Vec<usize> {
+    let mut offset = 0;
+    let mut res = Vec::new();
+    while offset < code.len() {
+        let opcode = code[offset];
+        match opcode {
+            0x5b => res.push(offset),
+            x if (0x60..0x80).contains(&x) => offset += x as usize - 0x5f, // PUSH instruction, disregard data.
+            _ => (),
+        }
+        offset += 1;
+    }
+    res
 }
 
 #[cfg(test)]
