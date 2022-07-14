@@ -17,13 +17,13 @@ global ec_mul_secp:
     // stack: x, y, x, y, s, retdest
     %ec_check_secp
     // stack: isValid(x, y), x, y, s, retdest
-    %jumpi(ec_mul_valid_point)
+    %jumpi(ec_mul_valid_point_secp)
     // stack: x, y, s, retdest
     %pop3
     %ec_invalid_input
 
 // Same algorithm as in `exp.asm`
-ec_mul_valid_point:
+global ec_mul_valid_point_secp:
     JUMPDEST
     // stack: x, y, s, retdest
     DUP3
@@ -55,7 +55,7 @@ step_case:
 step_case_contd:
     JUMPDEST
     // stack: x', y', s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_mul_valid_point)
+    %jump(ec_mul_valid_point_secp)
 
 recursion_return:
     JUMPDEST

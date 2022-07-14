@@ -7,11 +7,112 @@ global ecrecover:
     // stack: hash, v, r, s, retdest
     %pop(4)
     // stack: retdest
-    %ecrecover_invalid_input // TODO: Return correct invalid input
+    %ecrecover_invalid_input
 
+// Pseudo-code:
+// let P = lift_x(r, recovery_id);
+// let r_inv = r.inverse();
+// let u1 = s * r_inv;
+// let u2 = -hash * r_inv;
+// return u1*P + u2*GENERATOR;
 ecrecover_valid_input:
     JUMPDEST
     // stack: hash, v, r, s, retdest
+    SWAP1
+    // stack:  v, hash, r, s, retdest
+    DUP3
+    // stack:  r, v, hash, r, s, retdest
+    %secp_lift_x
+    // stack: x, y, hash, r, s, retdest
+    SWAP3
+    // stack: r, y, hash, x, s, retdest
+    %inverse_secp_scalar
+    // stack: r^(-1), y, hash, x, s, retdest
+    DUP1
+    // stack: r^(-1), r^(-1), y, hash, x, s, retdest
+    SWAP5
+    // stack: s, r^(-1), y, hash, x, r^(-1), retdest
+    %mulmodn_secp_scalar
+    // stack: u1, y, hash, x, r^(-1), retdest
+    PUSH ecrecover_with_first_point
+    // stack: ecrecover_with_first_point, u1, y, hash, x, r^(-1), retdest
+    SWAP1
+    // stack: u1, ecrecover_with_first_point, y, hash, x, r^(-1), retdest
+    SWAP2
+    // stack: y, ecrecover_with_first_point, u1, hash, x, r^(-1), retdest
+    SWAP1
+    // stack: ecrecover_with_first_point, y, u1, hash, x, r^(-1), retdest
+    SWAP3
+    // stack: hash, y, u1, ecrecover_with_first_point, x, r^(-1), retdest
+    SWAP4
+    // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
+    %jump(ec_mul_valid_point_secp)
+
+    SWAP2
+    // stack: hash, y, u1, x, r^(-1), retdest
+    SWAP3
+    // stack: x, y, u1, hash, r^(-1), retdest
+    SWAP4
+    // stack: r^(-1), y, hash, x, u1, retdest
+    SWAP1
+    // stack: y, r^(-1), hash, x, u1, retdest
+    SWAP2
+    // stack: hash, r^(-1), y, x, u1, retdest
+    %secp_scalar
+    // stack: p, hash, r^(-1), y, x, u1, retdest
+    SUB
+    // stack: p - hash, r^(-1), y, x, u1, retdest // Assume hash < p, should be hard (127-bit) to find a hash larger than p.
+    %mulmodn_secp_scalar
+    // stack: u2, y, x, u1, retdest // Assume hash < p, should be hard (127-bit) to find a hash larger than p.
+
+ecrecover_with_first_point:
+    JUMPDEST
+    // stack: X, Y, hash, r^(-1), retdest
+    %secp_scalar
+    // stack: p, X, Y, hash, r^(-1), retdest
+    SWAP1
+    // stack: X, p, Y, hash, r^(-1), retdest
+    SWAP4
+    // stack: r^(-1), p, Y, hash, X, retdest
+    SWAP2
+    // stack: Y, p, r^(-1), hash, X, retdest
+    SWAP3
+    // stack: hash, p, r^(-1), Y, X, retdest
+    MOD
+    // stack: hash%p, r^(-1), Y, X, retdest
+    %secp_scalar
+    // stack: p, hash%p, r^(-1), Y, X, retdest
+    SUB
+    // stack: -hash, r^(-1), Y, X, retdest
+    %mulmodn_secp_scalar
+    // stack: u2, Y, X, retdest
+    PUSH 8
+    // stack: final_hashing, u2, Y, X, retdest
+    SWAP3
+    // stack: X, u2, Y, final_hashing, retdest
+    PUSH 7
+    // stack: ec_add_valid_points_secp, X, u2, Y, final_hashing, retdest
+    SWAP1
+    // stack: X, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    PUSH 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 // x-coordinate of generator
+    // stack: Gx, X, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    SWAP1
+    // stack: X, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    PUSH 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 // y-coordinate of generator
+    // stack: Gy, X, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    SWAP1
+    // stack: X, Gy, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    SWAP4
+    // stack: u2, Gy, Gx, ec_add_valid_points_secp, X, Y, final_hashing, retdest
+    SWAP2
+    // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, final_hashing, retdest
+    %jump(ec_mul_valid_point_secp)
+
+// TODO
+final_hashing:
+    JUMPDEST
+    PUSH 0xdeadbeef
+    JUMP
 
 // Check if v, r, and s are in correct form.
 // Returns r < N & r!=0 & s < N & s!=0 & (v==28 || v==27).
@@ -73,14 +174,12 @@ ecrecover_valid_input:
     PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
 %endmacro
 
-// Return (u256::MAX, u256::MAX) which is used to indicate the input was invalid.
+// Return u256::MAX which is used to indicate the input was invalid.
 %macro ecrecover_invalid_input
     // stack: retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     // stack: u256::MAX, retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-    // stack: u256::MAX, u256::MAX, retdest
-    SWAP2
-    // stack: retdest, u256::MAX, u256::MAX
+    SWAP1
+    // stack: retdest, u256::MAX
     JUMP
 %endmacro
