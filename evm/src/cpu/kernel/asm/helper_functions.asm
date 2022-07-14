@@ -41,48 +41,63 @@ case1:
 case2:
     JUMPDEST
     swap2
+    %jump(swapn_end)
 case3:
     JUMPDEST
     swap3
+    %jump(swapn_end)
 case4:
     JUMPDEST
     swap4
+    %jump(swapn_end)
 case5:
     JUMPDEST
     swap5
+    %jump(swapn_end)
 case6:
     JUMPDEST
     swap6
+    %jump(swapn_end)
 case7:
     JUMPDEST
     swap7
+    %jump(swapn_end)
 case8:
     JUMPDEST
     swap8
+    %jump(swapn_end)
 case9:
     JUMPDEST
     swap9
+    %jump(swapn_end)
 case10:
     JUMPDEST
     swap10
+    %jump(swapn_end)
 case11:
     JUMPDEST
     swap11
+    %jump(swapn_end)
 case12:
     JUMPDEST
     swap12
+    %jump(swapn_end)
 case13:
     JUMPDEST
     swap13
+    %jump(swapn_end)
 case14:
     JUMPDEST
     swap14
+    %jump(swapn_end)
 case15:
     JUMPDEST
     swap15
+    %jump(swapn_end)
 case16:
     JUMPDEST
     swap16
+    %jump(swapn_end)
 swapn_end:
     JUMPDEST
 
