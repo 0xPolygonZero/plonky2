@@ -68,8 +68,8 @@ global sha2_append1:
     %count_bits
     // stack: num_bits, x[num_u256s-1]
     %eq(256)
-    %jumpi(pad_if256)
-    %jump(pad_else)
+    %jumpi(append_if256)
+    %jump(append_else)
 append_if256:
     JUMPDEST
     // stack: num_bits, x[num_u256s-1]
@@ -89,7 +89,7 @@ append_if256:
     swap1
     // stack: num_u256s+1, 1
     mstore
-    %jump(pad_end)
+    %jump(append_end)
 append_else:
     JUMPDEST
     // stack: num_bits, x[num_u256s-1]
