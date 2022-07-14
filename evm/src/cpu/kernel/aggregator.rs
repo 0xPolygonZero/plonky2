@@ -38,12 +38,23 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use anyhow::Result;
+    use ethereum_types::U256;
+    use log::debug;
+    use rand::{thread_rng, Rng};
+
     use crate::cpu::kernel::aggregator::combined_kernel;
 
     #[test]
     fn make_kernel() {
+        let _ = env_logger::Builder::from_default_env()
+            .format_timestamp(None)
+            .try_init();
+
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        println!("Kernel size: {} bytes", kernel.code.len());
+        debug!("Total kernel size: {} bytes", kernel.code.len());
     }
 }

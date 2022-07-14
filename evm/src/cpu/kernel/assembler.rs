@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use itertools::izip;
+use log::debug;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::Literal;
@@ -49,7 +50,10 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
     }
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
+        let prev_len = code.len();
         assemble_file(file, &mut code, locals, &global_labels);
+        let file_len = code.len() - prev_len;
+        debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
     Kernel {

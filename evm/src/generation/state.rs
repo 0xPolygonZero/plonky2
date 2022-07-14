@@ -62,7 +62,7 @@ impl<F: Field> GenerationState<F> {
         let context = self.current_context;
         let value = self.memory.contexts[context].segments[segment].get(virt);
         self.memory.log.push(MemoryOp {
-            channel_index,
+            channel_index: Some(channel_index),
             timestamp,
             is_read: true,
             context,
@@ -84,7 +84,7 @@ impl<F: Field> GenerationState<F> {
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
         self.memory.log.push(MemoryOp {
-            channel_index,
+            channel_index: Some(channel_index),
             timestamp,
             is_read: false,
             context,
