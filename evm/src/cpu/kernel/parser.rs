@@ -23,6 +23,7 @@ fn parse_item(item: Pair<Rule>) -> Item {
     match item.as_rule() {
         Rule::macro_def => parse_macro_def(item),
         Rule::macro_call => parse_macro_call(item),
+        Rule::repeat => parse_repeat(item),
         Rule::global_label => {
             Item::GlobalLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
@@ -68,6 +69,13 @@ fn parse_macro_call(item: Pair<Rule>) -> Item {
     };
 
     Item::MacroCall(name, args)
+}
+
+fn parse_repeat(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::repeat);
+    let mut inner = item.into_inner().peekable();
+    let count = parse_literal(inner.next().unwrap());
+    Item::Repeat(count, inner.map(parse_item).collect())
 }
 
 fn parse_push_target(target: Pair<Rule>) -> PushTarget {

@@ -12,6 +12,8 @@ pub(crate) enum Item {
     MacroDef(String, Vec<String>, Vec<Item>),
     /// Calls a macro: name, args.
     MacroCall(String, Vec<PushTarget>),
+    /// Repetition, like `%rep` in NASM.
+    Repeat(Literal, Vec<Item>),
     /// Declares a global label.
     GlobalLabelDeclaration(String),
     /// Declares a label that is local to the current file.
