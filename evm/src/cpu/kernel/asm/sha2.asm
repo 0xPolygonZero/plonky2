@@ -56,7 +56,7 @@ sha2_store_end:
 
 
 
-global sha2_pad:
+global sha2_append1:
     // TODO: use kernel memory, and start address not at 0
     push 0
     mload
@@ -70,7 +70,7 @@ global sha2_pad:
     %eq(256)
     %jumpi(pad_if256)
     %jump(pad_else)
-pad_if256:
+append_if256:
     JUMPDEST
     // stack: num_bits, x[num_u256s-1]
     %pop2
@@ -90,7 +90,7 @@ pad_if256:
     // stack: num_u256s+1, 1
     mstore
     %jump(pad_end)
-pad_else:
+append_else:
     JUMPDEST
     // stack: num_bits, x[num_u256s-1]
     pop
@@ -104,5 +104,6 @@ pad_else:
     mload
     // stack: num_u256s, 2*x[num_u256s-1]+1
     mstore
-pad_end:
+append_end:
     JUMPDEST
+
