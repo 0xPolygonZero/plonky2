@@ -14,7 +14,7 @@ global ec_mul:
     // stack: x, y, x, y, s, retdest
     %ec_isidentity
     // stack: (x,y)==(0,0), x, y, s, retdest
-    %jumpi(ret_zero)
+    %jumpi(ret_zero_ec_mul)
     // stack: x, y, s, retdest
     DUP2
     // stack: y, x, y, s, retdest
@@ -35,7 +35,7 @@ ec_mul_valid_point:
     // stack: s, x, y, s, retdest
     %jumpi(step_case)
     // stack: x, y, s, retdest
-    %jump(ret_zero)
+    %jump(ret_zero_ec_mul)
 
 step_case:
     JUMPDEST
@@ -100,7 +100,7 @@ odd_scalar:
     // stack: x', y', x, y, retdest
     %jump(ec_add_valid_points)
 
-ret_zero:
+global ret_zero_ec_mul:
     JUMPDEST
     // stack: x, y, s, retdest
     %pop3

@@ -14,7 +14,7 @@
     // stack: x
     DUP1
     // stack: x, x
-    %mulmodn_secp
+    %mulmodn_secp_scalar
 %endmacro
 
 // Computes the inverse modulo N using x^-1 = x^(N-2) mod N and square-and-multiply modular exponentiation.

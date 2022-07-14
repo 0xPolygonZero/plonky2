@@ -69,11 +69,11 @@ ecrecover_with_first_point:
     // stack: -hash, r^(-1), Y, X, retdest
     %mulmodn_secp_scalar
     // stack: u2, Y, X, retdest
-    PUSH 8
+    PUSH final_hashing
     // stack: final_hashing, u2, Y, X, retdest
     SWAP3
     // stack: X, u2, Y, final_hashing, retdest
-    PUSH 7
+    PUSH ec_add_valid_points_secp
     // stack: ec_add_valid_points_secp, X, u2, Y, final_hashing, retdest
     SWAP1
     // stack: X, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
@@ -114,8 +114,6 @@ final_hashing:
     EQ
     // stack: v==28, v==27, hash, v, r, s, retdest
     OR
-    // stack: (v==28 || v==27), hash, v, r, s, retdest
-    ISZERO
     // stack: (v==28 || v==27), hash, v, r, s, retdest
     DUP5
     // stack: s, (v==28 || v==27), hash, v, r, s, retdest

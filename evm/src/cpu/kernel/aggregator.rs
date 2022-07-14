@@ -38,12 +38,7 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use anyhow::Result;
-    use ethereum_types::U256;
     use log::debug;
-    use rand::{thread_rng, Rng};
 
     use crate::cpu::kernel::aggregator::combined_kernel;
 

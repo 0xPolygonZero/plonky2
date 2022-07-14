@@ -9,7 +9,7 @@ global ec_mul_secp:
     // stack: x, y, x, y, s, retdest
     %ec_isidentity
     // stack: (x,y)==(0,0), x, y, s, retdest
-    %jumpi(ret_zero)
+    %jumpi(ret_zero_ec_mul)
     // stack: x, y, s, retdest
     DUP2
     // stack: y, x, y, s, retdest
@@ -30,7 +30,7 @@ global ec_mul_valid_point_secp:
     // stack: s, x, y, s, retdest
     %jumpi(step_case)
     // stack: x, y, s, retdest
-    %jump(ret_zero)
+    %jump(ret_zero_ec_mul)
 
 step_case:
     JUMPDEST
@@ -94,16 +94,3 @@ odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
     %jump(ec_add_valid_points_secp)
-
-ret_zero:
-    JUMPDEST
-    // stack: x, y, s, retdest
-    %pop3
-    // stack: retdest
-    PUSH 0
-    // stack: 0, retdest
-    PUSH 0
-    // stack: 0, 0, retdest
-    SWAP2
-    // stack: retdest, 0, 0
-    JUMP
