@@ -1,20 +1,17 @@
+use std::mem;
+
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
-use crate::cpu::columns::NUM_CPU_COLUMNS;
-use crate::cpu::kernel::aggregator::combined_kernel;
-use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
-use crate::logic::{Op, Operation};
 use crate::memory::memory_stark::MemoryOp;
 use crate::{keccak, logic};
 
 #[derive(Debug)]
 pub(crate) struct GenerationState<F: Field> {
-    pub(crate) kernel: Kernel,
-
     pub(crate) cpu_rows: Vec<[F; NUM_CPU_COLUMNS]>,
-    pub(crate) current_cpu_row: [F; NUM_CPU_COLUMNS],
+    pub(crate) current_cpu_row: CpuColumnsView<F>,
 
     pub(crate) current_context: usize,
     pub(crate) memory: MemoryState<F>,
@@ -27,24 +24,24 @@ impl<F: Field> GenerationState<F> {
     /// Compute logical AND, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn and(&mut self, input0: U256, input1: U256) -> U256 {
-        self.logic_op(Op::And, input0, input1)
+        self.logic_op(logic::Op::And, input0, input1)
     }
 
     /// Compute logical OR, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn or(&mut self, input0: U256, input1: U256) -> U256 {
-        self.logic_op(Op::Or, input0, input1)
+        self.logic_op(logic::Op::Or, input0, input1)
     }
 
     /// Compute logical XOR, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn xor(&mut self, input0: U256, input1: U256) -> U256 {
-        self.logic_op(Op::Xor, input0, input1)
+        self.logic_op(logic::Op::Xor, input0, input1)
     }
 
     /// Compute logical AND, and record the operation to be added in the logic table later.
-    pub(crate) fn logic_op(&mut self, op: Op, input0: U256, input1: U256) -> U256 {
-        let operation = Operation::new(op, input0, input1);
+    pub(crate) fn logic_op(&mut self, op: logic::Op, input0: U256, input1: U256) -> U256 {
+        let operation = logic::Operation::new(op, input0, input1);
         let result = operation.result;
         self.logic_ops.push(operation);
         result
@@ -96,8 +93,9 @@ impl<F: Field> GenerationState<F> {
     }
 
     pub(crate) fn commit_cpu_row(&mut self) {
-        self.cpu_rows.push(self.current_cpu_row);
-        self.current_cpu_row = [F::ZERO; NUM_CPU_COLUMNS];
+        let mut swapped_row = [F::ZERO; NUM_CPU_COLUMNS].into();
+        mem::swap(&mut self.current_cpu_row, &mut swapped_row);
+        self.cpu_rows.push(swapped_row.into());
     }
 }
 
@@ -106,9 +104,8 @@ impl<F: Field> GenerationState<F> {
 impl<F: Field> Default for GenerationState<F> {
     fn default() -> Self {
         Self {
-            kernel: combined_kernel(),
             cpu_rows: vec![],
-            current_cpu_row: [F::ZERO; NUM_CPU_COLUMNS],
+            current_cpu_row: [F::ZERO; NUM_CPU_COLUMNS].into(),
             current_context: 0,
             memory: MemoryState::default(),
             keccak_inputs: vec![],

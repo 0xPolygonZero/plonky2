@@ -4,9 +4,12 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 
 use super::assembler::{assemble, Kernel};
 use crate::cpu::kernel::parser::parse;
+
+pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();

@@ -1,6 +1,7 @@
 pub mod aggregator;
 pub mod assembler;
 mod ast;
+pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
 

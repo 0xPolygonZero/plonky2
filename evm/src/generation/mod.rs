@@ -46,7 +46,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         logic_ops: logic_inputs,
         ..
     } = state;
-    assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS]);
+    assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS].into());
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);

@@ -8,6 +8,7 @@ use std::ops::{Index, IndexMut};
 use crate::memory;
 
 #[repr(C)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct CpuColumnsView<T> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
