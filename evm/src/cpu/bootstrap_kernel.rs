@@ -92,6 +92,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     // - If CLOCK is a multiple of KECCAK_RATE_LIMBS, activate the Keccak CTL, and ensure the output
     //   is copied to the next row (besides the first limb which will immediately be overwritten).
     // - Otherwise, ensure that the Keccak input is copied to the next row (besides the next limb).
+    // - The next limb we add to the buffer is also written to memory.
 
     // If IS_BOOTSTRAP_KERNEL changed (from 1 to 0), check that
     // - the clock is a multiple of KECCAK_RATE_LIMBS (TODO)
@@ -131,6 +132,7 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     // - If CLOCK is a multiple of KECCAK_RATE_LIMBS, activate the Keccak CTL, and ensure the output
     //   is copied to the next row (besides the first limb which will immediately be overwritten).
     // - Otherwise, ensure that the Keccak input is copied to the next row (besides the next limb).
+    // - The next limb we add to the buffer is also written to memory.
 
     // If IS_BOOTSTRAP_KERNEL changed (from 1 to 0), check that
     // - the clock is a multiple of KECCAK_RATE_LIMBS (TODO)
