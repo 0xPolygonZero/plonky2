@@ -1,27 +1,3 @@
-// Secp256k1 elliptic curve scalar multiplication.
-// Recursive implementation, same algorithm as in `exp.asm`.
-global ec_mul_secp:
-    JUMPDEST
-    // stack: x, y, s, retdest
-    DUP2
-    // stack: y, x, y, s, retdest
-    DUP2
-    // stack: x, y, x, y, s, retdest
-    %ec_isidentity
-    // stack: (x,y)==(0,0), x, y, s, retdest
-    %jumpi(ret_zero_ec_mul)
-    // stack: x, y, s, retdest
-    DUP2
-    // stack: y, x, y, s, retdest
-    DUP2
-    // stack: x, y, x, y, s, retdest
-    %ec_check_secp
-    // stack: isValid(x, y), x, y, s, retdest
-    %jumpi(ec_mul_valid_point_secp)
-    // stack: x, y, s, retdest
-    %pop3
-    %ec_invalid_input
-
 // Same algorithm as in `exp.asm`
 global ec_mul_valid_point_secp:
     JUMPDEST

@@ -136,7 +136,6 @@ mod bn {
 #[cfg(test)]
 mod secp {
     use anyhow::Result;
-    use ethereum_types::U256;
 
     use crate::cpu::kernel::aggregator::combined_kernel;
     use crate::cpu::kernel::interpreter::run;
@@ -146,11 +145,10 @@ mod secp {
     fn test_ec_ops() -> Result<()> {
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        let ec_add = kernel.global_labels["ec_add_secp"];
+        let ec_add = kernel.global_labels["ec_add_valid_points_secp"];
         let ec_double = kernel.global_labels["ec_double_secp"];
-        let ec_mul = kernel.global_labels["ec_mul_secp"];
+        let ec_mul = kernel.global_labels["ec_mul_valid_point_secp"];
         let identity = ("0x0", "0x0");
-        let invalid = ("0x0", "0x3"); // Not on curve
         let point0 = (
             "0xc82ccceebd739e646631b7270ed8c33e96c4940b19db91eaf67da6ec92d109b",
             "0xe0d241d2de832656c3eed78271bb06b5602d6473742c7c48a38b9f0350a76164",
@@ -212,23 +210,6 @@ mod secp {
         let stack = run(&kernel.code, ec_add, initial_stack);
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
-        // Addition with invalid point(s) #1
-        let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
-        assert_eq!(stack, vec![U256::MAX, U256::MAX]);
-        // Addition with invalid point(s) #2
-        let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
-        assert_eq!(stack, vec![U256::MAX, U256::MAX]);
-        // Addition with invalid point(s) #3
-        let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, identity.1, identity.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
-        assert_eq!(stack, vec![U256::MAX, U256::MAX]);
-        // Addition with invalid point(s) #4
-        let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
-        assert_eq!(stack, vec![U256::MAX, U256::MAX]);
-
         // Scalar multiplication #1
         let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
         let stack = run(&kernel.code, ec_mul, initial_stack);
@@ -245,10 +226,6 @@ mod secp {
         let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
         let stack = run(&kernel.code, ec_mul, initial_stack);
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
-        // Scalar multiplication #5
-        let initial_stack = u256ify(["0xdeadbeef", s, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
-        assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Multiple calls
         let ec_mul_hex = format!("0x{:x}", ec_mul);

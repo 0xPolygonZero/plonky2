@@ -12,6 +12,18 @@ global ecrecover:
     // stack: v, hash, isValid(v,r,s), r, s, retdest
     DUP4
     // stack: r, v, hash, isValid(v,r,s), r, s, retdest
+
+    // Compute v-27 which gives the parity of the y-coordinate of the lifted point.
+    SWAP1
+    // stack: v, r, hash, isValid(v,r,s), r, s, retdest
+    PUSH 27
+    // stack: 27, v, r, hash, isValid(v,r,s), r, s, retdest
+    SWAP1
+    // stack: v, 27, r, hash, isValid(v,r,s), r, s, retdest
+    SUB
+    // stack: v - 27, r, hash, isValid(v,r,s), r, s, retdest
+    SWAP1
+    // stack: r, v - 27, hash, isValid(v,r,s), r, s, retdest
     %secp_lift_x
     // stack: y, sqrtOk, hash, isValid(v,r,s), r, s, retdest
 

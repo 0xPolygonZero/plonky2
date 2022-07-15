@@ -1,35 +1,6 @@
 // #define N 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 // Secp256k1 scalar field order
 
 // Secp256k1 elliptic curve addition.
-// Uses the standard affine addition formula.
-global ec_add_secp:
-    JUMPDEST
-    // stack: x0, y0, x1, y1, retdest
-
-    // Check if points are valid Secp256k1 points.
-    DUP2
-    // stack: y0, x0, y0, x1, y1, retdest
-    DUP2
-    // stack: x0, y0, x0, y0, x1, y1, retdest
-    %ec_check_secp
-    // stack: isValid(x0, y0), x0, y0, x1, y1, retdest
-    DUP5
-    // stack: x1, isValid(x0, y0), x0, y0, x1, y1, retdest
-    DUP5
-    // stack: x1, y1, isValid(x0, y0), x0, y0, x1, y1, retdest
-    %ec_check_secp
-    // stack: isValid(x1, y1), isValid(x0, y0), x0, y0, x1, y1, retdest
-    AND
-    // stack: isValid(x1, y1) & isValid(x0, y0), x0, y0, x1, y1, retdest
-    %jumpi(ec_add_valid_points_secp)
-    // stack: x0, y0, x1, y1, retdest
-
-    // Otherwise return
-    %pop4
-    // stack: retdest
-    %ec_invalid_input
-
-// Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points.
 global ec_add_valid_points_secp:
     JUMPDEST
@@ -232,7 +203,7 @@ ec_add_equal_points:
     // stack: lambda, x0, y0, x1, y1, retdest
     %jump(ec_add_valid_points_with_lambda)
 
-// BN254 elliptic curve doubling.
+// Secp256k1 elliptic curve doubling.
 // Assumption: (x0,y0) is a valid point.
 // Standard doubling formula.
 global ec_double_secp:
@@ -249,6 +220,7 @@ global ec_double_secp:
     PUSH 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
 %endmacro
 
+// Modular subtraction. Subtraction x-y underflows iff x<x-y, so can be computed as N*(x<x-y) + x-y.
 %macro submod_secp_base
     // stack: x, y
     SWAP1

@@ -1,41 +1,33 @@
-// Returns y such that (x,y) is on Secp256k1 and y&1 = v - 27,
+// Returns y such that (x,y) is on Secp256k1 and y&1 = parity,
 // as well as a flag indicating whether such a y exists.
 %macro secp_lift_x
-    // stack: x, v
+    // stack: x, parity
     %cubemodn_secp_base
-    // stack: x^3, v
+    // stack: x^3, parity
     PUSH 7
-    // stack: 7, x^3, v
+    // stack: 7, x^3, parity
     %addmodn_secp_base
-    // stack: x^3+7, x, v
+    // stack: x^3+7, x, parity
     DUP1
-    // stack: x^3+7, x^3+7, v
+    // stack: x^3+7, x^3+7, parity
     %sqrt_secp_base
-    // stack: y, x^3+7, x, v
+    // stack: y, x^3+7, x, parity
     SWAP1
-    // stack: x^3+7, y, v
+    // stack: x^3+7, y, parity
     DUP2
-    // stack: y, x^3+7, y, v
+    // stack: y, x^3+7, y, parity
     %squaremodn_secp_base
-    // stack: y^2, x^3+7, y, v
+    // stack: y^2, x^3+7, y, parity
     EQ
-    // stack: sqrtOk, y, v
+    // stack: sqrtOk, y, parity
     SWAP2
-    // stack: v, y, sqrtOk
+    // stack: parity, y, sqrtOk
     DUP2
-    // stack: y, v, y, sqrtOk
+    // stack: y, parity, y, sqrtOk
     PUSH 1
-    // stack: 1, y, v, y, sqrtOk
+    // stack: 1, y, parity, y, sqrtOk
     AND
-    // stack: 1 & y, v, y, sqrtOk
-    PUSH 27
-    // stack: 27, 1 & y, v, y, sqrtOk
-    SWAP1
-    // stack: 1 & y, 27, v, y, sqrtOk
-    SWAP2
-    // stack: v, 27, 1 & y, y, sqrtOk
-    SUB
-    // stack: v - 27, 1 & y, y, sqrtOk
+    // stack: 1 & y, parity, y, sqrtOk
     EQ
     // stack: correctParity, y, sqrtOk
     DUP2
