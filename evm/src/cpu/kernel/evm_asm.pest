@@ -15,9 +15,10 @@ literal = { literal_hex | literal_decimal }
 variable = ${ "$" ~ identifier }
 constant = ${ "@" ~ identifier }
 
-item = { macro_def | macro_call | global_label | local_label | bytes_item | push_instruction | nullary_instruction }
+item = { macro_def | macro_call | repeat | global_label | local_label | bytes_item | push_instruction | nullary_instruction }
 macro_def = { ^"%macro" ~ identifier ~ macro_paramlist? ~ item* ~ ^"%endmacro" }
-macro_call = ${ "%" ~ !(^"macro" | ^"endmacro") ~ identifier ~ macro_arglist? }
+macro_call = ${ "%" ~ !(^"macro" | ^"endmacro" | ^"rep" | ^"endrep") ~ identifier ~ macro_arglist? }
+repeat = { ^"%rep" ~ literal ~ item* ~ ^"%endrep" }
 macro_paramlist = { "(" ~ identifier ~ ("," ~ identifier)* ~ ")" }
 macro_arglist = !{ "(" ~ push_target ~ ("," ~ push_target)* ~ ")" }
 global_label = { ^"GLOBAL " ~ identifier ~ ":" }

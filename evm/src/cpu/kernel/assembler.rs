@@ -44,6 +44,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
     let mut local_labels = Vec::with_capacity(files.len());
     for file in files {
         let expanded_file = expand_macros(file.body, &macros);
+        let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
         local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
         expanded_files.push(expanded_file);
@@ -132,6 +133,21 @@ fn expand_macro_call(
     expand_macros(expanded_item, macros)
 }
 
+fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
+    let mut expanded = vec![];
+    for item in body {
+        if let Item::Repeat(count, block) = item {
+            let reps = count.to_u256().as_usize();
+            for _ in 0..reps {
+                expanded.extend(block.clone());
+            }
+        } else {
+            expanded.push(item);
+        }
+    }
+    expanded
+}
+
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
     body.into_iter()
         .map(|item| {
@@ -157,8 +173,8 @@ fn find_labels(
     let mut local_labels = HashMap::<String, usize>::new();
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
-                panic!("Macros should have been expanded already")
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
+                panic!("Macros and repeats should have been expanded already")
             }
             Item::GlobalLabelDeclaration(label) => {
                 let old = global_labels.insert(label.clone(), *offset);
@@ -185,8 +201,8 @@ fn assemble_file(
     // Assemble the file.
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
-                panic!("Macros should have been expanded already")
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
+                panic!("Macros and repeats should have been expanded already")
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
@@ -391,6 +407,13 @@ mod tests {
         let kernel = parse_and_assemble_with_constants(code, constants);
         let push4 = get_push_opcode(4);
         assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
+    }
+
+    #[test]
+    fn repeat() {
+        let kernel = parse_and_assemble(&["%rep 3 ADD %endrep"]);
+        let add = get_opcode("ADD");
+        assert_eq!(kernel.code, vec![add, add, add]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
