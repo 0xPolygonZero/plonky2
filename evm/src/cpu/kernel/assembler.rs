@@ -6,6 +6,7 @@ use log::debug;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::Literal;
+use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -19,7 +20,23 @@ const BYTES_PER_OFFSET: u8 = 3;
 #[derive(PartialEq, Eq, Debug)]
 pub struct Kernel {
     pub(crate) code: Vec<u8>,
+
+    /// Computed using `hash_kernel`. It is encoded as `u32` limbs for convenience, since we deal
+    /// with `u32` limbs in our Keccak table.
+    pub(crate) code_hash: [u32; 8],
+
     pub(crate) global_labels: HashMap<String, usize>,
+}
+
+impl Kernel {
+    fn new(code: Vec<u8>, global_labels: HashMap<String, usize>) -> Self {
+        let code_hash = hash_kernel(&code);
+        Self {
+            code,
+            code_hash,
+            global_labels,
+        }
+    }
 }
 
 struct Macro {
@@ -57,10 +74,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
-    Kernel {
-        code,
-        global_labels,
-    }
+    Kernel::new(code, global_labels)
 }
 
 fn find_macros(files: &[File]) -> HashMap<String, Macro> {
@@ -302,10 +316,7 @@ mod tests {
         expected_global_labels.insert("function_1".to_string(), 0);
         expected_global_labels.insert("function_2".to_string(), 3);
 
-        let expected_kernel = Kernel {
-            code: expected_code,
-            global_labels: expected_global_labels,
-        };
+        let expected_kernel = Kernel::new(expected_code, expected_global_labels);
 
         let program = vec![file_1, file_2];
         assert_eq!(assemble(program, HashMap::new()), expected_kernel);
