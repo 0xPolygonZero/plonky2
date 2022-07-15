@@ -70,26 +70,26 @@ mod tests {
 
         // Random input
         let initial_stack = vec![U256::from_str("0xdeadbeef")?, b, a];
-        let stack_with_kernel = run(&kernel.code, exp, initial_stack);
+        let stack_with_kernel = run(&kernel.code, exp, initial_stack).stack;
         let initial_stack = vec![b, a];
         let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-        let stack_with_opcode = run(&code, 0, initial_stack);
+        let stack_with_opcode = run(&code, 0, initial_stack).stack;
         assert_eq!(stack_with_kernel, stack_with_opcode);
 
         // 0 base
         let initial_stack = vec![U256::from_str("0xdeadbeef")?, b, U256::zero()];
-        let stack_with_kernel = run(&kernel.code, exp, initial_stack);
+        let stack_with_kernel = run(&kernel.code, exp, initial_stack).stack;
         let initial_stack = vec![b, U256::zero()];
         let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-        let stack_with_opcode = run(&code, 0, initial_stack);
+        let stack_with_opcode = run(&code, 0, initial_stack).stack;
         assert_eq!(stack_with_kernel, stack_with_opcode);
 
         // 0 exponent
         let initial_stack = vec![U256::from_str("0xdeadbeef")?, U256::zero(), a];
-        let stack_with_kernel = run(&kernel.code, exp, initial_stack);
+        let stack_with_kernel = run(&kernel.code, exp, initial_stack).stack;
         let initial_stack = vec![U256::zero(), a];
         let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-        let stack_with_opcode = run(&code, 0, initial_stack);
+        let stack_with_opcode = run(&code, 0, initial_stack).stack;
         assert_eq!(stack_with_kernel, stack_with_opcode);
 
         Ok(())
@@ -131,76 +131,76 @@ mod tests {
 
         // Standard addition #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
         // Standard addition #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
 
         // Standard doubling #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
         // Standard doubling #2
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_double, initial_stack);
+        let stack = run(&kernel.code, ec_double, initial_stack).stack;
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
         // Standard doubling #3
         let initial_stack = u256ify(["0xdeadbeef", "0x2", point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
 
         // Addition with identity #1
         let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, identity.1, identity.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #3
         let initial_stack =
             u256ify(["0xdeadbeef", identity.1, identity.0, identity.1, identity.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
         // Addition with invalid point(s) #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #2
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #3
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, identity.1, identity.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #4
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Scalar multiplication #1
         let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
         // Scalar multiplication #2
         let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
         // Scalar multiplication #3
         let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, u256ify([point0.1, point0.0])?);
         // Scalar multiplication #4
         let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
         // Scalar multiplication #5
         let initial_stack = u256ify(["0xdeadbeef", s, invalid.1, invalid.0])?;
-        let stack = run(&kernel.code, ec_mul, initial_stack);
+        let stack = run(&kernel.code, ec_mul, initial_stack).stack;
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Multiple calls
@@ -214,7 +214,7 @@ mod tests {
             point0.1,
             point0.0,
         ])?;
-        let stack = run(&kernel.code, ec_add, initial_stack);
+        let stack = run(&kernel.code, ec_add, initial_stack).stack;
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
 
         Ok(())
