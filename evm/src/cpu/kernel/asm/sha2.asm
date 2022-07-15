@@ -1,10 +1,13 @@
 global count_bits:
+    JUMPDEST
     // stack: n (assumed to be > 0)
     push 0
     // stack: 0, n
     swap1
     // stack: n, 0
+    %jump(count_bits_loop)
 count_bits_loop:
+    JUMPDEST
     // stack: k, bits
     %div2
     // stack: k//2, bits
@@ -20,6 +23,7 @@ count_bits_loop:
     // stack: bits
 
 global sha2_store:
+    JUMPDEST
     // stack: num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1]
     dup1
     // stack: num_u256s, num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1]
