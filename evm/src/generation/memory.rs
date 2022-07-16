@@ -1,19 +1,18 @@
-use plonky2::field::types::Field;
+use ethereum_types::U256;
 
 use crate::memory::memory_stark::MemoryOp;
 use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
 
 #[allow(unused)] // TODO: Should be used soon.
 #[derive(Debug)]
-pub(crate) struct MemoryState<F: Field> {
+pub(crate) struct MemoryState {
     /// A log of each memory operation, in the order that it occurred.
-    pub log: Vec<MemoryOp<F>>,
+    pub log: Vec<MemoryOp>,
 
-    pub contexts: Vec<MemoryContextState<F>>,
+    pub contexts: Vec<MemoryContextState>,
 }
 
-impl<F: Field> Default for MemoryState<F> {
+impl Default for MemoryState {
     fn default() -> Self {
         Self {
             log: vec![],
@@ -24,28 +23,27 @@ impl<F: Field> Default for MemoryState<F> {
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct MemoryContextState<F: Field> {
+pub(crate) struct MemoryContextState {
     /// The content of each memory segment.
-    pub segments: [MemorySegmentState<F>; Segment::COUNT],
+    pub segments: [MemorySegmentState; Segment::COUNT],
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct MemorySegmentState<F: Field> {
-    pub content: Vec<[F; VALUE_LIMBS]>,
+pub(crate) struct MemorySegmentState {
+    pub content: Vec<U256>,
 }
 
-impl<F: Field> MemorySegmentState<F> {
-    pub(super) fn get(&self, virtual_addr: usize) -> [F; VALUE_LIMBS] {
+impl MemorySegmentState {
+    pub(super) fn get(&self, virtual_addr: usize) -> U256 {
         self.content
             .get(virtual_addr)
             .copied()
-            .unwrap_or([F::ZERO; VALUE_LIMBS])
+            .unwrap_or(U256::zero())
     }
 
-    pub(super) fn set(&mut self, virtual_addr: usize, value: [F; VALUE_LIMBS]) {
+    pub(super) fn set(&mut self, virtual_addr: usize, value: U256) {
         if virtual_addr + 1 > self.content.len() {
-            self.content
-                .resize(virtual_addr + 1, [F::ZERO; VALUE_LIMBS]);
+            self.content.resize(virtual_addr + 1, U256::zero());
         }
         self.content[virtual_addr] = value;
     }
