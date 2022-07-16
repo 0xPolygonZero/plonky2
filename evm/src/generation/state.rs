@@ -6,6 +6,7 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
 use crate::memory::memory_stark::MemoryOp;
+use crate::memory::segments::Segment;
 use crate::{keccak, logic};
 
 #[derive(Debug)]
@@ -52,12 +53,12 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn get_mem_current(
         &mut self,
         channel_index: usize,
-        segment: usize,
+        segment: Segment,
         virt: usize,
     ) -> [F; crate::memory::VALUE_LIMBS] {
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
-        let value = self.memory.contexts[context].segments[segment].get(virt);
+        let value = self.memory.contexts[context].segments[segment as usize].get(virt);
         self.memory.log.push(MemoryOp {
             channel_index: Some(channel_index),
             timestamp,
@@ -74,7 +75,7 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn set_mem_current(
         &mut self,
         channel_index: usize,
-        segment: usize,
+        segment: Segment,
         virt: usize,
         value: [F; crate::memory::VALUE_LIMBS],
     ) {
@@ -89,7 +90,7 @@ impl<F: Field> GenerationState<F> {
             virt,
             value,
         });
-        self.memory.contexts[context].segments[segment].set(virt, value)
+        self.memory.contexts[context].segments[segment as usize].set(virt, value)
     }
 
     pub(crate) fn commit_cpu_row(&mut self) {

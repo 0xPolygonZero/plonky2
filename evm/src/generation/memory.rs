@@ -1,7 +1,7 @@
 use plonky2::field::types::Field;
 
 use crate::memory::memory_stark::MemoryOp;
-use crate::memory::segments::NUM_SEGMENTS;
+use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 
 #[allow(unused)] // TODO: Should be used soon.
@@ -26,7 +26,7 @@ impl<F: Field> Default for MemoryState<F> {
 #[derive(Default, Debug)]
 pub(crate) struct MemoryContextState<F: Field> {
     /// The content of each memory segment.
-    pub segments: [MemorySegmentState<F>; NUM_SEGMENTS],
+    pub segments: [MemorySegmentState<F>; Segment::COUNT],
 }
 
 #[derive(Default, Debug)]
