@@ -21,23 +21,31 @@ global panic:
 %endmacro
 
 %macro assert_lt
-    LT
-    %assert_nonzero
+    // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
+    // fact that (x < y) == !(x >= y).
+    GE
+    %assert_zero
 %endmacro
 
 %macro assert_le
-    LE
-    %assert_nonzero
+    // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
+    // fact that (x <= y) == !(x > y).
+    GT
+    %assert_zero
 %endmacro
 
 %macro assert_gt
-    GT
-    %assert_nonzero
+    // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
+    // fact that (x > y) == !(x <= y).
+    LE
+    %assert_zero
 %endmacro
 
 %macro assert_ge
-    GE
-    %assert_nonzero
+    // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
+    // fact that (x >= y) == !(x < y).
+    LT
+    %assert_zero
 %endmacro
 
 %macro assert_eq_const(c)
