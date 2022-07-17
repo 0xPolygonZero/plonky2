@@ -8,12 +8,15 @@ use once_cell::sync::Lazy;
 
 use super::assembler::{assemble, Kernel};
 use crate::cpu::kernel::parser::parse;
+use crate::memory::segments::Segment;
 
 pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
-    c.insert("SEGMENT_ID_TXN_DATA".into(), 0.into()); // TODO: Replace with actual segment ID.
+    for segment in Segment::all() {
+        c.insert(segment.var_name().into(), (segment as u32).into());
+    }
     c
 }
 

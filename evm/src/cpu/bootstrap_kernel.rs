@@ -18,7 +18,8 @@ use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cpu::public_inputs::NUM_PUBLIC_INPUTS;
 use crate::generation::state::GenerationState;
 use crate::memory;
-use crate::memory::{segments, NUM_CHANNELS};
+use crate::memory::segments::Segment;
+use crate::memory::NUM_CHANNELS;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// The Keccak rate (1088 bits), measured in bytes.
@@ -53,7 +54,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
             value[0] = F::from_canonical_u8(byte);
 
             let channel = addr % NUM_CHANNELS;
-            state.set_mem_current(channel, segments::CODE, addr, value);
+            state.set_mem_current(channel, Segment::Code, addr, value);
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
         }
