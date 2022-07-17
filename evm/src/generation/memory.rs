@@ -42,7 +42,7 @@ impl MemorySegmentState {
     }
 
     pub(super) fn set(&mut self, virtual_addr: usize, value: U256) {
-        if virtual_addr + 1 > self.content.len() {
+        if virtual_addr >= self.content.len() {
             self.content.resize(virtual_addr + 1, U256::zero());
         }
         self.content[virtual_addr] = value;

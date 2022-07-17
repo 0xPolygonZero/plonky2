@@ -12,6 +12,8 @@ use crate::util::trace_rows_to_poly_values;
 mod memory;
 pub(crate) mod state;
 
+/// A piece of data which has been encoded using Recursive Length Prefix (RLP) serialization.
+/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
 pub type RlpBlob = Vec<u8>;
 
 /// Merkle proofs are encoded using an RLP blob for each node in the path.
