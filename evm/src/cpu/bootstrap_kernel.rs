@@ -17,7 +17,6 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cpu::public_inputs::NUM_PUBLIC_INPUTS;
 use crate::generation::state::GenerationState;
-use crate::memory;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -50,11 +49,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         let mut packed_bytes: u32 = 0;
         for (addr, byte) in chunk {
-            let mut value = [F::ZERO; memory::VALUE_LIMBS];
-            value[0] = F::from_canonical_u8(byte);
-
             let channel = addr % NUM_CHANNELS;
-            state.set_mem_current(channel, Segment::Code, addr, value);
+            state.set_mem_current(channel, Segment::Code, addr, byte.into());
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
         }

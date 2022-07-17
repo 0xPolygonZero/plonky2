@@ -15,7 +15,7 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) current_cpu_row: CpuColumnsView<F>,
 
     pub(crate) current_context: usize,
-    pub(crate) memory: MemoryState<F>,
+    pub(crate) memory: MemoryState,
 
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
     pub(crate) logic_ops: Vec<logic::Operation>,
@@ -55,7 +55,7 @@ impl<F: Field> GenerationState<F> {
         channel_index: usize,
         segment: Segment,
         virt: usize,
-    ) -> [F; crate::memory::VALUE_LIMBS] {
+    ) -> U256 {
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
         let value = self.memory.contexts[context].segments[segment as usize].get(virt);
@@ -77,7 +77,7 @@ impl<F: Field> GenerationState<F> {
         channel_index: usize,
         segment: Segment,
         virt: usize,
-        value: [F; crate::memory::VALUE_LIMBS],
+        value: U256,
     ) {
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
