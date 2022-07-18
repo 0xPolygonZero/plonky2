@@ -6,10 +6,10 @@ use std::fmt::Debug;
 use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
 use std::ops::{Index, IndexMut};
 
-use crate::cpu::columns::shared::CpuGeneralColumnsView;
+use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::memory;
 
-mod shared;
+mod general;
 
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
