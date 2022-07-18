@@ -4,13 +4,13 @@ use std::mem::{size_of, transmute};
 
 /// General purpose columns, which can have different meanings depending on what CTL or other
 /// operation is occurring at this row.
-pub(crate) union CpuSharedColumnsView<T: Copy> {
+pub(crate) union CpuGeneralColumnsView<T: Copy> {
     keccak: CpuKeccakView<T>,
     arithmetic: CpuArithmeticView<T>,
     logic: CpuLogicView<T>,
 }
 
-impl<T: Copy> CpuSharedColumnsView<T> {
+impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn keccak(&self) -> &CpuKeccakView<T> {
         unsafe { &self.keccak }
@@ -42,7 +42,7 @@ impl<T: Copy> CpuSharedColumnsView<T> {
     }
 }
 
-impl<T: Copy + PartialEq> PartialEq<Self> for CpuSharedColumnsView<T> {
+impl<T: Copy + PartialEq> PartialEq<Self> for CpuGeneralColumnsView<T> {
     fn eq(&self, other: &Self) -> bool {
         let self_arr: &[T; NUM_SHARED_COLUMNS] = self.borrow();
         let other_arr: &[T; NUM_SHARED_COLUMNS] = other.borrow();
@@ -50,22 +50,22 @@ impl<T: Copy + PartialEq> PartialEq<Self> for CpuSharedColumnsView<T> {
     }
 }
 
-impl<T: Copy + Eq> Eq for CpuSharedColumnsView<T> {}
+impl<T: Copy + Eq> Eq for CpuGeneralColumnsView<T> {}
 
-impl<T: Copy + Debug> Debug for CpuSharedColumnsView<T> {
+impl<T: Copy + Debug> Debug for CpuGeneralColumnsView<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let self_arr: &[T; NUM_SHARED_COLUMNS] = self.borrow();
         Debug::fmt(self_arr, f)
     }
 }
 
-impl<T: Copy> Borrow<[T; NUM_SHARED_COLUMNS]> for CpuSharedColumnsView<T> {
+impl<T: Copy> Borrow<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
     fn borrow(&self) -> &[T; NUM_SHARED_COLUMNS] {
         unsafe { transmute(self) }
     }
 }
 
-impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuSharedColumnsView<T> {
+impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
     fn borrow_mut(&mut self) -> &mut [T; NUM_SHARED_COLUMNS] {
         unsafe { transmute(self) }
     }
@@ -92,4 +92,4 @@ pub(crate) struct CpuLogicView<T: Copy> {
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_SHARED_COLUMNS: usize = size_of::<CpuSharedColumnsView<u8>>();
+pub const NUM_SHARED_COLUMNS: usize = size_of::<CpuGeneralColumnsView<u8>>();

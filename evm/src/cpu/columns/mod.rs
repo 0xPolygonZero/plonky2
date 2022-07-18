@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
 use std::ops::{Index, IndexMut};
 
-use crate::cpu::columns::shared::CpuSharedColumnsView;
+use crate::cpu::columns::shared::CpuGeneralColumnsView;
 use crate::memory;
 
 mod shared;
@@ -141,7 +141,7 @@ pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 iff a Keccak permutation is computed on this row.
     pub is_keccak: T,
 
-    pub(crate) general: CpuSharedColumnsView<T>,
+    pub(crate) general: CpuGeneralColumnsView<T>,
 
     pub simple_logic_diff: T,
     pub simple_logic_diff_inv: T,
