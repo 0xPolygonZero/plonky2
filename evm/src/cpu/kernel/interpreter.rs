@@ -1,3 +1,4 @@
+use anyhow::bail;
 use ethereum_types::{U256, U512};
 
 /// Halt interpreter execution whenever a jump to this offset is done.
@@ -51,7 +52,11 @@ pub(crate) struct Interpreter<'a> {
     running: bool,
 }
 
-pub(crate) fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Interpreter {
+pub(crate) fn run(
+    code: &[u8],
+    initial_offset: usize,
+    initial_stack: Vec<U256>,
+) -> anyhow::Result<Interpreter> {
     let mut interpreter = Interpreter {
         code,
         jumpdests: find_jumpdests(code),
@@ -62,10 +67,10 @@ pub(crate) fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) 
     };
 
     while interpreter.running {
-        interpreter.run_opcode();
+        interpreter.run_opcode()?;
     }
 
-    interpreter
+    Ok(interpreter)
 }
 
 impl<'a> Interpreter<'a> {
@@ -89,7 +94,7 @@ impl<'a> Interpreter<'a> {
         self.stack.pop().expect("Pop on empty stack.")
     }
 
-    fn run_opcode(&mut self) {
+    fn run_opcode(&mut self) -> anyhow::Result<()> {
         let opcode = self.code.get(self.offset).copied().unwrap_or_default();
         self.incr(1);
         match opcode {
@@ -156,6 +161,10 @@ impl<'a> Interpreter<'a> {
             0x59 => todo!(),                                           // "MSIZE",
             0x5a => todo!(),                                           // "GAS",
             0x5b => (),                                                // "JUMPDEST",
+            0x5c => todo!(),                                           // "GET_STATE_ROOT",
+            0x5d => todo!(),                                           // "SET_STATE_ROOT",
+            0x5e => todo!(),                                           // "GET_RECEIPT_ROOT",
+            0x5f => todo!(),                                           // "SET_RECEIPT_ROOT",
             x if (0x60..0x80).contains(&x) => self.run_push(x - 0x5f), // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),  // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f), // "SWAP"
@@ -164,18 +173,26 @@ impl<'a> Interpreter<'a> {
             0xa2 => todo!(),                                           // "LOG2",
             0xa3 => todo!(),                                           // "LOG3",
             0xa4 => todo!(),                                           // "LOG4",
+            0xa5 => bail!("Executed PANIC"),                           // "PANIC",
             0xf0 => todo!(),                                           // "CREATE",
             0xf1 => todo!(),                                           // "CALL",
             0xf2 => todo!(),                                           // "CALLCODE",
             0xf3 => todo!(),                                           // "RETURN",
             0xf4 => todo!(),                                           // "DELEGATECALL",
             0xf5 => todo!(),                                           // "CREATE2",
+            0xf6 => todo!(),                                           // "GET_CONTEXT",
+            0xf7 => todo!(),                                           // "SET_CONTEXT",
+            0xf8 => todo!(),                                           // "CONSUME_GAS",
+            0xf9 => todo!(),                                           // "EXIT_KERNEL",
             0xfa => todo!(),                                           // "STATICCALL",
+            0xfb => todo!(),                                           // "MLOAD_GENERAL",
+            0xfc => todo!(),                                           // "MSTORE_GENERAL",
             0xfd => todo!(),                                           // "REVERT",
-            0xfe => todo!(),                                           // "INVALID",
+            0xfe => bail!("Executed INVALID"),                         // "INVALID",
             0xff => todo!(),                                           // "SELFDESTRUCT",
-            _ => panic!("Unrecognized opcode {}.", opcode),
+            _ => bail!("Unrecognized opcode {}.", opcode),
         };
+        Ok(())
     }
 
     fn run_stop(&mut self) {
@@ -370,15 +387,16 @@ mod tests {
     use crate::cpu::kernel::interpreter::{run, Interpreter};
 
     #[test]
-    fn test_run() {
+    fn test_run() -> anyhow::Result<()> {
         let code = vec![
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
-        assert_eq!(run(&code, 0, vec![]).stack, vec![0x3.into()]);
+        assert_eq!(run(&code, 0, vec![])?.stack, vec![0x3.into()]);
+        Ok(())
     }
 
     #[test]
-    fn test_run_with_memory() {
+    fn test_run_with_memory() -> anyhow::Result<()> {
         //         PUSH1 0xff
         //         PUSH1 0
         //         MSTORE
@@ -396,9 +414,10 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let run = run(&code, 0, vec![]);
+        let run = run(&code, 0, vec![])?;
         let Interpreter { stack, memory, .. } = run;
         assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
         assert_eq!(&memory.memory, &hex!("00000000000000000000000000000000000000000000000000000000000000ff0000000000000042000000000000000000000000000000000000000000000000"));
+        Ok(())
     }
 }

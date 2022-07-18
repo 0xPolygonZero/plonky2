@@ -25,7 +25,7 @@ fn test_valid_ecrecover(
 ) -> Result<()> {
     let ecrecover = kernel.global_labels["ecrecover"];
     let initial_stack = u256ify([s, r, v, hash])?;
-    let stack = run(&kernel.code, ecrecover, initial_stack).stack;
+    let stack = run(&kernel.code, ecrecover, initial_stack)?.stack;
     let got = pubkey_to_addr(stack[1], stack[0]);
     assert_eq!(got, hex::decode(&expected[2..]).unwrap());
 
@@ -35,7 +35,7 @@ fn test_valid_ecrecover(
 fn test_invalid_ecrecover(hash: &str, v: &str, r: &str, s: &str, kernel: &Kernel) -> Result<()> {
     let ecrecover = kernel.global_labels["ecrecover"];
     let initial_stack = u256ify(["0xdeadbeef", s, r, v, hash])?;
-    let stack = run(&kernel.code, ecrecover, initial_stack).stack;
+    let stack = run(&kernel.code, ecrecover, initial_stack)?.stack;
     assert_eq!(stack, vec![U256::MAX]);
 
     Ok(())
