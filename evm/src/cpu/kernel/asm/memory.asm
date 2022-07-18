@@ -38,7 +38,7 @@ global memcpy:
     // stack: count, DST, SRC, count, retdest
     ISZERO
     // stack: count == 0, DST, SRC, count, retdest
-    %jumpi memcpy_finish
+    %jumpi(memcpy_finish)
     // stack: DST, SRC, count, retdest
 
     // Copy the next value.
@@ -69,7 +69,7 @@ global memcpy:
     SWAP6
 
     // Recurse!
-    JUMP memcpy
+    %jump(memcpy)
 
 memcpy_finish:
     JUMPDEST
