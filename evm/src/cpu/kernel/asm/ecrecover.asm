@@ -133,7 +133,27 @@ ecrecover_with_first_point:
 // TODO
 final_hashing:
     JUMPDEST
-    PUSH 0xdeadbeef
+    // stack: PKx, PKy, retdest
+    PUSH 0
+    // stack: 0, PKx, PKy, retdest
+    MSTORE
+    // stack: PKy, retdest
+    PUSH 0x20
+    // stack: 0x20, PKy, retdest
+    MSTORE
+    // stack: retdest
+    PUSH 0x40
+    // stack: 0x40, retdest
+    PUSH 0
+    // stack: 0, 0x40, retdest
+    SHA3
+    // stack: hash, retdest
+    PUSH 0xffffffffffffffffffffffffffffffffffffffff
+    // stack: 2^160-1, hash, retdest
+    AND
+    // stack: address, retdest
+    SWAP1
+    // stack: retdest, address
     JUMP
 
 // Check if v, r, and s are in correct form.
