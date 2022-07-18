@@ -60,8 +60,9 @@
     ADDMOD
 %endmacro
 
-// Returns sqrt(x). Computed as x^(q+1)/4, with q the Secp base field order.
-/// To replace with more efficient method using non-determinism later.
+// Returns a square root of x if one exists, otherwise an undefined value.
+// Computed as x^(q+1)/4, with q the Secp base field order.
+// To replace with more efficient method using non-determinism later.
 %macro sqrt_secp_base
     // stack: x
     DUP1
