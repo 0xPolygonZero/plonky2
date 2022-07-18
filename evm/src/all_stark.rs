@@ -146,7 +146,8 @@ mod tests {
     use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark, Operation};
-    use crate::memory::memory_stark::{generate_random_memory_ops, MemoryStark};
+    use crate::memory::memory_stark::tests::generate_random_memory_ops;
+    use crate::memory::memory_stark::MemoryStark;
     use crate::memory::NUM_CHANNELS;
     use crate::proof::AllProof;
     use crate::prover::prove;

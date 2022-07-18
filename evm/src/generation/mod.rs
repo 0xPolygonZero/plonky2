@@ -12,6 +12,8 @@ use crate::util::trace_rows_to_poly_values;
 mod memory;
 pub(crate) mod state;
 
+/// A piece of data which has been encoded using Recursive Length Prefix (RLP) serialization.
+/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
 pub type RlpBlob = Vec<u8>;
 
 /// Merkle proofs are encoded using an RLP blob for each node in the path.
@@ -46,7 +48,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         logic_ops: logic_inputs,
         ..
     } = state;
-    assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS]);
+    assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS].into());
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);

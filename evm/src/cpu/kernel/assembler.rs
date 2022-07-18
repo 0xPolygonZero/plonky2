@@ -6,6 +6,7 @@ use log::debug;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::Literal;
+use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -19,7 +20,23 @@ const BYTES_PER_OFFSET: u8 = 3;
 #[derive(PartialEq, Eq, Debug)]
 pub struct Kernel {
     pub(crate) code: Vec<u8>,
+
+    /// Computed using `hash_kernel`. It is encoded as `u32` limbs for convenience, since we deal
+    /// with `u32` limbs in our Keccak table.
+    pub(crate) code_hash: [u32; 8],
+
     pub(crate) global_labels: HashMap<String, usize>,
+}
+
+impl Kernel {
+    fn new(code: Vec<u8>, global_labels: HashMap<String, usize>) -> Self {
+        let code_hash = hash_kernel(&code);
+        Self {
+            code,
+            code_hash,
+            global_labels,
+        }
+    }
 }
 
 struct Macro {
@@ -44,6 +61,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
     let mut local_labels = Vec::with_capacity(files.len());
     for file in files {
         let expanded_file = expand_macros(file.body, &macros);
+        let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
         local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
         expanded_files.push(expanded_file);
@@ -56,10 +74,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
-    Kernel {
-        code,
-        global_labels,
-    }
+    Kernel::new(code, global_labels)
 }
 
 fn find_macros(files: &[File]) -> HashMap<String, Macro> {
@@ -132,6 +147,21 @@ fn expand_macro_call(
     expand_macros(expanded_item, macros)
 }
 
+fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
+    let mut expanded = vec![];
+    for item in body {
+        if let Item::Repeat(count, block) = item {
+            let reps = count.to_u256().as_usize();
+            for _ in 0..reps {
+                expanded.extend(block.clone());
+            }
+        } else {
+            expanded.push(item);
+        }
+    }
+    expanded
+}
+
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
     body.into_iter()
         .map(|item| {
@@ -157,8 +187,8 @@ fn find_labels(
     let mut local_labels = HashMap::<String, usize>::new();
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
-                panic!("Macros should have been expanded already")
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
+                panic!("Macros and repeats should have been expanded already")
             }
             Item::GlobalLabelDeclaration(label) => {
                 let old = global_labels.insert(label.clone(), *offset);
@@ -185,8 +215,8 @@ fn assemble_file(
     // Assemble the file.
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) => {
-                panic!("Macros should have been expanded already")
+            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
+                panic!("Macros and repeats should have been expanded already")
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
@@ -286,10 +316,7 @@ mod tests {
         expected_global_labels.insert("function_1".to_string(), 0);
         expected_global_labels.insert("function_2".to_string(), 3);
 
-        let expected_kernel = Kernel {
-            code: expected_code,
-            global_labels: expected_global_labels,
-        };
+        let expected_kernel = Kernel::new(expected_code, expected_global_labels);
 
         let program = vec![file_1, file_2];
         assert_eq!(assemble(program, HashMap::new()), expected_kernel);
@@ -391,6 +418,13 @@ mod tests {
         let kernel = parse_and_assemble_with_constants(code, constants);
         let push4 = get_push_opcode(4);
         assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
+    }
+
+    #[test]
+    fn repeat() {
+        let kernel = parse_and_assemble(&["%rep 3 ADD %endrep"]);
+        let add = get_opcode("ADD");
+        assert_eq!(kernel.code, vec![add, add, add]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {

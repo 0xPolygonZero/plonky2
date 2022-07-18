@@ -3,20 +3,61 @@ use ethereum_types::{U256, U512};
 /// Halt interpreter execution whenever a jump to this offset is done.
 const HALT_OFFSET: usize = 0xdeadbeef;
 
-struct Interpreter<'a> {
+#[derive(Debug, Default)]
+pub(crate) struct EvmMemory {
+    memory: Vec<u8>,
+}
+
+impl EvmMemory {
+    fn len(&self) -> usize {
+        self.memory.len()
+    }
+
+    /// Expand memory until `self.len() >= offset`.
+    fn expand(&mut self, offset: usize) {
+        while self.len() < offset {
+            self.memory.extend([0; 32]);
+        }
+    }
+
+    fn mload(&mut self, offset: usize) -> U256 {
+        self.expand(offset + 32);
+        U256::from_big_endian(&self.memory[offset..offset + 32])
+    }
+
+    fn mstore(&mut self, offset: usize, value: U256) {
+        self.expand(offset + 32);
+        let value_be = {
+            let mut tmp = [0; 32];
+            value.to_big_endian(&mut tmp);
+            tmp
+        };
+        self.memory[offset..offset + 32].copy_from_slice(&value_be);
+    }
+
+    fn mstore8(&mut self, offset: usize, value: U256) {
+        self.expand(offset + 1);
+        let value_byte = value.0[0] as u8;
+        self.memory[offset] = value_byte;
+    }
+}
+
+pub(crate) struct Interpreter<'a> {
     code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
-    stack: Vec<U256>,
+    pub(crate) stack: Vec<U256>,
+    pub(crate) memory: EvmMemory,
     running: bool,
 }
 
-pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<U256> {
+pub(crate) fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Interpreter {
     let mut interpreter = Interpreter {
         code,
         jumpdests: find_jumpdests(code),
         offset: initial_offset,
         stack: initial_stack,
+        memory: EvmMemory::default(),
         running: true,
     };
 
@@ -24,7 +65,7 @@ pub fn run(code: &[u8], initial_offset: usize, initial_stack: Vec<U256>) -> Vec<
         interpreter.run_opcode();
     }
 
-    interpreter.stack
+    interpreter
 }
 
 impl<'a> Interpreter<'a> {
@@ -104,9 +145,9 @@ impl<'a> Interpreter<'a> {
             0x46 => todo!(),                                           // "CHAINID",
             0x48 => todo!(),                                           // "BASEFEE",
             0x50 => self.run_pop(),                                    // "POP",
-            0x51 => todo!(),                                           // "MLOAD",
-            0x52 => todo!(),                                           // "MSTORE",
-            0x53 => todo!(),                                           // "MSTORE8",
+            0x51 => self.run_mload(),                                  // "MLOAD",
+            0x52 => self.run_mstore(),                                 // "MSTORE",
+            0x53 => self.run_mstore8(),                                // "MSTORE8",
             0x54 => todo!(),                                           // "SLOAD",
             0x55 => todo!(),                                           // "SSTORE",
             0x56 => self.run_jump(),                                   // "JUMP",
@@ -249,6 +290,24 @@ impl<'a> Interpreter<'a> {
         self.pop();
     }
 
+    fn run_mload(&mut self) {
+        let offset = self.pop();
+        let value = self.memory.mload(offset.as_usize());
+        self.push(value);
+    }
+
+    fn run_mstore(&mut self) {
+        let offset = self.pop();
+        let value = self.pop();
+        self.memory.mstore(offset.as_usize(), value);
+    }
+
+    fn run_mstore8(&mut self) {
+        let offset = self.pop();
+        let value = self.pop();
+        self.memory.mstore8(offset.as_usize(), value);
+    }
+
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
         self.offset = x;
@@ -306,13 +365,40 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cpu::kernel::interpreter::run;
+    use hex_literal::hex;
+
+    use crate::cpu::kernel::interpreter::{run, Interpreter};
 
     #[test]
     fn test_run() {
         let code = vec![
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
-        assert_eq!(run(&code, 0, vec![]), vec![0x3.into()]);
+        assert_eq!(run(&code, 0, vec![]).stack, vec![0x3.into()]);
+    }
+
+    #[test]
+    fn test_run_with_memory() {
+        //         PUSH1 0xff
+        //         PUSH1 0
+        //         MSTORE
+
+        //         PUSH1 0
+        //         MLOAD
+
+        //         PUSH1 1
+        //         MLOAD
+
+        //         PUSH1 0x42
+        //         PUSH1 0x27
+        //         MSTORE8
+        let code = vec![
+            0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
+            0x53,
+        ];
+        let run = run(&code, 0, vec![]);
+        let Interpreter { stack, memory, .. } = run;
+        assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
+        assert_eq!(&memory.memory, &hex!("00000000000000000000000000000000000000000000000000000000000000ff0000000000000042000000000000000000000000000000000000000000000000"));
     }
 }

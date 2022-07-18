@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
+use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -10,7 +10,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
-use rand::Rng;
 use rayon::prelude::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -21,6 +20,7 @@ use crate::memory::columns::{
     COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
+use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
@@ -46,23 +46,23 @@ pub struct MemoryStark<F, const D: usize> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemoryOp<F> {
+pub(crate) struct MemoryOp {
     /// The channel this operation came from, or `None` if it's a dummy operation for padding.
     pub channel_index: Option<usize>,
     pub timestamp: usize,
     pub is_read: bool,
     pub context: usize,
-    pub segment: usize,
+    pub segment: Segment,
     pub virt: usize,
-    pub value: [F; 8],
+    pub value: U256,
 }
 
-impl<F: Field> MemoryOp<F> {
+impl MemoryOp {
     /// Generate a row for a given memory operation. Note that this does not generate columns which
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
     /// It also does not generate columns such as `COUNTER`, which are generated later, after the
     /// trace has been transposed into column-major form.
-    fn to_row(&self) -> [F; NUM_COLUMNS] {
+    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         if let Some(channel) = self.channel_index {
             row[is_channel(channel)] = F::ONE;
@@ -70,89 +70,16 @@ impl<F: Field> MemoryOp<F> {
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
         row[IS_READ] = F::from_bool(self.is_read);
         row[ADDR_CONTEXT] = F::from_canonical_usize(self.context);
-        row[ADDR_SEGMENT] = F::from_canonical_usize(self.segment);
+        row[ADDR_SEGMENT] = F::from_canonical_usize(self.segment as usize);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(self.virt);
         for j in 0..VALUE_LIMBS {
-            row[value_limb(j)] = self.value[j];
+            row[value_limb(j)] = F::from_canonical_u32((self.value >> (j * 32)).low_u32());
         }
         row
     }
 }
 
-pub fn generate_random_memory_ops<F: RichField, R: Rng>(
-    num_ops: usize,
-    rng: &mut R,
-) -> Vec<MemoryOp<F>> {
-    let mut memory_ops = Vec::new();
-
-    let mut current_memory_values: HashMap<(usize, usize, usize), [F; 8]> = HashMap::new();
-    let num_cycles = num_ops / 2;
-    for clock in 0..num_cycles {
-        let mut used_indices = HashSet::new();
-        let mut new_writes_this_cycle = HashMap::new();
-        let mut has_read = false;
-        for _ in 0..2 {
-            let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
-            while used_indices.contains(&channel_index) {
-                channel_index = rng.gen_range(0..NUM_CHANNELS);
-            }
-            used_indices.insert(channel_index);
-
-            let is_read = if clock == 0 {
-                false
-            } else {
-                !has_read && rng.gen()
-            };
-            has_read = has_read || is_read;
-
-            let (context, segment, virt, vals) = if is_read {
-                let written: Vec<_> = current_memory_values.keys().collect();
-                let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
-                let &vals = current_memory_values
-                    .get(&(context, segment, virt))
-                    .unwrap();
-
-                (context, segment, virt, vals)
-            } else {
-                // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
-                // test larger address values.
-                let mut context = rng.gen_range(0..40);
-                let mut segment = rng.gen_range(0..8);
-                let mut virt = rng.gen_range(0..20);
-                while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                    context = rng.gen_range(0..40);
-                    segment = rng.gen_range(0..8);
-                    virt = rng.gen_range(0..20);
-                }
-
-                let val: [u32; 8] = rng.gen();
-                let vals: [F; 8] = val.map(F::from_canonical_u32);
-
-                new_writes_this_cycle.insert((context, segment, virt), vals);
-
-                (context, segment, virt, vals)
-            };
-
-            let timestamp = clock * NUM_CHANNELS + channel_index;
-            memory_ops.push(MemoryOp {
-                channel_index: Some(channel_index),
-                timestamp,
-                is_read,
-                context,
-                segment,
-                virt,
-                value: vals,
-            });
-        }
-        for (k, v) in new_writes_this_cycle {
-            current_memory_values.insert(k, v);
-        }
-    }
-
-    memory_ops
-}
-
-fn get_max_range_check<F: Field>(memory_ops: &[MemoryOp<F>]) -> usize {
+fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
     memory_ops
         .iter()
         .tuple_windows()
@@ -160,7 +87,7 @@ fn get_max_range_check<F: Field>(memory_ops: &[MemoryOp<F>]) -> usize {
             if curr.context != next.context {
                 next.context - curr.context - 1
             } else if curr.segment != next.segment {
-                next.segment - curr.segment - 1
+                next.segment as usize - curr.segment as usize - 1
             } else if curr.virt != next.virt {
                 next.virt - curr.virt - 1
             } else {
@@ -216,7 +143,7 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
-    fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp<F>>) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
         memory_ops.sort_by_key(|op| (op.context, op.segment, op.virt, op.timestamp));
 
         Self::pad_memory_ops(&mut memory_ops);
@@ -241,7 +168,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
     }
 
-    fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp<F>>) {
+    fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp>) {
         let num_ops = memory_ops.len();
         let max_range_check = get_max_range_check(memory_ops);
         let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
@@ -264,7 +191,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
     }
 
-    pub fn generate_trace(&self, memory_ops: Vec<MemoryOp<F>>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(&self, memory_ops: Vec<MemoryOp>) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate most of the trace in row-major form.
@@ -533,12 +460,89 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 }
 
 #[cfg(test)]
-mod tests {
-    use anyhow::Result;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+pub(crate) mod tests {
+    use std::collections::{HashMap, HashSet};
 
-    use crate::memory::memory_stark::MemoryStark;
+    use anyhow::Result;
+    use ethereum_types::U256;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use rand::prelude::SliceRandom;
+    use rand::Rng;
+
+    use crate::memory::memory_stark::{MemoryOp, MemoryStark};
+    use crate::memory::segments::Segment;
+    use crate::memory::NUM_CHANNELS;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+
+    pub(crate) fn generate_random_memory_ops<R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp> {
+        let mut memory_ops = Vec::new();
+
+        let mut current_memory_values: HashMap<(usize, Segment, usize), U256> = HashMap::new();
+        let num_cycles = num_ops / 2;
+        for clock in 0..num_cycles {
+            let mut used_indices = HashSet::new();
+            let mut new_writes_this_cycle = HashMap::new();
+            let mut has_read = false;
+            for _ in 0..2 {
+                let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
+                while used_indices.contains(&channel_index) {
+                    channel_index = rng.gen_range(0..NUM_CHANNELS);
+                }
+                used_indices.insert(channel_index);
+
+                let is_read = if clock == 0 {
+                    false
+                } else {
+                    !has_read && rng.gen()
+                };
+                has_read = has_read || is_read;
+
+                let (context, segment, virt, vals) = if is_read {
+                    let written: Vec<_> = current_memory_values.keys().collect();
+                    let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
+                    let &vals = current_memory_values
+                        .get(&(context, segment, virt))
+                        .unwrap();
+
+                    (context, segment, virt, vals)
+                } else {
+                    // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
+                    // test larger address values.
+                    let mut context = rng.gen_range(0..40);
+                    let segments = [Segment::Code, Segment::Stack, Segment::MainMemory];
+                    let mut segment = *segments.choose(rng).unwrap();
+                    let mut virt = rng.gen_range(0..20);
+                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
+                        context = rng.gen_range(0..40);
+                        segment = *segments.choose(rng).unwrap();
+                        virt = rng.gen_range(0..20);
+                    }
+
+                    let val = U256(rng.gen());
+
+                    new_writes_this_cycle.insert((context, segment, virt), val);
+
+                    (context, segment, virt, val)
+                };
+
+                let timestamp = clock * NUM_CHANNELS + channel_index;
+                memory_ops.push(MemoryOp {
+                    channel_index: Some(channel_index),
+                    timestamp,
+                    is_read,
+                    context,
+                    segment,
+                    virt,
+                    value: vals,
+                });
+            }
+            for (k, v) in new_writes_this_cycle {
+                current_memory_values.insert(k, v);
+            }
+        }
+
+        memory_ops
+    }
 
     #[test]
     fn test_stark_degree() -> Result<()> {

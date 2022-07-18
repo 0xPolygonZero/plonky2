@@ -13,6 +13,7 @@ ethereum-types = "0.13.1"
 hex = { version = "0.4.3", optional = true }
 itertools = "0.10.3"
 log = "0.4.14"
+once_cell = "1.13.0"
 pest = "2.1.3"
 pest_derive = "2.1.0"
 rayon = "1.5.1"

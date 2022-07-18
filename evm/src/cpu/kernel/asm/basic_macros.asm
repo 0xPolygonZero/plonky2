@@ -9,18 +9,21 @@
 %endmacro
 
 %macro pop2
-    pop
-    pop
+    %rep 2
+        pop
+    %endrep
 %endmacro
 
 %macro pop3
-    pop
-    %pop2
+    %rep 3
+        pop
+    %endrep
 %endmacro
 
 %macro pop4
-    %pop2
-    %pop2
+    %rep 4
+        pop
+    %endrep
 %endmacro
 
 // If pred is zero, yields z; otherwise, yields nz
