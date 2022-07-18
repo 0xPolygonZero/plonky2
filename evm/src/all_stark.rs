@@ -130,7 +130,7 @@ mod tests {
 
     use anyhow::Result;
     use ethereum_types::U256;
-    use itertools::{izip, Itertools};
+    use itertools::Itertools;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;
@@ -246,13 +246,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_keccak = F::ONE;
-            for (j, input, output) in izip!(
-                0..2 * NUM_INPUTS,
-                row.keccak_input_limbs.iter_mut(),
-                row.keccak_output_limbs.iter_mut()
-            ) {
-                *input = keccak_input_limbs[i][j];
-                *output = keccak_output_limbs[i][j];
+            let keccak = row.general.keccak_mut();
+            for j in 0..2 * NUM_INPUTS {
+                keccak.input_limbs[j] = keccak_input_limbs[i][j];
+                keccak.output_limbs[j] = keccak_output_limbs[i][j];
             }
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
@@ -270,21 +267,22 @@ mod tests {
             .into_iter()
             .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
             .sum();
-            for (cols_cpu, cols_logic) in [
-                (&mut row.logic_input0, logic::columns::INPUT0),
-                (&mut row.logic_input1, logic::columns::INPUT1),
-            ] {
-                for (col_cpu, limb_cols_logic) in cols_cpu
-                    .iter_mut()
-                    .zip(logic::columns::limb_bit_cols_for_input(cols_logic))
-                {
-                    *col_cpu =
-                        limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
-                }
+            let logic = row.general.logic_mut();
+
+            let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
+            for (col_cpu, limb_cols_logic) in logic.input0.iter_mut().zip(input0_bit_cols) {
+                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
-            for (col_cpu, col_logic) in row.logic_output.iter_mut().zip(logic::columns::RESULT) {
+
+            let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
+            for (col_cpu, limb_cols_logic) in logic.input1.iter_mut().zip(input1_bit_cols) {
+                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
+            }
+
+            for (col_cpu, col_logic) in logic.output.iter_mut().zip(logic::columns::RESULT) {
                 *col_cpu = logic_trace[col_logic].values[i];
             }
+
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }

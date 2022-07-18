@@ -2,14 +2,18 @@
 #![allow(dead_code)]
 
 use std::borrow::{Borrow, BorrowMut};
+use std::fmt::Debug;
 use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
 use std::ops::{Index, IndexMut};
 
+use crate::cpu::columns::shared::CpuSharedColumnsView;
 use crate::memory;
+
+mod shared;
 
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
-pub struct CpuColumnsView<T> {
+pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
 
@@ -136,14 +140,9 @@ pub struct CpuColumnsView<T> {
 
     /// Filter. 1 iff a Keccak permutation is computed on this row.
     pub is_keccak: T,
-    pub keccak_input_limbs: [T; 50],
-    pub keccak_output_limbs: [T; 50],
 
-    // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
-    // TODO: These input/output columns can be shared between the logic operations and others.
-    pub logic_input0: [T; 16],
-    pub logic_input1: [T; 16],
-    pub logic_output: [T; 16],
+    pub(crate) general: CpuSharedColumnsView<T>,
+
     pub simple_logic_diff: T,
     pub simple_logic_diff_inv: T,
 
@@ -169,43 +168,43 @@ unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U {
     transmute_copy(&value)
 }
 
-impl<T> From<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+impl<T: Copy> From<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
     fn from(value: [T; NUM_CPU_COLUMNS]) -> Self {
         unsafe { transmute_no_compile_time_size_checks(value) }
     }
 }
 
-impl<T> From<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+impl<T: Copy> From<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
     fn from(value: CpuColumnsView<T>) -> Self {
         unsafe { transmute_no_compile_time_size_checks(value) }
     }
 }
 
-impl<T> Borrow<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+impl<T: Copy> Borrow<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
     fn borrow(&self) -> &CpuColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> BorrowMut<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
+impl<T: Copy> BorrowMut<CpuColumnsView<T>> for [T; NUM_CPU_COLUMNS] {
     fn borrow_mut(&mut self) -> &mut CpuColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> Borrow<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+impl<T: Copy> Borrow<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
     fn borrow(&self) -> &[T; NUM_CPU_COLUMNS] {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> BorrowMut<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
+impl<T: Copy> BorrowMut<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
     fn borrow_mut(&mut self) -> &mut [T; NUM_CPU_COLUMNS] {
         unsafe { transmute(self) }
     }
 }
 
-impl<T, I> Index<I> for CpuColumnsView<T>
+impl<T: Copy, I> Index<I> for CpuColumnsView<T>
 where
     [T]: Index<I>,
 {
@@ -217,7 +216,7 @@ where
     }
 }
 
-impl<T, I> IndexMut<I> for CpuColumnsView<T>
+impl<T: Copy, I> IndexMut<I> for CpuColumnsView<T>
 where
     [T]: IndexMut<I>,
 {

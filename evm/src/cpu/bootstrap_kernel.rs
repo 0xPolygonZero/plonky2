@@ -56,7 +56,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         }
 
         sponge_state[sponge_input_pos] = packed_bytes;
-        state.current_cpu_row.keccak_input_limbs = sponge_state.map(F::from_canonical_u32);
+        let keccak = state.current_cpu_row.general.keccak_mut();
+        keccak.input_limbs = sponge_state.map(F::from_canonical_u32);
         state.commit_cpu_row();
 
         sponge_input_pos = (sponge_input_pos + 1) % KECCAK_RATE_LIMBS;
@@ -65,7 +66,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         if sponge_input_pos == 0 {
             state.current_cpu_row.is_keccak = F::ONE;
             keccakf_u32s(&mut sponge_state);
-            state.current_cpu_row.keccak_output_limbs = sponge_state.map(F::from_canonical_u32);
+            let keccak = state.current_cpu_row.general.keccak_mut();
+            keccak.output_limbs = sponge_state.map(F::from_canonical_u32);
         }
     }
 }
@@ -97,7 +99,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
-        .zip(local_values.keccak_output_limbs)
+        .zip(local_values.general.keccak().output_limbs)
     {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
@@ -137,7 +139,7 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
-        .zip(local_values.keccak_output_limbs)
+        .zip(local_values.general.keccak().output_limbs)
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));
         let diff = builder.sub_extension(expected, actual);
