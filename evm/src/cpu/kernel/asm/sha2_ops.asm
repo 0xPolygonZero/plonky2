@@ -27,7 +27,7 @@
 %endmacro
 
 // 32-bit left rotation
-%macro rot,
+%macro rotl
     // stack: rot, value
     dup2
     dup2

@@ -106,13 +106,62 @@ global sha2_gen_message_schedule_from_block:
     // stack: counter=16, block, output_addr
 
 
+
 global sha2_message_schedule_next_word:
     JUMPDEST
-    // stack: address
+    // stack: addr
+    dup1
+    // stack: addr, addr
+    push 2
+    swap1
+    sub
+    // stack: addr - 2, addr
+    mload
+    // stack: x[addr - 2], addr
+    %jump(sha2_sigma_1)
+    // stack: sigma_1(x[addr - 2]), addr
+    swap1
+    // stack: addr, sigma_1(x[addr - 2])
+    dup1
+    // stack: addr, addr, sigma_1(x[addr - 2])
+    push 7
+    swap1
+    sub
+    // stack: addr - 7, addr, sigma_1(x[addr - 2])
+    mload
+    // stack: x[addr - 7], addr, sigma_1(x[addr - 2])
+    swap1
+    // stack: addr, x[addr - 7], sigma_1(x[addr - 2])
+    dup1
+    // stack: addr, addr, x[addr - 7], sigma_1(x[addr - 2])
+    push 15
+    swap1
+    sub
+    // stack: addr - 15, addr, x[addr - 7], sigma_1(x[addr - 2])
+    mload
+    // stack: x[addr - 15], addr, x[addr - 7], sigma_1(x[addr - 2])
+    %jump(sha2_sigma_0)
+    // stack: sigma_0(x[addr - 15]), addr, x[addr - 7], sigma_1(x[addr - 2])
+    swap1
+    // stack: addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2])
+    dup1
+    // stack: addr, addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2])
+    push 16
+    swap1
+    sub
+    // stack: addr - 16, addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2])
+    mload
+    // stack: x[addr - 16], addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2])
+    swap1
+    // stack: addr, x[addr - 16], sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2])
+    swap4
+    // stack: sigma_1(x[addr - 2]), x[addr - 16], sigma_0(x[addr - 15]), x[addr - 7], addr
+    add
+    add
+    add
+    // stack: sigma_1(x[addr - 2]) + x[addr - 16] + sigma_0(x[addr - 15]) + x[addr - 7], addr
+    swap1
+    mstore
 
-
-
-
-
-global sha2_gen_message_schedules:
+global sha2_gen_all_message_schedules:
     JUMPDEST
