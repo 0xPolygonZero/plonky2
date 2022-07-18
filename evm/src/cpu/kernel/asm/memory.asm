@@ -1,6 +1,6 @@
 // Load a byte from the given segment of the current context's memory space.
 // Note that main memory values are one byte each, but in general memory values
-// can be 256 bits. This macro deals with a single address (unlike MSTORE), so
+// can be 256 bits. This macro deals with a single address (unlike MLOAD), so
 // if it is used with main memory, it will load a single byte.
 %macro mload_current(segment)
     // stack: offset
