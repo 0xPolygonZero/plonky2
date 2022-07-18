@@ -67,7 +67,7 @@ pub(crate) fn run(
     };
 
     while interpreter.running {
-        interpreter.run_opcode();
+        interpreter.run_opcode()?;
     }
 
     Ok(interpreter)
