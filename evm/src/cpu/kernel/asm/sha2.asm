@@ -100,10 +100,69 @@ global sha2_pad:
 global sha2_gen_message_schedule_from_block:
     JUMPDEST
     // stack: block_addr, output_addr
+    dup1
+    // stack: block_addr, block_addr, output_addr
+    %increment
+    // stack: block_addr + 1, block_addr, output_addr
+    swap1
+    // stack: block_addr, block_addr + 1, output_addr
     mload
-    // stack: block, output_addr
+    // stack: block[0], block_addr + 1, output_addr
+    swap1
+    // stack: block_addr + 1, block[0], output_addr
+    mload
+    // stack: block[1], block[0], output_addr
+    swap2
+    // stack: output_addr, block[0], block[1]
+    // stack: output_addr, block[0], block[1]
     push 16
-    // stack: counter=16, block, output_addr
+    // stack: counter=16, output_addr, block[0], block[1]
+    %jump(sha2_gen_message_schedule_from_block_0_loop)
+sha2_gen_message_schedule_from_block_0_loop:
+    JUMPDEST
+    // stack: counter, output_addr, block[0], block[1]
+    swap2
+    // stack: block[0], output_addr, counter, block[1]
+    push 1
+    push 32
+    shl
+    // stack: 1 << 32, block[0], output_addr, counter, block[1]
+    dup2
+    dup2
+    // stack: 1 << 32, block[0], 1 << 32, block[0], output_addr, counter, block[1]
+    swap1
+    // stack: block[0], 1 << 32, 1 << 32, block[0], output_addr, counter, block[1]
+    mod
+    // stack: block[0] % (1 << 32), 1 << 32, block[0], output_addr, counter, block[1]
+    swap2
+    // stack: block[0], 1 << 32, block[0] % (1 << 32), output_addr, counter, block[1]
+    // stack: block[0], 1 << 32, block[0] % (1 << 32), output_addr, counter, block[1]
+    div
+    // stack: block[0] // (1 << 32), block[0] % (1 << 32), output_addr, counter, block[1]
+    swap1
+    // stack: block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1]
+    dup3
+    // stack: output_addr, block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1]
+    mstore
+    // stack: block[0] // (1 << 32), output_addr, counter, block[1]
+    swap1
+    // stack: output_addr, block[0] // (1 << 32), counter, block[1]
+    %increment
+    // stack: output_addr + 1, block[0] // (1 << 32), counter, block[1]
+    swap1
+    // stack: block[0] // (1 << 32), output_addr + 1, counter, block[1]
+    swap2
+    // stack: counter, output_addr + 1, block[0] // (1 << 32), block[1]
+    %decrement
+    dup1
+    iszero
+    %jumpi(sha2_gen_message_schedule_from_block_0_end)
+    %jump(sha2_gen_message_schedule_from_block_0_loop)
+sha2_gen_message_schedule_from_block_0_end:
+    JUMPDEST
+    // stack: old counter=0, 
+    pop
+    push 16
 
 
 
