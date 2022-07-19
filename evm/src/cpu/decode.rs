@@ -15,7 +15,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 // - its start index is a multiple of its length (it is aligned)
 // These properties permit us to check if an opcode belongs to a block of length 2^n by checking its
 // top 8-n bits.
-const OPCODES: [(u64, usize, usize); 102] = [
+const OPCODES: [(u64, usize, usize); 107] = [
     // (start index of block, number of top bits to check (log2), flag column)
     (0x00, 0, COL_MAP.is_stop),
     (0x01, 0, COL_MAP.is_add),
@@ -90,34 +90,39 @@ const OPCODES: [(u64, usize, usize); 102] = [
     (0x59, 0, COL_MAP.is_msize),
     (0x5a, 0, COL_MAP.is_gas),
     (0x5b, 0, COL_MAP.is_jumpdest),
-    (0x5c, 2, COL_MAP.is_invalid_9), // 0x5c-0x5f
-    (0x60, 5, COL_MAP.is_push),      // 0x60-0x7f
-    (0x80, 4, COL_MAP.is_dup),       // 0x80-0x8f
-    (0x90, 4, COL_MAP.is_swap),      // 0x90-0x9f
+    (0x5c, 0, COL_MAP.is_get_state_root),
+    (0x5d, 0, COL_MAP.is_set_state_root),
+    (0x5e, 0, COL_MAP.is_get_receipt_root),
+    (0x5f, 0, COL_MAP.is_set_receipt_root),
+    (0x60, 5, COL_MAP.is_push), // 0x60-0x7f
+    (0x80, 4, COL_MAP.is_dup),  // 0x80-0x8f
+    (0x90, 4, COL_MAP.is_swap), // 0x90-0x9f
     (0xa0, 0, COL_MAP.is_log0),
     (0xa1, 0, COL_MAP.is_log1),
     (0xa2, 0, COL_MAP.is_log2),
     (0xa3, 0, COL_MAP.is_log3),
     (0xa4, 0, COL_MAP.is_log4),
-    (0xa5, 0, COL_MAP.is_invalid_10),
-    (0xa6, 1, COL_MAP.is_invalid_11), // 0xa6-0xa7
-    (0xa8, 3, COL_MAP.is_invalid_12), // 0xa8-0xaf
-    (0xb0, 4, COL_MAP.is_invalid_13), // 0xb0-0xbf
-    (0xc0, 5, COL_MAP.is_invalid_14), // 0xc0-0xdf
-    (0xe0, 4, COL_MAP.is_invalid_15), // 0xe0-0xef
+    (0xa5, 0, COL_MAP.is_panic),
+    (0xa6, 1, COL_MAP.is_invalid_9),  // 0xa6-0xa7
+    (0xa8, 3, COL_MAP.is_invalid_10), // 0xa8-0xaf
+    (0xb0, 4, COL_MAP.is_invalid_11), // 0xb0-0xbf
+    (0xc0, 5, COL_MAP.is_invalid_12), // 0xc0-0xdf
+    (0xe0, 4, COL_MAP.is_invalid_13), // 0xe0-0xef
     (0xf0, 0, COL_MAP.is_create),
     (0xf1, 0, COL_MAP.is_call),
     (0xf2, 0, COL_MAP.is_callcode),
     (0xf3, 0, COL_MAP.is_return),
     (0xf4, 0, COL_MAP.is_delegatecall),
     (0xf5, 0, COL_MAP.is_create2),
-    (0xf6, 1, COL_MAP.is_invalid_16), // 0xf6-0xf7
-    (0xf8, 1, COL_MAP.is_invalid_17), // 0xf8-0xf9
+    (0xf6, 0, COL_MAP.is_get_context),
+    (0xf7, 0, COL_MAP.is_set_context),
+    (0xf8, 0, COL_MAP.is_consume_gas),
+    (0xf9, 0, COL_MAP.is_exit_kernel),
     (0xfa, 0, COL_MAP.is_staticcall),
-    (0xfb, 0, COL_MAP.is_invalid_18),
-    (0xfc, 0, COL_MAP.is_invalid_19),
+    (0xfb, 0, COL_MAP.is_mload_general),
+    (0xfc, 0, COL_MAP.is_mstore_general),
     (0xfd, 0, COL_MAP.is_revert),
-    (0xfe, 0, COL_MAP.is_invalid_20),
+    (0xfe, 0, COL_MAP.is_invalid_14),
     (0xff, 0, COL_MAP.is_selfdestruct),
 ];
 
