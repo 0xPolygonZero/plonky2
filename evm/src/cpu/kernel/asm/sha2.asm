@@ -230,7 +230,7 @@ global sha2_message_schedule_next_word:
     // stack: addr - 2, addr, retdest
     mload
     // stack: x[addr - 2], addr, retdest
-    %jump(sha2_sigma_1)
+    %sha2_sigma_1
     // stack: sigma_1(x[addr - 2]), addr, retdest
     swap1
     // stack: addr, sigma_1(x[addr - 2]), retdest
@@ -252,7 +252,7 @@ global sha2_message_schedule_next_word:
     // stack: addr - 15, addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
     mload
     // stack: x[addr - 15], addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
-    %jump(sha2_sigma_0)
+    %sha2_sigma_0
     // stack: sigma_0(x[addr - 15]), addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
     swap1
     // stack: addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
