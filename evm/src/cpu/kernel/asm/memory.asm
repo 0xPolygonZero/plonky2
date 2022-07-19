@@ -26,6 +26,47 @@
     // stack: (empty)
 %endmacro
 
+// Load a single byte from kernel code.
+%macro mload_kernel_code
+    // stack: offset
+    PUSH @SEGMENT_CODE
+    // stack: segment, offset
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset
+    MLOAD_GENERAL
+    // stack: value
+%endmacro
+
+// Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
+// from kernel code.
+%macro mload_kernel_code_u32
+    // stack: offset
+    DUP1
+    %mload_kernel_code
+    // stack: c_3, offset
+    %shl_const(8)
+    // stack: c_3 << 8, offset
+    DUP2
+    %add_const(1)
+    %mload_kernel_code
+    OR
+    // stack: (c_3 << 8) | c_2, offset
+    %shl_const(8)
+    // stack: ((c_3 << 8) | c_2) << 8, offset
+    DUP2
+    %add_const(2)
+    %mload_kernel_code
+    OR
+    // stack: (((c_3 << 8) | c_2) << 8) | c_1, offset
+    %shl_const(8)
+    // stack: ((((c_3 << 8) | c_2) << 8) | c_1) << 8, offset
+    SWAP1
+    %add_const(3)
+    %mload_kernel_code
+    OR
+    // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
+%endmacro
+
 // Copies `count` values from
 //     SRC = (src_ctx, src_segment, src_addr)
 // to

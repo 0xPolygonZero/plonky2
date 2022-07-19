@@ -82,6 +82,13 @@
     // stack: input / c, ...
 %endmacro
 
+%macro shl_const(c)
+    // stack: input, ...
+    PUSH $c
+    SHL
+    // stack: input << c, ...
+%endmacro
+
 %macro eq_const(c)
     // stack: input, ...
     PUSH $c
