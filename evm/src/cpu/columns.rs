@@ -78,6 +78,7 @@ pub struct CpuColumnsView<T> {
     pub is_chainid: T,
     pub is_selfbalance: T,
     pub is_basefee: T,
+    pub is_prover_input: T,
     pub is_pop: T,
     pub is_mload: T,
     pub is_mstore: T,
@@ -134,7 +135,6 @@ pub struct CpuColumnsView<T> {
     pub is_invalid_11: T,
     pub is_invalid_12: T,
     pub is_invalid_13: T,
-    pub is_invalid_14: T,
 
     /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
     pub opcode_bits: [T; 8],

@@ -75,9 +75,9 @@ const OPCODES: [(u64, usize, usize); 107] = [
     (0x46, 0, COL_MAP.is_chainid),
     (0x47, 0, COL_MAP.is_selfbalance),
     (0x48, 0, COL_MAP.is_basefee),
-    (0x49, 0, COL_MAP.is_invalid_6),
-    (0x4a, 1, COL_MAP.is_invalid_7), // 0x4a-0x4b
-    (0x4c, 2, COL_MAP.is_invalid_8), // 0x4c-0x4f
+    (0x49, 0, COL_MAP.is_prover_input),
+    (0x4a, 1, COL_MAP.is_invalid_6), // 0x4a-0x4b
+    (0x4c, 2, COL_MAP.is_invalid_7), // 0x4c-0x4f
     (0x50, 0, COL_MAP.is_pop),
     (0x51, 0, COL_MAP.is_mload),
     (0x52, 0, COL_MAP.is_mstore),
@@ -103,11 +103,11 @@ const OPCODES: [(u64, usize, usize); 107] = [
     (0xa3, 0, COL_MAP.is_log3),
     (0xa4, 0, COL_MAP.is_log4),
     (0xa5, 0, COL_MAP.is_panic),
-    (0xa6, 1, COL_MAP.is_invalid_9),  // 0xa6-0xa7
-    (0xa8, 3, COL_MAP.is_invalid_10), // 0xa8-0xaf
-    (0xb0, 4, COL_MAP.is_invalid_11), // 0xb0-0xbf
-    (0xc0, 5, COL_MAP.is_invalid_12), // 0xc0-0xdf
-    (0xe0, 4, COL_MAP.is_invalid_13), // 0xe0-0xef
+    (0xa6, 1, COL_MAP.is_invalid_8),  // 0xa6-0xa7
+    (0xa8, 3, COL_MAP.is_invalid_9),  // 0xa8-0xaf
+    (0xb0, 4, COL_MAP.is_invalid_10), // 0xb0-0xbf
+    (0xc0, 5, COL_MAP.is_invalid_11), // 0xc0-0xdf
+    (0xe0, 4, COL_MAP.is_invalid_12), // 0xe0-0xef
     (0xf0, 0, COL_MAP.is_create),
     (0xf1, 0, COL_MAP.is_call),
     (0xf2, 0, COL_MAP.is_callcode),
@@ -122,7 +122,7 @@ const OPCODES: [(u64, usize, usize); 107] = [
     (0xfb, 0, COL_MAP.is_mload_general),
     (0xfc, 0, COL_MAP.is_mstore_general),
     (0xfd, 0, COL_MAP.is_revert),
-    (0xfe, 0, COL_MAP.is_invalid_14),
+    (0xfe, 0, COL_MAP.is_invalid_13),
     (0xff, 0, COL_MAP.is_selfdestruct),
 ];
 

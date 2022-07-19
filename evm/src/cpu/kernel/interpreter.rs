@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use ethereum_types::{U256, U512};
 
 /// Halt interpreter execution whenever a jump to this offset is done.
@@ -49,6 +49,9 @@ pub(crate) struct Interpreter<'a> {
     offset: usize,
     pub(crate) stack: Vec<U256>,
     pub(crate) memory: EvmMemory,
+    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
+    /// next prover input.
+    prover_inputs: Vec<U256>,
     running: bool,
 }
 
@@ -57,12 +60,25 @@ pub(crate) fn run(
     initial_offset: usize,
     initial_stack: Vec<U256>,
 ) -> anyhow::Result<Interpreter> {
+    run_with_input(code, initial_offset, initial_stack, vec![])
+}
+
+pub(crate) fn run_with_input(
+    code: &[u8],
+    initial_offset: usize,
+    initial_stack: Vec<U256>,
+    mut prover_inputs: Vec<U256>,
+) -> anyhow::Result<Interpreter> {
+    // Prover inputs are stored backwards, so that popping the last item gives the next input.
+    prover_inputs.reverse();
+
     let mut interpreter = Interpreter {
         code,
         jumpdests: find_jumpdests(code),
         offset: initial_offset,
         stack: initial_stack,
         memory: EvmMemory::default(),
+        prover_inputs,
         running: true,
     };
 
@@ -149,6 +165,7 @@ impl<'a> Interpreter<'a> {
             0x45 => todo!(),                                           // "GASLIMIT",
             0x46 => todo!(),                                           // "CHAINID",
             0x48 => todo!(),                                           // "BASEFEE",
+            0x49 => self.run_prover_input()?,                          // "PROVER_INPUT",
             0x50 => self.run_pop(),                                    // "POP",
             0x51 => self.run_mload(),                                  // "MLOAD",
             0x52 => self.run_mstore(),                                 // "MSTORE",
@@ -301,6 +318,15 @@ impl<'a> Interpreter<'a> {
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
+    }
+
+    fn run_prover_input(&mut self) -> anyhow::Result<()> {
+        let input = self
+            .prover_inputs
+            .pop()
+            .ok_or_else(|| anyhow!("Out of prover inputs"))?;
+        self.stack.push(input);
+        Ok(())
     }
 
     fn run_pop(&mut self) {
