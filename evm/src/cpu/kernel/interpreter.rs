@@ -1,6 +1,5 @@
 use anyhow::bail;
 use ethereum_types::{BigEndianHash, U256, U512};
-use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
