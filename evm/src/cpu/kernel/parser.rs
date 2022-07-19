@@ -1,7 +1,7 @@
 use pest::iterators::Pair;
 use pest::Parser;
 
-use crate::cpu::kernel::ast::{File, Item, Literal, PushTarget};
+use crate::cpu::kernel::ast::{File, Item, Literal, PushTarget, StackReplacement};
 
 /// Parses EVM assembly code.
 #[derive(pest_derive::Parser)]
@@ -24,6 +24,7 @@ fn parse_item(item: Pair<Rule>) -> Item {
         Rule::macro_def => parse_macro_def(item),
         Rule::macro_call => parse_macro_call(item),
         Rule::repeat => parse_repeat(item),
+        Rule::stack => parse_stack(item),
         Rule::global_label => {
             Item::GlobalLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
@@ -44,7 +45,7 @@ fn parse_macro_def(item: Pair<Rule>) -> Item {
     let name = inner.next().unwrap().as_str().into();
 
     // The parameter list is optional.
-    let params = if let Some(Rule::macro_paramlist) = inner.peek().map(|pair| pair.as_rule()) {
+    let params = if let Some(Rule::paramlist) = inner.peek().map(|pair| pair.as_rule()) {
         let params = inner.next().unwrap().into_inner();
         params.map(|param| param.as_str().to_string()).collect()
     } else {
@@ -76,6 +77,42 @@ fn parse_repeat(item: Pair<Rule>) -> Item {
     let mut inner = item.into_inner().peekable();
     let count = parse_literal(inner.next().unwrap());
     Item::Repeat(count, inner.map(parse_item).collect())
+}
+
+fn parse_stack(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::stack);
+    let mut inner = item.into_inner().peekable();
+
+    let params = inner.next().unwrap();
+    assert_eq!(params.as_rule(), Rule::paramlist);
+    let replacements = inner.next().unwrap();
+    assert_eq!(replacements.as_rule(), Rule::stack_replacements);
+
+    let params = params
+        .into_inner()
+        .map(|param| param.as_str().to_string())
+        .collect();
+    let replacements = replacements
+        .into_inner()
+        .map(parse_stack_replacement)
+        .collect();
+    Item::StackManipulation(params, replacements)
+}
+
+fn parse_stack_replacement(target: Pair<Rule>) -> StackReplacement {
+    assert_eq!(target.as_rule(), Rule::stack_replacement);
+    let inner = target.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::identifier => StackReplacement::NamedItem(inner.as_str().into()),
+        Rule::literal => StackReplacement::Literal(parse_literal(inner)),
+        Rule::variable => {
+            StackReplacement::MacroVar(inner.into_inner().next().unwrap().as_str().into())
+        }
+        Rule::constant => {
+            StackReplacement::Constant(inner.into_inner().next().unwrap().as_str().into())
+        }
+        _ => panic!("Unexpected {:?}", inner.as_rule()),
+    }
 }
 
 fn parse_push_target(target: Pair<Rule>) -> PushTarget {

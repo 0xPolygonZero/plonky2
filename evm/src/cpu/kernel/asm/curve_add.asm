@@ -111,18 +111,7 @@ ec_add_snd_zero:
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
-    SWAP2
-    // stack: x1, y0, x0, y1, retdest
-    POP
-    // stack: y0, x0, y1, retdest
-    SWAP2
-    // stack: y1, x0, y0, retdest
-    POP
-    // stack: x0, y0, retdest
-    SWAP1
-    // stack: y0, x0, retdest
-    SWAP2
-    // stack: retdest, x0, y0
+    %stack (x0, y0, x1, y1, retdest) -> (retdest, x0, y0)
     JUMP
 
 // BN254 elliptic curve addition.
@@ -170,16 +159,7 @@ ec_add_valid_points_with_lambda:
     // stack: y2, x2, lambda, x0, y0, x1, y1, retdest
 
     // Return x2,y2
-    SWAP5
-    // stack: x1, x2, lambda, x0, y0, y2, y1, retdest
-    POP
-    // stack: x2, lambda, x0, y0, y2, y1, retdest
-    SWAP5
-    // stack: y1, lambda, x0, y0, y2, x2, retdest
-    %pop4
-    // stack: y2, x2, retdest
-    SWAP2
-    // stack: retdest, x2, y2
+    %stack (y2, x2, lambda, x0, y0, x1, y1, retdest) -> (retdest, x2, y2)
     JUMP
 
 // BN254 elliptic curve addition.
