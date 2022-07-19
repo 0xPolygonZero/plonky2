@@ -107,7 +107,7 @@ ecrecover_with_first_point:
     // stack: u2, Y, X, retdest
 
     // Compute u2 * GENERATOR and chain the call to `ec_mul` with a call to `ec_add` to compute PUBKEY = (X,Y) + u2 * GENERATOR,
-    // and a call to `pubkey_to_addr` to get the final result `SHA3(PUBKEY)[-20:]`.
+    // and a call to `pubkey_to_addr` to get the final result `KECCAK256(PUBKEY)[-20:]`.
     PUSH pubkey_to_addr
     // stack: pubkey_to_addr, u2, Y, X, retdest
     SWAP3
@@ -130,13 +130,13 @@ ecrecover_with_first_point:
     // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
     %jump(ec_mul_valid_point_secp)
 
-// Take a public key (PKx, PKy) and return the associated address SHA3(PKx || PKy)[-20:].
+// Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
     JUMPDEST
     // stack: PKx, PKy, retdest
     PUSH 0
     // stack: 0, PKx, PKy, retdest
-    MSTORE
+    MSTORE // TODO: switch to kernel memory (like `%mstore_current(@SEGMENT_KERNEL_GENERAL)`).
     // stack: PKy, retdest
     PUSH 0x20
     // stack: 0x20, PKy, retdest
@@ -146,7 +146,7 @@ pubkey_to_addr:
     // stack: 0x40, retdest
     PUSH 0
     // stack: 0, 0x40, retdest
-    SHA3
+    KECCAK256
     // stack: hash, retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffff
     // stack: 2^160-1, hash, retdest

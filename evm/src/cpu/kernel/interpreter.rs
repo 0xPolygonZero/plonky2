@@ -125,7 +125,7 @@ impl<'a> Interpreter<'a> {
             0x1b => todo!(),                                           // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
-            0x20 => self.run_sha3(),                                   // "SHA3",
+            0x20 => self.run_keccak256(),                              // "KECCAK256",
             0x30 => todo!(),                                           // "ADDRESS",
             0x31 => todo!(),                                           // "BALANCE",
             0x32 => todo!(),                                           // "ORIGIN",
@@ -292,7 +292,7 @@ impl<'a> Interpreter<'a> {
         self.push(!x);
     }
 
-    fn run_sha3(&mut self) {
+    fn run_keccak256(&mut self) {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         let bytes = (offset..offset + size)
