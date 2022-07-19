@@ -215,7 +215,8 @@ sha2_gen_message_schedule_from_block_1_end:
     // stack: old counter=0, output_addr, block[1], block[0], retdest
     pop
     // stack: output_addr, block[0], block[1], retdest
-    
+    push 48
+    // stack: counter=48, output_addr, block[0], block[1], retdest
 
 
 global sha2_message_schedule_next_word:
