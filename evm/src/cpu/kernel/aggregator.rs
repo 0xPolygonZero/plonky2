@@ -28,6 +28,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/exp.asm"),
         include_str!("asm/curve_mul.asm"),
         include_str!("asm/curve_add.asm"),
+        include_str!("asm/memory.asm"),
         include_str!("asm/moddiv.asm"),
         include_str!("asm/secp256k1/curve_mul.asm"),
         include_str!("asm/secp256k1/curve_add.asm"),
