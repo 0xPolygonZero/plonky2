@@ -77,8 +77,7 @@ global sha2_sigma_0:
     xor
     xor
 
-global sha2_sigma_1:
-    JUMPDEST
+%macro sha2_sigma_1
     // stack: x
     dup1
     // stack: x, x
@@ -99,9 +98,9 @@ global sha2_sigma_1:
     // stack: shr(x, 10), rotr(x, 19), rotr(x, 17)
     xor
     xor
+%endmacro
 
-global sha2_bigsigma_0:
-    JUMPDEST
+%macro sha2_bigsigma_0
     // stack: x
     dup1
     // stack: x, x
@@ -122,9 +121,9 @@ global sha2_bigsigma_0:
     // stack: rotr(x, 22), rotr(x, 13), rotr(x, 2)
     xor
     xor
+%endmacro
 
-global sha2_bigsigma_1:
-    JUMPDEST
+%macro sha2_bigsigma_1
     // stack: x
     dup1
     // stack: x, x
@@ -145,9 +144,9 @@ global sha2_bigsigma_1:
     // stack: rotr(x, 25), rotr(x, 11), rotr(x, 6)
     xor
     xor
+%endmacro
 
-global sha2_choice:
-    JUMPDEST
+%macro sha2_choice
     // stack: x, y, z
     dup1
     // stack: x, x, y, z
@@ -164,9 +163,9 @@ global sha2_choice:
     and
     // stack: (not x) and z, x and y
     or
+%endmacro
 
-global sha2_majority:
-    JUMPDEST
+%macro sha2_majority
     // stack: x, y, z
     dup3
     dup3
@@ -192,5 +191,5 @@ global sha2_majority:
     // stack: y and z, x and z, x and y
     or
     or
-
+%endmacro
     
