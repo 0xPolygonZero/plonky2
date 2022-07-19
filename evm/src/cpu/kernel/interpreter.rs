@@ -1,5 +1,6 @@
 use anyhow::bail;
-use ethereum_types::{U256, U512};
+use ethereum_types::{BigEndianHash, U256, U512};
+use keccak_hash::keccak;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const HALT_OFFSET: usize = 0xdeadbeef;
@@ -24,6 +25,11 @@ impl EvmMemory {
     fn mload(&mut self, offset: usize) -> U256 {
         self.expand(offset + 32);
         U256::from_big_endian(&self.memory[offset..offset + 32])
+    }
+
+    fn mload8(&mut self, offset: usize) -> u8 {
+        self.expand(offset + 1);
+        self.memory[offset]
     }
 
     fn mstore(&mut self, offset: usize, value: U256) {
@@ -124,7 +130,7 @@ impl<'a> Interpreter<'a> {
             0x1b => todo!(),                                           // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
-            0x20 => todo!(),                                           // "KECCAK256",
+            0x20 => self.run_keccak256(),                              // "KECCAK256",
             0x30 => todo!(),                                           // "ADDRESS",
             0x31 => todo!(),                                           // "BALANCE",
             0x32 => todo!(),                                           // "ORIGIN",
@@ -301,6 +307,16 @@ impl<'a> Interpreter<'a> {
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
+    }
+
+    fn run_keccak256(&mut self) {
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        let bytes = (offset..offset + size)
+            .map(|i| self.memory.mload8(i))
+            .collect::<Vec<_>>();
+        let hash = keccak(bytes);
+        self.push(hash.into_uint());
     }
 
     fn run_pop(&mut self) {
