@@ -68,7 +68,7 @@ global memcpy:
     %sub_const(1)
     SWAP6
 
-    // Recurse!
+    // Continue the loop.
     %jump(memcpy)
 
 memcpy_finish:
