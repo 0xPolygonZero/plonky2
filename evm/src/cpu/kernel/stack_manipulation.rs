@@ -32,7 +32,6 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
         })
         .unique()
         .collect_vec();
-    let all_ops = StackOp::all(unique_literals);
 
     let mut dst = replacements
         .into_iter()
@@ -50,13 +49,17 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
     src.reverse();
     dst.reverse();
 
-    let path = shortest_path(src, dst, all_ops);
+    let path = shortest_path(src, dst, unique_literals);
     path.into_iter().map(StackOp::into_item).collect()
 }
 
 /// Finds the lowest-cost sequence of `StackOp`s that transforms `src` to `dst`.
 /// Uses a variant of Dijkstra's algorithm.
-fn shortest_path(src: Vec<StackItem>, dst: Vec<StackItem>, all_ops: Vec<StackOp>) -> Vec<StackOp> {
+fn shortest_path(
+    src: Vec<StackItem>,
+    dst: Vec<StackItem>,
+    unique_literals: Vec<Literal>,
+) -> Vec<StackOp> {
     // Nodes to visit, starting with the lowest-cost node.
     let mut queue = BinaryHeap::new();
     queue.push(Node {
@@ -90,7 +93,7 @@ fn shortest_path(src: Vec<StackItem>, dst: Vec<StackItem>, all_ops: Vec<StackOp>
             continue;
         }
 
-        for op in &all_ops {
+        for op in next_ops(&node.stack, &dst, &unique_literals) {
             let neighbor = match op.apply_to(node.stack.clone()) {
                 Some(n) => n,
                 None => continue,
@@ -159,19 +162,51 @@ enum StackOp {
     Swap(u8),
 }
 
-fn get_ops(src: Vec<StackItem>, dst: Vec<StackItem>) -> impl Iterator<Item = StackOp> {
+/// A set of candidate operations to consider for the next step in the path from `src` to `dst`.
+fn next_ops(src: &[StackItem], dst: &[StackItem], unique_literals: &[Literal]) -> Vec<StackOp> {
+    if let Some(top) = src.last() && !dst.contains(top) {
+        // If the top of src doesn't appear in dst, don't bother with anything other than a POP.
+        return vec![StackOp::Pop]
+    }
 
+    let mut ops = vec![StackOp::Pop];
+
+    ops.extend(
+        unique_literals
+            .iter()
+            // Only consider pushing this literal if we need more occurrences of it, otherwise swaps
+            // will be a better way to rearrange the existing occurrences as needed.
+            .filter(|lit| {
+                let item = StackItem::Literal((*lit).clone());
+                let src_count = src.iter().filter(|x| **x == item).count();
+                let dst_count = dst.iter().filter(|x| **x == item).count();
+                src_count < dst_count
+            })
+            .cloned()
+            .map(StackOp::Push),
+    );
+
+    let src_len = src.len() as u8;
+
+    ops.extend(
+        (1..=src_len)
+            // Only consider duplicating this item if we need more occurrences of it, otherwise swaps
+            // will be a better way to rearrange the existing occurrences as needed.
+            .filter(|i| {
+                let item = &src[src.len() - *i as usize];
+                let src_count = src.iter().filter(|x| *x == item).count();
+                let dst_count = dst.iter().filter(|x| *x == item).count();
+                src_count < dst_count
+            })
+            .map(StackOp::Dup),
+    );
+
+    ops.extend((1..src_len).map(StackOp::Swap));
+
+    ops
 }
 
 impl StackOp {
-    fn all(literals: Vec<Literal>) -> Vec<Self> {
-        let mut all = literals.into_iter().map(StackOp::Push).collect_vec();
-        all.push(Pop);
-        all.extend((1..=32).map(StackOp::Dup));
-        all.extend((1..=32).map(StackOp::Swap));
-        all
-    }
-
     fn cost(&self) -> u32 {
         let (cpu_rows, memory_rows) = match self {
             StackOp::Push(n) => {

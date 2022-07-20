@@ -437,9 +437,15 @@ mod tests {
 
     #[test]
     fn stack_manipulation() {
-        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
+        let pop = get_opcode("POP");
+        let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
         assert_eq!(kernel.code, vec![swap2]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
+        assert_eq!(kernel.code, vec![pop, swap1, pop]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
