@@ -6,7 +6,7 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    CURRENT_CONTEXT
+    GET_CONTEXT
     // stack: context, segment, offset
     MLOAD_GENERAL
     // stack: value
@@ -20,7 +20,7 @@
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
-    CURRENT_CONTEXT
+    GET_CONTEXT
     // stack: context, segment, offset, value
     MSTORE_GENERAL
     // stack: (empty)

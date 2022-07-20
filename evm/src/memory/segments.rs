@@ -21,12 +21,10 @@ pub(crate) enum Segment {
     TxnData = 7,
     /// Raw RLP data.
     RlpRaw = 8,
-    /// RLP data that has been parsed and converted to a more "friendly" format.
-    RlpParsed = 9,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 10;
+    pub(crate) const COUNT: usize = 9;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -39,7 +37,6 @@ impl Segment {
             Self::KernelGeneral,
             Self::TxnData,
             Self::RlpRaw,
-            Self::RlpParsed,
         ]
     }
 
@@ -55,7 +52,6 @@ impl Segment {
             Segment::KernelGeneral => "SEGMENT_KERNEL_GENERAL",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
-            Segment::RlpParsed => "SEGMENT_RLP_PARSED",
         }
     }
 }
