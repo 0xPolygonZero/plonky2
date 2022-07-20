@@ -26,6 +26,24 @@
     %endrep
 %endmacro
 
+%macro pop5
+    %rep 5
+        pop
+    %endrep
+%endmacro
+
+%macro pop6
+    %rep 6
+        pop
+    %endrep
+%endmacro
+
+%macro pop7
+    %rep 7
+        pop
+    %endrep
+%endmacro
+
 %macro add_const(c)
     // stack: input, ...
     PUSH $c
@@ -62,6 +80,13 @@
     // stack: input, c, ...
     SUB
     // stack: input / c, ...
+%endmacro
+
+%macro shl_const(c)
+    // stack: input, ...
+    PUSH $c
+    SHL
+    // stack: input << c, ...
 %endmacro
 
 %macro eq_const(c)

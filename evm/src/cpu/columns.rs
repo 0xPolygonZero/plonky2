@@ -52,7 +52,7 @@ pub struct CpuColumnsView<T> {
     pub is_shl: T,
     pub is_shr: T,
     pub is_sar: T,
-    pub is_sha3: T,
+    pub is_keccak256: T,
     pub is_address: T,
     pub is_balance: T,
     pub is_origin: T,

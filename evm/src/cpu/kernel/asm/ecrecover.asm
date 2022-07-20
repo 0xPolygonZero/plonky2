@@ -107,33 +107,53 @@ ecrecover_with_first_point:
     // stack: u2, Y, X, retdest
 
     // Compute u2 * GENERATOR and chain the call to `ec_mul` with a call to `ec_add` to compute PUBKEY = (X,Y) + u2 * GENERATOR,
-    // and a call to `final_hashing` to get the final result `SHA3(PUBKEY)[-20:]`.
-    PUSH final_hashing
-    // stack: final_hashing, u2, Y, X, retdest
+    // and a call to `pubkey_to_addr` to get the final result `KECCAK256(PUBKEY)[-20:]`.
+    PUSH pubkey_to_addr
+    // stack: pubkey_to_addr, u2, Y, X, retdest
     SWAP3
-    // stack: X, u2, Y, final_hashing, retdest
+    // stack: X, u2, Y, pubkey_to_addr, retdest
     PUSH ec_add_valid_points_secp
-    // stack: ec_add_valid_points_secp, X, u2, Y, final_hashing, retdest
+    // stack: ec_add_valid_points_secp, X, u2, Y, pubkey_to_addr, retdest
     SWAP1
-    // stack: X, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    // stack: X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
     PUSH 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 // x-coordinate of generator
-    // stack: Gx, X, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    // stack: Gx, X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
     SWAP1
-    // stack: X, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    // stack: X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
     PUSH 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 // y-coordinate of generator
-    // stack: Gy, X, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    // stack: Gy, X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
     SWAP1
-    // stack: X, Gy, Gx, ec_add_valid_points_secp, u2, Y, final_hashing, retdest
+    // stack: X, Gy, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
     SWAP4
-    // stack: u2, Gy, Gx, ec_add_valid_points_secp, X, Y, final_hashing, retdest
+    // stack: u2, Gy, Gx, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
     SWAP2
-    // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, final_hashing, retdest
+    // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
     %jump(ec_mul_valid_point_secp)
 
-// TODO
-final_hashing:
+// Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
+pubkey_to_addr:
     JUMPDEST
-    PUSH 0xdeadbeef
+    // stack: PKx, PKy, retdest
+    PUSH 0
+    // stack: 0, PKx, PKy, retdest
+    MSTORE // TODO: switch to kernel memory (like `%mstore_current(@SEGMENT_KERNEL_GENERAL)`).
+    // stack: PKy, retdest
+    PUSH 0x20
+    // stack: 0x20, PKy, retdest
+    MSTORE
+    // stack: retdest
+    PUSH 0x40
+    // stack: 0x40, retdest
+    PUSH 0
+    // stack: 0, 0x40, retdest
+    KECCAK256
+    // stack: hash, retdest
+    PUSH 0xffffffffffffffffffffffffffffffffffffffff
+    // stack: 2^160-1, hash, retdest
+    AND
+    // stack: address, retdest
+    SWAP1
+    // stack: retdest, address
     JUMP
 
 // Check if v, r, and s are in correct form.

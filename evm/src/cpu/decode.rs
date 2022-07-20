@@ -45,7 +45,7 @@ const OPCODES: [(u64, usize, usize); 107] = [
     (0x1c, 0, COL_MAP.is_shr),
     (0x1d, 0, COL_MAP.is_sar),
     (0x1e, 1, COL_MAP.is_invalid_1), // 0x1e-0x1f
-    (0x20, 0, COL_MAP.is_sha3),
+    (0x20, 0, COL_MAP.is_keccak256),
     (0x21, 0, COL_MAP.is_invalid_2),
     (0x22, 1, COL_MAP.is_invalid_3), // 0x22-0x23
     (0x24, 2, COL_MAP.is_invalid_4), // 0x24-0x27
