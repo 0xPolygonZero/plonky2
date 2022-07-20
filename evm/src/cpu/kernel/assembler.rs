@@ -5,7 +5,7 @@ use itertools::izip;
 use log::debug;
 
 use super::ast::PushTarget;
-use crate::cpu::kernel::ast::Literal;
+use crate::cpu::kernel::ast::{Literal, StackReplacement};
 use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::{
@@ -165,14 +165,31 @@ fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
 }
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
+    let resolve_const = |c| {
+        Literal::Decimal(
+            constants
+                .get(&c)
+                .unwrap_or_else(|| panic!("No such constant: {}", c))
+                .to_string(),
+        )
+    };
+
     body.into_iter()
         .map(|item| {
             if let Item::Push(PushTarget::Constant(c)) = item {
-                let value = constants
-                    .get(&c)
-                    .unwrap_or_else(|| panic!("No such constant: {}", c));
-                let literal = Literal::Decimal(value.to_string());
-                Item::Push(PushTarget::Literal(literal))
+                Item::Push(PushTarget::Literal(resolve_const(c)))
+            } else if let Item::StackManipulation(from, to) = item {
+                let to = to
+                    .into_iter()
+                    .map(|replacement| {
+                        if let StackReplacement::Constant(c) = replacement {
+                            StackReplacement::Literal(resolve_const(c))
+                        } else {
+                            replacement
+                        }
+                    })
+                    .collect();
+                Item::StackManipulation(from, to)
             } else {
                 item
             }
@@ -446,6 +463,11 @@ mod tests {
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
         assert_eq!(kernel.code, vec![pop, swap1, pop]);
+
+        let mut consts = HashMap::new();
+        consts.insert("LIFE".into(), 42.into());
+        parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
+        // We won't check the code since there are two equally efficient implementations.
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {

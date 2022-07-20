@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use ethereum_types::U256;
+use hex_literal::hex;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 
@@ -14,6 +15,12 @@ pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
+    c.insert(
+        "BN_BASE".into(),
+        U256::from_big_endian(&hex!(
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"
+        )),
+    );
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }

@@ -39,7 +39,7 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
             StackReplacement::NamedItem(name) => StackItem::NamedItem(name),
             StackReplacement::Literal(n) => StackItem::Literal(n),
             StackReplacement::MacroVar(_) | StackReplacement::Constant(_) => {
-                panic!("Should have been expanded earlier")
+                panic!("Should have been expanded already: {:?}", item)
             }
         })
         .collect_vec();

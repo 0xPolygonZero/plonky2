@@ -94,14 +94,8 @@ global ec_add_valid_points:
 ec_add_first_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
-
     // Just return (x1,y1)
-    %pop2
-    // stack: x1, y1, retdest
-    SWAP1
-    // stack: y1, x1, retdest
-    SWAP2
-    // stack: retdest, x1, y1
+    %stack (x0, y0, x1, y1, retdest) -> (retdest, x1, y1)
     JUMP
 
 // BN254 elliptic curve addition.
@@ -271,21 +265,7 @@ global ec_double:
     // stack: y < N, x < N, x, y
     AND
     // stack: (y < N) & (x < N), x, y
-    SWAP2
-    // stack: y, x, (y < N) & (x < N), x
-    SWAP1
-    // stack: x, y, (y < N) & (x < N)
-    %bn_base
-    // stack: N, x, y, b
-    %bn_base
-    // stack: N, N, x, y, b
-    DUP3
-    // stack: x, N, N, x, y, b
-    %bn_base
-    // stack: N, x, N, N, x, y, b
-    DUP2
-    // stack: x, N, x, N, N, x, y, b
-    DUP1
+    %stack (b, x, y) -> (x, x, @BN_BASE, x, @BN_BASE, @BN_BASE, x, y, b)
     // stack: x, x, N, x, N, N, x, y, b
     MULMOD
     // stack: x^2 % N, x, N, N, x, y, b
