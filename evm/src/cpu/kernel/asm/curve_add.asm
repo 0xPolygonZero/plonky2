@@ -104,7 +104,7 @@ ec_add_snd_zero:
     JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
-    // Just return (x1,y1)
+    // Just return (x0,y0)
     %stack (x0, y0, x1, y1, retdest) -> (retdest, x0, y0)
     JUMP
 

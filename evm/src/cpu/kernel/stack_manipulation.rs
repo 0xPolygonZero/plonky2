@@ -214,8 +214,11 @@ impl StackOp {
                 // This is just a rough estimate; we can update it after implementing PUSH.
                 (bytes, bytes)
             }
-            Pop => (1, 1),
+            // A POP takes one cycle, and doesn't involve memory, it just decrements a pointer.
+            Pop => (1, 0),
+            // A DUP takes one cycle, and a read and a write.
             StackOp::Dup(_) => (1, 2),
+            // A SWAP takes one cycle with four memory ops, to read both values then write to them.
             StackOp::Swap(_) => (1, 4),
         };
 
