@@ -5,8 +5,9 @@ use itertools::izip;
 use log::debug;
 
 use super::ast::PushTarget;
-use crate::cpu::kernel::ast::Literal;
+use crate::cpu::kernel::ast::{Literal, StackReplacement};
 use crate::cpu::kernel::keccak_util::hash_kernel;
+use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -63,6 +64,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         let expanded_file = expand_macros(file.body, &macros);
         let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
+        let expanded_file = expand_stack_manipulation(expanded_file);
         local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
         expanded_files.push(expanded_file);
     }
@@ -163,14 +165,31 @@ fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
 }
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
+    let resolve_const = |c| {
+        Literal::Decimal(
+            constants
+                .get(&c)
+                .unwrap_or_else(|| panic!("No such constant: {}", c))
+                .to_string(),
+        )
+    };
+
     body.into_iter()
         .map(|item| {
             if let Item::Push(PushTarget::Constant(c)) = item {
-                let value = constants
-                    .get(&c)
-                    .unwrap_or_else(|| panic!("No such constant: {}", c));
-                let literal = Literal::Decimal(value.to_string());
-                Item::Push(PushTarget::Literal(literal))
+                Item::Push(PushTarget::Literal(resolve_const(c)))
+            } else if let Item::StackManipulation(from, to) = item {
+                let to = to
+                    .into_iter()
+                    .map(|replacement| {
+                        if let StackReplacement::Constant(c) = replacement {
+                            StackReplacement::Literal(resolve_const(c))
+                        } else {
+                            replacement
+                        }
+                    })
+                    .collect();
+                Item::StackManipulation(from, to)
             } else {
                 item
             }
@@ -187,8 +206,11 @@ fn find_labels(
     let mut local_labels = HashMap::<String, usize>::new();
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
-                panic!("Macros and repeats should have been expanded already")
+            Item::MacroDef(_, _, _)
+            | Item::MacroCall(_, _)
+            | Item::Repeat(_, _)
+            | Item::StackManipulation(_, _) => {
+                panic!("Item should have been expanded already: {:?}", item);
             }
             Item::GlobalLabelDeclaration(label) => {
                 let old = global_labels.insert(label.clone(), *offset);
@@ -215,8 +237,11 @@ fn assemble_file(
     // Assemble the file.
     for item in body {
         match item {
-            Item::MacroDef(_, _, _) | Item::MacroCall(_, _) | Item::Repeat(_, _) => {
-                panic!("Macros and repeats should have been expanded already")
+            Item::MacroDef(_, _, _)
+            | Item::MacroCall(_, _)
+            | Item::Repeat(_, _)
+            | Item::StackManipulation(_, _) => {
+                panic!("Item should have been expanded already: {:?}", item);
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
@@ -425,6 +450,24 @@ mod tests {
         let kernel = parse_and_assemble(&["%rep 3 ADD %endrep"]);
         let add = get_opcode("ADD");
         assert_eq!(kernel.code, vec![add, add, add]);
+    }
+
+    #[test]
+    fn stack_manipulation() {
+        let pop = get_opcode("POP");
+        let swap1 = get_opcode("SWAP1");
+        let swap2 = get_opcode("SWAP2");
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
+        assert_eq!(kernel.code, vec![swap2]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
+        assert_eq!(kernel.code, vec![pop, swap1, pop]);
+
+        let mut consts = HashMap::new();
+        consts.insert("LIFE".into(), 42.into());
+        parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
+        // We won't check the code since there are two equally efficient implementations.
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {

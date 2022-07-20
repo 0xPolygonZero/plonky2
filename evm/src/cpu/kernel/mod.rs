@@ -4,6 +4,7 @@ mod ast;
 pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
+mod stack_manipulation;
 
 #[cfg(test)]
 mod interpreter;
