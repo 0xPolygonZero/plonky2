@@ -132,13 +132,29 @@ fn expand_macro_call(
         args.len()
     );
 
+    let get_arg = |var| {
+        let param_index = _macro.get_param_index(var);
+        args[param_index].clone()
+    };
+
     let expanded_item = _macro
         .items
         .iter()
         .map(|item| {
             if let Item::Push(PushTarget::MacroVar(var)) = item {
-                let param_index = _macro.get_param_index(var);
-                Item::Push(args[param_index].clone())
+                Item::Push(get_arg(var))
+            } else if let Item::MacroCall(name, args) = item {
+                let expanded_args = args
+                    .iter()
+                    .map(|arg| {
+                        if let PushTarget::MacroVar(var) = arg {
+                            get_arg(var)
+                        } else {
+                            arg.clone()
+                        }
+                    })
+                    .collect();
+                Item::MacroCall(name.clone(), expanded_args)
             } else {
                 item.clone()
             }
@@ -417,6 +433,17 @@ mod tests {
         let push1 = get_push_opcode(1);
         let add = get_opcode("ADD");
         assert_eq!(kernel.code, vec![push1, 2, push1, 3, add]);
+    }
+
+    #[test]
+    fn macro_in_macro_with_vars() {
+        let kernel = parse_and_assemble(&[
+            "%macro foo(x) %bar($x) %bar($x) %endmacro",
+            "%macro bar(y) PUSH $y %endmacro",
+            "%foo(42)",
+        ]);
+        let push = get_push_opcode(1);
+        assert_eq!(kernel.code, vec![push, 42, push, 42]);
     }
 
     #[test]
