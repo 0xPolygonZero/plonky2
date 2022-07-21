@@ -11,6 +11,7 @@ use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::{
+    fri::{reduction_strategies::FriReductionStrategy, FriConfig},
     gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::witness::{PartialWitness, Witness},
@@ -19,11 +20,14 @@ use plonky2::{
         circuit_data::{
             CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
         },
-        config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig, KeccakSpongeSha256GoldilocksConfig},
+        config::{
+            AlgebraicHasher, GenericConfig, Hasher, KeccakSpongeSha256GoldilocksConfig,
+            PoseidonGoldilocksConfig,
+        },
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
     },
-    util::timing::TimingTree, fri::{reduction_strategies::FriReductionStrategy, FriConfig},
+    util::timing::TimingTree,
 };
 use plonky2_field::extension::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
@@ -183,7 +187,7 @@ where
 fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-	type OuterC = KeccakSpongeSha256GoldilocksConfig;
+    type OuterC = KeccakSpongeSha256GoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     // Start with a dummy proof of specified size
@@ -206,15 +210,15 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
 
     // Add a second layer of recursion to shrink the proof size further
     let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
-    let (proof, _, cd) = &outer;
+    let (_, _, cd) = &outer;
     info!(
         "Double recursion proof degree {} = 2^{}",
         cd.degree(),
         cd.degree_bits
     );
 
-	// Add a final layer of recursion that uses a different config as if we're submitting it to a blockchain
-	let mut outer_config = CircuitConfig::standard_recursion_config();
+    // Add a final layer of recursion that uses a different config as if we're submitting it to a blockchain
+    let mut outer_config = CircuitConfig::standard_recursion_config();
     outer_config.security_bits = 96;
     outer_config.fri_config = FriConfig {
         reduction_strategy: FriReductionStrategy::MinSize(None),
@@ -226,11 +230,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
 
     let outer = recursive_proof::<F, OuterC, C, D>(&middle, config, None)?;
     let (proof, _, cd) = &outer;
-    info!(
-        "final proof degree {} = 2^{}",
-        cd.degree(),
-        cd.degree_bits
-    );
+    info!("final proof degree {} = 2^{}", cd.degree(), cd.degree_bits);
 
     test_serialization(proof, cd)?;
 

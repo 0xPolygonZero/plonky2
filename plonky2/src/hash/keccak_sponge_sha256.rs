@@ -48,13 +48,13 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakSpongeSha256Hasher<N> {
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
         let mut res = [0; N];
-		let mut hasher = Sha256::new();
-		for &elem in input.iter() {
-			hasher.update(elem.to_canonical_u64().to_le_bytes());
-		}
-		let hash = hasher.finalize();
+        let mut hasher = Sha256::new();
+        for &elem in input.iter() {
+            hasher.update(elem.to_canonical_u64().to_le_bytes());
+        }
+        let hash = hasher.finalize();
 
-		res.copy_from_slice(&hash[..N]);
+        res.copy_from_slice(&hash[..N]);
         BytesHash(res)
     }
 
