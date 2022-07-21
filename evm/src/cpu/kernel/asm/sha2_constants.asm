@@ -64,3 +64,12 @@ sha2_constants_k:
     BYTES 190, 249, 163, 247
     BYTES 198, 113, 120, 242
 
+sha2_constants_h:
+    BYTES 106, 9, 230, 103
+    BYTES 187, 103, 174, 133
+    BYTES 60, 110, 243, 114
+    BYTES 165, 79, 245, 58
+    BYTES 81, 14, 82, 127
+    BYTES 155, 5, 104, 140
+    BYTES 31, 131, 217, 171
+    BYTES 91, 224, 205, 25
