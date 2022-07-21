@@ -19,7 +19,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakSpongePermutation {
             state[i] = input[i].to_canonical_u64();
         }
 
-        // keep squeezingu until we have SPONGE_WIDTH words that fit in the field
+        // keep squeezing until we have SPONGE_WIDTH words that fit in the field
         let mut elems = 0;
         while elems < SPONGE_WIDTH {
             keccak(&mut state);
