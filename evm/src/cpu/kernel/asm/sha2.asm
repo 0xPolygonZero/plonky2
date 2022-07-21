@@ -1,19 +1,19 @@
-sha2_test_input:
-    BYTES 0x4
-    BYTES 0x1, 0x2, 0x3, 0x4
+// sha2_test_input:
+//    BYTES 0x4
+//    BYTES 0x1, 0x2, 0x3, 0x4
+//    BYTES 0, 0, 
 
 
 
-
-// Precodition: input is in memory, starting at [TODO: fix] 0, of the form
-//              num_bytes, x[0], x[1], ..., x[(num_bytes+31)/32-1]
-// Postcodition: output is in memory, starting at [TODO: fix] 0, of the form
-//               num_blocks, block0[0], block0[1], block1[0], ..., blocklast[1]
+// Precodition: input is in memory, starting at 0 of kernel SHA2 segment, of the form
+//              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
+// Postcodition: output is in memory, starting at 0, of the form
+//               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
-    // TODO: use kernel memory (SEGMENT_KERNEL_MISC or SEGMENT_KERNEL_SHA2), and instead of 0
+    // TODO: use kernel memory (SEGMENT_KERNEL_GENERAL), and instead of 0
     // stack: retdest
     push 0
-    mload
+    %mload_kernel_sha2
     // stack: num_bytes, retdest
     // STEP 1: append 1
     // add 1 << (8*(32-k)-1) to x[num_bytes//32], where k := num_bytes%32
