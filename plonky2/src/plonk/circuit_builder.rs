@@ -119,7 +119,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } = &self.config;
 
         #[cfg(not(feature = "rand"))]
-        assert!(!self.config.zero_knowledge, "zero knowledge is not supported without the 'rand' feature enabled");
+        assert!(
+            !self.config.zero_knowledge,
+            "zero knowledge is not supported without the 'rand' feature enabled"
+        );
 
         // Conjectured FRI security; see the ethSTARK paper.
         let fri_field_bits = F::Extension::order().bits() as usize;

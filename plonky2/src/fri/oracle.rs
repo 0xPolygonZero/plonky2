@@ -114,14 +114,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // If blinding, salt with two random elements to each leaf vector.
 
-        let ldes = polynomials
-            .par_iter()
-            .map(|p| {
-                assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
-                p.lde(rate_bits)
-                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
-                    .values
-            });
+        let ldes = polynomials.par_iter().map(|p| {
+            assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
+            p.lde(rate_bits)
+                .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
+                .values
+        });
 
         #[cfg(feature = "rand")]
         let ldes = {
