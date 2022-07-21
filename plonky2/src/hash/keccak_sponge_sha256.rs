@@ -1,14 +1,9 @@
-use std::iter;
-use std::mem::size_of;
-
-use itertools::Itertools;
 use keccak::f1600 as keccak;
 use sha2::{Digest, Sha256};
 
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::plonk::config::Hasher;
-use crate::util::serialization::Buffer;
 
 /// Keccak sponge pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// Here, we use the same "hash onion" technique used in `KeccakPermuation`, but instead using the keccak
