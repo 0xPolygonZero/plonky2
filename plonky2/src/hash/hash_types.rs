@@ -1,5 +1,6 @@
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_field::types::{Field, PrimeField64};
+#[cfg(feature = "rand")]
 use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -37,6 +38,7 @@ impl<F: Field> HashOut<F> {
         Self { elements }
     }
 
+    #[cfg(feature = "rand")]
     pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self {
             elements: [
@@ -48,6 +50,7 @@ impl<F: Field> HashOut<F> {
         }
     }
 
+    #[cfg(feature = "rand")]
     pub fn rand() -> Self {
         Self {
             elements: [F::rand(), F::rand(), F::rand(), F::rand()],
@@ -114,6 +117,7 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct BytesHash<const N: usize>(pub [u8; N]);
 
+#[cfg(feature = "rand")]
 impl<const N: usize> BytesHash<N> {
     pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         let mut buf = [0; N];

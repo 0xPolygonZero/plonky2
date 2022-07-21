@@ -10,15 +10,21 @@ categories = ["cryptography"]
 edition = "2021"
 default-run = "generate_constants"
 
+[features]
+default = ["rand", "gate_testing"]
+gate_testing = []
+rand = ["dep:rand", "plonky2_field/rand"]
+rand_chaha = []
+
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
 env_logger = "0.9.0"
+rand = { version = "0.8.4", optional = true }
+rand_chacha = { version = "0.3.1", optional = true }
 log = "0.4.14"
 itertools = "0.10.0"
 num = { version = "0.4", features = [ "rand" ] }
-rand = "0.8.4"
-rand_chacha = "0.3.1"
 rayon = "1.5.1"
 unroll = "0.1.5"
 anyhow = "1.0.40"
@@ -28,6 +34,8 @@ keccak-hash = "0.8.0"
 static_assertions = "1.1.0"
 
 [dev-dependencies]
+rand = "0.8.4"
+rand_chacha = "0.3.1"
 criterion = "0.3.5"
 tynm = "0.1.6"
 structopt = "0.3.26"
@@ -59,3 +67,7 @@ harness = false
 [[bench]]
 name = "reverse_index_bits"
 harness = false
+
+[[bin]]
+name = "generate_constants"
+required-features = ["rand", "rand_chaha"]

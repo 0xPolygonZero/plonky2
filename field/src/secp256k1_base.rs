@@ -6,10 +6,10 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::bigint::BigUint;
-#[cfg(any(feature = "rand", test))]
+#[cfg(feature = "rand")]
 use num::bigint::RandBigInt;
 use num::{Integer, One};
-#[cfg(any(feature = "rand", test))]
+#[cfg(feature = "rand")]
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -136,7 +136,7 @@ impl Field for Secp256K1Base {
         Self([n.0, n.1 as u64, 0, 0])
     }
 
-    #[cfg(any(feature = "rand", test))]
+    #[cfg(feature = "rand")]
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }

@@ -36,6 +36,10 @@ where
     [(); C::Hasher::HASH_SIZE]:,
 {
     let config = &common_data.config;
+
+    #[cfg(not(feature = "rand"))]
+    assert!(!config.zero_knowledge, "zero knowledge is not supported without the 'rand' feature enabled");
+
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();

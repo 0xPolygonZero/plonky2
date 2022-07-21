@@ -4,6 +4,9 @@ description = "Finite field arithmetic"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["rand"]
+
 [dependencies]
 plonky2_util = { path = "../util" }
 anyhow = "1.0.40"

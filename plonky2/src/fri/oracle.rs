@@ -109,23 +109,30 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
 
-        // If blinding, salt with two random elements to each leaf vector.
-        let salt_size = if blinding { SALT_SIZE } else { 0 };
+        #[cfg(not(feature = "rand"))]
+        assert!(!blinding, "Blinding is not supported without rand");
 
-        polynomials
+        // If blinding, salt with two random elements to each leaf vector.
+
+        let ldes = polynomials
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
                     .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
                     .values
-            })
-            .chain(
+            });
+
+        #[cfg(feature = "rand")]
+        let ldes = {
+            let salt_size = if blinding { SALT_SIZE } else { 0 };
+            ldes.chain(
                 (0..salt_size)
                     .into_par_iter()
                     .map(|_| F::rand_vec(degree << rate_bits)),
             )
-            .collect()
+        };
+        ldes.collect()
     }
 
     /// Fetches LDE values at the `index * step`th point.
