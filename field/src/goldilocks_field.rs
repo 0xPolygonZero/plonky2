@@ -6,6 +6,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::{BigUint, Integer};
 use plonky2_util::{assume, branch_hint};
+
+#[cfg(any(feature = "rand", test))]
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +107,7 @@ impl Field for GoldilocksField {
         reduce128(n)
     }
 
+    #[cfg(any(feature = "rand", test))]
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
