@@ -9,6 +9,7 @@ use crate::hash::hash_types::HashOut;
 use crate::hash::hash_types::RichField;
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::hash::keccak::KeccakHash;
+use crate::hash::keccak_sponge_sha256::KeccakSpongeSha256Hasher;
 use crate::hash::poseidon::PoseidonHash;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -114,5 +115,16 @@ impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = KeccakHash<25>;
+    type InnerHasher = PoseidonHash;
+}
+
+/// Configuration using the keccak sponge permutation for the permuation,
+/// and truncated sha256 over the Goldilocks field.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct KeccakSpongeSha256GoldilocksConfig;
+impl GenericConfig<2> for KeccakSpongeSha256GoldilocksConfig {
+    type F = GoldilocksField;
+    type FE = QuadraticExtension<Self::F>;
+    type Hasher = KeccakSpongeSha256Hasher<25>;
     type InnerHasher = PoseidonHash;
 }
