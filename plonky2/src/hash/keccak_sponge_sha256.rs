@@ -27,9 +27,6 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakSpongePermutation {
         // keep squeezingu until we have SPONGE_WIDTH words that fit in the field
         let mut elems = 0;
         while elems < SPONGE_WIDTH {
-            #[cfg(target_os = "solana")]
-            solana_program::keccak_permutation::keccak_permutation(&mut state);
-            #[cfg(not(target_os = "solana"))]
             keccak(&mut state);
 
             for i in 0..SPONGE_WIDTH {
