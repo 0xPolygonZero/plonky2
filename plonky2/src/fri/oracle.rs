@@ -5,7 +5,7 @@ use plonky2_field::packed::PackedField;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::types::Field;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
@@ -52,7 +52,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let coeffs = timed!(
             timing,
             "IFFT",
-            values.into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
+            values.maybe_into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
         Self::from_coeffs(
@@ -122,7 +122,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             })
             .chain(
                 (0..salt_size)
-                    .into_par_iter()
+                    .maybe_into_par_iter()
                     .map(|_| F::rand_vec(degree << rate_bits)),
             )
             .collect()

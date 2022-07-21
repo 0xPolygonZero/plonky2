@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use plonky2_field::polynomial::PolynomialValues;
 use plonky2_field::types::Field;
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;

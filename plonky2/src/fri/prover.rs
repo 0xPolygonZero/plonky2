@@ -2,7 +2,7 @@ use itertools::Itertools;
 use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::reverse_index_bits_in_place;
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
@@ -119,7 +119,7 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     config: &FriConfig,
 ) -> F {
     (0..=F::NEG_ONE.to_canonical_u64())
-        .into_par_iter()
+        .maybe_into_par_iter()
         .find_any(|&i| {
             C::InnerHasher::hash_no_pad(
                 &current_hash

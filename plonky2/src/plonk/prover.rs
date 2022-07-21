@@ -6,7 +6,7 @@ use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2_util::{ceil_div_usize, log2_ceil};
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
@@ -142,7 +142,7 @@ where
         timing,
         "split up quotient polys",
         quotient_polys
-            .into_par_iter()
+            .maybe_into_par_iter()
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim_to_len(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
@@ -305,7 +305,7 @@ fn wires_permutation_partial_products_and_zs<
     }
 
     transpose(&all_partial_products_and_zs)
-        .into_par_iter()
+        .maybe_into_par_iter()
         .map(PolynomialValues::new)
         .collect()
 }
@@ -452,7 +452,7 @@ fn compute_quotient_polys<
         .collect();
 
     transpose(&quotient_values)
-        .into_par_iter()
+        .maybe_into_par_iter()
         .map(PolynomialValues::new)
         .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()

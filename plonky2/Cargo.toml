@@ -10,6 +10,10 @@ categories = ["cryptography"]
 edition = "2021"
 default-run = "generate_constants"
 
+[features]
+default = ["parallel"]
+parallel = ["maybe_rayon/parallel"]
+
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
@@ -19,7 +23,7 @@ itertools = "0.10.0"
 num = { version = "0.4", features = [ "rand" ] }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
-rayon = "1.5.1"
+maybe_rayon = { path = "../maybe_rayon" }
 unroll = "0.1.5"
 anyhow = "1.0.40"
 serde = { version = "1.0", features = ["derive"] }
@@ -32,6 +36,7 @@ criterion = "0.3.5"
 tynm = "0.1.6"
 structopt = "0.3.26"
 num_cpus = "1.13.1"
+rayon = "1.5.1" 
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
 jemallocator = "0.3.2"
