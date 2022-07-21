@@ -142,7 +142,7 @@ where
         timing,
         "split up quotient polys",
         quotient_polys
-            .maybe_into_par_iter()
+            .into_par_iter()
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim_to_len(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
@@ -305,7 +305,7 @@ fn wires_permutation_partial_products_and_zs<
     }
 
     transpose(&all_partial_products_and_zs)
-        .maybe_into_par_iter()
+        .into_par_iter()
         .map(PolynomialValues::new)
         .collect()
 }
@@ -452,7 +452,7 @@ fn compute_quotient_polys<
         .collect();
 
     transpose(&quotient_values)
-        .maybe_into_par_iter()
+        .into_par_iter()
         .map(PolynomialValues::new)
         .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()

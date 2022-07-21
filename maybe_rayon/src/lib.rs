@@ -124,7 +124,7 @@ pub trait MaybeIntoParIter {
 	#[cfg(not(feature = "parallel"))]
 	type Iter: Iterator<Item = Self::Item>;
 
-	fn maybe_into_par_iter(self) -> Self::Iter;
+	fn into_par_iter(self) -> Self::Iter;
 }
 
 #[cfg(feature = "parallel")]
@@ -132,7 +132,7 @@ impl<T> MaybeIntoParIter for T where T: IntoParallelIterator {
 	type Item = T::Item;
 	type Iter = T::Iter;
 
-	fn maybe_into_par_iter(self) -> Self::Iter {
+	fn into_par_iter(self) -> Self::Iter {
 		self.into_par_iter()
 	}
 }
@@ -142,7 +142,7 @@ impl<T> MaybeIntoParIter for T where T: IntoIterator {
 	type Item = T::Item;
 	type Iter = T::IntoIter;
 
-	fn maybe_into_par_iter(self) -> Self::Iter {
+	fn into_par_iter(self) -> Self::Iter {
 		self.into_iter()
 	}
 }

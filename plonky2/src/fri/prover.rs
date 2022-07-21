@@ -119,7 +119,7 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     config: &FriConfig,
 ) -> F {
     (0..=F::NEG_ONE.to_canonical_u64())
-        .maybe_into_par_iter()
+        .into_par_iter()
         .find_any(|&i| {
             C::InnerHasher::hash_no_pad(
                 &current_hash
