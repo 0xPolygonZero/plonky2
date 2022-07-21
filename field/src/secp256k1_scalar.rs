@@ -7,9 +7,9 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::bigint::BigUint;
-use num::{Integer, One};
 #[cfg(feature = "rand")]
 use num::bigint::RandBigInt;
+use num::{Integer, One};
 #[cfg(feature = "rand")]
 use rand::Rng;
 use serde::{Deserialize, Serialize};

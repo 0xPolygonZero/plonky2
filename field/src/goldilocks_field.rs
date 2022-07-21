@@ -6,7 +6,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::{BigUint, Integer};
 use plonky2_util::{assume, branch_hint};
-
 #[cfg(feature = "rand")]
 use rand::Rng;
 use serde::{Deserialize, Serialize};
