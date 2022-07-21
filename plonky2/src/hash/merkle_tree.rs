@@ -1,10 +1,10 @@
 use std::mem::MaybeUninit;
 use std::slice;
 
+use maybe_rayon::*;
 use plonky2_util::log2_strict;
 use serde::{Deserialize, Serialize};
 
-use maybe_rayon::*;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::GenericHashOut;

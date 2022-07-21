@@ -1,7 +1,7 @@
 use anyhow::ensure;
+use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
-use maybe_rayon::*;
 
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{
