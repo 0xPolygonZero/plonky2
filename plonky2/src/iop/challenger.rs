@@ -91,7 +91,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
             // Evaluate the permutation to produce `r` new outputs.
             self.sponge_state = H::Permutation::permute(self.sponge_state);
             self.output_buffer.clear();
-            self.output_buffer.extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
+            self.output_buffer
+                .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
         }
 
         self.output_buffer
@@ -151,7 +152,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         }
 
         self.output_buffer.clear();
-        self.output_buffer.extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
+        self.output_buffer
+            .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
 
         self.input_buffer.clear();
     }
@@ -222,7 +224,8 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
             self.output_buffer.clear();
-            self.output_buffer.extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
+            self.output_buffer
+                .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
         }
 
         self.output_buffer
@@ -275,7 +278,8 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
 
         self.output_buffer.clear();
-        self.output_buffer.extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
+        self.output_buffer
+            .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
 
         self.input_buffer.clear();
     }
