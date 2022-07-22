@@ -29,6 +29,8 @@ local_label = { identifier ~ ":" }
 bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
 push_instruction = { ^"PUSH " ~ push_target }
 push_target = { literal | identifier | variable | constant }
+prover_input_instruction = { ^"PROVER_INPUT " ~ "(" ~ prover_input_fn ~ ")" } // TODO: Can also support extra arguments.
+prover_input_fn = { identifier ~ ("::" ~ identifier)*}
 nullary_instruction = { identifier }
 
 file = { SOI ~ item* ~ silent_eoi }

@@ -28,13 +28,9 @@
 // Computes the inverse modulo N by providing it non-deterministically.
 %macro inverse
     // stack: x
-    PROVER_INPUT
+    PROVER_INPUT(ff::bn254_base::inverse)
     // stack: x^-1, x
-    %bn_base
-    // stack: N, x^-1, x
-    DUP3
-    // stack: x, N, x^-1, x
-    DUP3
+    %stack (inv, x) -> (inv, x, @BN_BASE, inv, x)
     // stack: x^-1, x, N, x^-1, x
     MULMOD
     // stack: x^-1 * x, x^-1, x
