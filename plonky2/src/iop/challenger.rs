@@ -21,6 +21,8 @@ pub struct Challenger<F: RichField, H: Hasher<F>> {
     _phantom: PhantomData<H>,
 }
 
+const MAX_INPUT_BUFFER: usize = 128;
+
 /// Observes prover messages, and generates verifier challenges based on the transcript.
 ///
 /// The implementation is roughly based on a duplex sponge with a Rescue permutation. Note that in
@@ -33,8 +35,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn new() -> Challenger<F, H> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
-            input_buffer: Vec::new(),
-            output_buffer: Vec::new(),
+            input_buffer: Vec::with_capacity(MAX_INPUT_BUFFER),
+            output_buffer: Vec::with_capacity(SPONGE_WIDTH),
             _phantom: Default::default(),
         }
     }
@@ -42,6 +44,10 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn observe_element(&mut self, element: F) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
+
+        if self.input_buffer.len() >= MAX_INPUT_BUFFER {
+            self.absorb_buffered_inputs();
+        }
 
         self.input_buffer.push(element);
     }
@@ -84,7 +90,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
             self.sponge_state = H::Permutation::permute(self.sponge_state);
-            self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
+            self.output_buffer.clear();
+            (&mut self.output_buffer[0..SPONGE_RATE]).copy_from_slice(&self.sponge_state[0..SPONGE_RATE]);
         }
 
         self.output_buffer
@@ -143,7 +150,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
             self.sponge_state = H::Permutation::permute(self.sponge_state);
         }
 
-        self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
+        self.output_buffer.clear();
+        (&mut self.output_buffer[0..SPONGE_RATE]).copy_from_slice(&self.sponge_state[0..SPONGE_RATE]);
 
         self.input_buffer.clear();
     }
