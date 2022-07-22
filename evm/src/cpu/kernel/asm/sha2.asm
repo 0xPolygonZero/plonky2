@@ -1,19 +1,49 @@
-// sha2_test_input:
-//    BYTES 0x4
-//    BYTES 0x1, 0x2, 0x3, 0x4
-//    BYTES 0, 0, 
+global sha2_store:
+    JUMPDEST
+    // stack: num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1], retdest
+    dup1
+    // stack: num_u256s, num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1], retdest
+    // TODO: use kernel memory, and start address not at 0
+    push 0
+    // stack: addr=0, num_u256s, num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1], retdest
+    %mstore_kernel_general
+    // stack: num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1], retdest
+    push 1
+    // stack: addr=1, counter=num_u256s, x[0], x[1], x[2], ... , x[num_u256s-1], retdest
+sha2_store_loop:
+    JUMPDEST
+    // stack: addr, counter, x[num_u256s-counter], ... , x[num_u256s-1], retdest
+    dup1
+    // stack: addr, addr, counter, x[num_u256s-counter], ... , x[num_u256s-1], retdest
+    swap3
+    // stack: x[num_u256s-counter], addr, counter, addr,  ... , x[num_u256s-1], retdest
+    swap1
+    // stack: addr, x[num_u256s-counter], counter, addr,  ... , x[num_u256s-1], retdest
+    %mstore_kernel_general
+    // stack: counter, addr,  ... , x[num_u256s-1], retdest
+    %decrement
+    // stack: counter-1, addr,  ... , x[num_u256s-1], retdest
+    iszero
+    %jumpi(sha2_store_end)
+    swap1
+    // stack: addr, counter-1,  ... , x[num_u256s-1], retdest
+    %increment
+    // stack: addr+1, counter-1,  ... , x[num_u256s-1], retdest
+    %jump(sha2_store_loop)
+sha2_store_end:
+    // stack: counter=0, addr, retdest
+    %pop2
+    JUMP
 
 
-
-// Precodition: input is in memory, starting at 0 of kernel SHA2 segment, of the form
+// Precodition: input is in memory, starting at 0 of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
 // Postcodition: output is in memory, starting at 0, of the form
 //               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
-    // TODO: use kernel memory (SEGMENT_KERNEL_GENERAL), and instead of 0
     // stack: retdest
     push 0
-    %mload_kernel_sha2
+    %mload_kernel_gemeral
     // stack: num_bytes, retdest
     // STEP 1: append 1
     // add 1 << (8*(32-k)-1) to x[num_bytes//32], where k := num_bytes%32
