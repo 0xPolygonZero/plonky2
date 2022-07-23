@@ -4,6 +4,7 @@ mod ast;
 pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
+mod prover_input;
 mod stack_manipulation;
 
 #[cfg(test)]

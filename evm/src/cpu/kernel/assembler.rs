@@ -7,6 +7,7 @@ use log::debug;
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::{Literal, StackReplacement};
 use crate::cpu::kernel::keccak_util::hash_kernel;
+use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::{
     ast::{File, Item},
@@ -27,15 +28,22 @@ pub struct Kernel {
     pub(crate) code_hash: [u32; 8],
 
     pub(crate) global_labels: HashMap<String, usize>,
+
+    pub(crate) prover_inputs: HashMap<usize, ProverInputFn>,
 }
 
 impl Kernel {
-    fn new(code: Vec<u8>, global_labels: HashMap<String, usize>) -> Self {
+    fn new(
+        code: Vec<u8>,
+        global_labels: HashMap<String, usize>,
+        prover_inputs: HashMap<usize, ProverInputFn>,
+    ) -> Self {
         let code_hash = hash_kernel(&code);
         Self {
             code,
             code_hash,
             global_labels,
+            prover_inputs,
         }
     }
 }
@@ -57,6 +65,7 @@ impl Macro {
 pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Kernel {
     let macros = find_macros(&files);
     let mut global_labels = HashMap::new();
+    let mut prover_inputs = HashMap::new();
     let mut offset = 0;
     let mut expanded_files = Vec::with_capacity(files.len());
     let mut local_labels = Vec::with_capacity(files.len());
@@ -65,7 +74,12 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
         let expanded_file = expand_stack_manipulation(expanded_file);
-        local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
+        local_labels.push(find_labels(
+            &expanded_file,
+            &mut offset,
+            &mut global_labels,
+            &mut prover_inputs,
+        ));
         expanded_files.push(expanded_file);
     }
     let mut code = vec![];
@@ -76,7 +90,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
-    Kernel::new(code, global_labels)
+    Kernel::new(code, global_labels, prover_inputs)
 }
 
 fn find_macros(files: &[File]) -> HashMap<String, Macro> {
@@ -217,6 +231,7 @@ fn find_labels(
     body: &[Item],
     offset: &mut usize,
     global_labels: &mut HashMap<String, usize>,
+    prover_inputs: &mut HashMap<usize, ProverInputFn>,
 ) -> HashMap<String, usize> {
     // Discover the offset of each label in this file.
     let mut local_labels = HashMap::<String, usize>::new();
@@ -237,6 +252,10 @@ fn find_labels(
                 assert!(old.is_none(), "Duplicate local label: {}", label);
             }
             Item::Push(target) => *offset += 1 + push_target_size(target) as usize,
+            Item::ProverInput(prover_input_fn) => {
+                prover_inputs.insert(*offset, prover_input_fn.clone());
+                *offset += 1;
+            }
             Item::StandardOp(_) => *offset += 1,
             Item::Bytes(bytes) => *offset += bytes.len(),
         }
@@ -282,6 +301,9 @@ fn assemble_file(
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
+            }
+            Item::ProverInput(_) => {
+                code.push(get_opcode("PROVER_INPUT"));
             }
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
@@ -357,7 +379,7 @@ mod tests {
         expected_global_labels.insert("function_1".to_string(), 0);
         expected_global_labels.insert("function_2".to_string(), 3);
 
-        let expected_kernel = Kernel::new(expected_code, expected_global_labels);
+        let expected_kernel = Kernel::new(expected_code, expected_global_labels, HashMap::new());
 
         let program = vec![file_1, file_2];
         assert_eq!(assemble(program, HashMap::new()), expected_kernel);

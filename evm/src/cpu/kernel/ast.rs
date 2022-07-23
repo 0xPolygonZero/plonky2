@@ -1,6 +1,8 @@
 use ethereum_types::U256;
 use plonky2_util::ceil_div_usize;
 
+use crate::cpu::kernel::prover_input::ProverInputFn;
+
 #[derive(Debug)]
 pub(crate) struct File {
     pub(crate) body: Vec<Item>,
@@ -25,6 +27,8 @@ pub(crate) enum Item {
     LocalLabelDeclaration(String),
     /// A `PUSH` operation.
     Push(PushTarget),
+    /// A `ProverInput` operation.
+    ProverInput(ProverInputFn),
     /// Any opcode besides a PUSH opcode.
     StandardOp(String),
     /// Literal hex data; should contain an even number of hex chars.
