@@ -8,7 +8,7 @@ use crate::cpu::kernel::prover_input::Field::{
 use crate::cpu::kernel::prover_input::FieldOp::{Inverse, Sqrt};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub(crate) struct ProverInputFn(Vec<String>);
+pub struct ProverInputFn(Vec<String>);
 
 impl From<Vec<String>> for ProverInputFn {
     fn from(v: Vec<String>) -> Self {

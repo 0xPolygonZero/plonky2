@@ -25,7 +25,7 @@
     %mulmodn
 %endmacro
 
-// Computes the inverse modulo N by providing it non-deterministically.
+// Non-deterministically provide the inverse modulo N.
 %macro inverse
     // stack: x
     PROVER_INPUT(ff::bn254_base::inverse)

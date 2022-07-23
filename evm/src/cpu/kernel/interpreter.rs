@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
 
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
@@ -53,7 +54,7 @@ impl EvmMemory {
     }
 }
 
-pub(crate) struct Interpreter<'a> {
+pub struct Interpreter<'a> {
     code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
@@ -63,7 +64,20 @@ pub(crate) struct Interpreter<'a> {
     running: bool,
 }
 
-pub(crate) fn run<'a>(
+pub fn run_with_kernel(
+    kernel: &Kernel,
+    initial_offset: usize,
+    initial_stack: Vec<U256>,
+) -> anyhow::Result<Interpreter> {
+    run(
+        &kernel.code,
+        initial_offset,
+        initial_stack,
+        &kernel.prover_inputs,
+    )
+}
+
+pub fn run<'a>(
     code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
