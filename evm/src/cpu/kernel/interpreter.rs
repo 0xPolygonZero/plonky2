@@ -60,7 +60,8 @@ pub struct Interpreter<'a> {
     offset: usize,
     pub(crate) stack: Vec<U256>,
     pub(crate) memory: EvmMemory,
-    prover_inputs: &'a HashMap<usize, ProverInputFn>,
+    prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
+    prover_inputs: Vec<U256>,
     running: bool,
 }
 
@@ -89,7 +90,8 @@ pub fn run<'a>(
         offset: initial_offset,
         stack: initial_stack,
         memory: EvmMemory::default(),
-        prover_inputs,
+        prover_inputs_map: prover_inputs,
+        prover_inputs: Vec::new(),
         running: true,
     };
 
@@ -343,11 +345,12 @@ impl<'a> Interpreter<'a> {
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
         let prover_input_fn = self
-            .prover_inputs
+            .prover_inputs_map
             .get(&(self.offset - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
         let output = prover_input_fn.run(self.stack.clone());
         self.stack.push(output);
+        self.prover_inputs.push(output);
         Ok(())
     }
 
