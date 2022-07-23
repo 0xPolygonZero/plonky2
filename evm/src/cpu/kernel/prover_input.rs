@@ -17,7 +17,7 @@ impl From<Vec<String>> for ProverInputFn {
 }
 
 impl ProverInputFn {
-    pub(crate) fn run(&self, mut stack: Vec<U256>) -> U256 {
+    pub(crate) fn run(&self, stack: Vec<U256>) -> U256 {
         match self.0[0].as_str() {
             "ff" => self.run_ff(stack),
             "storage" => todo!(),

@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
+
+use crate::cpu::kernel::prover_input::ProverInputFn;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const HALT_OFFSET: usize = 0xdeadbeef;
@@ -55,29 +59,16 @@ pub(crate) struct Interpreter<'a> {
     offset: usize,
     pub(crate) stack: Vec<U256>,
     pub(crate) memory: EvmMemory,
-    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
-    /// next prover input.
-    prover_inputs: Vec<U256>,
+    prover_inputs: &'a HashMap<usize, ProverInputFn>,
     running: bool,
 }
 
-pub(crate) fn run(
-    code: &[u8],
+pub(crate) fn run<'a>(
+    code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
-) -> anyhow::Result<Interpreter> {
-    run_with_input(code, initial_offset, initial_stack, vec![])
-}
-
-pub(crate) fn run_with_input(
-    code: &[u8],
-    initial_offset: usize,
-    initial_stack: Vec<U256>,
-    mut prover_inputs: Vec<U256>,
-) -> anyhow::Result<Interpreter> {
-    // Prover inputs are stored backwards, so that popping the last item gives the next input.
-    prover_inputs.reverse();
-
+    prover_inputs: &'a HashMap<usize, ProverInputFn>,
+) -> anyhow::Result<Interpreter<'a>> {
     let mut interpreter = Interpreter {
         code,
         jumpdests: find_jumpdests(code),
@@ -337,11 +328,12 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
-        let input = self
+        let prover_input_fn = self
             .prover_inputs
-            .pop()
-            .ok_or_else(|| anyhow!("Out of prover inputs"))?;
-        self.stack.push(input);
+            .get(&(self.offset - 1))
+            .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
+        let output = prover_input_fn.run(self.stack.clone());
+        self.stack.push(output);
         Ok(())
     }
 
@@ -424,6 +416,8 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use hex_literal::hex;
 
     use crate::cpu::kernel::interpreter::{run, Interpreter};
@@ -433,7 +427,10 @@ mod tests {
         let code = vec![
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
-        assert_eq!(run(&code, 0, vec![])?.stack, vec![0x3.into()]);
+        assert_eq!(
+            run(&code, 0, vec![], &HashMap::new())?.stack,
+            vec![0x3.into()],
+        );
         Ok(())
     }
 
@@ -456,7 +453,8 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let run = run(&code, 0, vec![])?;
+        let pis = HashMap::new();
+        let run = run(&code, 0, vec![], &pis)?;
         let Interpreter { stack, memory, .. } = run;
         assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
         assert_eq!(&memory.memory, &hex!("00000000000000000000000000000000000000000000000000000000000000ff0000000000000042000000000000000000000000000000000000000000000000"));
