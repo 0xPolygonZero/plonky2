@@ -7,6 +7,8 @@ use crate::cpu::kernel::prover_input::Field::{
 };
 use crate::cpu::kernel::prover_input::FieldOp::{Inverse, Sqrt};
 
+/// Prover input function represented as a scoped function name.
+/// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ProverInputFn(Vec<String>);
 
@@ -17,19 +19,26 @@ impl From<Vec<String>> for ProverInputFn {
 }
 
 impl ProverInputFn {
+    /// Run the function on the stack.
     pub(crate) fn run(&self, stack: Vec<U256>) -> U256 {
         match self.0[0].as_str() {
             "ff" => self.run_ff(stack),
-            "storage" => todo!(),
+            "mpt" => todo!(),
             _ => panic!("Unrecognized prover input function."),
         }
     }
 
+    // Finite field operations.
     fn run_ff(&self, mut stack: Vec<U256>) -> U256 {
         let field = Field::from_str(self.0[1].as_str()).unwrap();
         let op = FieldOp::from_str(self.0[2].as_str()).unwrap();
         let x = stack.pop().expect("Empty stack");
         field.op(op, x)
+    }
+
+    // MPT operations.
+    fn run_mpt(&self, mut stack: Vec<U256>) -> U256 {
+        todo!()
     }
 }
 

@@ -29,6 +29,7 @@ pub struct Kernel {
 
     pub(crate) global_labels: HashMap<String, usize>,
 
+    /// Map from `PROVER_INPUT` offsets to their corresponding `ProverInputFn`.
     pub(crate) prover_inputs: HashMap<usize, ProverInputFn>,
 }
 
