@@ -37,7 +37,8 @@ impl ProverInputFn {
     }
 
     // MPT operations.
-    fn run_mpt(&self, mut stack: Vec<U256>) -> U256 {
+    #[allow(dead_code)]
+    fn run_mpt(&self, _stack: Vec<U256>) -> U256 {
         todo!()
     }
 }
