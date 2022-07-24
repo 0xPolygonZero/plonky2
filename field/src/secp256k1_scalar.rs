@@ -7,11 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::bigint::BigUint;
-#[cfg(feature = "rand")]
-use num::bigint::RandBigInt;
 use num::{Integer, One};
-#[cfg(feature = "rand")]
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{Field, PrimeField};
@@ -146,7 +142,8 @@ impl Field for Secp256K1Scalar {
     }
 
     #[cfg(feature = "rand")]
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
+        use num::bigint::RandBigInt;
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
