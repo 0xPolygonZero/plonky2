@@ -135,7 +135,7 @@ impl Field for Secp256K1Base {
     #[cfg(feature = "rand")]
     fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         use num::bigint::RandBigInt;
-        
+
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
