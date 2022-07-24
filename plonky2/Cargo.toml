@@ -12,9 +12,9 @@ default-run = "generate_constants"
 
 [features]
 default = ["rand", "gate_testing"]
-gate_testing = []
+gate_testing = ["rand"]
 rand = ["dep:rand", "plonky2_field/rand"]
-rand_chaha = []
+rand_chacha = ["dep:rand_chacha"]
 
 [dependencies]
 plonky2_field = { path = "../field" }

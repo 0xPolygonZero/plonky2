@@ -1,7 +1,5 @@
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_field::types::{Field, PrimeField64};
-#[cfg(feature = "rand")]
-use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::hash::poseidon::Poseidon;
@@ -39,7 +37,7 @@ impl<F: Field> HashOut<F> {
     }
 
     #[cfg(feature = "rand")]
-    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         Self {
             elements: [
                 F::rand_from_rng(rng),
@@ -119,7 +117,7 @@ pub struct BytesHash<const N: usize>(pub [u8; N]);
 
 #[cfg(feature = "rand")]
 impl<const N: usize> BytesHash<N> {
-    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         let mut buf = [0; N];
         rng.fill_bytes(&mut buf);
         Self(buf)
