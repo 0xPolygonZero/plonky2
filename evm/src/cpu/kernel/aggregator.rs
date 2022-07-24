@@ -43,8 +43,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/secp256k1/lift_x.asm"),
         include_str!("asm/secp256k1/inverse_scalar.asm"),
         include_str!("asm/ecrecover.asm"),
-        include_str!("asm/storage_read.asm"),
-        include_str!("asm/storage_write.asm"),
+        include_str!("asm/storage/read.asm"),
+        include_str!("asm/storage/write.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
