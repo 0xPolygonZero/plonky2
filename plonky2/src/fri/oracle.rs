@@ -104,7 +104,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     fn lde_values(
         polynomials: &[PolynomialCoeffs<F>],
         rate_bits: usize,
-        blinding: bool,
+        _blinding: bool,
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
@@ -120,7 +120,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         #[cfg(feature = "rand")]
         let ldes = {
-            let salt_size = if blinding { SALT_SIZE } else { 0 };
+            let salt_size = if _blinding { SALT_SIZE } else { 0 };
             ldes.chain(
                 (0..salt_size)
                     .into_par_iter()

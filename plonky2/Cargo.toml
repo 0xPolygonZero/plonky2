@@ -70,4 +70,4 @@ harness = false
 
 [[bin]]
 name = "generate_constants"
-required-features = ["rand", "rand_chaha"]
+required-features = ["rand", "rand_chacha"]
