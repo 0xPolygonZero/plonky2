@@ -1,6 +1,7 @@
 //! Permutation arguments.
 
 use itertools::Itertools;
+use maybe_rayon::*;
 use plonky2::field::batch_util::batch_multiply_inplace;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -13,7 +14,6 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
-use maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
