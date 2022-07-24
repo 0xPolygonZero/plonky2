@@ -109,9 +109,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
 
-        #[cfg(not(feature = "rand"))]
-        assert!(!blinding, "Blinding is not supported without rand");
-
         // If blinding, salt with two random elements to each leaf vector.
 
         let ldes = polynomials.par_iter().map(|p| {

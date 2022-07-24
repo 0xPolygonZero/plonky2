@@ -94,10 +94,6 @@ impl CircuitConfig {
     }
 
     pub fn standard_recursion_zk_config() -> Self {
-        #[cfg(not(feature = "rand"))]
-        panic!("zero knowledge is not supported without the 'rand' feature enabled");
-
-        #[allow(unreachable_code)]
         CircuitConfig {
             zero_knowledge: true,
             ..Self::standard_recursion_config()
