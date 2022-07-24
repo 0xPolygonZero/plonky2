@@ -16,7 +16,7 @@ use plonky2::plonk::plonk_common::{
     reduce_with_powers, reduce_with_powers_circuit, reduce_with_powers_ext_circuit,
 };
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};

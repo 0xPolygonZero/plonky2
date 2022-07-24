@@ -12,7 +12,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::permutation::PermutationChallengeSet;

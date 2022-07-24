@@ -13,7 +13,7 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
-use rayon::prelude::*;
+use maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
