@@ -42,7 +42,7 @@ sha2_store_end:
 global sha2_pad:
     // stack: retdest
     push 0
-    %mload_kernel_gemeral
+    %mload_kernel_general
     // stack: num_bytes, retdest
     // STEP 1: append 1
     // add 1 << (8*(32-k)-1) to x[num_bytes//32], where k := num_bytes%32
