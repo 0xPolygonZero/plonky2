@@ -426,22 +426,20 @@ impl<'a> Interpreter<'a> {
 
     fn run_mload_general(&mut self) {
         let context = self.pop().as_usize();
-        let segment = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
-        let value = self
-            .memory
-            .mload_general(context, Segment::all()[segment], offset);
+        let value = self.memory.mload_general(context, segment, offset);
+        assert!(value < U256::one() << segment.bit_range());
         self.push(value);
     }
 
     fn run_mstore_general(&mut self) {
-        // stack: context, segment, offset, value
         let context = self.pop().as_usize();
-        let segment = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        self.memory
-            .mstore_general(context, Segment::all()[segment], offset, value);
+        assert!(value < U256::one() << segment.bit_range());
+        self.memory.mstore_general(context, segment, offset, value);
     }
 }
 

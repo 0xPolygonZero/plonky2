@@ -55,5 +55,18 @@ impl Segment {
         }
     }
 
-    pub(crate)
+    #[allow(dead_code)]
+    pub(crate) fn bit_range(&self) -> usize {
+        match self {
+            Segment::Code => 8,
+            Segment::Stack => 256,
+            Segment::MainMemory => 8,
+            Segment::Calldata => 8,
+            Segment::Returndata => 8,
+            Segment::Metadata => 8,
+            Segment::KernelGeneral => 8,
+            Segment::TxnData => 8,
+            Segment::RlpRaw => 8,
+        }
+    }
 }
