@@ -45,7 +45,7 @@ fn parse_item(item: Pair<Rule>) -> Item {
                 .collect::<Vec<_>>()
                 .into(),
         ),
-        Rule::nullary_instruction => Item::StandardOp(item.as_str().into()),
+        Rule::nullary_instruction => Item::StandardOp(item.as_str().to_uppercase()),
         _ => panic!("Unexpected {:?}", item.as_rule()),
     }
 }
