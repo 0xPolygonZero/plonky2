@@ -23,7 +23,7 @@ read_rlp_to_memory_loop:
     // stack: pos, len, retdest
     PROVER_INPUT
     // stack: byte, pos, len, retdest
-    DUP1
+    DUP2
     // stack: pos, byte, pos, len, retdest
     %mstore_current(@SEGMENT_RLP_RAW)
     // stack: pos, len, retdest

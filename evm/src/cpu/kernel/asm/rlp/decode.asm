@@ -18,15 +18,15 @@ global decode_rlp_string_len:
     %mload_current(@SEGMENT_RLP_RAW)
     // stack: first_byte, pos, retdest
     DUP1
-    %gt_const(0xb6)
-    // stack: first_byte >= 0xb7, first_byte, pos, retdest
+    %gt_const(0xb7)
+    // stack: first_byte >= 0xb8, first_byte, pos, retdest
     %jumpi(decode_rlp_string_len_large)
     // stack: first_byte, pos, retdest
     DUP1
     %gt_const(0x7f)
     // stack: first_byte >= 0x80, first_byte, pos, retdest
     %jumpi(decode_rlp_string_len_medium)
-decode_rlp_string_len_small:
+
     // String is a single byte in the range [0x00, 0x7f].
     %stack (first_byte, pos, retdest) -> (retdest, pos, 1)
     JUMP
@@ -38,6 +38,8 @@ decode_rlp_string_len_medium:
     SWAP1
     %add_const(1)
     // stack: pos', len, retdest
+    %stack (pos, len, retdest) -> (retdest, pos, len)
+    JUMP
 decode_rlp_string_len_large:
     // String is >55 bytes long. First byte contains the len of the len.
     // stack: first_byte, pos, retdest
@@ -80,13 +82,14 @@ global decode_rlp_list_len:
     %add_const(1) // increment pos
     SWAP1
     // stack: first_byte, pos', retdest
-    // If first_byte is >= 0xf7, it's a > 55 byte list, and
+    // If first_byte is >= 0xf8, it's a > 55 byte list, and
     // first_byte - 0xf7 is the length of the length.
     DUP1
-    %gt_const(0xf6) // GT is native while GE is not, so compare to 0xf6 instead
+    %gt_const(0xf7) // GT is native while GE is not, so compare to 0xf6 instead
     // stack: first_byte >= 0xf7, first_byte, pos', retdest
     %jumpi(decode_rlp_list_len_big)
-decode_rlp_list_len_small:
+
+    // This is the "small list" case.
     // The list length is first_byte - 0xc0.
     // stack: first_byte, pos', retdest
     %sub_const(0xc0)
@@ -116,12 +119,13 @@ decode_int_given_len:
     // stack: pos, end_pos, retdest
     PUSH 0 // initial accumulator state
     // stack: acc, pos, end_pos, retdest
+
 decode_int_given_len_loop:
     JUMPDEST
     // stack: acc, pos, end_pos, retdest
     DUP3
     DUP3
-    ISZERO
+    EQ
     // stack: pos == end_pos, acc, pos, end_pos, retdest
     %jumpi(decode_int_given_len_finish)
     // stack: acc, pos, end_pos, retdest
@@ -139,6 +143,7 @@ decode_int_given_len_loop:
     SWAP1
     // stack: acc', pos', end_pos, retdest
     %jump(decode_int_given_len_loop)
+
 decode_int_given_len_finish:
     JUMPDEST
     %stack (acc, pos, end_pos, retdest) -> (retdest, pos, acc)
