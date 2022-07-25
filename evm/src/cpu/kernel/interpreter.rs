@@ -8,50 +8,6 @@ use crate::memory::segments::Segment;
 /// Halt interpreter execution whenever a jump to this offset is done.
 const HALT_OFFSET: usize = 0xdeadbeef;
 
-#[derive(Debug, Default)]
-pub(crate) struct EvmMemory {
-    memory: Vec<u8>,
-}
-
-impl EvmMemory {
-    fn len(&self) -> usize {
-        self.memory.len()
-    }
-
-    /// Expand memory until `self.len() >= offset`.
-    fn expand(&mut self, offset: usize) {
-        while self.len() < offset {
-            self.memory.extend([0; 32]);
-        }
-    }
-
-    fn mload(&mut self, offset: usize) -> U256 {
-        self.expand(offset + 32);
-        U256::from_big_endian(&self.memory[offset..offset + 32])
-    }
-
-    fn mload8(&mut self, offset: usize) -> u8 {
-        self.expand(offset + 1);
-        self.memory[offset]
-    }
-
-    fn mstore(&mut self, offset: usize, value: U256) {
-        self.expand(offset + 32);
-        let value_be = {
-            let mut tmp = [0; 32];
-            value.to_big_endian(&mut tmp);
-            tmp
-        };
-        self.memory[offset..offset + 32].copy_from_slice(&value_be);
-    }
-
-    fn mstore8(&mut self, offset: usize, value: U256) {
-        self.expand(offset + 1);
-        let value_byte = value.0[0] as u8;
-        self.memory[offset] = value_byte;
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct ContextMemory {
     memory: Vec<MemoryContextState>,
@@ -236,8 +192,8 @@ impl<'a> Interpreter<'a> {
             0xf8 => todo!(),                                           // "CONSUME_GAS",
             0xf9 => todo!(),                                           // "EXIT_KERNEL",
             0xfa => todo!(),                                           // "STATICCALL",
-            0xfb => todo!(),                                           // "MLOAD_GENERAL",
-            0xfc => todo!(),                                           // "MSTORE_GENERAL",
+            0xfb => self.run_mload_general(),                          // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),                         // "MSTORE_GENERAL",
             0xfd => todo!(),                                           // "REVERT",
             0xfe => bail!("Executed INVALID"),                         // "INVALID",
             0xff => todo!(),                                           // "SELFDESTRUCT",
@@ -467,6 +423,26 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         self.context = x.as_usize();
     }
+
+    fn run_mload_general(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let value = self
+            .memory
+            .mload_general(context, Segment::all()[segment], offset);
+        self.push(value);
+    }
+
+    fn run_mstore_general(&mut self) {
+        // stack: context, segment, offset, value
+        let context = self.pop().as_usize();
+        let segment = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let value = self.pop();
+        self.memory
+            .mstore_general(context, Segment::all()[segment], offset, value);
+    }
 }
 
 /// Return the (ordered) JUMPDEST offsets in the code.
@@ -490,6 +466,7 @@ mod tests {
     // use hex_literal::hex;
 
     use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use crate::memory::segments::Segment;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
@@ -522,7 +499,14 @@ mod tests {
         let run = run(&code, 0, vec![])?;
         let Interpreter { stack, memory, .. } = run;
         assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
-        // assert_eq!(&memory.memory, &hex!("00000000000000000000000000000000000000000000000000000000000000ff0000000000000042000000000000000000000000000000000000000000000000"));
+        assert_eq!(
+            memory.memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            0x42.into()
+        );
+        assert_eq!(
+            memory.memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            0xff.into()
+        );
         Ok(())
     }
 }

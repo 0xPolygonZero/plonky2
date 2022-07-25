@@ -54,4 +54,6 @@ impl Segment {
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
         }
     }
+
+    pub(crate)
 }
