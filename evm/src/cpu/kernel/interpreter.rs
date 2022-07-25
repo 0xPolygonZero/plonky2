@@ -338,12 +338,12 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_mload(&mut self) {
-        let offset = self.pop();
+        let offset = self.pop().as_usize();
         let value = U256::from_big_endian(
             &(0..32)
                 .map(|i| {
                     self.memory
-                        .mload_general(self.context, Segment::MainMemory, offset.as_usize() + i)
+                        .mload_general(self.context, Segment::MainMemory, offset + i)
                         .byte(0)
                 })
                 .collect::<Vec<_>>(),
@@ -352,27 +352,23 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_mstore(&mut self) {
-        let offset = self.pop();
+        let offset = self.pop().as_usize();
         let value = self.pop();
         let mut bytes = [0; 32];
         value.to_big_endian(&mut bytes);
-        for i in 0..32 {
-            self.memory.mstore_general(
-                self.context,
-                Segment::MainMemory,
-                offset.as_usize() + i,
-                bytes[i].into(),
-            );
+        for (i, byte) in (0..32).zip(bytes) {
+            self.memory
+                .mstore_general(self.context, Segment::MainMemory, offset + i, byte.into());
         }
     }
 
     fn run_mstore8(&mut self) {
-        let offset = self.pop();
+        let offset = self.pop().as_usize();
         let value = self.pop();
         self.memory.mstore_general(
             self.context,
             Segment::MainMemory,
-            offset.as_usize(),
+            offset,
             value.byte(0).into(),
         );
     }
@@ -461,8 +457,6 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    // use hex_literal::hex;
-
     use crate::cpu::kernel::interpreter::{run, Interpreter};
     use crate::memory::segments::Segment;
 
