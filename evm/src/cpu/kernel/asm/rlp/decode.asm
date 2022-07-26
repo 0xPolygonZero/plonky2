@@ -30,6 +30,7 @@ global decode_rlp_string_len:
     // String is a single byte in the range [0x00, 0x7f].
     %stack (first_byte, pos, retdest) -> (retdest, pos, 1)
     JUMP
+
 decode_rlp_string_len_medium:
     // String is 0-55 bytes long. First byte contains the len.
     // stack: first_byte, pos, retdest
@@ -40,6 +41,7 @@ decode_rlp_string_len_medium:
     // stack: pos', len, retdest
     %stack (pos, len, retdest) -> (retdest, pos, len)
     JUMP
+
 decode_rlp_string_len_large:
     // String is >55 bytes long. First byte contains the len of the len.
     // stack: first_byte, pos, retdest
@@ -96,6 +98,7 @@ global decode_rlp_list_len:
     // stack: len, pos', retdest
     %stack (len, pos, retdest) -> (retdest, pos, len)
     JUMP
+
 decode_rlp_list_len_big:
     JUMPDEST
     // The length of the length is first_byte - 0xf7.
