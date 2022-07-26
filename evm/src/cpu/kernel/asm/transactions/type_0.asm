@@ -1,5 +1,5 @@
 // Type 0 transactions, aka legacy transaction, have the format
-//     rlp([nonce, gas_price, gas_limit, destination, amount, data, v, r, s])
+//     rlp([nonce, gas_price, gas_limit, to, value, data, v, r, s])
 //
 // The field v was originally encoded as
 //     27 + y_parity
@@ -7,9 +7,9 @@
 //     35 + 2 * chain_id + y_parity
 //
 // If a chain_id is present in v, the signed data is
-//     keccak256(rlp([nonce, gas_price, gas_limit, destination, amount, data, chain_id, 0, 0]))
+//     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data, chain_id, 0, 0]))
 // otherwise, it is
-//     keccak256(rlp([nonce, gas_price, gas_limit, destination, amount, data]))
+//     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data]))
 
 global process_type_0_txn:
     JUMPDEST
@@ -58,34 +58,34 @@ store_gas_limit:
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
     // Peak at the RLP to see if the next byte is zero.
-    // If so, there is no destination field, so skip the store_destination step.
+    // If so, there is no value field, so skip the store_to step.
     // stack: pos
     DUP1
     %mload_current(@SEGMENT_RLP_RAW)
     ISZERO
-    // stack: destination_empty, pos
-    %jumpi(parse_amount)
+    // stack: to_empty, pos
+    %jumpi(parse_value)
 
-    // If we got here, there is a destination field.
-    PUSH store_destination
+    // If we got here, there is a "to" field.
+    PUSH store_to
     SWAP1
-    // stack: pos, store_destination
+    // stack: pos, store_to
     %jump(decode_rlp_scalar)
 
-store_destination:
-    %stack (pos, destination) -> (@TXN_FIELD_DESTINATION, destination, pos)
+store_to:
+    %stack (pos, to) -> (@TXN_FIELD_TO, to, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
     // stack: pos
 
-parse_amount:
+parse_value:
     // stack: pos
-    PUSH store_amount
+    PUSH store_value
     SWAP1
-    // stack: pos, store_amount
+    // stack: pos, store_value
     %jump(decode_rlp_scalar)
 
-store_amount:
-    %stack (pos, amount) -> (@TXN_FIELD_AMOUNT, amount, pos)
+store_value:
+    %stack (pos, value) -> (@TXN_FIELD_VALUE, value, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
     // stack: pos
