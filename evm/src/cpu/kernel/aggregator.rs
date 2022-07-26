@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 
 use super::assembler::{assemble, Kernel};
 use crate::cpu::kernel::parser::parse;
+use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
@@ -23,6 +24,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     );
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
+    }
+    for txn_field in NormalizedTxnField::all() {
+        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
     }
     c
 }
@@ -43,8 +47,16 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/secp256k1/lift_x.asm"),
         include_str!("asm/secp256k1/inverse_scalar.asm"),
         include_str!("asm/ecrecover.asm"),
+        include_str!("asm/rlp/encode.asm"),
+        include_str!("asm/rlp/decode.asm"),
+        include_str!("asm/rlp/read_to_memory.asm"),
         include_str!("asm/storage/read.asm"),
         include_str!("asm/storage/write.asm"),
+        include_str!("asm/transactions/process_normalized.asm"),
+        include_str!("asm/transactions/router.asm"),
+        include_str!("asm/transactions/type_0.asm"),
+        include_str!("asm/transactions/type_1.asm"),
+        include_str!("asm/transactions/type_2.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();

@@ -5,6 +5,7 @@ pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
 mod stack_manipulation;
+mod txn_fields;
 
 #[cfg(test)]
 mod interpreter;
