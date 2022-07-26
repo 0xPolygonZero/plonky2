@@ -123,7 +123,7 @@ global sha2_pad:
     // stack: num_bytes, retdest
     // STEP 3: insert num_blocks at start
     push 64
-    swap
+    swap1
     div
     %increment
     // stack: num_blocks := num_bytes // 64 + 1, retdest

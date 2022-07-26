@@ -54,7 +54,7 @@
     add
 %endmacro
 
-global sha2_sigma_0:
+%macro sha2_sigma_0
     JUMPDEST
     // stack: x
     dup1
@@ -76,6 +76,7 @@ global sha2_sigma_0:
     // stack: shr(x, 3), rotr(x, 18), rotr(x, 7)
     xor
     xor
+%endmacro
 
 %macro sha2_sigma_1
     // stack: x
