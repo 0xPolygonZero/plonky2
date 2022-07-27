@@ -89,8 +89,14 @@ impl Field {
                     .unwrap()
             }
             Field::Bn254Scalar => todo!(),
-            Field::Secp256k1Base => todo!(),
-            Field::Secp256k1Scalar => todo!(),
+            Field::Secp256k1Base => {
+                U256::from_str("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f")
+                    .unwrap()
+            }
+            Field::Secp256k1Scalar => {
+                U256::from_str("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")
+                    .unwrap()
+            }
         }
     }
 
