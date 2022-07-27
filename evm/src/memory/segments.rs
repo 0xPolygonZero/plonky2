@@ -58,4 +58,20 @@ impl Segment {
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
         }
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn bit_range(&self) -> usize {
+        match self {
+            Segment::Code => 8,
+            Segment::Stack => 256,
+            Segment::MainMemory => 8,
+            Segment::Calldata => 8,
+            Segment::Returndata => 8,
+            Segment::Metadata => 256,
+            Segment::KernelGeneral => 256,
+            Segment::TxnFields => 256,
+            Segment::TxnData => 256,
+            Segment::RlpRaw => 8,
+        }
+    }
 }
