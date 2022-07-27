@@ -36,7 +36,7 @@ impl InterpreterMemory {
 }
 
 // TODO: Remove `code` and `stack` fields as they are contained in `memory`.
-pub(crate) struct Interpreter<'a> {
+pub struct Interpreter<'a> {
     code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
@@ -467,8 +467,6 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-
-    use hex_literal::hex;
 
     use crate::cpu::kernel::interpreter::{run, Interpreter};
     use crate::memory::segments::Segment;
