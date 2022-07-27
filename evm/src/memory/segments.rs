@@ -69,6 +69,7 @@ impl Segment {
             Segment::Returndata => 8,
             Segment::Metadata => 256,
             Segment::KernelGeneral => 256,
+            Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
         }
