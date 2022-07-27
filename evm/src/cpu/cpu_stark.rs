@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
-use crate::cpu::{bootstrap_kernel, decode, simple_logic};
+use crate::cpu::{bootstrap_kernel, control_flow, decode, simple_logic};
 use crate::cross_table_lookup::Column;
 use crate::memory::NUM_CHANNELS;
 use crate::stark::Stark;
@@ -88,7 +88,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         P: PackedField<Scalar = FE>,
     {
         let local_values = vars.local_values.borrow();
+        let next_values = vars.next_values.borrow();
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
+        control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
     }
@@ -100,7 +102,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let local_values = vars.local_values.borrow();
+        let next_values = vars.next_values.borrow();
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
+        control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
     }

@@ -143,6 +143,7 @@ mod tests {
     use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
+    use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark, Operation};
@@ -321,8 +322,27 @@ mod tests {
 
         // Pad to a power of two.
         for _ in cpu_trace_rows.len()..cpu_trace_rows.len().next_power_of_two() {
-            cpu_trace_rows.push([F::ZERO; CpuStark::<F, D>::COLUMNS]);
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
         }
+
+        // Ensure we finish in a halted state.
+        {
+            let num_rows = cpu_trace_rows.len();
+            let halt_label = F::from_canonical_usize(KERNEL.global_labels["halt"]);
+
+            let last_row: &mut cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[num_rows - 1].borrow_mut();
+            last_row.program_counter = halt_label;
+
+            let second_last_row: &mut cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[num_rows - 2].borrow_mut();
+            second_last_row.next_program_counter = halt_label;
+        }
+
         trace_rows_to_poly_values(cpu_trace_rows)
     }
 
