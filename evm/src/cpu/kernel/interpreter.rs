@@ -9,35 +9,36 @@ use crate::memory::segments::Segment;
 const HALT_OFFSET: usize = 0xdeadbeef;
 
 #[derive(Debug)]
-pub(crate) struct ContextMemory {
-    memory: Vec<MemoryContextState>,
+pub(crate) struct InterpreterMemory {
+    context_memory: Vec<MemoryContextState>,
 }
 
-impl Default for ContextMemory {
+impl Default for InterpreterMemory {
     fn default() -> Self {
         Self {
-            memory: vec![MemoryContextState::default()],
+            context_memory: vec![MemoryContextState::default()],
         }
     }
 }
 
-impl ContextMemory {
+impl InterpreterMemory {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
-        self.memory[context].segments[segment as usize].get(offset)
+        self.context_memory[context].segments[segment as usize].get(offset)
     }
 
     fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
-        self.memory[context].segments[segment as usize].set(offset, value)
+        self.context_memory[context].segments[segment as usize].set(offset, value)
     }
 }
 
+// TODO: Remove `code` and `stack` fields as they are contained in `memory`.
 pub(crate) struct Interpreter<'a> {
     code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
     pub(crate) stack: Vec<U256>,
     context: usize,
-    memory: ContextMemory,
+    memory: InterpreterMemory,
     /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
     /// next prover input.
     prover_inputs: Vec<U256>,
@@ -67,7 +68,7 @@ pub(crate) fn run_with_input(
         offset: initial_offset,
         stack: initial_stack,
         context: 0,
-        memory: ContextMemory::default(),
+        memory: InterpreterMemory::default(),
         prover_inputs,
         running: true,
     };
@@ -425,7 +426,7 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.memory.mload_general(context, segment, offset);
-        assert!(value < U256::one() << segment.bit_range());
+        assert!(value.bits() <= segment.bit_range());
         self.push(value);
     }
 
@@ -434,7 +435,7 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        assert!(value < U256::one() << segment.bit_range());
+        assert!(value.bits() <= segment.bit_range());
         self.memory.mstore_general(context, segment, offset, value);
     }
 }
@@ -492,11 +493,11 @@ mod tests {
         let Interpreter { stack, memory, .. } = run;
         assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
         assert_eq!(
-            memory.memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
             0x42.into()
         );
         assert_eq!(
-            memory.memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
             0xff.into()
         );
         Ok(())

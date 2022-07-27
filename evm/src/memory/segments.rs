@@ -63,9 +63,9 @@ impl Segment {
             Segment::MainMemory => 8,
             Segment::Calldata => 8,
             Segment::Returndata => 8,
-            Segment::Metadata => 8,
-            Segment::KernelGeneral => 8,
-            Segment::TxnData => 8,
+            Segment::Metadata => 256,
+            Segment::KernelGeneral => 256,
+            Segment::TxnData => 256,
             Segment::RlpRaw => 8,
         }
     }
