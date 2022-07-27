@@ -5,8 +5,37 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
+
+// TODO: This list is incomplete.
+const NATIVE_INSTRUCTIONS: [usize; 25] = [
+    COL_MAP.is_add,
+    COL_MAP.is_mul,
+    COL_MAP.is_sub,
+    COL_MAP.is_div,
+    COL_MAP.is_sdiv,
+    COL_MAP.is_mod,
+    COL_MAP.is_smod,
+    COL_MAP.is_addmod,
+    COL_MAP.is_mulmod,
+    COL_MAP.is_signextend,
+    COL_MAP.is_lt,
+    COL_MAP.is_gt,
+    COL_MAP.is_slt,
+    COL_MAP.is_sgt,
+    COL_MAP.is_eq,
+    COL_MAP.is_iszero,
+    COL_MAP.is_and,
+    COL_MAP.is_or,
+    COL_MAP.is_xor,
+    COL_MAP.is_not,
+    COL_MAP.is_byte,
+    COL_MAP.is_shl,
+    COL_MAP.is_shr,
+    COL_MAP.is_sar,
+    COL_MAP.is_pop,
+];
 
 fn get_halt_pcs<F: Field>() -> (F, F) {
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
@@ -26,10 +55,15 @@ pub fn eval_packed_generic<P: PackedField>(
     // Once we start executing instructions, then we continue until the end of the table.
     yield_constr.constraint_transition(lv.is_cpu_cycle * (nv.is_cpu_cycle - P::ONES));
 
-    // If a row is a CPU cycle, then its `next_program_counter` becomes the `program_counter` of the
-    // next row.
-    yield_constr
-        .constraint_transition(lv.is_cpu_cycle * (nv.program_counter - lv.next_program_counter));
+    // If a row is a CPU cycle and executing a native instruction (implemented as a table row; not
+    // microcoded) then the program counter is incremented by 1 to obtain the next row's program
+    // counter.
+    let is_native_instruction: P = NATIVE_INSTRUCTIONS.iter().map(|&col_i| lv[col_i]).sum();
+    yield_constr.constraint_transition(
+        lv.is_cpu_cycle
+            * is_native_instruction
+            * (lv.program_counter - nv.program_counter + P::ONES),
+    );
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
     // cycle row is 0.
@@ -64,11 +98,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, constr);
     }
 
-    // If a row is a CPU cycle, then its `next_program_counter` becomes the `program_counter` of the
-    // next row.
+    // If a row is a CPU cycle and executing a native instruction (implemented as a table row; not
+    // microcoded) then the program counter is incremented by 1 to obtain the next row's program
+    // counter.
     {
-        let constr = builder.sub_extension(nv.program_counter, lv.next_program_counter);
-        let constr = builder.mul_extension(lv.is_cpu_cycle, constr);
+        let is_native_instruction =
+            builder.add_many_extension(NATIVE_INSTRUCTIONS.iter().map(|&col_i| lv[col_i]));
+        let filter = builder.mul_extension(lv.is_cpu_cycle, is_native_instruction);
+        let pc_diff = builder.sub_extension(lv.program_counter, nv.program_counter);
+        let constr = builder.mul_add_extension(filter, pc_diff, filter);
         yield_constr.constraint_transition(builder, constr);
     }
 
