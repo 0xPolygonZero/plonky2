@@ -8,13 +8,13 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 
-fn get_halt_addresses<F: Field>() -> (F, F) {
-    let halt_addr = KERNEL.global_labels["halt"];
-    let halt_inner_addr = KERNEL.global_labels["halt_inner"];
+fn get_halt_pcs<F: Field>() -> (F, F) {
+    let halt_pc0 = KERNEL.global_labels["halt_pc0"];
+    let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 
     (
-        F::from_canonical_usize(halt_addr),
-        F::from_canonical_usize(halt_inner_addr),
+        F::from_canonical_usize(halt_pc0),
+        F::from_canonical_usize(halt_pc1),
     )
 }
 
@@ -47,9 +47,9 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint_last_row(lv.is_cpu_cycle - P::ONES);
     // Also, the last row's `program_counter` must be inside the `halt` infinite loop. Note that
     // that loop consists of two instructions, so we must check for `halt` and `halt_inner` labels.
-    let (halt_addr0, halt_addr1) = get_halt_addresses::<P::Scalar>();
+    let (halt_pc0, halt_pc1) = get_halt_pcs::<P::Scalar>();
     yield_constr
-        .constraint_last_row((lv.program_counter - halt_addr0) * (lv.program_counter - halt_addr1));
+        .constraint_last_row((lv.program_counter - halt_pc0) * (lv.program_counter - halt_pc1));
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -99,13 +99,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Also, the last row's `program_counter` must be inside the `halt` infinite loop. Note that
     // that loop consists of two instructions, so we must check for `halt` and `halt_inner` labels.
     {
-        let (halt_addr0, halt_addr1) = get_halt_addresses();
-        let halt_addr0_target = builder.constant_extension(halt_addr0);
-        let halt_addr1_target = builder.constant_extension(halt_addr1);
+        let (halt_pc0, halt_pc1) = get_halt_pcs();
+        let halt_pc0_target = builder.constant_extension(halt_pc0);
+        let halt_pc1_target = builder.constant_extension(halt_pc1);
 
-        let halt_addr0_offset = builder.sub_extension(lv.program_counter, halt_addr0_target);
-        let halt_addr1_offset = builder.sub_extension(lv.program_counter, halt_addr1_target);
-        let constr = builder.mul_extension(halt_addr0_offset, halt_addr1_offset);
+        let halt_pc0_offset = builder.sub_extension(lv.program_counter, halt_pc0_target);
+        let halt_pc1_offset = builder.sub_extension(lv.program_counter, halt_pc1_target);
+        let constr = builder.mul_extension(halt_pc0_offset, halt_pc1_offset);
 
         yield_constr.constraint_last_row(builder, constr);
     }

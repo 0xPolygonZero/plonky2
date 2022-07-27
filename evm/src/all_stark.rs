@@ -332,7 +332,7 @@ mod tests {
         // Ensure we finish in a halted state.
         {
             let num_rows = cpu_trace_rows.len();
-            let halt_label = F::from_canonical_usize(KERNEL.global_labels["halt"]);
+            let halt_label = F::from_canonical_usize(KERNEL.global_labels["halt_pc0"]);
 
             let last_row: &mut cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[num_rows - 1].borrow_mut();
