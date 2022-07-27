@@ -7,6 +7,7 @@ mod opcodes;
 mod parser;
 mod prover_input;
 mod stack_manipulation;
+mod txn_fields;
 
 #[cfg(test)]
 mod tests;

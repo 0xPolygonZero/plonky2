@@ -33,8 +33,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn new() -> Challenger<F, H> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
-            input_buffer: Vec::new(),
-            output_buffer: Vec::new(),
+            input_buffer: Vec::with_capacity(SPONGE_RATE),
+            output_buffer: Vec::with_capacity(SPONGE_RATE),
             _phantom: Default::default(),
         }
     }
@@ -44,6 +44,10 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         self.output_buffer.clear();
 
         self.input_buffer.push(element);
+
+        if self.input_buffer.len() == SPONGE_RATE {
+            self.duplexing();
+        }
     }
 
     pub fn observe_extension_element<const D: usize>(&mut self, element: &F::Extension)
@@ -79,12 +83,10 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     }
 
     pub fn get_challenge(&mut self) -> F {
-        self.absorb_buffered_inputs();
-
-        if self.output_buffer.is_empty() {
-            // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = H::Permutation::permute(self.sponge_state);
-            self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
+        // If we have buffered inputs, we must perform a duplexing so that the challenge will
+        // reflect them. Or if we've run out of outputs, we must perform a duplexing to get more.
+        if !self.input_buffer.is_empty() || self.output_buffer.is_empty() {
+            self.duplexing();
         }
 
         self.output_buffer
@@ -125,27 +127,24 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
             .collect()
     }
 
-    /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs(&mut self) {
-        if self.input_buffer.is_empty() {
-            return;
+    /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
+    /// output buffer will be full.
+    fn duplexing(&mut self) {
+        assert!(self.input_buffer.len() <= SPONGE_RATE);
+
+        // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+        // where we would xor or add in the inputs. This is a well-known variant, though,
+        // sometimes called "overwrite mode".
+        for (i, input) in self.input_buffer.drain(..).enumerate() {
+            self.sponge_state[i] = input;
         }
 
-        for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
-            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
-            // where we would xor or add in the inputs. This is a well-known variant, though,
-            // sometimes called "overwrite mode".
-            for (i, &input) in input_chunk.iter().enumerate() {
-                self.sponge_state[i] = input;
-            }
+        // Apply the permutation.
+        self.sponge_state = H::Permutation::permute(self.sponge_state);
 
-            // Apply the permutation.
-            self.sponge_state = H::Permutation::permute(self.sponge_state);
-        }
-
-        self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
-
-        self.input_buffer.clear();
+        self.output_buffer.clear();
+        self.output_buffer
+            .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
     }
 }
 
@@ -155,7 +154,9 @@ impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
     }
 }
 
-/// A recursive version of `Challenger`.
+/// A recursive version of `Challenger`. The main difference is that `RecursiveChallenger`'s input
+/// buffer can grow beyond `SPONGE_RATE`. This is so that `observe_element` etc do not need access
+/// to the `CircuitBuilder`.
 pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 {
     sponge_state: [Target; SPONGE_WIDTH],
@@ -248,7 +249,8 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.get_n_challenges(builder, D).try_into().unwrap()
     }
 
-    /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
+    /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
+    /// output buffer will be full.
     fn absorb_buffered_inputs(&mut self, builder: &mut CircuitBuilder<F, D>) {
         if self.input_buffer.is_empty() {
             return;

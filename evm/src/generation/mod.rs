@@ -10,7 +10,7 @@ use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::generation::state::GenerationState;
 use crate::util::trace_rows_to_poly_values;
 
-mod memory;
+pub(crate) mod memory;
 pub(crate) mod state;
 
 /// A piece of data which has been encoded using Recursive Length Prefix (RLP) serialization.

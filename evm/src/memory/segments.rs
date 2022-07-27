@@ -1,4 +1,4 @@
-#[allow(dead_code)] // TODO: Not all segments are used yet.
+#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum Segment {
     /// Contains EVM bytecode.
@@ -17,14 +17,16 @@ pub(crate) enum Segment {
     /// General purpose kernel memory, used by various kernel functions.
     /// In general, calling a helper function can result in this memory being clobbered.
     KernelGeneral = 6,
-    /// Contains transaction data (after it's parsed and converted to a standard format).
-    TxnData = 7,
+    /// Contains normalized transaction fields; see `TxnField`.
+    TxnFields = 7,
+    /// Contains the data field of a transaction.
+    TxnData = 8,
     /// Raw RLP data.
-    RlpRaw = 8,
+    RlpRaw = 9,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 9;
+    pub(crate) const COUNT: usize = 10;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -35,6 +37,7 @@ impl Segment {
             Self::Returndata,
             Self::Metadata,
             Self::KernelGeneral,
+            Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
         ]
@@ -50,8 +53,25 @@ impl Segment {
             Segment::Returndata => "SEGMENT_RETURNDATA",
             Segment::Metadata => "SEGMENT_METADATA",
             Segment::KernelGeneral => "SEGMENT_KERNEL_GENERAL",
+            Segment::TxnFields => "SEGMENT_NORMALIZED_TXN",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn bit_range(&self) -> usize {
+        match self {
+            Segment::Code => 8,
+            Segment::Stack => 256,
+            Segment::MainMemory => 8,
+            Segment::Calldata => 8,
+            Segment::Returndata => 8,
+            Segment::Metadata => 256,
+            Segment::KernelGeneral => 256,
+            Segment::TxnFields => 256,
+            Segment::TxnData => 256,
+            Segment::RlpRaw => 8,
         }
     }
 }

@@ -6,60 +6,43 @@ use keccak_hash::keccak;
 
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::generation::memory::MemoryContextState;
+use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const HALT_OFFSET: usize = 0xdeadbeef;
 
-#[derive(Debug, Default)]
-pub(crate) struct EvmMemory {
-    memory: Vec<u8>,
+#[derive(Debug)]
+pub(crate) struct InterpreterMemory {
+    context_memory: Vec<MemoryContextState>,
 }
 
-impl EvmMemory {
-    fn len(&self) -> usize {
-        self.memory.len()
-    }
-
-    /// Expand memory until `self.len() >= offset`.
-    fn expand(&mut self, offset: usize) {
-        while self.len() < offset {
-            self.memory.extend([0; 32]);
+impl Default for InterpreterMemory {
+    fn default() -> Self {
+        Self {
+            context_memory: vec![MemoryContextState::default()],
         }
     }
+}
 
-    fn mload(&mut self, offset: usize) -> U256 {
-        self.expand(offset + 32);
-        U256::from_big_endian(&self.memory[offset..offset + 32])
+impl InterpreterMemory {
+    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+        self.context_memory[context].segments[segment as usize].get(offset)
     }
 
-    fn mload8(&mut self, offset: usize) -> u8 {
-        self.expand(offset + 1);
-        self.memory[offset]
-    }
-
-    fn mstore(&mut self, offset: usize, value: U256) {
-        self.expand(offset + 32);
-        let value_be = {
-            let mut tmp = [0; 32];
-            value.to_big_endian(&mut tmp);
-            tmp
-        };
-        self.memory[offset..offset + 32].copy_from_slice(&value_be);
-    }
-
-    fn mstore8(&mut self, offset: usize, value: U256) {
-        self.expand(offset + 1);
-        let value_byte = value.0[0] as u8;
-        self.memory[offset] = value_byte;
+    fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
+        self.context_memory[context].segments[segment as usize].set(offset, value)
     }
 }
 
-pub struct Interpreter<'a> {
+// TODO: Remove `code` and `stack` fields as they are contained in `memory`.
+pub(crate) struct Interpreter<'a> {
     code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
     pub(crate) stack: Vec<U256>,
-    pub(crate) memory: EvmMemory,
+    context: usize,
+    memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     prover_inputs: Vec<U256>,
     running: bool,
@@ -89,9 +72,10 @@ pub fn run<'a>(
         jumpdests: find_jumpdests(code),
         offset: initial_offset,
         stack: initial_stack,
-        memory: EvmMemory::default(),
+        memory: InterpreterMemory::default(),
         prover_inputs_map: prover_inputs,
         prover_inputs: Vec::new(),
+        context: 0,
         running: true,
     };
 
@@ -210,13 +194,13 @@ impl<'a> Interpreter<'a> {
             0xf3 => todo!(),                                           // "RETURN",
             0xf4 => todo!(),                                           // "DELEGATECALL",
             0xf5 => todo!(),                                           // "CREATE2",
-            0xf6 => todo!(),                                           // "GET_CONTEXT",
-            0xf7 => todo!(),                                           // "SET_CONTEXT",
+            0xf6 => self.run_get_context(),                            // "GET_CONTEXT",
+            0xf7 => self.run_set_context(),                            // "SET_CONTEXT",
             0xf8 => todo!(),                                           // "CONSUME_GAS",
             0xf9 => todo!(),                                           // "EXIT_KERNEL",
             0xfa => todo!(),                                           // "STATICCALL",
-            0xfb => todo!(),                                           // "MLOAD_GENERAL",
-            0xfc => todo!(),                                           // "MSTORE_GENERAL",
+            0xfb => self.run_mload_general(),                          // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),                         // "MSTORE_GENERAL",
             0xfd => todo!(),                                           // "REVERT",
             0xfe => bail!("Executed INVALID"),                         // "INVALID",
             0xff => todo!(),                                           // "SELFDESTRUCT",
@@ -337,7 +321,11 @@ impl<'a> Interpreter<'a> {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         let bytes = (offset..offset + size)
-            .map(|i| self.memory.mload8(i))
+            .map(|i| {
+                self.memory
+                    .mload_general(self.context, Segment::MainMemory, i)
+                    .byte(0)
+            })
             .collect::<Vec<_>>();
         let hash = keccak(bytes);
         self.push(hash.into_uint());
@@ -359,21 +347,39 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_mload(&mut self) {
-        let offset = self.pop();
-        let value = self.memory.mload(offset.as_usize());
+        let offset = self.pop().as_usize();
+        let value = U256::from_big_endian(
+            &(0..32)
+                .map(|i| {
+                    self.memory
+                        .mload_general(self.context, Segment::MainMemory, offset + i)
+                        .byte(0)
+                })
+                .collect::<Vec<_>>(),
+        );
         self.push(value);
     }
 
     fn run_mstore(&mut self) {
-        let offset = self.pop();
+        let offset = self.pop().as_usize();
         let value = self.pop();
-        self.memory.mstore(offset.as_usize(), value);
+        let mut bytes = [0; 32];
+        value.to_big_endian(&mut bytes);
+        for (i, byte) in (0..32).zip(bytes) {
+            self.memory
+                .mstore_general(self.context, Segment::MainMemory, offset + i, byte.into());
+        }
     }
 
     fn run_mstore8(&mut self) {
-        let offset = self.pop();
+        let offset = self.pop().as_usize();
         let value = self.pop();
-        self.memory.mstore8(offset.as_usize(), value);
+        self.memory.mstore_general(
+            self.context,
+            Segment::MainMemory,
+            offset,
+            value.byte(0).into(),
+        );
     }
 
     fn run_jump(&mut self) {
@@ -413,6 +419,33 @@ impl<'a> Interpreter<'a> {
         let len = self.stack.len();
         self.stack.swap(len - 1, len - n as usize - 1);
     }
+
+    fn run_get_context(&mut self) {
+        self.push(self.context.into());
+    }
+
+    fn run_set_context(&mut self) {
+        let x = self.pop();
+        self.context = x.as_usize();
+    }
+
+    fn run_mload_general(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
+        let offset = self.pop().as_usize();
+        let value = self.memory.mload_general(context, segment, offset);
+        assert!(value.bits() <= segment.bit_range());
+        self.push(value);
+    }
+
+    fn run_mstore_general(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
+        let offset = self.pop().as_usize();
+        let value = self.pop();
+        assert!(value.bits() <= segment.bit_range());
+        self.memory.mstore_general(context, segment, offset, value);
+    }
 }
 
 /// Return the (ordered) JUMPDEST offsets in the code.
@@ -438,6 +471,7 @@ mod tests {
     use hex_literal::hex;
 
     use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use crate::memory::segments::Segment;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
@@ -474,7 +508,14 @@ mod tests {
         let run = run(&code, 0, vec![], &pis)?;
         let Interpreter { stack, memory, .. } = run;
         assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
-        assert_eq!(&memory.memory, &hex!("00000000000000000000000000000000000000000000000000000000000000ff0000000000000042000000000000000000000000000000000000000000000000"));
+        assert_eq!(
+            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            0x42.into()
+        );
+        assert_eq!(
+            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            0xff.into()
+        );
         Ok(())
     }
 }
