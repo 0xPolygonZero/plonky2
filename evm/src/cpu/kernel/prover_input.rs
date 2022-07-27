@@ -103,7 +103,7 @@ impl Field {
     fn op(&self, op: FieldOp, x: U256) -> U256 {
         match op {
             FieldOp::Inverse => self.inverse(x),
-            FieldOp::Sqrt => todo!(),
+            FieldOp::Sqrt => self.sqrt(x),
         }
     }
 
@@ -111,6 +111,17 @@ impl Field {
         let n = self.order();
         assert!(x < n);
         modexp(x, n - 2, n)
+    }
+
+    fn sqrt(&self, x: U256) -> U256 {
+        let n = self.order();
+        assert!(x < n);
+        let (q, r) = (n + 1).div_mod(4.into());
+        assert!(
+            r.is_zero(),
+            "Only naive sqrt implementation for now. If needed implement Tonelli-Shanks."
+        );
+        modexp(x, q, n)
     }
 }
 
