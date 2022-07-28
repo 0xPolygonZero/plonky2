@@ -145,7 +145,10 @@ impl TimingTree {
 
     #[cfg(not(feature = "timing"))]
     pub fn print(&self) {
-        log!(self.0, "TimingTree is not supported without the 'timing' feature enabled");
+        log!(
+            self.0,
+            "TimingTree is not supported without the 'timing' feature enabled"
+        );
     }
 
     #[cfg(feature = "timing")]
