@@ -23,7 +23,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
-    timing: &mut TimingTree,
+    _timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D>
 where
     [(); C::Hasher::HASH_SIZE]:,
@@ -33,7 +33,7 @@ where
 
     // Commit phase
     let (trees, final_coeffs) = timed!(
-        timing,
+        _timing,
         "fold codewords in the commitment phase",
         fri_committed_trees::<F, C, D>(
             lde_polynomial_coeffs,
@@ -46,7 +46,7 @@ where
     // PoW phase
     let current_hash = challenger.get_hash();
     let pow_witness = timed!(
-        timing,
+        _timing,
         "find proof-of-work witness",
         fri_proof_of_work::<F, C, D>(current_hash, &fri_params.config)
     );

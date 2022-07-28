@@ -10,6 +10,10 @@ categories = ["cryptography"]
 edition = "2021"
 default-run = "generate_constants"
 
+[features]
+default = ["timing"]
+timing = []
+
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }

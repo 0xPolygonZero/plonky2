@@ -71,7 +71,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
-        timing: &mut TimingTree,
+        _timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self
     where
@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     {
         let degree = polynomials[0].len();
         let lde_values = timed!(
-            timing,
+            _timing,
             "FFT + blinding",
             Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table)
         );
@@ -87,7 +87,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(
-            timing,
+            _timing,
             "build Merkle tree",
             MerkleTree::new(leaves, cap_height)
         );
