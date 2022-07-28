@@ -29,6 +29,7 @@ fn test_sha2_store() -> Result<()> {
     let mut initial_stack = vec![U256::from(num_bytes)];
     initial_stack.extend(bytes);
     initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
+    initial_stack.reverse();
     dbg!(initial_stack.clone());
     let stack_with_kernel = run(&kernel.code, sha2_store, initial_stack)?.stack;
     dbg!(stack_with_kernel);

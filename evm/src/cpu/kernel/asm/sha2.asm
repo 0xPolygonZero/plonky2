@@ -15,6 +15,7 @@ sha2_store_loop:
     JUMPDEST
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     dup1
+    STOP
     // stack: addr, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     swap3
     // stack: x[num_bytes-counter], addr, counter, addr,  ... , x[num_bytes-1], retdest
