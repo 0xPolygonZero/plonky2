@@ -1,6 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
+use maybe_rayon::*;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -15,7 +16,6 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
-use rayon::prelude::*;
 
 use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
