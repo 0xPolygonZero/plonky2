@@ -1,3 +1,4 @@
+use core::num;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -22,9 +23,14 @@ fn test_sha2_store() -> Result<()> {
         bytes.push(U256::from(v2));
     }
 
+    dbg!(num_bytes);
+    dbg!(bytes.clone());
+
     let mut initial_stack = vec![U256::from(num_bytes)];
     initial_stack.extend(bytes);
+    dbg!(initial_stack.clone());
     let stack_with_kernel = run(&kernel.code, sha2_store, initial_stack)?.stack;
+    dbg!(stack_with_kernel);
 
     // let expected_stack = todo!();
     // assert_eq!(stack_with_kernel, expected_stack);
