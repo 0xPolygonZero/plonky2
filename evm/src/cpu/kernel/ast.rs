@@ -14,6 +14,11 @@ pub(crate) enum Item {
     MacroCall(String, Vec<PushTarget>),
     /// Repetition, like `%rep` in NASM.
     Repeat(Literal, Vec<Item>),
+    /// A directive to manipulate the stack according to a specified pattern.
+    /// The first list gives names to items on the top of the stack.
+    /// The second list specifies replacement items.
+    /// Example: `(a, b, c) -> (c, 5, 0x20, @SOME_CONST, a)`.
+    StackManipulation(Vec<String>, Vec<StackReplacement>),
     /// Declares a global label.
     GlobalLabelDeclaration(String),
     /// Declares a label that is local to the current file.
@@ -26,6 +31,14 @@ pub(crate) enum Item {
     Bytes(Vec<Literal>),
 }
 
+#[derive(Clone, Debug)]
+pub(crate) enum StackReplacement {
+    NamedItem(String),
+    Literal(Literal),
+    MacroVar(String),
+    Constant(String),
+}
+
 /// The target of a `PUSH` operation.
 #[derive(Clone, Debug)]
 pub(crate) enum PushTarget {
@@ -35,7 +48,7 @@ pub(crate) enum PushTarget {
     Constant(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) enum Literal {
     Decimal(String),
     Hex(String),

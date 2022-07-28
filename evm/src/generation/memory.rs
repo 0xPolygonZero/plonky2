@@ -34,14 +34,14 @@ pub(crate) struct MemorySegmentState {
 }
 
 impl MemorySegmentState {
-    pub(super) fn get(&self, virtual_addr: usize) -> U256 {
+    pub(crate) fn get(&self, virtual_addr: usize) -> U256 {
         self.content
             .get(virtual_addr)
             .copied()
             .unwrap_or(U256::zero())
     }
 
-    pub(super) fn set(&mut self, virtual_addr: usize, value: U256) {
+    pub(crate) fn set(&mut self, virtual_addr: usize, value: U256) {
         if virtual_addr >= self.content.len() {
             self.content.resize(virtual_addr + 1, U256::zero());
         }

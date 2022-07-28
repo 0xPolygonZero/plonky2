@@ -26,6 +26,24 @@
     %endrep
 %endmacro
 
+%macro pop5
+    %rep 5
+        pop
+    %endrep
+%endmacro
+
+%macro pop6
+    %rep 6
+        pop
+    %endrep
+%endmacro
+
+%macro pop7
+    %rep 7
+        pop
+    %endrep
+%endmacro
+
 %macro add_const(c)
     // stack: input, ...
     PUSH $c
@@ -60,8 +78,27 @@
     // stack: c, input, ...
     SWAP1
     // stack: input, c, ...
-    SUB
+    DIV
     // stack: input / c, ...
+%endmacro
+
+// Slightly inefficient as we need to swap the inputs.
+// Consider avoiding this in performance-critical code.
+%macro mod_const(c)
+    // stack: input, ...
+    PUSH $c
+    // stack: c, input, ...
+    SWAP1
+    // stack: input, c, ...
+    MOD
+    // stack: input % c, ...
+%endmacro
+
+%macro shl_const(c)
+    // stack: input, ...
+    PUSH $c
+    SHL
+    // stack: input << c, ...
 %endmacro
 
 %macro eq_const(c)

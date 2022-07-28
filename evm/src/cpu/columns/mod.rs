@@ -21,8 +21,11 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_bootstrap_contract: T,
 
     /// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-    /// Lets us re-use decode columns in non-cycle rows.
+    /// Lets us re-use columns in non-cycle rows.
     pub is_cpu_cycle: T,
+
+    /// If CPU cycle: The program counter for the current instruction.
+    pub program_counter: T,
 
     /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
     pub opcode: T,
@@ -56,7 +59,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_shl: T,
     pub is_shr: T,
     pub is_sar: T,
-    pub is_sha3: T,
+    pub is_keccak256: T,
     pub is_address: T,
     pub is_balance: T,
     pub is_origin: T,
@@ -82,6 +85,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_chainid: T,
     pub is_selfbalance: T,
     pub is_basefee: T,
+    pub is_prover_input: T,
     pub is_pop: T,
     pub is_mload: T,
     pub is_mstore: T,
@@ -94,6 +98,10 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_msize: T,
     pub is_gas: T,
     pub is_jumpdest: T,
+    pub is_get_state_root: T,
+    pub is_set_state_root: T,
+    pub is_get_receipt_root: T,
+    pub is_set_receipt_root: T,
     pub is_push: T,
     pub is_dup: T,
     pub is_swap: T,
@@ -102,13 +110,20 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_log2: T,
     pub is_log3: T,
     pub is_log4: T,
+    pub is_panic: T,
     pub is_create: T,
     pub is_call: T,
     pub is_callcode: T,
     pub is_return: T,
     pub is_delegatecall: T,
     pub is_create2: T,
+    pub is_get_context: T,
+    pub is_set_context: T,
+    pub is_consume_gas: T,
+    pub is_exit_kernel: T,
     pub is_staticcall: T,
+    pub is_mload_general: T,
+    pub is_mstore_general: T,
     pub is_revert: T,
     pub is_selfdestruct: T,
 
@@ -127,16 +142,12 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_invalid_11: T,
     pub is_invalid_12: T,
     pub is_invalid_13: T,
-    pub is_invalid_14: T,
-    pub is_invalid_15: T,
-    pub is_invalid_16: T,
-    pub is_invalid_17: T,
-    pub is_invalid_18: T,
-    pub is_invalid_19: T,
-    pub is_invalid_20: T,
 
     /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
     pub opcode_bits: [T; 8],
+
+    /// If CPU cycle: The program counter for the next instruction.
+    pub next_program_counter: T,
 
     /// Filter. 1 iff a Keccak permutation is computed on this row.
     pub is_keccak: T,

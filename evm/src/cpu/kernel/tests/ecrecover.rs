@@ -1,19 +1,12 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use ethereum_types::U256;
-use keccak_hash::keccak;
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::interpreter::run;
 use crate::cpu::kernel::tests::u256ify;
-
-fn pubkey_to_addr(x: U256, y: U256) -> Vec<u8> {
-    let mut buf = [0; 64];
-    x.to_big_endian(&mut buf[0..32]);
-    y.to_big_endian(&mut buf[32..64]);
-    let hash = keccak(buf);
-    hash.0[12..].to_vec()
-}
 
 fn test_valid_ecrecover(
     hash: &str,
@@ -24,10 +17,9 @@ fn test_valid_ecrecover(
     kernel: &Kernel,
 ) -> Result<()> {
     let ecrecover = kernel.global_labels["ecrecover"];
-    let initial_stack = u256ify([s, r, v, hash])?;
-    let stack = run(&kernel.code, ecrecover, initial_stack).stack;
-    let got = pubkey_to_addr(stack[1], stack[0]);
-    assert_eq!(got, hex::decode(&expected[2..]).unwrap());
+    let initial_stack = u256ify(["0xdeadbeef", s, r, v, hash])?;
+    let stack = run(&kernel.code, ecrecover, initial_stack)?.stack;
+    assert_eq!(stack[0], U256::from_str(expected).unwrap());
 
     Ok(())
 }
@@ -35,7 +27,7 @@ fn test_valid_ecrecover(
 fn test_invalid_ecrecover(hash: &str, v: &str, r: &str, s: &str, kernel: &Kernel) -> Result<()> {
     let ecrecover = kernel.global_labels["ecrecover"];
     let initial_stack = u256ify(["0xdeadbeef", s, r, v, hash])?;
-    let stack = run(&kernel.code, ecrecover, initial_stack).stack;
+    let stack = run(&kernel.code, ecrecover, initial_stack)?.stack;
     assert_eq!(stack, vec![U256::MAX]);
 
     Ok(())
