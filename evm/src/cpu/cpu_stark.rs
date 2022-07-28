@@ -16,8 +16,9 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
-    let mut res: Vec<_> = Column::singles(COL_MAP.keccak_input_limbs).collect();
-    res.extend(Column::singles(COL_MAP.keccak_output_limbs));
+    let keccak = COL_MAP.general.keccak();
+    let mut res: Vec<_> = Column::singles(keccak.input_limbs).collect();
+    res.extend(Column::singles(keccak.output_limbs));
     res
 }
 
@@ -27,9 +28,10 @@ pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([COL_MAP.is_and, COL_MAP.is_or, COL_MAP.is_xor]).collect_vec();
-    res.extend(Column::singles(COL_MAP.logic_input0));
-    res.extend(Column::singles(COL_MAP.logic_input1));
-    res.extend(Column::singles(COL_MAP.logic_output));
+    let logic = COL_MAP.general.logic();
+    res.extend(Column::singles(logic.input0));
+    res.extend(Column::singles(logic.input1));
+    res.extend(Column::singles(logic.output));
     res
 }
 
