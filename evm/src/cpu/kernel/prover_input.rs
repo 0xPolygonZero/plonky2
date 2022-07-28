@@ -20,7 +20,7 @@ impl From<Vec<String>> for ProverInputFn {
 
 impl ProverInputFn {
     /// Run the function on the stack.
-    pub(crate) fn run(&self, stack: Vec<U256>) -> U256 {
+    pub fn run(&self, stack: &[U256]) -> U256 {
         match self.0[0].as_str() {
             "ff" => self.run_ff(stack),
             "mpt" => todo!(),
@@ -29,10 +29,10 @@ impl ProverInputFn {
     }
 
     // Finite field operations.
-    fn run_ff(&self, mut stack: Vec<U256>) -> U256 {
+    fn run_ff(&self, stack: &[U256]) -> U256 {
         let field = Field::from_str(self.0[1].as_str()).unwrap();
         let op = FieldOp::from_str(self.0[2].as_str()).unwrap();
-        let x = stack.pop().expect("Empty stack");
+        let x = *stack.last().expect("Empty stack");
         field.op(op, x)
     }
 
@@ -130,7 +130,7 @@ fn modexp(x: U256, e: U256, n: U256) -> U256 {
     let mut product = U256::one();
 
     for j in 0..256 {
-        if !(e >> j & U256::one()).is_zero() {
+        if e.bit(j) {
             product = U256::try_from(product.full_mul(current) % n).unwrap();
         }
         current = U256::try_from(current.full_mul(current) % n).unwrap();

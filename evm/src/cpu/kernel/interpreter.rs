@@ -336,7 +336,7 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.offset - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = prover_input_fn.run(self.stack.clone());
+        let output = prover_input_fn.run(&self.stack);
         self.stack.push(output);
         self.prover_inputs.push(output);
         Ok(())

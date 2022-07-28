@@ -10,7 +10,7 @@
     // stack: x^3+7, x, parity
     DUP1
     // stack: x^3+7, x^3+7, parity
-    %sqrt_secp_base
+    %sqrt_secp_base_unsafe
     // stack: y, x^3+7, x, parity
     SWAP1
     // stack: x^3+7, y, parity
@@ -61,7 +61,8 @@
 %endmacro
 
 // Non-deterministically provide the square root modulo N.
-%macro sqrt_secp_base
+// Note: The square root is not checked and the macro doesn't not panic if `x` is not a square.
+%macro sqrt_secp_base_unsafe
     // stack: x
     PROVER_INPUT(ff::secp256k1_base::sqrt)
     // stack: √x, x

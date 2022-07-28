@@ -90,5 +90,6 @@ mod tests {
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
         debug!("Total kernel size: {} bytes", kernel.code.len());
+        dbg!("Total kernel size: {} bytes", kernel.code.len());
     }
 }

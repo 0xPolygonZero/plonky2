@@ -22,16 +22,10 @@
     // stack: x
     PROVER_INPUT(ff::secp256k1_scalar::inverse)
     // stack: x^-1, x
-    %stack (inv, x) -> (inv, x, @SECP_SCALAR, inv, x)
-    // stack: x^-1, x, N, x^-1, x
+    %stack (inv, x) -> (inv, x, @SECP_SCALAR, inv)
+    // stack: x^-1, x, N, x^-1
     MULMOD
-    // stack: x^-1 * x, x^-1, x
-    PUSH 1
-    // stack: 1, x^-1 * x, x^-1, x
-    %assert_eq
-    // stack: x^-1, x
-    SWAP1
-    // stack: x, x^-1
-    POP
+    // stack: x^-1 * x, x^-1
+    %assert_eq_const(1)
     // stack: x^-1
 %endmacro

@@ -1,14 +1,15 @@
 pub mod aggregator;
 pub mod assembler;
 mod ast;
-pub mod interpreter;
 pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
-mod prover_input;
+pub mod prover_input;
 mod stack_manipulation;
 mod txn_fields;
 
+#[cfg(test)]
+mod interpreter;
 #[cfg(test)]
 mod tests;
 
