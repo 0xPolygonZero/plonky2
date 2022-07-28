@@ -4,6 +4,7 @@
 #![allow(clippy::type_complexity)]
 #![feature(let_chains)]
 #![feature(generic_const_exprs)]
+#![feature(let_chains)]
 
 pub mod all_stark;
 pub mod arithmetic;

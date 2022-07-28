@@ -258,11 +258,6 @@
     div
 %endmacro
 
-%macro eq(x)
-    push $x
-    eq
-%endmacro
-
 %macro lt(x)
     push $x
     swap1

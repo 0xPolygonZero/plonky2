@@ -20,6 +20,9 @@ sha2_store_loop:
     // stack: addr, x[num_bytes-counter], counter, addr,  ... , x[num_bytes-1], retdest
     %mstore_kernel_general
     // stack: counter, addr,  ... , x[num_bytes-1], retdest
+    dup1
+    %eq_const(6)
+    %jumpi(sha2_stop)
     %decrement
     // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
     iszero
@@ -30,9 +33,13 @@ sha2_store_loop:
     // stack: addr+1, counter-1,  ... , x[num_bytes-1], retdest
     %jump(sha2_store_loop)
 sha2_store_end:
+    JUMPDEST
     // stack: counter=0, addr, retdest
     %pop2
     JUMP
+sha2_stop:
+    JUMPDEST
+    STOP
 
 
 // Precodition: input is in memory, starting at 0 of kernel general segment, of the form
@@ -40,6 +47,7 @@ sha2_store_end:
 // Postcodition: output is in memory, starting at 0, of the form
 //               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
+    JUMPDEST
     // stack: retdest
     push 0
     %mload_kernel_general
