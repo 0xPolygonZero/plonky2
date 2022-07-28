@@ -13,7 +13,7 @@ fn test_sha2_store() -> Result<()> {
     let kernel = combined_kernel();
     let sha2_store = kernel.global_labels["sha2_store"];
     let mut rng = thread_rng();
-    let num_bytes = rng.gen_range(0..20);
+    let num_bytes = rng.gen_range(1..17);
     let mut bytes: Vec<U256> = Vec::with_capacity(num_bytes);
     for _ in 0..num_bytes {
         let byte: u8 = rng.gen();
@@ -28,6 +28,7 @@ fn test_sha2_store() -> Result<()> {
 
     let mut initial_stack = vec![U256::from(num_bytes)];
     initial_stack.extend(bytes);
+    initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
     dbg!(initial_stack.clone());
     let stack_with_kernel = run(&kernel.code, sha2_store, initial_stack)?.stack;
     dbg!(stack_with_kernel);

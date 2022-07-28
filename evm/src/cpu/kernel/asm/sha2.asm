@@ -6,6 +6,8 @@ global sha2_store:
     push 0
     // stack: addr=0, num_bytes, num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     %mstore_kernel_general
+    // stack: num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
+    dup1
     // stack: num_bytes, num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     push 1
     // stack: addr=1, counter=num_bytes, x[0], x[1], x[2], ... , x[num_bytes-1], retdest
@@ -21,8 +23,6 @@ sha2_store_loop:
     %mstore_kernel_general
     // stack: counter, addr,  ... , x[num_bytes-1], retdest
     dup1
-    %eq_const(6)
-    %jumpi(sha2_stop)
     %decrement
     // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
     iszero
@@ -36,6 +36,7 @@ sha2_store_end:
     JUMPDEST
     // stack: counter=0, addr, retdest
     %pop2
+    STOP
     JUMP
 sha2_stop:
     JUMPDEST
