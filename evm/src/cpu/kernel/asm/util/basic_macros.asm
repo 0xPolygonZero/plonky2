@@ -242,8 +242,7 @@
 
 %macro increment
     push 1
-    swap1
-    sub
+    add
 %endmacro
 
 %macro decrement
