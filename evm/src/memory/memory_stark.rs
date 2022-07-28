@@ -192,6 +192,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     }
 
     pub(crate) fn generate_trace(&self, memory_ops: Vec<MemoryOp>) -> Vec<PolynomialValues<F>> {
+        #[allow(unused_mut)]
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate most of the trace in row-major form.

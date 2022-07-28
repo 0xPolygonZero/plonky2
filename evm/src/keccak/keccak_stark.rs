@@ -194,6 +194,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     }
 
     pub fn generate_trace(&self, inputs: Vec<[u64; NUM_INPUTS]>) -> Vec<PolynomialValues<F>> {
+        #[allow(unused_mut)]
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness, except for permuted columns in the lookup argument.
