@@ -18,7 +18,7 @@ pub(crate) enum Segment {
     /// General purpose kernel memory, used by various kernel functions.
     /// In general, calling a helper function can result in this memory being clobbered.
     KernelGeneral = 7,
-    /// Contains normalized transaction fields; see `TxnField`.
+    /// Contains normalized transaction fields; see `NormalizedTxnField`.
     TxnFields = 8,
     /// Contains the data field of a transaction.
     TxnData = 9,
