@@ -61,7 +61,7 @@
 %endmacro
 
 // Non-deterministically provide the square root modulo N.
-// Note: The square root is not checked and the macro doesn't not panic if `x` is not a square.
+// Note: The square root is not checked and the macro doesn't panic if `x` is not a square.
 %macro sqrt_secp_base_unsafe
     // stack: x
     PROVER_INPUT(ff::secp256k1_base::sqrt)
