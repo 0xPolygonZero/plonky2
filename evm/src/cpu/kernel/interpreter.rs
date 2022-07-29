@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
 
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
@@ -14,7 +15,7 @@ const HALT_OFFSET: usize = 0xdeadbeef;
 
 #[derive(Debug)]
 pub(crate) struct InterpreterMemory {
-    context_memory: Vec<MemoryContextState>,
+    pub(crate) context_memory: Vec<MemoryContextState>,
 }
 
 impl Default for InterpreterMemory {
@@ -51,13 +52,14 @@ pub struct Interpreter<'a> {
     jumpdests: Vec<usize>,
     offset: usize,
     context: usize,
-    memory: InterpreterMemory,
+    pub(crate) memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     prover_inputs: Vec<U256>,
     running: bool,
 }
 
 pub fn run_with_kernel(
+    // TODO: Remove param and just use KERNEL.
     kernel: &Kernel,
     initial_offset: usize,
     initial_stack: Vec<U256>,
@@ -76,24 +78,45 @@ pub fn run<'a>(
     initial_stack: Vec<U256>,
     prover_inputs: &'a HashMap<usize, ProverInputFn>,
 ) -> anyhow::Result<Interpreter<'a>> {
-    let mut interpreter = Interpreter {
-        jumpdests: find_jumpdests(code),
-        offset: initial_offset,
-        memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
-        prover_inputs_map: prover_inputs,
-        prover_inputs: Vec::new(),
-        context: 0,
-        running: true,
-    };
-
-    while interpreter.running {
-        interpreter.run_opcode()?;
-    }
-
+    let mut interpreter = Interpreter::new(code, initial_offset, initial_stack, prover_inputs);
+    interpreter.run()?;
     Ok(interpreter)
 }
 
 impl<'a> Interpreter<'a> {
+    pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
+        Self::new(
+            &KERNEL.code,
+            initial_offset,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        )
+    }
+
+    pub(crate) fn new(
+        code: &'a [u8],
+        initial_offset: usize,
+        initial_stack: Vec<U256>,
+        prover_inputs: &'a HashMap<usize, ProverInputFn>,
+    ) -> Self {
+        Self {
+            jumpdests: find_jumpdests(code),
+            offset: initial_offset,
+            memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
+            prover_inputs_map: prover_inputs,
+            prover_inputs: Vec::new(),
+            context: 0,
+            running: true,
+        }
+    }
+
+    pub(crate) fn run(&mut self) -> anyhow::Result<()> {
+        while self.running {
+            self.run_opcode()?;
+        }
+        Ok(())
+    }
+
     fn code(&self) -> &MemorySegmentState {
         &self.memory.context_memory[self.context].segments[Segment::Code as usize]
     }
@@ -156,7 +179,7 @@ impl<'a> Interpreter<'a> {
             0x18 => self.run_xor(),                                    // "XOR",
             0x19 => self.run_not(),                                    // "NOT",
             0x1a => todo!(),                                           // "BYTE",
-            0x1b => todo!(),                                           // "SHL",
+            0x1b => self.run_shl(),                                    // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
             0x20 => self.run_keccak256(),                              // "KECCAK256",
@@ -337,6 +360,12 @@ impl<'a> Interpreter<'a> {
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
+    }
+
+    fn run_shl(&mut self) {
+        let shift = self.pop();
+        let x = self.pop();
+        self.push(x << shift);
     }
 
     fn run_keccak256(&mut self) {
