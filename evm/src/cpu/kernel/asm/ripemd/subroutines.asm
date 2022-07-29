@@ -1,133 +1,120 @@
 global Rol:
     jumpdest
-    // stack: 2, 1
-    dup2
-    // stack: 2, 1, 1
+    // stack: n, x, retdest
+    swap1
+    // stack: x, n, retdest
     dup1
-    // stack: 2, 2, 1, 1
-    swap2
-    // stack: 1, 2, 2, 1
+    // stack: x, x, n, retdest
+    dup3
+    // stack: n, x, x, n, retdest
     push 32
-    // stack: 32, 1, 2, 2, 1
+    // stack: 32, n, x, x, n, retdest
     sub
-    // stack: 31, 2, 2, 1
+    // stack: 32-n, x, x, n, retdest
     swap1
-    // stack: 2, 31, 2, 1
+    // stack: x, 32-n, x, n, retdest
     shr
-    // stack: 0, 2, 1
+    // stack: x << (32-n), x, n, retdest
     swap2
-    // stack: 1, 2, 0
+    // stack: n, x, x << (32-n), retdest
     swap1
-    // stack: 2, 1, 0
+    // stack: x, n, x << (32-n), retdest
     shl
-    // stack: 4, 0
-    push 4294967295
-    // stack: 4294967295, 4, 0
+    // stack: x >> n, x << (32-n), retdest
+    push 0xffffffff
+    // stack: 0xffffffff, (x >> n), x << (32-n), retdest
     and
-    // stack: 4, 0
+    // stack: (x >> n) & 0xffffffff, x << (32-n), retdest
     or
-    // stack: 4
+    // stack: ((x >> n) & 0xffffffff) | (x << (32-n)), retdest
+    swap1
+    // stack: retdest, ((x >> n) & 0xffffffff) | (x << (32-n))
     jump
+
 
 global F0:
     jumpdest
-    // stack: x, y, z
+    // stack: x, y, z, retdest
     xor
-    // stack: x ^ y, z
+    // stack: x ^ y, z, retdest
     xor
-    // stack: x ^ y ^ z
+    // stack: x ^ y ^ z, retdest
+    swap1
+    // stack: retdest, x ^ y ^ z
     jump
 
 
 global F1:
     jumpdest
-    // stack: 1, 2, 3
+    // stack: x, y, z, retdest
     dup1
-    // stack: 1, 1, 2, 3
+    // stack: x, x, y, z, retdest
     swap2
-    // stack: 2, 1, 1, 3
+    // stack: y, x, x, z, retdest
     and
-    // stack: 0, 1, 3
+    // stack: y & x, x, z, retdest
     swap2
-    // stack: 3, 1, 0
+    // stack: z, x, y & x, retdest
     swap1
-    // stack: 1, 3, 0
-    not
-    // stack: -2, 3, 0
-    push 0x100000000
-    // stack: 4294967296, -2, 3, 0
-    swap1
-    // stack: -2, 4294967296, 3, 0
-    mod
-    // stack: 4294967294, 3, 0
+    // stack: x, z, y & x, retdest
+    %not_u32
+    // stack: ~x, z, y & x, retdest
     and
-    // stack: 2, 0
+    // stack: ~x & z, y & x, retdest
     or
-    // stack: 2
+    // stack: (~x & z) | (y & x), retdest
+    swap1
+    // stack: retdest, (~x & z) | (y & x)
     jump
 
 
 global F2:
     jumpdest
-    // stack: 1, 2, 3
+    // stack: x, y, z, retdest
     swap1
-    // stack: 2, 1, 3
-    not
-    // stack: -3, 1, 3
-    push 0x100000000
-    // stack: 4294967296, -3, 1, 3
-    swap1
-    // stack: -3, 4294967296, 1, 3
-    mod
-    // stack: 4294967293, 1, 3
+    // stack: y, x, z, retdest
+    %not_u32
+    // stack: ~y, x, z, retdest
     or
-    // stack: 4294967293, 3
+    // stack: ~y | x, z, retdest
     xor
-    // stack: 4294967294
+     // stack: (~y | x) ^ z, retdest
+    swap1
+    // stack: retdest, (~y | x) ^ z
     jump
 
 
 global F3:
     jumpdest
-    // stack: 1, 2, 3
+    // stack: x, y, z, retdest
     dup3
-    // stack: 1, 2, 3, 3
-    swap3
-    // stack: 3, 2, 3, 1
-    not
-    // stack: -4, 2, 3, 1
-    push 0x100000000
-    // stack: 4294967296, -4, 2, 3, 1
-    swap1
-    // stack: -4, 4294967296, 2, 3, 1
-    mod
-    // stack: 4294967292, 2, 3, 1
+    // stack: z, x, y, z, retdest
     and
-    // stack: 0, 3, 1
+    // stack: z & x, y, z, retdest
     swap2
-    // stack: 1, 3, 0
+    // stack: z, y, z & x, retdest
+    %not_u32
+    // stack: ~z, y, z & x, retdest
     and
-    // stack: 1, 0
+    // stack: ~z & y, z & x, retdest
     or
-    // stack: 1
+    // stack: (~z & y) | (z & x), retdest
+    swap1
+    // stack: retdest, (~z & y) | (z & x)
     jump 
 
 
 global F4:
     jumpdest 
-    // stack: 1, 2, 3
+    // stack: x, y, z, retdest
     swap2
-    // stack: 3, 2, 1
-    not
-    // stack: -4, 2, 1
-    push 0x100000000
-    // stack: 4294967296, -4, 2, 1
-    swap1
-    // stack: -4, 4294967296, 2, 1
-    mod
-    // stack: 4294967292, 2, 1
+    // stack: z, y, x, retdest
+    %not_u32
+    // stack: ~z, y, x, retdest
     or
-    // stack: 4294967294, 1
+    // stack: ~z | y, x, retdest
     xor
-    // stack: 4294967295
+    // stack: (~z | y) ^ x, retdest
+    swap1
+    // stack: retdest, (~z | y) ^ x
     jump
