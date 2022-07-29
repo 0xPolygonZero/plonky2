@@ -14,14 +14,26 @@ use crate::memory::segments::Segment;
 
 pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 
+const EC_CONSTANTS: [(&str, [u8; 32]); 3] = [
+    (
+        "BN_BASE",
+        hex!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),
+    ),
+    (
+        "SECP_BASE",
+        hex!("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),
+    ),
+    (
+        "SECP_SCALAR",
+        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),
+    ),
+];
+
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
-    c.insert(
-        "BN_BASE".into(),
-        U256::from_big_endian(&hex!(
-            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"
-        )),
-    );
+    for (name, value) in EC_CONSTANTS {
+        c.insert(name.into(), U256::from_big_endian(&value));
+    }
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -79,5 +91,6 @@ mod tests {
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
         debug!("Total kernel size: {} bytes", kernel.code.len());
+        dbg!("Total kernel size: {} bytes", kernel.code.len());
     }
 }

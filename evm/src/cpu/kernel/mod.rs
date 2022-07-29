@@ -4,6 +4,7 @@ mod ast;
 pub(crate) mod keccak_util;
 mod opcodes;
 mod parser;
+pub mod prover_input;
 mod stack_manipulation;
 mod txn_fields;
 

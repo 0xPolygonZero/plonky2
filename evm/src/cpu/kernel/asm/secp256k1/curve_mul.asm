@@ -2,6 +2,10 @@
 global ec_mul_valid_point_secp:
     JUMPDEST
     // stack: x, y, s, retdest
+    %stack (x,y) -> (x,y,x,y)
+    %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, s, retdest
+    %jumpi(ret_zero_ec_mul)
     DUP3
     // stack: s, x, y, s, retdest
     %jumpi(step_case)

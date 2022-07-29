@@ -33,6 +33,15 @@ fn parse_item(item: Pair<Rule>) -> Item {
         }
         Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal).collect()),
         Rule::push_instruction => Item::Push(parse_push_target(item.into_inner().next().unwrap())),
+        Rule::prover_input_instruction => Item::ProverInput(
+            item.into_inner()
+                .next()
+                .unwrap()
+                .into_inner()
+                .map(|x| x.as_str().into())
+                .collect::<Vec<_>>()
+                .into(),
+        ),
         Rule::nullary_instruction => Item::StandardOp(item.as_str().into()),
         _ => panic!("Unexpected {:?}", item.as_rule()),
     }
