@@ -57,16 +57,7 @@ store_gas_limit:
     %stack (pos, gas_limit) -> (@TXN_FIELD_GAS_LIMIT, gas_limit, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
-    // Peak at the RLP to see if the next byte is zero.
-    // If so, there is no value field, so skip the store_to step.
     // stack: pos
-    DUP1
-    %mload_current(@SEGMENT_RLP_RAW)
-    ISZERO
-    // stack: to_empty, pos
-    %jumpi(parse_value)
-
-    // If we got here, there is a "to" field.
     PUSH store_to
     SWAP1
     // stack: pos, store_to
