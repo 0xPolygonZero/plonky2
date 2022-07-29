@@ -260,6 +260,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
+            row.program_counter = F::from_canonical_usize(i);
             row.opcode = [
                 (logic::columns::IS_AND, 0x16),
                 (logic::columns::IS_OR, 0x17),
@@ -319,10 +320,11 @@ mod tests {
         }
 
         // Pad to a power of two.
-        for _ in cpu_trace_rows.len()..cpu_trace_rows.len().next_power_of_two() {
+        for i in 0..cpu_trace_rows.len().next_power_of_two() - cpu_trace_rows.len() {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
+            row.program_counter = F::from_canonical_usize(i + num_logic_rows);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
@@ -335,10 +337,6 @@ mod tests {
             let last_row: &mut cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[num_rows - 1].borrow_mut();
             last_row.program_counter = halt_label;
-
-            let second_last_row: &mut cpu::columns::CpuColumnsView<F> =
-                cpu_trace_rows[num_rows - 2].borrow_mut();
-            second_last_row.next_program_counter = halt_label;
         }
 
         trace_rows_to_poly_values(cpu_trace_rows)

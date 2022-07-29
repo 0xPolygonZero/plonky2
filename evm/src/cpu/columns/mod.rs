@@ -146,9 +146,6 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
     pub opcode_bits: [T; 8],
 
-    /// If CPU cycle: The program counter for the next instruction.
-    pub next_program_counter: T,
-
     /// Filter. 1 iff a Keccak permutation is computed on this row.
     pub is_keccak: T,
 
