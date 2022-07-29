@@ -110,7 +110,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_log2: T,
     pub is_log3: T,
     pub is_log4: T,
-    pub is_panic: T,
+    // PANIC does not get a flag; it fails at the decode stage.
     pub is_create: T,
     pub is_call: T,
     pub is_callcode: T,
