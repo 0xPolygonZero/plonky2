@@ -102,6 +102,7 @@ const OPCODES: [(u64, usize, usize); 106] = [
     (0xa2, 0, COL_MAP.is_log2),
     (0xa3, 0, COL_MAP.is_log3),
     (0xa4, 0, COL_MAP.is_log4),
+    // Opcode 0xa5 is PANIC. Make the proof unverifiable by giving it no flag to decode to.
     (0xa6, 1, COL_MAP.is_invalid_8),  // 0xa6-0xa7
     (0xa8, 3, COL_MAP.is_invalid_9),  // 0xa8-0xaf
     (0xb0, 4, COL_MAP.is_invalid_10), // 0xb0-0xbf
