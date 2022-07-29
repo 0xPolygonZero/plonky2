@@ -6,7 +6,7 @@ use keccak_hash::keccak;
 
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
-use crate::generation::memory::MemoryContextState;
+use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
@@ -26,6 +26,18 @@ impl Default for InterpreterMemory {
 }
 
 impl InterpreterMemory {
+    fn with_code_and_stack(code: &[u8], stack: Vec<U256>) -> Self {
+        let mut mem = Self::default();
+        for (i, b) in code.iter().copied().enumerate() {
+            mem.context_memory[0].segments[Segment::Code as usize].set(i, b.into());
+        }
+        mem.context_memory[0].segments[Segment::Stack as usize].content = stack;
+
+        mem
+    }
+}
+
+impl InterpreterMemory {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         self.context_memory[context].segments[segment as usize].get(offset)
     }
@@ -35,12 +47,9 @@ impl InterpreterMemory {
     }
 }
 
-// TODO: Remove `code` and `stack` fields as they are contained in `memory`.
 pub struct Interpreter<'a> {
-    code: &'a [u8],
     jumpdests: Vec<usize>,
     offset: usize,
-    pub(crate) stack: Vec<U256>,
     context: usize,
     memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
@@ -68,11 +77,9 @@ pub fn run<'a>(
     prover_inputs: &'a HashMap<usize, ProverInputFn>,
 ) -> anyhow::Result<Interpreter<'a>> {
     let mut interpreter = Interpreter {
-        code,
         jumpdests: find_jumpdests(code),
         offset: initial_offset,
-        stack: initial_stack,
-        memory: InterpreterMemory::default(),
+        memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
         prover_inputs_map: prover_inputs,
         prover_inputs: Vec::new(),
         context: 0,
@@ -87,28 +94,43 @@ pub fn run<'a>(
 }
 
 impl<'a> Interpreter<'a> {
-    fn slice(&self, n: usize) -> &[u8] {
-        &self.code[self.offset..self.offset + n]
+    fn code(&self) -> &MemorySegmentState {
+        &self.memory.context_memory[self.context].segments[Segment::Code as usize]
+    }
+
+    fn code_slice(&self, n: usize) -> Vec<u8> {
+        self.code().content[self.offset..self.offset + n]
+            .iter()
+            .map(|u256| u256.byte(0))
+            .collect::<Vec<_>>()
     }
 
     fn incr(&mut self, n: usize) {
         self.offset += n;
     }
 
+    pub(crate) fn stack(&self) -> &[U256] {
+        &self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+    }
+
+    fn stack_mut(&mut self) -> &mut Vec<U256> {
+        &mut self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+    }
+
     fn push(&mut self, x: U256) {
-        self.stack.push(x);
+        self.stack_mut().push(x);
     }
 
     fn push_bool(&mut self, x: bool) {
-        self.stack.push(if x { U256::one() } else { U256::zero() });
+        self.push(if x { U256::one() } else { U256::zero() });
     }
 
     fn pop(&mut self) -> U256 {
-        self.stack.pop().expect("Pop on empty stack.")
+        self.stack_mut().pop().expect("Pop on empty stack.")
     }
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
-        let opcode = self.code.get(self.offset).copied().unwrap_or_default();
+        let opcode = self.code().get(self.offset).byte(0);
         self.incr(1);
         match opcode {
             0x00 => self.run_stop(),                                   // "STOP",
@@ -336,8 +358,8 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.offset - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = prover_input_fn.run(&self.stack);
-        self.stack.push(output);
+        let output = prover_input_fn.run(self.stack());
+        self.push(output);
         self.prover_inputs.push(output);
         Ok(())
     }
@@ -406,18 +428,18 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_push(&mut self, num_bytes: u8) {
-        let x = U256::from_big_endian(self.slice(num_bytes as usize));
+        let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
         self.incr(num_bytes as usize);
         self.push(x);
     }
 
     fn run_dup(&mut self, n: u8) {
-        self.push(self.stack[self.stack.len() - n as usize]);
+        self.push(self.stack()[self.stack().len() - n as usize]);
     }
 
     fn run_swap(&mut self, n: u8) {
-        let len = self.stack.len();
-        self.stack.swap(len - 1, len - n as usize - 1);
+        let len = self.stack().len();
+        self.stack_mut().swap(len - 1, len - n as usize - 1);
     }
 
     fn run_get_context(&mut self) {
@@ -468,7 +490,7 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use crate::cpu::kernel::interpreter::run;
     use crate::memory::segments::Segment;
 
     #[test]
@@ -477,8 +499,8 @@ mod tests {
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
         assert_eq!(
-            run(&code, 0, vec![], &HashMap::new())?.stack,
-            vec![0x3.into()],
+            run(&code, 0, vec![], &HashMap::new())?.stack(),
+            &[0x3.into()],
         );
         Ok(())
     }
@@ -504,14 +526,13 @@ mod tests {
         ];
         let pis = HashMap::new();
         let run = run(&code, 0, vec![], &pis)?;
-        let Interpreter { stack, memory, .. } = run;
-        assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
+        assert_eq!(run.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
-            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
             0x42.into()
         );
         assert_eq!(
-            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
             0xff.into()
         );
         Ok(())
