@@ -110,7 +110,6 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_log2: T,
     pub is_log3: T,
     pub is_log4: T,
-    pub is_panic: T,
     pub is_create: T,
     pub is_call: T,
     pub is_callcode: T,
