@@ -188,3 +188,19 @@
     mul
     // stack: x^2
 %endmacro
+
+%macro not_32
+    // stack: x
+    push 0xffffffff
+    // stack: 0xffffffff, x
+    sub
+    // stack: 0xffffffff - x
+%endmacro
+
+%macro u32
+    // stack: x
+    push 0xffffffff
+    // stack: 0xffffffff, x
+    and
+    // stack: 0xffffffff & x
+%endmacro
