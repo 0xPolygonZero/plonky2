@@ -14,21 +14,21 @@ global Rol:
     swap1
     // stack: x, 32-n, x, n, retdest
     shr
-    // stack: x << (32-n), x, n, retdest
+    // stack: x >> (32-n), x, n, retdest
     swap2
-    // stack: n, x, x << (32-n), retdest
+    // stack: n, x, x >> (32-n), retdest
     swap1
-    // stack: x, n, x << (32-n), retdest
+    // stack: x, n, x >> (32-n), retdest
     shl
-    // stack: x >> n, x << (32-n), retdest
+    // stack: x << n, x >> (32-n), retdest
     push 0xffffffff
-    // stack: 0xffffffff, (x >> n), x << (32-n), retdest
+    // stack: 0xffffffff, (x << n), x >> (32-n), retdest
     and
-    // stack: (x >> n) & 0xffffffff, x << (32-n), retdest
+    // stack: (x << n) & 0xffffffff, x >> (32-n), retdest
     or
-    // stack: ((x >> n) & 0xffffffff) | (x << (32-n)), retdest
+    // stack: ((x << n) & 0xffffffff) | (x >> (32-n)), retdest
     swap1
-    // stack: retdest, ((x >> n) & 0xffffffff) | (x << (32-n))
+    // stack: retdest, ((x << n) & 0xffffffff) | (x >> (32-n))
     jump
 
 
