@@ -1,7 +1,10 @@
+use std::str::FromStr;
+
+use ethereum_types::U256;
 use pest::iterators::Pair;
 use pest::Parser;
 
-use crate::cpu::kernel::ast::{File, Item, Literal, PushTarget, StackReplacement};
+use crate::cpu::kernel::ast::{File, Item, PushTarget, StackReplacement};
 
 /// Parses EVM assembly code.
 #[derive(pest_derive::Parser)]
@@ -31,7 +34,7 @@ fn parse_item(item: Pair<Rule>) -> Item {
         Rule::local_label => {
             Item::LocalLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
-        Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal).collect()),
+        Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal_u8).collect()),
         Rule::push_instruction => Item::Push(parse_push_target(item.into_inner().next().unwrap())),
         Rule::prover_input_instruction => Item::ProverInput(
             item.into_inner()
@@ -84,7 +87,7 @@ fn parse_macro_call(item: Pair<Rule>) -> Item {
 fn parse_repeat(item: Pair<Rule>) -> Item {
     assert_eq!(item.as_rule(), Rule::repeat);
     let mut inner = item.into_inner().peekable();
-    let count = parse_literal(inner.next().unwrap());
+    let count = parse_literal_u256(inner.next().unwrap());
     Item::Repeat(count, inner.map(parse_item).collect())
 }
 
@@ -113,7 +116,7 @@ fn parse_stack_replacement(target: Pair<Rule>) -> StackReplacement {
     let inner = target.into_inner().next().unwrap();
     match inner.as_rule() {
         Rule::identifier => StackReplacement::Identifier(inner.as_str().into()),
-        Rule::literal => StackReplacement::Literal(parse_literal(inner)),
+        Rule::literal => StackReplacement::Literal(parse_literal_u256(inner)),
         Rule::variable => {
             StackReplacement::MacroVar(inner.into_inner().next().unwrap().as_str().into())
         }
@@ -128,7 +131,7 @@ fn parse_push_target(target: Pair<Rule>) -> PushTarget {
     assert_eq!(target.as_rule(), Rule::push_target);
     let inner = target.into_inner().next().unwrap();
     match inner.as_rule() {
-        Rule::literal => PushTarget::Literal(parse_literal(inner)),
+        Rule::literal => PushTarget::Literal(parse_literal_u256(inner)),
         Rule::identifier => PushTarget::Label(inner.as_str().into()),
         Rule::variable => PushTarget::MacroVar(inner.into_inner().next().unwrap().as_str().into()),
         Rule::constant => PushTarget::Constant(inner.into_inner().next().unwrap().as_str().into()),
@@ -136,11 +139,28 @@ fn parse_push_target(target: Pair<Rule>) -> PushTarget {
     }
 }
 
-fn parse_literal(literal: Pair<Rule>) -> Literal {
+fn parse_literal_u8(literal: Pair<Rule>) -> u8 {
     let literal = literal.into_inner().next().unwrap();
     match literal.as_rule() {
-        Rule::literal_decimal => Literal::Decimal(literal.as_str().into()),
-        Rule::literal_hex => Literal::Hex(parse_hex(literal)),
+        Rule::literal_decimal => {
+            u8::from_str(literal.as_str()).expect("Failed to parse literal decimal byte")
+        }
+        Rule::literal_hex => {
+            u8::from_str_radix(&parse_hex(literal), 16).expect("Failed to parse literal hex byte")
+        }
+        _ => panic!("Unexpected {:?}", literal.as_rule()),
+    }
+}
+
+fn parse_literal_u256(literal: Pair<Rule>) -> U256 {
+    let literal = literal.into_inner().next().unwrap();
+    match literal.as_rule() {
+        Rule::literal_decimal => {
+            U256::from_dec_str(literal.as_str()).expect("Failed to parse literal decimal")
+        }
+        Rule::literal_hex => {
+            U256::from_str_radix(&parse_hex(literal), 16).expect("Failed to parse literal hex")
+        }
         _ => panic!("Unexpected {:?}", literal.as_rule()),
     }
 }

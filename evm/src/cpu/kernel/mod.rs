@@ -7,6 +7,7 @@ mod parser;
 pub mod prover_input;
 mod stack_manipulation;
 mod txn_fields;
+mod utils;
 
 #[cfg(test)]
 mod interpreter;
