@@ -79,15 +79,14 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use log::debug;
 
     use crate::cpu::kernel::aggregator::combined_kernel;
 
     #[test]
     fn make_kernel() {
-        env_logger::init_from_env(
-            env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "debug"),
-        );
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
 
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
