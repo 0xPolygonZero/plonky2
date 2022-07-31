@@ -45,7 +45,7 @@ mod tests {
         // This replacement function splits each composite integer into two factors.
         let mut vec = vec![9, 1, 6, 8, 15, 7, 9];
         replace_windows(&mut vec, |[n]| {
-            (2..n).filter(|d| n % d == 0).next().map(|d| vec![d, n / d])
+            (2..n).find(|d| n % d == 0).map(|d| vec![d, n / d])
         });
         assert_eq!(vec, vec![3, 3, 1, 2, 3, 2, 2, 2, 3, 5, 7, 3, 3]);
     }
