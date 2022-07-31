@@ -48,17 +48,18 @@ pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/assertions.asm"),
         include_str!("asm/basic_macros.asm"),
+        include_str!("asm/curve/bn254/curve_mul.asm"),
+        include_str!("asm/curve/bn254/curve_add.asm"),
+        include_str!("asm/curve/bn254/moddiv.asm"),
+        include_str!("asm/curve/common.asm"),
+        include_str!("asm/curve/secp256k1/curve_mul.asm"),
+        include_str!("asm/curve/secp256k1/curve_add.asm"),
+        include_str!("asm/curve/secp256k1/moddiv.asm"),
+        include_str!("asm/curve/secp256k1/lift_x.asm"),
+        include_str!("asm/curve/secp256k1/inverse_scalar.asm"),
         include_str!("asm/exp.asm"),
-        include_str!("asm/curve_mul.asm"),
-        include_str!("asm/curve_add.asm"),
         include_str!("asm/halt.asm"),
         include_str!("asm/memory.asm"),
-        include_str!("asm/moddiv.asm"),
-        include_str!("asm/secp256k1/curve_mul.asm"),
-        include_str!("asm/secp256k1/curve_add.asm"),
-        include_str!("asm/secp256k1/moddiv.asm"),
-        include_str!("asm/secp256k1/lift_x.asm"),
-        include_str!("asm/secp256k1/inverse_scalar.asm"),
         include_str!("asm/ecrecover.asm"),
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/decode.asm"),
@@ -90,7 +91,6 @@ mod tests {
 
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        debug!("Total kernel size: {} bytes", kernel.code.len());
-        dbg!("Total kernel size: {} bytes", kernel.code.len());
+        info!("Total kernel size: {} bytes", kernel.code.len());
     }
 }
