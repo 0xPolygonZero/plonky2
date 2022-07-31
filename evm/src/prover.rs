@@ -1,4 +1,7 @@
+use std::any::type_name;
+
 use anyhow::{ensure, Result};
+use maybe_rayon::*;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -13,7 +16,6 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
-use rayon::prelude::*;
 
 use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
@@ -490,13 +492,18 @@ fn check_constraints<'a, F, C, S, const D: usize>(
 
     let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
 
-    // Retrieve the polynomials values at index `i`.
-    let get_comm_values = |comm: &PolynomialBatch<F, C, D>, i| -> Vec<F> {
-        comm.polynomials
-            .iter()
-            .map(|poly| poly.eval(subgroup[i])) // O(n^2) FTW
-            .collect()
+    // Get the evaluations of a batch of polynomials over our subgroup.
+    let get_subgroup_evals = |comm: &PolynomialBatch<F, C, D>| -> Vec<Vec<F>> {
+        let values = comm
+            .polynomials
+            .par_iter()
+            .map(|coeffs| coeffs.clone().fft().values)
+            .collect::<Vec<_>>();
+        transpose(&values)
     };
+
+    let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
+    let permutation_ctl_zs_subgroup_evals = get_subgroup_evals(permutation_ctl_zs_commitment);
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
@@ -517,19 +524,14 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 lagrange_basis_last,
             );
             let vars = StarkEvaluationVars {
-                local_values: &get_comm_values(trace_commitment, i).try_into().unwrap(),
-                next_values: &get_comm_values(trace_commitment, i_next)
-                    .try_into()
-                    .unwrap(),
+                local_values: trace_subgroup_evals[i].as_slice().try_into().unwrap(),
+                next_values: trace_subgroup_evals[i_next].as_slice().try_into().unwrap(),
                 public_inputs: &public_inputs,
             };
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
-                    local_zs: get_comm_values(permutation_ctl_zs_commitment, i)
-                        [..num_permutation_zs]
-                        .to_vec(),
-                    next_zs: get_comm_values(permutation_ctl_zs_commitment, i_next)
-                        [..num_permutation_zs]
+                    local_zs: permutation_ctl_zs_subgroup_evals[i][..num_permutation_zs].to_vec(),
+                    next_zs: permutation_ctl_zs_subgroup_evals[i_next][..num_permutation_zs]
                         .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
                 });
@@ -540,10 +542,8 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .enumerate()
                 .map(
                     |(iii, (_, columns, filter_column))| CtlCheckVars::<F, F, F, 1> {
-                        local_z: get_comm_values(permutation_ctl_zs_commitment, i)
-                            [num_permutation_zs + iii],
-                        next_z: get_comm_values(permutation_ctl_zs_commitment, i_next)
-                            [num_permutation_zs + iii],
+                        local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
+                        next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
                         challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
                         columns,
                         filter_column,
@@ -563,6 +563,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         .collect::<Vec<_>>();
 
     for v in constraint_values {
-        assert!(v.iter().all(|x| x.is_zero()));
+        assert!(
+            v.iter().all(|x| x.is_zero()),
+            "Constraint failed in {}",
+            type_name::<S>()
+        );
     }
 }

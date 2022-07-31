@@ -71,46 +71,66 @@ pub fn verify_proof_circuit<
         &nums_permutation_zs,
     );
 
-    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+    with_context!(
         builder,
-        cpu_stark,
-        &all_proof.stark_proofs[Table::Cpu as usize],
-        &stark_challenges[Table::Cpu as usize],
-        &ctl_vars_per_table[Table::Cpu as usize],
-        inner_config,
+        "verify CPU proof",
+        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+            builder,
+            cpu_stark,
+            &all_proof.stark_proofs[Table::Cpu as usize],
+            &stark_challenges[Table::Cpu as usize],
+            &ctl_vars_per_table[Table::Cpu as usize],
+            inner_config,
+        )
     );
-    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+    with_context!(
         builder,
-        keccak_stark,
-        &all_proof.stark_proofs[Table::Keccak as usize],
-        &stark_challenges[Table::Keccak as usize],
-        &ctl_vars_per_table[Table::Keccak as usize],
-        inner_config,
+        "verify Keccak proof",
+        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+            builder,
+            keccak_stark,
+            &all_proof.stark_proofs[Table::Keccak as usize],
+            &stark_challenges[Table::Keccak as usize],
+            &ctl_vars_per_table[Table::Keccak as usize],
+            inner_config,
+        )
     );
-    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+    with_context!(
         builder,
-        logic_stark,
-        &all_proof.stark_proofs[Table::Logic as usize],
-        &stark_challenges[Table::Logic as usize],
-        &ctl_vars_per_table[Table::Logic as usize],
-        inner_config,
+        "verify logic proof",
+        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+            builder,
+            logic_stark,
+            &all_proof.stark_proofs[Table::Logic as usize],
+            &stark_challenges[Table::Logic as usize],
+            &ctl_vars_per_table[Table::Logic as usize],
+            inner_config,
+        )
     );
-    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+    with_context!(
         builder,
-        memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize],
-        &stark_challenges[Table::Memory as usize],
-        &ctl_vars_per_table[Table::Memory as usize],
-        inner_config,
+        "verify memory proof",
+        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+            builder,
+            memory_stark,
+            &all_proof.stark_proofs[Table::Memory as usize],
+            &stark_challenges[Table::Memory as usize],
+            &ctl_vars_per_table[Table::Memory as usize],
+            inner_config,
+        )
     );
 
-    verify_cross_table_lookups_circuit::<F, C, D>(
+    with_context!(
         builder,
-        cross_table_lookups,
-        &all_proof.stark_proofs,
-        ctl_challenges,
-        inner_config,
-    )
+        "verify cross-table lookups",
+        verify_cross_table_lookups_circuit::<F, C, D>(
+            builder,
+            cross_table_lookups,
+            &all_proof.stark_proofs,
+            ctl_challenges,
+            inner_config,
+        )
+    );
 }
 
 /// Recursively verifies an inner proof.

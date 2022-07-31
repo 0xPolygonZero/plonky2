@@ -1,8 +1,8 @@
 use std::mem::MaybeUninit;
 use std::slice;
 
+use maybe_rayon::*;
 use plonky2_util::log2_strict;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
@@ -77,10 +77,12 @@ where
         let (right_digest_mem, right_digests_buf) = right_digests_buf.split_first_mut().unwrap();
         // Split `leaves` between both children.
         let (left_leaves, right_leaves) = leaves.split_at(leaves.len() / 2);
-        let (left_digest, right_digest) = rayon::join(
+
+        let (left_digest, right_digest) = maybe_rayon::join(
             || fill_subtree::<F, H>(left_digests_buf, left_leaves),
             || fill_subtree::<F, H>(right_digests_buf, right_leaves),
         );
+
         left_digest_mem.write(left_digest);
         right_digest_mem.write(right_digest);
         H::two_to_one(left_digest, right_digest)

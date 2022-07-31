@@ -1,7 +1,7 @@
 use pest::iterators::Pair;
 use pest::Parser;
 
-use crate::cpu::kernel::ast::{File, Item, Literal, PushTarget};
+use crate::cpu::kernel::ast::{File, Item, Literal, PushTarget, StackReplacement};
 
 /// Parses EVM assembly code.
 #[derive(pest_derive::Parser)]
@@ -18,14 +18,13 @@ pub(crate) fn parse(s: &str) -> File {
 }
 
 fn parse_item(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::item);
     let item = item.into_inner().next().unwrap();
     match item.as_rule() {
-        Rule::macro_def => {
-            let mut inner = item.into_inner();
-            let name = inner.next().unwrap().as_str().into();
-            Item::MacroDef(name, inner.map(parse_item).collect())
-        }
-        Rule::macro_call => Item::MacroCall(item.into_inner().next().unwrap().as_str().into()),
+        Rule::macro_def => parse_macro_def(item),
+        Rule::macro_call => parse_macro_call(item),
+        Rule::repeat => parse_repeat(item),
+        Rule::stack => parse_stack(item),
         Rule::global_label => {
             Item::GlobalLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
@@ -34,16 +33,106 @@ fn parse_item(item: Pair<Rule>) -> Item {
         }
         Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal).collect()),
         Rule::push_instruction => Item::Push(parse_push_target(item.into_inner().next().unwrap())),
+        Rule::prover_input_instruction => Item::ProverInput(
+            item.into_inner()
+                .next()
+                .unwrap()
+                .into_inner()
+                .map(|x| x.as_str().into())
+                .collect::<Vec<_>>()
+                .into(),
+        ),
         Rule::nullary_instruction => Item::StandardOp(item.as_str().into()),
         _ => panic!("Unexpected {:?}", item.as_rule()),
     }
 }
 
+fn parse_macro_def(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::macro_def);
+    let mut inner = item.into_inner().peekable();
+
+    let name = inner.next().unwrap().as_str().into();
+
+    // The parameter list is optional.
+    let params = if let Some(Rule::paramlist) = inner.peek().map(|pair| pair.as_rule()) {
+        let params = inner.next().unwrap().into_inner();
+        params.map(|param| param.as_str().to_string()).collect()
+    } else {
+        vec![]
+    };
+
+    Item::MacroDef(name, params, inner.map(parse_item).collect())
+}
+
+fn parse_macro_call(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::macro_call);
+    let mut inner = item.into_inner();
+
+    let name = inner.next().unwrap().as_str().into();
+
+    // The arg list is optional.
+    let args = if let Some(arglist) = inner.next() {
+        assert_eq!(arglist.as_rule(), Rule::macro_arglist);
+        arglist.into_inner().map(parse_push_target).collect()
+    } else {
+        vec![]
+    };
+
+    Item::MacroCall(name, args)
+}
+
+fn parse_repeat(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::repeat);
+    let mut inner = item.into_inner().peekable();
+    let count = parse_literal(inner.next().unwrap());
+    Item::Repeat(count, inner.map(parse_item).collect())
+}
+
+fn parse_stack(item: Pair<Rule>) -> Item {
+    assert_eq!(item.as_rule(), Rule::stack);
+    let mut inner = item.into_inner().peekable();
+
+    let params = inner.next().unwrap();
+    assert_eq!(params.as_rule(), Rule::paramlist);
+    let replacements = inner.next().unwrap();
+    assert_eq!(replacements.as_rule(), Rule::stack_replacements);
+
+    let params = params
+        .into_inner()
+        .map(|param| param.as_str().to_string())
+        .collect();
+    let replacements = replacements
+        .into_inner()
+        .map(parse_stack_replacement)
+        .collect();
+    Item::StackManipulation(params, replacements)
+}
+
+fn parse_stack_replacement(target: Pair<Rule>) -> StackReplacement {
+    assert_eq!(target.as_rule(), Rule::stack_replacement);
+    let inner = target.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::identifier => StackReplacement::NamedItem(inner.as_str().into()),
+        Rule::literal => StackReplacement::Literal(parse_literal(inner)),
+        Rule::variable => {
+            StackReplacement::MacroVar(inner.into_inner().next().unwrap().as_str().into())
+        }
+        Rule::constant => {
+            StackReplacement::Constant(inner.into_inner().next().unwrap().as_str().into())
+        }
+        _ => panic!("Unexpected {:?}", inner.as_rule()),
+    }
+}
+
 fn parse_push_target(target: Pair<Rule>) -> PushTarget {
-    match target.as_rule() {
-        Rule::identifier => PushTarget::Label(target.as_str().into()),
-        Rule::literal => PushTarget::Literal(parse_literal(target)),
-        _ => panic!("Unexpected {:?}", target.as_rule()),
+    assert_eq!(target.as_rule(), Rule::push_target);
+    let inner = target.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::literal => PushTarget::Literal(parse_literal(inner)),
+        Rule::identifier => PushTarget::Label(inner.as_str().into()),
+        Rule::variable => PushTarget::MacroVar(inner.into_inner().next().unwrap().as_str().into()),
+        Rule::constant => PushTarget::Constant(inner.into_inner().next().unwrap().as_str().into()),
+        _ => panic!("Unexpected {:?}", inner.as_rule()),
     }
 }
 

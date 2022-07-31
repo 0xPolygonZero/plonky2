@@ -1,8 +1,8 @@
 use itertools::Itertools;
+use maybe_rayon::*;
 use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::reverse_index_bits_in_place;
-use rayon::prelude::*;
 
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
