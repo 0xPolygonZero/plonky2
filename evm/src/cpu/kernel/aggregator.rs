@@ -85,12 +85,12 @@ mod tests {
 
     #[test]
     fn make_kernel() {
-        let _ = env_logger::Builder::from_default_env()
-            .format_timestamp(None)
-            .try_init();
+        env_logger::init_from_env(
+            env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "debug"),
+        );
 
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        info!("Total kernel size: {} bytes", kernel.code.len());
+        debug!("Total kernel size: {} bytes", kernel.code.len());
     }
 }
