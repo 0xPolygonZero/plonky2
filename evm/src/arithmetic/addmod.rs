@@ -212,16 +212,20 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     // was zero (as required by the spec).
     let zero_mod = modulus_limb_sum + output_limb_sum;
 
-    // FIXME: The degree is too high.
     // FIXME: If modulus is zero, but output is non-zero, can the
     // prover find a value for the other inputs to produce a zero
     // constr_poly?
+
+    // FIXME: Still need to constrain C < M. Basically use
+    // eval_packed_generic_are_equal(M, C) without constraints and
+    // verify that the last cy is zero.
 
     // At this point constr_poly holds the coefficients of the
     // polynomial a(x) + b(x) - c(x) - s(x)*m(x) - (2^LIMB_BITS - x)*q(x).
     // The modular addition is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
+        // FIXME: The degree is too high.
         yield_constr.constraint(is_op * zero_mod * c);
     }
 }
