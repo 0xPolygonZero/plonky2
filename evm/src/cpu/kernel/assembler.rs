@@ -17,7 +17,7 @@ use crate::cpu::kernel::{
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
 /// nontrivial given the circular dependency between an offset and its size.
-const BYTES_PER_OFFSET: u8 = 3;
+pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Kernel {
@@ -505,8 +505,13 @@ mod tests {
     #[test]
     fn stack_manipulation() {
         let pop = get_opcode("POP");
+        let dup1 = get_opcode("DUP1");
         let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
+        let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
+        assert_eq!(kernel.code, vec![]);
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
         assert_eq!(kernel.code, vec![swap2]);
@@ -518,6 +523,13 @@ mod tests {
         consts.insert("LIFE".into(), 42.into());
         parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
         // We won't check the code since there are two equally efficient implementations.
+
+        let kernel = parse_and_assemble(&["start: %stack (a, b) -> (start)"]);
+        assert_eq!(kernel.code, vec![pop, pop, push_label, 0, 0, 0]);
+
+        // The "start" label gets shadowed by the "start" named stack item.
+        let kernel = parse_and_assemble(&["start: %stack (start) -> (start, start)"]);
+        assert_eq!(kernel.code, vec![dup1]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
