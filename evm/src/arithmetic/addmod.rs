@@ -434,9 +434,7 @@ mod tests {
             generate(&mut lv);
 
             // check that the correct output was generated
-            for oi in ADDMOD_OUTPUT {
-                assert_eq!(lv[oi], F::ZERO);
-            }
+            assert!(ADDMOD_OUTPUT.iter().all(|&oi| lv[oi] == F::ZERO));
 
             let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -445,9 +443,9 @@ mod tests {
                 GoldilocksField::ONE,
             );
             eval_packed_generic(&lv, &mut constraint_consumer);
-            for &acc in &constraint_consumer.constraint_accs {
-                assert_eq!(acc, GoldilocksField::ZERO);
-            }
+            assert!(constraint_consumer.constraint_accs
+                    .iter()
+                    .all(|&acc| acc == F::ZERO));
 
             // Corrupt one output limb by setting it to a non-zero value
             let random_oi = ADDMOD_OUTPUT[rng.gen::<usize>() % N_LIMBS];
