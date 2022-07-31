@@ -46,8 +46,6 @@ pub fn evm_constants() -> HashMap<String, U256> {
 #[allow(dead_code)] // TODO: Should be used once witness generation is done.
 pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
-        include_str!("asm/assertions.asm"),
-        include_str!("asm/basic_macros.asm"),
         include_str!("asm/curve/bn254/curve_add.asm"),
         include_str!("asm/curve/bn254/curve_mul.asm"),
         include_str!("asm/curve/bn254/moddiv.asm"),
@@ -71,6 +69,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/transactions/type_0.asm"),
         include_str!("asm/transactions/type_1.asm"),
         include_str!("asm/transactions/type_2.asm"),
+        include_str!("asm/util/assertions.asm"),
+        include_str!("asm/util/basic_macros.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
