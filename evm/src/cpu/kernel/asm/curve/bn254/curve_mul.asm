@@ -99,16 +99,3 @@ odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
     %jump(ec_add_valid_points)
-
-global ret_zero_ec_mul:
-    JUMPDEST
-    // stack: x, y, s, retdest
-    %pop3
-    // stack: retdest
-    PUSH 0
-    // stack: 0, retdest
-    PUSH 0
-    // stack: 0, 0, retdest
-    SWAP2
-    // stack: retdest, 0, 0
-    JUMP

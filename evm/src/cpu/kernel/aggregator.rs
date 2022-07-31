@@ -48,18 +48,19 @@ pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/assertions.asm"),
         include_str!("asm/basic_macros.asm"),
+        include_str!("asm/curve/bn254/curve_add.asm"),
+        include_str!("asm/curve/bn254/curve_mul.asm"),
+        include_str!("asm/curve/bn254/moddiv.asm"),
+        include_str!("asm/curve/common.asm"),
+        include_str!("asm/curve/secp256k1/curve_mul.asm"),
+        include_str!("asm/curve/secp256k1/curve_add.asm"),
+        include_str!("asm/curve/secp256k1/ecrecover.asm"),
+        include_str!("asm/curve/secp256k1/inverse_scalar.asm"),
+        include_str!("asm/curve/secp256k1/lift_x.asm"),
+        include_str!("asm/curve/secp256k1/moddiv.asm"),
         include_str!("asm/exp.asm"),
-        include_str!("asm/curve_mul.asm"),
-        include_str!("asm/curve_add.asm"),
         include_str!("asm/halt.asm"),
         include_str!("asm/memory.asm"),
-        include_str!("asm/moddiv.asm"),
-        include_str!("asm/secp256k1/curve_mul.asm"),
-        include_str!("asm/secp256k1/curve_add.asm"),
-        include_str!("asm/secp256k1/moddiv.asm"),
-        include_str!("asm/secp256k1/lift_x.asm"),
-        include_str!("asm/secp256k1/inverse_scalar.asm"),
-        include_str!("asm/ecrecover.asm"),
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/decode.asm"),
         include_str!("asm/rlp/read_to_memory.asm"),
@@ -78,19 +79,17 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use log::debug;
 
     use crate::cpu::kernel::aggregator::combined_kernel;
 
     #[test]
     fn make_kernel() {
-        let _ = env_logger::Builder::from_default_env()
-            .format_timestamp(None)
-            .try_init();
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
 
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
         debug!("Total kernel size: {} bytes", kernel.code.len());
-        dbg!("Total kernel size: {} bytes", kernel.code.len());
     }
 }
