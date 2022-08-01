@@ -5,10 +5,11 @@ use itertools::izip;
 use log::debug;
 
 use super::ast::PushTarget;
-use crate::cpu::kernel::ast::{Literal, StackReplacement};
+use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
+use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -184,7 +185,7 @@ fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
     let mut expanded = vec![];
     for item in body {
         if let Item::Repeat(count, block) = item {
-            let reps = count.to_u256().as_usize();
+            let reps = count.as_usize();
             for _ in 0..reps {
                 expanded.extend(block.clone());
             }
@@ -197,12 +198,9 @@ fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
     let resolve_const = |c| {
-        Literal::Decimal(
-            constants
-                .get(&c)
-                .unwrap_or_else(|| panic!("No such constant: {}", c))
-                .to_string(),
-        )
+        *constants
+            .get(&c)
+            .unwrap_or_else(|| panic!("No such constant: {}", c))
     };
 
     body.into_iter()
@@ -284,7 +282,7 @@ fn assemble_file(
             }
             Item::Push(target) => {
                 let target_bytes: Vec<u8> = match target {
-                    PushTarget::Literal(literal) => literal.to_trimmed_be_bytes(),
+                    PushTarget::Literal(n) => u256_to_trimmed_be_bytes(&n),
                     PushTarget::Label(label) => {
                         let offset = local_labels
                             .get(&label)
@@ -309,7 +307,7 @@ fn assemble_file(
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
             }
-            Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_u8())),
+            Item::Bytes(bytes) => code.extend(bytes),
         }
     }
 }
@@ -317,7 +315,7 @@ fn assemble_file(
 /// The size of a `PushTarget`, in bytes.
 fn push_target_size(target: &PushTarget) -> u8 {
     match target {
-        PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
+        PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
         PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
         PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
@@ -421,16 +419,7 @@ mod tests {
     #[test]
     fn literal_bytes() {
         let file = File {
-            body: vec![
-                Item::Bytes(vec![
-                    Literal::Hex("12".to_string()),
-                    Literal::Decimal("42".to_string()),
-                ]),
-                Item::Bytes(vec![
-                    Literal::Hex("fe".to_string()),
-                    Literal::Decimal("255".to_string()),
-                ]),
-            ],
+            body: vec![Item::Bytes(vec![0x12, 42]), Item::Bytes(vec![0xFE, 255])],
         };
         let code = assemble(vec![file], HashMap::new()).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);

@@ -8,6 +8,7 @@ use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::ast::{Item, PushTarget, StackReplacement};
 use crate::cpu::kernel::stack_manipulation::StackOp::Pop;
+use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::memory;
 
 pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
@@ -227,7 +228,7 @@ impl StackOp {
         let (cpu_rows, memory_rows) = match self {
             StackOp::Push(target) => {
                 let bytes = match target {
-                    PushTarget::Literal(n) => n.to_trimmed_be_bytes().len() as u32,
+                    PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u32,
                     PushTarget::Label(_) => BYTES_PER_OFFSET as u32,
                     PushTarget::MacroVar(_) | PushTarget::Constant(_) => {
                         panic!("Target should have been expanded already: {:?}", target)
