@@ -82,90 +82,45 @@ global sha2_pad:
     %mload_kernel_general
     // stack: num_bytes, retdest
     // STEP 1: append 1
-    // add 1 << (8*(32-k)-1) to x[num_bytes//32], where k := num_bytes%32
+    // insert 128 (= 1 << 7) at x[num_bytes]
+    // stack: num_bytes, retdest
+    push 1
+    push 7
+    shl
+    // stack: 128, num_bytes, retdest
+    dup2
+    // stack: num_bytes, 128, num_bytes, retdest
+    %mstore_kernel_general
+    // stack: num_bytes, retdest
+    // STEP 2: calculate num_blocks := (num_bytes+8)//64 + 1
     dup1
     // stack: num_bytes, num_bytes, retdest
-    dup1
-    // stack: num_bytes, num_bytes, num_bytes, retdest
-    push 32
-    // stack: 32, num_bytes, num_bytes, num_bytes, retdest
-    swap1
-    // stack: num_bytes, 32, num_bytes, num_bytes, retdest
-    mod
-    // stack: k := num_bytes % 32, num_bytes, num_bytes, retdest
-    push 32
-    sub
-    // stack: 32 - k, num_bytes, num_bytes, retdest
     push 8
-    mul
-    // stack: 8 * (32 - k), num_bytes, num_bytes, retdest
-    %decrement
-    // stack: 8 * (32 - k) - 1, num_bytes, num_bytes, retdest
-    push 1
-    swap1
-    shl
-    // stack: 1 << (8 * (32 - k) - 1), num_bytes, num_bytes, retdest
-    swap1
-    // stack: num_bytes, 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    push 32
-    swap1
-    div
-    // stack: num_bytes // 32, 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    dup1
-    // stack: num_bytes // 32, num_bytes // 32, 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    mload
-    // stack: x[num_bytes // 32], num_bytes // 32, 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    swap1
-    // stack: num_bytes // 32, x[num_bytes // 32], 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    swap2
-    // stack: x[num_bytes // 32], 1 << (8 * (32 - k) - 1), num_bytes // 32, num_bytes, retdest
     add
-    // stack: x[num_bytes // 32] + 1 << (8 * (32 - k) - 1), num_bytes // 32, num_bytes, retdest
-    swap1
-    // stack: num_bytes // 32, x[num_bytes // 32] + 1 << (8 * (32 - k) - 1), num_bytes, retdest
-    mstore
-    // stack: num_bytes, retdest
-    // STEP 2: insert length
-    // (add length := num_bytes*8+1 to x[(num_bytes//64)*2-1])
-    dup1
-    dup1
-    // stack: num_bytes, num_bytes, num_bytes, retdest
-    push 8
-    mul
-    %increment
-    // stack: length := num_bytes*8+1, num_bytes, num_bytes, retdest
-    swap1
-    // stack: num_bytes, length := num_bytes*8+1, num_bytes, retdest
-    push 64
-    swap1
-    div
-    // stack: num_bytes // 64, length := num_bytes*8+1, num_bytes, retdest
-    push 2
-    mul
-    %decrement
-    // stack: (num_bytes // 64) * 2 - 1, length := num_bytes*8+1, num_bytes, retdest
-    dup1
-    // stack: (num_bytes // 64) * 2 - 1, (num_bytes // 64) * 2 - 1, length, num_bytes, retdest
-    mload
-    // stack: x[(num_bytes // 64) * 2 - 1], (num_bytes // 64) * 2 - 1, length, num_bytes, retdest
-    swap1
-    // stack: (num_bytes // 64) * 2 - 1, x[(num_bytes // 64) * 2 - 1], length, num_bytes, retdest
-    swap2
-    // stack: length, x[(num_bytes // 64) * 2 - 1], (num_bytes // 64) * 2 - 1, num_bytes, retdest
-    add
-    // stack: x[(num_bytes // 64) * 2 - 1] + length, (num_bytes // 64) * 2 - 1, num_bytes
-    swap1
-    // stack: (num_bytes // 64) * 2 - 1, x[(num_bytes // 64) * 2 - 1] + length, num_bytes, retdest
-    mstore
-    // stack: num_bytes, retdest
-    // STEP 3: insert num_blocks at start
     push 64
     swap1
     div
     %increment
-    // stack: num_blocks := num_bytes // 64 + 1, retdest
+    // stack: num_blocks = (num_bytes+8)//64 + 1, num_bytes, retdest
+    // STEP 3: calculate length := num_bytes*8+1
+    swap1
+    // stack: num_bytes, num_blocks, retdest
+    push 8
+    mul
+    %increment
+    // stack: length = num_bytes*8+1, num_blocks, retdest
+    // STEP 4: write length to x[num_blocks*64-8..num_blocks*64-1] 
+    dup2
+    // stack: num_blocks, length, num_blocks, retdest
+    push 64
+    mul
+    %decrement
+    // stack: last_addr = num_blocks*64-1, length, num_blocks, retdest
+    %sha2_write_length
+    // stack: num_blocks, retdest
+    // STEP 5: write num_blocks to x[0]
     push 0
-    mstore
+    %mstore_kernel_general
     // stack: retdest
     JUMP
 
