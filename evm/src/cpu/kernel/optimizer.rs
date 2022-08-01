@@ -48,9 +48,9 @@ fn constant_propagation(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(Literal(y)), Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
-                "ADD" => Some(vec![Push(Literal(x + y))]),
-                "SUB" => Some(vec![Push(Literal(x - y))]),
-                "MUL" => Some(vec![Push(Literal(x * y))]),
+                "ADD" => Some(vec![Push(Literal(x.overflowing_add(y).0))]),
+                "SUB" => Some(vec![Push(Literal(x.overflowing_sub(y).0))]),
+                "MUL" => Some(vec![Push(Literal(x.overflowing_mul(y).0))]),
                 "DIV" => Some(vec![Push(Literal(
                     x.checked_div(y).unwrap_or(U256::zero()),
                 ))]),
@@ -97,6 +97,28 @@ mod tests {
         let mut code = vec![Push(Literal(3.into())), StandardOp("ISZERO".into())];
         constant_propagation(&mut code);
         assert_eq!(code, vec![Push(Literal(0.into()))]);
+    }
+
+    #[test]
+    fn test_constant_propagation_add_overflowing() {
+        let mut code = vec![
+            Push(Literal(U256::max_value())),
+            Push(Literal(U256::max_value())),
+            StandardOp("ADD".into()),
+        ];
+        constant_propagation(&mut code);
+        assert_eq!(code, vec![Push(Literal(U256::max_value() - 1))]);
+    }
+
+    #[test]
+    fn test_constant_propagation_sub_underflowing() {
+        let mut code = vec![
+            Push(Literal(U256::one())),
+            Push(Literal(U256::zero())),
+            StandardOp("SUB".into()),
+        ];
+        constant_propagation(&mut code);
+        assert_eq!(code, vec![Push(Literal(U256::max_value()))]);
     }
 
     #[test]
