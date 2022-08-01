@@ -112,7 +112,7 @@ fn parse_stack_replacement(target: Pair<Rule>) -> StackReplacement {
     assert_eq!(target.as_rule(), Rule::stack_replacement);
     let inner = target.into_inner().next().unwrap();
     match inner.as_rule() {
-        Rule::identifier => StackReplacement::NamedItem(inner.as_str().into()),
+        Rule::identifier => StackReplacement::Identifier(inner.as_str().into()),
         Rule::literal => StackReplacement::Literal(parse_literal(inner)),
         Rule::variable => {
             StackReplacement::MacroVar(inner.into_inner().next().unwrap().as_str().into())

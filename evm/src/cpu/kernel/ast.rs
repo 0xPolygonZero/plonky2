@@ -37,14 +37,15 @@ pub(crate) enum Item {
 
 #[derive(Clone, Debug)]
 pub(crate) enum StackReplacement {
-    NamedItem(String),
+    /// Can be either a named item or a label.
+    Identifier(String),
     Literal(Literal),
     MacroVar(String),
     Constant(String),
 }
 
 /// The target of a `PUSH` operation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) enum PushTarget {
     Literal(Literal),
     Label(String),
