@@ -32,6 +32,7 @@ global decode_rlp_string_len:
     JUMP
 
 decode_rlp_string_len_medium:
+    JUMPDEST
     // String is 0-55 bytes long. First byte contains the len.
     // stack: first_byte, pos, retdest
     %sub_const(0x80)
@@ -43,6 +44,7 @@ decode_rlp_string_len_medium:
     JUMP
 
 decode_rlp_string_len_large:
+    JUMPDEST
     // String is >55 bytes long. First byte contains the len of the len.
     // stack: first_byte, pos, retdest
     %sub_const(0xb7)
