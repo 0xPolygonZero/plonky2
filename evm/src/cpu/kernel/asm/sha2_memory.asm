@@ -19,7 +19,7 @@
     %shl_const(8)
     // stack: c_3 << 8, offset
     DUP2
-    %add_const(1)
+    %increment
     %mload_kernel_general
     OR
     // stack: (c_3 << 8) | c_2, offset
@@ -48,7 +48,7 @@
     %shl_const(32)
     // stack: c7 << 32, offset
     DUP2
-    %add_const(1)
+    %increment
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 32) | c_6, offset

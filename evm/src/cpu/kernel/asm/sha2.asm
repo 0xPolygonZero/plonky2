@@ -95,11 +95,9 @@ global sha2_pad:
     // STEP 2: calculate num_blocks := (num_bytes+8)//64 + 1
     dup1
     // stack: num_bytes, num_bytes, retdest
-    push 8
-    add
-    push 64
-    swap1
-    div
+    %add_const(8)
+    %div_const(64)
+    
     %increment
     // stack: num_blocks = (num_bytes+8)//64 + 1, num_bytes, retdest
     // STEP 3: calculate length := num_bytes*8+1
@@ -125,21 +123,22 @@ global sha2_pad:
     JUMP
 
 // Precodition: stack contains address of one message block, followed by output address
-// Postcondition: 64 addresses starting at given output address contain 32-bit chunks of message schedule
+// Postcondition: 256 addresses starting at given output address, contain 32-bit chunks
+//                of message schedule (in four-byte increments)
 global sha2_gen_message_schedule_from_block:
     JUMPDEST
     // stack: block_addr, output_addr, retdest
     dup1
     // stack: block_addr, block_addr, output_addr, retdest
-    %increment
-    // stack: block_addr + 1, block_addr, output_addr, retdest
+    %add_const(32)
+    // stack: block_addr + 32, block_addr, output_addr, retdest
     swap1
-    // stack: block_addr, block_addr + 1, output_addr, retdest
-    mload
-    // stack: block[0], block_addr + 1, output_addr, retdest
+    // stack: block_addr, block_addr + 32, output_addr, retdest
+    %mload_kernel_general_u256
+    // stack: block[0], block_addr + 32, output_addr, retdest
     swap1
-    // stack: block_addr + 1, block[0], output_addr, retdest
-    mload
+    // stack: block_addr + 32, block[0], output_addr, retdest
+    %mload_kernel_general_u256
     // stack: block[1], block[0], output_addr, retdest
     swap2
     // stack: output_addr, block[0], block[1], retdest
@@ -170,16 +169,16 @@ sha2_gen_message_schedule_from_block_0_loop:
     // stack: block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1], retdest
     dup3
     // stack: output_addr, block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1], retdest
-    mstore
+    %mstore_kernel_general_u32
     // stack: block[0] // (1 << 32), output_addr, counter, block[1], retdest
     swap1
     // stack: output_addr, block[0] // (1 << 32), counter, block[1], retdest
-    %increment
-    // stack: output_addr + 1, block[0] // (1 << 32), counter, block[1], retdest
+    %add_const(4)
+    // stack: output_addr + 4, block[0] // (1 << 32), counter, block[1], retdest
     swap1
-    // stack: block[0] // (1 << 32), output_addr + 1, counter, block[1], retdest
+    // stack: block[0] // (1 << 32), output_addr + 4, counter, block[1], retdest
     swap2
-    // stack: counter, output_addr + 1, block[0] // (1 << 32), block[1], retdest
+    // stack: counter, output_addr + 4, block[0] // (1 << 32), block[1], retdest
     %decrement
     dup1
     iszero
@@ -221,16 +220,16 @@ sha2_gen_message_schedule_from_block_1_loop:
     // stack: block[1] % (1 << 32), block[1] // (1 << 32), output_addr, counter, block[0], retdest
     dup3
     // stack: output_addr, block[1] % (1 << 32), block[1] // (1 << 32), output_addr, counter, block[0], retdest
-    mstore
+    %mstore_kernel_general_u32
     // stack: block[1] // (1 << 32), output_addr, counter, block[0], retdest
     swap1
     // stack: output_addr, block[1] // (1 << 32), counter, block[0], retdest
-    %increment
-    // stack: output_addr + 1, block[1] // (1 << 32), counter, block[0], retdest
+    %add_const(4)
+    // stack: output_addr + 4, block[1] // (1 << 32), counter, block[0], retdest
     swap1
-    // stack: block[1] // (1 << 32), output_addr + 1, counter, block[0], retdest
+    // stack: block[1] // (1 << 32), output_addr + 4, counter, block[0], retdest
     swap2
-    // stack: counter, output_addr + 1, block[1] // (1 << 32), block[0], retdest
+    // stack: counter, output_addr + 4, block[1] // (1 << 32), block[0], retdest
     %decrement
     dup1
     iszero
@@ -251,69 +250,77 @@ sha2_gen_message_schedule_remaining_loop:
     dup1
     // stack: output_addr, output_addr, counter, block[0], block[1], retdest
     push 2
+    push 4
+    mul
     swap1
     sub
-    // stack: output_addr - 2, output_addr, counter, block[0], block[1], retdest
-    mload
-    // stack: x[output_addr - 2], output_addr, counter, block[0], block[1], retdest
+    // stack: output_addr - 2*4, output_addr, counter, block[0], block[1], retdest
+    %mload_kernel_general_u32
+    // stack: x[output_addr - 2*4], output_addr, counter, block[0], block[1], retdest
     %sha2_sigma_1
-    // stack: sigma_1(x[output_addr - 2]), output_addr, counter, block[0], block[1], retdest
+    // stack: sigma_1(x[output_addr - 2*4]), output_addr, counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     dup1
-    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     push 7
+    push 4
+    mul
     swap1
     sub
-    // stack: output_addr - 7, output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
-    mload
-    // stack: x[output_addr - 7], output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr - 7*4, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    %mload_kernel_general_u32
+    // stack: x[output_addr - 7*4], output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     dup1
-    // stack: output_addr, output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     push 15
+    push 4
+    mul
     swap1
     sub
-    // stack: output_addr - 15, output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
-    mload
-    // stack: x[output_addr - 15], output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr - 15*4, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    %mload_kernel_general_u32
+    // stack: x[output_addr - 15*4], output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     %sha2_sigma_0
-    // stack: sigma_0(x[output_addr - 15]), output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: sigma_0(x[output_addr - 15*4]), output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     dup1
-    // stack: output_addr, output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     push 16
+    push 4
+    mul
     swap1
     sub
-    // stack: output_addr - 16, output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
-    mload
-    // stack: x[output_addr - 16], output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr - 16*4, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    %mload_kernel_general_u32
+    // stack: x[output_addr - 16*4], output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, x[output_addr - 16], sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
+    // stack: output_addr, x[output_addr - 16*4], sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     swap4
-    // stack: sigma_1(x[output_addr - 2]), x[output_addr - 16], sigma_0(x[output_addr - 15]), x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
+    // stack: sigma_1(x[output_addr - 2*4]), x[output_addr - 16*4], sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
     add
     add
     add
-    // stack: sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
+    // stack: sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], counter, block[0], block[1], retdest
+    // stack: output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], counter, block[0], block[1], retdest
     dup1
-    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], counter, block[0], block[1], retdest
+    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], counter, block[0], block[1], retdest
     swap2
-    // stack: sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, output_addr, counter, block[0], block[1], retdest
+    // stack: sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, output_addr, counter, block[0], block[1], retdest
     swap1
-    // stack: output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
-    mstore
+    // stack: output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
+    %mstore_kernel_general_u32
     // stack: output_addr, counter, block[0], block[1], retdest
-    %increment
-    // stack: output_addr + 1, counter, block[0], block[1], retdest
+    %add_const(4)
+    // stack: output_addr + 4, counter, block[0], block[1], retdest
     swap1
-    // stack: counter, output_addr + 1, block[0], block[1], retdest
+    // stack: counter, output_addr + 4, block[0], block[1], retdest
     %decrement
-    // stack: counter - 1, output_addr + 1, block[0], block[1], retdest
+    // stack: counter - 1, output_addr + 4, block[0], block[1], retdest
     iszero
     %jumpi(sha2_gen_message_schedule_remaining_end)
     %jump(sha2_gen_message_schedule_remaining_loop)
