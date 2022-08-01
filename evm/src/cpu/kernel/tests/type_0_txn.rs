@@ -22,16 +22,20 @@ fn process_type_0_txn() -> Result<()> {
     interpreter.halt_offsets.push(process_normalized_txn);
 
     // Generated with py-evm:
+    // import eth, eth_keys, eth_utils, rlp
+    // genesis_params = { 'difficulty': eth.constants.GENESIS_DIFFICULTY }
+    // chain = eth.chains.mainnet.MainnetChain.from_genesis(eth.db.atomic.AtomicDB(), genesis_params, {})
     // unsigned_txn = chain.create_unsigned_transaction(
     //     nonce=5,
     //     gas_price=10,
     //     gas=22_000,
-    //     to=constants.ZERO_ADDRESS,
+    //     to=eth.constants.ZERO_ADDRESS,
     //     value=100,
     //     data=b'\x42\x42',
     // )
-    // my_txn = unsigned_txn.as_signed_transaction(my_sk)
-    // rlp.encode(my_txn)
+    // sk = eth_keys.keys.PrivateKey(eth_utils.decode_hex('4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318'))
+    // signed_txn = unsigned_txn.as_signed_transaction(sk)
+    // rlp.encode(signed_txn).hex()
     interpreter.set_rlp_memory(hex!("f861050a8255f0940000000000000000000000000000000000000000648242421ca07c5c61ed975ebd286f6b027b8c504842e50a47d318e1e801719dd744fe93e6c6a01e7b5119b57dd54e175ff2f055c91f3ab1b53eba0b2c184f347cdff0e745aca2").to_vec());
 
     interpreter.run()?;
