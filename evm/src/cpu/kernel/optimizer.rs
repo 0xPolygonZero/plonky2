@@ -23,6 +23,7 @@ fn optimize_asm_once(code: &mut Vec<Item>) {
     constant_propagation(code);
     no_op_jumps(code);
     remove_swaps(code);
+    remove_ignored_values(code);
 }
 
 /// Constant propagation.
@@ -62,7 +63,7 @@ fn constant_propagation(code: &mut Vec<Item>) {
     });
 }
 
-/// Remove no-op jumps: `[PUSH label, JUMP, label:] -> [label:]`
+/// Remove no-op jumps: `[PUSH label, JUMP, label:] -> [label:]`.
 fn no_op_jumps(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(Label(l)), StandardOp(jump), decl] = window
@@ -76,12 +77,27 @@ fn no_op_jumps(code: &mut Vec<Item>) {
     });
 }
 
-/// Remove swaps: `[PUSH x, PUSH y, SWAP1] -> [PUSH y, PUSH x]`
+/// Remove swaps: `[PUSH x, PUSH y, SWAP1] -> [PUSH y, PUSH x]`.
 fn remove_swaps(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(x), Push(y), StandardOp(swap1)] = window
             && &swap1 == "SWAP1" {
             Some(vec![Push(y), Push(x)])
+        } else {
+            None
+        }
+    });
+}
+
+/// Remove push-pop type patterns, such as: `[DUP1, POP]`.
+fn remove_ignored_values(code: &mut Vec<Item>) {
+    replace_windows(code, |[a, b]| {
+        if let StandardOp(pop) = b && &pop == "POP" {
+            match a {
+                Push(_) => Some(vec![]),
+                StandardOp(dup) if dup.starts_with("DUP") => Some(vec![]),
+                _ => None,
+            }
         } else {
             None
         }
@@ -177,5 +193,19 @@ mod tests {
             code,
             vec![Push(Label("mylabel".into())), Push(Literal("42".into()))]
         );
+    }
+
+    #[test]
+    fn test_remove_push_pop() {
+        let mut code = vec![Push(Literal("42".into())), StandardOp("POP".into())];
+        remove_ignored_values(&mut code);
+        assert_eq!(code, vec![]);
+    }
+
+    #[test]
+    fn test_remove_dup_pop() {
+        let mut code = vec![StandardOp("DUP5".into()), StandardOp("POP".into())];
+        remove_ignored_values(&mut code);
+        assert_eq!(code, vec![]);
     }
 }
