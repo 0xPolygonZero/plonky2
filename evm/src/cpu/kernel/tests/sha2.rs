@@ -40,7 +40,6 @@ fn test_sha2_store() -> Result<()> {
     let memory_after_storing = after_storing.memory;
     dbg!(memory_after_storing);
 
-
     // let load_initial_stack = vec![U256::from_str("0xdeadbeef").unwrap()];
     // let stack_after_loading = run(&kernel.code, test_sha2_read, load_initial_stack)?.stack;
     // dbg!(stack_after_loading);

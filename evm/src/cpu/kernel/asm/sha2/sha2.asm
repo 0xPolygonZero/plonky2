@@ -40,36 +40,36 @@ sha2_store_end:
     //JUMP
     %jump(sha2_pad)
 
-global test_sha2_read:
-    JUMPDEST
-    // stack: retdest
-    push 0
-    // stack: 0, retdest
-    %mload_kernel_general
-    // stack: counter=num_bytes, retdest
-test_sha2_read_loop:
-    JUMPDEST
-    // stack: counter, retdest, [stack]
-    dup1
-    // stack: addr=counter, counter, retdest, [stack]
-    %mload_kernel_general
-    // stack: value, counter, retdest, [stack]
-    swap2
-    // stack: retdest, counter, value, [stack]
-    swap1
-    // stack: counter, retdest, value, [stack]
-    %decrement
-    // stack: counter-1, retdest, value, [stack]
-    dup1
-    iszero
-    %jumpi(test_sha2_read_end)
-    %jump(test_sha2_read_loop)
-test_sha2_read_end:
-    // stack: counter=0, retdest, [stack]
-    JUMPDEST
-    pop
-    // stack: retdest, [stack]
-    JUMP
+//global test_sha2_read:
+//    JUMPDEST
+//    // stack: retdest
+//    push 0
+//    // stack: 0, retdest
+//    %mload_kernel_general
+//    // stack: counter=num_bytes, retdest
+//test_sha2_read_loop:
+//    JUMPDEST
+//    // stack: counter, retdest, [stack]
+//    dup1
+//    // stack: addr=counter, counter, retdest, [stack]
+//    %mload_kernel_general
+//    // stack: value, counter, retdest, [stack]
+//    swap2
+//    // stack: retdest, counter, value, [stack]
+//    swap1
+//    // stack: counter, retdest, value, [stack]
+//    %decrement
+//    // stack: counter-1, retdest, value, [stack]
+//    dup1
+//    iszero
+//    %jumpi(test_sha2_read_end)
+//    %jump(test_sha2_read_loop)
+//test_sha2_read_end:
+//    // stack: counter=0, retdest, [stack]
+//    JUMPDEST
+//    pop
+//    // stack: retdest, [stack]
+//    JUMP
 
 // Precodition: input is in memory, starting at 0 of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
@@ -120,7 +120,10 @@ global sha2_pad:
     push 0
     %mstore_kernel_general
     // stack: retdest
-    JUMP
+    //JUMP
+    push 100
+    push 1
+    %jump(sha2_gen_message_schedule_from_block)
 
 // Precodition: stack contains address of one message block, followed by output address
 // Postcondition: 256 addresses starting at given output address, contain 32-bit chunks
@@ -321,11 +324,16 @@ sha2_gen_message_schedule_remaining_loop:
     // stack: counter, output_addr + 4, block[0], block[1], retdest
     %decrement
     // stack: counter - 1, output_addr + 4, block[0], block[1], retdest
+    dup1
     iszero
     %jumpi(sha2_gen_message_schedule_remaining_end)
     %jump(sha2_gen_message_schedule_remaining_loop)
 sha2_gen_message_schedule_remaining_end:
     JUMPDEST
+    // stack: counter=0, output_addr, block[0], block[1], retdest
+    %pop4
+    STOP
+    JUMP
 
-global sha2_gen_all_message_schedules:
-    JUMPDEST
+//global sha2_gen_all_message_schedules:
+//  JUMPDEST
