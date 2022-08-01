@@ -22,7 +22,8 @@ pub(crate) fn optimize_asm(code: &mut Vec<Item>) {
 fn optimize_asm_once(code: &mut Vec<Item>) {
     constant_propagation(code);
     no_op_jumps(code);
-    remove_swaps(code);
+    remove_swapped_pushes(code);
+    remove_swaps_commutative(code);
     remove_ignored_values(code);
 }
 
@@ -78,11 +79,27 @@ fn no_op_jumps(code: &mut Vec<Item>) {
 }
 
 /// Remove swaps: `[PUSH x, PUSH y, SWAP1] -> [PUSH y, PUSH x]`.
-fn remove_swaps(code: &mut Vec<Item>) {
+fn remove_swapped_pushes(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(x), Push(y), StandardOp(swap1)] = window
             && &swap1 == "SWAP1" {
             Some(vec![Push(y), Push(x)])
+        } else {
+            None
+        }
+    });
+}
+
+/// Remove SWAP1 before a commutative function.
+fn remove_swaps_commutative(code: &mut Vec<Item>) {
+    replace_windows(code, |window| {
+        if let [StandardOp(swap1), StandardOp(f)] = window && &swap1 == "SWAP1" {
+            let commutative = match f.as_str() {
+                "ADD" => true,
+                "MUL" => true,
+                _ => false,
+            };
+            commutative.then_some(vec![StandardOp(f)])
         } else {
             None
         }
@@ -182,17 +199,24 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_swap() {
+    fn test_remove_swapped_pushes() {
         let mut code = vec![
             Push(Literal("42".into())),
             Push(Label("mylabel".into())),
             StandardOp("SWAP1".into()),
         ];
-        remove_swaps(&mut code);
+        remove_swapped_pushes(&mut code);
         assert_eq!(
             code,
             vec![Push(Label("mylabel".into())), Push(Literal("42".into()))]
         );
+    }
+
+    #[test]
+    fn test_remove_swap_mul() {
+        let mut code = vec![StandardOp("SWAP1".into()), StandardOp("MUL".into())];
+        remove_swaps_commutative(&mut code);
+        assert_eq!(code, vec![StandardOp("MUL".into())]);
     }
 
     #[test]
