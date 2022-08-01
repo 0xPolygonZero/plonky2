@@ -44,14 +44,16 @@ fn constant_propagation(code: &mut Vec<Item>) {
         }
     });
 
-    // Constant propagation for binary ops: `[PUSH x, PUSH y, BINOP] -> [PUSH BINOP(x, y)]`
+    // Constant propagation for binary ops: `[PUSH y, PUSH x, BINOP] -> [PUSH BINOP(x, y)]`
     replace_windows(code, |window| {
-        if let [Push(Literal(x)), Push(Literal(y)), StandardOp(op)] = window {
+        if let [Push(Literal(y)), Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
                 "ADD" => Some(vec![Push(Literal(x + y))]),
                 "SUB" => Some(vec![Push(Literal(x - y))]),
                 "MUL" => Some(vec![Push(Literal(x * y))]),
-                "DIV" => Some(vec![Push(Literal(x / y))]),
+                "DIV" => Some(vec![Push(Literal(
+                    x.checked_div(y).unwrap_or(U256::zero()),
+                ))]),
                 _ => None,
             }
         } else {
@@ -106,6 +108,28 @@ mod tests {
         ];
         constant_propagation(&mut code);
         assert_eq!(code, vec![Push(Literal(12.into()))]);
+    }
+
+    #[test]
+    fn test_constant_propagation_div() {
+        let mut code = vec![
+            Push(Literal(3.into())),
+            Push(Literal(8.into())),
+            StandardOp("DIV".into()),
+        ];
+        constant_propagation(&mut code);
+        assert_eq!(code, vec![Push(Literal(2.into()))]);
+    }
+
+    #[test]
+    fn test_constant_propagation_div_zero() {
+        let mut code = vec![
+            Push(Literal(0.into())),
+            Push(Literal(1.into())),
+            StandardOp("DIV".into()),
+        ];
+        constant_propagation(&mut code);
+        assert_eq!(code, vec![Push(Literal(0.into()))]);
     }
 
     #[test]
