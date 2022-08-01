@@ -1,3 +1,8 @@
+sha2_test_input:
+    BYTES 0x4
+    BYTES 0x1, 0x2, 0x3, 0x4
+
+
 
 
 // Precodition: input is in memory, starting at [TODO: fix] 0, of the form
@@ -5,7 +10,7 @@
 // Postcodition: output is in memory, starting at [TODO: fix] 0, of the form
 //               num_blocks, block0[0], block0[1], block1[0], ..., blocklast[1]
 global sha2_pad:
-    // TODO: use kernel memory, and start address not at 0
+    // TODO: use kernel memory (SEGMENT_KERNEL_MISC or SEGMENT_KERNEL_SHA2), and instead of 0
     // stack: retdest
     push 0
     mload
@@ -217,65 +222,82 @@ sha2_gen_message_schedule_from_block_1_end:
     // stack: output_addr, block[0], block[1], retdest
     push 48
     // stack: counter=48, output_addr, block[0], block[1], retdest
-
-
-global sha2_message_schedule_next_word:
+sha2_gen_message_schedule_remaining_loop:
     JUMPDEST
-    // stack: addr, retdest
+    // stack: counter, output_addr, block[0], block[1], retdest
+    swap1
+    // stack: output_addr, counter, block[0], block[1], retdest
     dup1
-    // stack: addr, addr, retdest
+    // stack: output_addr, output_addr, counter, block[0], block[1], retdest
     push 2
     swap1
     sub
-    // stack: addr - 2, addr, retdest
+    // stack: output_addr - 2, output_addr, counter, block[0], block[1], retdest
     mload
-    // stack: x[addr - 2], addr, retdest
+    // stack: x[output_addr - 2], output_addr, counter, block[0], block[1], retdest
     %sha2_sigma_1
-    // stack: sigma_1(x[addr - 2]), addr, retdest
+    // stack: sigma_1(x[output_addr - 2]), output_addr, counter, block[0], block[1], retdest
     swap1
-    // stack: addr, sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     dup1
-    // stack: addr, addr, sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     push 7
     swap1
     sub
-    // stack: addr - 7, addr, sigma_1(x[addr - 2]), retdest
+    // stack: output_addr - 7, output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     mload
-    // stack: x[addr - 7], addr, sigma_1(x[addr - 2]), retdest
+    // stack: x[output_addr - 7], output_addr, sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     swap1
-    // stack: addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     dup1
-    // stack: addr, addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     push 15
     swap1
     sub
-    // stack: addr - 15, addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr - 15, output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     mload
-    // stack: x[addr - 15], addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: x[output_addr - 15], output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     %sha2_sigma_0
-    // stack: sigma_0(x[addr - 15]), addr, x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: sigma_0(x[output_addr - 15]), output_addr, x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     swap1
-    // stack: addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     dup1
-    // stack: addr, addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     push 16
     swap1
     sub
-    // stack: addr - 16, addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr - 16, output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     mload
-    // stack: x[addr - 16], addr, sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: x[output_addr - 16], output_addr, sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     swap1
-    // stack: addr, x[addr - 16], sigma_0(x[addr - 15]), x[addr - 7], sigma_1(x[addr - 2]), retdest
+    // stack: output_addr, x[output_addr - 16], sigma_0(x[output_addr - 15]), x[output_addr - 7], sigma_1(x[output_addr - 2]), counter, block[0], block[1], retdest
     swap4
-    // stack: sigma_1(x[addr - 2]), x[addr - 16], sigma_0(x[addr - 15]), x[addr - 7], addr, retdest
+    // stack: sigma_1(x[output_addr - 2]), x[output_addr - 16], sigma_0(x[output_addr - 15]), x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
     add
     add
     add
-    // stack: sigma_1(x[addr - 2]) + x[addr - 16] + sigma_0(x[addr - 15]) + x[addr - 7], addr, retdest
+    // stack: sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
     swap1
+    // stack: output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], counter, block[0], block[1], retdest
+    dup1
+    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], counter, block[0], block[1], retdest
+    swap2
+    // stack: sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, output_addr, counter, block[0], block[1], retdest
+    swap1
+    // stack: output_addr, sigma_1(x[output_addr - 2]) + x[output_addr - 16] + sigma_0(x[output_addr - 15]) + x[output_addr - 7], output_addr, counter, block[0], block[1], retdest
     mstore
-    // stack: retdest
-    JUMP
+    // stack: output_addr, counter, block[0], block[1], retdest
+    %increment
+    // stack: output_addr + 1, counter, block[0], block[1], retdest
+    swap1
+    // stack: counter, output_addr + 1, block[0], block[1], retdest
+    %decrement
+    // stack: counter - 1, output_addr + 1, block[0], block[1], retdest
+    iszero
+    %jumpi(sha2_gen_message_schedule_remaining_end)
+    %jump(sha2_gen_message_schedule_remaining_loop)
+sha2_gen_message_schedule_remaining_end:
+    JUMPDEST
 
 global sha2_gen_all_message_schedules:
     JUMPDEST
