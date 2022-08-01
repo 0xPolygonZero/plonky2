@@ -5,7 +5,7 @@ use PushTarget::Literal;
 use crate::cpu::kernel::ast::Item::{GlobalLabelDeclaration, LocalLabelDeclaration};
 use crate::cpu::kernel::ast::PushTarget::Label;
 use crate::cpu::kernel::ast::{Item, PushTarget};
-use crate::cpu::kernel::utils::replace_windows;
+use crate::cpu::kernel::utils::{replace_windows, u256_from_bool};
 
 pub(crate) fn optimize_asm(code: &mut Vec<Item>) {
     // Run the optimizer until nothing changes.
@@ -33,11 +33,7 @@ fn constant_propagation(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
-                "ISZERO" => Some(vec![Push(Literal(if x.is_zero() {
-                    U256::one()
-                } else {
-                    U256::zero()
-                }))]),
+                "ISZERO" => Some(vec![Push(Literal(u256_from_bool(x.is_zero())))]),
                 "NOT" => Some(vec![Push(Literal(!x))]),
                 _ => None,
             }
@@ -50,14 +46,21 @@ fn constant_propagation(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(Literal(y)), Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
-                "ADD" => Some(vec![Push(Literal(x.overflowing_add(y).0))]),
-                "SUB" => Some(vec![Push(Literal(x.overflowing_sub(y).0))]),
-                "MUL" => Some(vec![Push(Literal(x.overflowing_mul(y).0))]),
-                "DIV" => Some(vec![Push(Literal(
-                    x.checked_div(y).unwrap_or(U256::zero()),
-                ))]),
+                "ADD" => Some(x.overflowing_add(y).0),
+                "SUB" => Some(x.overflowing_sub(y).0),
+                "MUL" => Some(x.overflowing_mul(y).0),
+                "DIV" => Some(x.checked_div(y).unwrap_or(U256::zero())),
+                "SHL" => Some(x << y),
+                "SHR" => Some(x >> y),
+                "AND" => Some(x & y),
+                "OR" => Some(x | y),
+                "XOR" => Some(x ^ y),
+                "LT" => Some(u256_from_bool(x < y)),
+                "GT" => Some(u256_from_bool(x > y)),
+                "EQ" => Some(u256_from_bool(x == y)),
                 _ => None,
             }
+            .map(|res| vec![Push(Literal(res))])
         } else {
             None
         }
@@ -94,11 +97,7 @@ fn remove_swapped_pushes(code: &mut Vec<Item>) {
 fn remove_swaps_commutative(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [StandardOp(swap1), StandardOp(f)] = window && &swap1 == "SWAP1" {
-            let commutative = match f.as_str() {
-                "ADD" => true,
-                "MUL" => true,
-                _ => false,
-            };
+            let commutative = matches!(f.as_str(), "ADD" | "MUL");
             commutative.then_some(vec![StandardOp(f)])
         } else {
             None
