@@ -68,9 +68,14 @@ pub(crate) fn combined_kernel() -> Kernel {
 #[cfg(test)]
 mod tests {
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-    use log::debug;
+    use std::str::FromStr;
 
-    use crate::cpu::kernel::aggregator::combined_kernel;
+    use anyhow::Result;
+    use ethereum_types::U256;
+    use log::debug;
+    use rand::thread_rng;
+
+    use crate::cpu::kernel::{aggregator::combined_kernel, interpreter::run};
 
     #[test]
     fn make_kernel() {
