@@ -7,15 +7,12 @@ global sha2_store:
     // stack: addr=0, num_bytes, num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     %mstore_kernel_general
     // stack: num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
-    dup1
-    // stack: num_bytes, num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     push 1
     // stack: addr=1, counter=num_bytes, x[0], x[1], x[2], ... , x[num_bytes-1], retdest
 sha2_store_loop:
     JUMPDEST
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     dup1
-    STOP
     // stack: addr, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     swap3
     // stack: x[num_bytes-counter], addr, counter, addr,  ... , x[num_bytes-1], retdest
@@ -23,11 +20,13 @@ sha2_store_loop:
     // stack: addr, x[num_bytes-counter], counter, addr,  ... , x[num_bytes-1], retdest
     %mstore_kernel_general
     // stack: counter, addr,  ... , x[num_bytes-1], retdest
-    dup1
     %decrement
     // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
+    dup1
+    // stack: counter-1, counter-1, addr,  ... , x[num_bytes-1], retdest
     iszero
     %jumpi(sha2_store_end)
+    // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
     swap1
     // stack: addr, counter-1,  ... , x[num_bytes-1], retdest
     %increment
@@ -37,12 +36,40 @@ sha2_store_end:
     JUMPDEST
     // stack: counter=0, addr, retdest
     %pop2
-    STOP
-    JUMP
-sha2_stop:
-    JUMPDEST
-    STOP
+    // stack: retdest
+    //JUMP
+    %jump(sha2_pad)
 
+global test_sha2_read:
+    JUMPDEST
+    // stack: retdest
+    push 0
+    // stack: 0, retdest
+    %mload_kernel_general
+    // stack: counter=num_bytes, retdest
+test_sha2_read_loop:
+    JUMPDEST
+    // stack: counter, retdest, [stack]
+    dup1
+    // stack: addr=counter, counter, retdest, [stack]
+    %mload_kernel_general
+    // stack: value, counter, retdest, [stack]
+    swap2
+    // stack: retdest, counter, value, [stack]
+    swap1
+    // stack: counter, retdest, value, [stack]
+    %decrement
+    // stack: counter-1, retdest, value, [stack]
+    dup1
+    iszero
+    %jumpi(test_sha2_read_end)
+    %jump(test_sha2_read_loop)
+test_sha2_read_end:
+    // stack: counter=0, retdest, [stack]
+    JUMPDEST
+    pop
+    // stack: retdest, [stack]
+    JUMP
 
 // Precodition: input is in memory, starting at 0 of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]

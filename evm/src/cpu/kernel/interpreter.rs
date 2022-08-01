@@ -56,6 +56,8 @@ pub struct Interpreter<'a> {
     context: usize,
     pub(crate) memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
+    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
+    /// next prover input.
     prover_inputs: Vec<U256>,
     pub(crate) halt_offsets: Vec<usize>,
     running: bool,
@@ -211,7 +213,11 @@ impl<'a> Interpreter<'a> {
             0x19 => self.run_not(),                                    // "NOT",
             0x1a => self.run_byte(),                                   // "BYTE",
             0x1b => self.run_shl(),                                    // "SHL",
+<<<<<<< HEAD
             0x1c => todo!(),                                           // "SHR",
+=======
+            0x1c => self.run_shr(),                                    // "SHR",
+>>>>>>> 30cee83c (fixes and updates)
             0x1d => todo!(),                                           // "SAR",
             0x20 => self.run_keccak256(),                              // "KECCAK256",
             0x30 => todo!(),                                           // "ADDRESS",
@@ -408,8 +414,14 @@ impl<'a> Interpreter<'a> {
 
     fn run_shl(&mut self) {
         let shift = self.pop();
-        let x = self.pop();
-        self.push(x << shift);
+        let value = self.pop();
+        self.push(value << shift);
+    }
+
+    fn run_shr(&mut self) {
+        let shift = self.pop();
+        let value = self.pop();
+        self.push(value >> shift);
     }
 
     fn run_keccak256(&mut self) {
