@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use ethereum_types::U256;
 use hex_literal::hex;
@@ -7,7 +5,6 @@ use NormalizedTxnField::*;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::rlp::set_rlp_memory;
 use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 
 #[test]
