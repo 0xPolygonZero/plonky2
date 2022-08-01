@@ -1,16 +1,20 @@
 %macro sha2_write_length
+    // stack: last_addr, length
+    swap1
     // stack: length, last_addr
     push 1
     push 8
     shl
 
     // stack: 1 << 8, length, last_addr
-    dup2
-    // stack: length, 1 << 8, length, last_addr
-    mod
-    // stack: length % (1 << 8), length, last_addr
+    dup1
+    // stack: 1 << 8, 1 << 8, length, last_addr
     dup3
-    // stack: last_addr, length % (1 << 8), length, last_addr
+    // stack: length, 1 << 8, 1 << 8, length, last_addr
+    mod
+    // stack: length % (1 << 8), 1 << 8, length, last_addr
+    dup3
+    // stack: last_addr, length % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
     
     // stack: 1 << 8, length, last_addr

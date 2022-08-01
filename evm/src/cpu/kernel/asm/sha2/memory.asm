@@ -94,6 +94,9 @@
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0, offset
+    swap1
+    pop
+    // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0
 %endmacro
 
 // Store a single byte to kernel general memory.
