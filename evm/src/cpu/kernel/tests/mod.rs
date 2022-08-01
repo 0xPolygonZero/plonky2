@@ -2,6 +2,7 @@ mod curve_ops;
 mod ecrecover;
 mod exp;
 mod rlp;
+mod type_0_txn;
 
 use std::str::FromStr;
 
