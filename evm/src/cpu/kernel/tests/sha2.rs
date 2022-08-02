@@ -1,4 +1,5 @@
 use core::num;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -34,8 +35,8 @@ fn test_sha2_store() -> Result<()> {
     store_initial_stack.reverse();
     dbg!(store_initial_stack.clone());
     
-    let after_storing = run(&kernel.code, sha2_store, store_initial_stack)?;
-    let stack_after_storing = after_storing.stack;
+    let after_storing = run(&kernel.code, sha2_store, store_initial_stack, &kernel.prover_inputs)?;
+    let stack_after_storing = after_storing.stack();
     dbg!(stack_after_storing.clone());
     let memory_after_storing = after_storing.memory;
     dbg!(memory_after_storing);
