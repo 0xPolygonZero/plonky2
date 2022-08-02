@@ -137,6 +137,10 @@ impl<'a> Interpreter<'a> {
         self.memory.context_memory[0].segments[Segment::TxnFields as usize].content[field as usize]
     }
 
+    pub(crate) fn get_txn_data(&self) -> &[U256] {
+        &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
+    }
+
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
         self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();

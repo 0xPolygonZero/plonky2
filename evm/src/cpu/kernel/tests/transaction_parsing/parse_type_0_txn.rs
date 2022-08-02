@@ -46,6 +46,7 @@ fn process_type_0_txn() -> Result<()> {
     assert_eq!(interpreter.get_txn_field(To), 0.into());
     assert_eq!(interpreter.get_txn_field(Value), 100.into());
     assert_eq!(interpreter.get_txn_field(DataLen), 2.into());
+    assert_eq!(interpreter.get_txn_data(), &[0x42.into(), 0x42.into()]);
     assert_eq!(interpreter.get_txn_field(YParity), 1.into());
     assert_eq!(
         interpreter.get_txn_field(R),
