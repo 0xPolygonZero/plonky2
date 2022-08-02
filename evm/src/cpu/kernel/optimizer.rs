@@ -97,7 +97,7 @@ fn remove_swapped_pushes(code: &mut Vec<Item>) {
 fn remove_swaps_commutative(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [StandardOp(swap1), StandardOp(f)] = window && &swap1 == "SWAP1" {
-            let commutative = matches!(f.as_str(), "ADD" | "MUL");
+            let commutative = matches!(f.as_str(), "ADD" | "MUL" | "AND" | "OR" | "XOR" | "EQ");
             commutative.then_some(vec![StandardOp(f)])
         } else {
             None
