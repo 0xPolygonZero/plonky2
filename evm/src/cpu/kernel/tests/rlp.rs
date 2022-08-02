@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use ethereum_types::U256;
 
@@ -11,7 +9,7 @@ use crate::memory::segments::Segment;
 fn test_decode_rlp_string_len_short() -> Result<()> {
     let decode_rlp_string_len = KERNEL.global_labels["decode_rlp_string_len"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 2.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 2.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // A couple dummy bytes, followed by "0x70" which is its own encoding.
@@ -28,7 +26,7 @@ fn test_decode_rlp_string_len_short() -> Result<()> {
 fn test_decode_rlp_string_len_medium() -> Result<()> {
     let decode_rlp_string_len = KERNEL.global_labels["decode_rlp_string_len"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 2.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 2.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // A couple dummy bytes, followed by the RLP encoding of "1 2 3 4 5".
@@ -45,7 +43,7 @@ fn test_decode_rlp_string_len_medium() -> Result<()> {
 fn test_decode_rlp_string_len_long() -> Result<()> {
     let decode_rlp_string_len = KERNEL.global_labels["decode_rlp_string_len"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 2.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 2.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // The RLP encoding of the string "1 2 3 ... 56".
@@ -69,7 +67,7 @@ fn test_decode_rlp_string_len_long() -> Result<()> {
 fn test_decode_rlp_list_len_short() -> Result<()> {
     let decode_rlp_list_len = KERNEL.global_labels["decode_rlp_list_len"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 0.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 0.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
 
     // The RLP encoding of [1, 2, [3, 4]].
@@ -86,7 +84,7 @@ fn test_decode_rlp_list_len_short() -> Result<()> {
 fn test_decode_rlp_list_len_long() -> Result<()> {
     let decode_rlp_list_len = KERNEL.global_labels["decode_rlp_list_len"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 0.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 0.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
 
     // The RLP encoding of [1, ..., 56].
@@ -110,7 +108,7 @@ fn test_decode_rlp_list_len_long() -> Result<()> {
 fn test_decode_rlp_scalar() -> Result<()> {
     let decode_rlp_scalar = KERNEL.global_labels["decode_rlp_scalar"];
 
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, 0.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), 0.into()];
     let mut interpreter = Interpreter::new_with_kernel(decode_rlp_scalar, initial_stack);
 
     // The RLP encoding of "12 34 56".
