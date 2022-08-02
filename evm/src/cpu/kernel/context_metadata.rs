@@ -5,17 +5,20 @@ pub(crate) enum ContextMetadata {
     ParentContext = 0,
     /// The program counter to return to when we return to the parent context.
     ParentProgramCounter = 1,
-    CalldataSize = 2,
-    ReturndataSize = 3,
+    /// If we're in a system call, this holds the userspace program counter to return to.
+    UserspaceProgramCounter = 2,
+    CalldataSize = 3,
+    ReturndataSize = 4,
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 4;
+    pub(crate) const COUNT: usize = 5;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
             Self::ParentContext,
             Self::ParentProgramCounter,
+            Self::UserspaceProgramCounter,
             Self::CalldataSize,
             Self::ReturndataSize,
         ]
@@ -26,6 +29,7 @@ impl ContextMetadata {
         match self {
             ContextMetadata::ParentContext => "CTX_METADATA_PARENT_CONTEXT",
             ContextMetadata::ParentProgramCounter => "CTX_METADATA_PARENT_PC",
+            ContextMetadata::UserspaceProgramCounter => "CTX_METADATA_USERSPACE_PC",
             ContextMetadata::CalldataSize => "CTX_METADATA_CALLDATA_SIZE",
             ContextMetadata::ReturndataSize => "CTX_METADATA_RETURNDATA_SIZE",
         }
