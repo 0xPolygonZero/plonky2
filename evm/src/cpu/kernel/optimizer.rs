@@ -89,6 +89,7 @@ fn no_op_jumps(code: &mut Vec<Item>) {
 }
 
 /// Remove swaps: `[PUSH x, PUSH y, SWAP1] -> [PUSH y, PUSH x]`.
+// Could be generalized to recognize more than two pushes.
 fn remove_swapped_pushes(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(x), Push(y), StandardOp(swap1)] = window
@@ -113,6 +114,7 @@ fn remove_swaps_commutative(code: &mut Vec<Item>) {
 }
 
 /// Remove push-pop type patterns, such as: `[DUP1, POP]`.
+// Could be extended to other non-side-effecting operations, e.g. [DUP1, ADD, POP] -> [POP].
 fn remove_ignored_values(code: &mut Vec<Item>) {
     replace_windows(code, |[a, b]| {
         if let StandardOp(pop) = b && &pop == "POP" {

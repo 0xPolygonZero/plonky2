@@ -538,6 +538,6 @@ mod tests {
         constants: HashMap<String, U256>,
     ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files, constants, false)
+        assemble(parsed_files, constants, true)
     }
 }
