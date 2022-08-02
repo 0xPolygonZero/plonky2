@@ -14,12 +14,12 @@ pub mod multiplication_extension;
 pub mod noop;
 pub mod packed_util;
 pub mod poseidon;
-pub(crate) mod poseidon_mds;
-pub(crate) mod public_input;
+pub mod poseidon_mds;
+pub mod public_input;
 pub mod random_access;
 pub mod reducing;
 pub mod reducing_extension;
-pub(crate) mod selectors;
+pub mod selectors;
 pub mod util;
 
 // Can't use #[cfg(test)] here because it needs to be visible to other crates.
