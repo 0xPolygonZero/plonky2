@@ -7,11 +7,12 @@ use keccak_hash::keccak;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
-const HALT_OFFSET: usize = 0xdeadbeef;
+const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 #[derive(Debug)]
 pub(crate) struct InterpreterMemory {
@@ -49,12 +50,14 @@ impl InterpreterMemory {
 }
 
 pub struct Interpreter<'a> {
+    kernel_mode: bool,
     jumpdests: Vec<usize>,
     offset: usize,
     context: usize,
     pub(crate) memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     prover_inputs: Vec<U256>,
+    pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
 
@@ -100,12 +103,14 @@ impl<'a> Interpreter<'a> {
         prover_inputs: &'a HashMap<usize, ProverInputFn>,
     ) -> Self {
         Self {
+            kernel_mode: true,
             jumpdests: find_jumpdests(code),
             offset: initial_offset,
             memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
             prover_inputs_map: prover_inputs,
             prover_inputs: Vec::new(),
             context: 0,
+            halt_offsets: vec![DEFAULT_HALT_OFFSET],
             running: true,
         }
     }
@@ -126,6 +131,19 @@ impl<'a> Interpreter<'a> {
             .iter()
             .map(|u256| u256.byte(0))
             .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize].content[field as usize]
+    }
+
+    pub(crate) fn get_txn_data(&self) -> &[U256] {
+        &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
+    }
+
+    pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
+        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
+            rlp.into_iter().map(U256::from).collect();
     }
 
     fn incr(&mut self, n: usize) {
@@ -435,24 +453,27 @@ impl<'a> Interpreter<'a> {
 
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
-        self.offset = x;
-        if self.offset == HALT_OFFSET {
-            self.running = false;
-        } else if self.jumpdests.binary_search(&self.offset).is_err() {
-            panic!("Destination is not a JUMPDEST.");
-        }
+        self.jump_to(x);
     }
 
     fn run_jumpi(&mut self) {
         let x = self.pop().as_usize();
         let b = self.pop();
         if !b.is_zero() {
-            self.offset = x;
-            if self.offset == HALT_OFFSET {
-                self.running = false;
-            } else if self.jumpdests.binary_search(&self.offset).is_err() {
-                panic!("Destination is not a JUMPDEST.");
-            }
+            self.jump_to(x);
+        }
+    }
+
+    fn jump_to(&mut self, offset: usize) {
+        // The JUMPDEST rule is not enforced in kernel mode.
+        if !self.kernel_mode && self.jumpdests.binary_search(&offset).is_err() {
+            panic!("Destination is not a JUMPDEST.");
+        }
+
+        self.offset = offset;
+
+        if self.halt_offsets.contains(&offset) {
+            self.running = false;
         }
     }
 

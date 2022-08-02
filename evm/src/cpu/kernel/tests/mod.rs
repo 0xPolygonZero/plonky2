@@ -2,6 +2,7 @@ mod curve_ops;
 mod ecrecover;
 mod exp;
 mod rlp;
+mod transaction_parsing;
 
 use std::str::FromStr;
 
