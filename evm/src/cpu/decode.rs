@@ -15,7 +15,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 // - its start index is a multiple of its length (it is aligned)
 // These properties permit us to check if an opcode belongs to a block of length 2^n by checking its
 // top 8-n bits.
-const OPCODES: [(u64, usize, usize); 107] = [
+const OPCODES: [(u64, usize, usize); 106] = [
     // (start index of block, number of top bits to check (log2), flag column)
     (0x00, 0, COL_MAP.is_stop),
     (0x01, 0, COL_MAP.is_add),
@@ -102,7 +102,7 @@ const OPCODES: [(u64, usize, usize); 107] = [
     (0xa2, 0, COL_MAP.is_log2),
     (0xa3, 0, COL_MAP.is_log3),
     (0xa4, 0, COL_MAP.is_log4),
-    (0xa5, 0, COL_MAP.is_panic),
+    // Opcode 0xa5 is PANIC. Make the proof unverifiable by giving it no flag to decode to.
     (0xa6, 1, COL_MAP.is_invalid_8),  // 0xa6-0xa7
     (0xa8, 3, COL_MAP.is_invalid_9),  // 0xa8-0xaf
     (0xb0, 4, COL_MAP.is_invalid_10), // 0xb0-0xbf

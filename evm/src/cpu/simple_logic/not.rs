@@ -17,7 +17,8 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     }
     assert_eq!(is_not_filter, 1);
 
-    for (input, output_ref) in lv.logic_input0.into_iter().zip(lv.logic_output.iter_mut()) {
+    let logic = lv.general.logic_mut();
+    for (input, output_ref) in logic.input0.into_iter().zip(logic.output.iter_mut()) {
         let input = input.to_canonical_u64();
         assert_eq!(input >> LIMB_SIZE, 0);
         let output = input ^ ALL_1_LIMB;
@@ -30,10 +31,11 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // This is simple: just do output = 0xffff - input.
+    let logic = lv.general.logic();
     let cycle_filter = lv.is_cpu_cycle;
     let is_not_filter = lv.is_not;
     let filter = cycle_filter * is_not_filter;
-    for (input, output) in lv.logic_input0.into_iter().zip(lv.logic_output) {
+    for (input, output) in logic.input0.into_iter().zip(logic.output) {
         yield_constr
             .constraint(filter * (output + input - P::Scalar::from_canonical_u64(ALL_1_LIMB)));
     }
@@ -44,10 +46,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let logic = lv.general.logic();
     let cycle_filter = lv.is_cpu_cycle;
     let is_not_filter = lv.is_not;
     let filter = builder.mul_extension(cycle_filter, is_not_filter);
-    for (input, output) in lv.logic_input0.into_iter().zip(lv.logic_output) {
+    for (input, output) in logic.input0.into_iter().zip(logic.output) {
         let constr = builder.add_extension(output, input);
         let constr = builder.arithmetic_extension(
             F::ONE,

@@ -1,5 +1,34 @@
+// BN254 elliptic curve scalar multiplication.
+// Recursive implementation, same algorithm as in `exp.asm`.
+global ec_mul:
+    // Uncomment for test inputs.
+    // PUSH 0xdeadbeef
+    // PUSH 0xd
+    // PUSH 2
+    // PUSH 1
+    JUMPDEST
+    // stack: x, y, s, retdest
+    DUP2
+    // stack: y, x, y, s, retdest
+    DUP2
+    // stack: x, y, x, y, s, retdest
+    %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, s, retdest
+    %jumpi(ret_zero_ec_mul)
+    // stack: x, y, s, retdest
+    DUP2
+    // stack: y, x, y, s, retdest
+    DUP2
+    // stack: x, y, x, y, s, retdest
+    %ec_check
+    // stack: isValid(x, y), x, y, s, retdest
+    %jumpi(ec_mul_valid_point)
+    // stack: x, y, s, retdest
+    %pop3
+    %ec_invalid_input
+
 // Same algorithm as in `exp.asm`
-global ec_mul_valid_point_secp:
+ec_mul_valid_point:
     JUMPDEST
     // stack: x, y, s, retdest
     DUP3
@@ -25,13 +54,13 @@ step_case:
     // stack: y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
     DUP5
     // stack: x, y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_double_secp)
+    %jump(ec_double)
 
 // Assumption: 2(x,y) = (x',y')
 step_case_contd:
     JUMPDEST
     // stack: x', y', s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_mul_valid_point_secp)
+    %jump(ec_mul_valid_point)
 
 recursion_return:
     JUMPDEST
@@ -69,4 +98,4 @@ recursion_return:
 odd_scalar:
     JUMPDEST
     // stack: x', y', x, y, retdest
-    %jump(ec_add_valid_points_secp)
+    %jump(ec_add_valid_points)
