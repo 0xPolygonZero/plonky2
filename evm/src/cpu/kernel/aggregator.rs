@@ -1,49 +1,14 @@
 //! Loads each kernel assembly file and concatenates them.
 
-use std::collections::HashMap;
-
-use ethereum_types::U256;
-use hex_literal::hex;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 use super::assembler::{assemble, Kernel};
+use crate::cpu::kernel::constants::evm_constants;
 use crate::cpu::kernel::parser::parse;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
-use crate::memory::segments::Segment;
 
 pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 
-const EC_CONSTANTS: [(&str, [u8; 32]); 3] = [
-    (
-        "BN_BASE",
-        hex!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),
-    ),
-    (
-        "SECP_BASE",
-        hex!("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),
-    ),
-    (
-        "SECP_SCALAR",
-        hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),
-    ),
-];
-
-pub fn evm_constants() -> HashMap<String, U256> {
-    let mut c = HashMap::new();
-    for (name, value) in EC_CONSTANTS {
-        c.insert(name.into(), U256::from_big_endian(&value));
-    }
-    for segment in Segment::all() {
-        c.insert(segment.var_name().into(), (segment as u32).into());
-    }
-    for txn_field in NormalizedTxnField::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
-    }
-    c
-}
-
-#[allow(dead_code)] // TODO: Should be used once witness generation is done.
 pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/curve/bn254/curve_add.asm"),
