@@ -23,7 +23,7 @@ use crate::plonk::vars::{
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     pub bits: usize,
     pub num_copies: usize,
     pub num_extra_constants: usize,

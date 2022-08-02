@@ -23,7 +23,7 @@ use crate::plonk::vars::{
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
-pub(crate) struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
     pub _phantom: PhantomData<F>,
 }
