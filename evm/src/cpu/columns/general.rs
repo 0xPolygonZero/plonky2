@@ -5,22 +5,14 @@ use std::mem::{size_of, transmute};
 /// General purpose columns, which can have different meanings depending on what CTL or other
 /// operation is occurring at this row.
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
-    keccak: CpuKeccakView<T>,
     arithmetic: CpuArithmeticView<T>,
+    jumps: CpuJumpsView<T>,
+    keccak: CpuKeccakView<T>,
     logic: CpuLogicView<T>,
+    traps: CpuTrapsView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn keccak(&self) -> &CpuKeccakView<T> {
-        unsafe { &self.keccak }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn keccak_mut(&mut self) -> &mut CpuKeccakView<T> {
-        unsafe { &mut self.keccak }
-    }
-
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn arithmetic(&self) -> &CpuArithmeticView<T> {
         unsafe { &self.arithmetic }
@@ -32,6 +24,26 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn jumps(&self) -> &CpuJumpsView<T> {
+        unsafe { &self.jumps }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn jumps_mut(&mut self) -> &mut CpuJumpsView<T> {
+        unsafe { &mut self.jumps }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn keccak(&self) -> &CpuKeccakView<T> {
+        unsafe { &self.keccak }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn keccak_mut(&mut self) -> &mut CpuKeccakView<T> {
+        unsafe { &mut self.keccak }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn logic(&self) -> &CpuLogicView<T> {
         unsafe { &self.logic }
     }
@@ -39,6 +51,16 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn logic_mut(&mut self) -> &mut CpuLogicView<T> {
         unsafe { &mut self.logic }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn traps(&self) -> &CpuTrapsView<T> {
+        unsafe { &self.traps }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn traps_mut(&mut self) -> &mut CpuTrapsView<T> {
+        unsafe { &mut self.traps }
     }
 }
 
@@ -72,15 +94,35 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
 }
 
 #[derive(Copy, Clone)]
-pub(crate) struct CpuKeccakView<T: Copy> {
-    pub(crate) input_limbs: [T; 50],
-    pub(crate) output_limbs: [T; 50],
-}
-
-#[derive(Copy, Clone)]
 pub(crate) struct CpuArithmeticView<T: Copy> {
     // TODO: Add "looking" columns for the arithmetic CTL.
     tmp: T, // temporary, to suppress errors
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuJumpsView<T: Copy> {
+    // Assuming a limb size of 32 bits.
+    pub(crate) input0: [T; 8],
+    pub(crate) input1: [T; 8],
+    pub(crate) output: [T; 8],
+
+    pub(crate) should_continue: T,
+    pub(crate) should_jump: T,
+    pub(crate) should_trap: T,
+
+    pub(crate) input1_sum_inv: T,
+
+    pub(crate) dst_valid: T, // TODO: populate this (check for JUMPDEST)
+    pub(crate) dst_valid_or_kernel: T,
+    pub(crate) input0_upper_sum_inv: T,
+    pub(crate) input0_upper_zero: T,
+    pub(crate) input0_jumpable: T,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuKeccakView<T: Copy> {
+    pub(crate) input_limbs: [T; 50],
+    pub(crate) output_limbs: [T; 50],
 }
 
 #[derive(Copy, Clone)]
@@ -89,6 +131,12 @@ pub(crate) struct CpuLogicView<T: Copy> {
     pub(crate) input0: [T; 16],
     pub(crate) input1: [T; 16],
     pub(crate) output: [T; 16],
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuTrapsView<T: Copy> {
+    // Assuming a limb size of 32 bits.
+    pub(crate) output: [T; 8],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

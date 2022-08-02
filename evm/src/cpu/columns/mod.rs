@@ -27,6 +27,9 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: The program counter for the current instruction.
     pub program_counter: T,
 
+    /// If CPU cycle: We're in kernel (privileged) mode.
+    pub is_kernel_mode: T,
+
     /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
     pub opcode: T,
 
@@ -142,8 +145,15 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_invalid_11: T,
     pub is_invalid_12: T,
     pub is_invalid_13: T,
+    pub is_invalid_14: T,
+    pub is_invalid_15: T,
+    pub is_invalid_16: T,
+    pub is_invalid_17: T,
+    pub is_invalid_18: T,
+    pub is_invalid_19: T,
+    pub is_invalid_20: T,
 
-    /// If CPU cycle: the opcode, broken up into bits in **big-endian** order.
+    /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
     /// Filter. 1 iff a Keccak permutation is computed on this row.
