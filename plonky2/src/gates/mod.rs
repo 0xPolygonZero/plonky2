@@ -19,7 +19,7 @@ pub mod public_input;
 pub mod random_access;
 pub mod reducing;
 pub mod reducing_extension;
-pub mod selectors;
+pub(crate) mod selectors;
 pub mod util;
 
 // Can't use #[cfg(test)] here because it needs to be visible to other crates.
