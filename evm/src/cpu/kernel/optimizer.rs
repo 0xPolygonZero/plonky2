@@ -50,6 +50,8 @@ fn constant_propagation(code: &mut Vec<Item>) {
                 "SUB" => Some(x.overflowing_sub(y).0),
                 "MUL" => Some(x.overflowing_mul(y).0),
                 "DIV" => Some(x.checked_div(y).unwrap_or(U256::zero())),
+                "MOD" => Some(x.checked_rem(y).unwrap_or(U256::zero())),
+                "EXP" => Some(x.overflowing_pow(y).0),
                 "SHL" => Some(x << y),
                 "SHR" => Some(x >> y),
                 "AND" => Some(x & y),
@@ -58,6 +60,11 @@ fn constant_propagation(code: &mut Vec<Item>) {
                 "LT" => Some(u256_from_bool(x < y)),
                 "GT" => Some(u256_from_bool(x > y)),
                 "EQ" => Some(u256_from_bool(x == y)),
+                "BYTE" => Some(if x < 32.into() {
+                    y.byte(x.as_usize()).into()
+                } else {
+                    U256::zero()
+                }),
                 _ => None,
             }
             .map(|res| vec![Push(Literal(res))])
