@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
