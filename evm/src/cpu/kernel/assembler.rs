@@ -7,6 +7,7 @@ use log::debug;
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
+use crate::cpu::kernel::optimizer::optimize_asm;
 use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
@@ -64,7 +65,11 @@ impl Macro {
     }
 }
 
-pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Kernel {
+pub(crate) fn assemble(
+    files: Vec<File>,
+    constants: HashMap<String, U256>,
+    optimize: bool,
+) -> Kernel {
     let macros = find_macros(&files);
     let mut global_labels = HashMap::new();
     let mut prover_inputs = HashMap::new();
@@ -75,7 +80,10 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         let expanded_file = expand_macros(file.body, &macros);
         let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
-        let expanded_file = expand_stack_manipulation(expanded_file);
+        let mut expanded_file = expand_stack_manipulation(expanded_file);
+        if optimize {
+            optimize_asm(&mut expanded_file);
+        }
         local_labels.push(find_labels(
             &expanded_file,
             &mut offset,
@@ -381,7 +389,7 @@ mod tests {
         let expected_kernel = Kernel::new(expected_code, expected_global_labels, HashMap::new());
 
         let program = vec![file_1, file_2];
-        assert_eq!(assemble(program, HashMap::new()), expected_kernel);
+        assert_eq!(assemble(program, HashMap::new(), false), expected_kernel);
     }
 
     #[test]
@@ -399,7 +407,7 @@ mod tests {
                 Item::StandardOp("JUMPDEST".to_string()),
             ],
         };
-        assemble(vec![file_1, file_2], HashMap::new());
+        assemble(vec![file_1, file_2], HashMap::new(), false);
     }
 
     #[test]
@@ -413,7 +421,7 @@ mod tests {
                 Item::StandardOp("ADD".to_string()),
             ],
         };
-        assemble(vec![file], HashMap::new());
+        assemble(vec![file], HashMap::new(), false);
     }
 
     #[test]
@@ -421,7 +429,7 @@ mod tests {
         let file = File {
             body: vec![Item::Bytes(vec![0x12, 42]), Item::Bytes(vec![0xFE, 255])],
         };
-        let code = assemble(vec![file], HashMap::new()).code;
+        let code = assemble(vec![file], HashMap::new(), false).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
     }
 
@@ -438,10 +446,11 @@ mod tests {
 
     #[test]
     fn macro_with_vars() {
-        let kernel = parse_and_assemble(&[
+        let files = &[
             "%macro add(x, y) PUSH $x PUSH $y ADD %endmacro",
             "%add(2, 3)",
-        ]);
+        ];
+        let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
         let push1 = get_push_opcode(1);
         let add = get_opcode("ADD");
         assert_eq!(kernel.code, vec![push1, 2, push1, 3, add]);
@@ -479,7 +488,7 @@ mod tests {
         let mut constants = HashMap::new();
         constants.insert("DEAD_BEEF".into(), 0xDEADBEEFu64.into());
 
-        let kernel = parse_and_assemble_with_constants(code, constants);
+        let kernel = parse_and_assemble_ext(code, constants, true);
         let push4 = get_push_opcode(4);
         assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
     }
@@ -510,7 +519,7 @@ mod tests {
 
         let mut consts = HashMap::new();
         consts.insert("LIFE".into(), 42.into());
-        parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
+        parse_and_assemble_ext(&["%stack (a, b) -> (b, @LIFE)"], consts, true);
         // We won't check the code since there are two equally efficient implementations.
 
         let kernel = parse_and_assemble(&["start: %stack (a, b) -> (start)"]);
@@ -522,14 +531,15 @@ mod tests {
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
-        parse_and_assemble_with_constants(files, HashMap::new())
+        parse_and_assemble_ext(files, HashMap::new(), true)
     }
 
-    fn parse_and_assemble_with_constants(
+    fn parse_and_assemble_ext(
         files: &[&str],
         constants: HashMap<String, U256>,
+        optimize: bool,
     ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files, constants)
+        assemble(parsed_files, constants, optimize)
     }
 }

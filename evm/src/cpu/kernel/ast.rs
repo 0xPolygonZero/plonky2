@@ -7,7 +7,7 @@ pub(crate) struct File {
     pub(crate) body: Vec<Item>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub(crate) enum Item {
     /// Defines a new macro: name, params, body.
     MacroDef(String, Vec<String>, Vec<Item>),
@@ -34,7 +34,7 @@ pub(crate) enum Item {
     Bytes(Vec<u8>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub(crate) enum StackReplacement {
     /// Can be either a named item or a label.
     Identifier(String),
