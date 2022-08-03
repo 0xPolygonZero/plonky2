@@ -446,10 +446,11 @@ mod tests {
 
     #[test]
     fn macro_with_vars() {
-        let kernel = parse_and_assemble(&[
+        let files = &[
             "%macro add(x, y) PUSH $x PUSH $y ADD %endmacro",
             "%add(2, 3)",
-        ]);
+        ];
+        let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
         let push1 = get_push_opcode(1);
         let add = get_opcode("ADD");
         assert_eq!(kernel.code, vec![push1, 2, push1, 3, add]);
@@ -487,7 +488,7 @@ mod tests {
         let mut constants = HashMap::new();
         constants.insert("DEAD_BEEF".into(), 0xDEADBEEFu64.into());
 
-        let kernel = parse_and_assemble_with_constants(code, constants);
+        let kernel = parse_and_assemble_ext(code, constants, true);
         let push4 = get_push_opcode(4);
         assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
     }
@@ -518,7 +519,7 @@ mod tests {
 
         let mut consts = HashMap::new();
         consts.insert("LIFE".into(), 42.into());
-        parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
+        parse_and_assemble_ext(&["%stack (a, b) -> (b, @LIFE)"], consts, true);
         // We won't check the code since there are two equally efficient implementations.
 
         let kernel = parse_and_assemble(&["start: %stack (a, b) -> (start)"]);
@@ -530,14 +531,15 @@ mod tests {
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
-        parse_and_assemble_with_constants(files, HashMap::new())
+        parse_and_assemble_ext(files, HashMap::new(), true)
     }
 
-    fn parse_and_assemble_with_constants(
+    fn parse_and_assemble_ext(
         files: &[&str],
         constants: HashMap<String, U256>,
+        optimize: bool,
     ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files, constants, true)
+        assemble(parsed_files, constants, optimize)
     }
 }
