@@ -5,6 +5,7 @@ use PushTarget::Literal;
 use crate::cpu::kernel::ast::Item::{GlobalLabelDeclaration, LocalLabelDeclaration};
 use crate::cpu::kernel::ast::PushTarget::Label;
 use crate::cpu::kernel::ast::{Item, PushTarget};
+use crate::cpu::kernel::cost_estimator::is_code_improved;
 use crate::cpu::kernel::utils::{replace_windows, u256_from_bool};
 
 pub(crate) fn optimize_asm(code: &mut Vec<Item>) {
@@ -30,7 +31,7 @@ fn optimize_asm_once(code: &mut Vec<Item>) {
 /// Constant propagation.
 fn constant_propagation(code: &mut Vec<Item>) {
     // Constant propagation for unary ops: `[PUSH x, UNARYOP] -> [PUSH UNARYOP(x)]`
-    replace_windows(code, |window| {
+    replace_windows_if_better(code, |window| {
         if let [Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
                 "ISZERO" => Some(vec![Push(Literal(u256_from_bool(x.is_zero())))]),
@@ -43,7 +44,7 @@ fn constant_propagation(code: &mut Vec<Item>) {
     });
 
     // Constant propagation for binary ops: `[PUSH y, PUSH x, BINOP] -> [PUSH BINOP(x, y)]`
-    replace_windows(code, |window| {
+    replace_windows_if_better(code, |window| {
         if let [Push(Literal(y)), Push(Literal(x)), StandardOp(op)] = window {
             match op.as_str() {
                 "ADD" => Some(x.overflowing_add(y).0),
@@ -129,6 +130,17 @@ fn remove_ignored_values(code: &mut Vec<Item>) {
     });
 }
 
+/// Like `replace_windows`, but specifically for code, and only makes replacements if our cost
+/// estimator thinks that the new code is more efficient.
+fn replace_windows_if_better<const W: usize, F>(code: &mut Vec<Item>, maybe_replace: F)
+where
+    F: Fn([Item; W]) -> Option<Vec<Item>>,
+{
+    replace_windows(code, |window| {
+        maybe_replace(window.clone()).filter(|suggestion| is_code_improved(&window, suggestion))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,13 +165,18 @@ mod tests {
 
     #[test]
     fn test_constant_propagation_sub_underflowing() {
-        let mut code = vec![
+        let original = vec![
             Push(Literal(U256::one())),
             Push(Literal(U256::zero())),
             StandardOp("SUB".into()),
         ];
+        let mut code = original.clone();
         constant_propagation(&mut code);
-        assert_eq!(code, vec![Push(Literal(U256::max_value()))]);
+        // Constant propagation could replace the code with [PUSH U256::MAX], but that's actually
+        // more expensive, so the code shouldn't be changed.
+        // (The code could also be replaced with [PUSH 0; NOT], which would be an improvement, but
+        // our optimizer isn't smart enough yet.)
+        assert_eq!(code, original);
     }
 
     #[test]
