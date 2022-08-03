@@ -1,7 +1,10 @@
 pub mod aggregator;
 pub mod assembler;
 mod ast;
+mod constants;
+mod context_metadata;
 mod cost_estimator;
+mod global_metadata;
 pub(crate) mod keccak_util;
 mod opcodes;
 mod optimizer;
@@ -19,7 +22,7 @@ mod tests;
 use assembler::assemble;
 use parser::parse;
 
-use crate::cpu::kernel::aggregator::evm_constants;
+use crate::cpu::kernel::constants::evm_constants;
 
 /// Assemble files, outputting bytes.
 /// This is for debugging the kernel only.
