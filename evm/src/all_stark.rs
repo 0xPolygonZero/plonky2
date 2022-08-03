@@ -260,6 +260,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
+            row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(i);
             row.opcode = [
                 (logic::columns::IS_AND, 0x16),
@@ -323,7 +324,9 @@ mod tests {
         for i in 0..cpu_trace_rows.len().next_power_of_two() - cpu_trace_rows.len() {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.opcode = F::from_canonical_u8(0xff);
             row.is_cpu_cycle = F::ONE;
+            row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(i + num_logic_rows);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());

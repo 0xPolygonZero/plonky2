@@ -106,17 +106,18 @@ pub(crate) struct CpuJumpsView<T: Copy> {
     pub(crate) input1: [T; 8],
     pub(crate) output: [T; 8],
 
-    pub(crate) should_continue: T,
-    pub(crate) should_jump: T,
-    pub(crate) should_trap: T,
-
-    pub(crate) input1_sum_inv: T,
+    pub(crate) input0_upper_sum_inv: T,
+    pub(crate) input0_upper_zero: T,
 
     pub(crate) dst_valid: T, // TODO: populate this (check for JUMPDEST)
     pub(crate) dst_valid_or_kernel: T,
-    pub(crate) input0_upper_sum_inv: T,
-    pub(crate) input0_upper_zero: T,
     pub(crate) input0_jumpable: T,
+
+    pub(crate) input1_sum_inv: T,
+
+    pub(crate) should_continue: T,
+    pub(crate) should_jump: T,
+    pub(crate) should_trap: T,
 }
 
 #[derive(Copy, Clone)]
