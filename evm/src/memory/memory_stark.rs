@@ -499,7 +499,11 @@ pub(crate) mod tests {
 
                 let (context, segment, virt, vals) = if is_read {
                     let written: Vec<_> = current_memory_values.keys().collect();
-                    let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
+                    let &(mut context, mut segment, mut virt) = written[rng.gen_range(0..written.len())];
+                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
+                        (context, segment, virt) = *written[rng.gen_range(0..written.len())];
+                    }
+                    
                     let &vals = current_memory_values
                         .get(&(context, segment, virt))
                         .unwrap();
