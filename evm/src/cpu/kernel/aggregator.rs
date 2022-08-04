@@ -25,6 +25,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/halt.asm"),
         include_str!("asm/memory/core.asm"),
         include_str!("asm/memory/memcpy.asm"),
+        include_str!("asm/memory/metadata.asm"),
+        include_str!("asm/memory/packing.asm"),
         include_str!("asm/memory/txn_fields.asm"),
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/decode.asm"),
