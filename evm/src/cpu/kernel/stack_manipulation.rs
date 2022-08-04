@@ -42,7 +42,9 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
                 }
             }
             StackReplacement::Literal(n) => StackItem::PushTarget(PushTarget::Literal(n)),
-            StackReplacement::MacroVar(_) | StackReplacement::Constant(_) => {
+            StackReplacement::MacroLabel(_)
+            | StackReplacement::MacroVar(_)
+            | StackReplacement::Constant(_) => {
                 panic!("Should have been expanded already: {:?}", item)
             }
         })
@@ -230,7 +232,9 @@ impl StackOp {
                 let bytes = match target {
                     PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u32,
                     PushTarget::Label(_) => BYTES_PER_OFFSET as u32,
-                    PushTarget::MacroVar(_) | PushTarget::Constant(_) => {
+                    PushTarget::MacroLabel(_)
+                    | PushTarget::MacroVar(_)
+                    | PushTarget::Constant(_) => {
                         panic!("Target should have been expanded already: {:?}", target)
                     }
                 };

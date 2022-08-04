@@ -14,78 +14,50 @@
 global process_type_0_txn:
     JUMPDEST
     // stack: (empty)
-    PUSH process_txn_with_len
     PUSH 0 // initial pos
-    // stack: pos, process_txn_with_len
-    %jump(decode_rlp_list_len)
-
-process_txn_with_len:
+    // stack: pos
+    %decode_rlp_list_len
     // We don't actually need the length.
     %stack (pos, len) -> (pos)
 
-    PUSH store_nonce
-    SWAP1
-    // stack: pos, store_nonce
-    %jump(decode_rlp_scalar)
-
-store_nonce:
+    // Decode the nonce and store it.
+    // stack: pos
+    %decode_rlp_scalar
     %stack (pos, nonce) -> (@TXN_FIELD_NONCE, nonce, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
-    // stack: pos
-    PUSH store_gas_price
-    SWAP1
-    // stack: pos, store_gas_price
-    %jump(decode_rlp_scalar)
-
-store_gas_price:
+    // Decode the gas price and store it.
     // For legacy transactions, we set both the
     // TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS and TXN_FIELD_MAX_FEE_PER_GAS
     // fields to gas_price.
+    // stack: pos
+    %decode_rlp_scalar
     %stack (pos, gas_price) -> (@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS, gas_price,
                                 @TXN_FIELD_MAX_FEE_PER_GAS, gas_price, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
+    // Decode the gas limit and store it.
     // stack: pos
-    PUSH store_gas_limit
-    SWAP1
-    // stack: pos, store_gas_limit
-    %jump(decode_rlp_scalar)
-
-store_gas_limit:
+    %decode_rlp_scalar
     %stack (pos, gas_limit) -> (@TXN_FIELD_GAS_LIMIT, gas_limit, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
+    // Decode the "to" field and store it.
     // stack: pos
-    PUSH store_to
-    SWAP1
-    // stack: pos, store_to
-    %jump(decode_rlp_scalar)
-
-store_to:
+    %decode_rlp_scalar
     %stack (pos, to) -> (@TXN_FIELD_TO, to, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
-    // stack: pos
 
-parse_value:
+    // Decode the value field and store it.
     // stack: pos
-    PUSH store_value
-    SWAP1
-    // stack: pos, store_value
-    %jump(decode_rlp_scalar)
-
-store_value:
+    %decode_rlp_scalar
     %stack (pos, value) -> (@TXN_FIELD_VALUE, value, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
+    // Decode the data length, store it, and compute new_pos after any data.
     // stack: pos
-    PUSH store_data_len
-    SWAP1
-    // stack: pos, store_data_len
-    %jump(decode_rlp_string_len)
-
-store_data_len:
+    %decode_rlp_string_len
     %stack (pos, data_len) -> (@TXN_FIELD_DATA_LEN, data_len, pos, data_len, pos, data_len)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
     // stack: pos, data_len, pos, data_len
@@ -105,12 +77,7 @@ store_data_len:
 
 parse_v:
     // stack: pos
-    PUSH process_v
-    SWAP1
-    // stack: pos, process_v
-    %jump(decode_rlp_scalar)
-
-process_v:
+    %decode_rlp_scalar
     // stack: pos, v
     SWAP1
     // stack: v, pos
@@ -154,22 +121,12 @@ process_v_new_style:
 
 parse_r:
     // stack: pos
-    PUSH store_r
-    SWAP1
-    // stack: pos, store_r
-    %jump(decode_rlp_scalar)
-
-store_r:
+    %decode_rlp_scalar
     %stack (pos, r) -> (@TXN_FIELD_R, r, pos)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
 
     // stack: pos
-    PUSH store_s
-    SWAP1
-    // stack: pos, store_s
-    %jump(decode_rlp_scalar)
-
-store_s:
+    %decode_rlp_scalar
     %stack (pos, s) -> (@TXN_FIELD_S, s)
     %mstore_current(@SEGMENT_NORMALIZED_TXN)
     // stack: (empty)

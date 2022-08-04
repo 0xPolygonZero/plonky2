@@ -24,6 +24,8 @@ pub(crate) enum Item {
     GlobalLabelDeclaration(String),
     /// Declares a label that is local to the current file.
     LocalLabelDeclaration(String),
+    /// Declares a label that is local to the macro it's declared in.
+    MacroLabelDeclaration(String),
     /// A `PUSH` operation.
     Push(PushTarget),
     /// A `ProverInput` operation.
@@ -39,6 +41,7 @@ pub(crate) enum StackReplacement {
     /// Can be either a named item or a label.
     Identifier(String),
     Literal(U256),
+    MacroLabel(String),
     MacroVar(String),
     Constant(String),
 }
@@ -48,6 +51,7 @@ pub(crate) enum StackReplacement {
 pub(crate) enum PushTarget {
     Literal(U256),
     Label(String),
+    MacroLabel(String),
     MacroVar(String),
     Constant(String),
 }
