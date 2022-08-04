@@ -1,4 +1,3 @@
-
 // Copies `count` values from
 //     SRC = (src_ctx, src_segment, src_addr)
 // to
