@@ -140,6 +140,11 @@
     // stack: input >= c, ...
 %endmacro
 
+%macro consume_gas_const(c)
+    PUSH $c
+    CONSUME_GAS
+%endmacro
+
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z
@@ -187,4 +192,26 @@
     // stack: x, x
     mul
     // stack: x^2
+%endmacro
+
+%macro min
+    // stack: x, y
+    DUP2
+    DUP2
+    // stack: x, y, x, y
+    LT
+    // stack: x < y, x, y
+    %select_bool
+    // stack: min
+%endmacro
+
+%macro max
+    // stack: x, y
+    DUP2
+    DUP2
+    // stack: x, y, x, y
+    GT
+    // stack: x > y, x, y
+    %select_bool
+    // stack: max
 %endmacro
