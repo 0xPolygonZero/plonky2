@@ -6,7 +6,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::bigint::BigUint;
 use num::{Integer, One, ToPrimitive, Zero};
 use plonky2_util::bits_u64;
-use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -312,7 +311,8 @@ pub trait Field:
         Self::from_noncanonical_u128(n)
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
+    #[cfg(feature = "rand")]
+    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self;
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
@@ -391,14 +391,17 @@ pub trait Field:
         }
     }
 
+    #[cfg(feature = "rand")]
     fn rand() -> Self {
         Self::rand_from_rng(&mut rand::thread_rng())
     }
 
+    #[cfg(feature = "rand")]
     fn rand_arr<const N: usize>() -> [Self; N] {
         Self::rand_vec(N).try_into().unwrap()
     }
 
+    #[cfg(feature = "rand")]
     fn rand_vec(n: usize) -> Vec<Self> {
         (0..n).map(|_| Self::rand()).collect()
     }
