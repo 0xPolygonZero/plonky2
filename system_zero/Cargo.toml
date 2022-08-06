@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-plonky2 = { path = "../plonky2", features = ["timing"] }
+plonky2 = { path = "../plonky2" }
 plonky2_util = { path = "../util" }
 starky = { path = "../starky" }
 anyhow = "1.0.40"
