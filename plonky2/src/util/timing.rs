@@ -99,6 +99,9 @@ impl TimingTree {
         })
     }
 
+    #[cfg(not(feature = "timing"))]
+    pub fn push(&mut self, _ctx: &str, _level: log::Level) {}
+
     /// Close the deepest open scope from this tree.
     #[cfg(feature = "timing")]
     pub fn pop(&mut self) {
@@ -113,6 +116,9 @@ impl TimingTree {
 
         self.exit_time = Some(Instant::now());
     }
+
+    #[cfg(not(feature = "timing"))]
+    pub fn pop(&mut self) {}
 
     #[cfg(feature = "timing")]
     fn duration(&self) -> Duration {
@@ -171,26 +177,16 @@ impl TimingTree {
 #[macro_export]
 macro_rules! timed {
     ($timing_tree:expr, $level:expr, $ctx:expr, $exp:expr) => {{
-        #[cfg(feature = "timing")]
         $timing_tree.push($ctx, $level);
-
         let res = $exp;
-
-        #[cfg(feature = "timing")]
         $timing_tree.pop();
-
         res
     }};
     // If no context is specified, default to Debug.
     ($timing_tree:expr, $ctx:expr, $exp:expr) => {{
-        #[cfg(feature = "timing")]
         $timing_tree.push($ctx, log::Level::Debug);
-
         let res = $exp;
-
-        #[cfg(feature = "timing")]
         $timing_tree.pop();
-
         res
     }};
 }
