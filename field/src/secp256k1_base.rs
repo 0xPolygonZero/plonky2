@@ -5,9 +5,8 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use itertools::Itertools;
-use num::bigint::{BigUint, RandBigInt};
+use num::bigint::BigUint;
 use num::{Integer, One};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{Field, PrimeField};
@@ -133,7 +132,9 @@ impl Field for Secp256K1Base {
         Self([n.0, n.1 as u64, 0, 0])
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    #[cfg(feature = "rand")]
+    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
+        use num::bigint::RandBigInt;
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
