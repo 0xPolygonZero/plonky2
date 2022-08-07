@@ -11,16 +11,16 @@ edition = "2021"
 default-run = "generate_constants"
 
 [features]
-default = ["parallel", "rand", "rand_chacha", "gate_testing"]
+default = ["parallel", "rand", "rand_chacha", "timing", "gate_testing"]
 parallel = ["maybe_rayon/parallel"]
 rand = ["dep:rand", "plonky2_field/rand"]
 gate_testing = ["rand"]
 rand_chacha = ["dep:rand_chacha"]
+timing = []
 
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
-env_logger = "0.9.0"
 log = "0.4.14"
 itertools = "0.10.0"
 num = { version = "0.4", features = [ "rand" ] }
@@ -38,6 +38,7 @@ static_assertions = "1.1.0"
 rand = "0.8.4"
 rand_chacha = "0.3.1"
 criterion = "0.3.5"
+env_logger = "0.9.0"
 tynm = "0.1.6"
 structopt = "0.3.26"
 num_cpus = "1.13.1"
