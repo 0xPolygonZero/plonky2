@@ -69,7 +69,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
     }
 
     pub fn generate_trace(&self) -> Vec<PolynomialValues<F>> {
-        #[allow(unused_mut)]
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness, except for permuted columns in the lookup argument.
