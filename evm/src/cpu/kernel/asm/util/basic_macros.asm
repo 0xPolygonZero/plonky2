@@ -194,22 +194,6 @@
     // stack: x^2
 %endmacro
 
-<<<<<<< HEAD:evm/src/cpu/kernel/asm/basic_macros.asm
-%macro not_32
-    // stack: x
-    push 0xffffffff
-    // stack: 0xffffffff, x
-    sub
-    // stack: 0xffffffff - x
-%endmacro
-
-%macro u32
-    // stack: x
-    push 0xffffffff
-    // stack: 0xffffffff, x
-    and
-    // stack: 0xffffffff & x
-=======
 %macro min
     // stack: x, y
     DUP2
@@ -230,5 +214,20 @@
     // stack: x > y, x, y
     %select_bool
     // stack: max
->>>>>>> 65a20bcd8a5a4040f86b7425817b98daecc05a78:evm/src/cpu/kernel/asm/util/basic_macros.asm
 %endmacro
+
+%macro not_32
+    // stack: x
+    push 0xffffffff
+    // stack: 0xffffffff, x
+    sub
+    // stack: 0xffffffff - x
+%endmacro
+
+%macro u32
+    // stack: x
+    push 0xffffffff
+    // stack: 0xffffffff, x
+    and
+    // stack: 0xffffffff & x
+    
