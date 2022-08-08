@@ -64,10 +64,10 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
-    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use std::str::FromStr;
 
     use anyhow::Result;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use ethereum_types::U256;
     use log::debug;
 

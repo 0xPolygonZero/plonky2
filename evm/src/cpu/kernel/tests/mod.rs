@@ -4,8 +4,8 @@ mod ecrecover;
 mod exp;
 mod packing;
 mod rlp;
-mod transaction_parsing;
 mod sha2;
+mod transaction_parsing;
 
 use std::str::FromStr;
 
