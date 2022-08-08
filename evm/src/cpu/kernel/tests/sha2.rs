@@ -34,8 +34,13 @@ fn test_sha2_store() -> Result<()> {
     store_initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
     store_initial_stack.reverse();
     dbg!(store_initial_stack.clone());
-    
-    let after_storing = run(&kernel.code, sha2_store, store_initial_stack, &kernel.prover_inputs)?;
+
+    let after_storing = run(
+        &kernel.code,
+        sha2_store,
+        store_initial_stack,
+        &kernel.prover_inputs,
+    )?;
     let stack_after_storing = after_storing.stack();
     dbg!(stack_after_storing.clone());
     let memory_after_storing = after_storing.memory;
