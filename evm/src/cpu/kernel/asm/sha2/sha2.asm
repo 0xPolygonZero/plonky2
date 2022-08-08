@@ -40,37 +40,6 @@ sha2_store_end:
     //JUMP
     %jump(sha2_pad)
 
-//global test_sha2_read:
-//    JUMPDEST
-//    // stack: retdest
-//    push 0
-//    // stack: 0, retdest
-//    %mload_kernel_general
-//    // stack: counter=num_bytes, retdest
-//test_sha2_read_loop:
-//    JUMPDEST
-//    // stack: counter, retdest, [stack]
-//    dup1
-//    // stack: addr=counter, counter, retdest, [stack]
-//    %mload_kernel_general
-//    // stack: value, counter, retdest, [stack]
-//    swap2
-//    // stack: retdest, counter, value, [stack]
-//    swap1
-//    // stack: counter, retdest, value, [stack]
-//    %decrement
-//    // stack: counter-1, retdest, value, [stack]
-//    dup1
-//    iszero
-//    %jumpi(test_sha2_read_end)
-//    %jump(test_sha2_read_loop)
-//test_sha2_read_end:
-//    // stack: counter=0, retdest, [stack]
-//    JUMPDEST
-//    pop
-//    // stack: retdest, [stack]
-//    JUMP
-
 // Precodition: input is in memory, starting at 0 of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
 // Postcodition: output is in memory, starting at 0, of the form
@@ -84,8 +53,9 @@ global sha2_pad:
     // STEP 1: append 1
     // insert 128 (= 1 << 7) at x[num_bytes]
     // stack: num_bytes, retdest
-    push 1
+    // TODO: these should be in the other order once SHL implementation is fixed
     push 7
+    push 1
     shl
     // stack: 128, num_bytes, retdest
     dup2
@@ -126,7 +96,7 @@ global sha2_pad:
     %jump(sha2_gen_message_schedule_from_block)
 
 // Precodition: stack contains address of one message block, followed by output address
-// Postcondition: 256 addresses starting at given output address, contain 32-bit chunks
+// Postcondition: 256 bytes starting at given output address contain the 64 32-bit chunks
 //                of message schedule (in four-byte increments)
 global sha2_gen_message_schedule_from_block:
     JUMPDEST
@@ -153,8 +123,9 @@ sha2_gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr, block[0], block[1], retdest
     swap2
     // stack: block[0], output_addr, counter, block[1], retdest
-    push 1
+    // TODO: these should be in the other order once SHL implementation is fixed
     push 32
+    push 1
     shl
     // stack: 1 << 32, block[0], output_addr, counter, block[1], retdest
     dup2
@@ -204,8 +175,9 @@ sha2_gen_message_schedule_from_block_1_loop:
     // stack: counter, output_addr, block[1], block[0], retdest
     swap2
     // stack: block[1], output_addr, counter, block[0], retdest
-    push 1
+    // TODO: these should be in the other order once SHL implementation is fixed
     push 32
+    push 1
     shl
     // stack: 1 << 32, block[1], output_addr, counter, block[0], retdest
     dup2
