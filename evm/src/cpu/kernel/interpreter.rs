@@ -196,7 +196,7 @@ impl<'a> Interpreter<'a> {
             0x17 => self.run_or(),                                     // "OR",
             0x18 => self.run_xor(),                                    // "XOR",
             0x19 => self.run_not(),                                    // "NOT",
-            0x1a => todo!(),                                           // "BYTE",
+            0x1a => self.run_byte(),                                   // "BYTE",
             0x1b => self.run_shl(),                                    // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
@@ -378,6 +378,20 @@ impl<'a> Interpreter<'a> {
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
+    }
+
+    fn run_byte(&mut self) {
+        dbg!("byte");
+        let i = self.pop();
+        let x = self.pop();
+        let result = if i > 32.into() {
+            0
+        } else {
+            let mut bytes = [0; 32];
+            x.to_big_endian(&mut bytes);
+            bytes[i.as_usize()]
+        };
+        self.push(result.into());
     }
 
     fn run_shl(&mut self) {
