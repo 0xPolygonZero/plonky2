@@ -6,6 +6,7 @@ use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run;
+use crate::memory::segments::Segment;
 
 #[test]
 fn test_sha2_store() -> Result<()> {
@@ -39,17 +40,15 @@ fn test_sha2_store() -> Result<()> {
         store_initial_stack,
         &kernel.prover_inputs,
     )?;
+    
     let stack_after_storing = after_storing.stack();
     dbg!(stack_after_storing.clone());
+
     let memory_after_storing = after_storing.memory;
-    dbg!(memory_after_storing);
+    let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize].content.clone();
+    dbg!(&mem[0..66]);
 
-    // let load_initial_stack = vec![U256::from_str("0xdeadbeef").unwrap()];
-    // let stack_after_loading = run(&kernel.code, test_sha2_read, load_initial_stack)?.stack;
-    // dbg!(stack_after_loading);
-
-    // let expected_stack = todo!();
-    // assert_eq!(stack_with_kernel, expected_stack);
+    // dbg!(&mem[100..353]);
 
     Ok(())
 }

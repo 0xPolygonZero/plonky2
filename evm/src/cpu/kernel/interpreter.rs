@@ -20,7 +20,7 @@ type F = GoldilocksField;
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct InterpreterMemory {
     pub(crate) context_memory: Vec<MemoryContextState>,
 }
