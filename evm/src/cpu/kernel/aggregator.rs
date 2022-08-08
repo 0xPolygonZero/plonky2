@@ -64,11 +64,8 @@ pub(crate) fn combined_kernel() -> Kernel {
 
 #[cfg(test)]
 mod tests {
-    
 
-    
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-    
     use log::debug;
 
     use crate::cpu::kernel::aggregator::combined_kernel;
