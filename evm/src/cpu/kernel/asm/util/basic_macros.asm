@@ -159,16 +159,6 @@
     CONSUME_GAS
 %endmacro
 
-%macro pop5
-    %pop3
-    %pop2
-%endmacro
-
-%macro pop6
-    %pop4
-    %pop2
-%endmacro
-
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z
