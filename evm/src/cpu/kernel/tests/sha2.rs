@@ -50,7 +50,7 @@ fn test_sha2_store() -> Result<()> {
         .clone();
     dbg!(&mem[0..66]);
 
-    // dbg!(&mem[100..353]);
+    dbg!(&mem[100..353]);
 
     Ok(())
 }
