@@ -40,12 +40,14 @@ fn test_sha2_store() -> Result<()> {
         store_initial_stack,
         &kernel.prover_inputs,
     )?;
-    
+
     let stack_after_storing = after_storing.stack();
     dbg!(stack_after_storing.clone());
 
     let memory_after_storing = after_storing.memory;
-    let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize].content.clone();
+    let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
+        .content
+        .clone();
     dbg!(&mem[0..66]);
 
     // dbg!(&mem[100..353]);
