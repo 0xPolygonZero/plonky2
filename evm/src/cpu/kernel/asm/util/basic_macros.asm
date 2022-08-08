@@ -230,4 +230,3 @@
     // stack: 0xffffffff, x
     and
     // stack: 0xffffffff & x
-    
