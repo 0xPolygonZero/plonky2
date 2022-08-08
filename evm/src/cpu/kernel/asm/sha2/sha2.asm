@@ -53,9 +53,9 @@ global sha2_pad:
     // STEP 1: append 1
     // insert 128 (= 1 << 7) at x[num_bytes]
     // stack: num_bytes, retdest
-    // TODO: these should be in the other order once SHL implementation is fixed
-    push 7
     push 1
+    push 7
+    swap1 // TODO: remove once SHR implementation is fixed
     shl
     // stack: 128, num_bytes, retdest
     dup2
@@ -123,9 +123,9 @@ sha2_gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr, block[0], block[1], retdest
     swap2
     // stack: block[0], output_addr, counter, block[1], retdest
-    // TODO: these should be in the other order once SHL implementation is fixed
     push 32
     push 1
+    swap1 // TODO: remove once SHR implementation is fixed
     shl
     // stack: 1 << 32, block[0], output_addr, counter, block[1], retdest
     dup2
@@ -175,9 +175,9 @@ sha2_gen_message_schedule_from_block_1_loop:
     // stack: counter, output_addr, block[1], block[0], retdest
     swap2
     // stack: block[1], output_addr, counter, block[0], retdest
-    // TODO: these should be in the other order once SHL implementation is fixed
     push 32
     push 1
+    swap1 // TODO: remove once SHR implementation is fixed
     shl
     // stack: 1 << 32, block[1], output_addr, counter, block[0], retdest
     dup2
