@@ -1,16 +1,22 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
 
-use crate::generation::memory::MemoryContextState;
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::cpu::kernel::txn_fields::NormalizedTxnField;
+use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
-const HALT_OFFSET: usize = 0xdeadbeef;
+const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 #[derive(Debug)]
 pub(crate) struct InterpreterMemory {
-    context_memory: Vec<MemoryContextState>,
+    pub(crate) context_memory: Vec<MemoryContextState>,
 }
 
 impl Default for InterpreterMemory {
@@ -18,6 +24,18 @@ impl Default for InterpreterMemory {
         Self {
             context_memory: vec![MemoryContextState::default()],
         }
+    }
+}
+
+impl InterpreterMemory {
+    fn with_code_and_stack(code: &[u8], stack: Vec<U256>) -> Self {
+        let mut mem = Self::default();
+        for (i, b) in code.iter().copied().enumerate() {
+            mem.context_memory[0].segments[Segment::Code as usize].set(i, b.into());
+        }
+        mem.context_memory[0].segments[Segment::Stack as usize].content = stack;
+
+        mem
     }
 }
 
@@ -31,78 +49,129 @@ impl InterpreterMemory {
     }
 }
 
-// TODO: Remove `code` and `stack` fields as they are contained in `memory`.
-pub(crate) struct Interpreter<'a> {
-    code: &'a [u8],
+pub struct Interpreter<'a> {
+    kernel_mode: bool,
     jumpdests: Vec<usize>,
     offset: usize,
-    pub(crate) stack: Vec<U256>,
     context: usize,
-    memory: InterpreterMemory,
-    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
-    /// next prover input.
+    pub(crate) memory: InterpreterMemory,
+    prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     prover_inputs: Vec<U256>,
+    pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
 
-pub(crate) fn run(
-    code: &[u8],
+pub fn run_with_kernel(
+    // TODO: Remove param and just use KERNEL.
+    kernel: &Kernel,
     initial_offset: usize,
     initial_stack: Vec<U256>,
 ) -> anyhow::Result<Interpreter> {
-    run_with_input(code, initial_offset, initial_stack, vec![])
+    run(
+        &kernel.code,
+        initial_offset,
+        initial_stack,
+        &kernel.prover_inputs,
+    )
 }
 
-pub(crate) fn run_with_input(
-    code: &[u8],
+pub fn run<'a>(
+    code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
-    mut prover_inputs: Vec<U256>,
-) -> anyhow::Result<Interpreter> {
-    // Prover inputs are stored backwards, so that popping the last item gives the next input.
-    prover_inputs.reverse();
-
-    let mut interpreter = Interpreter {
-        code,
-        jumpdests: find_jumpdests(code),
-        offset: initial_offset,
-        stack: initial_stack,
-        context: 0,
-        memory: InterpreterMemory::default(),
-        prover_inputs,
-        running: true,
-    };
-
-    while interpreter.running {
-        interpreter.run_opcode()?;
-    }
-
+    prover_inputs: &'a HashMap<usize, ProverInputFn>,
+) -> anyhow::Result<Interpreter<'a>> {
+    let mut interpreter = Interpreter::new(code, initial_offset, initial_stack, prover_inputs);
+    interpreter.run()?;
     Ok(interpreter)
 }
 
 impl<'a> Interpreter<'a> {
-    fn slice(&self, n: usize) -> &[u8] {
-        &self.code[self.offset..self.offset + n]
+    pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
+        Self::new(
+            &KERNEL.code,
+            initial_offset,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        )
+    }
+
+    pub(crate) fn new(
+        code: &'a [u8],
+        initial_offset: usize,
+        initial_stack: Vec<U256>,
+        prover_inputs: &'a HashMap<usize, ProverInputFn>,
+    ) -> Self {
+        Self {
+            kernel_mode: true,
+            jumpdests: find_jumpdests(code),
+            offset: initial_offset,
+            memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
+            prover_inputs_map: prover_inputs,
+            prover_inputs: Vec::new(),
+            context: 0,
+            halt_offsets: vec![DEFAULT_HALT_OFFSET],
+            running: true,
+        }
+    }
+
+    pub(crate) fn run(&mut self) -> anyhow::Result<()> {
+        while self.running {
+            self.run_opcode()?;
+        }
+        Ok(())
+    }
+
+    fn code(&self) -> &MemorySegmentState {
+        &self.memory.context_memory[self.context].segments[Segment::Code as usize]
+    }
+
+    fn code_slice(&self, n: usize) -> Vec<u8> {
+        self.code().content[self.offset..self.offset + n]
+            .iter()
+            .map(|u256| u256.byte(0))
+            .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize].content[field as usize]
+    }
+
+    pub(crate) fn get_txn_data(&self) -> &[U256] {
+        &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
+    }
+
+    pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
+        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
+            rlp.into_iter().map(U256::from).collect();
     }
 
     fn incr(&mut self, n: usize) {
         self.offset += n;
     }
 
+    pub(crate) fn stack(&self) -> &[U256] {
+        &self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+    }
+
+    fn stack_mut(&mut self) -> &mut Vec<U256> {
+        &mut self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+    }
+
     fn push(&mut self, x: U256) {
-        self.stack.push(x);
+        self.stack_mut().push(x);
     }
 
     fn push_bool(&mut self, x: bool) {
-        self.stack.push(if x { U256::one() } else { U256::zero() });
+        self.push(if x { U256::one() } else { U256::zero() });
     }
 
     fn pop(&mut self) -> U256 {
-        self.stack.pop().expect("Pop on empty stack.")
+        self.stack_mut().pop().expect("Pop on empty stack.")
     }
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
-        let opcode = self.code.get(self.offset).copied().unwrap_or_default();
+        let opcode = self.code().get(self.offset).byte(0);
         self.incr(1);
         match opcode {
             0x00 => self.run_stop(),                                   // "STOP",
@@ -128,7 +197,7 @@ impl<'a> Interpreter<'a> {
             0x18 => self.run_xor(),                                    // "XOR",
             0x19 => self.run_not(),                                    // "NOT",
             0x1a => todo!(),                                           // "BYTE",
-            0x1b => todo!(),                                           // "SHL",
+            0x1b => self.run_shl(),                                    // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
             0x20 => self.run_keccak256(),                              // "KECCAK256",
@@ -311,6 +380,12 @@ impl<'a> Interpreter<'a> {
         self.push(!x);
     }
 
+    fn run_shl(&mut self) {
+        let shift = self.pop();
+        let x = self.pop();
+        self.push(x << shift);
+    }
+
     fn run_keccak256(&mut self) {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
@@ -326,11 +401,13 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
-        let input = self
-            .prover_inputs
-            .pop()
-            .ok_or_else(|| anyhow!("Out of prover inputs"))?;
-        self.stack.push(input);
+        let prover_input_fn = self
+            .prover_inputs_map
+            .get(&(self.offset - 1))
+            .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
+        let output = prover_input_fn.run(self.stack());
+        self.push(output);
+        self.prover_inputs.push(output);
         Ok(())
     }
 
@@ -376,40 +453,43 @@ impl<'a> Interpreter<'a> {
 
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
-        self.offset = x;
-        if self.offset == HALT_OFFSET {
-            self.running = false;
-        } else if self.jumpdests.binary_search(&self.offset).is_err() {
-            panic!("Destination is not a JUMPDEST.");
-        }
+        self.jump_to(x);
     }
 
     fn run_jumpi(&mut self) {
         let x = self.pop().as_usize();
         let b = self.pop();
         if !b.is_zero() {
-            self.offset = x;
-            if self.offset == HALT_OFFSET {
-                self.running = false;
-            } else if self.jumpdests.binary_search(&self.offset).is_err() {
-                panic!("Destination is not a JUMPDEST.");
-            }
+            self.jump_to(x);
+        }
+    }
+
+    fn jump_to(&mut self, offset: usize) {
+        // The JUMPDEST rule is not enforced in kernel mode.
+        if !self.kernel_mode && self.jumpdests.binary_search(&offset).is_err() {
+            panic!("Destination is not a JUMPDEST.");
+        }
+
+        self.offset = offset;
+
+        if self.halt_offsets.contains(&offset) {
+            self.running = false;
         }
     }
 
     fn run_push(&mut self, num_bytes: u8) {
-        let x = U256::from_big_endian(self.slice(num_bytes as usize));
+        let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
         self.incr(num_bytes as usize);
         self.push(x);
     }
 
     fn run_dup(&mut self, n: u8) {
-        self.push(self.stack[self.stack.len() - n as usize]);
+        self.push(self.stack()[self.stack().len() - n as usize]);
     }
 
     fn run_swap(&mut self, n: u8) {
-        let len = self.stack.len();
-        self.stack.swap(len - 1, len - n as usize - 1);
+        let len = self.stack().len();
+        self.stack_mut().swap(len - 1, len - n as usize - 1);
     }
 
     fn run_get_context(&mut self) {
@@ -458,7 +538,9 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use std::collections::HashMap;
+
+    use crate::cpu::kernel::interpreter::run;
     use crate::memory::segments::Segment;
 
     #[test]
@@ -466,7 +548,10 @@ mod tests {
         let code = vec![
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
-        assert_eq!(run(&code, 0, vec![])?.stack, vec![0x3.into()]);
+        assert_eq!(
+            run(&code, 0, vec![], &HashMap::new())?.stack(),
+            &[0x3.into()],
+        );
         Ok(())
     }
 
@@ -489,15 +574,15 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let run = run(&code, 0, vec![])?;
-        let Interpreter { stack, memory, .. } = run;
-        assert_eq!(stack, vec![0xff.into(), 0xff00.into()]);
+        let pis = HashMap::new();
+        let run = run(&code, 0, vec![], &pis)?;
+        assert_eq!(run.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
-            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
             0x42.into()
         );
         assert_eq!(
-            memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
             0xff.into()
         );
         Ok(())

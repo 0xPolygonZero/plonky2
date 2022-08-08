@@ -120,7 +120,7 @@
     // stack: input, ...
     PUSH $c
     // stack: c, input, ...
-    GE // Check it backwards: (input <= c) == (c >= input)
+    LT ISZERO // Check it backwards: (input <= c) == !(c < input)
     // stack: input <= c, ...
 %endmacro
 
@@ -136,8 +136,13 @@
     // stack: input, ...
     PUSH $c
     // stack: c, input, ...
-    LE // Check it backwards: (input >= c) == (c <= input)
+    GT ISZERO // Check it backwards: (input >= c) == !(c > input)
     // stack: input >= c, ...
+%endmacro
+
+%macro consume_gas_const(c)
+    PUSH $c
+    CONSUME_GAS
 %endmacro
 
 // If pred is zero, yields z; otherwise, yields nz
@@ -189,6 +194,7 @@
     // stack: x^2
 %endmacro
 
+<<<<<<< HEAD:evm/src/cpu/kernel/asm/basic_macros.asm
 %macro not_32
     // stack: x
     push 0xffffffff
@@ -203,4 +209,26 @@
     // stack: 0xffffffff, x
     and
     // stack: 0xffffffff & x
+=======
+%macro min
+    // stack: x, y
+    DUP2
+    DUP2
+    // stack: x, y, x, y
+    LT
+    // stack: x < y, x, y
+    %select_bool
+    // stack: min
+%endmacro
+
+%macro max
+    // stack: x, y
+    DUP2
+    DUP2
+    // stack: x, y, x, y
+    GT
+    // stack: x > y, x, y
+    %select_bool
+    // stack: max
+>>>>>>> 65a20bcd8a5a4040f86b7425817b98daecc05a78:evm/src/cpu/kernel/asm/util/basic_macros.asm
 %endmacro

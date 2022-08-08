@@ -5,7 +5,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::bigint::BigUint;
 use num::traits::Pow;
 use num::Integer;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
@@ -115,7 +114,8 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
         F::from_noncanonical_u128(n).into()
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    #[cfg(feature = "rand")]
+    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         Self::from_basefield_array([
             F::rand_from_rng(rng),
             F::rand_from_rng(rng),

@@ -5,8 +5,10 @@ use std::collections::{BinaryHeap, HashMap};
 use itertools::Itertools;
 
 use crate::cpu::columns::NUM_CPU_COLUMNS;
-use crate::cpu::kernel::ast::{Item, Literal, PushTarget, StackReplacement};
+use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
+use crate::cpu::kernel::ast::{Item, PushTarget, StackReplacement};
 use crate::cpu::kernel::stack_manipulation::StackOp::Pop;
+use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::memory;
 
 pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
@@ -22,23 +24,27 @@ pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
 }
 
 fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> {
-    let mut src = names.into_iter().map(StackItem::NamedItem).collect_vec();
-
-    let unique_literals = replacements
+    let mut src = names
         .iter()
-        .filter_map(|item| match item {
-            StackReplacement::Literal(n) => Some(n.clone()),
-            _ => None,
-        })
-        .unique()
+        .cloned()
+        .map(StackItem::NamedItem)
         .collect_vec();
 
     let mut dst = replacements
         .into_iter()
         .map(|item| match item {
-            StackReplacement::NamedItem(name) => StackItem::NamedItem(name),
-            StackReplacement::Literal(n) => StackItem::Literal(n),
-            StackReplacement::MacroVar(_) | StackReplacement::Constant(_) => {
+            StackReplacement::Identifier(name) => {
+                // May be either a named item or a label. Named items have precedence.
+                if names.contains(&name) {
+                    StackItem::NamedItem(name)
+                } else {
+                    StackItem::PushTarget(PushTarget::Label(name))
+                }
+            }
+            StackReplacement::Literal(n) => StackItem::PushTarget(PushTarget::Literal(n)),
+            StackReplacement::MacroLabel(_)
+            | StackReplacement::MacroVar(_)
+            | StackReplacement::Constant(_) => {
                 panic!("Should have been expanded already: {:?}", item)
             }
         })
@@ -49,7 +55,16 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
     src.reverse();
     dst.reverse();
 
-    let path = shortest_path(src, dst, unique_literals);
+    let unique_push_targets = dst
+        .iter()
+        .filter_map(|item| match item {
+            StackItem::PushTarget(target) => Some(target.clone()),
+            _ => None,
+        })
+        .unique()
+        .collect_vec();
+
+    let path = shortest_path(src, dst, unique_push_targets);
     path.into_iter().map(StackOp::into_item).collect()
 }
 
@@ -58,7 +73,7 @@ fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> 
 fn shortest_path(
     src: Vec<StackItem>,
     dst: Vec<StackItem>,
-    unique_literals: Vec<Literal>,
+    unique_push_targets: Vec<PushTarget>,
 ) -> Vec<StackOp> {
     // Nodes to visit, starting with the lowest-cost node.
     let mut queue = BinaryHeap::new();
@@ -93,7 +108,7 @@ fn shortest_path(
             continue;
         }
 
-        for op in next_ops(&node.stack, &dst, &unique_literals) {
+        for op in next_ops(&node.stack, &dst, &unique_push_targets) {
             let neighbor = match op.apply_to(node.stack.clone()) {
                 Some(n) => n,
                 None => continue,
@@ -151,19 +166,23 @@ impl Ord for Node {
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
 enum StackItem {
     NamedItem(String),
-    Literal(Literal),
+    PushTarget(PushTarget),
 }
 
 #[derive(Clone, Debug)]
 enum StackOp {
-    Push(Literal),
+    Push(PushTarget),
     Pop,
     Dup(u8),
     Swap(u8),
 }
 
 /// A set of candidate operations to consider for the next step in the path from `src` to `dst`.
-fn next_ops(src: &[StackItem], dst: &[StackItem], unique_literals: &[Literal]) -> Vec<StackOp> {
+fn next_ops(
+    src: &[StackItem],
+    dst: &[StackItem],
+    unique_push_targets: &[PushTarget],
+) -> Vec<StackOp> {
     if let Some(top) = src.last() && !dst.contains(top) {
         // If the top of src doesn't appear in dst, don't bother with anything other than a POP.
         return vec![StackOp::Pop]
@@ -172,12 +191,12 @@ fn next_ops(src: &[StackItem], dst: &[StackItem], unique_literals: &[Literal]) -
     let mut ops = vec![StackOp::Pop];
 
     ops.extend(
-        unique_literals
+        unique_push_targets
             .iter()
-            // Only consider pushing this literal if we need more occurrences of it, otherwise swaps
+            // Only consider pushing this target if we need more occurrences of it, otherwise swaps
             // will be a better way to rearrange the existing occurrences as needed.
-            .filter(|lit| {
-                let item = StackItem::Literal((*lit).clone());
+            .filter(|push_target| {
+                let item = StackItem::PushTarget((*push_target).clone());
                 let src_count = src.iter().filter(|x| **x == item).count();
                 let dst_count = dst.iter().filter(|x| **x == item).count();
                 src_count < dst_count
@@ -209,8 +228,16 @@ fn next_ops(src: &[StackItem], dst: &[StackItem], unique_literals: &[Literal]) -
 impl StackOp {
     fn cost(&self) -> u32 {
         let (cpu_rows, memory_rows) = match self {
-            StackOp::Push(n) => {
-                let bytes = n.to_trimmed_be_bytes().len() as u32;
+            StackOp::Push(target) => {
+                let bytes = match target {
+                    PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u32,
+                    PushTarget::Label(_) => BYTES_PER_OFFSET as u32,
+                    PushTarget::MacroLabel(_)
+                    | PushTarget::MacroVar(_)
+                    | PushTarget::Constant(_) => {
+                        panic!("Target should have been expanded already: {:?}", target)
+                    }
+                };
                 // This is just a rough estimate; we can update it after implementing PUSH.
                 (bytes, bytes)
             }
@@ -232,8 +259,8 @@ impl StackOp {
     fn apply_to(&self, mut stack: Vec<StackItem>) -> Option<Vec<StackItem>> {
         let len = stack.len();
         match self {
-            StackOp::Push(n) => {
-                stack.push(StackItem::Literal(n.clone()));
+            StackOp::Push(target) => {
+                stack.push(StackItem::PushTarget(target.clone()));
             }
             Pop => {
                 stack.pop()?;
@@ -253,7 +280,7 @@ impl StackOp {
 
     fn into_item(self) -> Item {
         match self {
-            StackOp::Push(n) => Item::Push(PushTarget::Literal(n)),
+            StackOp::Push(target) => Item::Push(target),
             Pop => Item::StandardOp("POP".into()),
             StackOp::Dup(n) => Item::StandardOp(format!("DUP{}", n)),
             StackOp::Swap(n) => Item::StandardOp(format!("SWAP{}", n)),

@@ -1,6 +1,6 @@
 use anyhow::ensure;
+use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;

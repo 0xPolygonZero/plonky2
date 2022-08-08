@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use ethereum_types::U256;
 use itertools::Itertools;
+use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -10,7 +11,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
-use rayon::prelude::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -499,7 +499,12 @@ pub(crate) mod tests {
 
                 let (context, segment, virt, vals) = if is_read {
                     let written: Vec<_> = current_memory_values.keys().collect();
-                    let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
+                    let &(mut context, mut segment, mut virt) =
+                        written[rng.gen_range(0..written.len())];
+                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
+                        (context, segment, virt) = *written[rng.gen_range(0..written.len())];
+                    }
+
                     let &vals = current_memory_values
                         .get(&(context, segment, virt))
                         .unwrap();

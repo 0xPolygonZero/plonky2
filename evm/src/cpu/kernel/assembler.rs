@@ -5,9 +5,13 @@ use itertools::izip;
 use log::debug;
 
 use super::ast::PushTarget;
-use crate::cpu::kernel::ast::{Literal, StackReplacement};
+use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
+use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
+use crate::cpu::kernel::optimizer::optimize_asm;
+use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
+use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
@@ -16,7 +20,7 @@ use crate::cpu::kernel::{
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
 /// nontrivial given the circular dependency between an offset and its size.
-const BYTES_PER_OFFSET: u8 = 3;
+pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Kernel {
@@ -27,15 +31,23 @@ pub struct Kernel {
     pub(crate) code_hash: [u32; 8],
 
     pub(crate) global_labels: HashMap<String, usize>,
+
+    /// Map from `PROVER_INPUT` offsets to their corresponding `ProverInputFn`.
+    pub(crate) prover_inputs: HashMap<usize, ProverInputFn>,
 }
 
 impl Kernel {
-    fn new(code: Vec<u8>, global_labels: HashMap<String, usize>) -> Self {
+    fn new(
+        code: Vec<u8>,
+        global_labels: HashMap<String, usize>,
+        prover_inputs: HashMap<usize, ProverInputFn>,
+    ) -> Self {
         let code_hash = hash_kernel(&code);
         Self {
             code,
             code_hash,
             global_labels,
+            prover_inputs,
         }
     }
 }
@@ -54,18 +66,32 @@ impl Macro {
     }
 }
 
-pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Kernel {
+pub(crate) fn assemble(
+    files: Vec<File>,
+    constants: HashMap<String, U256>,
+    optimize: bool,
+) -> Kernel {
     let macros = find_macros(&files);
     let mut global_labels = HashMap::new();
+    let mut prover_inputs = HashMap::new();
     let mut offset = 0;
     let mut expanded_files = Vec::with_capacity(files.len());
     let mut local_labels = Vec::with_capacity(files.len());
+    let mut macro_counter = 0;
     for file in files {
-        let expanded_file = expand_macros(file.body, &macros);
+        let expanded_file = expand_macros(file.body, &macros, &mut macro_counter);
         let expanded_file = expand_repeats(expanded_file);
         let expanded_file = inline_constants(expanded_file, &constants);
-        let expanded_file = expand_stack_manipulation(expanded_file);
-        local_labels.push(find_labels(&expanded_file, &mut offset, &mut global_labels));
+        let mut expanded_file = expand_stack_manipulation(expanded_file);
+        if optimize {
+            optimize_asm(&mut expanded_file);
+        }
+        local_labels.push(find_labels(
+            &expanded_file,
+            &mut offset,
+            &mut global_labels,
+            &mut prover_inputs,
+        ));
         expanded_files.push(expanded_file);
     }
     let mut code = vec![];
@@ -76,7 +102,7 @@ pub(crate) fn assemble(files: Vec<File>, constants: HashMap<String, U256>) -> Ke
         debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
-    Kernel::new(code, global_labels)
+    Kernel::new(code, global_labels, prover_inputs)
 }
 
 fn find_macros(files: &[File]) -> HashMap<String, Macro> {
@@ -96,7 +122,11 @@ fn find_macros(files: &[File]) -> HashMap<String, Macro> {
     macros
 }
 
-fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Macro>) -> Vec<Item> {
+fn expand_macros(
+    body: Vec<Item>,
+    macros: &HashMap<String, Macro>,
+    macro_counter: &mut u32,
+) -> Vec<Item> {
     let mut expanded = vec![];
     for item in body {
         match item {
@@ -104,7 +134,7 @@ fn expand_macros(body: Vec<Item>, macros: &HashMap<String, Macro>) -> Vec<Item> 
                 // At this phase, we no longer need macro definitions.
             }
             Item::MacroCall(m, args) => {
-                expanded.extend(expand_macro_call(m, args, macros));
+                expanded.extend(expand_macro_call(m, args, macros, macro_counter));
             }
             item => {
                 expanded.push(item);
@@ -118,6 +148,7 @@ fn expand_macro_call(
     name: String,
     args: Vec<PushTarget>,
     macros: &HashMap<String, Macro>,
+    macro_counter: &mut u32,
 ) -> Vec<Item> {
     let _macro = macros
         .get(&name)
@@ -132,6 +163,8 @@ fn expand_macro_call(
         args.len()
     );
 
+    let get_actual_label = |macro_label| format!("@{}.{}", macro_counter, macro_label);
+
     let get_arg = |var| {
         let param_index = _macro.get_param_index(var);
         args[param_index].clone()
@@ -140,10 +173,13 @@ fn expand_macro_call(
     let expanded_item = _macro
         .items
         .iter()
-        .map(|item| {
-            if let Item::Push(PushTarget::MacroVar(var)) = item {
-                Item::Push(get_arg(var))
-            } else if let Item::MacroCall(name, args) = item {
+        .map(|item| match item {
+            Item::MacroLabelDeclaration(label) => LocalLabelDeclaration(get_actual_label(label)),
+            Item::Push(PushTarget::MacroLabel(label)) => {
+                Item::Push(PushTarget::Label(get_actual_label(label)))
+            }
+            Item::Push(PushTarget::MacroVar(var)) => Item::Push(get_arg(var)),
+            Item::MacroCall(name, args) => {
                 let expanded_args = args
                     .iter()
                     .map(|arg| {
@@ -155,21 +191,35 @@ fn expand_macro_call(
                     })
                     .collect();
                 Item::MacroCall(name.clone(), expanded_args)
-            } else {
-                item.clone()
             }
+            Item::StackManipulation(before, after) => {
+                let after = after
+                    .iter()
+                    .map(|replacement| {
+                        if let StackReplacement::MacroLabel(label) = replacement {
+                            StackReplacement::Identifier(get_actual_label(label))
+                        } else {
+                            replacement.clone()
+                        }
+                    })
+                    .collect();
+                Item::StackManipulation(before.clone(), after)
+            }
+            _ => item.clone(),
         })
         .collect();
 
+    *macro_counter += 1;
+
     // Recursively expand any macros in the expanded code.
-    expand_macros(expanded_item, macros)
+    expand_macros(expanded_item, macros, macro_counter)
 }
 
 fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
     let mut expanded = vec![];
     for item in body {
         if let Item::Repeat(count, block) = item {
-            let reps = count.to_u256().as_usize();
+            let reps = count.as_usize();
             for _ in 0..reps {
                 expanded.extend(block.clone());
             }
@@ -182,12 +232,9 @@ fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
     let resolve_const = |c| {
-        Literal::Decimal(
-            constants
-                .get(&c)
-                .unwrap_or_else(|| panic!("No such constant: {}", c))
-                .to_string(),
-        )
+        *constants
+            .get(&c)
+            .unwrap_or_else(|| panic!("No such constant: {}", c))
     };
 
     body.into_iter()
@@ -217,6 +264,7 @@ fn find_labels(
     body: &[Item],
     offset: &mut usize,
     global_labels: &mut HashMap<String, usize>,
+    prover_inputs: &mut HashMap<usize, ProverInputFn>,
 ) -> HashMap<String, usize> {
     // Discover the offset of each label in this file.
     let mut local_labels = HashMap::<String, usize>::new();
@@ -225,7 +273,8 @@ fn find_labels(
             Item::MacroDef(_, _, _)
             | Item::MacroCall(_, _)
             | Item::Repeat(_, _)
-            | Item::StackManipulation(_, _) => {
+            | Item::StackManipulation(_, _)
+            | Item::MacroLabelDeclaration(_) => {
                 panic!("Item should have been expanded already: {:?}", item);
             }
             Item::GlobalLabelDeclaration(label) => {
@@ -237,6 +286,10 @@ fn find_labels(
                 assert!(old.is_none(), "Duplicate local label: {}", label);
             }
             Item::Push(target) => *offset += 1 + push_target_size(target) as usize,
+            Item::ProverInput(prover_input_fn) => {
+                prover_inputs.insert(*offset, prover_input_fn.clone());
+                *offset += 1;
+            }
             Item::StandardOp(_) => *offset += 1,
             Item::Bytes(bytes) => *offset += bytes.len(),
         }
@@ -256,7 +309,8 @@ fn assemble_file(
             Item::MacroDef(_, _, _)
             | Item::MacroCall(_, _)
             | Item::Repeat(_, _)
-            | Item::StackManipulation(_, _) => {
+            | Item::StackManipulation(_, _)
+            | Item::MacroLabelDeclaration(_) => {
                 panic!("Item should have been expanded already: {:?}", item);
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
@@ -264,7 +318,7 @@ fn assemble_file(
             }
             Item::Push(target) => {
                 let target_bytes: Vec<u8> = match target {
-                    PushTarget::Literal(literal) => literal.to_trimmed_be_bytes(),
+                    PushTarget::Literal(n) => u256_to_trimmed_be_bytes(&n),
                     PushTarget::Label(label) => {
                         let offset = local_labels
                             .get(&label)
@@ -277,16 +331,20 @@ fn assemble_file(
                             .map(|i| offset.to_le_bytes()[i as usize])
                             .collect()
                     }
+                    PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {}", v),
                     PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
                     PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
             }
+            Item::ProverInput(_) => {
+                code.push(get_opcode("PROVER_INPUT"));
+            }
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
             }
-            Item::Bytes(bytes) => code.extend(bytes.iter().map(|b| b.to_u8())),
+            Item::Bytes(bytes) => code.extend(bytes),
         }
     }
 }
@@ -294,8 +352,9 @@ fn assemble_file(
 /// The size of a `PushTarget`, in bytes.
 fn push_target_size(target: &PushTarget) -> u8 {
     match target {
-        PushTarget::Literal(lit) => lit.to_trimmed_be_bytes().len() as u8,
+        PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
+        PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {}", v),
         PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
         PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
     }
@@ -357,10 +416,10 @@ mod tests {
         expected_global_labels.insert("function_1".to_string(), 0);
         expected_global_labels.insert("function_2".to_string(), 3);
 
-        let expected_kernel = Kernel::new(expected_code, expected_global_labels);
+        let expected_kernel = Kernel::new(expected_code, expected_global_labels, HashMap::new());
 
         let program = vec![file_1, file_2];
-        assert_eq!(assemble(program, HashMap::new()), expected_kernel);
+        assert_eq!(assemble(program, HashMap::new(), false), expected_kernel);
     }
 
     #[test]
@@ -378,7 +437,7 @@ mod tests {
                 Item::StandardOp("JUMPDEST".to_string()),
             ],
         };
-        assemble(vec![file_1, file_2], HashMap::new());
+        assemble(vec![file_1, file_2], HashMap::new(), false);
     }
 
     #[test]
@@ -392,24 +451,15 @@ mod tests {
                 Item::StandardOp("ADD".to_string()),
             ],
         };
-        assemble(vec![file], HashMap::new());
+        assemble(vec![file], HashMap::new(), false);
     }
 
     #[test]
     fn literal_bytes() {
         let file = File {
-            body: vec![
-                Item::Bytes(vec![
-                    Literal::Hex("12".to_string()),
-                    Literal::Decimal("42".to_string()),
-                ]),
-                Item::Bytes(vec![
-                    Literal::Hex("fe".to_string()),
-                    Literal::Decimal("255".to_string()),
-                ]),
-            ],
+            body: vec![Item::Bytes(vec![0x12, 42]), Item::Bytes(vec![0xFE, 255])],
         };
-        let code = assemble(vec![file], HashMap::new()).code;
+        let code = assemble(vec![file], HashMap::new(), false).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);
     }
 
@@ -426,13 +476,29 @@ mod tests {
 
     #[test]
     fn macro_with_vars() {
-        let kernel = parse_and_assemble(&[
+        let files = &[
             "%macro add(x, y) PUSH $x PUSH $y ADD %endmacro",
             "%add(2, 3)",
-        ]);
+        ];
+        let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
         let push1 = get_push_opcode(1);
         let add = get_opcode("ADD");
         assert_eq!(kernel.code, vec![push1, 2, push1, 3, add]);
+    }
+
+    #[test]
+    fn macro_with_label() {
+        let files = &[
+            "%macro spin %%start: PUSH %%start JUMP %endmacro",
+            "%spin %spin",
+        ];
+        let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
+        let push3 = get_push_opcode(BYTES_PER_OFFSET);
+        let jump = get_opcode("JUMP");
+        assert_eq!(
+            kernel.code,
+            vec![push3, 0, 0, 0, jump, push3, 0, 0, 5, jump]
+        );
     }
 
     #[test]
@@ -467,7 +533,7 @@ mod tests {
         let mut constants = HashMap::new();
         constants.insert("DEAD_BEEF".into(), 0xDEADBEEFu64.into());
 
-        let kernel = parse_and_assemble_with_constants(code, constants);
+        let kernel = parse_and_assemble_ext(code, constants, true);
         let push4 = get_push_opcode(4);
         assert_eq!(kernel.code, vec![push4, 0xDE, 0xAD, 0xBE, 0xEF]);
     }
@@ -482,8 +548,13 @@ mod tests {
     #[test]
     fn stack_manipulation() {
         let pop = get_opcode("POP");
+        let dup1 = get_opcode("DUP1");
         let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
+        let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
+        assert_eq!(kernel.code, vec![]);
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
         assert_eq!(kernel.code, vec![swap2]);
@@ -493,19 +564,27 @@ mod tests {
 
         let mut consts = HashMap::new();
         consts.insert("LIFE".into(), 42.into());
-        parse_and_assemble_with_constants(&["%stack (a, b) -> (b, @LIFE)"], consts);
+        parse_and_assemble_ext(&["%stack (a, b) -> (b, @LIFE)"], consts, true);
         // We won't check the code since there are two equally efficient implementations.
+
+        let kernel = parse_and_assemble(&["start: %stack (a, b) -> (start)"]);
+        assert_eq!(kernel.code, vec![pop, pop, push_label, 0, 0, 0]);
+
+        // The "start" label gets shadowed by the "start" named stack item.
+        let kernel = parse_and_assemble(&["start: %stack (start) -> (start, start)"]);
+        assert_eq!(kernel.code, vec![dup1]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {
-        parse_and_assemble_with_constants(files, HashMap::new())
+        parse_and_assemble_ext(files, HashMap::new(), true)
     }
 
-    fn parse_and_assemble_with_constants(
+    fn parse_and_assemble_ext(
         files: &[&str],
         constants: HashMap<String, U256>,
+        optimize: bool,
     ) -> Kernel {
         let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
-        assemble(parsed_files, constants)
+        assemble(parsed_files, constants, optimize)
     }
 }

@@ -2,11 +2,11 @@ use std::mem::swap;
 
 use anyhow::ensure;
 use anyhow::Result;
+use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2_util::{ceil_div_usize, log2_ceil};
-use rayon::prelude::*;
 
 use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;

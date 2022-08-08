@@ -10,16 +10,23 @@ categories = ["cryptography"]
 edition = "2021"
 default-run = "generate_constants"
 
+[features]
+default = ["parallel", "rand", "rand_chacha", "timing", "gate_testing"]
+parallel = ["maybe_rayon/parallel"]
+rand = ["dep:rand", "plonky2_field/rand"]
+gate_testing = ["rand"]
+rand_chacha = ["dep:rand_chacha"]
+timing = []
+
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
-env_logger = "0.9.0"
 log = "0.4.14"
 itertools = "0.10.0"
 num = { version = "0.4", features = [ "rand" ] }
-rand = "0.8.4"
-rand_chacha = "0.3.1"
-rayon = "1.5.1"
+rand = { version = "0.8.4", optional = true }
+rand_chacha = { version = "0.3.1", optional = true }
+maybe_rayon = { path = "../maybe_rayon" }
 unroll = "0.1.5"
 anyhow = "1.0.40"
 serde = { version = "1.0", features = ["derive"] }
@@ -28,13 +35,21 @@ keccak-hash = "0.8.0"
 static_assertions = "1.1.0"
 
 [dev-dependencies]
+rand = "0.8.4"
+rand_chacha = "0.3.1"
 criterion = "0.3.5"
+env_logger = "0.9.0"
 tynm = "0.1.6"
 structopt = "0.3.26"
 num_cpus = "1.13.1"
+rayon = "1.5.1" 
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
 jemallocator = "0.3.2"
+
+[[bin]]
+name = "generate_constants"
+required-features = ["rand", "rand_chacha"]
 
 [[bench]]
 name = "field_arithmetic"
