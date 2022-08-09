@@ -11,14 +11,10 @@ global Rol:
     // stack: 32, n, x, x, n, retdest
     sub
     // stack: 32-n, x, x, n, retdest
-    swap1
-    // stack: x, 32-n, x, n, retdest
     shr
     // stack: x >> (32-n), x, n, retdest
     swap2
     // stack: n, x, x >> (32-n), retdest
-    swap1
-    // stack: x, n, x >> (32-n), retdest
     shl
     // stack: x << n, x >> (32-n), retdest
     push 0xffffffff
