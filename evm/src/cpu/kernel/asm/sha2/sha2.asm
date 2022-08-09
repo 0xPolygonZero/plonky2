@@ -123,10 +123,10 @@ sha2_gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr, block[0], block[1], retdest
     swap2
     // stack: block[0], output_addr, counter, block[1], retdest
-    push 32
+    push 15
     push 1
-    swap1 // TODO: remove once SHR implementation is fixed
-    shl
+    //shl
+    STOP
     // stack: 1 << 32, block[0], output_addr, counter, block[1], retdest
     dup2
     dup2
@@ -175,9 +175,9 @@ sha2_gen_message_schedule_from_block_1_loop:
     // stack: counter, output_addr, block[1], block[0], retdest
     swap2
     // stack: block[1], output_addr, counter, block[0], retdest
-    push 32
     push 1
-    swap1 // TODO: remove once SHR implementation is fixed
+    push 32
+    swap1 // TODO: remove once SHL implementation is fixed
     shl
     // stack: 1 << 32, block[1], output_addr, counter, block[0], retdest
     dup2
@@ -304,8 +304,51 @@ sha2_gen_message_schedule_remaining_end:
     JUMPDEST
     // stack: counter=0, output_addr, block[0], block[1], retdest
     %pop4
-    STOP
     JUMP
 
-//global sha2_gen_all_message_schedules:
-//  JUMPDEST
+// Precodition: memory, starting at 0, contains num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
+                stack contains output_addr
+// Postcondition: 
+global sha2_gen_all_message_schedules: 
+    JUMPDEST
+    push 0
+    // stack: 0, output_addr, retdest
+    %mload_kernel_general
+    // stack: num_blocks, output_addr, retdest
+    push 1
+    // stack: cur_addr = 1, counter = num_blocks, output_addr, retdest
+sha2_gen_all_message_schedules_loop:
+    JUMPDEST
+    // stack: cur_addr, counter, cur_output_addr, retdest
+    push sha2_gen_all_message_schedules_loop_end
+    // stack: new_retdest = sha2_gen_all_message_schedules_loop_end, cur_addr, counter, cur_output_addr, retdest
+    dup4
+    // stack: cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, retdest
+    dup3
+    // stack: cur_addr, cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, retdest
+    %jump(sha2_gen_message_schedule_from_block)
+sha2_gen_all_message_schedules_loop_end:
+    // stack: cur_addr, counter, cur_output_addr, retdest
+    %add_const(64)
+    // stack: cur_addr + 64, counter, cur_output_addr, retdest
+    swap1
+    %decrement
+    swap1
+    // stack: cur_addr + 64, counter - 1, cur_output_addr, retdest
+    swap2
+    %add_const(256)
+    swap2
+    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    dup2
+    // stack: counter - 1, cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    iszero
+    %jumpi(sha2_gen_all_message_schedules_end)
+    %jump(sha2_gen_all_message_schedules_loop)
+    JUMPDEST
+sha2_gen_all_message_schedules_end:
+    JUMPDEST
+    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    %pop3
+    // stack: retdest
+    JUMP
+

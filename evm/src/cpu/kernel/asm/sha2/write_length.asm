@@ -2,9 +2,9 @@
     // stack: last_addr, length
     swap1
     // stack: length, last_addr
-    // TODO: these should be in the other order once SHL implementation is fixed
-    push 8
     push 1
+    push 8
+    swap1 // TODO: remove once SHL implementation is fixed
     shl
 
     // stack: 1 << 8, length, last_addr
