@@ -543,9 +543,7 @@ impl<'a> Interpreter<'a> {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
-        dbg!(offset);
         let value = self.memory.mload_general(context, segment, offset);
-        dbg!(value);
         assert!(value.bits() <= segment.bit_range());
         self.push(value);
     }
@@ -555,8 +553,6 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        dbg!("STORE",offset);
-        dbg!("STORE",value);
         assert!(value.bits() <= segment.bit_range());
         self.memory.mstore_general(context, segment, offset, value);
     }
