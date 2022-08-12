@@ -51,15 +51,16 @@ global sha2_pad:
     %mload_kernel_general
     // stack: num_bytes, retdest
     // STEP 1: append 1
-    // insert 128 (= 1 << 7) at x[num_bytes]
+    // insert 128 (= 1 << 7) at x[num_bytes+1]
     // stack: num_bytes, retdest
     push 1
     push 7
-    swap1 // TODO: remove once SHR implementation is fixed
     shl
     // stack: 128, num_bytes, retdest
     dup2
     // stack: num_bytes, 128, num_bytes, retdest
+    %increment
+    // stack: num_bytes+1, 128, num_bytes, retdest
     %mstore_kernel_general
     // stack: num_bytes, retdest
     // STEP 2: calculate num_blocks := (num_bytes+8)//64 + 1
@@ -70,20 +71,18 @@ global sha2_pad:
     
     %increment
     // stack: num_blocks = (num_bytes+8)//64 + 1, num_bytes, retdest
-    // STEP 3: calculate length := num_bytes*8+1
+    // STEP 3: calculate length := num_bytes*8
     swap1
     // stack: num_bytes, num_blocks, retdest
     push 8
     mul
-    %increment
-    // stack: length = num_bytes*8+1, num_blocks, retdest
-    // STEP 4: write length to x[num_blocks*64-8..num_blocks*64-1] 
+    // stack: length = num_bytes*8, num_blocks, retdest
+    // STEP 4: write length to x[num_blocks*64-7..num_blocks*64]
     dup2
     // stack: num_blocks, length, num_blocks, retdest
     push 64
     mul
-    %decrement
-    // stack: last_addr = num_blocks*64-1, length, num_blocks, retdest
+    // stack: last_addr = num_blocks*64, length, num_blocks, retdest
     %sha2_write_length
     // stack: num_blocks, retdest
     // STEP 5: write num_blocks to x[0]
@@ -114,6 +113,7 @@ global sha2_gen_message_schedule_from_block:
     %mload_kernel_general_u256
     // stack: block[1], block[0], output_addr, retdest
     swap2
+    STOP
     // stack: output_addr, block[0], block[1], retdest
     push 8
     // stack: counter=8, output_addr, block[0], block[1], retdest
@@ -123,10 +123,9 @@ sha2_gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr, block[0], block[1], retdest
     swap2
     // stack: block[0], output_addr, counter, block[1], retdest
-    push 15
     push 1
-    //shl
-    STOP
+    push 32
+    shl
     // stack: 1 << 32, block[0], output_addr, counter, block[1], retdest
     dup2
     dup2
@@ -138,21 +137,21 @@ sha2_gen_message_schedule_from_block_0_loop:
     swap2
     // stack: block[0], 1 << 32, block[0] % (1 << 32), output_addr, counter, block[1], retdest
     div
-    // stack: block[0] // (1 << 32), block[0] % (1 << 32), output_addr, counter, block[1], retdest
+    // stack: block[0] >> 32, block[0] % (1 << 32), output_addr, counter, block[1], retdest
     swap1
-    // stack: block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1], retdest
+    // stack: block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
     dup3
-    // stack: output_addr, block[0] % (1 << 32), block[0] // (1 << 32), output_addr, counter, block[1], retdest
+    // stack: output_addr, block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
     %mstore_kernel_general_u32
-    // stack: block[0] // (1 << 32), output_addr, counter, block[1], retdest
+    // stack: block[0] >> 32, output_addr, counter, block[1], retdest
     swap1
-    // stack: output_addr, block[0] // (1 << 32), counter, block[1], retdest
+    // stack: output_addr, block[0] >> 32, counter, block[1], retdest
     %add_const(4)
-    // stack: output_addr + 4, block[0] // (1 << 32), counter, block[1], retdest
+    // stack: output_addr + 4, block[0] >> 32, counter, block[1], retdest
     swap1
-    // stack: block[0] // (1 << 32), output_addr + 4, counter, block[1], retdest
+    // stack: block[0] >> 32, output_addr + 4, counter, block[1], retdest
     swap2
-    // stack: counter, output_addr + 4, block[0] // (1 << 32), block[1], retdest
+    // stack: counter, output_addr + 4, block[0] >> 32, block[1], retdest
     %decrement
     dup1
     iszero
@@ -177,7 +176,6 @@ sha2_gen_message_schedule_from_block_1_loop:
     // stack: block[1], output_addr, counter, block[0], retdest
     push 1
     push 32
-    swap1 // TODO: remove once SHL implementation is fixed
     shl
     // stack: 1 << 32, block[1], output_addr, counter, block[0], retdest
     dup2
@@ -190,21 +188,21 @@ sha2_gen_message_schedule_from_block_1_loop:
     swap2
     // stack: block[1], 1 << 32, block[1] % (1 << 32), output_addr, counter, block[0], retdest
     div
-    // stack: block[1] // (1 << 32), block[1] % (1 << 32), output_addr, counter, block[0], retdest
+    // stack: block[1] >> 32, block[1] % (1 << 32), output_addr, counter, block[0], retdest
     swap1
-    // stack: block[1] % (1 << 32), block[1] // (1 << 32), output_addr, counter, block[0], retdest
+    // stack: block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest
     dup3
-    // stack: output_addr, block[1] % (1 << 32), block[1] // (1 << 32), output_addr, counter, block[0], retdest
+    // stack: output_addr, block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest
     %mstore_kernel_general_u32
-    // stack: block[1] // (1 << 32), output_addr, counter, block[0], retdest
+    // stack: block[1] >> 32, output_addr, counter, block[0], retdest
     swap1
-    // stack: output_addr, block[1] // (1 << 32), counter, block[0], retdest
+    // stack: output_addr, block[1] >> 32, counter, block[0], retdest
     %add_const(4)
-    // stack: output_addr + 4, block[1] // (1 << 32), counter, block[0], retdest
+    // stack: output_addr + 4, block[1] >> 32, counter, block[0], retdest
     swap1
-    // stack: block[1] // (1 << 32), output_addr + 4, counter, block[0], retdest
+    // stack: block[1] >> 32, output_addr + 4, counter, block[0], retdest
     swap2
-    // stack: counter, output_addr + 4, block[1] // (1 << 32), block[0], retdest
+    // stack: counter, output_addr + 4, block[1] >> 32, block[0], retdest
     %decrement
     dup1
     iszero
@@ -307,7 +305,7 @@ sha2_gen_message_schedule_remaining_end:
     JUMP
 
 // Precodition: memory, starting at 0, contains num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
-                stack contains output_addr
+//              stack contains output_addr
 // Postcondition: 
 global sha2_gen_all_message_schedules: 
     JUMPDEST

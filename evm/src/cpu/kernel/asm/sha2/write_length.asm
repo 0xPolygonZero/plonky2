@@ -4,7 +4,6 @@
     // stack: length, last_addr
     push 1
     push 8
-    swap1 // TODO: remove once SHL implementation is fixed
     shl
 
     // stack: 1 << 8, length, last_addr
@@ -21,10 +20,9 @@
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 8
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 8, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -40,10 +38,9 @@
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 16
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 16, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -59,10 +56,9 @@
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 24
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 24, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -72,16 +68,15 @@
     push 3
     swap1
     sub
-    // stack: last_addr - 1, (length >> 24) % (1 << 8), 1 << 8, length, last_addr
+    // stack: last_addr - 3, (length >> 24) % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
 
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 32
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 32, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -91,13 +86,13 @@
     push 4
     swap1
     sub
-    // stack: last_addr - 1, (length >> 32) % (1 << 8), 1 << 8, length, last_addr
+    // stack: last_addr - 4, (length >> 32) % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
 
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 40
     shr
@@ -109,16 +104,15 @@
     push 5
     swap1
     sub
-    // stack: last_addr - 1, (length >> 40) % (1 << 8), 1 << 8, length, last_addr
+    // stack: last_addr - 5, (length >> 40) % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
 
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 48
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 48, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -128,16 +122,15 @@
     push 6
     swap1
     sub
-    // stack: last_addr - 1, (length >> 48) % (1 << 8), 1 << 8, length, last_addr
+    // stack: last_addr - 6, (length >> 48) % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
 
     // stack: 1 << 8, length, last_addr
     dup1
     // stack: 1 << 8, 1 << 8, length, last_addr
-    dup2
+    dup3
     // stack: length, 1 << 8, 1 << 8, length, last_addr
     push 56
-    swap1 // TODO: remove once SHR implementation is fixed
     shr
     // stack: length >> 56, 1 << 8, 1 << 8, length, last_addr
     mod
@@ -147,7 +140,7 @@
     push 7
     swap1
     sub
-    // stack: last_addr - 1, (length >> 56) % (1 << 8), 1 << 8, length, last_addr
+    // stack: last_addr - 7, (length >> 56) % (1 << 8), 1 << 8, length, last_addr
     %mstore_kernel_general
     %pop3
     // stack: (empty)
