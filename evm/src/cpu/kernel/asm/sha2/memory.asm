@@ -162,13 +162,16 @@
     // stack: c_2, c_1, c_0, offset
     dup4
     // stack: offset, c_2, c_1, c_0, offset
+    %add_const(1)
     %mstore_kernel_general
     // stack: c_1, c_0, offset
     dup3
     // stack: offset, c_1, c_0, offset
+    %add_const(2)
     %mstore_kernel_general
     // stack: c_0, offset
     swap1
     // stack: offset, c_0
+    %add_const(3)
     %mstore_kernel_general
 %endmacro
