@@ -7,4 +7,4 @@ mod jumps;
 pub mod kernel;
 pub mod public_inputs;
 mod simple_logic;
-mod traps;
+mod syscalls;

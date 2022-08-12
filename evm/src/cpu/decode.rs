@@ -1,9 +1,3 @@
-// We want to access `All`, `User`, and `Kernel` without having to go through `Availability`. Rust
-// wants constants to be all upper case, but these aren't really constants, just shortcuts. Also,
-// this syntax is consistent with the Rust std (think `None` and `Some`, which are not all upper
-// case).
-#![allow(non_upper_case_globals)]
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -19,10 +13,7 @@ enum Availability {
     User,
     Kernel,
 }
-
-const All: Availability = Availability::All;
-const User: Availability = Availability::User;
-const Kernel: Availability = Availability::Kernel;
+use Availability::{All, Kernel, User};
 
 /// List of opcode blocks
 ///  Each block corresponds to exactly one flag, and each flag corresponds to exactly one block.
