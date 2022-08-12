@@ -43,54 +43,54 @@
 %macro mload_kernel_general_u256
     // stack: offset
     DUP1
-    %mload_kernel_code_u32
+    %mload_kernel_general_u32
     // stack: c_7, offset
     %shl_const(32)
     // stack: c7 << 32, offset
     DUP2
-    %increment
+    %add_const(4)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 32) | c_6, offset
     %shl_const(32)
     // stack: ((c_7 << 32) | c_6) << 32, offset
     DUP2
-    %add_const(2)
+    %add_const(8)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 64) | (c_6 << 32) | c_5, offset
     %shl_const(32)
     // stack: ((c_7 << 64) | (c_6 << 32) | c_5) << 32, offset
     DUP2
-    %add_const(3)
+    %add_const(12)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4, offset
     %shl_const(32)
     // stack: ((c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4) << 32, offset
     DUP2
-    %add_const(4)
+    %add_const(16)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3, offset
     %shl_const(32)
     // stack: ((c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3) << 32, offset
     DUP2
-    %add_const(5)
+    %add_const(20)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2, offset
     %shl_const(32)
     // stack: ((c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2) << 32, offset
     DUP2
-    %add_const(6)
+    %add_const(24)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1, offset
     %shl_const(32)
     // stack: ((c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1) << 32, offset
     DUP2
-    %add_const(7)
+    %add_const(28)
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0, offset

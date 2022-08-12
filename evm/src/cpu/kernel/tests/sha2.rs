@@ -28,6 +28,9 @@ fn test_sha2_store() -> Result<()> {
     dbg!(num_bytes);
     dbg!(bytes.clone());
 
+    let num_bytes = 3;
+    let bytes: Vec<U256> = vec![97.into(), 98.into(), 99.into()];
+
     let mut store_initial_stack = vec![U256::from(num_bytes)];
     store_initial_stack.extend(bytes);
     store_initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
@@ -48,7 +51,7 @@ fn test_sha2_store() -> Result<()> {
     let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
         .content
         .clone();
-    dbg!(&mem[0..66]);
+    dbg!(&mem[0..65]);
 
     dbg!(&mem[100..353]);
 
