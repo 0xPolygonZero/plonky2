@@ -22,8 +22,15 @@ pub(crate) enum Segment {
     TxnFields = 8,
     /// Contains the data field of a transaction.
     TxnData = 9,
-    /// Raw RLP data.
+    /// A buffer used to hold raw RLP data.
     RlpRaw = 10,
+    /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
+    /// append-only buffer. It is owned by the kernel, so it is only used with context 0.
+    TrieData = 11,
+    /// The account address associated with the `i`th storage trie.
+    StorageTrieAddresses = 12,
+    /// A pointer to the `i`th storage within the `TrieData` buffer.
+    StorageTriePointers = 13,
 }
 
 impl Segment {
