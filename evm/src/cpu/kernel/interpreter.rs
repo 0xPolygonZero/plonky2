@@ -134,7 +134,12 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
-        self.memory.context_memory[0].segments[Segment::TxnFields as usize].content[field as usize]
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
+    }
+
+    pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize]
+            .set(field as usize, value);
     }
 
     pub(crate) fn get_txn_data(&self) -> &[U256] {

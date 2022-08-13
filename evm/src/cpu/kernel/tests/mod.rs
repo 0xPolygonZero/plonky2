@@ -1,3 +1,4 @@
+mod core;
 mod curve_ops;
 mod ecrecover;
 mod exp;
