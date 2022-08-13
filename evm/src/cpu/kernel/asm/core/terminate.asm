@@ -21,6 +21,7 @@ global selfdestruct:
 
 global revert:
     // TODO: Refund unused gas to parent.
+    // TODO: Revert state changes.
     %jump(terminate_common)
 
 // The execution is in an exceptional halt-ing state if
@@ -31,7 +32,7 @@ global revert:
 // - the new stack size would be larger than 1024, or
 // - state modification is attempted during a static call
 global exception:
-    // TODO
+    // TODO: Revert state changes.
     %jump(terminate_common)
 
 terminate_common:
