@@ -10,7 +10,7 @@ use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::optimizer::optimize_asm;
 use crate::cpu::kernel::prover_input::ProverInputFn;
-use crate::cpu::kernel::stack_manipulation::expand_stack_manipulation;
+use crate::cpu::kernel::stack::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::cpu::kernel::{
     ast::{File, Item},

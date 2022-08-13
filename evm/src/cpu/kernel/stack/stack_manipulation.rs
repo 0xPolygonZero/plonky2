@@ -1,13 +1,15 @@
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap};
+use std::hash::Hash;
 
 use itertools::Itertools;
 
 use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::ast::{Item, PushTarget, StackReplacement};
-use crate::cpu::kernel::stack_manipulation::StackOp::Pop;
+use crate::cpu::kernel::stack::permutations::{get_stack_ops_for_perm, is_permutation};
+use crate::cpu::kernel::stack::stack_manipulation::StackOp::Pop;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::memory;
 
@@ -164,13 +166,13 @@ impl Ord for Node {
 
 /// Like `StackReplacement`, but without constants or macro vars, since those were expanded already.
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
-enum StackItem {
+pub(crate) enum StackItem {
     NamedItem(String),
     PushTarget(PushTarget),
 }
 
 #[derive(Clone, Debug)]
-enum StackOp {
+pub(crate) enum StackOp {
     Push(PushTarget),
     Pop,
     Dup(u8),
@@ -186,6 +188,11 @@ fn next_ops(
     if let Some(top) = src.last() && !dst.contains(top) {
         // If the top of src doesn't appear in dst, don't bother with anything other than a POP.
         return vec![StackOp::Pop]
+    }
+
+    if is_permutation(src, dst) {
+        // The transpositions are right-associative, so the last one gets applied first, hence pop.
+        return vec![get_stack_ops_for_perm(src, dst).pop().unwrap()];
     }
 
     let mut ops = vec![StackOp::Pop];
@@ -220,9 +227,29 @@ fn next_ops(
             .map(StackOp::Dup),
     );
 
-    ops.extend((1..src_len).map(StackOp::Swap));
+    ops.extend(
+        (1..src_len)
+            .filter(|i| should_try_swap(src, dst, *i))
+            .map(StackOp::Swap),
+    );
 
     ops
+}
+
+/// Whether we should consider `SWAP_i` in the search.
+fn should_try_swap(src: &[StackItem], dst: &[StackItem], i: u8) -> bool {
+    if src.is_empty() {
+        return false;
+    }
+
+    let i = i as usize;
+    let i_from = src.len() - 1;
+    let i_to = i_from - i;
+
+    // Only consider a swap if it places one of the two affected elements in the desired position.
+    let top_correct_pos = i_to < dst.len() && src[i_from] == dst[i_to];
+    let other_correct_pos = i_from < dst.len() && src[i_to] == dst[i_from];
+    top_correct_pos | other_correct_pos
 }
 
 impl StackOp {
@@ -285,5 +312,41 @@ impl StackOp {
             StackOp::Dup(n) => Item::StandardOp(format!("DUP{}", n)),
             StackOp::Swap(n) => Item::StandardOp(format!("SWAP{}", n)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+
+    use crate::cpu::kernel::stack::stack_manipulation::StackItem::NamedItem;
+    use crate::cpu::kernel::stack::stack_manipulation::{shortest_path, StackItem};
+
+    #[test]
+    fn test_shortest_path() {
+        init_logger();
+        shortest_path(
+            vec![named("ret"), named("a"), named("b"), named("d")],
+            vec![named("ret"), named("b"), named("a")],
+            vec![],
+        );
+    }
+
+    #[test]
+    fn test_shortest_path_permutation() {
+        init_logger();
+        shortest_path(
+            vec![named("a"), named("b"), named("c")],
+            vec![named("c"), named("a"), named("b")],
+            vec![],
+        );
+    }
+
+    fn named(name: &str) -> StackItem {
+        NamedItem(name.into())
+    }
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
     }
 }
