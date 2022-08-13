@@ -3,21 +3,24 @@
 
 global stop:
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE to 0.
+    // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
 global return:
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
     // TODO: Copy returned memory to parent context's RETURNDATA (but not if we're returning from a constructor?)
     // TODO: Copy returned memory to parent context's memory (as specified in their call instruction)
+    // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
 global selfdestruct:
     %consume_gas_const(@GAS_SELFDESTRUCT)
-    // TODO
+    // TODO: Destroy account.
+    // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
 global revert:
-    // TODO
+    // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
 // The execution is in an exceptional halt-ing state if
