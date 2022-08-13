@@ -17,10 +17,13 @@ pub(crate) enum ContextMetadata {
     Caller = 6,
     /// The value (in wei) deposited by the caller.
     CallValue = 7,
+    /// Whether this context was created by `STATICCALL`, in which case state changes are
+    /// prohibited.
+    Static = 8,
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 8;
+    pub(crate) const COUNT: usize = 9;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -32,6 +35,7 @@ impl ContextMetadata {
             Self::CodeSize,
             Self::Caller,
             Self::CallValue,
+            Self::Static,
         ]
     }
 
@@ -46,6 +50,7 @@ impl ContextMetadata {
             ContextMetadata::CodeSize => "CTX_METADATA_CODE_SIZE",
             ContextMetadata::Caller => "CTX_METADATA_CALLER",
             ContextMetadata::CallValue => "CTX_METADATA_CALL_VALUE",
+            ContextMetadata::Static => "CTX_METADATA_STATIC",
         }
     }
 }
