@@ -17,6 +17,7 @@ use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVarsTarget};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckDataTarget;
@@ -43,6 +44,8 @@ pub fn verify_proof_circuit<
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
@@ -59,6 +62,7 @@ pub fn verify_proof_circuit<
     let AllStark {
         cpu_stark,
         keccak_stark,
+        keccak_memory_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -92,6 +96,18 @@ pub fn verify_proof_circuit<
             &all_proof.stark_proofs[Table::Keccak as usize],
             &stark_challenges[Table::Keccak as usize],
             &ctl_vars_per_table[Table::Keccak as usize],
+            inner_config,
+        )
+    );
+    with_context!(
+        builder,
+        "verify Keccak memory proof",
+        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+            builder,
+            keccak_memory_stark,
+            &all_proof.stark_proofs[Table::KeccakMemory as usize],
+            &stark_challenges[Table::KeccakMemory as usize],
+            &ctl_vars_per_table[Table::KeccakMemory as usize],
             inner_config,
         )
     );
@@ -312,6 +328,21 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
         {
             let proof = add_virtual_stark_proof(
                 builder,
+                all_stark.keccak_memory_stark,
+                config,
+                degree_bits[Table::KeccakMemory as usize],
+                nums_ctl_zs[Table::KeccakMemory as usize],
+            );
+            let public_inputs =
+                builder.add_virtual_targets(KeccakMemoryStark::<F, D>::PUBLIC_INPUTS);
+            StarkProofWithPublicInputsTarget {
+                proof,
+                public_inputs,
+            }
+        },
+        {
+            let proof = add_virtual_stark_proof(
+                builder,
                 all_stark.logic_stark,
                 config,
                 degree_bits[Table::Logic as usize],
@@ -331,7 +362,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
                 degree_bits[Table::Memory as usize],
                 nums_ctl_zs[Table::Memory as usize],
             );
-            let public_inputs = builder.add_virtual_targets(KeccakStark::<F, D>::PUBLIC_INPUTS);
+            let public_inputs = builder.add_virtual_targets(MemoryStark::<F, D>::PUBLIC_INPUTS);
             StarkProofWithPublicInputsTarget {
                 proof,
                 public_inputs,

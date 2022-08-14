@@ -24,7 +24,7 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Represent a linear combination of columns.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     constant: F,
@@ -40,6 +40,17 @@ impl<F: Field> Column<F> {
 
     pub fn singles<I: IntoIterator<Item = usize>>(cs: I) -> impl Iterator<Item = Self> {
         cs.into_iter().map(Self::single)
+    }
+
+    pub fn constant(constant: F) -> Self {
+        Self {
+            linear_combination: vec![],
+            constant,
+        }
+    }
+
+    pub fn zero() -> Self {
+        Self::constant(F::ZERO)
     }
 
     pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
@@ -65,6 +76,10 @@ impl<F: Field> Column<F> {
 
     pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
+    }
+
+    pub fn le_bytes<I: IntoIterator<Item = usize>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().zip(F::from_canonical_u16(256).powers()))
     }
 
     pub fn sum<I: IntoIterator<Item = usize>>(cs: I) -> Self {
@@ -115,7 +130,7 @@ impl<F: Field> Column<F> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
