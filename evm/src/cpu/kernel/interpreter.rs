@@ -146,8 +146,16 @@ impl<'a> Interpreter<'a> {
         &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
     }
 
+    pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
+            .content
+            .iter()
+            .map(|x| x.as_u32() as u8)
+            .collect()
+    }
+
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
-        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();
     }
 
@@ -386,7 +394,6 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_byte(&mut self) {
-        dbg!("byte");
         let i = self.pop();
         let x = self.pop();
         let result = if i > 32.into() {

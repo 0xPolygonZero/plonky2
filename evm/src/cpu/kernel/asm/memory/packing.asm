@@ -6,6 +6,8 @@ global mload_packing:
     // TODO
     // stack: value
 
+// Pre stack: context, segment, offset, value, len, retdest
+// Post stack: (empty)
 global mstore_unpacking:
     // stack: context, segment, offset, value, len, retdest
     // We will enumerate i in (32 - len)..32.
