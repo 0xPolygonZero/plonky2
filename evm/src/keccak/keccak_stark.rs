@@ -13,13 +13,13 @@ use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
+use crate::keccak::columns::{
+    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
+    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_COLUMNS,
+};
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
-};
-use crate::keccak::registers::{
-    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_output_limb, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -44,7 +44,7 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(reg_step(NUM_ROUNDS - 1))
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct KeccakStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     pub(crate) fn generate_trace_rows(
         &self,
         inputs: Vec<[u64; NUM_INPUTS]>,
-    ) -> Vec<[F; NUM_REGISTERS]> {
+    ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
         info!("{} rows", num_rows);
         let mut rows = Vec::with_capacity(num_rows);
@@ -71,8 +71,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn generate_trace_rows_for_perm(&self, input: [u64; NUM_INPUTS]) -> Vec<[F; NUM_REGISTERS]> {
-        let mut rows = vec![[F::ZERO; NUM_REGISTERS]; NUM_ROUNDS];
+    fn generate_trace_rows_for_perm(&self, input: [u64; NUM_INPUTS]) -> Vec<[F; NUM_COLUMNS]> {
+        let mut rows = vec![[F::ZERO; NUM_COLUMNS]; NUM_ROUNDS];
 
         for x in 0..5 {
             for y in 0..5 {
@@ -92,11 +92,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn copy_output_to_input(
-        &self,
-        prev_row: [F; NUM_REGISTERS],
-        next_row: &mut [F; NUM_REGISTERS],
-    ) {
+    fn copy_output_to_input(&self, prev_row: [F; NUM_COLUMNS], next_row: &mut [F; NUM_COLUMNS]) {
         for x in 0..5 {
             for y in 0..5 {
                 let cur_lo = prev_row[reg_a_prime_prime_prime(x, y)];
@@ -117,7 +113,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         }
     }
 
-    fn generate_trace_row_for_round(&self, row: &mut [F; NUM_REGISTERS], round: usize) {
+    fn generate_trace_row_for_round(&self, row: &mut [F; NUM_COLUMNS], round: usize) {
         row[reg_step(round)] = F::ONE;
 
         // Populate C partial and C.
@@ -219,7 +215,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    const COLUMNS: usize = NUM_REGISTERS;
+    const COLUMNS: usize = NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -529,8 +525,8 @@ mod tests {
     use plonky2::field::types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
+    use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::keccak::registers::reg_output_limb;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]

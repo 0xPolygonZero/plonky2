@@ -4,6 +4,10 @@ description = "Implementation of STARKs"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["parallel"]
+parallel = ["maybe_rayon/parallel"]
+
 [dependencies]
 plonky2 = { path = "../plonky2" }
 plonky2_util = { path = "../util" }
@@ -11,4 +15,4 @@ anyhow = "1.0.40"
 env_logger = "0.9.0"
 itertools = "0.10.0"
 log = "0.4.14"
-rayon = "1.5.1"
+maybe_rayon = { path = "../maybe_rayon"}

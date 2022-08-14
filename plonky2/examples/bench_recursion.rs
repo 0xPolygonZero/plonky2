@@ -2,7 +2,6 @@
 // custom CLI argument parsing (even with harness disabled). We could also have
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
-
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 

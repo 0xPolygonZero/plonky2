@@ -40,14 +40,18 @@ pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, cons
     // `s * P = sum s_i * P_i` with `P_i = (16^i) * P` and `s = sum s_i * (16^i)`.
     for (limb, point) in limbs.into_iter().zip(scaled_base) {
         // `muls_point[t] = t * P_i` for `t=0..16`.
-        let muls_point = (0..16)
+        let mut muls_point = (0..16)
             .scan(AffinePoint::ZERO, |acc, _| {
                 let tmp = *acc;
                 *acc = (point + *acc).to_affine();
                 Some(tmp)
             })
+            // First element if zero, so we skip it since `constant_affine_point` takes non-zero input.
+            .skip(1)
             .map(|p| builder.constant_affine_point(p))
             .collect::<Vec<_>>();
+        // We add back a point in position 0. `limb == zero` is checked below, so this point can be arbitrary.
+        muls_point.insert(0, muls_point[0].clone());
         let is_zero = builder.is_equal(limb, zero);
         let should_add = builder.not(is_zero);
         // `r = s_i * P_i`

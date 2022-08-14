@@ -7,10 +7,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns;
+use crate::cpu::columns::CpuColumnsView;
 
-pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
-    let cycle_filter = lv[columns::IS_CPU_CYCLE].to_canonical_u64();
+pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
+    let cycle_filter = lv.is_cpu_cycle.to_canonical_u64();
     if cycle_filter == 0 {
         return;
     }
@@ -21,7 +21,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
 }
 
 pub fn eval_packed<P: PackedField>(
-    lv: &[P; columns::NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     not::eval_packed(lv, yield_constr);
@@ -30,7 +30,7 @@ pub fn eval_packed<P: PackedField>(
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; columns::NUM_CPU_COLUMNS],
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     not::eval_ext_circuit(builder, lv, yield_constr);

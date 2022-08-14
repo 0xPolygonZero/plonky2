@@ -5,10 +5,12 @@
 #![feature(generic_const_exprs)]
 
 pub mod all_stark;
+pub mod arithmetic;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
 pub mod cross_table_lookup;
+pub mod generation;
 mod get_challenges;
 pub mod keccak;
 pub mod logic;
