@@ -325,252 +325,260 @@ global sha2_gen_all_message_schedules:
     JUMPDEST
     push 0
     // stack: 0, output_addr, retdest
+    dup2
+    // stack: output_addr, 0, output_addr, retdest
+    swap1
+    // stack: 0, output_addr, output_addr, retdest
     %mload_kernel_general
-    // stack: num_blocks, output_addr, retdest
+    // stack: num_blocks, output_addr, output_addr, retdest
     push 1
-    // stack: cur_addr = 1, counter = num_blocks, output_addr, retdest
+    // stack: cur_addr = 1, counter = num_blocks, output_addr, output_addr, retdest
 sha2_gen_all_message_schedules_loop:
     JUMPDEST
-    // stack: cur_addr, counter, cur_output_addr, retdest
+    // stack: cur_addr, counter, cur_output_addr, output_addr, retdest
     push sha2_gen_all_message_schedules_loop_end
-    // stack: new_retdest = sha2_gen_all_message_schedules_loop_end, cur_addr, counter, cur_output_addr, retdest
+    // stack: new_retdest = sha2_gen_all_message_schedules_loop_end, cur_addr, counter, cur_output_addr, output_addr, retdest
     dup4
-    // stack: cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, retdest
+    // stack: cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, output_addr, retdest
     dup3
-    // stack: cur_addr, cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, retdest
+    // stack: cur_addr, cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, output_addr, retdest
     %jump(sha2_gen_message_schedule_from_block)
 sha2_gen_all_message_schedules_loop_end:
     JUMPDEST
-    // stack: cur_addr, counter, cur_output_addr, retdest
+    // stack: cur_addr, counter, cur_output_addr, output_addr, retdest
     %add_const(64)
-    // stack: cur_addr + 64, counter, cur_output_addr, retdest
+    // stack: cur_addr + 64, counter, cur_output_addr, output_addr, retdest
     swap1
     %decrement
     swap1
-    // stack: cur_addr + 64, counter - 1, cur_output_addr, retdest
+    // stack: cur_addr + 64, counter - 1, cur_output_addr, output_addr, retdest
     swap2
     %add_const(256)
     swap2
-    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     dup2
-    // stack: counter - 1, cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    // stack: counter - 1, cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     iszero
     %jumpi(sha2_gen_all_message_schedules_end)
     %jump(sha2_gen_all_message_schedules_loop)
     JUMPDEST
 sha2_gen_all_message_schedules_end:
     JUMPDEST
-    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, retdest
+    // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     %pop3
-    // stack: retdest
-    JUMP
+    // stack: output_addr, retdest
+    push 0
+    // stack: 0, output_addr, retdest
+    swap1
+    // stack: output_addr, 0, retdest
+    %jump(sha2_compression)
 
 // TODO: message schedules for multiple blocks
 global sha2_compression:
     JUMPDEST
-    // stack: message_schedule_addr, i=0
+    // stack: message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(7)
     %mload_kernel_code_u32
-    // stack: h[0], message_schedule_addr, i=0
+    // stack: h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(6)
     %mload_kernel_code_u32
-    // stack: g[0], h[0], message_schedule_addr, i=0
+    // stack: g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(5)
     %mload_kernel_code_u32
-    // stack: f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: f[0], g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(4)
     %mload_kernel_code_u32
-    // stack: e[0], f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: e[0], f[0], g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(3)
     %mload_kernel_code_u32
-    // stack: d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(2)
     %mload_kernel_code_u32
-    // stack: c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %add_const(1)
     %mload_kernel_code_u32
-    // stack: b[0], c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: b[0], c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0, retdest
     push sha2_constants_h
     %mload_kernel_code_u32
-    // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0
+    // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], message_schedule_addr, i=0, retdest
 sha2_compression_loop:
     JUMPDEST
-    // stack: a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup9
-    // stack: message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup11
-    // stack: i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %mul_const(4)
-    // stack: 4*i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: 4*i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     add
-    // stack: message_schedule_addr + 4*i, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: message_schedule_addr + 4*i, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %mload_kernel_general_u32, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
-    // stack: W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     push sha2_constants_k
-    // stack: sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup12
-    // stack: i, sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: i, sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %mul_const(4)
-    // stack: 4*i, sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: 4*i, sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     add
-    // stack: sha2_constants_k + 4*i, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: sha2_constants_k + 4*i, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %mload_kernel_code_u32
-    // stack: K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup10
-    // stack: h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup10
-    // stack: g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup10
-    // stack: f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup10
-    // stack: e[i], f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: e[i], f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %sha2_temp_word1
-    // stack: T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup4
-    // stack: c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup4
-    // stack: b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup4
-    // stack: a[i], b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: a[i], b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %sha2_temp_word2
-    // stack: T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup6
-    // stack: d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     dup3
-    // stack: T[i], d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: T[i], d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %add_u32
-    // stack: e[i+1]=T[i]+d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: e[i+1]=T[i]+d[i], T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     swap2
-    // stack: T[1], T2[i], e[i+1], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    // stack: T[1], T2[i], e[i+1], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     %add_u32
-    // stack: a[i+1]=T[1]+T2[i], e[i+1], b[i+1]=a[i], c[i+1]=b[i], d[i+1]=c[i], d[i], f[i+1]=e[i], g[i+1]=f[i], h[i+1]=g[i], h[i], message_schedule_addr, i
+    // stack: a[i+1]=T[1]+T2[i], e[i+1], b[i+1]=a[i], c[i+1]=b[i], d[i+1]=c[i], d[i], f[i+1]=e[i], g[i+1]=f[i], h[i+1]=g[i], h[i], message_schedule_addr, i, retdest
     swap1
-    // stack: e[i+1], a[i+1], b[i+1], c[i+1], d[i+1], d[i], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i
+    // stack: e[i+1], a[i+1], b[i+1], c[i+1], d[i+1], d[i], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i, retdest
     swap5
-    // stack: d[i], a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i
+    // stack: d[i], a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i, retdest
     pop
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], message_schedule_addr, i, retdest
     swap8
-    // stack: h[i], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], message_schedule_addr, i
+    // stack: h[i], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], message_schedule_addr, i, retdest
     pop
-    // stack: b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], message_schedule_addr, i
+    // stack: b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], message_schedule_addr, i, retdest
     swap7
-    // stack: a[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], b[i+1], message_schedule_addr, i
+    // stack: a[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], b[i+1], message_schedule_addr, i, retdest
     swap1
     swap7
     swap1
-    // stack: a[i+1], b[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], c[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], c[i+1], message_schedule_addr, i, retdest
     swap2
     swap7
     swap2
-    // stack: a[i+1], b[i+1], c[i+1], e[i+1], f[i+1], g[i+1], h[i+1], d[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], e[i+1], f[i+1], g[i+1], h[i+1], d[i+1], message_schedule_addr, i, retdest
     swap3
     swap7
     swap3
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], f[i+1], g[i+1], h[i+1], e[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], f[i+1], g[i+1], h[i+1], e[i+1], message_schedule_addr, i, retdest
     swap4
     swap7
     swap4
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], g[i+1], h[i+1], f[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], g[i+1], h[i+1], f[i+1], message_schedule_addr, i, retdest
     swap5
     swap7
     swap5
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], h[i+1], g[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], h[i+1], g[i+1], message_schedule_addr, i, retdest
     swap6
     swap7
     swap6
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i, retdest
     dup10
-    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i
+    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i, retdest
     %increment
-    // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i
+    // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i, retdest
     dup1
-    // stack: i+1, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i
+    // stack: i+1, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i, retdest
     %eq_const(64)
     %jumpi(sha2_compression_end)
-    // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i
+    // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i, retdest
     swap10
-    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i+1
+    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i+1, retdest
     pop
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i+1
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], message_schedule_addr, i+1, retdest
     %jump(sha2_compression_loop)
 sha2_compression_end:
     JUMPDEST
-    // stack: i+1=64, a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: i+1=64, a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     pop
-    // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %mload_kernel_code_u32
-    // stack: a[0], a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: a[0], a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: a[0]+a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: a[0]+a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     swap1
-    // stack: b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(1)
     %mload_kernel_code_u32
-    // stack: b[0], b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: b[0], b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: b[0]+b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: b[0]+b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     swap2
-    // stack: c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(2)
     %mload_kernel_code_u32
-    // stack: c[0], c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: c[0], c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: c[0]+c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: c[0]+c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     swap3
-    // stack: d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(3)
     %mload_kernel_code_u32
-    // stack: d[0], d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: d[0], d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: d[0]+d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: d[0]+d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     swap4
-    // stack: e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(4)
     %mload_kernel_code_u32
-    // stack: e[0], e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: e[0], e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: e[0]+e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    // stack: e[0]+e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i, retdest
     swap5
-    // stack: f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    // stack: f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(5)
     %mload_kernel_code_u32
-    // stack: f[0], f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    // stack: f[0], f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: f[0]+f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    // stack: f[0]+f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i, retdest
     swap6
-    // stack: g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    // stack: g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(6)
     %mload_kernel_code_u32
-    // stack: g[0], g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    // stack: g[0], g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: g[0]+g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    // stack: g[0]+g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i, retdest
     swap7
-    // stack: h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    // stack: h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i, retdest
     push sha2_constants_h
     %add_const(6)
     %mload_kernel_code_u32
-    // stack: h[0], h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    // stack: h[0], h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i, retdest
     %add_u32
-    // stack: h[0]+h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    // stack: h[0]+h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i, retdest
     swap8
-    // stack: message_schedule_addr, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i
+    // stack: message_schedule_addr, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i, retdest
     pop
-    // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i
+    // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i, retdest
     swap1
     %shl(32)
     or
@@ -592,9 +600,9 @@ sha2_compression_end:
     swap1
     %shl(224)
     or
-    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), i
+    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), i, retdest
     swap1
-    // stack: i, concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64])
+    // stack: i, concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), retdest
     pop
-    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64])
-    
+    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), retdest
+    STOP
