@@ -1,3 +1,21 @@
+// u32 addition (discarding 2^32 bit)
+%macro add_u32
+    // stack: x, y
+    add
+    // stack: x + y
+    dup1
+    // stack: x + y, x + y
+    %shr_const(32)
+    // stack: (x + y) >> 32, x + y
+    %shl_const(32)
+    // stack: ((x + y) >> 32) << 32, x + y
+    swap1
+    // stack: x + y, ((x + y) >> 32) << 32
+    sub
+    // stack: x + y - ((x + y) >> 32) << 32
+%endmacro
+
+
 // 32-bit right rotation
 %macro rotr
     // stack: rot, value
@@ -55,7 +73,6 @@
 %endmacro
 
 %macro sha2_sigma_0
-    JUMPDEST
     // stack: x
     dup1
     // stack: x, x
