@@ -506,3 +506,95 @@ sha2_compression_end:
     // stack: i+1=64, a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
     pop
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %mload_kernel_code_u32
+    // stack: a[0], a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: a[0]+a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    swap1
+    // stack: b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(1)
+    %mload_kernel_code_u32
+    // stack: b[0], b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: b[0]+b[64], a[0]+a[64], c[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    swap2
+    // stack: c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(2)
+    %mload_kernel_code_u32
+    // stack: c[0], c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: c[0]+c[64], a[0]+a[64], b[0]+b[64], d[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    swap3
+    // stack: d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(3)
+    %mload_kernel_code_u32
+    // stack: d[0], d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: d[0]+d[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], e[64], f[64], g[64], h[64], message_schedule_addr, i
+    swap4
+    // stack: e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(4)
+    %mload_kernel_code_u32
+    // stack: e[0], e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: e[0]+e[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], f[64], g[64], h[64], message_schedule_addr, i
+    swap5
+    // stack: f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(5)
+    %mload_kernel_code_u32
+    // stack: f[0], f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: f[0]+f[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], g[64], h[64], message_schedule_addr, i
+    swap6
+    // stack: g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(6)
+    %mload_kernel_code_u32
+    // stack: g[0], g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    %add_u32
+    // stack: g[0]+g[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], h[64], message_schedule_addr, i
+    swap7
+    // stack: h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    push sha2_constants_h
+    %add_const(6)
+    %mload_kernel_code_u32
+    // stack: h[0], h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    %add_u32
+    // stack: h[0]+h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], message_schedule_addr, i
+    swap8
+    // stack: message_schedule_addr, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i
+    pop
+    // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i
+    swap1
+    %shl(32)
+    or
+    swap1
+    %shl(64)
+    or
+    swap1
+    %shl(96)
+    or
+    swap1
+    %shl(128)
+    or
+    swap1
+    %shl(160)
+    or
+    swap1
+    %shl(192)
+    or
+    swap1
+    %shl(224)
+    or
+    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), i
+    swap1
+    // stack: i, concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64])
+    pop
+    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64])
+    
