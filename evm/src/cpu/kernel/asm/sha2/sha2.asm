@@ -580,25 +580,25 @@ sha2_compression_end:
     pop
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], i, retdest
     swap1
-    %shl(32)
+    %shl_const(32)
     or
     swap1
-    %shl(64)
+    %shl_const(64)
     or
     swap1
-    %shl(96)
+    %shl_const(96)
     or
     swap1
-    %shl(128)
+    %shl_const(128)
     or
     swap1
-    %shl(160)
+    %shl_const(160)
     or
     swap1
-    %shl(192)
+    %shl_const(192)
     or
     swap1
-    %shl(224)
+    %shl_const(224)
     or
     // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), i, retdest
     swap1
