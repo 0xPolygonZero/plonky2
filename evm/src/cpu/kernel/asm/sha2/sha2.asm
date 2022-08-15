@@ -419,7 +419,7 @@ sha2_compression_loop:
     // stack: 4*i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     add
     // stack: message_schedule_addr + 4*i, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
-    %mload_kernel_general_u32, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i
+    %mload_kernel_general_u32
     // stack: W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
     push sha2_constants_k
     // stack: sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], message_schedule_addr, i, retdest
