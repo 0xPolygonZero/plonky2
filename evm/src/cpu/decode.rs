@@ -193,16 +193,17 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     }
 }
 
+/// Break up an opcode (which is 8 bits long) into its eight bits.
 const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
     [
-        opcode & 1 != 0,
-        opcode & 2 != 0,
-        opcode & 4 != 0,
-        opcode & 8 != 0,
-        opcode & 16 != 0,
-        opcode & 32 != 0,
-        opcode & 64 != 0,
-        opcode & 128 != 0,
+        opcode & (1 << 0) != 0,
+        opcode & (1 << 1) != 0,
+        opcode & (1 << 2) != 0,
+        opcode & (1 << 3) != 0,
+        opcode & (1 << 4) != 0,
+        opcode & (1 << 5) != 0,
+        opcode & (1 << 6) != 0,
+        opcode & (1 << 7) != 0,
     ]
 }
 
@@ -212,18 +213,17 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     let cycle_filter = lv.is_cpu_cycle;
 
-    // Ensure that the kernel flag is valid;
+    // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;
     yield_constr.constraint(cycle_filter * kernel_mode * (kernel_mode - P::ONES));
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
-    // the opcode. Note that this also validates that this implicitly range-checks the opcode.
+    // the opcode. Note that this also implicitly range-checks the opcode.
     let bits = lv.opcode_bits;
     // First check that the bits are either 0 or 1.
     for bit in bits {
         yield_constr.constraint(cycle_filter * bit * (bit - P::ONES));
     }
-
     // Now check that they match the opcode.
     {
         let opcode = lv.opcode;
@@ -250,22 +250,28 @@ pub fn eval_packed_generic<P: PackedField>(
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
     for (oc, block_length, availability, col) in OPCODES {
+        // 0 if the block/flag is available to us (is always available, is user-only and we are in
+        // user mode, or kernel-only and we are in kernel mode) and 1 otherwise.
         let unavailable = match availability {
             All => P::ZEROS,
             User => kernel_mode,
             Kernel => P::ONES - kernel_mode,
         };
+        // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
         let opcode_mismatch: P = bits
             .into_iter()
             .zip(bits_from_opcode(oc))
             .rev()
             .take(block_length + 1)
             .map(|(row_bit, flag_bit)| match flag_bit {
+                // 1 if the bit does not match, and 0 otherwise
                 false => row_bit,
                 true => P::ONES - row_bit,
             })
             .sum();
 
+        // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
+        // correct mode.
         let constr = lv[col] * (unavailable + opcode_mismatch);
         yield_constr.constraint(cycle_filter * constr);
     }
@@ -280,7 +286,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let cycle_filter = lv.is_cpu_cycle;
 
-    // Ensure that the kernel flag is valid;
+    // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;
     {
         let constr = builder.mul_sub_extension(kernel_mode, kernel_mode, kernel_mode);
@@ -289,7 +295,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
-    // the opcode. Note that this also validates that this implicitly range-checks the opcode.
+    // the opcode. Note that this also implicitly range-checks the opcode.
     let bits = lv.opcode_bits;
     // First check that the bits are either 0 or 1.
     for bit in bits {
@@ -297,7 +303,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
-
     // Now check that they match the opcode.
     {
         let opcode = lv.opcode;
@@ -333,11 +338,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
     for (oc, block_length, availability, col) in OPCODES {
+        // 0 if the block/flag is available to us (is always available, is user-only and we are in
+        // user mode, or kernel-only and we are in kernel mode) and 1 otherwise.
         let unavailable = match availability {
             All => builder.zero_extension(),
             User => kernel_mode,
             Kernel => builder.sub_extension(one, kernel_mode),
         };
+        // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
         let opcode_mismatch = bits
             .into_iter()
             .zip(bits_from_opcode(oc))
@@ -351,6 +359,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
                 builder.add_extension(cumul, to_add)
             });
 
+        // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
+        // correct mode.
         let constr = builder.add_extension(unavailable, opcode_mismatch);
         let constr = builder.mul_extension(lv[col], constr);
         let constr = builder.mul_extension(cycle_filter, constr);
