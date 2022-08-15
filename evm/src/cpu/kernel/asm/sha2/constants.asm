@@ -1,4 +1,4 @@
-sha2_constants_k:
+global sha2_constants_k:
     BYTES 66, 138, 47, 152
     BYTES 113, 55, 68, 145
     BYTES 181, 192, 251, 207
@@ -64,7 +64,7 @@ sha2_constants_k:
     BYTES 190, 249, 163, 247
     BYTES 198, 113, 120, 242
 
-sha2_constants_h:
+global sha2_constants_h:
     BYTES 106, 9, 230, 103
     BYTES 187, 103, 174, 133
     BYTES 60, 110, 243, 114
