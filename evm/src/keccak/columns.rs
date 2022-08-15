@@ -14,9 +14,12 @@ pub const fn reg_step(i: usize) -> usize {
 /// `reg_input_limb(2*i+1) -> input[i] >> 32`
 pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
     debug_assert!(i < 2 * NUM_INPUTS);
-    let range = if i % 2 == 0 { 0..32 } else { 32..64 };
-    let bits = range.map(|j| reg_a((i / 2) / 5, (i / 2) % 5, j));
-    Column::le_bits(bits)
+    let i_u64 = i / 2; // The index of the 64-bit chunk.
+    let x = i_u64 / 5;
+    let y = i_u64 % 5;
+    let reg_low_limb = reg_a(x, y);
+    let is_high_limb = i % 2;
+    Column::single(reg_low_limb + is_high_limb)
 }
 
 /// Registers to hold permutation outputs.
@@ -24,14 +27,11 @@ pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
 /// `reg_output_limb(2*i+1) -> output[i] >> 32`
 pub const fn reg_output_limb(i: usize) -> usize {
     debug_assert!(i < 2 * NUM_INPUTS);
-    let ii = i / 2;
-    let x = ii / 5;
-    let y = ii % 5;
-    if i % 2 == 0 {
-        reg_a_prime_prime_prime(x, y)
-    } else {
-        reg_a_prime_prime_prime(x, y) + 1
-    }
+    let i_u64 = i / 2; // The index of the 64-bit chunk.
+    let x = i_u64 / 5;
+    let y = i_u64 % 5;
+    let is_high_limb = i % 2;
+    reg_a_prime_prime_prime(x, y) + is_high_limb
 }
 
 const R: [[u8; 5]; 5] = [
@@ -43,31 +43,33 @@ const R: [[u8; 5]; 5] = [
 ];
 
 const START_A: usize = NUM_ROUNDS;
-pub(crate) const fn reg_a(x: usize, y: usize, z: usize) -> usize {
+pub(crate) const fn reg_a(x: usize, y: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);
-    debug_assert!(z < 64);
-    START_A + x * 64 * 5 + y * 64 + z
+    START_A + (x * 5 + y) * 2
 }
 
-// C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
-const START_C_PARTIAL: usize = START_A + 5 * 5 * 64;
-pub(crate) const fn reg_c_partial(x: usize, z: usize) -> usize {
-    START_C_PARTIAL + x * 64 + z
-}
-
-// C[x] = xor(C_partial[x], A[x, 3], A[x, 4])
-const START_C: usize = START_C_PARTIAL + 5 * 64;
+// C[x] = xor(A[x, 0], A[x, 1], A[x, 2], A[x, 3], A[x, 4])
+const START_C: usize = START_A + 5 * 5 * 2;
 pub(crate) const fn reg_c(x: usize, z: usize) -> usize {
+    debug_assert!(x < 5);
+    debug_assert!(z < 64);
     START_C + x * 64 + z
 }
 
-// D is inlined.
-// const fn reg_d(x: usize, z: usize) {}
+// C'[x, z] = xor(C[x, z], C[x - 1, z], C[x + 1, z - 1])
+const START_C_PRIME: usize = START_C + 5 * 64;
+pub(crate) const fn reg_c_prime(x: usize, z: usize) -> usize {
+    debug_assert!(x < 5);
+    debug_assert!(z < 64);
+    START_C_PRIME + x * 64 + z
+}
+
+// Note: D is inlined, not stored in the witness.
 
 // A'[x, y] = xor(A[x, y], D[x])
 //          = xor(A[x, y], C[x - 1], ROT(C[x + 1], 1))
-const START_A_PRIME: usize = START_C + 5 * 64;
+const START_A_PRIME: usize = START_C_PRIME + 5 * 64;
 pub(crate) const fn reg_a_prime(x: usize, y: usize, z: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);
