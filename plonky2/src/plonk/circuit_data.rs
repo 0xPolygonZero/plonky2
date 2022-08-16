@@ -30,8 +30,8 @@ use crate::util::serialization::Buffer;
 use crate::util::gate_serialization::GateSerializer;
 use crate::util::timing::TimingTree;
 
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+// #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -241,8 +241,8 @@ pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
 }
 
 /// Circuit data required by both the prover and the verifier.
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Debug, PartialEq, Eq)]
+// #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct CommonCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

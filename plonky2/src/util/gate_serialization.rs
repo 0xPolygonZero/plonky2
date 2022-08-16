@@ -10,7 +10,7 @@ pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {
 }
 
 macro_rules! read_gate_impl {
-    ($buf:expr, $tag:expr, $($gate_types:ty),*) => {{
+    ($buf:expr, $tag:expr, $($gate_types:ty),+) => {{
         let tag = $tag;
         let buf = $buf;
         let mut i = 0..;
@@ -18,22 +18,22 @@ macro_rules! read_gate_impl {
             let gate = <$gate_types as $crate::gates::gate::Gate<F, D>>::deserialize(buf)?;
             Ok($crate::gates::gate::GateRef::<F, D>::new(gate))
         } else)*
-        { Err(std::io::Error::from(std::io::ErrorKind::InvalidData)) }
+        {
+            Err(std::io::Error::from(std::io::ErrorKind::InvalidData))
+        }
     }}
 }
 
 macro_rules! get_gate_tag_impl {
-    ($gate_any:expr, $($gate_types:ty),*) => {{
-        match $gate_any {
-            gate_any => {
-                let mut i = 0..;
-                $(if let (tag, true) = (i.next().unwrap(), gate_any.is::<$gate_types>()) {
-                    Ok(tag)
-                } else)*
-                {
-                    Err(std::io::Error::from(std::io::ErrorKind::InvalidData))
-                }
-            }
+    ($gate:expr, $($gate_types:ty),+) => {{
+        let gate_any = $gate.0.as_any();
+        let mut i = 0..;
+        $(if let (tag, true) = (i.next().unwrap(), gate_any.is::<$gate_types>()) {
+            Ok(tag)
+        } else)*
+        {
+            log::log!(log::Level::Error, "attempted to serialize gate with id `{}` which is unsupported by this gate serializer", $gate.0.id());
+            Err(std::io::Error::from(std::io::ErrorKind::InvalidData))
         }
     }}; 
 }
@@ -47,8 +47,7 @@ macro_rules! impl_gate_serializer {
         }
 
         fn write_gate(&self, buf: &mut $crate::util::serialization::Buffer, gate: &$crate::gates::gate::GateRef<F, D>) -> std::io::Result<()> {
-            let gate_as_any = gate.as_any();
-            let tag = get_gate_tag_impl!(gate_as_any, $($gate_types),+)?;
+            let tag = get_gate_tag_impl!(gate, $($gate_types),+)?;
 
             buf.write_u32(tag)?;
             gate.0.serialize(buf)?;
@@ -65,6 +64,7 @@ pub mod default {
     use crate::gates::arithmetic_base::ArithmeticGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::assert_le::AssertLessThanGate;
+    use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::interpolation::HighDegreeInterpolationGate;
@@ -85,6 +85,7 @@ pub mod default {
             ArithmeticGate, 
             ArithmeticExtensionGate<D>,
             AssertLessThanGate<F, D>,
+            BaseSumGate<2>,
             ConstantGate,
             ExponentiationGate<F, D>,
             HighDegreeInterpolationGate<F, D>,

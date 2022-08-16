@@ -22,7 +22,10 @@ use plonky2::{
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
     },
-    util::timing::TimingTree,
+    util::{
+        timing::TimingTree,
+        gate_serialization::default::DefaultGateSerializer
+    }
 };
 use plonky2_field::extension::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
@@ -176,7 +179,14 @@ where
         CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
     assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
-    let circuit_data_bytes = cd.to_bytes()?;
+    let gate_serializer = DefaultGateSerializer;
+    let common_data_bytes = cd.to_bytes(&gate_serializer)?;
+    info!(
+        "Common circuit data length: {} bytes",
+        common_data_bytes.len()
+    );
+    let common_data_from_bytes = CommonCircuitData::<F, C, D>::from_bytes(common_data_bytes, &gate_serializer)?;
+    assert_eq!(cd, &common_data_from_bytes);
 
     Ok(())
 }
