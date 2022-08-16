@@ -539,7 +539,6 @@ mod tests {
             row.is_kernel_mode = F::ZERO;
             row.program_counter = last_row.program_counter + F::ONE;
             row.general.jumps_mut().input0 = [
-                // JNTODO: swap endianness
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -550,19 +549,7 @@ mod tests {
                 F::ZERO,
             ];
             row.general.jumps_mut().input1 = [
-                // JNTODO: swap endianness
                 F::ONE,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-            ];
-            row.general.jumps_mut().output = [
-                // JNTODO: swap endianness
-                row.program_counter,
                 F::ZERO,
                 F::ZERO,
                 F::ZERO,

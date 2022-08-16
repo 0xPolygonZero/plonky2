@@ -61,9 +61,10 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let filter = lv.is_jump + lv.is_jumpi; // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
+    // In other words, we implement `JUMP(addr)` as `JUMPI(addr, cond=1)`.
     yield_constr.constraint(lv.is_jump * (jumps_lv.input1[0] - P::ONES));
     for &limb in &jumps_lv.input1[1..] {
-        // Set all limbs (other than the least-signigficant limb) to 0.
+        // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `input1[0] + ... + input1[7]` cannot overflow.
         yield_constr.constraint(lv.is_jump * limb);
@@ -128,15 +129,6 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint(filter * jumps_lv.should_trap * jumps_lv.input0_jumpable);
 
     // Handle trap
-    // Save program counter and kernel flag
-    yield_constr
-        .constraint(filter * jumps_lv.should_trap * (jumps_lv.output[0] - lv.program_counter));
-    yield_constr
-        .constraint(filter * jumps_lv.should_trap * (jumps_lv.output[1] - lv.is_kernel_mode));
-    // (Zero remaining limbs)
-    for &limb in &jumps_lv.output[2..] {
-        yield_constr.constraint(filter * jumps_lv.should_trap * limb);
-    }
     // Set program counter and kernel flag
     yield_constr
         .constraint_transition(filter * jumps_lv.should_trap * (nv.is_kernel_mode - P::ONES));
@@ -170,12 +162,13 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let filter = builder.add_extension(lv.is_jump, lv.is_jumpi); // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
+    // In other words, we implement `JUMP(addr)` as `JUMPI(addr, cond=1)`.
     {
         let constr = builder.mul_sub_extension(lv.is_jump, jumps_lv.input1[0], lv.is_jump);
         yield_constr.constraint(builder, constr);
     }
     for &limb in &jumps_lv.input1[1..] {
-        // Set all limbs (other than the least-signigficant limb) to 0.
+        // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `input1[0] + ... + input1[7]` cannot overflow.
         let constr = builder.mul_extension(lv.is_jump, limb);
@@ -297,22 +290,6 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Handle trap
     {
         let trap_filter = builder.mul_extension(filter, jumps_lv.should_trap);
-
-        // Save program counter
-        let constr = builder.sub_extension(jumps_lv.output[0], lv.program_counter);
-        let constr = builder.mul_extension(trap_filter, constr);
-        yield_constr.constraint(builder, constr);
-
-        // Save kernel flag
-        let constr = builder.sub_extension(jumps_lv.output[1], lv.is_kernel_mode);
-        let constr = builder.mul_extension(trap_filter, constr);
-        yield_constr.constraint(builder, constr);
-
-        // (Zero remaining limbs)
-        for &limb in &jumps_lv.output[2..] {
-            let constr = builder.mul_extension(trap_filter, limb);
-            yield_constr.constraint(builder, constr);
-        }
 
         // Set kernel flag
         let constr = builder.mul_sub_extension(trap_filter, nv.is_kernel_mode, trap_filter);

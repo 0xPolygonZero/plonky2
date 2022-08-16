@@ -92,8 +92,8 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_mstore8: T,
     pub is_sload: T,
     pub is_sstore: T,
-    pub is_jump: T,
-    pub is_jumpi: T,
+    pub is_jump: T,  // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub is_jumpi: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     pub is_pc: T,
     pub is_msize: T,
     pub is_gas: T,
