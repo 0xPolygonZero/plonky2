@@ -50,7 +50,6 @@ impl FriConfig {
 /// FRI parameters, including generated parameters which are specific to an instance size, in
 /// contrast to `FriConfig` which is user-specified and independent of instance size.
 #[derive(Debug, PartialEq, Eq)]
-// #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct FriParams {
     /// User-specified FRI configuration.
     pub config: FriConfig,
