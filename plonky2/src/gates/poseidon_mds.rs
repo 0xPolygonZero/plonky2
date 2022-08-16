@@ -7,7 +7,6 @@ use plonky2_field::extension::Extendable;
 use plonky2_field::extension::FieldExtension;
 use plonky2_field::types::Field;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -121,10 +120,6 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
 impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for PoseidonMdsGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::PoseidonMds
     }
 
     fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {

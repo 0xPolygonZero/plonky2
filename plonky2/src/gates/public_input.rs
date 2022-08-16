@@ -4,7 +4,6 @@ use std::ops::Range;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -30,10 +29,6 @@ impl PublicInputGate {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
     fn id(&self) -> String {
         "PublicInputGate".into()
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::PublicInput
     }
 
     fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {

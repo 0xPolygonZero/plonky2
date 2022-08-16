@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Result as IoResult;
 use std::ops::Range;
 use std::sync::Arc;
+use core::any::Any;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension::{Extendable, FieldExtension};
@@ -20,30 +21,9 @@ use crate::plonk::vars::{
 };
 use crate::util::serialization::Buffer;
 
-pub enum GateKind {
-    ArithmeticBase,
-    ArithmeticExt,
-    AssertLe,
-    BaseSum,
-    Constant,
-    Exponentiation,
-    Interpolation,
-    LowDegreeInterpolation,
-    MulExt,
-    Noop,
-    PoseidonMds,
-    Poseidon,
-    PublicInput,
-    RandomAccess,
-    ReducingExt,
-    Reducing,
-}
-
 /// A custom gate.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
-
-    fn kind(&self) -> GateKind;
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()>;
     fn deserialize(src: &mut Buffer) -> IoResult<Self>
@@ -222,6 +202,10 @@ pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<
 impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
         GateRef(Arc::new(gate))
+    }
+
+    pub fn as_any(&self) -> &dyn Any {
+        &self.0
     }
 }
 

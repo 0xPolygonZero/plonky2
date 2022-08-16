@@ -6,7 +6,6 @@ use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -103,10 +102,6 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::RandomAccess
     }
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {

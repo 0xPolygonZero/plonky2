@@ -27,6 +27,7 @@ use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::serialization::Buffer;
+use crate::util::gate_serialization::GateSerializer;
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug)]
@@ -286,15 +287,15 @@ pub struct CommonCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CommonCircuitData<F, C, D>
 {
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+    pub fn to_bytes(&self, gate_serializer: &dyn GateSerializer<F, D>) -> anyhow::Result<Vec<u8>> {
         let mut buffer = Buffer::new(Vec::new());
-        buffer.write_common_circuit_data(self)?;
+        buffer.write_common_circuit_data(self, gate_serializer)?;
         Ok(buffer.bytes())
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> anyhow::Result<CommonCircuitData<F, C, D>> {
+    pub fn from_bytes(bytes: Vec<u8>, gate_serializer: &dyn GateSerializer<F, D>) -> anyhow::Result<CommonCircuitData<F, C, D>> {
         let mut buffer = Buffer::new(bytes);
-        let cd = buffer.read_common_circuit_data()?;
+        let cd = buffer.read_common_circuit_data(gate_serializer)?;
         Ok(cd)
     }
 

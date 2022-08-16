@@ -8,7 +8,6 @@ use plonky2_field::interpolation::interpolant;
 use plonky2_field::polynomial::PolynomialCoeffs;
 use plonky2_field::types::Field;
 
-use super::gate::GateKind;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
@@ -83,10 +82,6 @@ impl<F: RichField + Extendable<D>, const D: usize> LowDegreeInterpolationGate<F,
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::LowDegreeInterpolation
     }
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {

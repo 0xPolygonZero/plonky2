@@ -4,7 +4,6 @@ use std::ops::Range;
 use plonky2_field::extension::Extendable;
 use plonky2_field::extension::FieldExtension;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -59,10 +58,6 @@ impl<const D: usize> ReducingGate<D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::Reducing
     }
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {

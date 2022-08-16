@@ -5,6 +5,7 @@ pub(crate) mod context_tree;
 pub(crate) mod partial_products;
 pub mod reducing;
 pub mod serialization;
+pub mod gate_serialization;
 pub mod strided_view;
 pub mod timing;
 

@@ -6,7 +6,6 @@ use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 use plonky2_util::{bits_u64, ceil_div_usize};
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -89,10 +88,6 @@ impl<F: RichField + Extendable<D>, const D: usize> AssertLessThanGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThanGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::AssertLe
     }
 
     fn serialize(&self, dst: &mut Buffer) -> IoResult<()> {

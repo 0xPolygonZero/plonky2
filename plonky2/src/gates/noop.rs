@@ -2,7 +2,6 @@ use std::io::Result as IoResult;
 
 use plonky2_field::extension::Extendable;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -17,10 +16,6 @@ pub struct NoopGate;
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::Noop
     }
 
     fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {

@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
 
-use super::gate::GateKind;
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -102,10 +101,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
-    }
-
-    fn kind(&self) -> GateKind {
-        GateKind::Poseidon
     }
 
     fn serialize(&self, _dst: &mut Buffer) -> IoResult<()> {

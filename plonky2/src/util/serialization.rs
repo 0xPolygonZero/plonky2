@@ -11,25 +11,10 @@ use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
+use crate::util::gate_serialization::GateSerializer;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::arithmetic_base::ArithmeticGate;
-use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-use crate::gates::assert_le::AssertLessThanGate;
-use crate::gates::base_sum::BaseSumGate;
-use crate::gates::constant::ConstantGate;
-use crate::gates::exponentiation::ExponentiationGate;
-use crate::gates::gate::{Gate, GateKind, GateRef};
-use crate::gates::interpolation::HighDegreeInterpolationGate;
-use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
-use crate::gates::multiplication_extension::MulExtensionGate;
-use crate::gates::noop::NoopGate;
-use crate::gates::poseidon::PoseidonGate;
-use crate::gates::poseidon_mds::PoseidonMdsGate;
-use crate::gates::public_input::PublicInputGate;
-use crate::gates::random_access::RandomAccessGate;
-use crate::gates::reducing::ReducingGate;
-use crate::gates::reducing_extension::ReducingExtensionGate;
+use crate::gates::gate::{Gate, GateRef};
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
@@ -41,43 +26,7 @@ use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
 
-const ARITHMETIC_BASE_TAG: u8 = 0;
-const ARITHMETIC_EXT_TAG: u8 = 1;
-const ASSERT_LE_TAG: u8 = 2;
-const BASE_SUM_TAG: u8 = 3;
-const CONSTANT_TAG: u8 = 4;
-const EXPONENTIATION_TAG: u8 = 5;
-const INTERPOLATION_TAG: u8 = 6;
-const LOW_DEGREE_INTERPOLATION_TAG: u8 = 7;
-const MUL_EXT_TAG: u8 = 8;
-const NOOP_TAG: u8 = 9;
-const POSEIDON_MDS_TAG: u8 = 10;
-const POSEIDON_TAG: u8 = 11;
-const PUBLIC_INPUT_TAG: u8 = 12;
-const RANDOM_ACCESS_TAG: u8 = 13;
-const REDUCING_EXT_TAG: u8 = 14;
-const REDUCING_TAG: u8 = 15;
 
-fn gate_kind_tag(gate_kind: GateKind) -> u8 {
-    match gate_kind {
-        GateKind::ArithmeticBase => ARITHMETIC_BASE_TAG,
-        GateKind::ArithmeticExt => ARITHMETIC_EXT_TAG,
-        GateKind::AssertLe => ASSERT_LE_TAG,
-        GateKind::BaseSum => BASE_SUM_TAG,
-        GateKind::Constant => CONSTANT_TAG,
-        GateKind::Exponentiation => EXPONENTIATION_TAG,
-        GateKind::Interpolation => INTERPOLATION_TAG,
-        GateKind::LowDegreeInterpolation => LOW_DEGREE_INTERPOLATION_TAG,
-        GateKind::MulExt => MUL_EXT_TAG,
-        GateKind::Noop => NOOP_TAG,
-        GateKind::PoseidonMds => POSEIDON_MDS_TAG,
-        GateKind::Poseidon => POSEIDON_TAG,
-        GateKind::PublicInput => PUBLIC_INPUT_TAG,
-        GateKind::RandomAccess => RANDOM_ACCESS_TAG,
-        GateKind::ReducingExt => REDUCING_EXT_TAG,
-        GateKind::Reducing => REDUCING_TAG,
-    }
-}
 
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);
@@ -115,10 +64,10 @@ impl Buffer {
         Ok(buf[0])
     }
 
-    fn write_u32(&mut self, x: u32) -> Result<()> {
+    pub(crate) fn write_u32(&mut self, x: u32) -> Result<()> {
         self.0.write_all(&x.to_le_bytes())
     }
-    fn read_u32(&mut self) -> Result<u32> {
+    pub(crate) fn read_u32(&mut self) -> Result<u32> {
         let mut buf = [0; std::mem::size_of::<u32>()];
         self.0.read_exact(&mut buf)?;
         Ok(u32::from_le_bytes(buf))
@@ -886,85 +835,17 @@ impl Buffer {
 
     pub fn write_gate<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        gate: &dyn Gate<F, D>,
+        gate: &GateRef<F, D>,
+        gate_serializer: &dyn GateSerializer<F, D>
     ) -> Result<()> {
-        let tag = gate_kind_tag(gate.kind());
-        self.write_u8(tag)?;
-        gate.serialize(self)?;
-        Ok(())
+        gate_serializer.write_gate(self, gate)
     }
+
     pub fn read_gate<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
+        gate_serializer: &dyn GateSerializer<F, D>
     ) -> Result<GateRef<F, D>> {
-        let tag = self.read_u8()?;
-
-        match tag {
-            ARITHMETIC_BASE_TAG => {
-                let gate = <ArithmeticGate as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            ARITHMETIC_EXT_TAG => {
-                let gate = <ArithmeticExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            ASSERT_LE_TAG => {
-                let gate = AssertLessThanGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            BASE_SUM_TAG => {
-                let gate = <BaseSumGate<D> as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            CONSTANT_TAG => {
-                let gate = <ConstantGate as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            EXPONENTIATION_TAG => {
-                let gate = ExponentiationGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            INTERPOLATION_TAG => {
-                let gate = HighDegreeInterpolationGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            LOW_DEGREE_INTERPOLATION_TAG => {
-                let gate = LowDegreeInterpolationGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            MUL_EXT_TAG => {
-                let gate = <MulExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            NOOP_TAG => {
-                let gate = <NoopGate as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            POSEIDON_MDS_TAG => {
-                let gate = PoseidonMdsGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            POSEIDON_TAG => {
-                let gate = PoseidonGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            PUBLIC_INPUT_TAG => {
-                let gate = <PublicInputGate as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            RANDOM_ACCESS_TAG => {
-                let gate = RandomAccessGate::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            REDUCING_EXT_TAG => {
-                let gate = <ReducingExtensionGate<D> as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            REDUCING_TAG => {
-                let gate = <ReducingGate<D> as Gate<F, D>>::deserialize(self)?;
-                Ok(GateRef::new(gate))
-            }
-            _ => Err(Error::from(ErrorKind::InvalidData)),
-        }
+        gate_serializer.read_gate(self)
     }
 
     pub fn write_selectors_info(&mut self, selectors_info: &SelectorsInfo) -> Result<()> {
@@ -1004,6 +885,7 @@ impl Buffer {
     >(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
+        gate_serializer: &dyn GateSerializer<F, D>
     ) -> Result<()> {
         let CommonCircuitData {
             degree_bits,
@@ -1035,7 +917,7 @@ impl Buffer {
 
         self.write_usize(gates.len())?;
         for gate in gates.iter() {
-            self.write_gate::<F, C, D>(gate.0.as_ref())?;
+            self.write_gate::<F, C, D>(gate, gate_serializer)?;
         }
 
         self.write_circuit_config(config)?;
@@ -1050,6 +932,7 @@ impl Buffer {
         const D: usize,
     >(
         &mut self,
+        gate_serializer: &dyn GateSerializer<F, D>
     ) -> Result<CommonCircuitData<F, C, D>> {
         let degree_bits = self.read_usize()?;
         let quotient_degree_factor = self.read_usize()?;
@@ -1066,7 +949,7 @@ impl Buffer {
         let gates_len = self.read_usize()?;
         let mut gates = Vec::with_capacity(gates_len);
         for _ in 0..gates_len {
-            let gate = self.read_gate::<F, C, D>()?;
+            let gate = self.read_gate::<F, C, D>(gate_serializer)?;
             gates.push(gate);
         }
 
