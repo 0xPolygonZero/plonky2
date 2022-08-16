@@ -260,6 +260,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
+            row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(i);
             row.opcode = [
                 (logic::columns::IS_AND, 0x16),
@@ -319,12 +320,263 @@ mod tests {
             }
         }
 
+        // Trap to kernel
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            let last_row: cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[cpu_trace_rows.len() - 1].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x0a); // `EXP` is implemented in software
+            row.is_kernel_mode = F::ONE;
+            row.program_counter = last_row.program_counter + F::ONE;
+            row.general.syscalls_mut().output = [
+                row.program_counter,
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `EXIT_KERNEL` (to kernel)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0xf9);
+            row.is_kernel_mode = F::ONE;
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(15682),
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `JUMP` (in kernel mode)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x56);
+            row.is_kernel_mode = F::ONE;
+            row.program_counter = F::from_canonical_u16(15682);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(15106),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input1 = [
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input0_upper_zero = F::ONE;
+            row.general.jumps_mut().dst_valid_or_kernel = F::ONE;
+            row.general.jumps_mut().input0_jumpable = F::ONE;
+            row.general.jumps_mut().input1_sum_inv = F::ONE;
+            row.general.jumps_mut().should_jump = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `EXIT_KERNEL` (to userspace)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0xf9);
+            row.is_kernel_mode = F::ONE;
+            row.program_counter = F::from_canonical_u16(15106);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(63064),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `JUMP` (taken)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x56);
+            row.is_kernel_mode = F::ZERO;
+            row.program_counter = F::from_canonical_u16(63064);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(3754),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input1 = [
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input0_upper_zero = F::ONE;
+            row.general.jumps_mut().dst_valid = F::ONE;
+            row.general.jumps_mut().dst_valid_or_kernel = F::ONE;
+            row.general.jumps_mut().input0_jumpable = F::ONE;
+            row.general.jumps_mut().input1_sum_inv = F::ONE;
+            row.general.jumps_mut().should_jump = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `JUMPI` (taken)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x57);
+            row.is_kernel_mode = F::ZERO;
+            row.program_counter = F::from_canonical_u16(3754);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(37543),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input1 = [
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input0_upper_zero = F::ONE;
+            row.general.jumps_mut().dst_valid = F::ONE;
+            row.general.jumps_mut().dst_valid_or_kernel = F::ONE;
+            row.general.jumps_mut().input0_jumpable = F::ONE;
+            row.general.jumps_mut().input1_sum_inv = F::ONE;
+            row.general.jumps_mut().should_jump = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `JUMPI` (not taken)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x57);
+            row.is_kernel_mode = F::ZERO;
+            row.program_counter = F::from_canonical_u16(37543);
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(37543),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input0_upper_sum_inv = F::ONE;
+            row.general.jumps_mut().dst_valid = F::ONE;
+            row.general.jumps_mut().dst_valid_or_kernel = F::ONE;
+            row.general.jumps_mut().input0_jumpable = F::ZERO;
+            row.general.jumps_mut().should_continue = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        // `JUMP` (trapping)
+        {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            let last_row: cpu::columns::CpuColumnsView<F> =
+                cpu_trace_rows[cpu_trace_rows.len() - 1].into();
+            row.is_cpu_cycle = F::ONE;
+            row.opcode = F::from_canonical_u8(0x56);
+            row.is_kernel_mode = F::ZERO;
+            row.program_counter = last_row.program_counter + F::ONE;
+            row.general.jumps_mut().input0 = [
+                F::from_canonical_u16(37543),
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input1 = [
+                F::ONE,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+                F::ZERO,
+            ];
+            row.general.jumps_mut().input0_upper_sum_inv = F::ONE;
+            row.general.jumps_mut().dst_valid = F::ONE;
+            row.general.jumps_mut().dst_valid_or_kernel = F::ONE;
+            row.general.jumps_mut().input0_jumpable = F::ZERO;
+            row.general.jumps_mut().input1_sum_inv = F::ONE;
+            row.general.jumps_mut().should_trap = F::ONE;
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
         // Pad to a power of two.
         for i in 0..cpu_trace_rows.len().next_power_of_two() - cpu_trace_rows.len() {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.opcode = F::from_canonical_u8(0xff);
             row.is_cpu_cycle = F::ONE;
-            row.program_counter = F::from_canonical_usize(i + num_logic_rows);
+            row.is_kernel_mode = F::ONE;
+            row.program_counter =
+                F::from_canonical_usize(KERNEL.global_labels["fault_exception"] + i);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }

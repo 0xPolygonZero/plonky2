@@ -74,3 +74,6 @@ recursion_return:
     pop
     // stack: retdest, (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2)
     jump
+
+global sys_exp:
+    PANIC

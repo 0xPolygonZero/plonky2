@@ -1,25 +1,25 @@
 // Handlers for operations which terminate the current context, namely STOP,
 // RETURN, SELFDESTRUCT, REVERT, and exceptions such as stack underflow.
 
-global stop:
+global sys_stop:
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE to 0.
     // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
-global return:
+global sys_return:
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
     // TODO: Copy returned memory to parent context's RETURNDATA (but not if we're returning from a constructor?)
     // TODO: Copy returned memory to parent context's memory (as specified in their call instruction)
     // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
-global selfdestruct:
+global sys_selfdestruct:
     %consume_gas_const(@GAS_SELFDESTRUCT)
     // TODO: Destroy account.
     // TODO: Refund unused gas to parent.
     %jump(terminate_common)
 
-global revert:
+global sys_revert:
     // TODO: Refund unused gas to parent.
     // TODO: Revert state changes.
     %jump(terminate_common)
@@ -31,7 +31,7 @@ global revert:
 // - a JUMP/JUMPI destination is invalid
 // - the new stack size would be larger than 1024, or
 // - state modification is attempted during a static call
-global exception:
+global fault_exception:
     // TODO: Revert state changes.
     %jump(terminate_common)
 
