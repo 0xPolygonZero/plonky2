@@ -25,6 +25,7 @@ keccak-rust = { git = "https://github.com/npwardberkeley/keccak-rust" }
 keccak-hash = "0.9.0"
 
 [dev-dependencies]
+criterion = "0.3.5"
 hex = "0.4.3"
 
 [features]
@@ -35,3 +36,7 @@ parallel = ["maybe_rayon/parallel"]
 [[bin]]
 name = "assemble"
 required-features = ["asmtools"]
+
+[[bench]]
+name = "stack_manipulation"
+harness = false

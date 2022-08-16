@@ -32,6 +32,7 @@ global decode_rlp_string_len:
     JUMP
 
 decode_rlp_string_len_medium:
+    JUMPDEST
     // String is 0-55 bytes long. First byte contains the len.
     // stack: first_byte, pos, retdest
     %sub_const(0x80)
@@ -43,6 +44,7 @@ decode_rlp_string_len_medium:
     JUMP
 
 decode_rlp_string_len_large:
+    JUMPDEST
     // String is >55 bytes long. First byte contains the len of the len.
     // stack: first_byte, pos, retdest
     %sub_const(0xb7)
@@ -51,6 +53,13 @@ decode_rlp_string_len_large:
     %add_const(1)
     // stack: pos', len_of_len, retdest
     %jump(decode_int_given_len)
+
+// Convenience macro to call decode_rlp_string_len and return where we left off.
+%macro decode_rlp_string_len
+    %stack (pos) -> (pos, %%after)
+    %jump(decode_rlp_string_len)
+%%after:
+%endmacro
 
 // Parse a scalar from RLP memory.
 // Pre stack: pos, retdest
@@ -70,6 +79,13 @@ global decode_rlp_scalar:
     // the stack will contain (pos', len, retdest), which are the proper args
     // to decode_int_given_len.
     %jump(decode_rlp_string_len)
+
+// Convenience macro to call decode_rlp_scalar and return where we left off.
+%macro decode_rlp_scalar
+    %stack (pos) -> (pos, %%after)
+    %jump(decode_rlp_scalar)
+%%after:
+%endmacro
 
 // Parse the length of an RLP list from memory.
 // Pre stack: pos, retdest
@@ -108,6 +124,13 @@ decode_rlp_list_len_big:
     SWAP1
     // stack: pos', len_of_len, retdest
     %jump(decode_int_given_len)
+
+// Convenience macro to call decode_rlp_list_len and return where we left off.
+%macro decode_rlp_list_len
+    %stack (pos) -> (pos, %%after)
+    %jump(decode_rlp_list_len)
+%%after:
+%endmacro
 
 // Parse an integer of the given length. It is assumed that the integer will
 // fit in a single (256-bit) word on the stack.

@@ -14,8 +14,8 @@ pub mod multiplication_extension;
 pub mod noop;
 pub mod packed_util;
 pub mod poseidon;
-pub(crate) mod poseidon_mds;
-pub(crate) mod public_input;
+pub mod poseidon_mds;
+pub mod public_input;
 pub mod random_access;
 pub mod reducing;
 pub mod reducing_extension;
@@ -24,4 +24,5 @@ pub mod util;
 
 // Can't use #[cfg(test)] here because it needs to be visible to other crates.
 // See https://github.com/rust-lang/cargo/issues/8379
+#[cfg(any(feature = "gate_testing", test))]
 pub mod gate_testing;
