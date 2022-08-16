@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
@@ -16,11 +16,11 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 use plonky2_util::{bits_u64, ceil_div_usize};
-use plonky2::util::serialization::Buffer;
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
@@ -101,12 +101,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         dst.write_usize(self.num_chunks)?;
         Ok(())
     }
-    
+
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let num_bits = src.read_usize()?;
         let num_chunks = src.read_usize()?;
-        Ok(Self { num_bits, num_chunks, _phantom: PhantomData })
-    } 
+        Ok(Self {
+            num_bits,
+            num_chunks,
+            _phantom: PhantomData,
+        })
+    }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());

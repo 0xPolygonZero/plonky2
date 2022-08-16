@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
@@ -11,10 +11,10 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
 use plonky2_util::ceil_div_usize;
-use plonky2::util::serialization::Buffer;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -57,10 +57,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         dst.write_usize(self.num_input_limbs)?;
         Ok(())
     }
-    
+
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let num_input_limbs = src.read_usize()?;
-        Ok(Self { num_input_limbs, _phantom: PhantomData })
+        Ok(Self {
+            num_input_limbs,
+            _phantom: PhantomData,
+        })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

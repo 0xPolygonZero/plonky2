@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use itertools::unfold;
 use plonky2::gates::gate::Gate;
@@ -17,10 +17,10 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
-use plonky2::util::serialization::Buffer;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
@@ -95,11 +95,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         dst.write_usize(self.num_ops)?;
         Ok(())
     }
-    
+
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let num_ops = src.read_usize()?;
-        Ok(Self { num_ops, _phantom: PhantomData })
-    } 
+        Ok(Self {
+            num_ops,
+            _phantom: PhantomData,
+        })
+    }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());

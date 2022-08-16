@@ -22,10 +22,7 @@ use plonky2::{
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
     },
-    util::{
-        timing::TimingTree,
-        gate_serialization::default::DefaultGateSerializer
-    }
+    util::{gate_serialization::default::DefaultGateSerializer, timing::TimingTree},
 };
 use plonky2_field::extension::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
@@ -185,7 +182,8 @@ where
         "Common circuit data length: {} bytes",
         common_data_bytes.len()
     );
-    let common_data_from_bytes = CommonCircuitData::<F, C, D>::from_bytes(common_data_bytes, &gate_serializer)?;
+    let common_data_from_bytes =
+        CommonCircuitData::<F, C, D>::from_bytes(common_data_bytes, &gate_serializer)?;
     assert_eq!(cd, &common_data_from_bytes);
 
     Ok(())

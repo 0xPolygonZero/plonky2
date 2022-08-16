@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
@@ -16,10 +16,10 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
-use plonky2::util::serialization::Buffer;
 
 /// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
 /// the result `x - y - borrow` and, if this underflows, a new `borrow`. Inputs are not range-checked.
@@ -89,10 +89,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
         dst.write_usize(self.num_ops)?;
         Ok(())
     }
-    
+
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let num_ops = src.read_usize()?;
-        Ok(Self { num_ops, _phantom: PhantomData })
+        Ok(Self {
+            num_ops,
+            _phantom: PhantomData,
+        })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

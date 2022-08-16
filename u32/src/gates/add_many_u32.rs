@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use itertools::unfold;
 use plonky2::gates::gate::Gate;
@@ -13,10 +13,10 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
 use plonky2_util::ceil_div_usize;
-use plonky2::util::serialization::Buffer;
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 16;
@@ -98,7 +98,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let num_addends = src.read_usize()?;
         let num_ops = src.read_usize()?;
-        Ok(Self { num_addends, num_ops, _phantom: PhantomData })
+        Ok(Self {
+            num_addends,
+            num_ops,
+            _phantom: PhantomData,
+        })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

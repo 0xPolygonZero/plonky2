@@ -1,6 +1,6 @@
+use std::io::Result as IoResult;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::io::Result as IoResult;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -85,7 +85,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
 
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let vec_size = src.read_usize()?;
-        Ok(Self { vec_size, _phantom: PhantomData })
+        Ok(Self {
+            vec_size,
+            _phantom: PhantomData,
+        })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

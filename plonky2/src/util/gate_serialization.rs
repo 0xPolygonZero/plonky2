@@ -1,12 +1,14 @@
 use std::io::Result;
+
 use plonky2_field::extension::Extendable;
-use crate::hash::hash_types::RichField;
+
 use crate::gates::gate::GateRef;
+use crate::hash::hash_types::RichField;
 use crate::util::serialization::Buffer;
 
 pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {
     fn read_gate(&self, buf: &mut Buffer) -> Result<GateRef<F, D>>;
-    fn write_gate(&self, buf: &mut Buffer, gate: &GateRef<F, D>) -> Result<()>; 
+    fn write_gate(&self, buf: &mut Buffer, gate: &GateRef<F, D>) -> Result<()>;
 }
 
 macro_rules! read_gate_impl {
@@ -35,7 +37,7 @@ macro_rules! get_gate_tag_impl {
             log::log!(log::Level::Error, "attempted to serialize gate with id `{}` which is unsupported by this gate serializer", $gate.0.id());
             Err(std::io::Error::from(std::io::ErrorKind::InvalidData))
         }
-    }}; 
+    }};
 }
 
 #[macro_export]
@@ -56,11 +58,9 @@ macro_rules! impl_gate_serializer {
     };
 }
 
-
 pub mod default {
     use plonky2_field::extension::Extendable;
-    use crate::util::gate_serialization::GateSerializer;
-    use crate::hash::hash_types::RichField;
+
     use crate::gates::arithmetic_base::ArithmeticGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::assert_le::AssertLessThanGate;
@@ -77,12 +77,14 @@ pub mod default {
     use crate::gates::random_access::RandomAccessGate;
     use crate::gates::reducing::ReducingGate;
     use crate::gates::reducing_extension::ReducingExtensionGate;
-    
+    use crate::hash::hash_types::RichField;
+    use crate::util::gate_serialization::GateSerializer;
+
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {
-        impl_gate_serializer!{
+        impl_gate_serializer! {
             DefaultGateSerializer,
-            ArithmeticGate, 
+            ArithmeticGate,
             ArithmeticExtensionGate<D>,
             AssertLessThanGate<F, D>,
             BaseSumGate<2>,

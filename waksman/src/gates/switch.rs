@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
 use std::io::Result as IoResult;
+use std::marker::PhantomData;
 
 use array_tool::vec::Union;
 use plonky2::gates::gate::Gate;
@@ -17,10 +17,10 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2::util::serialization::Buffer;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
-use plonky2::util::serialization::Buffer;
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Copy, Clone, Debug)]
@@ -88,7 +88,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
     fn deserialize(src: &mut Buffer) -> IoResult<Self> {
         let chunk_size = src.read_usize()?;
         let num_copies = src.read_usize()?;
-        Ok(Self { chunk_size, num_copies, _phantom: PhantomData })
+        Ok(Self {
+            chunk_size,
+            num_copies,
+            _phantom: PhantomData,
+        })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

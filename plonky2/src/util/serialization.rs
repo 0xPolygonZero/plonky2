@@ -11,7 +11,6 @@ use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
-use crate::util::gate_serialization::GateSerializer;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
@@ -25,8 +24,7 @@ use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
-
-
+use crate::util::gate_serialization::GateSerializer;
 
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);
@@ -836,14 +834,14 @@ impl Buffer {
     pub fn write_gate<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         gate: &GateRef<F, D>,
-        gate_serializer: &dyn GateSerializer<F, D>
+        gate_serializer: &dyn GateSerializer<F, D>,
     ) -> Result<()> {
         gate_serializer.write_gate(self, gate)
     }
 
     pub fn read_gate<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        gate_serializer: &dyn GateSerializer<F, D>
+        gate_serializer: &dyn GateSerializer<F, D>,
     ) -> Result<GateRef<F, D>> {
         gate_serializer.read_gate(self)
     }
@@ -885,7 +883,7 @@ impl Buffer {
     >(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-        gate_serializer: &dyn GateSerializer<F, D>
+        gate_serializer: &dyn GateSerializer<F, D>,
     ) -> Result<()> {
         let CommonCircuitData {
             degree_bits,
@@ -932,7 +930,7 @@ impl Buffer {
         const D: usize,
     >(
         &mut self,
-        gate_serializer: &dyn GateSerializer<F, D>
+        gate_serializer: &dyn GateSerializer<F, D>,
     ) -> Result<CommonCircuitData<F, C, D>> {
         let degree_bits = self.read_usize()?;
         let quotient_degree_factor = self.read_usize()?;

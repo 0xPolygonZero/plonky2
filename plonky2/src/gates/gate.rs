@@ -1,10 +1,10 @@
+use core::any::Any;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::io::Result as IoResult;
 use std::ops::Range;
 use std::sync::Arc;
-use core::any::Any;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension::{Extendable, FieldExtension};

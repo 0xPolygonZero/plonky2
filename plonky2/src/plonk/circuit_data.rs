@@ -26,8 +26,8 @@ use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
-use crate::util::serialization::Buffer;
 use crate::util::gate_serialization::GateSerializer;
+use crate::util::serialization::Buffer;
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -293,7 +293,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         Ok(buffer.bytes())
     }
 
-    pub fn from_bytes(bytes: Vec<u8>, gate_serializer: &dyn GateSerializer<F, D>) -> anyhow::Result<CommonCircuitData<F, C, D>> {
+    pub fn from_bytes(
+        bytes: Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+    ) -> anyhow::Result<CommonCircuitData<F, C, D>> {
         let mut buffer = Buffer::new(bytes);
         let cd = buffer.read_common_circuit_data(gate_serializer)?;
         Ok(cd)
