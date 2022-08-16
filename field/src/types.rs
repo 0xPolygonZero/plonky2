@@ -192,10 +192,17 @@ pub trait Field:
     /// Compute the inverse of 2^exp in this field.
     #[inline]
     fn inverse_2exp(exp: usize) -> Self {
-        // The inverse of 2^exp is p-(p-1)/2^exp when char(F) = p and
-        // exp is at most the t=TWO_ADICITY of the prime field. When
-        // exp exceeds t, we repeatedly multiply by 2^-t and reduce
-        // exp until it's in the right range.
+        // Let p = char(F). Since 2^exp is in the prime subfield, i.e. an
+        // element of GF_p, its inverse must be as well. Thus we may add
+        // multiples of p without changing the result. In particular,
+        // 2^-exp = 2^-exp - p 2^-exp
+        //        = 2^-exp (1 - p)
+        //        = p - (p - 1) / 2^exp
+
+        // If this field's two adicity, t, is at least exp, then 2^exp divides
+        // p - 1, so this division can be done with a simple bit shift. If
+        // exp > t, we repeatedly multiply by 2^-t and reduce exp until it's in
+        // the right range.
 
         if let Some(p) = Self::characteristic().to_u64() {
             // NB: The only reason this is split into two cases is to save
