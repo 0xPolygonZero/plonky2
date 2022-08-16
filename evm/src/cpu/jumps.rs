@@ -10,7 +10,7 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 
 static INVALID_DST_HANDLER_ADDR: Lazy<usize> =
-    Lazy::new(|| KERNEL.global_labels["handle_invalid_jump_dst"]);
+    Lazy::new(|| KERNEL.global_labels["fault_exception"]);
 
 pub fn eval_packed_exit_kernel<P: PackedField>(
     lv: &CpuColumnsView<P>,

@@ -351,7 +351,7 @@ mod tests {
             row.is_cpu_cycle = F::ONE;
             row.opcode = F::from_canonical_u8(0xf9);
             row.is_kernel_mode = F::ONE;
-            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["handle_exp"]);
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
             row.general.jumps_mut().input0 = [
                 F::from_canonical_u16(15682),
                 F::ONE,
@@ -589,7 +589,7 @@ mod tests {
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
             row.program_counter =
-                F::from_canonical_usize(KERNEL.global_labels["handle_invalid_jump_dst"] + i);
+                F::from_canonical_usize(KERNEL.global_labels["fault_exception"] + i);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
