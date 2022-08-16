@@ -1,6 +1,8 @@
+mod core;
 mod curve_ops;
 mod ecrecover;
 mod exp;
+mod packing;
 mod rlp;
 mod transaction_parsing;
 

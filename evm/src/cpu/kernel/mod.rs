@@ -10,7 +10,7 @@ mod opcodes;
 mod optimizer;
 mod parser;
 pub mod prover_input;
-mod stack_manipulation;
+pub mod stack;
 mod txn_fields;
 mod utils;
 

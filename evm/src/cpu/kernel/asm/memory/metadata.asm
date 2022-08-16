@@ -33,3 +33,15 @@
     %mload_current(@SEGMENT_CONTEXT_METADATA)
     // stack: (empty)
 %endmacro
+
+%macro address
+    %mload_context_metadata(0) // TODO: Read proper field.
+%endmacro
+
+%macro sender
+    %mload_context_metadata(0) // TODO: Read proper field.
+%endmacro
+
+%macro callvalue
+    %mload_context_metadata(0) // TODO: Read proper field.
+%endmacro

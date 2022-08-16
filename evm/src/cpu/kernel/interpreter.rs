@@ -134,15 +134,28 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
-        self.memory.context_memory[0].segments[Segment::TxnFields as usize].content[field as usize]
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
+    }
+
+    pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize]
+            .set(field as usize, value);
     }
 
     pub(crate) fn get_txn_data(&self) -> &[U256] {
         &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
     }
 
+    pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
+            .content
+            .iter()
+            .map(|x| x.as_u32() as u8)
+            .collect()
+    }
+
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
-        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();
     }
 
@@ -196,7 +209,7 @@ impl<'a> Interpreter<'a> {
             0x17 => self.run_or(),                                     // "OR",
             0x18 => self.run_xor(),                                    // "XOR",
             0x19 => self.run_not(),                                    // "NOT",
-            0x1a => todo!(),                                           // "BYTE",
+            0x1a => self.run_byte(),                                   // "BYTE",
             0x1b => self.run_shl(),                                    // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
@@ -378,6 +391,19 @@ impl<'a> Interpreter<'a> {
     fn run_not(&mut self) {
         let x = self.pop();
         self.push(!x);
+    }
+
+    fn run_byte(&mut self) {
+        let i = self.pop();
+        let x = self.pop();
+        let result = if i > 32.into() {
+            0
+        } else {
+            let mut bytes = [0; 32];
+            x.to_big_endian(&mut bytes);
+            bytes[i.as_usize()]
+        };
+        self.push(result.into());
     }
 
     fn run_shl(&mut self) {
