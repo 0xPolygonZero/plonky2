@@ -192,9 +192,9 @@ pub trait Field:
     /// Compute the inverse of 2^exp in this field.
     #[inline]
     fn inverse_2exp(exp: usize) -> Self {
-        // Let p = char(F). Since 2^exp is a scalar, i.e. an element of GF_p,
-        // its inverse must be as well. Thus we may add multiples of p without
-        // changing the result. In particular,
+        // Let p = char(F). Since 2^exp is in the prime subfield, i.e. an
+        // element of GF_p, its inverse must be as well. Thus we may add
+        // multiples of p without changing the result. In particular,
         // 2^-exp = 2^-exp - p 2^-exp
         //        = 2^-exp (1 - p)
         //        = p - (p - 1) / 2^exp
