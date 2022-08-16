@@ -1,7 +1,7 @@
 use std::io::Result;
 use plonky2_field::extension::Extendable;
 use crate::hash::hash_types::RichField;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::GateRef;
 use crate::util::serialization::Buffer;
 
 pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {

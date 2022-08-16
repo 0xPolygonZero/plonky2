@@ -14,7 +14,7 @@ use crate::fri::proof::{
 use crate::util::gate_serialization::GateSerializer;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::GateRef;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
@@ -73,10 +73,10 @@ impl Buffer {
         Ok(u32::from_le_bytes(buf))
     }
 
-    pub(crate) fn write_usize(&mut self, x: usize) -> Result<()> {
+    pub fn write_usize(&mut self, x: usize) -> Result<()> {
         self.0.write_all(&(x as u64).to_le_bytes())
     }
-    pub(crate) fn read_usize(&mut self) -> Result<usize> {
+    pub fn read_usize(&mut self) -> Result<usize> {
         let mut buf = [0; std::mem::size_of::<u64>()];
         self.0.read_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf) as usize)
