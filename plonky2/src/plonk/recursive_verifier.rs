@@ -194,6 +194,7 @@ mod tests {
     };
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
+    use crate::util::gate_serialization::default::DefaultGateSerializer;
     use crate::util::timing::TimingTree;
 
     #[test]
@@ -439,9 +440,10 @@ mod tests {
             CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
         assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
-        let cd_bytes = cd.to_bytes()?;
+        let gate_serializer = DefaultGateSerializer;
+        let cd_bytes = cd.to_bytes(&gate_serializer)?;
         info!("Common circuit data len: {} bytes", cd_bytes.len());
-        let cd_from_bytes = CommonCircuitData::from_bytes(cd_bytes)?;
+        let cd_from_bytes = CommonCircuitData::from_bytes(cd_bytes, &gate_serializer)?;
 
         #[cfg(test)]
         assert_eq!(cd, &cd_from_bytes);
