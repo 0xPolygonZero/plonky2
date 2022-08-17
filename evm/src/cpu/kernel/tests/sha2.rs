@@ -48,7 +48,7 @@ fn test_sha2_store() -> Result<()> {
     dbg!(stack_after_storing.clone());
 
     let memory_after_storing = after_sha2.memory;
-    let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
+    let _mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
         .content
         .clone();
     // dbg!(&mem[0..65]);
