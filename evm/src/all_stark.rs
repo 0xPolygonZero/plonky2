@@ -261,7 +261,8 @@ mod tests {
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
-            row.program_counter = F::from_canonical_usize(i);
+            // Since these are the first cycle rows, we must start with PC=route_txn then increment.
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"] + i);
             row.opcode = [
                 (logic::columns::IS_AND, 0x16),
                 (logic::columns::IS_OR, 0x17),
