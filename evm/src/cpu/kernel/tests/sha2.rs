@@ -11,7 +11,7 @@ use crate::memory::segments::Segment;
 #[test]
 fn test_sha2_store() -> Result<()> {
     let kernel = combined_kernel();
-    let sha2_store = kernel.global_labels["sha2_store"];
+    let sha2 = kernel.global_labels["sha2"];
     // let test_sha2_read = kernel.global_labels["test_sha2_read"];
 
     let mut rng = thread_rng();
@@ -37,23 +37,23 @@ fn test_sha2_store() -> Result<()> {
     store_initial_stack.reverse();
     dbg!(store_initial_stack.clone());
 
-    let after_storing = run(
+    let after_sha2 = run(
         &kernel.code,
-        sha2_store,
+        sha2,
         store_initial_stack,
         &kernel.prover_inputs,
     )?;
 
-    let stack_after_storing = after_storing.stack();
+    let stack_after_storing = after_sha2.stack();
     dbg!(stack_after_storing.clone());
 
-    let memory_after_storing = after_storing.memory;
+    let memory_after_storing = after_sha2.memory;
     let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
         .content
         .clone();
-    dbg!(&mem[0..65]);
+    // dbg!(&mem[0..65]);
 
-    dbg!(&mem[100..356]);
+    // dbg!(&mem[100..356]);
 
     Ok(())
 }
