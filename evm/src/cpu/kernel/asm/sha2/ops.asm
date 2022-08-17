@@ -192,17 +192,13 @@
     and
     // stack: x and y, z, x, y, z
     swap2
-    // stack: x, x and y, z, y, z
-    swap1
-    // stack: x and y, x, z, y, z
-    swap2
-    // stack: z, x, x and y, y, z
+    // stack: x, z, x and y, y, z
     and
     // stack: x and z, x and y, y, z
     swap2
-    // stack: y, x and z, x and y, z
+    // stack: y, x and y, x and z, z
     swap1
-    // stack: x and z, y, x and y, z
+    // stack: x and y, y, x and z, z
     swap3
     // stack: z, y, x and z, x and y
     and
