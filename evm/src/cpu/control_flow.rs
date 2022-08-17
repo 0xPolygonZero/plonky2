@@ -69,19 +69,13 @@ pub fn eval_packed_generic<P: PackedField>(
     );
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is 0 and it is in kernel mode.
-    yield_constr
-        .constraint_transition((lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * nv.program_counter);
+    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
+    let pc_diff =
+        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+    yield_constr.constraint_transition((lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * pc_diff);
     yield_constr.constraint_transition(
         (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * (nv.is_kernel_mode - P::ONES),
     );
-
-    // The first row has nowhere to continue execution from, so if it's a cycle row, then its
-    // `program_counter` must be 0.
-    // NB: I know the first few rows will be used for initialization and will not be CPU cycle rows.
-    // Once that's done, then this constraint can be removed. Until then, it is needed to ensure
-    // that execution starts at 0 and not at any arbitrary offset.
-    yield_constr.constraint_first_row(lv.is_cpu_cycle * lv.program_counter);
 
     // The last row must be a CPU cycle row.
     yield_constr.constraint_last_row(lv.is_cpu_cycle - P::ONES);
@@ -122,23 +116,17 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is 0 and it is in kernel mode.
+    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
     {
         let filter = builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
-        let pc_constr = builder.mul_extension(filter, nv.program_counter);
+        let route_txn = builder.constant_extension(F::Extension::from_canonical_usize(
+            KERNEL.global_labels["route_txn"],
+        ));
+        let pc_diff = builder.sub_extension(nv.program_counter, route_txn);
+        let pc_constr = builder.mul_extension(filter, pc_diff);
         yield_constr.constraint_transition(builder, pc_constr);
         let kernel_constr = builder.mul_sub_extension(filter, nv.is_kernel_mode, filter);
         yield_constr.constraint_transition(builder, kernel_constr);
-    }
-
-    // The first row has nowhere to continue execution from, so if it's a cycle row, then its
-    // `program_counter` must be 0.
-    // NB: I know the first few rows will be used for initialization and will not be CPU cycle rows.
-    // Once that's done, then this constraint can be removed. Until then, it is needed to ensure
-    // that execution starts at 0 and not at any arbitrary offset.
-    {
-        let constr = builder.mul_extension(lv.is_cpu_cycle, lv.program_counter);
-        yield_constr.constraint_first_row(builder, constr);
     }
 
     // The last row must be a CPU cycle row.
