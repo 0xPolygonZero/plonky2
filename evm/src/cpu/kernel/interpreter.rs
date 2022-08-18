@@ -4,17 +4,19 @@ use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
 
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
-const HALT_OFFSET: usize = 0xdeadbeef;
+const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 #[derive(Debug)]
 pub(crate) struct InterpreterMemory {
-    context_memory: Vec<MemoryContextState>,
+    pub(crate) context_memory: Vec<MemoryContextState>,
 }
 
 impl Default for InterpreterMemory {
@@ -48,16 +50,19 @@ impl InterpreterMemory {
 }
 
 pub struct Interpreter<'a> {
+    kernel_mode: bool,
     jumpdests: Vec<usize>,
     offset: usize,
     context: usize,
-    memory: InterpreterMemory,
+    pub(crate) memory: InterpreterMemory,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     prover_inputs: Vec<U256>,
+    pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
 
 pub fn run_with_kernel(
+    // TODO: Remove param and just use KERNEL.
     kernel: &Kernel,
     initial_offset: usize,
     initial_stack: Vec<U256>,
@@ -76,24 +81,47 @@ pub fn run<'a>(
     initial_stack: Vec<U256>,
     prover_inputs: &'a HashMap<usize, ProverInputFn>,
 ) -> anyhow::Result<Interpreter<'a>> {
-    let mut interpreter = Interpreter {
-        jumpdests: find_jumpdests(code),
-        offset: initial_offset,
-        memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
-        prover_inputs_map: prover_inputs,
-        prover_inputs: Vec::new(),
-        context: 0,
-        running: true,
-    };
-
-    while interpreter.running {
-        interpreter.run_opcode()?;
-    }
-
+    let mut interpreter = Interpreter::new(code, initial_offset, initial_stack, prover_inputs);
+    interpreter.run()?;
     Ok(interpreter)
 }
 
 impl<'a> Interpreter<'a> {
+    pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
+        Self::new(
+            &KERNEL.code,
+            initial_offset,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        )
+    }
+
+    pub(crate) fn new(
+        code: &'a [u8],
+        initial_offset: usize,
+        initial_stack: Vec<U256>,
+        prover_inputs: &'a HashMap<usize, ProverInputFn>,
+    ) -> Self {
+        Self {
+            kernel_mode: true,
+            jumpdests: find_jumpdests(code),
+            offset: initial_offset,
+            memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
+            prover_inputs_map: prover_inputs,
+            prover_inputs: Vec::new(),
+            context: 0,
+            halt_offsets: vec![DEFAULT_HALT_OFFSET],
+            running: true,
+        }
+    }
+
+    pub(crate) fn run(&mut self) -> anyhow::Result<()> {
+        while self.running {
+            self.run_opcode()?;
+        }
+        Ok(())
+    }
+
     fn code(&self) -> &MemorySegmentState {
         &self.memory.context_memory[self.context].segments[Segment::Code as usize]
     }
@@ -103,6 +131,32 @@ impl<'a> Interpreter<'a> {
             .iter()
             .map(|u256| u256.byte(0))
             .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
+    }
+
+    pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
+        self.memory.context_memory[0].segments[Segment::TxnFields as usize]
+            .set(field as usize, value);
+    }
+
+    pub(crate) fn get_txn_data(&self) -> &[U256] {
+        &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
+    }
+
+    pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
+            .content
+            .iter()
+            .map(|x| x.as_u32() as u8)
+            .collect()
+    }
+
+    pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
+        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize].content =
+            rlp.into_iter().map(U256::from).collect();
     }
 
     fn incr(&mut self, n: usize) {
@@ -155,8 +209,8 @@ impl<'a> Interpreter<'a> {
             0x17 => self.run_or(),                                     // "OR",
             0x18 => self.run_xor(),                                    // "XOR",
             0x19 => self.run_not(),                                    // "NOT",
-            0x1a => todo!(),                                           // "BYTE",
-            0x1b => todo!(),                                           // "SHL",
+            0x1a => self.run_byte(),                                   // "BYTE",
+            0x1b => self.run_shl(),                                    // "SHL",
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
             0x20 => self.run_keccak256(),                              // "KECCAK256",
@@ -339,6 +393,25 @@ impl<'a> Interpreter<'a> {
         self.push(!x);
     }
 
+    fn run_byte(&mut self) {
+        let i = self.pop();
+        let x = self.pop();
+        let result = if i > 32.into() {
+            0
+        } else {
+            let mut bytes = [0; 32];
+            x.to_big_endian(&mut bytes);
+            bytes[i.as_usize()]
+        };
+        self.push(result.into());
+    }
+
+    fn run_shl(&mut self) {
+        let shift = self.pop();
+        let x = self.pop();
+        self.push(x << shift);
+    }
+
     fn run_keccak256(&mut self) {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
@@ -406,24 +479,27 @@ impl<'a> Interpreter<'a> {
 
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
-        self.offset = x;
-        if self.offset == HALT_OFFSET {
-            self.running = false;
-        } else if self.jumpdests.binary_search(&self.offset).is_err() {
-            panic!("Destination is not a JUMPDEST.");
-        }
+        self.jump_to(x);
     }
 
     fn run_jumpi(&mut self) {
         let x = self.pop().as_usize();
         let b = self.pop();
         if !b.is_zero() {
-            self.offset = x;
-            if self.offset == HALT_OFFSET {
-                self.running = false;
-            } else if self.jumpdests.binary_search(&self.offset).is_err() {
-                panic!("Destination is not a JUMPDEST.");
-            }
+            self.jump_to(x);
+        }
+    }
+
+    fn jump_to(&mut self, offset: usize) {
+        // The JUMPDEST rule is not enforced in kernel mode.
+        if !self.kernel_mode && self.jumpdests.binary_search(&offset).is_err() {
+            panic!("Destination is not a JUMPDEST.");
+        }
+
+        self.offset = offset;
+
+        if self.halt_offsets.contains(&offset) {
+            self.running = false;
         }
     }
 

@@ -57,25 +57,25 @@ pub fn eval_packed_generic<P: PackedField>(
 
     // If a row is a CPU cycle and executing a native instruction (implemented as a table row; not
     // microcoded) then the program counter is incremented by 1 to obtain the next row's program
-    // counter.
+    // counter. Also, the next row has the same kernel flag.
     let is_native_instruction: P = NATIVE_INSTRUCTIONS.iter().map(|&col_i| lv[col_i]).sum();
     yield_constr.constraint_transition(
         lv.is_cpu_cycle
             * is_native_instruction
             * (lv.program_counter - nv.program_counter + P::ONES),
     );
+    yield_constr.constraint_transition(
+        lv.is_cpu_cycle * is_native_instruction * (lv.is_kernel_mode - nv.is_kernel_mode),
+    );
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is 0.
-    yield_constr
-        .constraint_transition((lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * nv.program_counter);
-
-    // The first row has nowhere to continue execution from, so if it's a cycle row, then its
-    // `program_counter` must be 0.
-    // NB: I know the first few rows will be used for initialization and will not be CPU cycle rows.
-    // Once that's done, then this constraint can be removed. Until then, it is needed to ensure
-    // that execution starts at 0 and not at any arbitrary offset.
-    yield_constr.constraint_first_row(lv.is_cpu_cycle * lv.program_counter);
+    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
+    let pc_diff =
+        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+    yield_constr.constraint_transition((lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * pc_diff);
+    yield_constr.constraint_transition(
+        (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * (nv.is_kernel_mode - P::ONES),
+    );
 
     // The last row must be a CPU cycle row.
     yield_constr.constraint_last_row(lv.is_cpu_cycle - P::ONES);
@@ -84,6 +84,8 @@ pub fn eval_packed_generic<P: PackedField>(
     let (halt_pc0, halt_pc1) = get_halt_pcs::<P::Scalar>();
     yield_constr
         .constraint_last_row((lv.program_counter - halt_pc0) * (lv.program_counter - halt_pc1));
+    // Finally, the last row must be in kernel mode.
+    yield_constr.constraint_last_row(lv.is_kernel_mode - P::ONES);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -100,32 +102,31 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // If a row is a CPU cycle and executing a native instruction (implemented as a table row; not
     // microcoded) then the program counter is incremented by 1 to obtain the next row's program
-    // counter.
+    // counter. Also, the next row has the same kernel flag.
     {
         let is_native_instruction =
             builder.add_many_extension(NATIVE_INSTRUCTIONS.iter().map(|&col_i| lv[col_i]));
         let filter = builder.mul_extension(lv.is_cpu_cycle, is_native_instruction);
         let pc_diff = builder.sub_extension(lv.program_counter, nv.program_counter);
-        let constr = builder.mul_add_extension(filter, pc_diff, filter);
-        yield_constr.constraint_transition(builder, constr);
+        let pc_constr = builder.mul_add_extension(filter, pc_diff, filter);
+        yield_constr.constraint_transition(builder, pc_constr);
+        let kernel_diff = builder.sub_extension(lv.is_kernel_mode, nv.is_kernel_mode);
+        let kernel_constr = builder.mul_extension(filter, kernel_diff);
+        yield_constr.constraint_transition(builder, kernel_constr);
     }
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is 0.
+    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
     {
-        let constr = builder.mul_extension(nv.is_cpu_cycle, nv.program_counter);
-        let constr = builder.mul_sub_extension(lv.is_cpu_cycle, constr, constr);
-        yield_constr.constraint_transition(builder, constr);
-    }
-
-    // The first row has nowhere to continue execution from, so if it's a cycle row, then its
-    // `program_counter` must be 0.
-    // NB: I know the first few rows will be used for initialization and will not be CPU cycle rows.
-    // Once that's done, then this constraint can be removed. Until then, it is needed to ensure
-    // that execution starts at 0 and not at any arbitrary offset.
-    {
-        let constr = builder.mul_extension(lv.is_cpu_cycle, lv.program_counter);
-        yield_constr.constraint_first_row(builder, constr);
+        let filter = builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
+        let route_txn = builder.constant_extension(F::Extension::from_canonical_usize(
+            KERNEL.global_labels["route_txn"],
+        ));
+        let pc_diff = builder.sub_extension(nv.program_counter, route_txn);
+        let pc_constr = builder.mul_extension(filter, pc_diff);
+        yield_constr.constraint_transition(builder, pc_constr);
+        let kernel_constr = builder.mul_sub_extension(filter, nv.is_kernel_mode, filter);
+        yield_constr.constraint_transition(builder, kernel_constr);
     }
 
     // The last row must be a CPU cycle row.
@@ -145,6 +146,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let halt_pc1_offset = builder.sub_extension(lv.program_counter, halt_pc1_target);
         let constr = builder.mul_extension(halt_pc0_offset, halt_pc1_offset);
 
+        yield_constr.constraint_last_row(builder, constr);
+    }
+    // Finally, the last row must be in kernel mode.
+    {
+        let one = builder.one_extension();
+        let constr = builder.sub_extension(lv.is_kernel_mode, one);
         yield_constr.constraint_last_row(builder, constr);
     }
 }

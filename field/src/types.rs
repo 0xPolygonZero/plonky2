@@ -6,7 +6,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::bigint::BigUint;
 use num::{Integer, One, ToPrimitive, Zero};
 use plonky2_util::bits_u64;
-use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -193,10 +192,17 @@ pub trait Field:
     /// Compute the inverse of 2^exp in this field.
     #[inline]
     fn inverse_2exp(exp: usize) -> Self {
-        // The inverse of 2^exp is p-(p-1)/2^exp when char(F) = p and
-        // exp is at most the t=TWO_ADICITY of the prime field. When
-        // exp exceeds t, we repeatedly multiply by 2^-t and reduce
-        // exp until it's in the right range.
+        // Let p = char(F). Since 2^exp is in the prime subfield, i.e. an
+        // element of GF_p, its inverse must be as well. Thus we may add
+        // multiples of p without changing the result. In particular,
+        // 2^-exp = 2^-exp - p 2^-exp
+        //        = 2^-exp (1 - p)
+        //        = p - (p - 1) / 2^exp
+
+        // If this field's two adicity, t, is at least exp, then 2^exp divides
+        // p - 1, so this division can be done with a simple bit shift. If
+        // exp > t, we repeatedly multiply by 2^-t and reduce exp until it's in
+        // the right range.
 
         if let Some(p) = Self::characteristic().to_u64() {
             // NB: The only reason this is split into two cases is to save
@@ -312,7 +318,8 @@ pub trait Field:
         Self::from_noncanonical_u128(n)
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
+    #[cfg(feature = "rand")]
+    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self;
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
@@ -391,14 +398,17 @@ pub trait Field:
         }
     }
 
+    #[cfg(feature = "rand")]
     fn rand() -> Self {
         Self::rand_from_rng(&mut rand::thread_rng())
     }
 
+    #[cfg(feature = "rand")]
     fn rand_arr<const N: usize>() -> [Self; N] {
         Self::rand_vec(N).try_into().unwrap()
     }
 
+    #[cfg(feature = "rand")]
     fn rand_vec(n: usize) -> Vec<Self> {
         (0..n).map(|_| Self::rand()).collect()
     }

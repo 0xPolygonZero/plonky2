@@ -23,7 +23,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// Interpolation gate with constraints of degree 2.
 /// `eval_unfiltered_recursively` uses more gates than `HighDegreeInterpolationGate`.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }

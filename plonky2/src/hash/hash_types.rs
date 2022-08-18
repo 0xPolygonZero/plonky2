@@ -1,6 +1,5 @@
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_field::types::{Field, PrimeField64};
-use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::hash::poseidon::Poseidon;
@@ -37,7 +36,8 @@ impl<F: Field> HashOut<F> {
         Self { elements }
     }
 
-    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    #[cfg(feature = "parallel")]
+    pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         Self {
             elements: [
                 F::rand_from_rng(rng),
@@ -115,12 +115,14 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 pub struct BytesHash<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> BytesHash<N> {
-    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+    #[cfg(feature = "parallel")]
+    pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         let mut buf = [0; N];
         rng.fill_bytes(&mut buf);
         Self(buf)
     }
 
+    #[cfg(feature = "rand")]
     pub fn rand() -> Self {
         Self::rand_from_rng(&mut rand::thread_rng())
     }

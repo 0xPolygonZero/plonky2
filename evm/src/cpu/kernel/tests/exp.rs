@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
@@ -17,7 +15,7 @@ fn test_exp() -> Result<()> {
     let b = U256([0; 4].map(|_| rng.gen()));
 
     // Random input
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, b, a];
+    let initial_stack = vec![0xDEADBEEFu32.into(), b, a];
     let stack_with_kernel = run_with_kernel(&kernel, exp, initial_stack)?
         .stack()
         .to_vec();
@@ -29,7 +27,7 @@ fn test_exp() -> Result<()> {
     assert_eq!(stack_with_kernel, stack_with_opcode);
 
     // 0 base
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, b, U256::zero()];
+    let initial_stack = vec![0xDEADBEEFu32.into(), b, U256::zero()];
     let stack_with_kernel = run_with_kernel(&kernel, exp, initial_stack)?
         .stack()
         .to_vec();
@@ -41,7 +39,7 @@ fn test_exp() -> Result<()> {
     assert_eq!(stack_with_kernel, stack_with_opcode);
 
     // 0 exponent
-    let initial_stack = vec![U256::from_str("0xdeadbeef")?, U256::zero(), a];
+    let initial_stack = vec![0xDEADBEEFu32.into(), U256::zero(), a];
     let stack_with_kernel = run_with_kernel(&kernel, exp, initial_stack)?
         .stack()
         .to_vec();
