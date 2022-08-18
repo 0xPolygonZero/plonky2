@@ -29,8 +29,9 @@ fn test_sha2() -> Result<()> {
     dbg!(num_bytes);
     dbg!(bytes.clone());
 
-    let message = "blargh blargh blargh";
+    let message = "blargh blargh blargh blargh blargh blargh blargh blargh blargh";
     let num_bytes = message.len();
+    dbg!(num_bytes);
 
     let mut hasher = Sha256::new();
     hasher.update(message);
