@@ -4,7 +4,7 @@ use anyhow::Result;
 use ascii::AsciiStr;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run;
@@ -29,7 +29,7 @@ fn test_sha2() -> Result<()> {
     dbg!(num_bytes);
     dbg!(bytes.clone());
 
-    let message = "blargh blargh blargh blargh blargh blargh blargh blargh blargh";
+    let message = "blargh blargh blargh blarh blargh blargh blargh blargho";
     let num_bytes = message.len();
     dbg!(num_bytes);
 
@@ -37,9 +37,12 @@ fn test_sha2() -> Result<()> {
     hasher.update(message);
     let expected = format!("{:02X}", hasher.finalize());
 
-    dbg!(expected);
-
-    let bytes: Vec<U256> = AsciiStr::from_ascii(message).unwrap().as_bytes().iter().map(|&x| U256::from(x as u32)).collect();
+    let bytes: Vec<U256> = AsciiStr::from_ascii(message)
+        .unwrap()
+        .as_bytes()
+        .iter()
+        .map(|&x| U256::from(x as u32))
+        .collect();
 
     let mut store_initial_stack = vec![U256::from(num_bytes)];
     store_initial_stack.extend(bytes);
@@ -56,8 +59,8 @@ fn test_sha2() -> Result<()> {
     let stack_after_storing = after_sha2.stack();
     let result = stack_after_storing.clone()[1];
     let actual = format!("{:02X}", result);
-    
-    dbg!(actual);
+
+    assert_eq!(expected, actual);
 
     // let memory_after_storing = after_sha2.memory;
     // let _mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
