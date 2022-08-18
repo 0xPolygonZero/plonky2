@@ -158,9 +158,6 @@ pub struct CpuColumnsView<T: Copy> {
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 
-    pub simple_logic_diff: T,
-    pub simple_logic_diff_inv: T,
-
     pub(crate) clock: T,
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
