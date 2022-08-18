@@ -107,10 +107,13 @@ pub(crate) struct CpuArithmeticView<T: Copy> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuLogicView<T: Copy> {
-    // Assuming a limb size of 16 bits. This can be changed, but it must be <= 28 bits.
-    pub(crate) input0: [T; 16],
-    pub(crate) input1: [T; 16],
-    pub(crate) output: [T; 16],
+    // Assuming a limb size of 32 bits.
+    pub(crate) input0: [T; 8],
+    pub(crate) input1: [T; 8],
+    pub(crate) output: [T; 8],
+
+    // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal.
+    pub(crate) diff_pinv: [T; 8],
 }
 
 #[derive(Copy, Clone)]
