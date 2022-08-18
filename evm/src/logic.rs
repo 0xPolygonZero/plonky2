@@ -17,7 +17,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 // Total number of bits per input/output.
 const VAL_BITS: usize = 256;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
-pub(crate) const PACKED_LIMB_BITS: usize = 16;
+pub(crate) const PACKED_LIMB_BITS: usize = 32;
 // Number of field elements needed to store each input/output at the specified packing.
 const PACKED_LEN: usize = (VAL_BITS + PACKED_LIMB_BITS - 1) / PACKED_LIMB_BITS;
 
