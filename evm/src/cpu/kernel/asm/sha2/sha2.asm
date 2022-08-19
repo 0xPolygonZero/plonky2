@@ -309,7 +309,6 @@ sha2_gen_message_schedule_remaining_loop:
     iszero
     %jumpi(sha2_gen_message_schedule_remaining_end)
     %jump(sha2_gen_message_schedule_remaining_loop)
-    STOP
 sha2_gen_message_schedule_remaining_end:
     JUMPDEST
     // stack: counter=0, output_addr, block[0], block[1], retdest
@@ -521,29 +520,25 @@ sha2_compression_loop:
     // stack: message_schedule_addr new, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, num_blocks new, i, retdest
     swap11
     // stack: num_blocks new, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, i, retdest
-    dup1
-    // stack: num_blocks new, num_blocks new, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, i, retdest
-    iszero
-    %jumpi(sha2_compression_end)
-    // stack: num_blocks new, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, i, retdest
     swap10
     // stack: num_blocks, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, i, new_retdest
     pop
     // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, i, new_retdest
-    // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, i, retdest
     push 64
     swap1
     mod
-    // stack: (i+1)%64, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, i, retdest
+    // stack: (i+1)%64, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, i, retdest
     swap11
-    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, (i+1)%64, retdest
+    // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, (i+1)%64, retdest
     pop
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr new, (i+1)%64, retdest
+    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, (i+1)%64, retdest
+    dup11
+    // stack: (i+1)%64, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, message_schedule_addr new, (i+1)%64, retdest
+    iszero
+    %jumpi(sha2_compression_end_block)
     %jump(sha2_compression_loop)
-sha2_compression_end:
+sha2_compression_end_block:
     JUMPDEST
-    // stack: num_blocks=0, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, message_schedule_addr, i, retdest
-    %pop2
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, message_schedule_addr, i, retdest
     push sha2_constants_h
     %mload_kernel_code_u32
@@ -607,6 +602,38 @@ sha2_compression_end:
     %add_u32
     // stack: h[0]+h[64], a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], num_blocks, message_schedule_addr, i, retdest
     swap8
+    // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
+    dup1
+    // stack: num_blocks, num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
+    iszero
+    %jumpi(sha2_compression_end)
+    // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
+    // TODO: "insertion" macro for the below
+    swap1
+    swap2
+    swap1
+    swap2
+    swap3
+    swap2
+    swap3
+    swap4
+    swap3
+    swap4
+    swap5
+    swap4
+    swap5
+    swap6
+    swap5
+    swap6
+    swap7
+    swap6
+    swap7
+    swap8
+    swap7
+    swap8
+    %jump(sha2_compression_loop)
+sha2_compression_end:
+    JUMPDEST
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
     pop
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
