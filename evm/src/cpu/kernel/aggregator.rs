@@ -45,6 +45,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/sha2/ops.asm"),
         include_str!("asm/sha2/sha2.asm"),
         include_str!("asm/sha2/temp_words.asm"),
+        include_str!("asm/sha2/util.asm"),
         include_str!("asm/sha2/write_length.asm"),
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/decode.asm"),
