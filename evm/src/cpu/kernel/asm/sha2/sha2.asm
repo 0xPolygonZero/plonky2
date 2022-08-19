@@ -84,11 +84,13 @@ global sha2_pad:
     // stack: last_addr = num_blocks*64, length, num_blocks, retdest
     %sha2_write_length
     // stack: num_blocks, retdest
+    dup1
+    // stack: num_blocks, num_blocks, retdest
     // STEP 5: write num_blocks to x[0]
     push 0
     %mstore_kernel_general
-    // stack: retdest
-    push 100
+    // stack: num_blocks, retdest
+    %message_schedule_addr_from_num_blocks
     %jump(sha2_gen_all_message_schedules)
 
 // Precodition: stack contains address of one message block, followed by output address
@@ -307,6 +309,7 @@ sha2_gen_message_schedule_remaining_loop:
     iszero
     %jumpi(sha2_gen_message_schedule_remaining_end)
     %jump(sha2_gen_message_schedule_remaining_loop)
+    STOP
 sha2_gen_message_schedule_remaining_end:
     JUMPDEST
     // stack: counter=0, output_addr, block[0], block[1], retdest

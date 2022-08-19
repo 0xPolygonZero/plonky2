@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run;
+use crate::memory::segments::Segment;
 
 #[test]
 fn test_sha2() -> Result<()> {
@@ -28,7 +29,7 @@ fn test_sha2() -> Result<()> {
     dbg!(num_bytes);
     dbg!(bytes.clone());
 
-    let message = "blargh blargh blargh blarh blargh blargh blargh blargho";
+    let message = "blargh blargh blargh blarh blargh blargh blargh blarghooo";
     let num_bytes = message.len();
     dbg!(num_bytes);
 
@@ -56,18 +57,26 @@ fn test_sha2() -> Result<()> {
     )?;
 
     let stack_after_storing = after_sha2.stack();
+
+    dbg!(stack_after_storing.clone());
+
     let result = stack_after_storing.clone()[1];
     let actual = format!("{:02X}", result);
+    dbg!(expected);
+    dbg!(actual);
 
-    assert_eq!(expected, actual);
+    // assert_eq!(expected, actual);
 
-    // let memory_after_storing = after_sha2.memory;
-    // let _mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
-    //     .content
-    //     .clone();
-    // dbg!(&mem[0..65]);
+    let memory_after_storing = after_sha2.memory;
+    let mem = memory_after_storing.context_memory[0].segments[Segment::KernelGeneral as usize]
+        .content
+        .clone();
+    dbg!(&mem[0..65]);
 
-    // dbg!(&mem[100..356]);
+    let num_blocks = (num_bytes+8)/64 + 1;
+    let message_schedule_start = 64 * num_blocks + 2;
+    dbg!(&mem[message_schedule_start..message_schedule_start+256]);
+    dbg!(&mem[message_schedule_start+256..message_schedule_start+512]);
 
     Ok(())
 }
