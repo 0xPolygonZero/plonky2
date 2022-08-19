@@ -303,11 +303,11 @@ where
 
             let num_challenges = alphas.len();
 
-            (0..P::WIDTH)
-                .into_iter()
-                .map(move |i| {
-                    (0..num_challenges).map(|j| constraints_evals[j].as_slice()[i]).collect()
-                })
+            (0..P::WIDTH).into_iter().map(move |i| {
+                (0..num_challenges)
+                    .map(|j| constraints_evals[j].as_slice()[i])
+                    .collect()
+            })
         })
         .collect::<Vec<_>>();
 
