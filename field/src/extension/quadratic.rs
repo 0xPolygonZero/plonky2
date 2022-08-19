@@ -3,7 +3,6 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
-use num::Integer;
 use serde::{Deserialize, Serialize};
 
 use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
@@ -89,9 +88,8 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
         ))
     }
 
-    fn from_biguint(n: BigUint) -> Self {
-        let (high, low) = n.div_rem(&F::order());
-        Self([F::from_biguint(low), F::from_biguint(high)])
+    fn from_noncanonical_biguint(n: BigUint) -> Self {
+        F::from_noncanonical_biguint(n).into()
     }
 
     fn from_canonical_u64(n: u64) -> Self {

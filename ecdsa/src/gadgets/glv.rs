@@ -116,7 +116,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let k = Secp256K1Scalar::from_biguint(witness_get_biguint_target(
+        let k = Secp256K1Scalar::from_noncanonical_biguint(witness_get_biguint_target(
             witness,
             self.k.value.clone(),
         ));
