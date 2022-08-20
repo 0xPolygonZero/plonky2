@@ -30,7 +30,7 @@ pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, cons
     let limbs = builder.split_nonnative_to_4_bit_limbs(scalar);
 
     let hash_0 = KeccakHash::<32>::hash_no_pad(&[F::ZERO]);
-    let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
+    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(
         &GenericHashOut::<F>::to_bytes(&hash_0),
     ));
     let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();

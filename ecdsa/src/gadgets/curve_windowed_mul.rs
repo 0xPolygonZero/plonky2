@@ -131,7 +131,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         n: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
         let hash_0 = KeccakHash::<25>::hash_no_pad(&[F::ZERO]);
-        let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
+        let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(
             &GenericHashOut::<F>::to_bytes(&hash_0),
         ));
         let starting_point = CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE;

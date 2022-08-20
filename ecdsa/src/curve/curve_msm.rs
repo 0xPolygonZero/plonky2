@@ -207,7 +207,7 @@ mod tests {
             0b00001111111111111111111111111111,
             0b11111111111111111111111111111111,
         ];
-        let x = Secp256K1Scalar::from_biguint(BigUint::from_slice(&x_canonical));
+        let x = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&x_canonical));
         assert_eq!(x.to_canonical_biguint().to_u32_digits(), x_canonical);
         assert_eq!(
             to_digits::<Secp256K1>(&x, 17),
@@ -240,13 +240,13 @@ mod tests {
         let generator_2 = generator_1 + generator_1;
         let generator_3 = generator_1 + generator_2;
 
-        let scalar_1 = Secp256K1Scalar::from_biguint(BigUint::from_slice(&[
+        let scalar_1 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
             11111111, 22222222, 33333333, 44444444,
         ]));
-        let scalar_2 = Secp256K1Scalar::from_biguint(BigUint::from_slice(&[
+        let scalar_2 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
             22222222, 22222222, 33333333, 44444444,
         ]));
-        let scalar_3 = Secp256K1Scalar::from_biguint(BigUint::from_slice(&[
+        let scalar_3 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
             33333333, 22222222, 33333333, 44444444,
         ]));
 
