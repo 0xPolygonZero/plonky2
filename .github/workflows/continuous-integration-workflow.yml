@@ -23,6 +23,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: rust-cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -47,6 +50,9 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt, clippy
+
+      - name: rust-cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
