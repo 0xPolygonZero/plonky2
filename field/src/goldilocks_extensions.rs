@@ -112,14 +112,14 @@ impl Mul for QuinticExtension<GoldilocksField> {
  * result coefficient is necessary.
  */
 
-/// Return a, b such that a + b*2^128 = 3*x with a < 2^128 and b < 2^32.
+/// Return `a`, `b` such that `a + b*2^128 = 3*(x + y*2^128)` with `a < 2^128` and `b < 2^32`.
 #[inline(always)]
 fn u160_times_3(x: u128, y: u32) -> (u128, u32) {
     let (s, cy) = x.overflowing_add(x << 1);
     (s, 3 * y + (x >> 127) as u32 + cy as u32)
 }
 
-/// Return a, b such that a + b*2^128 = 7*x with a < 2^128 and b < 2^32.
+/// Return `a`, `b` such that `a + b*2^128 = 7*(x + y*2^128)` with `a < 2^128` and `b < 2^32`.
 #[inline(always)]
 fn u160_times_7(x: u128, y: u32) -> (u128, u32) {
     let (d, br) = (x << 3).overflowing_sub(x);
