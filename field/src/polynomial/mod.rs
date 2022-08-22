@@ -118,6 +118,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         PolynomialCoeffs { coeffs }
     }
 
+    /// The empty list of coefficients, which is the smallest encoding of the zero polynomial.
     pub fn empty() -> Self {
         Self::new(Vec::new())
     }
