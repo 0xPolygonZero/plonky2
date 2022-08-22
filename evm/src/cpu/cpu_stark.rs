@@ -10,7 +10,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{bootstrap_kernel, control_flow, decode, jumps, simple_logic, syscalls};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, WeightedColumn};
 use crate::memory::NUM_CHANNELS;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -50,10 +50,14 @@ pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     .collect_vec();
     cols.extend(Column::singles(COL_MAP.mem_value[channel]));
 
-    let scalar = F::from_canonical_usize(NUM_CHANNELS);
+    let weight = F::from_canonical_usize(NUM_CHANNELS);
     let addend = F::from_canonical_usize(channel);
     cols.push(Column::linear_combination_with_constant(
-        vec![(COL_MAP.clock, scalar)],
+        vec![WeightedColumn {
+            column: COL_MAP.clock,
+            next: true,
+            weight,
+        }],
         addend,
     ));
 
