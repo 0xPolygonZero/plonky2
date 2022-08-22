@@ -19,9 +19,7 @@ pub fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
         .map(|x| interpolate(points, x, &barycentric_weights))
         .collect();
 
-    let mut coeffs = ifft(PolynomialValues {
-        values: subgroup_evals,
-    });
+    let mut coeffs = ifft(PolynomialValues::new(subgroup_evals));
     coeffs.trim();
     coeffs
 }

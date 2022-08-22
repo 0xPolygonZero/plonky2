@@ -24,6 +24,8 @@ pub struct PolynomialValues<F: Field> {
 
 impl<F: Field> PolynomialValues<F> {
     pub fn new(values: Vec<F>) -> Self {
+        // Check that a subgroup exists of this size, which should be a power of two.
+        debug_assert!(log2_strict(values.len()) <= F::TWO_ADICITY);
         PolynomialValues { values }
     }
 
