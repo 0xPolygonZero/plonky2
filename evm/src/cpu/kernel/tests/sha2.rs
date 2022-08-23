@@ -3,6 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use ascii::AsciiStr;
 use ethereum_types::U256;
+use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
 
@@ -16,28 +17,16 @@ fn test_sha2() -> Result<()> {
     let sha2 = kernel.global_labels["sha2"];
 
     let mut rng = thread_rng();
-    let num_bytes = rng.gen_range(1..17);
-    let mut bytes: Vec<U256> = Vec::with_capacity(num_bytes);
-    for _ in 0..num_bytes {
-        let byte: u8 = rng.gen();
-        let mut v = vec![0; 31];
-        v.push(byte);
-        let v2: [u8; 32] = v.try_into().unwrap();
-        bytes.push(U256::from(v2));
-    }
 
-    dbg!(num_bytes);
-    dbg!(bytes.clone());
-
-    let message = "blargh blargh blargh blarh blargh blargh blargh blarghooo";
-    let num_bytes = message.len();
+    let num_bytes = rng.gen_range(1..10000);
+    let message: String = rng.sample_iter(&Alphanumeric).take(num_bytes).map(char::from).collect();
     dbg!(num_bytes);
 
     let mut hasher = Sha256::new();
-    hasher.update(message);
+    hasher.update(message.clone());
     let expected = format!("{:02X}", hasher.finalize());
 
-    let bytes: Vec<U256> = AsciiStr::from_ascii(message)
+    let bytes: Vec<U256> = AsciiStr::from_ascii(&message)
         .unwrap()
         .as_bytes()
         .iter()
