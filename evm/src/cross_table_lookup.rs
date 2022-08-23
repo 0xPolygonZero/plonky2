@@ -1,3 +1,5 @@
+use std::iter::repeat;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -22,30 +24,16 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Represent a linear combination of columns.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Column<F: Field> {
-    linear_combination: Vec<WeightedColumn<F>>,
+    linear_combination: Vec<(usize, F)>,
     constant: F,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct WeightedColumn<F: Field> {
-    /// The index of the column.
-    pub(crate) column: usize,
-    /// True if this column refers to a column in the next row, rather than the local row.
-    /// Most CTLs consist of only "next" columns.
-    pub(crate) next: bool,
-    pub(crate) weight: F,
-}
-
 impl<F: Field> Column<F> {
-    pub fn single(column: usize) -> Self {
+    pub fn single(c: usize) -> Self {
         Self {
-            linear_combination: vec![WeightedColumn {
-                column,
-                next: true,
-                weight: F::ONE,
-            }],
+            linear_combination: vec![(c, F::ONE)],
             constant: F::ZERO,
         }
     }
@@ -54,17 +42,14 @@ impl<F: Field> Column<F> {
         cs.into_iter().map(Self::single)
     }
 
-    pub(crate) fn linear_combination_with_constant<I: IntoIterator<Item = WeightedColumn<F>>>(
+    pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
         iter: I,
         constant: F,
     ) -> Self {
         let v = iter.into_iter().collect::<Vec<_>>();
         assert!(!v.is_empty());
         debug_assert_eq!(
-            v.iter()
-                .map(|weighted_col| weighted_col.column)
-                .unique()
-                .count(),
+            v.iter().map(|(c, _)| c).unique().count(),
             v.len(),
             "Duplicate columns."
         );
@@ -74,64 +59,35 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub(crate) fn linear_combination<I: IntoIterator<Item = WeightedColumn<F>>>(iter: I) -> Self {
+    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
     pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(F::TWO.powers()).map(|(column, weight)| {
-            WeightedColumn {
-                column,
-                next: true,
-                weight,
-            }
-        }))
+        Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
     }
 
     pub fn sum<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().map(|column| WeightedColumn {
-            column,
-            next: true,
-            weight: F::ONE,
-        }))
+        Self::linear_combination(cs.into_iter().zip(repeat(F::ONE)))
     }
 
-    pub fn eval<FE, P, const D: usize>(&self, local_values: &[P], next_values: &[P]) -> P
+    pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
     where
         FE: FieldExtension<D, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
         self.linear_combination
             .iter()
-            .map(|weighted_col| {
-                let values = if weighted_col.next {
-                    next_values
-                } else {
-                    local_values
-                };
-                values[weighted_col.column] * FE::from_basefield(weighted_col.weight)
-            })
+            .map(|&(c, f)| v[c] * FE::from_basefield(f))
             .sum::<P>()
             + FE::from_basefield(self.constant)
     }
 
     /// Evaluate on an row of a table given in column-major form.
-    pub fn eval_table(&self, table: &[PolynomialValues<F>], local_row: usize) -> F {
-        let degree = table[0].len();
-        debug_assert!(degree.is_power_of_two());
-        let next_row = (local_row + 1) & (degree - 1); // Equivalent to % degree.
-
+    pub fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
         self.linear_combination
             .iter()
-            .map(|weighted_col| {
-                let row = if weighted_col.next {
-                    next_row
-                } else {
-                    local_row
-                };
-                let poly = &table[weighted_col.column];
-                poly.values[row] * weighted_col.weight
-            })
+            .map(|&(c, f)| table[c].values[row] * f)
             .sum::<F>()
             + self.constant
     }
@@ -139,8 +95,7 @@ impl<F: Field> Column<F> {
     pub fn eval_circuit<const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        local_values: &[ExtensionTarget<D>],
-        next_values: &[ExtensionTarget<D>],
+        v: &[ExtensionTarget<D>],
     ) -> ExtensionTarget<D>
     where
         F: RichField + Extendable<D>,
@@ -148,15 +103,10 @@ impl<F: Field> Column<F> {
         let pairs = self
             .linear_combination
             .iter()
-            .map(|weighted_col| {
-                let values = if weighted_col.next {
-                    next_values
-                } else {
-                    local_values
-                };
+            .map(|&(c, f)| {
                 (
-                    values[weighted_col.column],
-                    builder.constant_extension(F::Extension::from_basefield(weighted_col.weight)),
+                    v[c],
+                    builder.constant_extension(F::Extension::from_basefield(f)),
                 )
             })
             .collect::<Vec<_>>();
@@ -165,7 +115,7 @@ impl<F: Field> Column<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
@@ -182,7 +132,7 @@ impl<F: Field> TableWithColumns<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct CrossTableLookup<F: Field> {
     looking_tables: Vec<TableWithColumns<F>>,
     looked_table: TableWithColumns<F>,
@@ -329,19 +279,16 @@ fn partial_products<F: Field>(
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
-    for next_row in 0..degree {
-        debug_assert!(degree.is_power_of_two());
-        let local_row = (next_row + degree - 1) & (degree - 1); // Equivalent to % degree.
-
+    for i in 0..degree {
         let filter = if let Some(column) = filter_column {
-            column.eval_table(trace, local_row)
+            column.eval_table(trace, i)
         } else {
             F::ONE
         };
         if filter.is_one() {
             let evals = columns
                 .iter()
-                .map(|c| c.eval_table(trace, local_row))
+                .map(|c| c.eval_table(trace, i))
                 .collect::<Vec<_>>();
             partial_prod *= challenge.combine(evals.iter());
         } else {
@@ -439,23 +386,27 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
             columns,
             filter_column,
         } = lookup_vars;
-        // TODO: Avoid collecting here.
-        let evals = columns
-            .iter()
-            .map(|c| c.eval(vars.local_values, vars.next_values))
-            .collect::<Vec<_>>();
-        let combined = challenges.combine(evals.iter());
-        let filter = if let Some(column) = filter_column {
-            column.eval(vars.local_values, vars.next_values)
-        } else {
-            P::ONES
+        let combine = |v: &[P]| -> P {
+            let evals = columns.iter().map(|c| c.eval(v)).collect::<Vec<_>>();
+            challenges.combine(evals.iter())
         };
-        let multiplier = filter * combined + P::ONES - filter;
+        let filter = |v: &[P]| -> P {
+            if let Some(column) = filter_column {
+                column.eval(v)
+            } else {
+                P::ONES
+            }
+        };
+        let local_filter = filter(vars.local_values);
+        let next_filter = filter(vars.next_values);
+        let select = |filter, x| filter * x + P::ONES - filter;
 
         // Check value of `Z(1)`
-        consumer.constraint_last_row(*next_z - multiplier);
+        consumer.constraint_first_row(*local_z - select(local_filter, combine(vars.local_values)));
         // Check `Z(gw) = combination * Z(w)`
-        consumer.constraint_transition(*next_z - *local_z * multiplier);
+        consumer.constraint_transition(
+            *next_z - *local_z * select(next_filter, combine(vars.next_values)),
+        );
     }
 }
 
@@ -540,12 +491,16 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
         } = lookup_vars;
 
         let one = builder.one_extension();
-        let filter = if let Some(column) = filter_column {
-            column.eval_circuit(builder, vars.local_values, vars.next_values)
+        let local_filter = if let Some(column) = filter_column {
+            column.eval_circuit(builder, vars.local_values)
         } else {
             one
         };
-        // TODO: Can use builder.select_ext_generalized.
+        let next_filter = if let Some(column) = filter_column {
+            column.eval_circuit(builder, vars.next_values)
+        } else {
+            one
+        };
         fn select<F: RichField + Extendable<D>, const D: usize>(
             builder: &mut CircuitBuilder<F, D>,
             filter: ExtensionTarget<D>,
@@ -557,17 +512,23 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
         }
 
         // Check value of `Z(1)`
-        let evals = columns
+        let local_columns_eval = columns
             .iter()
-            .map(|c| c.eval_circuit(builder, vars.local_values, vars.next_values))
+            .map(|c| c.eval_circuit(builder, vars.local_values))
             .collect::<Vec<_>>();
-        let combined = challenges.combine_circuit(builder, &evals);
-        let multiplier = select(builder, filter, combined);
-        let first_row = builder.sub_extension(*next_z, multiplier);
-        consumer.constraint_last_row(builder, first_row);
+        let combined_local = challenges.combine_circuit(builder, &local_columns_eval);
+        let selected_local = select(builder, local_filter, combined_local);
+        let first_row = builder.sub_extension(*local_z, selected_local);
+        consumer.constraint_first_row(builder, first_row);
         // Check `Z(gw) = combination * Z(w)`
-        let product = builder.mul_extension(*local_z, multiplier);
-        let transition = builder.sub_extension(*next_z, product);
+        let next_columns_eval = columns
+            .iter()
+            .map(|c| c.eval_circuit(builder, vars.next_values))
+            .collect::<Vec<_>>();
+        let combined_next = challenges.combine_circuit(builder, &next_columns_eval);
+        let selected_next = select(builder, next_filter, combined_next);
+        let mut transition = builder.mul_extension(*local_z, selected_next);
+        transition = builder.sub_extension(*next_z, transition);
         consumer.constraint_transition(builder, transition);
     }
 }
@@ -785,14 +746,9 @@ pub(crate) mod testutils {
         multiset: &mut MultiSet<F>,
     ) {
         let trace = &trace_poly_values[table.table as usize];
-        let degree = trace[0].len();
-
-        for next_row in 0..trace[0].len() {
-            debug_assert!(degree.is_power_of_two());
-            let local_row = (next_row + degree - 1) & (degree - 1); // Equivalent to % degree.
-
+        for i in 0..trace[0].len() {
             let filter = if let Some(column) = &table.filter_column {
-                column.eval_table(trace, local_row)
+                column.eval_table(trace, i)
             } else {
                 F::ONE
             };
@@ -800,12 +756,9 @@ pub(crate) mod testutils {
                 let row = table
                     .columns
                     .iter()
-                    .map(|c| c.eval_table(trace, local_row))
+                    .map(|c| c.eval_table(trace, i))
                     .collect::<Vec<_>>();
-                multiset
-                    .entry(row)
-                    .or_default()
-                    .push((table.table, local_row));
+                multiset.entry(row).or_default().push((table.table, i));
             } else {
                 assert_eq!(filter, F::ZERO, "Non-binary filter?")
             }
