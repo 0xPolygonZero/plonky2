@@ -18,7 +18,11 @@ fn test_sha2() -> Result<()> {
     let mut rng = thread_rng();
 
     let num_bytes = rng.gen_range(1..10000);
-    let message: String = rng.sample_iter(&Alphanumeric).take(num_bytes).map(char::from).collect();
+    let message: String = rng
+        .sample_iter(&Alphanumeric)
+        .take(num_bytes)
+        .map(char::from)
+        .collect();
     dbg!(num_bytes);
 
     let mut hasher = Sha256::new();
