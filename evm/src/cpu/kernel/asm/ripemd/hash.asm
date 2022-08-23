@@ -42,30 +42,31 @@ switch:
 
 loop:
     jumpdest
-    // stack: *stack, Fj, Kj, 16, n, retdest
+    // stack: *state, Fj, Kj, 16, n, retdest
     push 1 dup9 sub swap8
-    // stack: n, *stack, Fj, Kj, 16, n-1, retdest
+    // stack: n, *state, Fj, Kj, 16, n-1, retdest
     %jumpi(cycle)
-    // stack: *stack, Fj, Kj, 16, -1, retdest
+    // stack: *state, Fj, Kj, 16, -1, retdest
     %stack (a, b, c, d, e, f, k, i, n, ret) -> (ret, a, b, c, d, e)
-    // stack: retdest, *stack
+    // stack: retdest, *state
     jump
 cycle:
     jumpdest
-    // stack: *stack, Fj, Kj, i, n, retdest
+    // stack: *state, Fj, Kj, i, n, retdest
     push 1 dup9 sub swap8
-    // stack: i, *stack, Fj, Kj, i-1, n, retdest
+    // stack: i, *state, Fj, Kj, i-1, n, retdest
     %jumpi(R)
-    // stack: *stack, Fj, Kj, -1, n, retdest
+    // stack: *state, Fj, Kj, -1, n, retdest
     swap5 pop push Fj swap5 ---------------------------------------------------------------------TODO
-    // stack: *stack, Fj, Kj 16, n, retdest
+    // stack: *state, Fj, Kj 16, n, retdest
     swap6 pop push Kj swap6 ---------------------------------------------------------------------TODO
-    // stack: *stack, Fj, Kj 16, n, retdest
+    // stack: *state, Fj, Kj 16, n, retdest
     swap7 pop push 16 swap7
-    // stack: *stack, Fj, Kj 16, n, retdest
+    // stack: *state, Fj, Kj 16, n, retdest
     %jump(loop)
 
-
+/// Note that a, b, c, d, e represent *state
+///
 /// def R(a, b, c, d, e, Fj, Kj, _sj, _rj, _X):
 ///     a = u32(ROL(sj, u32(Fj(b, c, d) + a + X[rj] + Kj)) + e)
 ///     c = ROL(10, c)
@@ -164,3 +165,4 @@ mix:
     // stack: s3+l4+r0, s1+l2+r3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
     swap3
     // stack: retdest, s1+l2+r3, s2+l3+r4, s3+l4+r0, s4+l0+r1, s0+l1+r2
+    jump
