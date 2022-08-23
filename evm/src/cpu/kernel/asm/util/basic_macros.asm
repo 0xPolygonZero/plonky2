@@ -216,6 +216,13 @@
     // stack: max
 %endmacro
 
+%macro u32
+    // stack: x
+    push 0xffffffff
+    // stack: 0xffffffff, x
+    and
+    // stack: 0xffffffff & x
+
 %macro not_32
     // stack: x
     push 0xffffffff
@@ -224,9 +231,11 @@
     // stack: 0xffffffff - x
 %endmacro
 
-%macro u32
-    // stack: x
-    push 0xffffffff
-    // stack: 0xffffffff, x
-    and
-    // stack: 0xffffffff & x
+%macro add3_32
+    // stack: x, y, z
+    add
+    // stack: x+y, z
+    add
+    // stack: x+y+z
+    %u32
+%endmacro

@@ -1,63 +1,7 @@
-/// Note that Fj, Kj last for 16 iterations, but sj, rj update each call
-///
-/// def R(a, b, c, d, e, Fj, Kj, sj, rj, X):
-///     a = u32(ROL(sj, u32(Fj(b, c, d) + a + X[rj] + Kj)) + e)
-///     c = ROL(10, c)
-///     return e, a, b, c, d
-
-global R:
-    jumpdest
-    // stack: a, b, c, d, e, Fj, Kj, retdest
-    dup4
-    // stack: d, a, b, c, d, e, Fj, Kj, retdest
-    dup4
-    // stack: c, d, a, b, c, d, e, Fj, Kj, retdest
-    dup4 
-    // stack: b, c, d, a, b, c, d, e, Fj, Kj, retdest
-    dup9
-    // stack: Fj, b, c, d, a, b, c, d, e, Fj, Kj, retdest
-    jump---------------------------------------------------------------------------TODO
-    // stack: Fj(b, c, d), a, b, c, d, e, Fj, Kj, retdest
-    add
-    // stack: Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    push X[rj]---------------------------------------------------------------------TODO
-    // stack: X[rj], Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    add
-    // stack: X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    dup7
-    // stack: Kj, X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    add
-    // stack: Kj + X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    %u32
-    // stack: Kj + X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    push sj------------------------------------------------------------------------TODO
-    // stack: sj, Kj + X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    push ROL
-    // stack: ROL, sj, Kj + X[rj] + Fj(b, c, d) + a, b, c, d, e, Fj, Kj, retdest
-    jump---------------------------------------------------------------------------TODO
-    // stack: ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), b, c, d, e, Fj, Kj, retdest
-    dup5
-    // stack: e, ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), b, c, d, e, Fj, Kj, retdest
-    add
-    // stack: e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), b, c, d, e, Fj, Kj, retdest
-    %u32
-    // stack: e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), b, c, d, e, Fj, Kj, retdest
-    swap2
-    // stack: c, b, e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), d, e, Fj, Kj, retdest
-    push 10
-    // stack: 10, c, b, e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), d, e, Fj, Kj, retdest
-    push ROL
-    // stack: ROL, 10, c, b, e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), d, e, Fj, Kj, retdest
-    jump---------------------------------------------------------------------------TODO
-    // stack: ROL(10, c), b, e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), d, e, Fj, Kj, retdest
-    %stack (c, b, a, d, e) -> (e, a, b, c, d)
-    // stack: e, e + ROL(sj, Kj + X[rj] + Fj(b, c, d) + a), b, ROL(10, c), d, e, Fj, Kj, retdest
-
-
 /// def ROL(n, x):
 ///     return (u32(x << n)) | (x >> (32 - n))
 
-global Rol:
+global ROL:
     jumpdest
     // stack: n, x, retdest
     swap1
