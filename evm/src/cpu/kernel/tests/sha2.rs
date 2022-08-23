@@ -36,23 +36,21 @@ fn test_sha2() -> Result<()> {
         .map(|&x| U256::from(x as u32))
         .collect();
 
-    let mut store_initial_stack = vec![U256::from(num_bytes)];
-    store_initial_stack.extend(bytes);
-    store_initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
-    store_initial_stack.reverse();
+    let mut initial_stack = vec![U256::from(num_bytes)];
+    initial_stack.extend(bytes);
+    initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
+    initial_stack.reverse();
 
     let after_sha2 = run(
         &kernel.code,
         sha2,
-        store_initial_stack,
+        initial_stack,
         &kernel.prover_inputs,
     )?;
 
-    let stack_after_storing = after_sha2.stack();
+    let stack_after_sha2 = after_sha2.stack();
 
-    dbg!(stack_after_storing.clone());
-
-    let result = stack_after_storing.clone()[1];
+    let result = stack_after_sha2.clone()[1];
     let actual = format!("{:02X}", result);
     dbg!(expected);
     dbg!(actual);
