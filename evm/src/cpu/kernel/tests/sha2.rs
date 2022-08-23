@@ -9,7 +9,6 @@ use sha2::{Digest, Sha256};
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run;
-use crate::memory::segments::Segment;
 
 #[test]
 fn test_sha2() -> Result<()> {
