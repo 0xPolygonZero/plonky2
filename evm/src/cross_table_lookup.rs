@@ -117,10 +117,9 @@ impl<F: Field> Column<F> {
 
     /// Evaluate on an row of a table given in column-major form.
     pub fn eval_table(&self, table: &[PolynomialValues<F>], local_row: usize) -> F {
-        let mut next_row = local_row + 1;
-        if next_row == table[0].len() {
-            next_row = 0;
-        }
+        let degree = table[0].len();
+        debug_assert!(degree.is_power_of_two());
+        let next_row = (local_row + 1) & (degree - 1); // Equivalent to % degree.
 
         self.linear_combination
             .iter()
@@ -331,11 +330,8 @@ fn partial_products<F: Field>(
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
     for next_row in 0..degree {
-        let local_row = if next_row == 0 {
-            degree - 1
-        } else {
-            next_row - 1
-        };
+        debug_assert!(degree.is_power_of_two());
+        let local_row = (next_row + degree - 1) & (degree - 1); // Equivalent to % degree.
 
         let filter = if let Some(column) = filter_column {
             column.eval_table(trace, local_row)
@@ -792,11 +788,8 @@ pub(crate) mod testutils {
         let degree = trace[0].len();
 
         for next_row in 0..trace[0].len() {
-            let local_row = if next_row == 0 {
-                degree - 1
-            } else {
-                next_row - 1
-            };
+            debug_assert!(degree.is_power_of_two());
+            let local_row = (next_row + degree - 1) & (degree - 1); // Equivalent to % degree.
 
             let filter = if let Some(column) = &table.filter_column {
                 column.eval_table(trace, local_row)
