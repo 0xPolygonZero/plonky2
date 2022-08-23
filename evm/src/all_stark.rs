@@ -145,7 +145,6 @@ mod tests {
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cross_table_lookup::testutils::check_ctls;
-    use crate::cross_table_lookup::Column;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::logic::{self, LogicStark, Operation};
     use crate::memory::memory_stark::tests::generate_random_memory_ops;
@@ -217,10 +216,8 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        // There's an extra -1 because the argument to eval_table is the local row,
-                        // but the inputs/outputs live in the next row.
-                        let local_row = (i + 1) * NUM_ROUNDS - 1 - 1;
-                        keccak::columns::reg_input_limb(j).eval_table(keccak_trace, local_row)
+                        keccak::columns::reg_input_limb(j)
+                            .eval_table(keccak_trace, (i + 1) * NUM_ROUNDS - 1)
                     })
                     .collect::<Vec<_>>()
                     .try_into()
@@ -231,11 +228,8 @@ mod tests {
             .map(|i| {
                 (0..2 * NUM_INPUTS)
                     .map(|j| {
-                        let out_limb = Column::single(keccak::columns::reg_output_limb(j));
-                        // There's an extra -1 because the argument to eval_table is the local row,
-                        // but the inputs/outputs live in the next row.
-                        let local_row = (i + 1) * NUM_ROUNDS - 1 - 1;
-                        out_limb.eval_table(keccak_trace, local_row)
+                        keccak_trace[keccak::columns::reg_output_limb(j)].values
+                            [(i + 1) * NUM_ROUNDS - 1]
                     })
                     .collect::<Vec<_>>()
                     .try_into()
