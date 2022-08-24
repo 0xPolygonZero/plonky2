@@ -76,7 +76,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
         for x in 0..5 {
             for y in 0..5 {
-                let input_xy = input[x * 5 + y];
+                let input_xy = input[y * 5 + x];
                 let reg_lo = reg_a(x, y);
                 let reg_hi = reg_lo + 1;
                 rows[0][reg_lo] = F::from_canonical_u64(input_xy & 0xFFFFFFFF);
@@ -547,9 +547,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use keccak_rust::{KeccakF, StateBitsWidth};
-    use plonky2::field::types::Field;
+    use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use tiny_keccak::keccakf;
 
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
@@ -596,26 +596,19 @@ mod tests {
 
         let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()]);
         let last_row = rows[NUM_ROUNDS - 1];
-        let base = F::from_canonical_u64(1 << 32);
         let output = (0..NUM_INPUTS)
-            .map(|i| last_row[reg_output_limb(2 * i)] + base * last_row[reg_output_limb(2 * i + 1)])
+            .map(|i| {
+                let hi = last_row[reg_output_limb(2 * i + 1)].to_canonical_u64();
+                let lo = last_row[reg_output_limb(2 * i)].to_canonical_u64();
+                (hi << 32) | lo
+            })
             .collect::<Vec<_>>();
 
-        let mut keccak_input: [[u64; 5]; 5] = [
-            input[0..5].try_into().unwrap(),
-            input[5..10].try_into().unwrap(),
-            input[10..15].try_into().unwrap(),
-            input[15..20].try_into().unwrap(),
-            input[20..25].try_into().unwrap(),
-        ];
-
-        let keccak = KeccakF::new(StateBitsWidth::F1600);
-        keccak.permutations(&mut keccak_input);
-        let expected: Vec<_> = keccak_input
-            .iter()
-            .flatten()
-            .map(|&x| F::from_canonical_u64(x))
-            .collect();
+        let expected = {
+            let mut state = input;
+            keccakf(&mut state);
+            state
+        };
 
         assert_eq!(output, expected);
 
