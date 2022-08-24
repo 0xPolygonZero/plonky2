@@ -422,17 +422,15 @@ where
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(
-                    |(i, (_, columns, filter_column))| CtlCheckVars::<F, F, P, 1> {
-                        local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
-                            [num_permutation_zs + i],
-                        next_z: permutation_ctl_zs_commitment
-                            .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
-                        challenges: ctl_data.challenges.challenges[i % config.num_challenges],
-                        columns,
-                        filter_column,
-                    },
-                )
+                .map(|(i, zs_columns)| CtlCheckVars::<F, F, P, 1> {
+                    local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
+                        [num_permutation_zs + i],
+                    next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
+                        [num_permutation_zs + i],
+                    challenges: zs_columns.challenge,
+                    columns: &zs_columns.columns,
+                    filter_column: &zs_columns.filter_column,
+                })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
                 stark,
@@ -547,15 +545,13 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(
-                    |(iii, (_, columns, filter_column))| CtlCheckVars::<F, F, F, 1> {
-                        local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
-                        next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
-                        challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
-                        columns,
-                        filter_column,
-                    },
-                )
+                .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
+                    local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
+                    next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
+                    challenges: zs_columns.challenge,
+                    columns: &zs_columns.columns,
+                    filter_column: &zs_columns.filter_column,
+                })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, F, C, S, D, 1>(
                 stark,
