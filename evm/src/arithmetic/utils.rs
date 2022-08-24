@@ -19,4 +19,7 @@ macro_rules! range_check_error {
     ($cols:ident, $rc_bits:expr) => {
         $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &$cols);
     };
+    ([$cols:ident], $rc_bits:expr) => {
+        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(file!(), line!(), &[$cols]);
+    };
 }
