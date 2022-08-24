@@ -168,23 +168,21 @@ impl<F: Field> CrossTableLookup<F> {
 }
 
 /// Cross-table lookup data for one table.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CtlData<F: Field> {
-    /// Challenges used in the argument.
-    pub(crate) challenges: GrandProductChallengeSet<F>,
-    /// Vector of `(Z, columns, filter_columns)` where `Z` is a Z-polynomial for a lookup
-    /// on columns `columns` with filter columns `filter_columns`.
-    pub zs_columns: Vec<(PolynomialValues<F>, Vec<Column<F>>, Option<Column<F>>)>,
+    pub(crate) zs_columns: Vec<CtlZData<F>>,
+}
+
+/// Cross-table lookup data associated with one Z(x) polynomial.
+#[derive(Clone)]
+pub(crate) struct CtlZData<F: Field> {
+    pub(crate) z: PolynomialValues<F>,
+    pub(crate) challenge: GrandProductChallenge<F>,
+    pub(crate) columns: Vec<Column<F>>,
+    pub(crate) filter_column: Option<Column<F>>,
 }
 
 impl<F: Field> CtlData<F> {
-    pub(crate) fn new(challenges: GrandProductChallengeSet<F>) -> Self {
-        Self {
-            challenges,
-            zs_columns: vec![],
-        }
-    }
-
     pub fn len(&self) -> usize {
         self.zs_columns.len()
     }
@@ -194,7 +192,10 @@ impl<F: Field> CtlData<F> {
     }
 
     pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
-        self.zs_columns.iter().map(|(p, _, _)| p.clone()).collect()
+        self.zs_columns
+            .iter()
+            .map(|zs_columns| zs_columns.z.clone())
+            .collect()
     }
 }
 
@@ -205,7 +206,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
     challenger: &mut Challenger<F, C::Hasher>,
 ) -> Vec<CtlData<F>> {
     let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
-    let mut ctl_data_per_table = vec![CtlData::new(challenges.clone()); trace_poly_values.len()];
+    let mut ctl_data_per_table = vec![CtlData::default(); trace_poly_values.len()];
     for CrossTableLookup {
         looking_tables,
         looked_table,
@@ -252,19 +253,23 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
             );
 
             for (table, z) in looking_tables.iter().zip(zs_looking) {
-                ctl_data_per_table[table.table as usize].zs_columns.push((
-                    z,
-                    table.columns.clone(),
-                    table.filter_column.clone(),
-                ));
+                ctl_data_per_table[table.table as usize]
+                    .zs_columns
+                    .push(CtlZData {
+                        z,
+                        challenge,
+                        columns: table.columns.clone(),
+                        filter_column: table.filter_column.clone(),
+                    });
             }
             ctl_data_per_table[looked_table.table as usize]
                 .zs_columns
-                .push((
-                    z_looked,
-                    looked_table.columns.clone(),
-                    looked_table.filter_column.clone(),
-                ));
+                .push(CtlZData {
+                    z: z_looked,
+                    challenge,
+                    columns: looked_table.columns.clone(),
+                    filter_column: looked_table.filter_column.clone(),
+                });
         }
     }
     ctl_data_per_table
