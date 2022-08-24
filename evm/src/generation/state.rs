@@ -59,11 +59,12 @@ impl<F: Field> GenerationState<F> {
         segment: Segment,
         virt: usize,
     ) -> U256 {
+        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
         let value = self.memory.contexts[context].segments[segment as usize].get(virt);
         self.memory.log.push(MemoryOp {
-            channel_index: Some(channel_index),
+            filter: true,
             timestamp,
             is_read: true,
             context,
@@ -82,10 +83,11 @@ impl<F: Field> GenerationState<F> {
         virt: usize,
         value: U256,
     ) {
+        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
         let timestamp = self.cpu_rows.len();
         let context = self.current_context;
         self.memory.log.push(MemoryOp {
-            channel_index: Some(channel_index),
+            filter: true,
             timestamp,
             is_read: false,
             context,

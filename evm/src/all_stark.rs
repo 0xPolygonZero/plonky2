@@ -75,9 +75,7 @@ impl Table {
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
-    cross_table_lookups.extend((0..NUM_CHANNELS).map(ctl_memory));
-    cross_table_lookups
+    vec![ctl_keccak(), ctl_logic(), ctl_memory()]
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
@@ -108,17 +106,21 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
+fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
-        vec![TableWithColumns::new(
-            Table::Cpu,
-            cpu_stark::ctl_data_memory(channel),
-            Some(cpu_stark::ctl_filter_memory(channel)),
-        )],
+        (0..NUM_CHANNELS)
+            .map(|channel| {
+                TableWithColumns::new(
+                    Table::Cpu,
+                    cpu_stark::ctl_data_memory(channel),
+                    Some(cpu_stark::ctl_filter_memory(channel)),
+                )
+            })
+            .collect(),
         TableWithColumns::new(
             Table::Memory,
             memory_stark::ctl_data(),
-            Some(memory_stark::ctl_filter(channel)),
+            Some(memory_stark::ctl_filter()),
         ),
         None,
     )
@@ -298,11 +300,11 @@ mod tests {
             let clock = mem_timestamp / NUM_CHANNELS;
             let channel = mem_timestamp % NUM_CHANNELS;
 
-            let is_padding_row = (0..NUM_CHANNELS)
-                .map(|c| memory_trace[memory::columns::is_channel(c)].values[i])
-                .all(|x| x == F::ZERO);
+            let filter = memory_trace[memory::columns::FILTER].values[i];
+            assert!(filter.is_one() || filter.is_zero());
+            let is_actual_op = filter.is_one();
 
-            if !is_padding_row {
+            if is_actual_op {
                 let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
 
                 row.mem_channel_used[channel] = F::ONE;
