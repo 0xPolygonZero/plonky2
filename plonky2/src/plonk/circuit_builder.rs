@@ -794,7 +794,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
-            vec![/* Add other circuit data here */],
+            vec![
+                F::from_canonical_usize(degree_bits),
+                /* Add other circuit data here */
+            ],
         ];
         let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
 
