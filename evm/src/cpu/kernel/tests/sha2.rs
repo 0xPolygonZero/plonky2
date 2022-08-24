@@ -41,12 +41,7 @@ fn test_sha2() -> Result<()> {
     initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
     initial_stack.reverse();
 
-    let after_sha2 = run(
-        &kernel.code,
-        sha2,
-        initial_stack,
-        &kernel.prover_inputs,
-    )?;
+    let after_sha2 = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
 
     let stack_after_sha2 = after_sha2.stack();
 
