@@ -45,7 +45,7 @@ fn test_sha2() -> Result<()> {
 
     let stack_after_sha2 = after_sha2.stack();
 
-    let result = stack_after_sha2.clone()[1];
+    let result = stack_after_sha2[1];
     let actual = format!("{:02X}", result);
     dbg!(expected);
     dbg!(actual);
