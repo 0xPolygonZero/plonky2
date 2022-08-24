@@ -228,7 +228,7 @@ mod tests {
         keccak_memory_stark: &KeccakMemoryStark<F, D>,
         config: &StarkConfig,
     ) -> Vec<PolynomialValues<F>> {
-        keccak_memory_stark.generate_trace(vec![], config.fri_config.cap_height)
+        keccak_memory_stark.generate_trace(vec![], 1 << config.fri_config.cap_height)
     }
 
     fn make_logic_trace<R: Rng>(
