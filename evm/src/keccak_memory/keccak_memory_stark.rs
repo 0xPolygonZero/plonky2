@@ -1,7 +1,5 @@
-use std::io::Read;
 use std::marker::PhantomData;
 
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -130,7 +128,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
         operations: Vec<KeccakMemoryOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let num_rows = operations.len().max(32).next_power_of_two();
+        let num_rows = operations.len().max(min_rows).next_power_of_two();
         let mut rows = Vec::with_capacity(num_rows);
         for op in operations {
             rows.push(self.generate_row_for_op(op));
