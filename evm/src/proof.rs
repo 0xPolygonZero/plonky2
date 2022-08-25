@@ -33,7 +33,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
     pub fn nums_ctl_zs(&self) -> Vec<usize> {
         self.stark_proofs
             .iter()
-            .map(|proof| proof.proof.openings.ctl_zs_last.len())
+            .map(|proof| proof.proof.num_ctl_zs())
             .collect()
     }
 }
@@ -75,6 +75,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
             .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
+    }
+
+    pub fn num_ctl_zs(&self) -> usize {
+        self.openings.ctl_zs_last.len()
     }
 }
 

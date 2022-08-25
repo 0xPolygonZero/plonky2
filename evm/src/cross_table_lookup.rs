@@ -474,6 +474,59 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
         }
         ctl_vars_per_table
     }
+
+    pub(crate) fn from_proof(
+        table: Table,
+        proof: &StarkProofWithPublicInputsTarget<D>,
+        cross_table_lookups: &'a [CrossTableLookup<F>],
+        ctl_challenges: &'a GrandProductChallengeSet<Target>,
+        num_permutation_zs: usize,
+    ) -> Vec<Self> {
+        let mut ctl_zs = {
+            let openings = &proof.proof.openings;
+            let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_permutation_zs);
+            let ctl_zs_next = openings
+                .permutation_ctl_zs_next
+                .iter()
+                .skip(num_permutation_zs);
+            ctl_zs.zip(ctl_zs_next)
+        };
+
+        let mut ctl_vars = vec![];
+        for CrossTableLookup {
+            looking_tables,
+            looked_table,
+            ..
+        } in cross_table_lookups
+        {
+            for &challenges in &ctl_challenges.challenges {
+                for looking_table in looking_tables {
+                    if looking_table.table == table {
+                        let (looking_z, looking_z_next) = ctl_zs.next().unwrap();
+                        ctl_vars.push(Self {
+                            local_z: *looking_z,
+                            next_z: *looking_z_next,
+                            challenges,
+                            columns: &looking_table.columns,
+                            filter_column: &looking_table.filter_column,
+                        });
+                    }
+                }
+
+                if looked_table.table == table {
+                    let (looked_z, looked_z_next) = ctl_zs.next().unwrap();
+                    ctl_vars.push(Self {
+                        local_z: *looked_z,
+                        next_z: *looked_z_next,
+                        challenges,
+                        columns: &looked_table.columns,
+                        filter_column: &looked_table.filter_column,
+                    });
+                }
+            }
+        }
+        ctl_vars
+    }
 }
 
 pub(crate) fn eval_cross_table_lookup_checks_circuit<

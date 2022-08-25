@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
     Cpu = 0,
     Keccak = 1,

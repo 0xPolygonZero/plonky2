@@ -1,3 +1,4 @@
+use anyhow::Result;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
@@ -5,9 +6,12 @@ use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
-use plonky2::iop::witness::Witness;
+use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
@@ -15,7 +19,9 @@ use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVarsTarget};
+use crate::cross_table_lookup::{
+    verify_cross_table_lookups_circuit, CrossTableLookup, CtlCheckVarsTarget,
+};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
@@ -28,6 +34,75 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
+
+pub(crate) struct AllRecursiveProofs<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> {
+    pub recursive_proofs: Vec<ProofWithPublicInputs<F, C, D>>,
+}
+
+pub(crate) fn recursively_prove_stark_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    table: Table,
+    stark: S,
+    all_stark: &AllStark<F, D>,
+    all_proof: &AllProof<F, C, D>,
+    cross_table_lookups: &[CrossTableLookup<F>],
+    inner_config: &StarkConfig,
+    circuit_config: CircuitConfig,
+) -> Result<ProofWithPublicInputs<F, C, D>>
+where
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+    let mut pw = PartialWitness::new();
+
+    let nums_ctl_zs = all_proof.nums_ctl_zs();
+    let degree_bits = all_proof.degree_bits(inner_config);
+    let num_permutation_zs = stark.num_permutation_batches(inner_config);
+    let all_proof_target = add_virtual_all_proof(
+        &mut builder,
+        all_stark,
+        inner_config,
+        &degree_bits,
+        &nums_ctl_zs,
+    );
+    set_all_proof_target(&mut pw, &all_proof_target, all_proof, builder.zero());
+
+    let AllProofChallengesTarget {
+        stark_challenges,
+        ctl_challenges,
+    } = all_proof_target.get_challenges::<F, C>(&mut builder, all_stark, inner_config);
+
+    let ctl_vars = CtlCheckVarsTarget::from_proof(
+        table,
+        &all_proof_target.stark_proofs[table as usize],
+        cross_table_lookups,
+        &ctl_challenges,
+        num_permutation_zs,
+    );
+
+    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+        &mut builder,
+        stark,
+        &all_proof_target.stark_proofs[table as usize],
+        &stark_challenges[table as usize],
+        &ctl_vars,
+        inner_config,
+    );
+
+    let data = builder.build::<C>();
+    data.prove(pw)
+}
 
 pub fn verify_proof_circuit<
     F: RichField + Extendable<D>,
