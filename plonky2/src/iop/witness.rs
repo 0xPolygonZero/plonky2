@@ -104,9 +104,12 @@ pub trait Witness<F: Field> {
     where
         F: RichField + Extendable<D>,
     {
-        let limbs = value.to_basefield_array();
-        (0..D).for_each(|i| {
-            self.set_target(et.0[i], limbs[i]);
+        self.set_target_arr(et.0, value.to_basefield_array());
+    }
+
+    fn set_target_arr<const N: usize>(&mut self, targets: [Target; N], values: [F; N]) {
+        (0..N).for_each(|i| {
+            self.set_target(targets[i], values[i]);
         });
     }
 

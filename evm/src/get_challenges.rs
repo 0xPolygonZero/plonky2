@@ -24,8 +24,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.proof.trace_cap);
+            challenger.observe_cap(&proof.trace_cap);
         }
+
+        // TODO: Observe public values.
 
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
@@ -58,7 +60,7 @@ impl<const D: usize> AllProofTarget<D> {
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
 
         for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.proof.trace_cap);
+            challenger.observe_cap(&proof.trace_cap);
         }
 
         let ctl_challenges =
@@ -85,7 +87,7 @@ impl<const D: usize> AllProofTarget<D> {
     }
 }
 
-impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
+impl<F, C, const D: usize> StarkProof<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -98,7 +100,7 @@ where
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
-        let degree_bits = self.proof.recover_degree_bits(config);
+        let degree_bits = self.recover_degree_bits(config);
 
         let StarkProof {
             permutation_ctl_zs_cap,
@@ -112,7 +114,7 @@ where
                     ..
                 },
             ..
-        } = &self.proof;
+        } = &self;
 
         let num_challenges = config.num_challenges;
 
@@ -148,7 +150,7 @@ where
     }
 }
 
-impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
+impl<const D: usize> StarkProofTarget<D> {
     pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -172,7 +174,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
                     ..
                 },
             ..
-        } = &self.proof;
+        } = &self;
 
         let num_challenges = config.num_challenges;
 

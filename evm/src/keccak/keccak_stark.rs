@@ -32,8 +32,6 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 /// Number of 64-bit elements in the Keccak permutation input.
 pub(crate) const NUM_INPUTS: usize = 25;
 
-pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
-
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
     res.extend(Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)));
@@ -228,11 +226,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
-    const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -380,7 +377,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let two = builder.two();

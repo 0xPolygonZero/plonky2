@@ -5,7 +5,8 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::generation::partial_trie::PartialTrie;
-use plonky2_evm::generation::{generate_traces, TransactionData};
+use plonky2_evm::generation::EvmInputs;
+use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 
@@ -18,26 +19,29 @@ type C = PoseidonGoldilocksConfig;
 #[ignore] // TODO: Won't work until txn parsing, storage, etc. are implemented.
 fn test_simple_transfer() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
 
-    let txn = TransactionData {
-        signed_txn: hex!("f85f050a82520894000000000000000000000000000000000000000064801ca0fa56df5d988638fad8798e5ef75a1e1125dc7fb55d2ac4bce25776a63f0c2967a02cb47a5579eb5f83a1cabe4662501c0059f1b58e60ef839a1b0da67af6b9fb38").to_vec(),
-        // TODO: Add trie with sender account.
-        state_trie: PartialTrie::Empty,
-        transaction_trie: PartialTrie::Empty,
-        receipt_trie: PartialTrie::Empty,
-        storage_tries: vec![],
+    let block_metadata = BlockMetadata {
+        block_coinbase: Default::default(),
+        block_timestamp: Default::default(),
+        block_number: Default::default(),
+        block_difficulty: Default::default(),
+        block_gaslimit: Default::default(),
+        block_chain_id: Default::default(),
     };
 
-    let traces = generate_traces(&all_stark, &[txn]);
+    let txn = hex!("f85f050a82520894000000000000000000000000000000000000000064801ca0fa56df5d988638fad8798e5ef75a1e1125dc7fb55d2ac4bce25776a63f0c2967a02cb47a5579eb5f83a1cabe4662501c0059f1b58e60ef839a1b0da67af6b9fb38");
 
-    let config = StarkConfig::standard_fast_config();
-    let proof = prove::<F, C, D>(
-        &all_stark,
-        &config,
-        traces,
-        vec![vec![]; 4],
-        &mut TimingTree::default(),
-    )?;
+    let inputs = EvmInputs {
+        signed_txns: vec![txn.to_vec()],
+        state_trie: PartialTrie::Empty,
+        transactions_trie: PartialTrie::Empty,
+        receipts_trie: PartialTrie::Empty,
+        storage_tries: vec![],
+        block_metadata,
+    };
+
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut TimingTree::default())?;
 
     verify_proof(all_stark, proof, &config)
 }

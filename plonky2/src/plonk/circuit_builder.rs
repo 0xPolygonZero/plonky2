@@ -157,6 +157,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
+    pub fn add_virtual_target_arr<const N: usize>(&mut self) -> [Target; N] {
+        [0; N].map(|_| self.add_virtual_target())
+    }
+
     pub fn add_virtual_hash(&mut self) -> HashOutTarget {
         HashOutTarget::from_vec(self.add_virtual_targets(4))
     }

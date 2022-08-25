@@ -15,7 +15,6 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::cpu::public_inputs::NUM_PUBLIC_INPUTS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;
@@ -50,7 +49,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         let mut packed_bytes: u32 = 0;
         for (addr, byte) in chunk {
             let channel = addr % NUM_CHANNELS;
-            state.set_mem_current(channel, Segment::Code, addr, byte.into());
+            state.set_mem_cpu_current(channel, Segment::Code, addr, byte.into());
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
         }
@@ -73,7 +72,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 }
 
 pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
-    vars: StarkEvaluationVars<F, P, NUM_CPU_COLUMNS, NUM_PUBLIC_INPUTS>,
+    vars: StarkEvaluationVars<F, P, NUM_CPU_COLUMNS>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let local_values: &CpuColumnsView<_> = vars.local_values.borrow();
@@ -109,7 +108,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
 
 pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, NUM_CPU_COLUMNS, NUM_PUBLIC_INPUTS>,
+    vars: StarkEvaluationTargets<D, NUM_CPU_COLUMNS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let local_values: &CpuColumnsView<_> = vars.local_values.borrow();

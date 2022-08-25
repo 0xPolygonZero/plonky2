@@ -7,17 +7,20 @@ use plonky2::hash::hash_types::RichField;
 use crate::all_stark::AllStark;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::NUM_CPU_COLUMNS;
+use crate::cpu::kernel::global_metadata::GlobalMetadata;
 use crate::generation::partial_trie::PartialTrie;
 use crate::generation::state::GenerationState;
+use crate::memory::segments::Segment;
+use crate::memory::NUM_CHANNELS;
+use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::util::trace_rows_to_poly_values;
 
 pub(crate) mod memory;
 pub mod partial_trie;
 pub(crate) mod state;
 
-#[allow(unused)] // TODO: Should be used soon.
-pub struct TransactionData {
-    pub signed_txn: Vec<u8>,
+pub struct EvmInputs {
+    pub signed_txns: Vec<Vec<u8>>,
 
     /// A partial version of the state trie prior to this transaction. It should include all nodes
     /// that will be accessed by this transaction.
@@ -25,29 +28,54 @@ pub struct TransactionData {
 
     /// A partial version of the transaction trie prior to this transaction. It should include all
     /// nodes that will be accessed by this transaction.
-    pub transaction_trie: PartialTrie,
+    pub transactions_trie: PartialTrie,
 
     /// A partial version of the receipt trie prior to this transaction. It should include all nodes
     /// that will be accessed by this transaction.
-    pub receipt_trie: PartialTrie,
+    pub receipts_trie: PartialTrie,
 
     /// A partial version of each storage trie prior to this transaction. It should include all
     /// storage tries, and nodes therein, that will be accessed by this transaction.
     pub storage_tries: Vec<(Address, PartialTrie)>,
+
+    pub block_metadata: BlockMetadata,
 }
 
-#[allow(unused)] // TODO: Should be used soon.
-pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
-    txns: &[TransactionData],
-) -> Vec<Vec<PolynomialValues<F>>> {
+    inputs: EvmInputs,
+) -> (Vec<Vec<PolynomialValues<F>>>, PublicValues) {
     let mut state = GenerationState::<F>::default();
 
     generate_bootstrap_kernel::<F>(&mut state);
 
-    for txn in txns {
+    for txn in &inputs.signed_txns {
         generate_txn(&mut state, txn);
     }
+
+    // TODO: Pad to a power of two, ending in the `halt` kernel function.
+
+    let cpu_rows = state.cpu_rows.len();
+    let mem_end_timestamp = cpu_rows * NUM_CHANNELS;
+    let mut read_metadata = |field| {
+        state.get_mem(
+            0,
+            Segment::GlobalMetadata,
+            field as usize,
+            mem_end_timestamp,
+        )
+    };
+
+    let trie_roots_before = TrieRoots {
+        state_root: read_metadata(GlobalMetadata::StateTrieRootDigestBefore),
+        transactions_root: read_metadata(GlobalMetadata::TransactionsTrieRootDigestBefore),
+        receipts_root: read_metadata(GlobalMetadata::ReceiptsTrieRootDigestBefore),
+    };
+    let trie_roots_after = TrieRoots {
+        state_root: read_metadata(GlobalMetadata::StateTrieRootDigestAfter),
+        transactions_root: read_metadata(GlobalMetadata::TransactionsTrieRootDigestAfter),
+        receipts_root: read_metadata(GlobalMetadata::ReceiptsTrieRootDigestAfter),
+    };
 
     let GenerationState {
         cpu_rows,
@@ -63,9 +91,17 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
     let logic_trace = all_stark.logic_stark.generate_trace(logic_ops);
     let memory_trace = all_stark.memory_stark.generate_trace(memory.log);
-    vec![cpu_trace, keccak_trace, logic_trace, memory_trace]
+    let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+
+    let public_values = PublicValues {
+        trie_roots_before,
+        trie_roots_after,
+        block_metadata: inputs.block_metadata,
+    };
+
+    (traces, public_values)
 }
 
-fn generate_txn<F: Field>(_state: &mut GenerationState<F>, _txn: &TransactionData) {
+fn generate_txn<F: Field>(_state: &mut GenerationState<F>, _signed_txn: &[u8]) {
     // TODO
 }
