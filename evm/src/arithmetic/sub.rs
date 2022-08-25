@@ -9,26 +9,29 @@ use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs = SUB_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs = SUB_INPUT_1.map(|c| lv[c].to_canonical_u64());
-
-    // Input and output have 16-bit limbs
-    let mut output_limbs = [0u64; N_LIMBS];
-
+pub(crate) fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
     const LIMB_BOUNDARY: u64 = 1 << LIMB_BITS;
     const MASK: u64 = LIMB_BOUNDARY - 1u64;
 
+    let mut output = [0u64; N_LIMBS];
     let mut br = 0u64;
-    for (i, a, b) in izip!(0.., input0_limbs, input1_limbs) {
+    for (i, a, b) in izip!(0.., input0, input1) {
         let d = LIMB_BOUNDARY + a - b - br;
         // if a < b, then d < 2^16 so br = 1
         // if a >= b, then d >= 2^16 so br = 0
         br = 1u64 - (d >> LIMB_BITS);
         assert!(br <= 1u64, "input limbs were larger than 16 bits");
-        output_limbs[i] = d & MASK;
+        output[i] = d & MASK;
     }
-    // last borrow is dropped because this is subtraction modulo 2^256.
+
+    (output, br)
+}
+
+pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+    let input0_limbs = SUB_INPUT_0.map(|c| lv[c].to_canonical_u64());
+    let input1_limbs = SUB_INPUT_1.map(|c| lv[c].to_canonical_u64());
+
+    let (output_limbs, _) = u256_sub_br(input0_limbs, input1_limbs);
 
     for (&c, output_limb) in SUB_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);

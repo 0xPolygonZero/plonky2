@@ -1,4 +1,5 @@
 mod add;
+mod compare;
 mod mul;
 mod sub;
 mod utils;
