@@ -2,11 +2,14 @@ use std::mem;
 
 use ethereum_types::U256;
 use plonky2::field::types::Field;
+use tiny_keccak::keccakf;
 
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::memory::memory_stark::MemoryOp;
 use crate::memory::segments::Segment;
+use crate::memory::NUM_CHANNELS;
 use crate::{keccak, logic};
 
 #[derive(Debug)]
@@ -18,10 +21,8 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) memory: MemoryState,
 
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
+    pub(crate) keccak_memory_inputs: Vec<KeccakMemoryOp>,
     pub(crate) logic_ops: Vec<logic::Operation>,
-
-    /// Non-deterministic inputs provided by the prover.
-    pub(crate) prover_inputs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -59,11 +60,23 @@ impl<F: Field> GenerationState<F> {
         segment: Segment,
         virt: usize,
     ) -> U256 {
-        let timestamp = self.cpu_rows.len();
         let context = self.current_context;
+        self.get_mem(channel_index, context, segment, virt)
+    }
+
+    /// Read some memory, and log the operation.
+    pub(crate) fn get_mem(
+        &mut self,
+        channel_index: usize,
+        context: usize,
+        segment: Segment,
+        virt: usize,
+    ) -> U256 {
+        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
+        let timestamp = self.cpu_rows.len();
         let value = self.memory.contexts[context].segments[segment as usize].get(virt);
         self.memory.log.push(MemoryOp {
-            channel_index: Some(channel_index),
+            filter: true,
             timestamp,
             is_read: true,
             context,
@@ -82,10 +95,24 @@ impl<F: Field> GenerationState<F> {
         virt: usize,
         value: U256,
     ) {
-        let timestamp = self.cpu_rows.len();
         let context = self.current_context;
+        self.set_mem(channel_index, context, segment, virt, value);
+    }
+
+    /// Write some memory, and log the operation.
+    pub(crate) fn set_mem(
+        &mut self,
+        channel_index: usize,
+        context: usize,
+        segment: Segment,
+        virt: usize,
+        value: U256,
+    ) {
+        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
+        let timestamp = self.cpu_rows.len();
+        let timestamp = timestamp * NUM_CHANNELS + channel_index;
         self.memory.log.push(MemoryOp {
-            channel_index: Some(channel_index),
+            filter: true,
             timestamp,
             is_read: false,
             context,
@@ -94,6 +121,52 @@ impl<F: Field> GenerationState<F> {
             value,
         });
         self.memory.contexts[context].segments[segment as usize].set(virt, value)
+    }
+
+    /// Evaluate the Keccak-f permutation in-place on some data in memory, and record the operations
+    /// for the purpose of witness generation.
+    #[allow(unused)] // TODO: Should be used soon.
+    pub(crate) fn keccak_memory(
+        &mut self,
+        context: usize,
+        segment: Segment,
+        virt: usize,
+    ) -> [u64; keccak::keccak_stark::NUM_INPUTS] {
+        let read_timestamp = self.cpu_rows.len() * NUM_CHANNELS;
+        let input = (0..25)
+            .map(|i| {
+                let bytes = [0, 1, 2, 3, 4, 5, 6, 7].map(|j| {
+                    let virt = virt + i * 8 + j;
+                    let byte = self.get_mem(0, context, segment, virt);
+                    debug_assert!(byte.bits() <= 8);
+                    byte.as_u32() as u8
+                });
+                u64::from_le_bytes(bytes)
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let output = self.keccak(input);
+        self.keccak_memory_inputs.push(KeccakMemoryOp {
+            context,
+            segment,
+            virt,
+            read_timestamp,
+            input,
+            output,
+        });
+        output
+    }
+
+    /// Evaluate the Keccak-f permutation, and record the operation for the purpose of witness
+    /// generation.
+    pub(crate) fn keccak(
+        &mut self,
+        mut input: [u64; keccak::keccak_stark::NUM_INPUTS],
+    ) -> [u64; keccak::keccak_stark::NUM_INPUTS] {
+        self.keccak_inputs.push(input);
+        keccakf(&mut input);
+        input
     }
 
     pub(crate) fn commit_cpu_row(&mut self) {
@@ -113,8 +186,8 @@ impl<F: Field> Default for GenerationState<F> {
             current_context: 0,
             memory: MemoryState::default(),
             keccak_inputs: vec![],
+            keccak_memory_inputs: vec![],
             logic_ops: vec![],
-            prover_inputs: vec![],
         }
     }
 }

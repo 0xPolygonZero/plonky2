@@ -81,6 +81,11 @@ pub(crate) const MUL_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
 pub(crate) const MUL_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_2;
 pub(crate) const MUL_AUX_INPUT: [usize; N_LIMBS] = AUX_INPUT_0;
 
+pub(crate) const CMP_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
+pub(crate) const CMP_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
+pub(crate) const CMP_OUTPUT: usize = GENERAL_INPUT_2[0];
+pub(crate) const CMP_AUX_INPUT: [usize; N_LIMBS] = AUX_INPUT_0;
+
 pub(crate) const ADDMOD_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
 pub(crate) const ADDMOD_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
 pub(crate) const ADDMOD_MODULUS: [usize; N_LIMBS] = GENERAL_INPUT_2;

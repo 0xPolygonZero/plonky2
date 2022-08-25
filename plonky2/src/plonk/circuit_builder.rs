@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
+use itertools::Itertools;
 use log::{debug, info, Level};
 use plonky2_field::cosets::get_unique_coset_shifts;
 use plonky2_field::extension::{Extendable, FieldExtension};
@@ -95,9 +96,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             context_log: ContextTree::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
+            targets_to_constants: HashMap::new(),
             base_arithmetic_results: HashMap::new(),
             arithmetic_results: HashMap::new(),
-            targets_to_constants: HashMap::new(),
             current_slots: HashMap::new(),
             constant_generators: Vec::new(),
         };
@@ -665,6 +666,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .constants_to_targets
             .clone()
             .into_iter()
+            // We need to enumerate constants_to_targets in some deterministic order to ensure that
+            // building a circuit is deterministic.
+            .sorted_by_key(|(c, _t)| c.to_canonical_u64())
             .zip(self.constant_generators.clone())
         {
             // Set the constant in the constant polynomial.
@@ -790,7 +794,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
-            vec![/* Add other circuit data here */],
+            vec![
+                F::from_canonical_usize(degree_bits),
+                /* Add other circuit data here */
+            ],
         ];
         let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
 

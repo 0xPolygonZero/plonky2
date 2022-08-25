@@ -23,6 +23,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
@@ -50,6 +51,8 @@ where
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
@@ -124,6 +127,19 @@ where
         &mut challenger,
         timing,
     )?;
+    let keccak_memory_proof = prove_single_table(
+        &all_stark.keccak_memory_stark,
+        config,
+        &trace_poly_values[Table::KeccakMemory as usize],
+        &trace_commitments[Table::KeccakMemory as usize],
+        &ctl_data_per_table[Table::KeccakMemory as usize],
+        public_inputs[Table::KeccakMemory as usize]
+            .clone()
+            .try_into()
+            .unwrap(),
+        &mut challenger,
+        timing,
+    )?;
     let logic_proof = prove_single_table(
         &all_stark.logic_stark,
         config,
@@ -151,7 +167,13 @@ where
         timing,
     )?;
 
-    let stark_proofs = vec![cpu_proof, keccak_proof, logic_proof, memory_proof];
+    let stark_proofs = vec![
+        cpu_proof,
+        keccak_proof,
+        keccak_memory_proof,
+        logic_proof,
+        memory_proof,
+    ];
     debug_assert_eq!(stark_proofs.len(), num_starks);
 
     Ok(AllProof { stark_proofs })
@@ -388,7 +410,7 @@ where
     let quotient_values = (0..size)
         .into_par_iter()
         .step_by(P::WIDTH)
-        .map(|i_start| {
+        .flat_map_iter(|i_start| {
             let i_next_start = (i_start + next_step) % size;
             let i_range = i_start..i_start + P::WIDTH;
 
@@ -422,17 +444,15 @@ where
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(
-                    |(i, (_, columns, filter_column))| CtlCheckVars::<F, F, P, 1> {
-                        local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
-                            [num_permutation_zs + i],
-                        next_z: permutation_ctl_zs_commitment
-                            .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
-                        challenges: ctl_data.challenges.challenges[i % config.num_challenges],
-                        columns,
-                        filter_column,
-                    },
-                )
+                .map(|(i, zs_columns)| CtlCheckVars::<F, F, P, 1> {
+                    local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
+                        [num_permutation_zs + i],
+                    next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
+                        [num_permutation_zs + i],
+                    challenges: zs_columns.challenge,
+                    columns: &zs_columns.columns,
+                    filter_column: &zs_columns.filter_column,
+                })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
                 stark,
@@ -444,11 +464,18 @@ where
             );
             let mut constraints_evals = consumer.accumulators();
             // We divide the constraints evaluations by `Z_H(x)`.
-            let denominator_inv = z_h_on_coset.eval_inverse_packed(i_start);
+            let denominator_inv: P = z_h_on_coset.eval_inverse_packed(i_start);
             for eval in &mut constraints_evals {
                 *eval *= denominator_inv;
             }
-            constraints_evals
+
+            let num_challenges = alphas.len();
+
+            (0..P::WIDTH).into_iter().map(move |i| {
+                (0..num_challenges)
+                    .map(|j| constraints_evals[j].as_slice()[i])
+                    .collect()
+            })
         })
         .collect::<Vec<_>>();
 
@@ -540,15 +567,13 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(
-                    |(iii, (_, columns, filter_column))| CtlCheckVars::<F, F, F, 1> {
-                        local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
-                        next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
-                        challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
-                        columns,
-                        filter_column,
-                    },
-                )
+                .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
+                    local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
+                    next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
+                    challenges: zs_columns.challenge,
+                    columns: &zs_columns.columns,
+                    filter_column: &zs_columns.filter_column,
+                })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, F, C, S, D, 1>(
                 stark,

@@ -22,8 +22,8 @@ maybe_rayon = { path = "../maybe_rayon" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rlp = "0.5.1"
-keccak-rust = { git = "https://github.com/npwardberkeley/keccak-rust" }
 keccak-hash = "0.9.0"
+tiny-keccak = "2.0.2"
 
 [dev-dependencies]
 criterion = "0.3.5"

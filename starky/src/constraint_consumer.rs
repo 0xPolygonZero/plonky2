@@ -44,12 +44,8 @@ impl<P: PackedField> ConstraintConsumer<P> {
         }
     }
 
-    // TODO: Do this correctly.
-    pub fn accumulators(self) -> Vec<P::Scalar> {
+    pub fn accumulators(self) -> Vec<P> {
         self.constraint_accs
-            .into_iter()
-            .map(|acc| acc.as_slice()[0])
-            .collect()
     }
 
     /// Add one constraint valid on all rows except the last.

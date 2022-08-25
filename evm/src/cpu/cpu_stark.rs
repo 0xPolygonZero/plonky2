@@ -22,8 +22,28 @@ pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
     res
 }
 
+pub fn ctl_data_keccak_memory<F: Field>() -> Vec<Column<F>> {
+    // When executing KECCAK_GENERAL, the memory channels are used as follows:
+    // channel 0: instruction
+    // channel 1: stack[-1] = context
+    // channel 2: stack[-2] = segment
+    // channel 3: stack[-3] = virtual
+    let context = Column::single(COL_MAP.mem_value[1][0]);
+    let segment = Column::single(COL_MAP.mem_value[2][0]);
+    let virt = Column::single(COL_MAP.mem_value[3][0]);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let clock = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    vec![context, segment, virt, clock]
+}
+
 pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak)
+}
+
+pub fn ctl_filter_keccak_memory<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.is_keccak_memory)
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
@@ -53,7 +73,7 @@ pub fn ctl_data_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let scalar = F::from_canonical_usize(NUM_CHANNELS);
     let addend = F::from_canonical_usize(channel);
     cols.push(Column::linear_combination_with_constant(
-        vec![(COL_MAP.clock, scalar)],
+        [(COL_MAP.clock, scalar)],
         addend,
     ));
 

@@ -9,6 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::arithmetic::add;
 use crate::arithmetic::addmod;
 use crate::arithmetic::columns;
+use crate::arithmetic::compare;
 use crate::arithmetic::modop;
 use crate::arithmetic::mul;
 use crate::arithmetic::sub;
@@ -47,6 +48,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             sub::generate(local_values);
         } else if local_values[columns::IS_MUL].is_one() {
             mul::generate(local_values);
+        } else if local_values[columns::IS_LT].is_one() {
+            compare::generate(local_values, columns::IS_LT);
+        } else if local_values[columns::IS_GT].is_one() {
+            compare::generate(local_values, columns::IS_GT);
         } else if local_values[columns::IS_ADDMOD].is_one() {
             addmod::generate(local_values);
         } else if local_values[columns::IS_MOD].is_one() {
@@ -73,6 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         add::eval_packed_generic(lv, yield_constr);
         sub::eval_packed_generic(lv, yield_constr);
         mul::eval_packed_generic(lv, yield_constr);
+        compare::eval_packed_generic(lv, yield_constr);
         addmod::eval_packed_generic(lv, yield_constr);
         modop::eval_packed_generic(lv, yield_constr);
     }
@@ -87,6 +93,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         add::eval_ext_circuit(builder, lv, yield_constr);
         sub::eval_ext_circuit(builder, lv, yield_constr);
         mul::eval_ext_circuit(builder, lv, yield_constr);
+        compare::eval_ext_circuit(builder, lv, yield_constr);
         addmod::eval_ext_circuit(builder, lv, yield_constr);
         modop::eval_ext_circuit(builder, lv, yield_constr);
     }

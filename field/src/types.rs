@@ -270,9 +270,8 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
-    // TODO: The current behavior for composite fields doesn't seem natural or useful.
-    // Rename to `from_noncanonical_biguint` and have it return `n % Self::characteristic()`.
-    fn from_biguint(n: BigUint) -> Self;
+    /// Returns `n % Self::characteristic()`.
+    fn from_noncanonical_biguint(n: BigUint) -> Self;
 
     /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
     // TODO: Should probably be unsafe.
