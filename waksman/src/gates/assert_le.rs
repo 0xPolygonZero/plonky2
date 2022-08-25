@@ -1,10 +1,5 @@
 use std::marker::PhantomData;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::{Field, Field64};
-use plonky2_util::{bits_u64, ceil_div_usize};
-
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
 use plonky2::gates::util::StridedConstraintConsumer;
@@ -20,6 +15,10 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2_field::extension::Extendable;
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::{Field, Field64};
+use plonky2_util::{bits_u64, ceil_div_usize};
 
 // TODO: replace/merge this gate with `ComparisonGate`.
 
@@ -450,6 +449,11 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use plonky2::gates::gate::Gate;
+    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use plonky2::hash::hash_types::HashOut;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::quartic::QuarticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::types::Field;
@@ -457,11 +461,6 @@ mod tests {
     use rand::Rng;
 
     use crate::gates::assert_le::AssertLessThanGate;
-    use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {
