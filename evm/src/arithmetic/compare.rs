@@ -1,3 +1,19 @@
+//! Support for EVM LT and GT instructions
+//!
+//! This crate verifies EVM LT and GT instructions (i.e. for unsigned
+//! inputs). The difference between LT and GT is of course just a
+//! matter of the order of the inputs. The verification is essentially
+//! identical to the SUB instruction: For both SUB and LT we have values
+//!
+//!   - `input0`
+//!   - `input1`
+//!   - `difference` (mod 2^256)
+//!   - `borrow` (= 0 or 1)
+//!
+//! satisfying `input0 - input1 = difference + borrow * 2^256`. Where
+//! SUB verifies `difference` and ignores `borrow`, LT verifies
+//! `borrow` (and uses `difference` as an auxiliary input).
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
