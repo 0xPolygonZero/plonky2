@@ -27,9 +27,6 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
-    pub opcode: T,
-
     // If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each.
     // Invalid opcodes are split between a number of flags for practical reasons. Exactly one of
     // these flags must be 1.

@@ -205,6 +205,19 @@ mod tests {
         (trace, num_ops)
     }
 
+    fn bits_from_opcode(opcode: u8) -> [F; 8] {
+        [
+            F::from_bool(opcode & (1 << 0) != 0),
+            F::from_bool(opcode & (1 << 1) != 0),
+            F::from_bool(opcode & (1 << 2) != 0),
+            F::from_bool(opcode & (1 << 3) != 0),
+            F::from_bool(opcode & (1 << 4) != 0),
+            F::from_bool(opcode & (1 << 5) != 0),
+            F::from_bool(opcode & (1 << 6) != 0),
+            F::from_bool(opcode & (1 << 7) != 0),
+        ]
+    }
+
     fn make_cpu_trace(
         num_keccak_perms: usize,
         num_logic_rows: usize,
@@ -263,16 +276,21 @@ mod tests {
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
+
             // Since these are the first cycle rows, we must start with PC=route_txn then increment.
             row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"] + i);
-            row.opcode = [
-                (logic::columns::IS_AND, 0x16),
-                (logic::columns::IS_OR, 0x17),
-                (logic::columns::IS_XOR, 0x18),
-            ]
-            .into_iter()
-            .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
-            .sum();
+            row.opcode_bits = bits_from_opcode(
+                if logic_trace[logic::columns::IS_AND].values[i] != F::ZERO {
+                    0x16
+                } else if logic_trace[logic::columns::IS_OR].values[i] != F::ZERO {
+                    0x17
+                } else if logic_trace[logic::columns::IS_XOR].values[i] != F::ZERO {
+                    0x18
+                } else {
+                    panic!()
+                },
+            );
+
             let logic = row.general.logic_mut();
 
             let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
@@ -330,7 +348,7 @@ mod tests {
             let last_row: cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[cpu_trace_rows.len() - 1].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x0a); // `EXP` is implemented in software
+            row.opcode_bits = bits_from_opcode(0x0a); // `EXP` is implemented in software
             row.is_kernel_mode = F::ONE;
             row.program_counter = last_row.program_counter + F::ONE;
             row.general.syscalls_mut().output = [
@@ -352,7 +370,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0xf9);
+            row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
             row.general.jumps_mut().input0 = [
@@ -374,7 +392,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15682);
             row.general.jumps_mut().input0 = [
@@ -411,7 +429,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0xf9);
+            row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15106);
             row.general.jumps_mut().input0 = [
@@ -433,7 +451,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(63064);
             row.general.jumps_mut().input0 = [
@@ -471,7 +489,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x57);
+            row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(3754);
             row.general.jumps_mut().input0 = [
@@ -509,7 +527,7 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x57);
+            row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(37543);
             row.general.jumps_mut().input0 = [
@@ -538,7 +556,7 @@ mod tests {
             let last_row: cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[cpu_trace_rows.len() - 1].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = last_row.program_counter + F::ONE;
             row.general.jumps_mut().input0 = [
@@ -575,7 +593,7 @@ mod tests {
         for i in 0..cpu_trace_rows.len().next_power_of_two() - cpu_trace_rows.len() {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
-            row.opcode = F::from_canonical_u8(0xff);
+            row.opcode_bits = bits_from_opcode(0xff);
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
             row.program_counter =
