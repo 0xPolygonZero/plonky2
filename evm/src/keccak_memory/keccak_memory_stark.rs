@@ -40,15 +40,7 @@ pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
     input_cols.chain(output_cols).collect()
 }
 
-pub(crate) fn ctl_looking_memory_read<F: Field>(i: usize) -> Vec<Column<F>> {
-    ctl_looking_memory(i, true)
-}
-
-pub(crate) fn ctl_looking_memory_write<F: Field>(i: usize) -> Vec<Column<F>> {
-    ctl_looking_memory(i, false)
-}
-
-fn ctl_looking_memory<F: Field>(i: usize, is_read: bool) -> Vec<Column<F>> {
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize, is_read: bool) -> Vec<Column<F>> {
     let mut res = vec![Column::constant(F::from_bool(is_read))];
     res.extend(Column::singles([COL_CONTEXT, COL_SEGMENT, COL_VIRTUAL]));
 

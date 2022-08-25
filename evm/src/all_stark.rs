@@ -147,14 +147,14 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakMemory,
-            keccak_memory_stark::ctl_looking_memory_read(i),
+            keccak_memory_stark::ctl_looking_memory(i, true),
             Some(keccak_memory_stark::ctl_filter()),
         )
     });
     let keccak_memory_writes = (0..KECCAK_WIDTH_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakMemory,
-            keccak_memory_stark::ctl_looking_memory_write(i),
+            keccak_memory_stark::ctl_looking_memory(i, false),
             Some(keccak_memory_stark::ctl_filter()),
         )
     });
