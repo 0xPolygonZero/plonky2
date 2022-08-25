@@ -66,24 +66,24 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         )
     }
 
-    // Length of the list being accessed.
+    /// Length of the list being accessed.
     fn vec_size(&self) -> usize {
         1 << self.bits
     }
 
-    // For each copy, a wire containing the claimed index of the element.
+    /// For each copy, a wire containing the claimed index of the element.
     pub fn wire_access_index(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         (2 + self.vec_size()) * copy
     }
 
-    // For each copy, a wire containing the element claimed to be at the index.
+    /// For each copy, a wire containing the element claimed to be at the index.
     pub fn wire_claimed_element(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         (2 + self.vec_size()) * copy + 1
     }
 
-    // For each copy, wires containing the entire list.
+    /// For each copy, wires containing the entire list.
     pub fn wire_list_item(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.vec_size());
         debug_assert!(copy < self.num_copies);
@@ -99,7 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         self.start_extra_constants() + i
     }
 
-    // All above wires are routed.
+    /// All above wires are routed.
     pub fn num_routed_wires(&self) -> usize {
         self.start_extra_constants() + self.num_extra_constants
     }
