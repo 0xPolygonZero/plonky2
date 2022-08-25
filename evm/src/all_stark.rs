@@ -8,6 +8,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_memory::keccak_memory_stark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic;
@@ -143,14 +144,14 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(cpu_stark::ctl_filter_memory(channel)),
         )
     });
-    let keccak_memory_reads = (0..200).map(|i| {
+    let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakMemory,
             keccak_memory_stark::ctl_looking_memory_read(i),
             Some(keccak_memory_stark::ctl_filter()),
         )
     });
-    let keccak_memory_writes = (0..200).map(|i| {
+    let keccak_memory_writes = (0..KECCAK_WIDTH_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakMemory,
             keccak_memory_stark::ctl_looking_memory_write(i),
