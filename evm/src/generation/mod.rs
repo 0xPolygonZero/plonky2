@@ -1,4 +1,4 @@
-use ethereum_types::U256;
+use ethereum_types::Address;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
@@ -7,25 +7,33 @@ use plonky2::hash::hash_types::RichField;
 use crate::all_stark::AllStark;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::NUM_CPU_COLUMNS;
+use crate::generation::partial_trie::PartialTrie;
 use crate::generation::state::GenerationState;
 use crate::util::trace_rows_to_poly_values;
 
 pub(crate) mod memory;
+pub mod partial_trie;
 pub(crate) mod state;
-
-/// A piece of data which has been encoded using Recursive Length Prefix (RLP) serialization.
-/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
-pub type RlpBlob = Vec<u8>;
-
-/// Merkle proofs are encoded using an RLP blob for each node in the path.
-pub type RlpMerkleProof = Vec<RlpBlob>;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub struct TransactionData {
     pub signed_txn: Vec<u8>,
 
-    /// A Merkle proof for each interaction with the state trie, ordered chronologically.
-    pub trie_proofs: Vec<RlpMerkleProof>,
+    /// A partial version of the state trie prior to this transaction. It should include all nodes
+    /// that will be accessed by this transaction.
+    pub state_trie: PartialTrie,
+
+    /// A partial version of the transaction trie prior to this transaction. It should include all
+    /// nodes that will be accessed by this transaction.
+    pub transaction_trie: PartialTrie,
+
+    /// A partial version of the receipt trie prior to this transaction. It should include all nodes
+    /// that will be accessed by this transaction.
+    pub receipt_trie: PartialTrie,
+
+    /// A partial version of each storage trie prior to this transaction. It should include all
+    /// storage tries, and nodes therein, that will be accessed by this transaction.
+    pub storage_tries: Vec<(Address, PartialTrie)>,
 }
 
 #[allow(unused)] // TODO: Should be used soon.
@@ -47,11 +55,9 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         memory,
         keccak_inputs,
         logic_ops,
-        prover_inputs,
         ..
     } = state;
     assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS].into());
-    assert_eq!(prover_inputs, vec![], "Not all prover inputs were consumed");
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
@@ -60,14 +66,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     vec![cpu_trace, keccak_trace, logic_trace, memory_trace]
 }
 
-fn generate_txn<F: Field>(state: &mut GenerationState<F>, txn: &TransactionData) {
-    // TODO: Add transaction RLP to prover_input.
-
-    // Supply Merkle trie proofs as prover inputs.
-    for proof in &txn.trie_proofs {
-        let proof = proof
-            .iter()
-            .flat_map(|node_rlp| node_rlp.iter().map(|byte| U256::from(*byte)));
-        state.prover_inputs.extend(proof);
-    }
+fn generate_txn<F: Field>(_state: &mut GenerationState<F>, _txn: &TransactionData) {
+    // TODO
 }
