@@ -144,10 +144,7 @@ mod tests {
         lv[IS_MOD] = F::ONE;
         for i in 0..N_RND_TESTS {
             // set inputs to random values
-            for (&ai, &mi) in izip!(
-                MOD_INPUT.iter(),
-                MOD_MODULUS.iter()
-            ) {
+            for (&ai, &mi) in izip!(MOD_INPUT.iter(), MOD_MODULUS.iter()) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[mi] = F::from_canonical_u16(rng.gen());
             }

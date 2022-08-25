@@ -127,7 +127,11 @@ pub(crate) fn generate_addmod<F: RichField>(
     for deg in 0..N_LIMBS {
         let c = aux_cols[deg];
         let t = aux_limbs[deg];
-        let u = if t < 0 { F::ORDER - (-t as u64) } else { t as u64 };
+        let u = if t < 0 {
+            F::ORDER - (-t as u64)
+        } else {
+            t as u64
+        };
         lv[c] = F::from_canonical_u64(u);
 
         let c = quot_cols[deg];
@@ -447,9 +451,10 @@ mod tests {
                 GoldilocksField::ONE,
             );
             eval_packed_generic(&lv, &mut constraint_consumer);
-            assert!(constraint_consumer.constraint_accs
-                    .iter()
-                    .all(|&acc| acc == F::ZERO));
+            assert!(constraint_consumer
+                .constraint_accs
+                .iter()
+                .all(|&acc| acc == F::ZERO));
 
             // Corrupt one output limb by setting it to a non-zero value
             let random_oi = ADDMOD_OUTPUT[rng.gen::<usize>() % N_LIMBS];
@@ -459,9 +464,10 @@ mod tests {
             eval_packed_generic(&lv, &mut constraint_consumer);
 
             // Check that at least one of the constraints was non-zero
-            assert!(constraint_consumer.constraint_accs
-                    .iter()
-                    .any(|&acc| acc != F::ZERO));
+            assert!(constraint_consumer
+                .constraint_accs
+                .iter()
+                .any(|&acc| acc != F::ZERO));
         }
     }
 }
