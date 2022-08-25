@@ -19,9 +19,6 @@ pub(crate) struct GenerationState<F: Field> {
 
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
     pub(crate) logic_ops: Vec<logic::Operation>,
-
-    /// Non-deterministic inputs provided by the prover.
-    pub(crate) prover_inputs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -116,7 +113,6 @@ impl<F: Field> Default for GenerationState<F> {
             memory: MemoryState::default(),
             keccak_inputs: vec![],
             logic_ops: vec![],
-            prover_inputs: vec![],
         }
     }
 }
