@@ -24,13 +24,13 @@ use crate::plonk::vars::{
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
 pub struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
-    // Number of bits in the index (log2 of the list size).
+    /// Number of bits in the index (log2 of the list size).
     pub bits: usize,
 
-    // How many separate copies are packed into one gate.
+    /// How many separate copies are packed into one gate.
     pub num_copies: usize,
 
-    // Leftover wires are used as global scratch space to store constants.
+    /// Leftover wires are used as global scratch space to store constants.
     pub num_extra_constants: usize,
 
     _phantom: PhantomData<F>,
@@ -218,10 +218,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                     .collect()
             }
 
+            // Check that the one remaining element after the folding is the claimed element.
             debug_assert_eq!(list_items.len(), 1);
             constraints.push(builder.sub_extension(list_items[0], claimed_element));
         }
 
+        // Check the constant values.
         constraints.extend((0..self.num_extra_constants).map(|i| {
             builder.sub_extension(
                 vars.local_constants[i],
