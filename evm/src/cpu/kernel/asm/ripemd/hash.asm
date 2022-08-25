@@ -113,9 +113,9 @@ loop:
 update_round_vars:
     jumpdest
     // stack:           *state, F , K , 16, rounds, sides, retdest
-    dup10 dup10 %get_round  up1
+    dup10  dup10  %get_round  dup1
     // stack: rnd, rnd, *state, F , K , 16, rounds, sides, retdest
-    swap7  pop  %load_F  swap6
+    swap7  pop  %push_F  swap7
     // stack: rnd, rnd, *state, F', K , 16, rounds, sides, retdest
     swap8  pop  %load_K  swap7  pop
     // stack:           *state, F', K', 16, rounds, sides, retdest
@@ -139,7 +139,7 @@ round:
 ///
 /// def box(a, b, c, d, e, F, K):
 ///
-///     box = get_box_index(sides, rounds, boxes)
+///     box = get_box(sides, rounds, boxes)
 ///     a  += F(b, c, d)
 ///     r   = load_r(box)
 ///     x   = load_block(r)
@@ -163,11 +163,11 @@ pre_rol:
     // stack:   F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides
     add
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
-    %get_box
+    %get_box_from_stack
     // stack:          box, a, b, c, d, e, F, K, boxes, rounds, sides
     dup1  %load_r
     // stack:       r, box, a, b, c, d, e, F, K, boxes, rounds, sides    
-    %load_X ------------------------------------------------------------------------TODO
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack:       x, box, a, b, c, d, e, F, K, boxes, rounds, sides
     swap1  swap2 
     // stack:       a, x, box, b, c, d, e, F, K, boxes, rounds, sides
@@ -190,11 +190,11 @@ mid_rol:
     %jump(ROL)
 post_rol:
     jumpdest
-    // stack: c, a, b, d, e, F, K,   boxes, rounds, sides
+    // stack: c, a, b, d, e, F, K, boxes  , rounds, sides
     swap4
-    // stack: d, a, b, c, e, F, K,   boxes, rounds, sides
+    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides
     swap5
-    // stack: e, a, b, c, d, F, K,   boxes, rounds, sides
+    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides
     swap7  push 1  swap1  sub  swap7
     // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides
     %jump(round)
@@ -207,7 +207,7 @@ post_rol:
 %end_macro
 
 
-%macro get_box
+%macro get_box_from_stack
     // stack:                                     *7_args, boxes, rounds, sides
     dup10  %mul_const(80)  dup10  %mul_const(16)  dup10  
     // stack:       boxes , 16*rounds , 80*sides, *7_args, boxes, rounds, sides

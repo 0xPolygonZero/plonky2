@@ -21,7 +21,7 @@ global rol:
     swap1  jump
 
 
-%macro load_F:
+%macro push_F:
   push 0
   %this_F(0,F0)
   %this_F(1,F1)
@@ -42,10 +42,10 @@ global rol:
   // stack: rnd, acc, rnd
   %eq_const(i)
   // stack: rnd==i, acc, j
-  %mul_const(result)
+  %mul_const(F)
   // stack: (rnd==i)*F, acc, rnd
   add
-  acc + (rnd==j)*result, rnd
+  acc + (rnd==j)*F, rnd
 %endmacro
 
 
