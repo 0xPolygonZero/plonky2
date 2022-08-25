@@ -23,6 +23,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
@@ -50,6 +51,8 @@ where
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
@@ -124,6 +127,19 @@ where
         &mut challenger,
         timing,
     )?;
+    let keccak_memory_proof = prove_single_table(
+        &all_stark.keccak_memory_stark,
+        config,
+        &trace_poly_values[Table::KeccakMemory as usize],
+        &trace_commitments[Table::KeccakMemory as usize],
+        &ctl_data_per_table[Table::KeccakMemory as usize],
+        public_inputs[Table::KeccakMemory as usize]
+            .clone()
+            .try_into()
+            .unwrap(),
+        &mut challenger,
+        timing,
+    )?;
     let logic_proof = prove_single_table(
         &all_stark.logic_stark,
         config,
@@ -151,7 +167,13 @@ where
         timing,
     )?;
 
-    let stark_proofs = vec![cpu_proof, keccak_proof, logic_proof, memory_proof];
+    let stark_proofs = vec![
+        cpu_proof,
+        keccak_proof,
+        keccak_memory_proof,
+        logic_proof,
+        memory_proof,
+    ];
     debug_assert_eq!(stark_proofs.len(), num_starks);
 
     Ok(AllProof { stark_proofs })

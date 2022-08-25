@@ -8,6 +8,9 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
+use crate::keccak_memory::keccak_memory_stark;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
@@ -18,6 +21,7 @@ use crate::stark::Stark;
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
+    pub keccak_memory_stark: KeccakMemoryStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
@@ -28,6 +32,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
         Self {
             cpu_stark: CpuStark::default(),
             keccak_stark: KeccakStark::default(),
+            keccak_memory_stark: KeccakMemoryStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
@@ -40,6 +45,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
         let ans = vec![
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
+            self.keccak_memory_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
             self.memory_stark.num_permutation_batches(config),
         ];
@@ -51,6 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
         let ans = vec![
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
+            self.keccak_memory_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
             self.memory_stark.permutation_batch_size(),
         ];
@@ -63,8 +70,9 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
-    Logic = 2,
-    Memory = 3,
+    KeccakMemory = 2,
+    Logic = 3,
+    Memory = 4,
 }
 
 impl Table {
@@ -75,20 +83,42 @@ impl Table {
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    vec![ctl_keccak(), ctl_logic(), ctl_memory()]
+    vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_memory()]
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+    let cpu_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_keccak(),
+        Some(cpu_stark::ctl_filter_keccak()),
+    );
+    let keccak_memory_looking = TableWithColumns::new(
+        Table::KeccakMemory,
+        keccak_memory_stark::ctl_looking_keccak(),
+        Some(keccak_memory_stark::ctl_filter()),
+    );
     CrossTableLookup::new(
-        vec![TableWithColumns::new(
-            Table::Cpu,
-            cpu_stark::ctl_data_keccak(),
-            Some(cpu_stark::ctl_filter_keccak()),
-        )],
+        vec![cpu_looking, keccak_memory_looking],
         TableWithColumns::new(
             Table::Keccak,
             keccak_stark::ctl_data(),
             Some(keccak_stark::ctl_filter()),
+        ),
+        None,
+    )
+}
+
+fn ctl_keccak_memory<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_keccak_memory(),
+            Some(cpu_stark::ctl_filter_keccak_memory()),
+        )],
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looked_data(),
+            Some(keccak_memory_stark::ctl_filter()),
         ),
         None,
     )
@@ -107,16 +137,33 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
+    let cpu_memory_ops = (0..NUM_CHANNELS).map(|channel| {
+        TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_memory(channel),
+            Some(cpu_stark::ctl_filter_memory(channel)),
+        )
+    });
+    let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looking_memory(i, true),
+            Some(keccak_memory_stark::ctl_filter()),
+        )
+    });
+    let keccak_memory_writes = (0..KECCAK_WIDTH_BYTES).map(|i| {
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looking_memory(i, false),
+            Some(keccak_memory_stark::ctl_filter()),
+        )
+    });
+    let all_lookers = cpu_memory_ops
+        .chain(keccak_memory_reads)
+        .chain(keccak_memory_writes)
+        .collect();
     CrossTableLookup::new(
-        (0..NUM_CHANNELS)
-            .map(|channel| {
-                TableWithColumns::new(
-                    Table::Cpu,
-                    cpu_stark::ctl_data_memory(channel),
-                    Some(cpu_stark::ctl_filter_memory(channel)),
-                )
-            })
-            .collect(),
+        all_lookers,
         TableWithColumns::new(
             Table::Memory,
             memory_stark::ctl_data(),
@@ -142,12 +189,13 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::AllStark;
+    use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
+    use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
     use crate::logic::{self, LogicStark, Operation};
     use crate::memory::memory_stark::tests::generate_random_memory_ops;
     use crate::memory::memory_stark::MemoryStark;
@@ -175,6 +223,13 @@ mod tests {
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
         keccak_stark.generate_trace(keccak_inputs)
+    }
+
+    fn make_keccak_memory_trace(
+        keccak_memory_stark: &KeccakMemoryStark<F, D>,
+        config: &StarkConfig,
+    ) -> Vec<PolynomialValues<F>> {
+        keccak_memory_stark.generate_trace(vec![], 1 << config.fri_config.cap_height)
     }
 
     fn make_logic_trace<R: Rng>(
@@ -625,6 +680,7 @@ mod tests {
         let num_keccak_perms = 2;
 
         let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
+        let keccak_memory_trace = make_keccak_memory_trace(&all_stark.keccak_memory_stark, config);
         let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
         let mem_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
         let mut memory_trace = mem_trace.0;
@@ -639,14 +695,20 @@ mod tests {
             &mut memory_trace,
         );
 
-        let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+        let traces = vec![
+            cpu_trace,
+            keccak_trace,
+            keccak_memory_trace,
+            logic_trace,
+            memory_trace,
+        ];
         check_ctls(&traces, &all_stark.cross_table_lookups);
 
         let proof = prove::<F, C, D>(
             &all_stark,
             config,
             traces,
-            vec![vec![]; 4],
+            vec![vec![]; Table::num_tables()],
             &mut TimingTree::default(),
         )?;
 

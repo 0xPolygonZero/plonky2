@@ -150,8 +150,11 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
-    /// Filter. 1 iff a Keccak permutation is computed on this row.
+    /// Filter. 1 iff a Keccak lookup is performed on this row.
     pub is_keccak: T,
+
+    /// Filter. 1 iff a Keccak memory lookup is performed on this row.
+    pub is_keccak_memory: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 
