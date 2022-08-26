@@ -90,7 +90,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
-    let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(vec![], 16); // TODO
+    let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(vec![], 0); // TODO
     let logic_trace = all_stark.logic_stark.generate_trace(logic_ops);
     let memory_trace = all_stark.memory_stark.generate_trace(memory.log);
     let traces = [
