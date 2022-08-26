@@ -9,6 +9,21 @@ use crate::arithmetic::columns::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
+pub(crate) fn u256_add_cc(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
+    // Input and output have 16-bit limbs
+    let mut output = [0u64; N_LIMBS];
+
+    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
+    let mut cy = 0u64;
+    for (i, a, b) in izip!(0.., input0, input1) {
+        let s = a + b + cy;
+        cy = s >> LIMB_BITS;
+        assert!(cy <= 1u64, "input limbs were larger than 16 bits");
+        output[i] = s & MASK;
+    }
+    (output, cy)
+}
+
 /// Given two sequences `larger` and `smaller` of equal length (not
 /// checked), verifies that \sum_i larger[i] 2^(LIMB_BITS * i) ==
 /// \sum_i smaller[i] 2^(LIMB_BITS * i), taking care of carry propagation.
@@ -19,7 +34,8 @@ pub(crate) fn eval_packed_generic_are_equal<P, I, J>(
     is_op: P,
     larger: I,
     smaller: J,
-) where
+) -> P
+where
     P: PackedField,
     I: Iterator<Item = P>,
     J: Iterator<Item = P>,
@@ -36,6 +52,7 @@ pub(crate) fn eval_packed_generic_are_equal<P, I, J>(
         // increase the degree of the constraint.
         cy = t * overflow_inv;
     }
+    cy
 }
 
 pub(crate) fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
@@ -44,7 +61,8 @@ pub(crate) fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     is_op: ExtensionTarget<D>,
     larger: I,
     smaller: J,
-) where
+) -> ExtensionTarget<D>
+where
     F: RichField + Extendable<D>,
     I: Iterator<Item = ExtensionTarget<D>>,
     J: Iterator<Item = ExtensionTarget<D>>,
@@ -72,6 +90,7 @@ pub(crate) fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
 
         cy = builder.mul_const_extension(overflow_inv, t);
     }
+    cy
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
@@ -79,17 +98,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let input1_limbs = ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
 
     // Input and output have 16-bit limbs
-    let mut output_limbs = [0u64; N_LIMBS];
-
-    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
-    let mut cy = 0u64;
-    for (i, a, b) in izip!(0.., input0_limbs, input1_limbs) {
-        let s = a + b + cy;
-        cy = s >> LIMB_BITS;
-        assert!(cy <= 1u64, "input limbs were larger than 16 bits");
-        output_limbs[i] = s & MASK;
-    }
-    // last carry is dropped because this is addition modulo 2^256.
+    let (output_limbs, _) = u256_add_cc(input0_limbs, input1_limbs);
 
     for (&c, output_limb) in ADD_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);

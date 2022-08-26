@@ -1,6 +1,5 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
@@ -158,13 +157,16 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     // This assert is not _strictly_ necessary, but I include it as a sanity check.
     assert_eq!(cycle_filter, F::ONE, "cycle_filter should be 0 or 1");
 
-    let opcode = lv.opcode.to_canonical_u64();
-    assert!(opcode < 256, "opcode should be in {{0, ..., 255}}");
-    let opcode = opcode as u8;
-
-    for (i, bit) in lv.opcode_bits.iter_mut().enumerate() {
-        *bit = F::from_bool(opcode & (1 << i) != 0);
+    // Validate all opcode bits.
+    for bit in lv.opcode_bits.into_iter() {
+        assert!(bit.to_canonical_u64() <= 1);
     }
+    let opcode = lv
+        .opcode_bits
+        .into_iter()
+        .enumerate()
+        .map(|(i, bit)| bit.to_canonical_u64() << i)
+        .sum::<u64>() as u8;
 
     let top_bits: [u8; 9] = [
         0,
@@ -217,22 +219,9 @@ pub fn eval_packed_generic<P: PackedField>(
     let kernel_mode = lv.is_kernel_mode;
     yield_constr.constraint(cycle_filter * kernel_mode * (kernel_mode - P::ONES));
 
-    // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
-    // the opcode. Note that this also implicitly range-checks the opcode.
-    let bits = lv.opcode_bits;
-    // First check that the bits are either 0 or 1.
-    for bit in bits {
+    // Ensure that the opcode bits are valid: each has to be either 0 or 1.
+    for bit in lv.opcode_bits {
         yield_constr.constraint(cycle_filter * bit * (bit - P::ONES));
-    }
-    // Now check that they match the opcode.
-    {
-        let opcode = lv.opcode;
-        let reconstructed_opcode: P = bits
-            .into_iter()
-            .enumerate()
-            .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
-            .sum();
-        yield_constr.constraint(cycle_filter * (opcode - reconstructed_opcode));
     }
 
     // Check that the instruction flags are valid.
@@ -258,7 +247,8 @@ pub fn eval_packed_generic<P: PackedField>(
             Kernel => P::ONES - kernel_mode,
         };
         // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
-        let opcode_mismatch: P = bits
+        let opcode_mismatch: P = lv
+            .opcode_bits
             .into_iter()
             .zip(bits_from_opcode(oc))
             .rev()
@@ -294,26 +284,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Ensure that the opcode bits are valid: each has to be either 0 or 1, and they must match
-    // the opcode. Note that this also implicitly range-checks the opcode.
-    let bits = lv.opcode_bits;
-    // First check that the bits are either 0 or 1.
-    for bit in bits {
+    // Ensure that the opcode bits are valid: each has to be either 0 or 1.
+    for bit in lv.opcode_bits {
         let constr = builder.mul_sub_extension(bit, bit, bit);
         let constr = builder.mul_extension(cycle_filter, constr);
-        yield_constr.constraint(builder, constr);
-    }
-    // Now check that they match the opcode.
-    {
-        let opcode = lv.opcode;
-        let reconstructed_opcode =
-            bits.into_iter()
-                .enumerate()
-                .fold(builder.zero_extension(), |cumul, (i, bit)| {
-                    builder.mul_const_add_extension(F::from_canonical_u64(1 << i), bit, cumul)
-                });
-        let diff = builder.sub_extension(opcode, reconstructed_opcode);
-        let constr = builder.mul_extension(cycle_filter, diff);
         yield_constr.constraint(builder, constr);
     }
 
@@ -346,7 +320,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             Kernel => builder.sub_extension(one, kernel_mode),
         };
         // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
-        let opcode_mismatch = bits
+        let opcode_mismatch = lv
+            .opcode_bits
             .into_iter()
             .zip(bits_from_opcode(oc))
             .rev()

@@ -1,3 +1,4 @@
+use ethereum_types::{H160, U256};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -39,4 +40,30 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
         .into_iter()
         .map(|column| PolynomialValues::new(column))
         .collect()
+}
+
+/// Returns the 32-bit little-endian limbs of a `U256`.
+pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
+    u256.0
+        .into_iter()
+        .flat_map(|limb_64| {
+            let lo = limb_64 as u32;
+            let hi = (limb_64 >> 32) as u32;
+            [lo, hi]
+        })
+        .map(F::from_canonical_u32)
+        .collect_vec()
+        .try_into()
+        .unwrap()
+}
+
+/// Returns the 32-bit limbs of a `U160`.
+pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
+    h160.0
+        .chunks(4)
+        .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
+        .map(F::from_canonical_u32)
+        .collect_vec()
+        .try_into()
+        .unwrap()
 }

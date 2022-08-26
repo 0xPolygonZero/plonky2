@@ -27,9 +27,6 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
-    pub opcode: T,
-
     // If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each.
     // Invalid opcodes are split between a number of flags for practical reasons. Exactly one of
     // these flags must be 1.
@@ -153,8 +150,11 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
-    /// Filter. 1 iff a Keccak permutation is computed on this row.
+    /// Filter. 1 iff a Keccak lookup is performed on this row.
     pub is_keccak: T,
+
+    /// Filter. 1 iff a Keccak memory lookup is performed on this row.
+    pub is_keccak_memory: T,
 
     pub(crate) general: CpuGeneralColumnsView<T>,
 

@@ -8,6 +8,7 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::arithmetic::add;
 use crate::arithmetic::columns;
+use crate::arithmetic::compare;
 use crate::arithmetic::mul;
 use crate::arithmetic::sub;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -45,6 +46,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             sub::generate(local_values);
         } else if local_values[columns::IS_MUL].is_one() {
             mul::generate(local_values);
+        } else if local_values[columns::IS_LT].is_one() {
+            compare::generate(local_values, columns::IS_LT);
+        } else if local_values[columns::IS_GT].is_one() {
+            compare::generate(local_values, columns::IS_GT);
         } else {
             todo!("the requested operation has not yet been implemented");
         }
@@ -53,11 +58,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
     const COLUMNS: usize = columns::NUM_ARITH_COLUMNS;
-    const PUBLIC_INPUTS: usize = 0;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -67,18 +71,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         add::eval_packed_generic(lv, yield_constr);
         sub::eval_packed_generic(lv, yield_constr);
         mul::eval_packed_generic(lv, yield_constr);
+        compare::eval_packed_generic(lv, yield_constr);
     }
 
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let lv = vars.local_values;
         add::eval_ext_circuit(builder, lv, yield_constr);
         sub::eval_ext_circuit(builder, lv, yield_constr);
         mul::eval_ext_circuit(builder, lv, yield_constr);
+        compare::eval_ext_circuit(builder, lv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
