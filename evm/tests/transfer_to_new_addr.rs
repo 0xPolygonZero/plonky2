@@ -5,7 +5,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::generation::partial_trie::PartialTrie;
-use plonky2_evm::generation::EvmInputs;
+use plonky2_evm::generation::GenerationInputs;
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
@@ -32,7 +32,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let txn = hex!("f85f050a82520894000000000000000000000000000000000000000064801ca0fa56df5d988638fad8798e5ef75a1e1125dc7fb55d2ac4bce25776a63f0c2967a02cb47a5579eb5f83a1cabe4662501c0059f1b58e60ef839a1b0da67af6b9fb38");
 
-    let inputs = EvmInputs {
+    let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
         state_trie: PartialTrie::Empty,
         transactions_trie: PartialTrie::Empty,

@@ -19,7 +19,8 @@ pub(crate) mod memory;
 pub mod partial_trie;
 pub(crate) mod state;
 
-pub struct EvmInputs {
+/// Inputs needed for trace generation.
+pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
 
     /// A partial version of the state trie prior to this transaction. It should include all nodes
@@ -43,7 +44,7 @@ pub struct EvmInputs {
 
 pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
-    inputs: EvmInputs,
+    inputs: GenerationInputs,
 ) -> (Vec<Vec<PolynomialValues<F>>>, PublicValues) {
     let mut state = GenerationState::<F>::default();
 

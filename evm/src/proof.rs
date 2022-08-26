@@ -48,21 +48,22 @@ pub struct AllProofTarget<const D: usize> {
     pub public_values: PublicValuesTarget,
 }
 
-#[derive(Debug, Clone)]
+/// Memory values which are public.
+#[derive(Debug, Clone, Default)]
 pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TrieRoots {
     pub state_root: U256,
     pub transactions_root: U256,
     pub receipts_root: U256,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BlockMetadata {
     pub block_coinbase: Address,
     pub block_timestamp: U256,
@@ -72,6 +73,7 @@ pub struct BlockMetadata {
     pub block_chain_id: U256,
 }
 
+/// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
 pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,

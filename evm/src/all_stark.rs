@@ -189,7 +189,7 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{AllStark, Table};
+    use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::aggregator::KERNEL;
@@ -200,8 +200,8 @@ mod tests {
     use crate::memory::memory_stark::tests::generate_random_memory_ops;
     use crate::memory::memory_stark::MemoryStark;
     use crate::memory::NUM_CHANNELS;
-    use crate::proof::AllProof;
-    use crate::prover::prove;
+    use crate::proof::{AllProof, PublicValues};
+    use crate::prover::prove_with_traces;
     use crate::recursive_verifier::{
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
@@ -704,11 +704,12 @@ mod tests {
         ];
         check_ctls(&traces, &all_stark.cross_table_lookups);
 
-        let proof = prove::<F, C, D>(
+        let public_values = PublicValues::default();
+        let proof = prove_with_traces::<F, C, D>(
             &all_stark,
             config,
             traces,
-            vec![vec![]; Table::num_tables()],
+            public_values,
             &mut TimingTree::default(),
         )?;
 

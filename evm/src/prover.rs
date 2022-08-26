@@ -22,7 +22,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
-use crate::generation::{generate_traces, EvmInputs};
+use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
@@ -40,7 +40,7 @@ use crate::vars::StarkEvaluationVars;
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
-    inputs: EvmInputs,
+    inputs: GenerationInputs,
     timing: &mut TimingTree,
 ) -> Result<AllProof<F, C, D>>
 where
