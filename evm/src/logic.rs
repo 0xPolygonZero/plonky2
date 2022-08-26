@@ -53,9 +53,9 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
         Column::single(columns::IS_OR),
         Column::single(columns::IS_XOR),
     ];
-    res.extend(columns::RESULT.map(Column::single));
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
+    res.extend(columns::RESULT.map(Column::single));
     res
 }
 

@@ -335,16 +335,16 @@ mod tests {
             );
 
             let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
-            for (col_cpu, limb_cols_logic) in row.mem_value[1].iter_mut().zip(input0_bit_cols) {
+            for (col_cpu, limb_cols_logic) in row.mem_value[0].iter_mut().zip(input0_bit_cols) {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
             let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
-            for (col_cpu, limb_cols_logic) in row.mem_value[2].iter_mut().zip(input1_bit_cols) {
+            for (col_cpu, limb_cols_logic) in row.mem_value[1].iter_mut().zip(input1_bit_cols) {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
-            for (col_cpu, col_logic) in row.mem_value[0].iter_mut().zip(logic::columns::RESULT) {
+            for (col_cpu, col_logic) in row.mem_value[2].iter_mut().zip(logic::columns::RESULT) {
                 *col_cpu = logic_trace[col_logic].values[i];
             }
 
