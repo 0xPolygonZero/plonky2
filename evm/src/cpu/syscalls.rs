@@ -28,7 +28,6 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let lv_syscalls = lv.general.syscalls();
     let syscall_list = Lazy::force(&TRAP_LIST);
     // 1 if _any_ syscall, else 0.
     let should_syscall: P = syscall_list
@@ -48,12 +47,14 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint_transition(filter * (nv.program_counter - syscall_dst));
     // If syscall: set kernel mode
     yield_constr.constraint_transition(filter * (nv.is_kernel_mode - P::ONES));
+
+    let output = lv.mem_value[0];
     // If syscall: push current PC to stack
-    yield_constr.constraint(filter * (lv_syscalls.output[0] - lv.program_counter));
+    yield_constr.constraint(filter * (output[0] - lv.program_counter));
     // If syscall: push current kernel flag to stack (share register with PC)
-    yield_constr.constraint(filter * (lv_syscalls.output[1] - lv.is_kernel_mode));
+    yield_constr.constraint(filter * (output[1] - lv.is_kernel_mode));
     // If syscall: zero the rest of that register
-    for &limb in &lv_syscalls.output[2..] {
+    for &limb in &output[2..] {
         yield_constr.constraint(filter * limb);
     }
 }
@@ -64,7 +65,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let lv_syscalls = lv.general.syscalls();
     let syscall_list = Lazy::force(&TRAP_LIST);
     // 1 if _any_ syscall, else 0.
     let should_syscall =
@@ -90,20 +90,22 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_sub_extension(filter, nv.is_kernel_mode, filter);
         yield_constr.constraint_transition(builder, constr);
     }
+
+    let output = lv.mem_value[0];
     // If syscall: push current PC to stack
     {
-        let constr = builder.sub_extension(lv_syscalls.output[0], lv.program_counter);
+        let constr = builder.sub_extension(output[0], lv.program_counter);
         let constr = builder.mul_extension(filter, constr);
         yield_constr.constraint(builder, constr);
     }
     // If syscall: push current kernel flag to stack (share register with PC)
     {
-        let constr = builder.sub_extension(lv_syscalls.output[1], lv.is_kernel_mode);
+        let constr = builder.sub_extension(output[1], lv.is_kernel_mode);
         let constr = builder.mul_extension(filter, constr);
         yield_constr.constraint(builder, constr);
     }
     // If syscall: zero the rest of that register
-    for &limb in &lv_syscalls.output[2..] {
+    for &limb in &output[2..] {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
