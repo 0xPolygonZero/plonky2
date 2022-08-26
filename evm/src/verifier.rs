@@ -17,7 +17,7 @@ use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
 use crate::proof::{
-    AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
+    AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -30,15 +30,10 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 ) -> Result<()>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
     let AllProofChallenges {
@@ -115,21 +110,15 @@ pub(crate) fn verify_stark_proof_with_challenges<
     const D: usize,
 >(
     stark: S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let StarkProofWithPublicInputs {
-        proof,
-        public_inputs,
-    } = proof_with_pis;
-    ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -141,13 +130,6 @@ where
     let vars = StarkEvaluationVars {
         local_values: &local_values.to_vec().try_into().unwrap(),
         next_values: &next_values.to_vec().try_into().unwrap(),
-        public_inputs: &public_inputs
-            .iter()
-            .copied()
-            .map(F::Extension::from_basefield)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(),
     };
 
     let degree_bits = proof.recover_degree_bits(config);

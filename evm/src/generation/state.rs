@@ -10,6 +10,7 @@ use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::memory::memory_stark::MemoryOp;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;
+use crate::util::u256_limbs;
 use crate::{keccak, logic};
 
 #[derive(Debug)]
@@ -52,28 +53,49 @@ impl<F: Field> GenerationState<F> {
         result
     }
 
-    /// Read some memory within the current execution context, and log the operation.
+    /// Like `get_mem_cpu`, but reads from the current context specifically.
     #[allow(unused)] // TODO: Should be used soon.
-    pub(crate) fn get_mem_current(
+    pub(crate) fn get_mem_cpu_current(
         &mut self,
         channel_index: usize,
         segment: Segment,
         virt: usize,
     ) -> U256 {
         let context = self.current_context;
-        self.get_mem(channel_index, context, segment, virt)
+        self.get_mem_cpu(channel_index, context, segment, virt)
     }
 
-    /// Read some memory, and log the operation.
-    pub(crate) fn get_mem(
+    /// Simulates the CPU reading some memory through the given channel. Besides logging the memory
+    /// operation, this also generates the associated registers in the current CPU row.
+    pub(crate) fn get_mem_cpu(
         &mut self,
         channel_index: usize,
         context: usize,
         segment: Segment,
         virt: usize,
     ) -> U256 {
+        let timestamp = self.cpu_rows.len() * NUM_CHANNELS + channel_index;
+        let value = self.get_mem(context, segment, virt, timestamp);
+
         self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
-        let timestamp = self.cpu_rows.len();
+        self.current_cpu_row.mem_is_read[channel_index] = F::ONE;
+        self.current_cpu_row.mem_addr_context[channel_index] = F::from_canonical_usize(context);
+        self.current_cpu_row.mem_addr_segment[channel_index] =
+            F::from_canonical_usize(segment as usize);
+        self.current_cpu_row.mem_addr_virtual[channel_index] = F::from_canonical_usize(virt);
+        self.current_cpu_row.mem_value[channel_index] = u256_limbs(value);
+
+        value
+    }
+
+    /// Read some memory, and log the operation.
+    pub(crate) fn get_mem(
+        &mut self,
+        context: usize,
+        segment: Segment,
+        virt: usize,
+        timestamp: usize,
+    ) -> U256 {
         let value = self.memory.contexts[context].segments[segment as usize].get(virt);
         self.memory.log.push(MemoryOp {
             filter: true,
@@ -88,7 +110,7 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// Write some memory within the current execution context, and log the operation.
-    pub(crate) fn set_mem_current(
+    pub(crate) fn set_mem_cpu_current(
         &mut self,
         channel_index: usize,
         segment: Segment,
@@ -96,11 +118,11 @@ impl<F: Field> GenerationState<F> {
         value: U256,
     ) {
         let context = self.current_context;
-        self.set_mem(channel_index, context, segment, virt, value);
+        self.set_mem_cpu(channel_index, context, segment, virt, value);
     }
 
     /// Write some memory, and log the operation.
-    pub(crate) fn set_mem(
+    pub(crate) fn set_mem_cpu(
         &mut self,
         channel_index: usize,
         context: usize,
@@ -108,9 +130,27 @@ impl<F: Field> GenerationState<F> {
         virt: usize,
         value: U256,
     ) {
+        let timestamp = self.cpu_rows.len() * NUM_CHANNELS + channel_index;
+        self.set_mem(context, segment, virt, value, timestamp);
+
         self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
-        let timestamp = self.cpu_rows.len();
-        let timestamp = timestamp * NUM_CHANNELS + channel_index;
+        self.current_cpu_row.mem_is_read[channel_index] = F::ZERO; // For clarity; should already be 0.
+        self.current_cpu_row.mem_addr_context[channel_index] = F::from_canonical_usize(context);
+        self.current_cpu_row.mem_addr_segment[channel_index] =
+            F::from_canonical_usize(segment as usize);
+        self.current_cpu_row.mem_addr_virtual[channel_index] = F::from_canonical_usize(virt);
+        self.current_cpu_row.mem_value[channel_index] = u256_limbs(value);
+    }
+
+    /// Write some memory, and log the operation.
+    pub(crate) fn set_mem(
+        &mut self,
+        context: usize,
+        segment: Segment,
+        virt: usize,
+        value: U256,
+        timestamp: usize,
+    ) {
         self.memory.log.push(MemoryOp {
             filter: true,
             timestamp,
@@ -133,11 +173,12 @@ impl<F: Field> GenerationState<F> {
         virt: usize,
     ) -> [u64; keccak::keccak_stark::NUM_INPUTS] {
         let read_timestamp = self.cpu_rows.len() * NUM_CHANNELS;
+        let _write_timestamp = read_timestamp + 1;
         let input = (0..25)
             .map(|i| {
                 let bytes = [0, 1, 2, 3, 4, 5, 6, 7].map(|j| {
                     let virt = virt + i * 8 + j;
-                    let byte = self.get_mem(0, context, segment, virt);
+                    let byte = self.get_mem(context, segment, virt, read_timestamp);
                     debug_assert!(byte.bits() <= 8);
                     byte.as_u32() as u8
                 });
@@ -155,6 +196,7 @@ impl<F: Field> GenerationState<F> {
             input,
             output,
         });
+        // TODO: Write output to memory.
         output
     }
 

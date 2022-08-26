@@ -1,3 +1,4 @@
+use ethereum_types::{Address, U256};
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -17,21 +18,22 @@ use crate::permutation::GrandProductChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub stark_proofs: Vec<StarkProofWithPublicInputs<F, C, D>>,
+    pub stark_proofs: Vec<StarkProof<F, C, D>>,
+    pub public_values: PublicValues,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     pub fn degree_bits(&self, config: &StarkConfig) -> Vec<usize> {
         self.stark_proofs
             .iter()
-            .map(|proof| proof.proof.recover_degree_bits(config))
+            .map(|proof| proof.recover_degree_bits(config))
             .collect()
     }
 
     pub fn nums_ctl_zs(&self) -> Vec<usize> {
         self.stark_proofs
             .iter()
-            .map(|proof| proof.proof.openings.ctl_zs_last.len())
+            .map(|proof| proof.openings.ctl_zs_last.len())
             .collect()
     }
 }
@@ -42,7 +44,58 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 }
 
 pub struct AllProofTarget<const D: usize> {
-    pub stark_proofs: Vec<StarkProofWithPublicInputsTarget<D>>,
+    pub stark_proofs: Vec<StarkProofTarget<D>>,
+    pub public_values: PublicValuesTarget,
+}
+
+/// Memory values which are public.
+#[derive(Debug, Clone, Default)]
+pub struct PublicValues {
+    pub trie_roots_before: TrieRoots,
+    pub trie_roots_after: TrieRoots,
+    pub block_metadata: BlockMetadata,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TrieRoots {
+    pub state_root: U256,
+    pub transactions_root: U256,
+    pub receipts_root: U256,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BlockMetadata {
+    pub block_beneficiary: Address,
+    pub block_timestamp: U256,
+    pub block_number: U256,
+    pub block_difficulty: U256,
+    pub block_gaslimit: U256,
+    pub block_chain_id: U256,
+    pub block_base_fee: U256,
+}
+
+/// Memory values which are public.
+/// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
+pub struct PublicValuesTarget {
+    pub trie_roots_before: TrieRootsTarget,
+    pub trie_roots_after: TrieRootsTarget,
+    pub block_metadata: BlockMetadataTarget,
+}
+
+pub struct TrieRootsTarget {
+    pub state_root: [Target; 8],
+    pub transactions_root: [Target; 8],
+    pub receipts_root: [Target; 8],
+}
+
+pub struct BlockMetadataTarget {
+    pub block_beneficiary: [Target; 5],
+    pub block_timestamp: Target,
+    pub block_number: Target,
+    pub block_difficulty: Target,
+    pub block_gaslimit: Target,
+    pub block_chain_id: Target,
+    pub block_base_fee: Target,
 }
 
 pub(crate) struct AllProofChallengesTarget<const D: usize> {
@@ -94,22 +147,6 @@ impl<const D: usize> StarkProofTarget<D> {
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct StarkProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    pub proof: StarkProof<F, C, D>,
-    // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
-    pub public_inputs: Vec<F>,
-}
-
-pub struct StarkProofWithPublicInputsTarget<const D: usize> {
-    pub proof: StarkProofTarget<D>,
-    pub public_inputs: Vec<Target>,
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
