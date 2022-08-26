@@ -17,7 +17,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 
-use crate::all_stark::{AllStark, Table};
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -61,7 +61,7 @@ where
 pub(crate) fn prove_with_traces<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
-    trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
+    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     public_values: PublicValues,
     timing: &mut TimingTree,
 ) -> Result<AllProof<F, C, D>>
@@ -75,9 +75,6 @@ where
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
-    let num_starks = Table::num_tables();
-    debug_assert_eq!(num_starks, trace_poly_values.len());
-
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
@@ -163,14 +160,13 @@ where
         timing,
     )?;
 
-    let stark_proofs = vec![
+    let stark_proofs = [
         cpu_proof,
         keccak_proof,
         keccak_memory_proof,
         logic_proof,
         memory_proof,
     ];
-    debug_assert_eq!(stark_proofs.len(), num_starks);
 
     Ok(AllProof {
         stark_proofs,

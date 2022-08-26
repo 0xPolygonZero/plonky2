@@ -13,7 +13,7 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
 
-use crate::all_stark::Table;
+use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::{
@@ -216,12 +216,12 @@ impl<F: Field> CtlData<F> {
 
 pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
     config: &StarkConfig,
-    trace_poly_values: &[Vec<PolynomialValues<F>>],
+    trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     cross_table_lookups: &[CrossTableLookup<F>],
     challenger: &mut Challenger<F, C::Hasher>,
-) -> Vec<CtlData<F>> {
+) -> [CtlData<F>; NUM_TABLES] {
     let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
-    let mut ctl_data_per_table = vec![CtlData::default(); trace_poly_values.len()];
+    let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
         looked_table,
@@ -337,12 +337,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
-        proofs: &[StarkProof<F, C, D>],
+        proofs: &[StarkProof<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
-        num_permutation_zs: &[usize],
-    ) -> Vec<Vec<Self>> {
-        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
+        num_permutation_zs: &[usize; NUM_TABLES],
+    ) -> [Vec<Self>; NUM_TABLES] {
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)
@@ -354,7 +353,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             })
             .collect::<Vec<_>>();
 
-        let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
+        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
         for CrossTableLookup {
             looking_tables,
             looked_table,
@@ -441,12 +440,11 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
     pub(crate) fn from_proofs(
-        proofs: &[StarkProofTarget<D>],
+        proofs: &[StarkProofTarget<D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
-        num_permutation_zs: &[usize],
-    ) -> Vec<Vec<Self>> {
-        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
+        num_permutation_zs: &[usize; NUM_TABLES],
+    ) -> [Vec<Self>; NUM_TABLES] {
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)
@@ -458,7 +456,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
             })
             .collect::<Vec<_>>();
 
-        let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
+        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
         for CrossTableLookup {
             looking_tables,
             looked_table,
@@ -559,7 +557,7 @@ pub(crate) fn verify_cross_table_lookups<
     const D: usize,
 >(
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProof<F, C, D>],
+    proofs: &[StarkProof<F, C, D>; NUM_TABLES],
     challenges: GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
@@ -617,7 +615,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProofTarget<D>],
+    proofs: &[StarkProofTarget<D>; NUM_TABLES],
     challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {

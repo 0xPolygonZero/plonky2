@@ -4,7 +4,7 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
-use crate::all_stark::AllStark;
+use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::global_metadata::GlobalMetadata;
@@ -45,7 +45,7 @@ pub struct GenerationInputs {
 pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
-) -> (Vec<Vec<PolynomialValues<F>>>, PublicValues) {
+) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
     let mut state = GenerationState::<F>::default();
 
     generate_bootstrap_kernel::<F>(&mut state);
@@ -90,9 +90,16 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
+    let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(vec![], 16); // TODO
     let logic_trace = all_stark.logic_stark.generate_trace(logic_ops);
     let memory_trace = all_stark.memory_stark.generate_trace(memory.log);
-    let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+    let traces = [
+        cpu_trace,
+        keccak_trace,
+        keccak_memory_trace,
+        logic_trace,
+        memory_trace,
+    ];
 
     let public_values = PublicValues {
         trie_roots_before,

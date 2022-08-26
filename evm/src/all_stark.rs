@@ -41,28 +41,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
-    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
             self.keccak_memory_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
             self.memory_stark.num_permutation_batches(config),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 
-    pub(crate) fn permutation_batch_sizes(&self) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
             self.keccak_memory_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
             self.memory_stark.permutation_batch_size(),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 }
 
@@ -75,11 +71,7 @@ pub enum Table {
     Memory = 4,
 }
 
-impl Table {
-    pub(crate) fn num_tables() -> usize {
-        Table::Memory as usize + 1
-    }
-}
+pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
@@ -695,7 +687,7 @@ mod tests {
             &mut memory_trace,
         );
 
-        let traces = vec![
+        let traces = [
             cpu_trace,
             keccak_trace,
             keccak_memory_trace,
