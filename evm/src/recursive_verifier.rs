@@ -355,19 +355,21 @@ pub fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
 pub fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> BlockMetadataTarget {
-    let block_coinbase = builder.add_virtual_target_arr();
+    let block_beneficiary = builder.add_virtual_target_arr();
     let block_timestamp = builder.add_virtual_target();
     let block_number = builder.add_virtual_target();
     let block_difficulty = builder.add_virtual_target();
     let block_gaslimit = builder.add_virtual_target();
     let block_chain_id = builder.add_virtual_target();
+    let block_base_fee = builder.add_virtual_target();
     BlockMetadataTarget {
-        block_coinbase,
+        block_beneficiary,
         block_timestamp,
         block_number,
         block_difficulty,
         block_gaslimit,
         block_chain_id,
+        block_base_fee,
     }
 }
 
@@ -524,8 +526,8 @@ pub fn set_block_metadata_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_target_arr(
-        block_metadata_target.block_coinbase,
-        h160_limbs(block_metadata.block_coinbase),
+        block_metadata_target.block_beneficiary,
+        h160_limbs(block_metadata.block_beneficiary),
     );
     witness.set_target(
         block_metadata_target.block_timestamp,
@@ -546,5 +548,9 @@ pub fn set_block_metadata_target<F, W, const D: usize>(
     witness.set_target(
         block_metadata_target.block_chain_id,
         F::from_canonical_u64(block_metadata.block_chain_id.as_u64()),
+    );
+    witness.set_target(
+        block_metadata_target.block_base_fee,
+        F::from_canonical_u64(block_metadata.block_base_fee.as_u64()),
     );
 }

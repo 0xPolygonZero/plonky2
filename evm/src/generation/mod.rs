@@ -23,20 +23,20 @@ pub(crate) mod state;
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
 
-    /// A partial version of the state trie prior to this transaction. It should include all nodes
-    /// that will be accessed by this transaction.
+    /// A partial version of the state trie prior to these transactions. It should include all nodes
+    /// that will be accessed by these transactions.
     pub state_trie: PartialTrie,
 
-    /// A partial version of the transaction trie prior to this transaction. It should include all
-    /// nodes that will be accessed by this transaction.
+    /// A partial version of the transaction trie prior to these transactions. It should include all
+    /// nodes that will be accessed by these transactions.
     pub transactions_trie: PartialTrie,
 
-    /// A partial version of the receipt trie prior to this transaction. It should include all nodes
-    /// that will be accessed by this transaction.
+    /// A partial version of the receipt trie prior to these transactions. It should include all nodes
+    /// that will be accessed by these transactions.
     pub receipts_trie: PartialTrie,
 
-    /// A partial version of each storage trie prior to this transaction. It should include all
-    /// storage tries, and nodes therein, that will be accessed by this transaction.
+    /// A partial version of each storage trie prior to these transactions. It should include all
+    /// storage tries, and nodes therein, that will be accessed by these transactions.
     pub storage_tries: Vec<(Address, PartialTrie)>,
 
     pub block_metadata: BlockMetadata,

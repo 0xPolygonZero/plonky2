@@ -65,12 +65,13 @@ pub struct TrieRoots {
 
 #[derive(Debug, Clone, Default)]
 pub struct BlockMetadata {
-    pub block_coinbase: Address,
+    pub block_beneficiary: Address,
     pub block_timestamp: U256,
     pub block_number: U256,
     pub block_difficulty: U256,
     pub block_gaslimit: U256,
     pub block_chain_id: U256,
+    pub block_base_fee: U256,
 }
 
 /// Memory values which are public.
@@ -88,12 +89,13 @@ pub struct TrieRootsTarget {
 }
 
 pub struct BlockMetadataTarget {
-    pub block_coinbase: [Target; 5],
+    pub block_beneficiary: [Target; 5],
     pub block_timestamp: Target,
     pub block_number: Target,
     pub block_difficulty: Target,
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
+    pub block_base_fee: Target,
 }
 
 pub(crate) struct AllProofChallengesTarget<const D: usize> {

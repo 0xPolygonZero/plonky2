@@ -47,7 +47,7 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
     u256.0
         .into_iter()
         .flat_map(|limb_64| {
-            let lo = (limb_64 & 0xFFFFFFFF) as u32;
+            let lo = limb_64 as u32;
             let hi = (limb_64 >> 32) as u32;
             [lo, hi]
         })

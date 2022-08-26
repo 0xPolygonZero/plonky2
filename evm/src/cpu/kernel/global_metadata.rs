@@ -18,7 +18,7 @@ pub(crate) enum GlobalMetadata {
     TransactionTrieRoot = 5,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
     ReceiptTrieRoot = 6,
-    /// The number of storage tries involved in this transaction. I.e. the number of values in
+    /// The number of storage tries involved in these transactions. I.e. the number of values in
     /// `StorageTrieAddresses`, `StorageTriePointers` and `StorageTrieCheckpointPointers`.
     NumStorageTries = 7,
 
