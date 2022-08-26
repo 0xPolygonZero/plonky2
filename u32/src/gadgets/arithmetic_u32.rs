@@ -10,7 +10,7 @@ use plonky2_field::extension::Extendable;
 use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
-use crate::witness::generated_values_set_u32_target;
+use crate::witness::GeneratedValuesU32;
 
 #[derive(Clone, Copy, Debug)]
 pub struct U32Target(pub Target);
@@ -249,8 +249,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let low = x_u64 as u32;
         let high = (x_u64 >> 32) as u32;
 
-        generated_values_set_u32_target(out_buffer, self.low, low);
-        generated_values_set_u32_target(out_buffer, self.high, high);
+        out_buffer.set_u32_target(self.low, low);
+        out_buffer.set_u32_target(self.high, high);
     }
 }
 
