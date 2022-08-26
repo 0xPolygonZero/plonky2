@@ -134,9 +134,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             }
         }
 
-        // Populate A'.
-        // A'[x, y] = xor(A[x, y], D[x])
-        //          = xor(A[x, y], C[x - 1], ROT(C[x + 1], 1))
+        // Populate A'. To avoid shifting indices, we rewrite
+        //     A'[x, y, z] = xor(A[x, y, z], C[x - 1, z], C[x + 1, z - 1])
+        // as
+        //     A'[x, y, z] = xor(A[x, y, z], C[x, z], C'[x, z]).
         for x in 0..5 {
             for y in 0..5 {
                 for z in 0..64 {
@@ -145,11 +146,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
                     let reg_a_limb = reg_a(x, y) + is_high_limb;
                     let a_limb = row[reg_a_limb].to_canonical_u64() as u32;
                     let a_bit = F::from_bool(((a_limb >> bit_in_limb) & 1) != 0);
-                    row[reg_a_prime(x, y, z)] = xor([
-                        a_bit,
-                        row[reg_c((x + 4) % 5, z)],
-                        row[reg_c((x + 1) % 5, (z + 64 - 1) % 64)],
-                    ]);
+                    row[reg_a_prime(x, y, z)] =
+                        xor([a_bit, row[reg_c(x, z)], row[reg_c_prime(x, z)]]);
                 }
             }
         }
