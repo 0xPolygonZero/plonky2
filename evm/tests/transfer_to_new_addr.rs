@@ -21,14 +21,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
 
-    let block_metadata = BlockMetadata {
-        block_coinbase: Default::default(),
-        block_timestamp: Default::default(),
-        block_number: Default::default(),
-        block_difficulty: Default::default(),
-        block_gaslimit: Default::default(),
-        block_chain_id: Default::default(),
-    };
+    let block_metadata = BlockMetadata::default();
 
     let txn = hex!("f85f050a82520894000000000000000000000000000000000000000064801ca0fa56df5d988638fad8798e5ef75a1e1125dc7fb55d2ac4bce25776a63f0c2967a02cb47a5579eb5f83a1cabe4662501c0059f1b58e60ef839a1b0da67af6b9fb38");
 
