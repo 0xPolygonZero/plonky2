@@ -492,13 +492,13 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
 
     pub(crate) fn from_proof(
         table: Table,
-        proof: &StarkProofWithPublicInputsTarget<D>,
+        proof: &StarkProofTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
         num_permutation_zs: usize,
     ) -> Vec<Self> {
         let mut ctl_zs = {
-            let openings = &proof.proof.openings;
+            let openings = &proof.openings;
             let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_permutation_zs);
             let ctl_zs_next = openings
                 .permutation_ctl_zs_next

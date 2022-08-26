@@ -61,7 +61,6 @@ pub(crate) fn recursively_prove_stark_proof<
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
