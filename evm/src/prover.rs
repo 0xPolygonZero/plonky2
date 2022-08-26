@@ -53,7 +53,7 @@ where
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
-    let (traces, public_values) = generate_traces(all_stark, inputs);
+    let (traces, public_values) = generate_traces(all_stark, inputs, config);
     prove_with_traces(all_stark, config, traces, public_values, timing)
 }
 
