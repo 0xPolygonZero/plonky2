@@ -280,7 +280,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
     degree_bits: &[usize],
     nums_ctl_zs: &[usize],
 ) -> AllProofTarget<D> {
-    let stark_proofs = vec![
+    let stark_proofs = [
         add_virtual_stark_proof(
             builder,
             all_stark.cpu_stark,
@@ -317,7 +317,6 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
             nums_ctl_zs[Table::Memory as usize],
         ),
     ];
-    assert_eq!(stark_proofs.len(), Table::num_tables());
 
     let public_values = add_virtual_public_values(builder);
     AllProofTarget {

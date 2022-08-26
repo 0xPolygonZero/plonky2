@@ -1,4 +1,3 @@
-use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::hash::hash_types::RichField;
@@ -32,16 +31,18 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
+        let num_permutation_zs = all_stark.nums_permutation_zs(config);
+        let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
+
         AllProofChallenges {
-            stark_challenges: izip!(
-                &self.stark_proofs,
-                all_stark.nums_permutation_zs(config),
-                all_stark.permutation_batch_sizes()
-            )
-            .map(|(proof, num_perm, batch_size)| {
-                proof.get_challenges(&mut challenger, num_perm > 0, batch_size, config)
-            })
-            .collect(),
+            stark_challenges: std::array::from_fn(|i| {
+                self.stark_proofs[i].get_challenges(
+                    &mut challenger,
+                    num_permutation_zs[i] > 0,
+                    num_permutation_batch_sizes[i],
+                    config,
+                )
+            }),
             ctl_challenges,
         }
     }
@@ -66,22 +67,19 @@ impl<const D: usize> AllProofTarget<D> {
         let ctl_challenges =
             get_grand_product_challenge_set_target(builder, &mut challenger, config.num_challenges);
 
+        let num_permutation_zs = all_stark.nums_permutation_zs(config);
+        let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
+
         AllProofChallengesTarget {
-            stark_challenges: izip!(
-                &self.stark_proofs,
-                all_stark.nums_permutation_zs(config),
-                all_stark.permutation_batch_sizes()
-            )
-            .map(|(proof, num_perm, batch_size)| {
-                proof.get_challenges::<F, C>(
+            stark_challenges: std::array::from_fn(|i| {
+                self.stark_proofs[i].get_challenges::<F, C>(
                     builder,
                     &mut challenger,
-                    num_perm > 0,
-                    batch_size,
+                    num_permutation_zs[i] > 0,
+                    num_permutation_batch_sizes[i],
                     config,
                 )
-            })
-            .collect(),
+            }),
             ctl_challenges,
         }
     }
