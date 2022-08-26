@@ -277,12 +277,13 @@ pub trait WitnessBigUint<F: PrimeField64>: Witness<F> {
 
 impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
     fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
-        target.limbs
-        .into_iter()
-        .rev()
-        .fold(BigUint::zero(), |acc, limb| {
-            (acc << 32) + self.get_target(limb.0).to_canonical_biguint()
-        })
+        target
+            .limbs
+            .into_iter()
+            .rev()
+            .fold(BigUint::zero(), |acc, limb| {
+                (acc << 32) + self.get_target(limb.0).to_canonical_biguint()
+            })
     }
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
@@ -352,7 +353,7 @@ mod tests {
     };
     use rand::Rng;
 
-    use crate::gadgets::biguint::{WitnessBigUint, CircuitBuilderBiguint};
+    use crate::gadgets::biguint::{CircuitBuilderBiguint, WitnessBigUint};
 
     #[test]
     fn test_biguint_add() -> Result<()> {
