@@ -33,6 +33,8 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::compare::{eval_packed_generic_lt, eval_ext_circuit_lt};
+use crate::arithmetic::sub::u256_sub_br;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -65,6 +67,7 @@ pub(crate) fn generate_addmod<F: RichField>(
     output_cols: [usize; N_LIMBS],
     quot_cols: [usize; N_LIMBS],
     aux_cols: [usize; N_LIMBS],
+    aux_out_reduced_cols: [usize; N_LIMBS],
 ) {
     let input0 = input_to_biguint(&input0_limbs);
     let input1 = input_to_biguint(&input1_limbs);
@@ -75,14 +78,18 @@ pub(crate) fn generate_addmod<F: RichField>(
         for &c in &output_cols {
             lv[c] = F::ZERO;
         }
+        // It doesn't matter what's in quot_cols and aux_cols when
+        // modulus is zero, so just return.
         return;
     }
 
     let sum = input0 + input1;
     let res = &sum % &modulus;
     let output_limbs = biguint_to_output(&res);
-    let lambda = (sum - res) / modulus; // exact division
+    let lambda = (sum - &res) / &modulus; // exact division
     let quot_limbs = biguint_to_output(&lambda);
+    let (aux_out_reduced_limbs, br) = u256_sub_br(output_limbs, modulus_limbs);
+    assert!(br == 1, "expected output < modulus");
 
     // TODO: Most of the code below should be refactored with the
     // original in 'mul.rs'.
@@ -137,6 +144,9 @@ pub(crate) fn generate_addmod<F: RichField>(
         let c = quot_cols[deg];
         lv[c] = F::from_canonical_u64(quot_limbs[deg]);
 
+        let c = aux_out_reduced_cols[deg];
+        lv[c] = F::from_canonical_u64(aux_out_reduced_limbs[deg]);
+
         let c = output_cols[deg];
         lv[c] = F::from_canonical_u64(output_limbs[deg]);
     }
@@ -155,6 +165,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         ADDMOD_OUTPUT,
         ADDMOD_QUO_INPUT,
         ADDMOD_AUX_INPUT,
+        ADDMOD_AUX_OUTPUT_REDUCED,
     );
 }
 
@@ -167,8 +178,14 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     output_limbs: [P; N_LIMBS],
     quot_limbs: [P; N_LIMBS],
     aux_limbs: [P; N_LIMBS],
+    aux_output_reduced_limbs: [P; N_LIMBS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    // Start by confirming that output < modulus, i.e. that output is reduced.
+    let is_less_than = P::ONES;
+    eval_packed_generic_lt(yield_constr, is_op, output_limbs,
+                           modulus_limbs, aux_output_reduced_limbs, is_less_than);
+
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this modular addition to be
     // verified.
@@ -220,10 +237,6 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     // prover find a value for the other inputs to produce a zero
     // constr_poly?
 
-    // FIXME: Still need to constrain C < M. Basically use
-    // eval_packed_generic_are_equal(M, C) without constraints and
-    // verify that the last cy is zero.
-
     // At this point constr_poly holds the coefficients of the
     // polynomial a(x) + b(x) - c(x) - s(x)*m(x) - (2^LIMB_BITS - x)*q(x).
     // The modular addition is valid if and only if all of those
@@ -243,6 +256,7 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(ADDMOD_MODULUS, 16);
     range_check_error!(ADDMOD_QUO_INPUT, 16);
     range_check_error!(ADDMOD_AUX_INPUT, 16, signed);
+    range_check_error!(ADDMOD_AUX_OUTPUT_REDUCED, 16);
     range_check_error!(ADDMOD_OUTPUT, 16);
 
     let is_addmod = lv[IS_ADDMOD];
@@ -251,6 +265,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let modulus_limbs = ADDMOD_MODULUS.map(|c| lv[c]);
     let quot_limbs = ADDMOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = ADDMOD_AUX_INPUT.map(|c| lv[c]);
+    let aux_output_reduced_limbs = ADDMOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
     let output_limbs = ADDMOD_OUTPUT.map(|c| lv[c]);
 
     eval_packed_generic_addmod(
@@ -261,6 +276,7 @@ pub fn eval_packed_generic<P: PackedField>(
         output_limbs,
         quot_limbs,
         aux_limbs,
+        aux_output_reduced_limbs,
         yield_constr,
     );
 }
@@ -273,9 +289,14 @@ pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usi
     output_limbs: [ExtensionTarget<D>; N_LIMBS],
     quot_limbs: [ExtensionTarget<D>; N_LIMBS],
     aux_limbs: [ExtensionTarget<D>; N_LIMBS],
+    aux_output_reduced_limbs: [ExtensionTarget<D>; N_LIMBS],
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let is_less_than = builder.one_extension();
+    eval_ext_circuit_lt(builder, yield_constr, is_op,
+                        output_limbs, modulus_limbs, aux_output_reduced_limbs, is_less_than);
+
     let zero = builder.zero_extension();
     let mut constr_poly = [zero; N_LIMBS];
 
@@ -316,6 +337,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let modulus_limbs = ADDMOD_MODULUS.map(|c| lv[c]);
     let quot_limbs = ADDMOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = ADDMOD_AUX_INPUT.map(|c| lv[c]);
+    let aux_output_reduced_limbs = ADDMOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
     let output_limbs = ADDMOD_OUTPUT.map(|c| lv[c]);
 
     eval_ext_circuit_addmod(
@@ -326,6 +348,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         output_limbs,
         quot_limbs,
         aux_limbs,
+        aux_output_reduced_limbs,
         builder,
         yield_constr,
     );
