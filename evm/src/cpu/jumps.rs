@@ -17,7 +17,7 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let input = lv.mem_value[0];
+    let input = lv.mem_channels[0].value;
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
     // flag. The top 6 (32-bit) limbs are ignored (this is not part of the spec, but we trust the
@@ -36,7 +36,7 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let input = lv.mem_value[0];
+    let input = lv.mem_channels[0].value;
     let filter = builder.mul_extension(lv.is_cpu_cycle, lv.is_exit_kernel);
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
@@ -58,8 +58,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let input0 = lv.mem_value[0];
-    let input1 = lv.mem_value[1];
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
     let filter = lv.is_jump + lv.is_jumpi; // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
@@ -160,8 +160,8 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let input0 = lv.mem_value[0];
-    let input1 = lv.mem_value[1];
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
     let filter = builder.add_extension(lv.is_jump, lv.is_jumpi); // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.

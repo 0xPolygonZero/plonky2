@@ -102,10 +102,10 @@ pub(crate) struct CpuLogicView<T: Copy> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuJumpsView<T: Copy> {
-    /// `input0` is `mem_value[0]`. It's the top stack value at entry (for jumps, the address; for
-    /// `EXIT_KERNEL`, the address and new privilege level).
-    /// `input1` is `mem_value[1]`. For `JUMPI`, it's the second stack value (the predicate). For
-    /// `JUMP`, 1.
+    /// `input0` is `mem_channel[0].value`. It's the top stack value at entry (for jumps, the
+    /// address; for `EXIT_KERNEL`, the address and new privilege level).
+    /// `input1` is `mem_channel[1].value`. For `JUMPI`, it's the second stack value (the
+    /// predicate). For `JUMP`, 1.
 
     /// Inverse of `input0[1] + ... + input0[7]`, if one exists; otherwise, an arbitrary value.
     /// Needed to prove that `input0` is nonzero.
