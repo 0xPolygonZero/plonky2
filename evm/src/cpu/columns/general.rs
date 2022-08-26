@@ -9,7 +9,6 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     arithmetic: CpuArithmeticView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
-    syscalls: CpuSyscallsView<T>,
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
@@ -51,16 +50,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn jumps_mut(&mut self) -> &mut CpuJumpsView<T> {
         unsafe { &mut self.jumps }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn syscalls(&self) -> &CpuSyscallsView<T> {
-        unsafe { &self.syscalls }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn syscalls_mut(&mut self) -> &mut CpuSyscallsView<T> {
-        unsafe { &mut self.syscalls }
     }
 }
 
@@ -107,23 +96,16 @@ pub(crate) struct CpuArithmeticView<T: Copy> {
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuLogicView<T: Copy> {
-    // Assuming a limb size of 32 bits.
-    pub(crate) input0: [T; 8],
-    pub(crate) input1: [T; 8],
-    pub(crate) output: [T; 8],
-
-    // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal.
+    // Pseudoinverse of `(input0 - input1)`. Used prove that they are unequal. Assumes 32-bit limbs.
     pub(crate) diff_pinv: [T; 8],
 }
 
 #[derive(Copy, Clone)]
 pub(crate) struct CpuJumpsView<T: Copy> {
-    /// Assuming a limb size of 32 bits.
-    /// The top stack value at entry (for jumps, the address; for `EXIT_KERNEL`, the address and new
-    /// privilege level).
-    pub(crate) input0: [T; 8],
-    /// For `JUMPI`, the second stack value (the predicate). For `JUMP`, 1.
-    pub(crate) input1: [T; 8],
+    /// `input0` is `mem_value[0]`. It's the top stack value at entry (for jumps, the address; for
+    /// `EXIT_KERNEL`, the address and new privilege level).
+    /// `input1` is `mem_value[1]`. For `JUMPI`, it's the second stack value (the predicate). For
+    /// `JUMP`, 1.
 
     /// Inverse of `input0[1] + ... + input0[7]`, if one exists; otherwise, an arbitrary value.
     /// Needed to prove that `input0` is nonzero.
@@ -160,16 +142,6 @@ pub(crate) struct CpuJumpsView<T: Copy> {
     /// (`input0[0]` is not `JUMPDEST` that is not in an immediate while we are in user mode, or
     /// `input0[1..7]` is nonzero) and `input1` is nonzero.
     pub(crate) should_trap: T,
-}
-
-#[derive(Copy, Clone)]
-pub(crate) struct CpuSyscallsView<T: Copy> {
-    /// Assuming a limb size of 32 bits.
-    /// The output contains the context that is required to from the system call in `EXIT_KERNEL`.
-    /// `output[0]` contains the program counter at the time the system call was made (the address
-    /// of the syscall instruction). `output[1]` is 1 if we were in kernel mode at the time and 0
-    /// otherwise. `output[2]`, ..., `output[7]` are zero.
-    pub(crate) output: [T; 8],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
