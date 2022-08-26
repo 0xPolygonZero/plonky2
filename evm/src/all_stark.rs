@@ -76,7 +76,7 @@ pub enum Table {
 }
 
 impl Table {
-    pub(crate) fn num_tables() -> usize {
+    pub(crate) const fn num_tables() -> usize {
         Table::Memory as usize + 1
     }
 }

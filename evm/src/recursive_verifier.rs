@@ -57,14 +57,14 @@ pub(crate) fn recursively_prove_stark_proof<
     all_proof: &AllProof<F, C, D>,
     cross_table_lookups: &[CrossTableLookup<F>],
     inner_config: &StarkConfig,
-    circuit_config: CircuitConfig,
+    circuit_config: &CircuitConfig,
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
-    let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+    let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let mut pw = PartialWitness::new();
 
     let nums_ctl_zs = all_proof.nums_ctl_zs();
@@ -103,6 +103,75 @@ where
 
     let data = builder.build::<C>();
     data.prove(pw)
+}
+
+pub(crate) fn recursively_prove_all_proofs<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    all_stark: &AllStark<F, D>,
+    all_proof: &AllProof<F, C, D>,
+    cross_table_lookups: &[CrossTableLookup<F>],
+    inner_config: &StarkConfig,
+    circuit_config: CircuitConfig,
+) -> Result<[ProofWithPublicInputs<F, C, D>; Table::num_tables()]>
+where
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    Ok([
+        recursively_prove_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            all_stark,
+            all_proof,
+            cross_table_lookups,
+            inner_config,
+            &circuit_config,
+        )?,
+        recursively_prove_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            all_stark,
+            all_proof,
+            cross_table_lookups,
+            inner_config,
+            &circuit_config,
+        )?,
+        recursively_prove_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            all_stark,
+            all_proof,
+            cross_table_lookups,
+            inner_config,
+            &circuit_config,
+        )?,
+        recursively_prove_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            all_stark,
+            all_proof,
+            cross_table_lookups,
+            inner_config,
+            &circuit_config,
+        )?,
+        recursively_prove_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            all_stark,
+            all_proof,
+            cross_table_lookups,
+            inner_config,
+            &circuit_config,
+        )?,
+    ])
 }
 
 pub fn verify_proof_circuit<
