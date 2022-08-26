@@ -28,9 +28,9 @@ pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([COL_MAP.is_and, COL_MAP.is_or, COL_MAP.is_xor]).collect_vec();
+    res.extend(Column::singles(COL_MAP.mem_value[0]));
     res.extend(Column::singles(COL_MAP.mem_value[1]));
     res.extend(Column::singles(COL_MAP.mem_value[2]));
-    res.extend(Column::singles(COL_MAP.mem_value[0]));
     res
 }
 
