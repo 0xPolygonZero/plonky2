@@ -13,6 +13,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessU32<F> for T {
     fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value));
     }
+
     fn get_u32_target(&self, target: U32Target) -> (u32, u32) {
         let x_u64 = self.get_target(target.0).to_canonical_u64();
         let low = x_u64 as u32;
