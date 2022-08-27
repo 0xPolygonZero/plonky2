@@ -48,7 +48,7 @@ pub fn eval_packed<P: PackedField>(
     // If syscall: set kernel mode
     yield_constr.constraint_transition(filter * (nv.is_kernel_mode - P::ONES));
 
-    let output = lv.mem_value[0];
+    let output = lv.mem_channels[0].value;
     // If syscall: push current PC to stack
     yield_constr.constraint(filter * (output[0] - lv.program_counter));
     // If syscall: push current kernel flag to stack (share register with PC)
@@ -91,7 +91,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, constr);
     }
 
-    let output = lv.mem_value[0];
+    let output = lv.mem_channels[0].value;
     // If syscall: push current PC to stack
     {
         let constr = builder.sub_extension(output[0], lv.program_counter);

@@ -77,13 +77,13 @@ impl<F: Field> GenerationState<F> {
         let timestamp = self.cpu_rows.len() * NUM_CHANNELS + channel_index;
         let value = self.get_mem(context, segment, virt, timestamp);
 
-        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
-        self.current_cpu_row.mem_is_read[channel_index] = F::ONE;
-        self.current_cpu_row.mem_addr_context[channel_index] = F::from_canonical_usize(context);
-        self.current_cpu_row.mem_addr_segment[channel_index] =
-            F::from_canonical_usize(segment as usize);
-        self.current_cpu_row.mem_addr_virtual[channel_index] = F::from_canonical_usize(virt);
-        self.current_cpu_row.mem_value[channel_index] = u256_limbs(value);
+        let channel = &mut self.current_cpu_row.mem_channels[channel_index];
+        channel.used = F::ONE;
+        channel.is_read = F::ONE;
+        channel.addr_context = F::from_canonical_usize(context);
+        channel.addr_segment = F::from_canonical_usize(segment as usize);
+        channel.addr_virtual = F::from_canonical_usize(virt);
+        channel.value = u256_limbs(value);
 
         value
     }
@@ -133,13 +133,13 @@ impl<F: Field> GenerationState<F> {
         let timestamp = self.cpu_rows.len() * NUM_CHANNELS + channel_index;
         self.set_mem(context, segment, virt, value, timestamp);
 
-        self.current_cpu_row.mem_channel_used[channel_index] = F::ONE;
-        self.current_cpu_row.mem_is_read[channel_index] = F::ZERO; // For clarity; should already be 0.
-        self.current_cpu_row.mem_addr_context[channel_index] = F::from_canonical_usize(context);
-        self.current_cpu_row.mem_addr_segment[channel_index] =
-            F::from_canonical_usize(segment as usize);
-        self.current_cpu_row.mem_addr_virtual[channel_index] = F::from_canonical_usize(virt);
-        self.current_cpu_row.mem_value[channel_index] = u256_limbs(value);
+        let channel = &mut self.current_cpu_row.mem_channels[channel_index];
+        channel.used = F::ONE;
+        channel.is_read = F::ZERO; // For clarity; should already be 0.
+        channel.addr_context = F::from_canonical_usize(context);
+        channel.addr_segment = F::from_canonical_usize(segment as usize);
+        channel.addr_virtual = F::from_canonical_usize(virt);
+        channel.value = u256_limbs(value);
     }
 
     /// Write some memory, and log the operation.

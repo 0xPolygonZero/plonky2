@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let input0 = lv.mem_value[0];
+    let input0 = lv.mem_channels[0].value;
 
     let eq_filter = lv.is_eq.to_canonical_u64();
     let iszero_filter = lv.is_iszero.to_canonical_u64();
@@ -20,20 +20,20 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
         return;
     }
 
-    let input1 = &mut lv.mem_value[1];
+    let input1 = &mut lv.mem_channels[1].value;
     if iszero_filter != 0 {
         for limb in input1.iter_mut() {
             *limb = F::ZERO;
         }
     }
 
-    let input1 = lv.mem_value[1];
+    let input1 = lv.mem_channels[1].value;
     let num_unequal_limbs = izip!(input0, input1)
         .map(|(limb0, limb1)| (limb0 != limb1) as usize)
         .sum();
     let equal = num_unequal_limbs == 0;
 
-    let output = &mut lv.mem_value[2];
+    let output = &mut lv.mem_channels[2].value;
     output[0] = F::from_bool(equal);
     for limb in &mut output[1..] {
         *limb = F::ZERO;
@@ -58,9 +58,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let logic = lv.general.logic();
-    let input0 = lv.mem_value[0];
-    let input1 = lv.mem_value[1];
-    let output = lv.mem_value[2];
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
+    let output = lv.mem_channels[2].value;
 
     let eq_filter = lv.is_eq;
     let iszero_filter = lv.is_iszero;
@@ -106,9 +106,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
 
     let logic = lv.general.logic();
-    let input0 = lv.mem_value[0];
-    let input1 = lv.mem_value[1];
-    let output = lv.mem_value[2];
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
+    let output = lv.mem_channels[2].value;
 
     let eq_filter = lv.is_eq;
     let iszero_filter = lv.is_iszero;

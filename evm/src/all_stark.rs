@@ -344,19 +344,16 @@ mod tests {
 
             if is_actual_op {
                 let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
-
-                row.mem_channel_used[channel] = F::ONE;
                 row.clock = F::from_canonical_usize(clock);
-                row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
-                row.mem_addr_context[channel] =
-                    memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-                row.mem_addr_segment[channel] =
-                    memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-                row.mem_addr_virtual[channel] =
-                    memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+
+                let channel = &mut row.mem_channels[channel];
+                channel.used = F::ONE;
+                channel.is_read = memory_trace[memory::columns::IS_READ].values[i];
+                channel.addr_context = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+                channel.addr_segment = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+                channel.addr_virtual = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
                 for j in 0..8 {
-                    row.mem_value[channel][j] =
-                        memory_trace[memory::columns::value_limb(j)].values[i];
+                    channel.value[j] = memory_trace[memory::columns::value_limb(j)].values[i];
                 }
             }
         }
@@ -382,16 +379,24 @@ mod tests {
             );
 
             let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
-            for (col_cpu, limb_cols_logic) in row.mem_value[0].iter_mut().zip(input0_bit_cols) {
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[0].value.iter_mut().zip(input0_bit_cols)
+            {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
             let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
-            for (col_cpu, limb_cols_logic) in row.mem_value[1].iter_mut().zip(input1_bit_cols) {
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[1].value.iter_mut().zip(input1_bit_cols)
+            {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
-            for (col_cpu, col_logic) in row.mem_value[2].iter_mut().zip(logic::columns::RESULT) {
+            for (col_cpu, col_logic) in row.mem_channels[2]
+                .value
+                .iter_mut()
+                .zip(logic::columns::RESULT)
+            {
                 *col_cpu = logic_trace[col_logic].values[i];
             }
 
@@ -409,7 +414,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x0a); // `EXP` is implemented in software
             row.is_kernel_mode = F::ONE;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 row.program_counter,
                 F::ONE,
                 F::ZERO,
@@ -431,7 +436,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15682),
                 F::ONE,
                 F::ZERO,
@@ -453,7 +458,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15682);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15106),
                 F::ZERO,
                 F::ZERO,
@@ -463,7 +468,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.mem_value[1] = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -490,7 +495,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15106);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(63064),
                 F::ZERO,
                 F::ZERO,
@@ -512,7 +517,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(63064);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(3754),
                 F::ZERO,
                 F::ZERO,
@@ -522,7 +527,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.mem_value[1] = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -550,7 +555,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(3754);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -560,7 +565,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.mem_value[1] = [
+            row.mem_channels[1].value = [
                 F::ZERO,
                 F::ZERO,
                 F::ZERO,
@@ -588,7 +593,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(37543);
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -617,7 +622,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.mem_value[0] = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -627,7 +632,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.mem_value[1] = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,

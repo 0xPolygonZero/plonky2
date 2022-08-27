@@ -12,6 +12,19 @@ use crate::memory;
 mod general;
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MemoryChannelView<T: Copy> {
+    /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
+    /// 0.
+    pub used: T,
+    pub is_read: T,
+    pub addr_context: T,
+    pub addr_segment: T,
+    pub addr_virtual: T,
+    pub value: [T; memory::VALUE_LIMBS],
+}
+
+#[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
 pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
@@ -159,14 +172,7 @@ pub struct CpuColumnsView<T: Copy> {
     pub(crate) general: CpuGeneralColumnsView<T>,
 
     pub(crate) clock: T,
-    /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
-    /// 0.
-    pub mem_channel_used: [T; memory::NUM_CHANNELS],
-    pub mem_is_read: [T; memory::NUM_CHANNELS],
-    pub mem_addr_context: [T; memory::NUM_CHANNELS],
-    pub mem_addr_segment: [T; memory::NUM_CHANNELS],
-    pub mem_addr_virtual: [T; memory::NUM_CHANNELS],
-    pub mem_value: [[T; memory::VALUE_LIMBS]; memory::NUM_CHANNELS],
+    pub mem_channels: [MemoryChannelView<T>; memory::NUM_CHANNELS],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
