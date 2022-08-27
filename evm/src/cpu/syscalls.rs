@@ -13,12 +13,16 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NUM_SYSCALLS: usize = 2;
+const NUM_SYSCALLS: usize = 3;
 
 fn make_syscall_list() -> [(usize, usize); NUM_SYSCALLS] {
     let kernel = Lazy::force(&KERNEL);
-    [(COL_MAP.is_stop, "sys_stop"), (COL_MAP.is_exp, "sys_exp")]
-        .map(|(col_index, handler_name)| (col_index, kernel.global_labels[handler_name]))
+    [
+        (COL_MAP.is_stop, "sys_stop"),
+        (COL_MAP.is_exp, "sys_exp"),
+        (COL_MAP.is_invalid, "handle_invalid"),
+    ]
+    .map(|(col_index, handler_name)| (col_index, kernel.global_labels[handler_name]))
 }
 
 static TRAP_LIST: Lazy<[(usize, usize); NUM_SYSCALLS]> = Lazy::new(make_syscall_list);
