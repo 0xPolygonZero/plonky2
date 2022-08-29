@@ -23,5 +23,4 @@ global handle_invalid:
     // if the opcode is indeed invalid, then perform an exceptional exit
     %jumpi(fault_exception)
     // otherwise, panic because this trap should not have been entered
-panic:
     PANIC
