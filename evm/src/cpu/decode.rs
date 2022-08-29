@@ -119,6 +119,33 @@ const OPCODES: [(u8, usize, bool, usize); 92] = [
     (0xff, 0, false, COL_MAP.is_selfdestruct),
 ];
 
+/// Bitfield of invalid opcodes, in little-endian order.
+pub(crate) const fn invalid_opcodes_user() -> [u8; 32] {
+    let mut res = [u8::MAX; 32]; // Start with all opcodes marked invalid.
+
+    let mut i = 0;
+    while i < OPCODES.len() {
+        let (block_start, lb_block_len, kernel_only, _) = OPCODES[i];
+        i += 1;
+
+        if kernel_only {
+            continue;
+        }
+
+        let block_len = 1 << lb_block_len;
+        let block_start = block_start as usize;
+        let block_end = block_start + block_len;
+        let mut j = block_start;
+        while j < block_end {
+            let byte = j / u8::BITS as usize;
+            let bit = j % u8::BITS as usize;
+            res[byte] &= !(1 << bit); // Mark opcode as invalid by zeroing the bit.
+            j += 1;
+        }
+    }
+    res
+}
+
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter == F::ZERO {
