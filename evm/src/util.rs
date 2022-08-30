@@ -1,3 +1,5 @@
+use std::mem::{size_of, transmute_copy, ManuallyDrop};
+
 use ethereum_types::{H160, U256};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
@@ -66,4 +68,36 @@ pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
         .collect_vec()
         .try_into()
         .unwrap()
+}
+
+pub(crate) fn u8_to_le_bits(x: u8) -> [bool; 8] {
+    std::array::from_fn(|i| ((x >> i) & 1) != 0)
+}
+
+pub(crate) fn u32_to_le_bits(x: u32) -> [bool; 32] {
+    std::array::from_fn(|i| ((x >> i) & 1) != 0)
+}
+
+pub(crate) fn u32_from_le_bits(bits: [bool; 32]) -> u32 {
+    bits.into_iter()
+        .rev()
+        .fold(0, |acc, b| (acc << 1) | b as u32)
+}
+
+pub(crate) const fn indices_arr<const N: usize>() -> [usize; N] {
+    let mut indices_arr = [0; N];
+    let mut i = 0;
+    while i < N {
+        indices_arr[i] = i;
+        i += 1;
+    }
+    indices_arr
+}
+
+pub(crate) unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U {
+    debug_assert_eq!(size_of::<T>(), size_of::<U>());
+    // Need ManuallyDrop so that `value` is not dropped by this function.
+    let value = ManuallyDrop::new(value);
+    // Copy the bit pattern. The original value is no longer safe to use.
+    transmute_copy(&value)
 }

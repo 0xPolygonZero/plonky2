@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::iter::repeat;
 
 use anyhow::{ensure, Result};
@@ -38,8 +39,10 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn singles<I: IntoIterator<Item = usize>>(cs: I) -> impl Iterator<Item = Self> {
-        cs.into_iter().map(Self::single)
+    pub fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
+        cs: I,
+    ) -> impl Iterator<Item = Self> {
+        cs.into_iter().map(|c| Self::single(*c.borrow()))
     }
 
     pub fn constant(constant: F) -> Self {
@@ -74,16 +77,20 @@ impl<F: Field> Column<F> {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
-    pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
+    pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
-    pub fn le_bytes<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(F::from_canonical_u16(256).powers()))
+    pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(
+            cs.into_iter()
+                .map(|c| *c.borrow())
+                .zip(F::from_canonical_u16(256).powers()),
+        )
     }
 
-    pub fn sum<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(repeat(F::ONE)))
+    pub fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(repeat(F::ONE)))
     }
 
     pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
