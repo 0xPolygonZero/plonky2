@@ -2,13 +2,16 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
+use itertools::Itertools;
 use keccak_hash::keccak;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
+use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
 use crate::memory::segments::Segment;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
@@ -214,6 +217,7 @@ impl<'a> Interpreter<'a> {
             0x1c => todo!(),                                           // "SHR",
             0x1d => todo!(),                                           // "SAR",
             0x20 => self.run_keccak256(),                              // "KECCAK256",
+            0x21 => self.run_keccakf_general(),                        // "KECCAKF_GENERAL",
             0x30 => todo!(),                                           // "ADDRESS",
             0x31 => todo!(),                                           // "BALANCE",
             0x32 => todo!(),                                           // "ORIGIN",
@@ -424,6 +428,34 @@ impl<'a> Interpreter<'a> {
             .collect::<Vec<_>>();
         let hash = keccak(bytes);
         self.push(hash.into_uint());
+    }
+
+    fn run_keccakf_general(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = self.pop().as_usize();
+        let virt = self.pop().as_usize();
+        let virt_range = virt..virt + KECCAK_WIDTH_BYTES;
+
+        let mem = &mut self.memory.context_memory[context].segments[segment].content[virt_range];
+
+        // Interpret the given memory as an array of KECCAK_WIDTH_BYTES bytes.
+        // There should not be any memory values outside the range of a byte.
+        let mut state_bytes: [u8; KECCAK_WIDTH_BYTES] = mem
+            .iter()
+            .map(|x| {
+                assert!(x.bits() <= 8);
+                x.as_u32() as u8
+            })
+            .collect_vec()
+            .try_into()
+            .unwrap();
+
+        // Run the Keccak permutation on our byte array, then write the result back to memory.
+        keccakf_u8s(&mut state_bytes);
+
+        for (mem_value, output_byte) in mem.iter_mut().zip(state_bytes) {
+            *mem_value = output_byte.into();
+        }
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {

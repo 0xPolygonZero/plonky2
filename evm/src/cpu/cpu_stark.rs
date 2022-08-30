@@ -23,7 +23,7 @@ pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_data_keccak_memory<F: Field>() -> Vec<Column<F>> {
-    // When executing KECCAK_GENERAL, the memory channels are used as follows:
+    // When executing KECCAKF_GENERAL, the memory channels are used as follows:
     // channel 0: instruction
     // channel 1: stack[-1] = context
     // channel 2: stack[-2] = segment
