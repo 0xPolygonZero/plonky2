@@ -44,6 +44,13 @@
     %endrep
 %endmacro
 
+%macro and_const(c)
+    // stack: input, ...
+    PUSH $c
+    AND
+    // stack: input & c, ...
+%endmacro
+
 %macro add_const(c)
     // stack: input, ...
     PUSH $c
@@ -99,6 +106,13 @@
     PUSH $c
     SHL
     // stack: input << c, ...
+%endmacro
+
+%macro shr_const(c)
+    // stack: input, ...
+    PUSH $c
+    SHR
+    // stack: input >> c, ...
 %endmacro
 
 %macro eq_const(c)
