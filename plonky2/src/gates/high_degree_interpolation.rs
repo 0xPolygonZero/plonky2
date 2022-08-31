@@ -277,10 +277,10 @@ mod tests {
     use plonky2_field::polynomial::PolynomialCoeffs;
     use plonky2_field::types::Field;
 
-    use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
+    use crate::gates::interpolation::InterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;

@@ -8,7 +8,7 @@ use crate::fri::proof::{
 };
 use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
 use crate::fri::{FriConfig, FriParams};
-use crate::gadgets::interpolation::InterpolationGate;
+use crate::gates::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
 use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
 use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
