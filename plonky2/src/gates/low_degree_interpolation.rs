@@ -20,8 +20,9 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// Interpolation gate with constraints of degree 2.
-/// `eval_unfiltered_recursively` uses more gates than `HighDegreeInterpolationGate`.
+/// One of the instantiations of `InterpolationGate`: all constraints are degree <= 2.
+/// The lower degree is a tradeoff for more gates (`eval_unfiltered_recursively` for
+/// this version uses more gates than `LowDegreeInterpolationGate`).
 #[derive(Copy, Clone, Debug)]
 pub struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
