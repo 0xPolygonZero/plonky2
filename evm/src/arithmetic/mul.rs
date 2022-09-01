@@ -15,7 +15,7 @@
 //! and similarly for b(x) and c(x). Then A*B = C (mod 2^256) if and only
 //! if there exist polynomials q and m such that
 //!
-//!    a(x)*b(x) - c(x) - m(x)*x^16 - (x - β)*q(x) == 0.
+//!    a(x)*b(x) - c(x) - m(x)*x^16 - (β - x)*q(x) == 0.
 //!
 //! Because A, B and C are 256-bit numbers, the degrees of a, b and c
 //! are (at most) 15. Thus deg(a*b) <= 30, so deg(m) <= 14 and deg(q)
@@ -24,7 +24,7 @@
 //! them evaluating at β gives a factor of β^16 = 2^256 which is 0.
 //!
 //! Hence, to verify the equality, we don't need m(x) at all, and we
-//! only need to know q(x) up to degree 14 (so that (x-β)*q(x) has
+//! only need to know q(x) up to degree 14 (so that (β - x)*q(x) has
 //! degree 15). On the other hand, the coefficients of q(x) can be as
 //! large as 16*(β-2) or 20 bits.
 
@@ -155,7 +155,7 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS)*Q(x). The
+    // polynomial A(x)B(x) - C(x) - (2^LIMB_BITS - x)*Q(x). The
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
