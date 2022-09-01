@@ -442,13 +442,12 @@ pub trait Field64: Field {
     // TODO: Move to `Field`.
     #[inline]
     fn from_canonical_i64(n: i64) -> Self {
-        Self::from_canonical_u64(
-            if n < 0 {
-                // Assumption guarantees that -n < ORDER.
-                Self::ORDER - (-n as u64)
-            } else {
-                n as u64
-            })
+        Self::from_canonical_u64(if n < 0 {
+            // Assumption guarantees that -n < ORDER.
+            Self::ORDER - (-n as u64)
+        } else {
+            n as u64
+        })
     }
 
     #[inline]

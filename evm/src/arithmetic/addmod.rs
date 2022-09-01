@@ -33,7 +33,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::compare::{eval_packed_generic_lt, eval_ext_circuit_lt};
+use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
 use crate::arithmetic::sub::u256_sub_br;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
@@ -216,8 +216,14 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     // Start by confirming that output < modulus, i.e. that output is
     // reduced. Degree of `eval_packed_generic_lt` is deg(filter) + 1 = 3.
     let is_less_than = P::ONES;
-    eval_packed_generic_lt(yield_constr, filter, output_limbs,
-                           modulus_limbs, aux_output_reduced_limbs, is_less_than);
+    eval_packed_generic_lt(
+        yield_constr,
+        filter,
+        output_limbs,
+        modulus_limbs,
+        aux_output_reduced_limbs,
+        is_less_than,
+    );
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this modular addition to be
@@ -333,8 +339,15 @@ pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usi
     let filter = builder.mul_extension(is_op, zero_mod);
 
     let is_less_than = builder.one_extension();
-    eval_ext_circuit_lt(builder, yield_constr, filter, output_limbs,
-                        modulus_limbs, aux_output_reduced_limbs, is_less_than);
+    eval_ext_circuit_lt(
+        builder,
+        yield_constr,
+        filter,
+        output_limbs,
+        modulus_limbs,
+        aux_output_reduced_limbs,
+        is_less_than,
+    );
 
     let zero = builder.zero_extension();
     let mut constr_poly = [zero; N_LIMBS];
