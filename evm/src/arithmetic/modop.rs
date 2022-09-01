@@ -31,6 +31,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         MOD_QUO_INPUT,
         MOD_AUX_INPUT,
         MOD_AUX_OUTPUT_REDUCED,
+        ADDMOD_AUX_CONSTR_POLY,
     );
 }
 
@@ -42,6 +43,8 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MOD_MODULUS, 16);
     range_check_error!(MOD_QUO_INPUT, 16);
     range_check_error!(MOD_AUX_INPUT, 16, signed);
+    range_check_error!(ADDMOD_AUX_OUTPUT_REDUCED, 16);
+    range_check_error!(ADDMOD_AUX_CONSTR_POLY, 16);
     range_check_error!(MOD_OUTPUT, 16);
 
     let is_mod = lv[IS_MOD];
@@ -50,6 +53,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let quot_limbs = MOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = MOD_AUX_INPUT.map(|c| lv[c]);
     let aux_output_reduced_limbs = MOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
+    let aux_constr_poly_limbs = ADDMOD_AUX_CONSTR_POLY.map(|c| lv[c]);
     let output_limbs = MOD_OUTPUT.map(|c| lv[c]);
 
     // NB: This should be const, but Rust complains "can't use type
@@ -66,6 +70,7 @@ pub fn eval_packed_generic<P: PackedField>(
         quot_limbs,
         aux_limbs,
         aux_output_reduced_limbs,
+        aux_constr_poly_limbs,
         yield_constr,
     );
 }
@@ -81,6 +86,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let quot_limbs = MOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = MOD_AUX_INPUT.map(|c| lv[c]);
     let aux_output_reduced_limbs = ADDMOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
+    let aux_constr_poly_limbs = ADDMOD_AUX_CONSTR_POLY.map(|c| lv[c]);
     let output_limbs = MOD_OUTPUT.map(|c| lv[c]);
 
     let zero_e = builder.zero_extension();
@@ -95,6 +101,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         quot_limbs,
         aux_limbs,
         aux_output_reduced_limbs,
+        aux_constr_poly_limbs,
         builder,
         yield_constr,
     );

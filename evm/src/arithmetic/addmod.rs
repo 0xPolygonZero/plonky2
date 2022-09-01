@@ -68,20 +68,36 @@ pub(crate) fn generate_addmod<F: RichField>(
     quot_cols: [usize; N_LIMBS],
     aux_cols: [usize; N_LIMBS],
     aux_out_reduced_cols: [usize; N_LIMBS],
+    aux_constr_poly_cols: [usize; N_LIMBS],
 ) {
-    let input0 = input_to_biguint(&input0_limbs);
-    let input1 = input_to_biguint(&input1_limbs);
     let modulus = input_to_biguint(&modulus_limbs);
 
     // The spec defines the result of remainder modulo zero to be zero.
     if modulus.is_zero() {
-        for &c in &output_cols {
-            lv[c] = F::ZERO;
+        for i in 0..N_LIMBS {
+            lv[output_cols[i]] = F::ZERO;
+
+            // It doesn't matter what's in quot_cols when modulus is
+            // zero, since the product with modulus will be zero.
+            // Similarly, we don't use aux_out_reduced_cols when
+            // modulus is zero. We set these both to zero "for neatness".
+            lv[quot_cols[i]] = F::ZERO;
+            lv[aux_out_reduced_cols[i]] = F::ZERO;
+
+            // It also doesn't matter what's in aux_cols when modulus is
+            // zero, except that it does have to be consistent with what we
+            // put in aux_constr_poly.
+            //
+            // Easiest to set aux_cols values to zero and set
+            // aux_constr_poly values to coefficients of a(x) + b(x).
+            lv[aux_cols[i]] = F::ZERO;
+            lv[aux_constr_poly_cols[i]] = F::from_canonical_u64(input0_limbs[i] + input1_limbs[i]);
         }
-        // It doesn't matter what's in quot_cols and aux_cols when
-        // modulus is zero, so just return.
         return;
     }
+
+    let input0 = input_to_biguint(&input0_limbs);
+    let input1 = input_to_biguint(&input1_limbs);
 
     let sum = input0 + input1;
     let res = &sum % &modulus;
@@ -101,19 +117,19 @@ pub(crate) fn generate_addmod<F: RichField>(
     // All the inputs have coefficients < 2^16, so the conversions to
     // i64s are safe.
     let mut unreduced_sum = [0i64; N_LIMBS];
-    for col in 0..N_LIMBS {
-        unreduced_sum[col] = (input0_limbs[col] + input1_limbs[col]) as i64;
-        unreduced_sum[col] -= output_limbs[col] as i64;
+    for deg in 0..N_LIMBS {
+        unreduced_sum[deg] = (input0_limbs[deg] + input1_limbs[deg]) as i64;
+        unreduced_sum[deg] -= output_limbs[deg] as i64;
 
-        for i in 0..=col {
-            // Invariant: i + j = col
-            let j = col - i;
-            let ai_x_bj = (modulus_limbs[i] * quot_limbs[j]) as i64;
-            unreduced_sum[col] -= ai_x_bj;
+        for i in 0..=deg {
+            // Invariant: i + j = deg
+            let j = deg - i;
+            let ai_x_bj = (quot_limbs[i] * modulus_limbs[j]) as i64;
+            unreduced_sum[deg] -= ai_x_bj;
         }
     }
 
-    // unreduced_sum must be zero when evaluated at x = β =
+    // unreduced_sum must be zero when evaluated at x = β :=
     // 2^LIMB_BITS, hence it's divisible by (β - x). If we write it as
     //
     //   a(x) + b(x) - c(x) - s(x)*m(x) = \sum_{i=0}^n p_i x^i
@@ -133,19 +149,18 @@ pub(crate) fn generate_addmod<F: RichField>(
 
     for deg in 0..N_LIMBS {
         let c = aux_cols[deg];
-        let t = aux_limbs[deg];
-        let u = if t < 0 {
-            F::ORDER - (-t as u64)
-        } else {
-            t as u64
-        };
-        lv[c] = F::from_canonical_u64(u);
+        lv[c] = F::from_canonical_i64(aux_limbs[deg]);
 
         let c = quot_cols[deg];
         lv[c] = F::from_canonical_u64(quot_limbs[deg]);
 
         let c = aux_out_reduced_cols[deg];
         lv[c] = F::from_canonical_u64(aux_out_reduced_limbs[deg]);
+
+        let c = aux_constr_poly_cols[deg];
+        // The absval of this sum can't exceed the base field order,
+        // and in fact must be much less.
+        lv[c] = F::from_canonical_i64(unreduced_sum[deg]);
 
         let c = output_cols[deg];
         lv[c] = F::from_canonical_u64(output_limbs[deg]);
@@ -166,6 +181,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         ADDMOD_QUO_INPUT,
         ADDMOD_AUX_INPUT,
         ADDMOD_AUX_OUTPUT_REDUCED,
+        ADDMOD_AUX_CONSTR_POLY,
     );
 }
 
@@ -179,11 +195,28 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     quot_limbs: [P; N_LIMBS],
     aux_limbs: [P; N_LIMBS],
     aux_output_reduced_limbs: [P; N_LIMBS],
+    aux_constr_poly: [P; N_LIMBS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // Start by confirming that output < modulus, i.e. that output is reduced.
+    // The modulus limbs have been range-checked to be in [0, 2^16),
+    // so the modulus is zero iff the sum of the limbs is zero.
+    let modulus_limb_sum: P = modulus_limbs.into_iter().sum();
+    // Idem. for the output
+    let output_limb_sum: P = output_limbs.into_iter().sum();
+    // This constraint ensures that the ouput is zero if the modulus
+    // was zero (as required by the spec).
+    let zero_mod = modulus_limb_sum + output_limb_sum;
+
+    // FIXME: If modulus is zero, but output is non-zero, can the
+    // prover find a value for the other inputs to produce a zero
+    // constr_poly?
+
+    let filter = is_op * zero_mod;
+
+    // Start by confirming that output < modulus, i.e. that output is
+    // reduced. Degree of `eval_packed_generic_lt` is deg(filter) + 1 = 3.
     let is_less_than = P::ONES;
-    eval_packed_generic_lt(yield_constr, is_op, output_limbs,
+    eval_packed_generic_lt(yield_constr, filter, output_limbs,
                            modulus_limbs, aux_output_reduced_limbs, is_less_than);
 
     // Constraint poly holds the coefficients of the polynomial that
@@ -215,34 +248,30 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
         }
     }
 
+    for (&c, d) in constr_poly.iter().zip(aux_constr_poly) {
+        // Verify that the constr_poly and aux_constr_poly are equal;
+        // we can then use the aux_constr_poly values in the following
+        // constraint to reduce its degree
+        yield_constr.constraint(is_op * (c - d));
+    }
+
     // TODO: This is just copypasta from 'mul.rs'; really need to refactor.
 
     // This subtracts (2^LIMB_BITS - x) * q(x) from constr_poly.
+    let mut final_poly = [P::ZEROS; N_LIMBS];
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-    constr_poly[0] -= base * aux_limbs[0];
+    final_poly[0] = aux_constr_poly[0] - base * aux_limbs[0];
     for deg in 1..N_LIMBS {
-        constr_poly[deg] -= (base * aux_limbs[deg]) - aux_limbs[deg - 1];
+        final_poly[deg] = aux_constr_poly[deg] - ((base * aux_limbs[deg]) - aux_limbs[deg - 1]);
     }
-
-    // The modulus limbs have been range-checked to be in [0, 2^16),
-    // so the modulus is zero iff the sum of the limbs is zero.
-    let modulus_limb_sum: P = modulus_limbs.into_iter().sum();
-    // Idem. for the output
-    let output_limb_sum: P = output_limbs.into_iter().sum();
-    // This constraint ensures that the ouput is zero if the modulus
-    // was zero (as required by the spec).
-    let zero_mod = modulus_limb_sum + output_limb_sum;
-
-    // FIXME: If modulus is zero, but output is non-zero, can the
-    // prover find a value for the other inputs to produce a zero
-    // constr_poly?
 
     // At this point constr_poly holds the coefficients of the
     // polynomial a(x) + b(x) - c(x) - s(x)*m(x) - (2^LIMB_BITS - x)*q(x).
     // The modular addition is valid if and only if all of those
     // coefficients are zero.
-    for &c in &constr_poly {
-        // FIXME: The degree is too high.
+    for &c in &final_poly {
+        // is_op, zero_mod and d all have degree 1, hence this has
+        // total degree 3.
         yield_constr.constraint(is_op * zero_mod * c);
     }
 }
@@ -257,6 +286,7 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(ADDMOD_QUO_INPUT, 16);
     range_check_error!(ADDMOD_AUX_INPUT, 16, signed);
     range_check_error!(ADDMOD_AUX_OUTPUT_REDUCED, 16);
+    range_check_error!(ADDMOD_AUX_CONSTR_POLY, 16);
     range_check_error!(ADDMOD_OUTPUT, 16);
 
     let is_addmod = lv[IS_ADDMOD];
@@ -266,6 +296,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let quot_limbs = ADDMOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = ADDMOD_AUX_INPUT.map(|c| lv[c]);
     let aux_output_reduced_limbs = ADDMOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
+    let aux_constr_poly_limbs = ADDMOD_AUX_CONSTR_POLY.map(|c| lv[c]);
     let output_limbs = ADDMOD_OUTPUT.map(|c| lv[c]);
 
     eval_packed_generic_addmod(
@@ -277,6 +308,7 @@ pub fn eval_packed_generic<P: PackedField>(
         quot_limbs,
         aux_limbs,
         aux_output_reduced_limbs,
+        aux_constr_poly_limbs,
         yield_constr,
     );
 }
@@ -290,12 +322,19 @@ pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usi
     quot_limbs: [ExtensionTarget<D>; N_LIMBS],
     aux_limbs: [ExtensionTarget<D>; N_LIMBS],
     aux_output_reduced_limbs: [ExtensionTarget<D>; N_LIMBS],
+    aux_constr_poly: [ExtensionTarget<D>; N_LIMBS],
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let modulus_limb_sum = builder.add_many_extension(modulus_limbs);
+    let output_limb_sum = builder.add_many_extension(output_limbs);
+    let zero_mod = builder.add_extension(modulus_limb_sum, output_limb_sum);
+
+    let filter = builder.mul_extension(is_op, zero_mod);
+
     let is_less_than = builder.one_extension();
-    eval_ext_circuit_lt(builder, yield_constr, is_op,
-                        output_limbs, modulus_limbs, aux_output_reduced_limbs, is_less_than);
+    eval_ext_circuit_lt(builder, yield_constr, filter, output_limbs,
+                        modulus_limbs, aux_output_reduced_limbs, is_less_than);
 
     let zero = builder.zero_extension();
     let mut constr_poly = [zero; N_LIMBS];
@@ -311,16 +350,23 @@ pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usi
         }
     }
 
+    for (&c, d) in constr_poly.iter().zip(aux_constr_poly) {
+        let t = builder.sub_extension(c, d);
+        let t = builder.mul_extension(is_op, t);
+        yield_constr.constraint(builder, t);
+    }
+
+    let mut final_poly = [zero; N_LIMBS];
     let base = F::from_canonical_u64(1 << LIMB_BITS);
     let t = builder.mul_const_extension(base, aux_limbs[0]);
-    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
+    final_poly[0] = builder.sub_extension(constr_poly[0], t);
     for deg in 1..N_LIMBS {
         let t0 = builder.mul_const_extension(base, aux_limbs[deg]);
         let t1 = builder.sub_extension(t0, aux_limbs[deg - 1]);
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
+        final_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
     }
 
-    for &c in &constr_poly {
+    for &c in &final_poly {
         let t = builder.mul_extension(is_op, c);
         yield_constr.constraint(builder, t);
     }
@@ -338,6 +384,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let quot_limbs = ADDMOD_QUO_INPUT.map(|c| lv[c]);
     let aux_limbs = ADDMOD_AUX_INPUT.map(|c| lv[c]);
     let aux_output_reduced_limbs = ADDMOD_AUX_OUTPUT_REDUCED.map(|c| lv[c]);
+    let aux_constr_poly_limbs = ADDMOD_AUX_CONSTR_POLY.map(|c| lv[c]);
     let output_limbs = ADDMOD_OUTPUT.map(|c| lv[c]);
 
     eval_ext_circuit_addmod(
@@ -349,6 +396,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         quot_limbs,
         aux_limbs,
         aux_output_reduced_limbs,
+        aux_constr_poly_limbs,
         builder,
         yield_constr,
     );
