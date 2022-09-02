@@ -100,13 +100,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_base(point);
-            constraints.extend(&(value - computed_value).to_basefield_array());
+            constraints.extend((value - computed_value).to_basefield_array());
         }
 
         let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
-        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
+        constraints.extend((evaluation_value - computed_evaluation_value).to_basefield_array());
 
         constraints
     }
@@ -151,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_scalar(builder, point);
             constraints.extend(
-                &builder
+                builder
                     .sub_ext_algebra(value, computed_value)
                     .to_ext_target_array(),
             );
@@ -161,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
         constraints.extend(
-            &builder
+            builder
                 .sub_ext_algebra(evaluation_value, computed_evaluation_value)
                 .to_ext_target_array(),
         );
