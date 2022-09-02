@@ -10,7 +10,7 @@ use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpenin
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
-use crate::gates::interpolation::HighDegreeInterpolationGate;
+use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
 use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
