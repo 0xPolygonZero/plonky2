@@ -116,17 +116,20 @@ pub(crate) fn generate_addmod<F: RichField>(
     //
     // All the inputs have coefficients < 2^16, so the conversions to
     // i64s are safe.
-    let mut unreduced_sum = [0i64; N_LIMBS];
+    let mut unreduced_sum = [0i64; 2 * N_LIMBS - 1];
     for deg in 0..N_LIMBS {
         unreduced_sum[deg] = (input0_limbs[deg] + input1_limbs[deg]) as i64;
         unreduced_sum[deg] -= output_limbs[deg] as i64;
-
-        for i in 0..=deg {
-            // Invariant: i + j = deg
-            let j = deg - i;
-            let ai_x_bj = (quot_limbs[i] * modulus_limbs[j]) as i64;
-            unreduced_sum[deg] -= ai_x_bj;
+    }
+    for (i, q) in quot_limbs.iter().enumerate() {
+        for (j, m) in modulus_limbs.iter().enumerate() {
+            unreduced_sum[i + j] -= (q * m) as i64;
         }
+    }
+    // The high half must be zero, because...
+    // FIXME: add proper justification of this
+    for i in N_LIMBS..2 * N_LIMBS - 1 {
+        assert!(unreduced_sum[i] == 0);
     }
 
     // unreduced_sum must be zero when evaluated at x = β :=
@@ -228,7 +231,7 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this modular addition to be
     // verified.
-    let mut constr_poly = [P::ZEROS; N_LIMBS];
+    let mut constr_poly = [P::ZEROS; 2 * N_LIMBS - 1];
 
     // Set constr_poly[deg] to be the degree deg coefficient of the
     // polynomial a(x) + b(x) - c(x) - s(x) * m(x) where
@@ -246,19 +249,26 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
     // TODO: Same code as in generate above; refactor.
     for deg in 0..N_LIMBS {
         constr_poly[deg] = input0_limbs[deg] + input1_limbs[deg] - output_limbs[deg];
+    }
 
-        // Invariant: i + j = deg
-        for i in 0..=deg {
-            let j = deg - i;
-            constr_poly[deg] -= quot_limbs[i] * modulus_limbs[j];
+    for (i, &q) in quot_limbs.iter().enumerate() {
+        for (j, &m) in modulus_limbs.iter().enumerate() {
+            constr_poly[i + j] -= q * m;
         }
     }
 
+    // Low half of s(x)*m(x) must match aux_constr_poly;
+    // we can then use the aux_constr_poly values in the following
+    // constraint to reduce its degree
     for (&c, d) in constr_poly.iter().zip(aux_constr_poly) {
-        // Verify that the constr_poly and aux_constr_poly are equal;
-        // we can then use the aux_constr_poly values in the following
-        // constraint to reduce its degree
         yield_constr.constraint(is_op * (c - d));
+    }
+
+    // FIXME: Check this
+    // High half of s(x)*m(x) should always be zero because its degree
+    // can't exceed that of a(x) + b(x) - c(x).
+    for &c in &constr_poly[N_LIMBS..2 * N_LIMBS - 1] {
+        yield_constr.constraint(is_op * c);
     }
 
     // TODO: This is just copypasta from 'mul.rs'; really need to refactor.
@@ -350,22 +360,26 @@ pub(crate) fn eval_ext_circuit_addmod<F: RichField + Extendable<D>, const D: usi
     );
 
     let zero = builder.zero_extension();
-    let mut constr_poly = [zero; N_LIMBS];
+    let mut constr_poly = [zero; 2 * N_LIMBS - 1];
 
     for deg in 0..N_LIMBS {
         let t = builder.add_extension(input0_limbs[deg], input1_limbs[deg]);
         constr_poly[deg] = builder.sub_extension(t, output_limbs[deg]);
-
-        for i in 0..=deg {
-            let j = deg - i;
-            let t = builder.mul_extension(quot_limbs[i], modulus_limbs[j]);
-            constr_poly[deg] = builder.sub_extension(constr_poly[deg], t);
+    }
+    for (i, &q) in quot_limbs.iter().enumerate() {
+        for (j, &m) in modulus_limbs.iter().enumerate() {
+            let t = builder.mul_extension(q, m);
+            constr_poly[i + j] = builder.sub_extension(constr_poly[i + j], t);
         }
     }
 
     for (&c, d) in constr_poly.iter().zip(aux_constr_poly) {
         let t = builder.sub_extension(c, d);
         let t = builder.mul_extension(is_op, t);
+        yield_constr.constraint(builder, t);
+    }
+    for &c in &constr_poly[N_LIMBS..2 * N_LIMBS - 1] {
+        let t = builder.mul_extension(is_op, c);
         yield_constr.constraint(builder, t);
     }
 
