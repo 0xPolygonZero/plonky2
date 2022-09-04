@@ -1,7 +1,6 @@
 use std::borrow::Borrow;
 use std::iter;
 use std::marker::PhantomData;
-use std::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -26,7 +25,7 @@ use crate::vars::StarkEvaluationVars;
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    let outputs = Column::singles(&cols.updated_state_u32s[..KECCAK_RATE_U32S]);
+    let outputs = Column::singles(&cols.updated_state_u32s[..8]);
     Column::singles([
         cols.context,
         cols.segment,
@@ -40,10 +39,10 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
-    let input_rate_cols = (0..KECCAK_WIDTH_U32S)
+    let input_rate_cols = (0..KECCAK_RATE_U32S)
         .map(|i| Column::le_bits(&KECCAK_SPONGE_COL_MAP.original_rate_bits[i * 32..(i + 1) * 32]));
     let input_capacity_cols = Column::singles(
-        (0..KECCAK_WIDTH_U32S).map(|i| KECCAK_SPONGE_COL_MAP.original_capacity_u32s[i]),
+        (0..KECCAK_CAPACITY_U32S).map(|i| KECCAK_SPONGE_COL_MAP.original_capacity_u32s[i]),
     );
     let output_cols = Column::singles(
         (0..KECCAK_WIDTH_U32S).map(|i| KECCAK_SPONGE_COL_MAP.updated_state_u32s[i]),
@@ -60,7 +59,13 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 
     let mut res = vec![Column::constant(F::ONE)]; // is_read
 
-    res.extend(Column::singles([cols.context, cols.segment, cols.virt]));
+    res.extend(Column::singles([cols.context, cols.segment]));
+
+    // The address of the byte being read is `virt + already_absorbed_bytes + i`.
+    res.push(Column::linear_combination_with_constant(
+        [(cols.virt, F::ONE), (cols.already_absorbed_bytes, F::ONE)],
+        F::from_canonical_usize(i),
+    ));
 
     // The i'th input byte being read.
     res.push(Column::le_bits(&cols.block_bits[i * 8..(i + 1) * 8]));
@@ -148,17 +153,13 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let mut rows = vec![];
-        for op in operations {
-            rows.extend(self.generate_rows_for_op(op));
-        }
-
-        let num_rows = rows.len().max(min_rows).next_power_of_two();
-        let padding_row = self.generate_padding_row();
-        for _ in rows.len()..num_rows {
-            rows.push(padding_row);
-        }
-        rows
+        let num_rows = operations.len().max(min_rows).next_power_of_two();
+        operations
+            .into_iter()
+            .flat_map(|op| self.generate_rows_for_op(op))
+            .chain(iter::repeat(self.generate_padding_row()))
+            .take(num_rows)
+            .collect()
     }
 
     fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
@@ -175,14 +176,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 sponge_state,
                 block.try_into().unwrap(),
             );
-
-            // xor block into sponge_state's rate elements.
-            let block_u32s = block
-                .chunks(size_of::<u32>())
-                .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()));
-            for (state_u32, block_u32) in sponge_state.iter_mut().zip(block_u32s) {
-                *state_u32 ^= block_u32;
-            }
 
             sponge_state = row.updated_state_u32s.map(|f| f.to_canonical_u64() as u32);
 
@@ -291,7 +284,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             u32_from_le_bits(
                 row.block_bits[i * 32..(i + 1) * 32]
                     .iter()
-                    .map(|f| *f == F::ONE)
+                    .map(Field::is_one)
                     .collect_vec()
                     .try_into()
                     .unwrap(),
@@ -313,12 +306,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     }
 
     fn generate_padding_row(&self) -> [F; NUM_KECCAK_SPONGE_COLUMNS] {
-        // We just need is_dummy = 1; the other fields will have no effect.
-        KeccakSpongeColumnsView {
-            is_dummy: F::ONE,
-            ..Default::default()
-        }
-        .into()
+        // The default instance has is_full_input_block = is_final_block = 0,
+        // indicating that it's a dummy/padding row.
+        KeccakSpongeColumnsView::default().into()
     }
 }
 
@@ -335,10 +325,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
     {
         let _local_values: &KeccakSpongeColumnsView<P> = vars.local_values.borrow();
 
-        // TODO: Each flag (full-input block, final block or dummy row) must be boolean.
+        // TODO: Each flag (full-input block, final block or implied dummy flag) must be boolean.
         // TODO: before_rate_bits, block_bits and is_final_input_len must contain booleans.
-
-        // TODO: Sum of row type flags (full-input block, final block or dummy row) should equal 1.
 
         // TODO: Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
 

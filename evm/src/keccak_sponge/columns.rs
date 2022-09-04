@@ -14,9 +14,6 @@ pub(crate) const KECCAK_CAPACITY_U32S: usize = KECCAK_CAPACITY_BYTES / 4;
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
 pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
-    /// 1 if this row represents a dummy operation (for padding the table); 0 otherwise.
-    pub is_dummy: T,
-
     /// 1 if this row represents a full input block, i.e. one in which each byte is an input byte,
     /// not a padding byte; 0 otherwise.
     pub is_full_input_block: T,
