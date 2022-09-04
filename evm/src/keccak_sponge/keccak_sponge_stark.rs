@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
-use std::iter;
+use std::iter::{once, repeat};
 use std::marker::PhantomData;
+use std::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -11,6 +12,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
@@ -18,7 +20,7 @@ use crate::cross_table_lookup::Column;
 use crate::keccak_sponge::columns::*;
 use crate::memory::segments::Segment;
 use crate::stark::Stark;
-use crate::util::{trace_rows_to_poly_values, u32_from_le_bits, u32_to_le_bits, u8_to_le_bits};
+use crate::util::trace_rows_to_poly_values;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
@@ -39,18 +41,16 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
-    let input_rate_cols = (0..KECCAK_RATE_U32S)
-        .map(|i| Column::le_bits(&KECCAK_SPONGE_COL_MAP.original_rate_bits[i * 32..(i + 1) * 32]));
-    let input_capacity_cols = Column::singles(
-        (0..KECCAK_CAPACITY_U32S).map(|i| KECCAK_SPONGE_COL_MAP.original_capacity_u32s[i]),
-    );
-    let output_cols = Column::singles(
-        (0..KECCAK_WIDTH_U32S).map(|i| KECCAK_SPONGE_COL_MAP.updated_state_u32s[i]),
-    );
-    input_rate_cols
-        .chain(input_capacity_cols)
-        .chain(output_cols)
-        .collect()
+    let cols = KECCAK_SPONGE_COL_MAP;
+    Column::singles(
+        [
+            cols.original_rate_u32s.as_slice(),
+            &cols.original_capacity_u32s,
+            &cols.updated_state_u32s,
+        ]
+        .concat(),
+    )
+    .collect()
 }
 
 #[allow(unused)] // TODO: Should be used soon.
@@ -68,7 +68,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     ));
 
     // The i'th input byte being read.
-    res.push(Column::le_bits(&cols.block_bits[i * 8..(i + 1) * 8]));
+    res.push(Column::single(cols.block_bytes[i]));
 
     // Since we're reading a single byte, the higher limbs must be zero.
     res.extend((1..8).map(|_| Column::zero()));
@@ -79,6 +79,49 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
         res.len(),
         crate::memory::memory_stark::ctl_data::<F>().len()
     );
+    res
+}
+
+/// CTL for performing the `i`th logic CTL. Since we need to do 136 byte XORs, and the logic CTL can
+/// XOR 32 bytes per CTL, there are 5 such CTLs.
+#[allow(unused)] // TODO: Should be used soon.
+pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
+    const U32S_PER_CTL: usize = 8;
+    const U8S_PER_CTL: usize = 32;
+
+    debug_assert!(i < ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL));
+    let cols = KECCAK_SPONGE_COL_MAP;
+
+    let mut res = vec![
+        Column::zero(), // is_and
+        Column::zero(), // is_or
+        Column::one(),  // is_xor
+    ];
+
+    // Input 0 contains some of the sponge's original rate chunks. If this is the last CTL, we won't
+    // need to use all of the CTL's inputs, so we will pass some zeros.
+    res.extend(
+        Column::singles(&cols.original_rate_u32s[i * U32S_PER_CTL..])
+            .chain(repeat(Column::zero()))
+            .take(U32S_PER_CTL),
+    );
+
+    // Input 1 contains some of block's chunks. Again, for the last CTL it will include some zeros.
+    res.extend(
+        cols.block_bytes[i * U8S_PER_CTL..]
+            .chunks(size_of::<u32>())
+            .map(|chunk| Column::le_bytes(chunk))
+            .chain(repeat(Column::zero()))
+            .take(U8S_PER_CTL),
+    );
+
+    // The output contains the XOR'd rate part.
+    res.extend(
+        Column::singles(&cols.xored_rate_u32s[i * U32S_PER_CTL..])
+            .chain(repeat(Column::zero()))
+            .take(U32S_PER_CTL),
+    );
+
     res
 }
 
@@ -96,7 +139,7 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     // - this is a full input block, or
     // - this is a final block of length `i` or greater
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(iter::once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i..]))
+    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i..]))
 }
 
 /// Information about a Keccak sponge operation needed for witness generation.
@@ -157,7 +200,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         operations
             .into_iter()
             .flat_map(|op| self.generate_rows_for_op(op))
-            .chain(iter::repeat(self.generate_padding_row()))
+            .chain(repeat(self.generate_padding_row()))
             .take(num_rows)
             .collect()
     }
@@ -208,13 +251,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             ..Default::default()
         };
 
-        row.block_bits = block
-            .into_iter()
-            .flat_map(u8_to_le_bits)
-            .map(F::from_bool)
-            .collect_vec()
-            .try_into()
-            .unwrap();
+        row.block_bytes = block.map(F::from_canonical_u8);
 
         Self::generate_common_fields(&mut row, op, already_absorbed_bytes, sponge_state);
         row
@@ -234,16 +271,18 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             ..Default::default()
         };
 
-        let final_input_bits = final_inputs
-            .iter()
-            .flat_map(|x| u8_to_le_bits(*x))
-            .map(F::from_bool);
-        for (block_bit, input_bit) in row.block_bits.iter_mut().zip(final_input_bits) {
-            *block_bit = input_bit;
+        for (block_byte, input_byte) in row.block_bytes.iter_mut().zip(final_inputs) {
+            *block_byte = F::from_canonical_u8(*input_byte);
         }
+
         // pad10*1 rule
-        row.block_bits[final_inputs.len() * 8] = F::ONE;
-        row.block_bits[KECCAK_RATE_BITS - 1] = F::ONE;
+        if final_inputs.len() == KECCAK_RATE_BYTES - 1 {
+            // Both 1s are placed in the same byte.
+            row.block_bytes[final_inputs.len()] = F::from_canonical_u8(0b10000001);
+        } else {
+            row.block_bytes[final_inputs.len()] = F::ONE;
+            row.block_bytes[KECCAK_RATE_BYTES - 1] = F::ONE;
+        }
 
         row.is_final_input_len[final_inputs.len()] = F::ONE;
 
@@ -252,6 +291,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     }
 
     /// Generate fields that are common to both full-input-block rows and final-block rows.
+    /// Also updates the sponge state with a single absorption.
     fn generate_common_fields(
         row: &mut KeccakSpongeColumnsView<F>,
         op: &KeccakSpongeOp,
@@ -265,10 +305,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.len = F::from_canonical_usize(op.len);
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
 
-        row.original_rate_bits = sponge_state[..KECCAK_RATE_U32S]
+        row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
             .iter()
-            .flat_map(|x| u32_to_le_bits(*x))
-            .map(F::from_bool)
+            .map(|x| F::from_canonical_u32(*x))
             .collect_vec()
             .try_into()
             .unwrap();
@@ -281,10 +320,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             .unwrap();
 
         let block_u32s = (0..KECCAK_RATE_U32S).map(|i| {
-            u32_from_le_bits(
-                row.block_bits[i * 32..(i + 1) * 32]
+            u32::from_le_bytes(
+                row.block_bytes[i * 4..(i + 1) * 4]
                     .iter()
-                    .map(Field::is_one)
+                    .map(|x| x.to_canonical_u64() as u8)
                     .collect_vec()
                     .try_into()
                     .unwrap(),

@@ -70,20 +70,6 @@ pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
         .unwrap()
 }
 
-pub(crate) fn u8_to_le_bits(x: u8) -> [bool; 8] {
-    std::array::from_fn(|i| ((x >> i) & 1) != 0)
-}
-
-pub(crate) fn u32_to_le_bits(x: u32) -> [bool; 32] {
-    std::array::from_fn(|i| ((x >> i) & 1) != 0)
-}
-
-pub(crate) fn u32_from_le_bits(bits: [bool; 32]) -> u32 {
-    bits.into_iter()
-        .rev()
-        .fold(0, |acc, b| (acc << 1) | b as u32)
-}
-
 pub(crate) const fn indices_arr<const N: usize>() -> [usize; N] {
     let mut indices_arr = [0; N];
     let mut i = 0;

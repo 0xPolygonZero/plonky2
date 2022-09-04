@@ -42,16 +42,16 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// If this row represents a full input block, this should contain all 0s.
     pub is_final_input_len: [T; KECCAK_RATE_BYTES],
 
-    /// The initial rate bits of the sponge, at the start of this step.
-    pub original_rate_bits: [T; KECCAK_RATE_BITS],
+    /// The initial rate part of the sponge, at the start of this step.
+    pub original_rate_u32s: [T; KECCAK_RATE_U32S],
 
-    /// The capacity bits of the sponge, encoded as 32-bit chunks, at the start of this step.
+    /// The capacity part of the sponge, encoded as 32-bit chunks, at the start of this step.
     pub original_capacity_u32s: [T; KECCAK_CAPACITY_U32S],
 
     /// The block being absorbed, which may contain input bytes and/or padding bytes.
-    pub block_bits: [T; KECCAK_RATE_BITS],
+    pub block_bytes: [T; KECCAK_RATE_BYTES],
 
-    /// The rate bits of the sponge, after the current block is xor'd in, but before the permutation
+    /// The rate part of the sponge, after the current block is xor'd in, but before the permutation
     /// is applied.
     pub xored_rate_u32s: [T; KECCAK_RATE_U32S],
 

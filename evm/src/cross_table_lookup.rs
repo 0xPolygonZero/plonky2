@@ -56,6 +56,10 @@ impl<F: Field> Column<F> {
         Self::constant(F::ZERO)
     }
 
+    pub fn one() -> Self {
+        Self::constant(F::ONE)
+    }
+
     pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
         iter: I,
         constant: F,
