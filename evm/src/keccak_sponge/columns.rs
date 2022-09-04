@@ -5,8 +5,7 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) const KECCAK_WIDTH_BYTES: usize = 200;
 pub(crate) const KECCAK_WIDTH_U32S: usize = KECCAK_WIDTH_BYTES / 4;
-pub(crate) const KECCAK_RATE_BITS: usize = 1088;
-pub(crate) const KECCAK_RATE_BYTES: usize = KECCAK_RATE_BITS / 8;
+pub(crate) const KECCAK_RATE_BYTES: usize = 136;
 pub(crate) const KECCAK_RATE_U32S: usize = KECCAK_RATE_BYTES / 4;
 pub(crate) const KECCAK_CAPACITY_BYTES: usize = 64;
 pub(crate) const KECCAK_CAPACITY_U32S: usize = KECCAK_CAPACITY_BYTES / 4;
@@ -51,8 +50,8 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// The block being absorbed, which may contain input bytes and/or padding bytes.
     pub block_bytes: [T; KECCAK_RATE_BYTES],
 
-    /// The rate part of the sponge, after the current block is xor'd in, but before the permutation
-    /// is applied.
+    /// The rate part of the sponge, encoded as 32-bit chunks, after the current block is xor'd in,
+    /// but before the permutation is applied.
     pub xored_rate_u32s: [T; KECCAK_RATE_U32S],
 
     /// The entire state (rate + capacity) of the sponge, encoded as 32-bit chunks, after the
