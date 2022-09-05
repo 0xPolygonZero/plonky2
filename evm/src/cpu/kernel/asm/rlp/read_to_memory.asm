@@ -5,7 +5,6 @@
 // Post stack: (empty)
 
 global read_rlp_to_memory:
-    JUMPDEST
     // stack: retdest
     PROVER_INPUT // Read the RLP blob length from the prover tape.
     // stack: len, retdest
@@ -13,7 +12,6 @@ global read_rlp_to_memory:
     // stack: pos, len, retdest
 
 read_rlp_to_memory_loop:
-    JUMPDEST
     // stack: pos, len, retdest
     DUP2
     DUP2
@@ -32,7 +30,6 @@ read_rlp_to_memory_loop:
     %jump(read_rlp_to_memory_loop)
 
 read_rlp_to_memory_finish:
-    JUMPDEST
     // stack: pos, len, retdest
     %pop2
     // stack: retdest

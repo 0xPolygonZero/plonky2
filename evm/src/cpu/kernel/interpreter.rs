@@ -250,7 +250,7 @@ impl<'a> Interpreter<'a> {
             0x58 => todo!(),                                           // "GETPC",
             0x59 => todo!(),                                           // "MSIZE",
             0x5a => todo!(),                                           // "GAS",
-            0x5b => (),                                                // "JUMPDEST",
+            0x5b => self.run_jumpdest(),                               // "JUMPDEST",
             0x5c => todo!(),                                           // "GET_STATE_ROOT",
             0x5d => todo!(),                                           // "SET_STATE_ROOT",
             0x5e => todo!(),                                           // "GET_RECEIPT_ROOT",
@@ -488,6 +488,10 @@ impl<'a> Interpreter<'a> {
         if !b.is_zero() {
             self.jump_to(x);
         }
+    }
+
+    fn run_jumpdest(&mut self) {
+        assert!(!self.kernel_mode, "JUMPDEST is not needed in kernel code");
     }
 
     fn jump_to(&mut self, offset: usize) {

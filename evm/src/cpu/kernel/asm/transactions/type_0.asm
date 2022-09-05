@@ -12,7 +12,6 @@
 //     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data]))
 
 global process_type_0_txn:
-    JUMPDEST
     // stack: (empty)
     PUSH 0 // initial pos
     // stack: pos

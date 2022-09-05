@@ -1,6 +1,5 @@
 // Same algorithm as in `exp.asm`
 global ec_mul_valid_point_secp:
-    JUMPDEST
     // stack: x, y, s, retdest
     %stack (x,y) -> (x,y,x,y)
     %ec_isidentity
@@ -13,7 +12,6 @@ global ec_mul_valid_point_secp:
     %jump(ret_zero_ec_mul)
 
 step_case:
-    JUMPDEST
     // stack: x, y, s, retdest
     PUSH recursion_return
     // stack: recursion_return, x, y, s, retdest
@@ -33,12 +31,10 @@ step_case:
 
 // Assumption: 2(x,y) = (x',y')
 step_case_contd:
-    JUMPDEST
     // stack: x', y', s / 2, recursion_return, x, y, s, retdest
     %jump(ec_mul_valid_point_secp)
 
 recursion_return:
-    JUMPDEST
     // stack: x', y', x, y, s, retdest
     SWAP4
     // stack: s, y', x, y, x', retdest
@@ -71,6 +67,5 @@ recursion_return:
     JUMP
 
 odd_scalar:
-    JUMPDEST
     // stack: x', y', x, y, retdest
     %jump(ec_add_valid_points_secp)

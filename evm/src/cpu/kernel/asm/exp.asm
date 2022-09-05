@@ -10,7 +10,6 @@
 /// Note that this correctly handles exp(0, 0) == 1.
 
 global exp:
-    jumpdest
     // stack: x, e, retdest
     dup2
     // stack: e, x, e, retdest
@@ -27,7 +26,6 @@ global exp:
     jump
 
 step_case:
-    jumpdest
     // stack: x, e, retdest
     push recursion_return
     // stack: recursion_return, x, e, retdest
@@ -43,7 +41,6 @@ step_case:
     // stack: x * x, e / 2, recursion_return, x, e, retdest
     %jump(exp)
 recursion_return:
-    jumpdest
     // stack: exp(x * x, e / 2), x, e, retdest
     push 2
     // stack: 2, exp(x * x, e / 2), x, e, retdest

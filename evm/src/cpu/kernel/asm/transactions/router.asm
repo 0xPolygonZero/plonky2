@@ -3,7 +3,6 @@
 // jump to the appropriate transaction parsing method.
 
 global route_txn:
-    JUMPDEST
     // stack: (empty)
     // First load transaction data into memory, where it will be parsed.
     PUSH read_txn_from_memory
@@ -11,7 +10,6 @@ global route_txn:
 
 // At this point, the raw txn data is in memory.
 read_txn_from_memory:
-    JUMPDEST
     // stack: (empty)
 
     // We will peak at the first byte to determine what type of transaction this is.

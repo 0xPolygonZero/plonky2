@@ -1,7 +1,6 @@
 // It is convenient to have a single panic routine, which we can jump to from
 // anywhere.
 global panic:
-    JUMPDEST
     PANIC
 
 // Consumes the top element and asserts that it is zero.
