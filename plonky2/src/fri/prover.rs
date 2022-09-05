@@ -149,15 +149,12 @@ fn fri_prover_query_rounds<
     n: usize,
     fri_params: &FriParams,
 ) -> Vec<FriQueryRound<F, C::Hasher, D>> {
-    (0..fri_params.config.num_query_rounds)
-        .map(|_| {
-            fri_prover_query_round::<F, C, D>(
-                initial_merkle_trees,
-                trees,
-                challenger,
-                n,
-                fri_params,
-            )
+    challenger
+        .get_n_challenges(fri_params.config.num_query_rounds)
+        .into_par_iter()
+        .map(|rand| {
+            let x_index = rand.to_canonical_u64() as usize % n;
+            fri_prover_query_round::<F, C, D>(initial_merkle_trees, trees, x_index, fri_params)
         })
         .collect()
 }
@@ -169,13 +166,10 @@ fn fri_prover_query_round<
 >(
     initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
-    challenger: &mut Challenger<F, C::Hasher>,
-    n: usize,
+    mut x_index: usize,
     fri_params: &FriParams,
 ) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
-    let x = challenger.get_challenge();
-    let mut x_index = x.to_canonical_u64() as usize % n;
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
