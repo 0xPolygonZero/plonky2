@@ -22,9 +22,9 @@ pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     arity_bits: usize,
     evals: &[F::Extension],
     beta: F::Extension,
-) -> F::Extension {
+) -> anyhow::Result<F::Extension> {
     let arity = 1 << arity_bits;
-    debug_assert_eq!(evals.len(), arity);
+    ensure!(evals.len() == arity);
 
     let g = F::primitive_root_of_unity(arity_bits);
 
@@ -40,7 +40,7 @@ pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
         .zip(evals)
         .collect::<Vec<_>>();
     let barycentric_weights = barycentric_weights(&points);
-    interpolate(&points, beta, &barycentric_weights)
+    Ok(interpolate(&points, beta, &barycentric_weights))
 }
 
 pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
@@ -111,12 +111,19 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     x_index: usize,
     proof: &FriInitialTreeProof<F, H>,
     initial_merkle_caps: &[MerkleCap<F, H>],
+    params: &FriParams,
 ) -> Result<()>
 where
     [(); H::HASH_SIZE]:,
 {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
-        verify_merkle_proof_to_cap::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
+        verify_merkle_proof_to_cap::<F, H>(
+            evals.clone(),
+            x_index,
+            params.lde_bits(),
+            cap,
+            merkle_proof,
+        )?;
     }
 
     Ok(())
@@ -187,11 +194,13 @@ where
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
+        params,
     )?;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
         * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+    let mut codeword_len_bits = params.lde_bits();
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
@@ -207,6 +216,7 @@ where
     for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
+        codeword_len_bits -= arity_bits;
 
         // Split x_index into the index of the coset x is in, and the index of x within that coset.
         let coset_index = x_index >> arity_bits;
@@ -222,11 +232,12 @@ where
             arity_bits,
             evals,
             challenges.fri_betas[i],
-        );
+        )?;
 
         verify_merkle_proof_to_cap::<F, C::Hasher>(
             flatten(evals),
             coset_index,
+            codeword_len_bits,
             &proof.commit_phase_merkle_caps[i],
             &round_proof.steps[i].merkle_proof,
         )?;

@@ -155,7 +155,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         &self,
         challenges: &ProofChallenges<F, D>,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> FriInferredElements<F, D> {
+    ) -> anyhow::Result<FriInferredElements<F, D>> {
         let ProofChallenges {
             plonk_zeta,
             fri_challenges:
@@ -217,12 +217,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     arity_bits,
                     &evals,
                     fri_betas[i],
-                );
+                )?;
                 subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
                 x_index = coset_index;
             }
         }
-        FriInferredElements(fri_inferred_elements)
+        Ok(FriInferredElements(fri_inferred_elements))
     }
 }
 

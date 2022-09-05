@@ -182,7 +182,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         [(); C::Hasher::HASH_SIZE]:,
     {
         let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
-        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data)?;
         let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
@@ -206,7 +206,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         );
         let public_inputs_hash = self.get_public_inputs_hash();
         let challenges = self.get_challenges(public_inputs_hash, common_data)?;
-        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data)?;
         let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
