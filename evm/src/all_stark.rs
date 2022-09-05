@@ -174,6 +174,8 @@ mod tests {
     use itertools::Itertools;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
@@ -750,29 +752,15 @@ mod tests {
             inner_config,
             circuit_config,
         )?;
-        recursive_all_proof.verify()
-        // let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
-        // let mut pw = PartialWitness::new();
-        // let degree_bits = inner_proof.degree_bits(inner_config);
-        // let nums_ctl_zs = inner_proof.nums_ctl_zs();
-        // let pt = add_virtual_all_proof(
-        //     &mut builder,
-        //     &inner_all_stark,
-        //     inner_config,
-        //     &degree_bits,
-        //     &nums_ctl_zs,
-        // );
-        // set_all_proof_target(&mut pw, &pt, &inner_proof, builder.zero());
-        //
-        // verify_proof_circuit::<F, C, D>(&mut builder, inner_all_stark, pt, inner_config);
-        //
-        // if print_gate_counts {
-        //     builder.print_gate_counts(0);
-        // }
-        //
-        // let data = builder.build::<C>();
-        // let proof = data.prove(pw)?;
-        // data.verify(proof)
+
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let mut pw = PartialWitness::new();
+        recursive_all_proof.recursively_verify(&mut builder, &mut pw);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+        data.verify(proof)
     }
 
     fn init_logger() {

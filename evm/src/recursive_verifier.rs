@@ -8,7 +8,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData};
+use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
 use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -55,6 +55,28 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             verifier_data.verify(proof)?;
         }
         Ok(())
+    }
+
+    pub fn recursively_verify<W>(&self, builder: &mut CircuitBuilder<F, D>, pw: &mut W)
+    where
+        W: Witness<F>,
+        [(); C::Hasher::HASH_SIZE]:,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        for (proof, verifier_data) in &self.recursive_proofs {
+            let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
+            pw.set_proof_with_pis_target(&pt, &proof);
+            let inner_data = VerifierCircuitTarget {
+                constants_sigmas_cap: builder
+                    .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
+            };
+            pw.set_cap_target(
+                &inner_data.constants_sigmas_cap,
+                &verifier_data.verifier_only.constants_sigmas_cap,
+            );
+            builder.verify_proof(pt, &inner_data, &verifier_data.common);
+        }
+        // builder.print_gate_counts(0);
     }
 }
 
