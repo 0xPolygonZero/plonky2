@@ -8,7 +8,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData};
 use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -19,9 +19,7 @@ use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::{
-    verify_cross_table_lookups_circuit, CrossTableLookup, CtlCheckVarsTarget,
-};
+use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVarsTarget};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
@@ -37,15 +35,30 @@ use crate::util::{h160_limbs, u256_limbs};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
-pub(crate) struct AllRecursiveProofs<
+pub struct AllRecursiveProofs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
+    pub recursive_proofs:
+        [(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>); NUM_TABLES],
 }
 
-pub(crate) fn recursively_prove_stark_proof<
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    AllRecursiveProofs<F, C, D>
+{
+    pub fn verify(self) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        for (proof, verifier_data) in self.recursive_proofs {
+            verifier_data.verify(proof)?;
+        }
+        Ok(())
+    }
+}
+
+fn recursively_prove_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -55,10 +68,9 @@ pub(crate) fn recursively_prove_stark_proof<
     stark: S,
     all_stark: &AllStark<F, D>,
     all_proof: &AllProof<F, C, D>,
-    cross_table_lookups: &[CrossTableLookup<F>],
     inner_config: &StarkConfig,
     circuit_config: &CircuitConfig,
-) -> Result<ProofWithPublicInputs<F, C, D>>
+) -> Result<(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>)>
 where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
@@ -87,7 +99,7 @@ where
     let ctl_vars = CtlCheckVarsTarget::from_proof(
         table,
         &all_proof_target.stark_proofs[table as usize],
-        cross_table_lookups,
+        &all_stark.cross_table_lookups,
         &ctl_challenges,
         num_permutation_zs,
     );
@@ -102,20 +114,19 @@ where
     );
 
     let data = builder.build::<C>();
-    data.prove(pw)
+    Ok((data.prove(pw)?, data.verifier_data()))
 }
 
-pub(crate) fn recursively_prove_all_proofs<
+pub fn recursively_prove_all_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     all_stark: &AllStark<F, D>,
     all_proof: &AllProof<F, C, D>,
-    cross_table_lookups: &[CrossTableLookup<F>],
     inner_config: &StarkConfig,
     circuit_config: CircuitConfig,
-) -> Result<[ProofWithPublicInputs<F, C, D>; NUM_TABLES]>
+) -> Result<AllRecursiveProofs<F, C, D>>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
@@ -125,53 +136,50 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
-    Ok([
-        recursively_prove_stark_proof(
-            Table::Cpu,
-            all_stark.cpu_stark,
-            all_stark,
-            all_proof,
-            cross_table_lookups,
-            inner_config,
-            &circuit_config,
-        )?,
-        recursively_prove_stark_proof(
-            Table::Keccak,
-            all_stark.keccak_stark,
-            all_stark,
-            all_proof,
-            cross_table_lookups,
-            inner_config,
-            &circuit_config,
-        )?,
-        recursively_prove_stark_proof(
-            Table::KeccakMemory,
-            all_stark.keccak_memory_stark,
-            all_stark,
-            all_proof,
-            cross_table_lookups,
-            inner_config,
-            &circuit_config,
-        )?,
-        recursively_prove_stark_proof(
-            Table::Logic,
-            all_stark.logic_stark,
-            all_stark,
-            all_proof,
-            cross_table_lookups,
-            inner_config,
-            &circuit_config,
-        )?,
-        recursively_prove_stark_proof(
-            Table::Memory,
-            all_stark.memory_stark,
-            all_stark,
-            all_proof,
-            cross_table_lookups,
-            inner_config,
-            &circuit_config,
-        )?,
-    ])
+    Ok(AllRecursiveProofs {
+        recursive_proofs: [
+            recursively_prove_stark_proof(
+                Table::Cpu,
+                all_stark.cpu_stark,
+                all_stark,
+                all_proof,
+                inner_config,
+                &circuit_config,
+            )?,
+            recursively_prove_stark_proof(
+                Table::Keccak,
+                all_stark.keccak_stark,
+                all_stark,
+                all_proof,
+                inner_config,
+                &circuit_config,
+            )?,
+            recursively_prove_stark_proof(
+                Table::KeccakMemory,
+                all_stark.keccak_memory_stark,
+                all_stark,
+                all_proof,
+                inner_config,
+                &circuit_config,
+            )?,
+            recursively_prove_stark_proof(
+                Table::Logic,
+                all_stark.logic_stark,
+                all_stark,
+                all_proof,
+                inner_config,
+                &circuit_config,
+            )?,
+            recursively_prove_stark_proof(
+                Table::Memory,
+                all_stark.memory_stark,
+                all_stark,
+                all_proof,
+                inner_config,
+                &circuit_config,
+            )?,
+        ],
+    })
 }
 
 pub fn verify_proof_circuit<

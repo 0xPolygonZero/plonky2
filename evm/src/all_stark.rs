@@ -174,8 +174,6 @@ mod tests {
     use itertools::Itertools;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::{Field, PrimeField64};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
@@ -194,9 +192,7 @@ mod tests {
     use crate::memory::NUM_CHANNELS;
     use crate::proof::{AllProof, PublicValues};
     use crate::prover::prove_with_traces;
-    use crate::recursive_verifier::{
-        add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
-    };
+    use crate::recursive_verifier::recursively_prove_all_proof;
     use crate::stark::Stark;
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
     use crate::verifier::verify_proof;
@@ -739,38 +735,44 @@ mod tests {
         let (all_stark, proof) = get_proof(&config)?;
         verify_proof(all_stark.clone(), proof.clone(), &config)?;
 
-        recursive_proof(all_stark, proof, &config, true)
+        recursive_proof(all_stark, proof, &config)
     }
 
     fn recursive_proof(
         inner_all_stark: AllStark<F, D>,
         inner_proof: AllProof<F, C, D>,
         inner_config: &StarkConfig,
-        print_gate_counts: bool,
     ) -> Result<()> {
         let circuit_config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
-        let mut pw = PartialWitness::new();
-        let degree_bits = inner_proof.degree_bits(inner_config);
-        let nums_ctl_zs = inner_proof.nums_ctl_zs();
-        let pt = add_virtual_all_proof(
-            &mut builder,
+        let recursive_all_proof = recursively_prove_all_proof(
             &inner_all_stark,
+            &inner_proof,
             inner_config,
-            &degree_bits,
-            &nums_ctl_zs,
-        );
-        set_all_proof_target(&mut pw, &pt, &inner_proof, builder.zero());
-
-        verify_proof_circuit::<F, C, D>(&mut builder, inner_all_stark, pt, inner_config);
-
-        if print_gate_counts {
-            builder.print_gate_counts(0);
-        }
-
-        let data = builder.build::<C>();
-        let proof = data.prove(pw)?;
-        data.verify(proof)
+            circuit_config,
+        )?;
+        recursive_all_proof.verify()
+        // let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        // let mut pw = PartialWitness::new();
+        // let degree_bits = inner_proof.degree_bits(inner_config);
+        // let nums_ctl_zs = inner_proof.nums_ctl_zs();
+        // let pt = add_virtual_all_proof(
+        //     &mut builder,
+        //     &inner_all_stark,
+        //     inner_config,
+        //     &degree_bits,
+        //     &nums_ctl_zs,
+        // );
+        // set_all_proof_target(&mut pw, &pt, &inner_proof, builder.zero());
+        //
+        // verify_proof_circuit::<F, C, D>(&mut builder, inner_all_stark, pt, inner_config);
+        //
+        // if print_gate_counts {
+        //     builder.print_gate_counts(0);
+        // }
+        //
+        // let data = builder.build::<C>();
+        // let proof = data.prove(pw)?;
+        // data.verify(proof)
     }
 
     fn init_logger() {
