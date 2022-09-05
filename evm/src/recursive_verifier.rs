@@ -35,7 +35,9 @@ use crate::util::{h160_limbs, u256_limbs};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
-pub struct AllRecursiveProofs<
+/// Table-wise recursive proofs of an `AllProof`.
+/// Also contains verifier data for each proof.
+pub struct RecursiveAllProof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -45,8 +47,9 @@ pub struct AllRecursiveProofs<
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    AllRecursiveProofs<F, C, D>
+    RecursiveAllProof<F, C, D>
 {
+    /// Verify every recursive proof.
     pub fn verify(self) -> Result<()>
     where
         [(); C::Hasher::HASH_SIZE]:,
@@ -57,7 +60,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         Ok(())
     }
 
-    pub fn recursively_verify<W>(&self, builder: &mut CircuitBuilder<F, D>, pw: &mut W)
+    /// Recursively verify every recursive proof.
+    pub fn verify_circuit<W>(&self, builder: &mut CircuitBuilder<F, D>, pw: &mut W)
     where
         W: Witness<F>,
         [(); C::Hasher::HASH_SIZE]:,
@@ -79,7 +83,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-fn recursively_prove_stark_proof<
+/// Recursively verify a Stark proof.
+/// Outputs the recursive proof and the associated verifier data.
+fn recursively_verify_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -138,7 +144,8 @@ where
     Ok((data.prove(pw)?, data.verifier_data()))
 }
 
-pub fn recursively_prove_all_proof<
+/// Recursively verify every Stark proof in an `AllProof`.
+pub fn recursively_verify_all_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -147,7 +154,7 @@ pub fn recursively_prove_all_proof<
     all_proof: &AllProof<F, C, D>,
     inner_config: &StarkConfig,
     circuit_config: CircuitConfig,
-) -> Result<AllRecursiveProofs<F, C, D>>
+) -> Result<RecursiveAllProof<F, C, D>>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
@@ -157,9 +164,9 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
-    Ok(AllRecursiveProofs {
+    Ok(RecursiveAllProof {
         recursive_proofs: [
-            recursively_prove_stark_proof(
+            recursively_verify_stark_proof(
                 Table::Cpu,
                 all_stark.cpu_stark,
                 all_stark,
@@ -167,7 +174,7 @@ where
                 inner_config,
                 &circuit_config,
             )?,
-            recursively_prove_stark_proof(
+            recursively_verify_stark_proof(
                 Table::Keccak,
                 all_stark.keccak_stark,
                 all_stark,
@@ -175,7 +182,7 @@ where
                 inner_config,
                 &circuit_config,
             )?,
-            recursively_prove_stark_proof(
+            recursively_verify_stark_proof(
                 Table::KeccakMemory,
                 all_stark.keccak_memory_stark,
                 all_stark,
@@ -183,7 +190,7 @@ where
                 inner_config,
                 &circuit_config,
             )?,
-            recursively_prove_stark_proof(
+            recursively_verify_stark_proof(
                 Table::Logic,
                 all_stark.logic_stark,
                 all_stark,
@@ -191,7 +198,7 @@ where
                 inner_config,
                 &circuit_config,
             )?,
-            recursively_prove_stark_proof(
+            recursively_verify_stark_proof(
                 Table::Memory,
                 all_stark.memory_stark,
                 all_stark,
