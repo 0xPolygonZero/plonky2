@@ -15,7 +15,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
-use crate::all_stark::{AllStark, Table};
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -42,7 +42,7 @@ pub(crate) struct AllRecursiveProofs<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub recursive_proofs: Vec<ProofWithPublicInputs<F, C, D>>,
+    pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
 }
 
 pub(crate) fn recursively_prove_stark_proof<
@@ -115,7 +115,7 @@ pub(crate) fn recursively_prove_all_proofs<
     cross_table_lookups: &[CrossTableLookup<F>],
     inner_config: &StarkConfig,
     circuit_config: CircuitConfig,
-) -> Result<[ProofWithPublicInputs<F, C, D>; Table::num_tables()]>
+) -> Result<[ProofWithPublicInputs<F, C, D>; NUM_TABLES]>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
@@ -136,8 +136,8 @@ where
             &circuit_config,
         )?,
         recursively_prove_stark_proof(
-            Table::Cpu,
-            all_stark.cpu_stark,
+            Table::Keccak,
+            all_stark.keccak_stark,
             all_stark,
             all_proof,
             cross_table_lookups,
@@ -145,8 +145,8 @@ where
             &circuit_config,
         )?,
         recursively_prove_stark_proof(
-            Table::Cpu,
-            all_stark.cpu_stark,
+            Table::KeccakMemory,
+            all_stark.keccak_memory_stark,
             all_stark,
             all_proof,
             cross_table_lookups,
@@ -154,8 +154,8 @@ where
             &circuit_config,
         )?,
         recursively_prove_stark_proof(
-            Table::Cpu,
-            all_stark.cpu_stark,
+            Table::Logic,
+            all_stark.logic_stark,
             all_stark,
             all_proof,
             cross_table_lookups,
@@ -163,8 +163,8 @@ where
             &circuit_config,
         )?,
         recursively_prove_stark_proof(
-            Table::Cpu,
-            all_stark.cpu_stark,
+            Table::Memory,
+            all_stark.memory_stark,
             all_stark,
             all_proof,
             cross_table_lookups,

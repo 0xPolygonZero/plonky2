@@ -31,6 +31,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
     pub fn nums_ctl_zs(&self) -> [usize; NUM_TABLES] {
         std::array::from_fn(|i| self.stark_proofs[i].num_ctl_zs())
     }
+}
 
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub stark_challenges: [StarkProofChallenges<F, D>; NUM_TABLES],
