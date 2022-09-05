@@ -281,7 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             row.block_bytes[final_inputs.len()] = F::from_canonical_u8(0b10000001);
         } else {
             row.block_bytes[final_inputs.len()] = F::ONE;
-            row.block_bytes[KECCAK_RATE_BYTES - 1] = F::ONE;
+            row.block_bytes[KECCAK_RATE_BYTES - 1] = F::from_canonical_u8(0b10000000);
         }
 
         row.is_final_input_len[final_inputs.len()] = F::ONE;
