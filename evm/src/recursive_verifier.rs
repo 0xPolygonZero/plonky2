@@ -69,7 +69,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     {
         for (proof, verifier_data) in &self.recursive_proofs {
             let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
-            pw.set_proof_with_pis_target(&pt, &proof);
+            pw.set_proof_with_pis_target(&pt, proof);
             let inner_data = VerifierCircuitTarget {
                 constants_sigmas_cap: builder
                     .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
