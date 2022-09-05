@@ -41,28 +41,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
-    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
             self.keccak_memory_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
             self.memory_stark.num_permutation_batches(config),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 
-    pub(crate) fn permutation_batch_sizes(&self) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
             self.keccak_memory_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
             self.memory_stark.permutation_batch_size(),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 }
 
@@ -75,11 +71,7 @@ pub enum Table {
     Memory = 4,
 }
 
-impl Table {
-    pub(crate) const fn num_tables() -> usize {
-        Table::Memory as usize + 1
-    }
-}
+pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
@@ -326,6 +318,46 @@ mod tests {
             cpu_trace_rows.push(row.into());
         }
 
+        // Pad to `num_memory_ops` for memory testing.
+        for _ in cpu_trace_rows.len()..num_memory_ops {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.opcode_bits = bits_from_opcode(0x5b);
+            row.is_cpu_cycle = F::ONE;
+            row.is_kernel_mode = F::ONE;
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
+        }
+
+        for i in 0..num_memory_ops {
+            let mem_timestamp: usize = memory_trace[memory::columns::TIMESTAMP].values[i]
+                .to_canonical_u64()
+                .try_into()
+                .unwrap();
+            let clock = mem_timestamp / NUM_CHANNELS;
+            let channel = mem_timestamp % NUM_CHANNELS;
+
+            let filter = memory_trace[memory::columns::FILTER].values[i];
+            assert!(filter.is_one() || filter.is_zero());
+            let is_actual_op = filter.is_one();
+
+            if is_actual_op {
+                let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
+                row.clock = F::from_canonical_usize(clock);
+
+                let channel = &mut row.mem_channels[channel];
+                channel.used = F::ONE;
+                channel.is_read = memory_trace[memory::columns::IS_READ].values[i];
+                channel.addr_context = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+                channel.addr_segment = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+                channel.addr_virtual = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+                for j in 0..8 {
+                    channel.value[j] = memory_trace[memory::columns::value_limb(j)].values[i];
+                }
+            }
+        }
+
         for i in 0..num_logic_rows {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
@@ -346,54 +378,30 @@ mod tests {
                 },
             );
 
-            let logic = row.general.logic_mut();
-
             let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
-            for (col_cpu, limb_cols_logic) in logic.input0.iter_mut().zip(input0_bit_cols) {
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[0].value.iter_mut().zip(input0_bit_cols)
+            {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
             let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
-            for (col_cpu, limb_cols_logic) in logic.input1.iter_mut().zip(input1_bit_cols) {
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[1].value.iter_mut().zip(input1_bit_cols)
+            {
                 *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
             }
 
-            for (col_cpu, col_logic) in logic.output.iter_mut().zip(logic::columns::RESULT) {
+            for (col_cpu, col_logic) in row.mem_channels[2]
+                .value
+                .iter_mut()
+                .zip(logic::columns::RESULT)
+            {
                 *col_cpu = logic_trace[col_logic].values[i];
             }
 
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
-        }
-        for i in 0..num_memory_ops {
-            let mem_timestamp: usize = memory_trace[memory::columns::TIMESTAMP].values[i]
-                .to_canonical_u64()
-                .try_into()
-                .unwrap();
-            let clock = mem_timestamp / NUM_CHANNELS;
-            let channel = mem_timestamp % NUM_CHANNELS;
-
-            let filter = memory_trace[memory::columns::FILTER].values[i];
-            assert!(filter.is_one() || filter.is_zero());
-            let is_actual_op = filter.is_one();
-
-            if is_actual_op {
-                let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
-
-                row.mem_channel_used[channel] = F::ONE;
-                row.clock = F::from_canonical_usize(clock);
-                row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
-                row.mem_addr_context[channel] =
-                    memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-                row.mem_addr_segment[channel] =
-                    memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-                row.mem_addr_virtual[channel] =
-                    memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
-                for j in 0..8 {
-                    row.mem_value[channel][j] =
-                        memory_trace[memory::columns::value_limb(j)].values[i];
-                }
-            }
         }
 
         // Trap to kernel
@@ -406,7 +414,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x0a); // `EXP` is implemented in software
             row.is_kernel_mode = F::ONE;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.general.syscalls_mut().output = [
+            row.mem_channels[0].value = [
                 row.program_counter,
                 F::ONE,
                 F::ZERO,
@@ -428,7 +436,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15682),
                 F::ONE,
                 F::ZERO,
@@ -450,7 +458,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15682);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15106),
                 F::ZERO,
                 F::ZERO,
@@ -460,7 +468,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -487,7 +495,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15106);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(63064),
                 F::ZERO,
                 F::ZERO,
@@ -509,7 +517,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(63064);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(3754),
                 F::ZERO,
                 F::ZERO,
@@ -519,7 +527,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -547,7 +555,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(3754);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -557,7 +565,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ZERO,
                 F::ZERO,
                 F::ZERO,
@@ -585,7 +593,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(37543);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -614,7 +622,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -624,7 +632,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -695,7 +703,7 @@ mod tests {
             &mut memory_trace,
         );
 
-        let traces = vec![
+        let traces = [
             cpu_trace,
             keccak_trace,
             keccak_memory_trace,

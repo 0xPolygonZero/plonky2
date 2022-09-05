@@ -113,7 +113,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = altered_interpolant.eval_base(point);
-            constraints.extend(&(value - computed_value).to_basefield_array());
+            constraints.extend((value - computed_value).to_basefield_array());
         }
 
         let evaluation_point_powers = (1..self.num_points())
@@ -128,7 +128,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         }
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
-        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
+        constraints.extend((evaluation_value - computed_evaluation_value).to_basefield_array());
 
         constraints
     }
@@ -225,7 +225,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
             let point = builder.constant_extension(point);
             let computed_value = altered_interpolant.eval_scalar(builder, point);
             constraints.extend(
-                &builder
+                builder
                     .sub_ext_algebra(value, computed_value)
                     .to_ext_target_array(),
             );
@@ -253,7 +253,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         // let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         // let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
         constraints.extend(
-            &builder
+            builder
                 .sub_ext_algebra(evaluation_value, computed_evaluation_value)
                 .to_ext_target_array(),
         );

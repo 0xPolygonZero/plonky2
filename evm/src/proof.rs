@@ -13,38 +13,32 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
 
+use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::permutation::GrandProductChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub stark_proofs: Vec<StarkProof<F, C, D>>,
+    pub stark_proofs: [StarkProof<F, C, D>; NUM_TABLES],
     pub public_values: PublicValues,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
-    pub fn degree_bits(&self, config: &StarkConfig) -> Vec<usize> {
-        self.stark_proofs
-            .iter()
-            .map(|proof| proof.recover_degree_bits(config))
-            .collect()
+    pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+        std::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
     }
 
-    pub fn nums_ctl_zs(&self) -> Vec<usize> {
-        self.stark_proofs
-            .iter()
-            .map(|proof| proof.num_ctl_zs())
-            .collect()
+    pub fn nums_ctl_zs(&self) -> [usize; NUM_TABLES] {
+        std::array::from_fn(|i| self.stark_proofs[i].num_ctl_zs())
     }
-}
 
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    pub stark_challenges: Vec<StarkProofChallenges<F, D>>,
+    pub stark_challenges: [StarkProofChallenges<F, D>; NUM_TABLES],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
 pub struct AllProofTarget<const D: usize> {
-    pub stark_proofs: Vec<StarkProofTarget<D>>,
+    pub stark_proofs: [StarkProofTarget<D>; NUM_TABLES],
     pub public_values: PublicValuesTarget,
 }
 
@@ -99,7 +93,7 @@ pub struct BlockMetadataTarget {
 }
 
 pub(crate) struct AllProofChallengesTarget<const D: usize> {
-    pub stark_challenges: Vec<StarkProofChallengesTarget<D>>,
+    pub stark_challenges: [StarkProofChallengesTarget<D>; NUM_TABLES],
     pub ctl_challenges: GrandProductChallengeSet<Target>,
 }
 

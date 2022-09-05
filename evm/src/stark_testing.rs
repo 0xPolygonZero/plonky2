@@ -60,17 +60,20 @@ where
         })
         .collect::<Vec<_>>();
 
-    let constraint_eval_degree = PolynomialValues::new(constraint_evals).degree();
-    let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
+    let constraint_poly_values = PolynomialValues::new(constraint_evals);
+    if !constraint_poly_values.is_zero() {
+        let constraint_eval_degree = constraint_poly_values.degree();
+        let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
 
-    ensure!(
-        constraint_eval_degree <= maximum_degree,
-        "Expected degrees at most {} * {} - 1 = {}, actual {:?}",
-        WITNESS_SIZE,
-        stark.constraint_degree(),
-        maximum_degree,
-        constraint_eval_degree
-    );
+        ensure!(
+            constraint_eval_degree <= maximum_degree,
+            "Expected degrees at most {} * {} - 1 = {}, actual {:?}",
+            WITNESS_SIZE,
+            stark.constraint_degree(),
+            maximum_degree,
+            constraint_eval_degree
+        );
+    }
 
     Ok(())
 }

@@ -89,14 +89,14 @@ fn parse_macro_call(item: Pair<Rule>) -> Item {
 
 fn parse_repeat(item: Pair<Rule>) -> Item {
     assert_eq!(item.as_rule(), Rule::repeat);
-    let mut inner = item.into_inner().peekable();
+    let mut inner = item.into_inner();
     let count = parse_literal_u256(inner.next().unwrap());
     Item::Repeat(count, inner.map(parse_item).collect())
 }
 
 fn parse_stack(item: Pair<Rule>) -> Item {
     assert_eq!(item.as_rule(), Rule::stack);
-    let mut inner = item.into_inner().peekable();
+    let mut inner = item.into_inner();
 
     let params = inner.next().unwrap();
     assert_eq!(params.as_rule(), Rule::paramlist);

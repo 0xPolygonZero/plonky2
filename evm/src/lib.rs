@@ -2,6 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![feature(let_chains)]
 #![feature(generic_const_exprs)]
 
 pub mod all_stark;
@@ -14,6 +15,7 @@ pub mod generation;
 mod get_challenges;
 pub mod keccak;
 pub mod keccak_memory;
+pub mod keccak_sponge;
 pub mod logic;
 pub mod lookup;
 pub mod memory;

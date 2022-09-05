@@ -505,7 +505,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 {
     fn dependencies(&self) -> Vec<Target> {
         let mut deps = self.numerator.to_target_array().to_vec();
-        deps.extend(&self.denominator.to_target_array());
+        deps.extend(self.denominator.to_target_array());
         deps
     }
 

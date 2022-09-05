@@ -76,7 +76,7 @@ mod tests {
 
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::gadgets::biguint::witness_set_biguint_target;
+    use crate::gadgets::biguint::WitnessBigUint;
     use crate::gadgets::curve::CircuitBuilderCurve;
     use crate::gadgets::curve_fixed_base::fixed_base_curve_mul_circuit;
     use crate::gadgets::nonnative::CircuitBuilderNonNative;
@@ -101,7 +101,7 @@ mod tests {
         builder.curve_assert_valid(&res_expected);
 
         let n_target = builder.add_virtual_nonnative_target::<Secp256K1Scalar>();
-        witness_set_biguint_target(&mut pw, &n_target.value, &n.to_canonical_biguint());
+        pw.set_biguint_target(&n_target.value, &n.to_canonical_biguint());
 
         let res_target = fixed_base_curve_mul_circuit(&mut builder, g, &n_target);
         builder.curve_assert_valid(&res_target);

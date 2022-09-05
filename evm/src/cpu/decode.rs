@@ -6,14 +6,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
-#[derive(PartialEq, Eq)]
-enum Availability {
-    All,
-    User,
-    Kernel,
-}
-use Availability::{All, Kernel, User};
-
 /// List of opcode blocks
 ///  Each block corresponds to exactly one flag, and each flag corresponds to exactly one block.
 ///  Each block of opcodes:
@@ -28,123 +20,131 @@ use Availability::{All, Kernel, User};
 /// The exception is the PANIC instruction which is user-only without a corresponding kernel block.
 /// This makes the proof unverifiable when PANIC is executed in kernel mode, which is the intended
 /// behavior.
-const OPCODES: [(u8, usize, Availability, usize); 113] = [
-    // (start index of block, number of top bits to check (log2), availability, flag column)
-    (0x00, 0, All, COL_MAP.is_stop),
-    (0x01, 0, All, COL_MAP.is_add),
-    (0x02, 0, All, COL_MAP.is_mul),
-    (0x03, 0, All, COL_MAP.is_sub),
-    (0x04, 0, All, COL_MAP.is_div),
-    (0x05, 0, All, COL_MAP.is_sdiv),
-    (0x06, 0, All, COL_MAP.is_mod),
-    (0x07, 0, All, COL_MAP.is_smod),
-    (0x08, 0, All, COL_MAP.is_addmod),
-    (0x09, 0, All, COL_MAP.is_mulmod),
-    (0x0a, 0, All, COL_MAP.is_exp),
-    (0x0b, 0, All, COL_MAP.is_signextend),
-    (0x0c, 2, All, COL_MAP.is_invalid_0), // 0x0c-0x0f
-    (0x10, 0, All, COL_MAP.is_lt),
-    (0x11, 0, All, COL_MAP.is_gt),
-    (0x12, 0, All, COL_MAP.is_slt),
-    (0x13, 0, All, COL_MAP.is_sgt),
-    (0x14, 0, All, COL_MAP.is_eq),
-    (0x15, 0, All, COL_MAP.is_iszero),
-    (0x16, 0, All, COL_MAP.is_and),
-    (0x17, 0, All, COL_MAP.is_or),
-    (0x18, 0, All, COL_MAP.is_xor),
-    (0x19, 0, All, COL_MAP.is_not),
-    (0x1a, 0, All, COL_MAP.is_byte),
-    (0x1b, 0, All, COL_MAP.is_shl),
-    (0x1c, 0, All, COL_MAP.is_shr),
-    (0x1d, 0, All, COL_MAP.is_sar),
-    (0x1e, 1, All, COL_MAP.is_invalid_1), // 0x1e-0x1f
-    (0x20, 0, All, COL_MAP.is_keccak256),
-    (0x21, 0, All, COL_MAP.is_invalid_2),
-    (0x22, 1, All, COL_MAP.is_invalid_3), // 0x22-0x23
-    (0x24, 2, All, COL_MAP.is_invalid_4), // 0x24-0x27
-    (0x28, 3, All, COL_MAP.is_invalid_5), // 0x28-0x2f
-    (0x30, 0, All, COL_MAP.is_address),
-    (0x31, 0, All, COL_MAP.is_balance),
-    (0x32, 0, All, COL_MAP.is_origin),
-    (0x33, 0, All, COL_MAP.is_caller),
-    (0x34, 0, All, COL_MAP.is_callvalue),
-    (0x35, 0, All, COL_MAP.is_calldataload),
-    (0x36, 0, All, COL_MAP.is_calldatasize),
-    (0x37, 0, All, COL_MAP.is_calldatacopy),
-    (0x38, 0, All, COL_MAP.is_codesize),
-    (0x39, 0, All, COL_MAP.is_codecopy),
-    (0x3a, 0, All, COL_MAP.is_gasprice),
-    (0x3b, 0, All, COL_MAP.is_extcodesize),
-    (0x3c, 0, All, COL_MAP.is_extcodecopy),
-    (0x3d, 0, All, COL_MAP.is_returndatasize),
-    (0x3e, 0, All, COL_MAP.is_returndatacopy),
-    (0x3f, 0, All, COL_MAP.is_extcodehash),
-    (0x40, 0, All, COL_MAP.is_blockhash),
-    (0x41, 0, All, COL_MAP.is_coinbase),
-    (0x42, 0, All, COL_MAP.is_timestamp),
-    (0x43, 0, All, COL_MAP.is_number),
-    (0x44, 0, All, COL_MAP.is_difficulty),
-    (0x45, 0, All, COL_MAP.is_gaslimit),
-    (0x46, 0, All, COL_MAP.is_chainid),
-    (0x47, 0, All, COL_MAP.is_selfbalance),
-    (0x48, 0, All, COL_MAP.is_basefee),
-    (0x49, 0, User, COL_MAP.is_invalid_6),
-    (0x49, 0, Kernel, COL_MAP.is_prover_input),
-    (0x4a, 1, All, COL_MAP.is_invalid_7), // 0x4a-0x4b
-    (0x4c, 2, All, COL_MAP.is_invalid_8), // 0x4c-0x4f
-    (0x50, 0, All, COL_MAP.is_pop),
-    (0x51, 0, All, COL_MAP.is_mload),
-    (0x52, 0, All, COL_MAP.is_mstore),
-    (0x53, 0, All, COL_MAP.is_mstore8),
-    (0x54, 0, All, COL_MAP.is_sload),
-    (0x55, 0, All, COL_MAP.is_sstore),
-    (0x56, 0, All, COL_MAP.is_jump),
-    (0x57, 0, All, COL_MAP.is_jumpi),
-    (0x58, 0, All, COL_MAP.is_pc),
-    (0x59, 0, All, COL_MAP.is_msize),
-    (0x5a, 0, All, COL_MAP.is_gas),
-    (0x5b, 0, All, COL_MAP.is_jumpdest),
-    (0x5c, 2, User, COL_MAP.is_invalid_9), // 0x5c-5f
-    (0x5c, 0, Kernel, COL_MAP.is_get_state_root),
-    (0x5d, 0, Kernel, COL_MAP.is_set_state_root),
-    (0x5e, 0, Kernel, COL_MAP.is_get_receipt_root),
-    (0x5f, 0, Kernel, COL_MAP.is_set_receipt_root),
-    (0x60, 5, All, COL_MAP.is_push), // 0x60-0x7f
-    (0x80, 4, All, COL_MAP.is_dup),  // 0x80-0x8f
-    (0x90, 4, All, COL_MAP.is_swap), // 0x90-0x9f
-    (0xa0, 0, All, COL_MAP.is_log0),
-    (0xa1, 0, All, COL_MAP.is_log1),
-    (0xa2, 0, All, COL_MAP.is_log2),
-    (0xa3, 0, All, COL_MAP.is_log3),
-    (0xa4, 0, All, COL_MAP.is_log4),
-    (0xa5, 0, User, COL_MAP.is_invalid_10),
+/// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
+/// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
+const OPCODES: [(u8, usize, bool, usize); 92] = [
+    // (start index of block, number of top bits to check (log2), kernel-only, flag column)
+    (0x00, 0, false, COL_MAP.is_stop),
+    (0x01, 0, false, COL_MAP.is_add),
+    (0x02, 0, false, COL_MAP.is_mul),
+    (0x03, 0, false, COL_MAP.is_sub),
+    (0x04, 0, false, COL_MAP.is_div),
+    (0x05, 0, false, COL_MAP.is_sdiv),
+    (0x06, 0, false, COL_MAP.is_mod),
+    (0x07, 0, false, COL_MAP.is_smod),
+    (0x08, 0, false, COL_MAP.is_addmod),
+    (0x09, 0, false, COL_MAP.is_mulmod),
+    (0x0a, 0, false, COL_MAP.is_exp),
+    (0x0b, 0, false, COL_MAP.is_signextend),
+    (0x10, 0, false, COL_MAP.is_lt),
+    (0x11, 0, false, COL_MAP.is_gt),
+    (0x12, 0, false, COL_MAP.is_slt),
+    (0x13, 0, false, COL_MAP.is_sgt),
+    (0x14, 0, false, COL_MAP.is_eq),
+    (0x15, 0, false, COL_MAP.is_iszero),
+    (0x16, 0, false, COL_MAP.is_and),
+    (0x17, 0, false, COL_MAP.is_or),
+    (0x18, 0, false, COL_MAP.is_xor),
+    (0x19, 0, false, COL_MAP.is_not),
+    (0x1a, 0, false, COL_MAP.is_byte),
+    (0x1b, 0, false, COL_MAP.is_shl),
+    (0x1c, 0, false, COL_MAP.is_shr),
+    (0x1d, 0, false, COL_MAP.is_sar),
+    (0x20, 0, false, COL_MAP.is_keccak256),
+    (0x30, 0, false, COL_MAP.is_address),
+    (0x31, 0, false, COL_MAP.is_balance),
+    (0x32, 0, false, COL_MAP.is_origin),
+    (0x33, 0, false, COL_MAP.is_caller),
+    (0x34, 0, false, COL_MAP.is_callvalue),
+    (0x35, 0, false, COL_MAP.is_calldataload),
+    (0x36, 0, false, COL_MAP.is_calldatasize),
+    (0x37, 0, false, COL_MAP.is_calldatacopy),
+    (0x38, 0, false, COL_MAP.is_codesize),
+    (0x39, 0, false, COL_MAP.is_codecopy),
+    (0x3a, 0, false, COL_MAP.is_gasprice),
+    (0x3b, 0, false, COL_MAP.is_extcodesize),
+    (0x3c, 0, false, COL_MAP.is_extcodecopy),
+    (0x3d, 0, false, COL_MAP.is_returndatasize),
+    (0x3e, 0, false, COL_MAP.is_returndatacopy),
+    (0x3f, 0, false, COL_MAP.is_extcodehash),
+    (0x40, 0, false, COL_MAP.is_blockhash),
+    (0x41, 0, false, COL_MAP.is_coinbase),
+    (0x42, 0, false, COL_MAP.is_timestamp),
+    (0x43, 0, false, COL_MAP.is_number),
+    (0x44, 0, false, COL_MAP.is_difficulty),
+    (0x45, 0, false, COL_MAP.is_gaslimit),
+    (0x46, 0, false, COL_MAP.is_chainid),
+    (0x47, 0, false, COL_MAP.is_selfbalance),
+    (0x48, 0, false, COL_MAP.is_basefee),
+    (0x49, 0, true, COL_MAP.is_prover_input),
+    (0x50, 0, false, COL_MAP.is_pop),
+    (0x51, 0, false, COL_MAP.is_mload),
+    (0x52, 0, false, COL_MAP.is_mstore),
+    (0x53, 0, false, COL_MAP.is_mstore8),
+    (0x54, 0, false, COL_MAP.is_sload),
+    (0x55, 0, false, COL_MAP.is_sstore),
+    (0x56, 0, false, COL_MAP.is_jump),
+    (0x57, 0, false, COL_MAP.is_jumpi),
+    (0x58, 0, false, COL_MAP.is_pc),
+    (0x59, 0, false, COL_MAP.is_msize),
+    (0x5a, 0, false, COL_MAP.is_gas),
+    (0x5b, 0, false, COL_MAP.is_jumpdest),
+    (0x5c, 0, true, COL_MAP.is_get_state_root),
+    (0x5d, 0, true, COL_MAP.is_set_state_root),
+    (0x5e, 0, true, COL_MAP.is_get_receipt_root),
+    (0x5f, 0, true, COL_MAP.is_set_receipt_root),
+    (0x60, 5, false, COL_MAP.is_push), // 0x60-0x7f
+    (0x80, 4, false, COL_MAP.is_dup),  // 0x80-0x8f
+    (0x90, 4, false, COL_MAP.is_swap), // 0x90-0x9f
+    (0xa0, 0, false, COL_MAP.is_log0),
+    (0xa1, 0, false, COL_MAP.is_log1),
+    (0xa2, 0, false, COL_MAP.is_log2),
+    (0xa3, 0, false, COL_MAP.is_log3),
+    (0xa4, 0, false, COL_MAP.is_log4),
     // Opcode 0xa5 is PANIC when Kernel. Make the proof unverifiable by giving it no flag to decode to.
-    (0xa6, 1, All, COL_MAP.is_invalid_11), // 0xa6-0xa7
-    (0xa8, 3, All, COL_MAP.is_invalid_12), // 0xa8-0xaf
-    (0xb0, 4, All, COL_MAP.is_invalid_13), // 0xb0-0xbf
-    (0xc0, 5, All, COL_MAP.is_invalid_14), // 0xc0-0xdf
-    (0xe0, 4, All, COL_MAP.is_invalid_15), // 0xe0-0xef
-    (0xf0, 0, All, COL_MAP.is_create),
-    (0xf1, 0, All, COL_MAP.is_call),
-    (0xf2, 0, All, COL_MAP.is_callcode),
-    (0xf3, 0, All, COL_MAP.is_return),
-    (0xf4, 0, All, COL_MAP.is_delegatecall),
-    (0xf5, 0, All, COL_MAP.is_create2),
-    (0xf6, 1, User, COL_MAP.is_invalid_16), // 0xf6-0xf7
-    (0xf6, 0, Kernel, COL_MAP.is_get_context),
-    (0xf7, 0, Kernel, COL_MAP.is_set_context),
-    (0xf8, 1, User, COL_MAP.is_invalid_17), // 0xf8-0xf9
-    (0xf8, 0, Kernel, COL_MAP.is_consume_gas),
-    (0xf9, 0, Kernel, COL_MAP.is_exit_kernel),
-    (0xfa, 0, All, COL_MAP.is_staticcall),
-    (0xfb, 0, User, COL_MAP.is_invalid_18),
-    (0xfb, 0, Kernel, COL_MAP.is_mload_general),
-    (0xfc, 0, User, COL_MAP.is_invalid_19),
-    (0xfc, 0, Kernel, COL_MAP.is_mstore_general),
-    (0xfd, 0, All, COL_MAP.is_revert),
-    (0xfe, 0, All, COL_MAP.is_invalid_20),
-    (0xff, 0, All, COL_MAP.is_selfdestruct),
+    (0xf0, 0, false, COL_MAP.is_create),
+    (0xf1, 0, false, COL_MAP.is_call),
+    (0xf2, 0, false, COL_MAP.is_callcode),
+    (0xf3, 0, false, COL_MAP.is_return),
+    (0xf4, 0, false, COL_MAP.is_delegatecall),
+    (0xf5, 0, false, COL_MAP.is_create2),
+    (0xf6, 0, true, COL_MAP.is_get_context),
+    (0xf7, 0, true, COL_MAP.is_set_context),
+    (0xf8, 0, true, COL_MAP.is_consume_gas),
+    (0xf9, 0, true, COL_MAP.is_exit_kernel),
+    (0xfa, 0, false, COL_MAP.is_staticcall),
+    (0xfb, 0, true, COL_MAP.is_mload_general),
+    (0xfc, 0, true, COL_MAP.is_mstore_general),
+    (0xfd, 0, false, COL_MAP.is_revert),
+    (0xff, 0, false, COL_MAP.is_selfdestruct),
 ];
+
+/// Bitfield of invalid opcodes, in little-endian order.
+pub(crate) const fn invalid_opcodes_user() -> [u8; 32] {
+    let mut res = [u8::MAX; 32]; // Start with all opcodes marked invalid.
+
+    let mut i = 0;
+    while i < OPCODES.len() {
+        let (block_start, lb_block_len, kernel_only, _) = OPCODES[i];
+        i += 1;
+
+        if kernel_only {
+            continue;
+        }
+
+        let block_len = 1 << lb_block_len;
+        let block_start = block_start as usize;
+        let block_end = block_start + block_len;
+        let mut j = block_start;
+        while j < block_end {
+            let byte = j / u8::BITS as usize;
+            let bit = j % u8::BITS as usize;
+            res[byte] &= !(1 << bit); // Mark opcode as invalid by zeroing the bit.
+            j += 1;
+        }
+    }
+    res
+}
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
@@ -184,15 +184,19 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     assert!(kernel <= 1);
     let kernel = kernel != 0;
 
-    for (oc, block_length, availability, col) in OPCODES {
-        let available = match availability {
-            All => true,
-            User => !kernel,
-            Kernel => kernel,
-        };
+    let mut any_flag_set = false;
+    for (oc, block_length, kernel_only, col) in OPCODES {
+        let available = !kernel_only || kernel;
         let opcode_match = top_bits[8 - block_length] == oc;
-        lv[col] = F::from_bool(available && opcode_match);
+        let flag = available && opcode_match;
+        lv[col] = F::from_bool(flag);
+        if flag && any_flag_set {
+            panic!("opcode matched multiple flags");
+        }
+        any_flag_set = any_flag_set || flag;
     }
+    // is_invalid is a catch-all for opcodes we can't decode.
+    lv.is_invalid = F::from_bool(!any_flag_set);
 }
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -230,21 +234,22 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
+    yield_constr.constraint(cycle_filter * lv.is_invalid * (lv.is_invalid - P::ONES));
     // Now check that exactly one is 1.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
-        .sum();
+        .sum::<P>()
+        + lv.is_invalid;
     yield_constr.constraint(cycle_filter * (P::ONES - flag_sum));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
-    for (oc, block_length, availability, col) in OPCODES {
-        // 0 if the block/flag is available to us (is always available, is user-only and we are in
-        // user mode, or kernel-only and we are in kernel mode) and 1 otherwise.
-        let unavailable = match availability {
-            All => P::ZEROS,
-            User => kernel_mode,
-            Kernel => P::ONES - kernel_mode,
+    for (oc, block_length, kernel_only, col) in OPCODES {
+        // 0 if the block/flag is available to us (is always available or we are in kernel mode) and
+        // 1 otherwise.
+        let unavailable = match kernel_only {
+            false => P::ZEROS,
+            true => P::ONES - kernel_mode,
         };
         // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
         let opcode_mismatch: P = lv
@@ -299,6 +304,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
+    {
+        let constr = builder.mul_sub_extension(lv.is_invalid, lv.is_invalid, lv.is_invalid);
+        let constr = builder.mul_extension(cycle_filter, constr);
+        yield_constr.constraint(builder, constr);
+    }
     // Now check that exactly one is 1.
     {
         let mut constr = builder.one_extension();
@@ -306,18 +316,18 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             let flag = lv[flag_col];
             constr = builder.sub_extension(constr, flag);
         }
+        constr = builder.sub_extension(constr, lv.is_invalid);
         constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
-    for (oc, block_length, availability, col) in OPCODES {
-        // 0 if the block/flag is available to us (is always available, is user-only and we are in
-        // user mode, or kernel-only and we are in kernel mode) and 1 otherwise.
-        let unavailable = match availability {
-            All => builder.zero_extension(),
-            User => kernel_mode,
-            Kernel => builder.sub_extension(one, kernel_mode),
+    for (oc, block_length, kernel_only, col) in OPCODES {
+        // 0 if the block/flag is available to us (is always available or we are in kernel mode) and
+        // 1 otherwise.
+        let unavailable = match kernel_only {
+            false => builder.zero_extension(),
+            true => builder.sub_extension(one, kernel_mode),
         };
         // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
         let opcode_mismatch = lv
