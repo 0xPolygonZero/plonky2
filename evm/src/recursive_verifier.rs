@@ -76,7 +76,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             );
             builder.verify_proof(pt, &inner_data, &verifier_data.common);
         }
-        // builder.print_gate_counts(0);
     }
 }
 
