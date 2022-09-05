@@ -37,6 +37,10 @@ impl<F: Field> PolynomialValues<F> {
         Self::constant(F::ZERO, len)
     }
 
+    pub fn is_zero(&self) -> bool {
+        self.values.iter().all(|x| x.is_zero())
+    }
+
     /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
     pub fn selector(len: usize, index: usize) -> Self {
         let mut result = Self::zero(len);

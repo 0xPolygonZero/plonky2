@@ -3,11 +3,12 @@
 
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
-use std::mem::{size_of, transmute, transmute_copy, ManuallyDrop};
+use std::mem::{size_of, transmute};
 use std::ops::{Index, IndexMut};
 
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::memory;
+use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
 
@@ -157,14 +158,6 @@ pub struct CpuColumnsView<T: Copy> {
 // `u8` is guaranteed to have a `size_of` of 1.
 pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
-unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U {
-    debug_assert_eq!(size_of::<T>(), size_of::<U>());
-    // Need ManuallyDrop so that `value` is not dropped by this function.
-    let value = ManuallyDrop::new(value);
-    // Copy the bit pattern. The original value is no longer safe to use.
-    transmute_copy(&value)
-}
-
 impl<T: Copy> From<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
     fn from(value: [T; NUM_CPU_COLUMNS]) -> Self {
         unsafe { transmute_no_compile_time_size_checks(value) }
@@ -224,12 +217,7 @@ where
 }
 
 const fn make_col_map() -> CpuColumnsView<usize> {
-    let mut indices_arr = [0; NUM_CPU_COLUMNS];
-    let mut i = 0;
-    while i < NUM_CPU_COLUMNS {
-        indices_arr[i] = i;
-        i += 1;
-    }
+    let indices_arr = indices_arr::<NUM_CPU_COLUMNS>();
     unsafe { transmute::<[usize; NUM_CPU_COLUMNS], CpuColumnsView<usize>>(indices_arr) }
 }
 
