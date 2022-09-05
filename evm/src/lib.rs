@@ -2,6 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![feature(let_chains)]
 #![feature(generic_const_exprs)]
 
 pub mod all_stark;
