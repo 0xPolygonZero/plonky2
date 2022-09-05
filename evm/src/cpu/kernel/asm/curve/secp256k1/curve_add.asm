@@ -3,7 +3,6 @@
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points.
 global ec_add_valid_points_secp:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Check if the first point is the identity.
@@ -57,7 +56,6 @@ global ec_add_valid_points_secp:
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) == (0,0)
 ec_add_first_zero:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
@@ -72,7 +70,6 @@ ec_add_first_zero:
 // Secp256k1 elliptic curve addition.
 // Assumption: (x1,y1) == (0,0)
 ec_add_snd_zero:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
@@ -93,7 +90,6 @@ ec_add_snd_zero:
 // Secp256k1 elliptic curve addition.
 // Assumption: lambda = (y0 - y1)/(x0 - x1)
 ec_add_valid_points_with_lambda:
-    JUMPDEST
     // stack: lambda, x0, y0, x1, y1, retdest
 
     // Compute x2 = lambda^2 - x1 - x0
@@ -150,7 +146,6 @@ ec_add_valid_points_with_lambda:
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points and x0 == x1
 ec_add_equal_first_coord:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest with x0 == x1
 
     // Check if the points are equal
@@ -179,7 +174,6 @@ ec_add_equal_first_coord:
 // Assumption: x0 == x1 and y0 == y1
 // Standard doubling formula.
 ec_add_equal_points:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Compute lambda = 3/2 * x0^2 / y0
@@ -207,7 +201,6 @@ ec_add_equal_points:
 // Assumption: (x0,y0) is a valid point.
 // Standard doubling formula.
 global ec_double_secp:
-    JUMPDEST
     // stack: x0, y0, retdest
     DUP2
     // stack: y0, x0, y0, retdest
