@@ -35,6 +35,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::columns::*;
 use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
 use crate::arithmetic::sub::u256_sub_br;
+use crate::arithmetic::utils::{polmul_wide, polsub};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -121,11 +122,9 @@ pub(crate) fn generate_addmod<F: RichField>(
         unreduced_sum[deg] = (input0_limbs[deg] + input1_limbs[deg]) as i64;
         unreduced_sum[deg] -= output_limbs[deg] as i64;
     }
-    for (i, q) in quot_limbs.iter().enumerate() {
-        for (j, m) in modulus_limbs.iter().enumerate() {
-            unreduced_sum[i + j] -= (q * m) as i64;
-        }
-    }
+    let tmp = polmul_wide(quot_limbs, modulus_limbs).map(|c| c as i64);
+    unreduced_sum = polsub(unreduced_sum, tmp);
+
     // The high half must be zero, because...
     // FIXME: add proper justification of this
     for i in N_LIMBS..2 * N_LIMBS - 1 {
@@ -251,11 +250,15 @@ pub(crate) fn eval_packed_generic_addmod<P: PackedField>(
         constr_poly[deg] = input0_limbs[deg] + input1_limbs[deg] - output_limbs[deg];
     }
 
+    let tmp = polmul_wide(quot_limbs, modulus_limbs);
+    constr_poly = polsub(constr_poly, tmp);
+    /*
     for (i, &q) in quot_limbs.iter().enumerate() {
         for (j, &m) in modulus_limbs.iter().enumerate() {
             constr_poly[i + j] -= q * m;
         }
     }
+    */
 
     // Low half of s(x)*m(x) must match aux_constr_poly;
     // we can then use the aux_constr_poly values in the following
