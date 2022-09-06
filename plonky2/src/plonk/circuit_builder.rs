@@ -836,15 +836,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [(); C::Hasher::HASH_SIZE]:,
     {
         // TODO: Can skip parts of this.
-        let CircuitData {
-            prover_only,
-            common,
-            ..
-        } = self.build();
-        ProverCircuitData {
-            prover_only,
-            common,
-        }
+        let circuit_data = self.build();
+        circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
@@ -853,14 +846,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [(); C::Hasher::HASH_SIZE]:,
     {
         // TODO: Can skip parts of this.
-        let CircuitData {
-            verifier_only,
-            common,
-            ..
-        } = self.build();
-        VerifierCircuitData {
-            verifier_only,
-            common,
-        }
+        let circuit_data = self.build();
+        circuit_data.verifier_data()
     }
 }

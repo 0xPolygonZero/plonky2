@@ -151,6 +151,18 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             common,
         }
     }
+
+    pub fn prover_data(self) -> ProverCircuitData<F, C, D> {
+        let CircuitData {
+            prover_only,
+            common,
+            ..
+        } = self;
+        ProverCircuitData {
+            prover_only,
+            common,
+        }
+    }
 }
 
 /// Circuit data required by the prover. This may be thought of as a proving key, although it
