@@ -1,6 +1,6 @@
 #[cfg(not(feature = "parallel"))]
 use std::{
-    iter::{IntoIterator, Iterator, FlatMap},
+    iter::{FlatMap, IntoIterator, Iterator},
     slice::{Chunks, ChunksExact, ChunksExactMut, ChunksMut},
 };
 
@@ -235,7 +235,6 @@ pub trait ParallelIteratorMock {
         Self: Sized,
         U: IntoIterator,
         F: Fn(Self::Item) -> U;
-
 }
 
 #[cfg(not(feature = "parallel"))]
@@ -253,7 +252,7 @@ impl<T: Iterator> ParallelIteratorMock for T {
     where
         Self: Sized,
         U: IntoIterator,
-        F: Fn(Self::Item) -> U
+        F: Fn(Self::Item) -> U,
     {
         self.flat_map(map_op)
     }
