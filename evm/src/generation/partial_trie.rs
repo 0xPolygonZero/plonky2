@@ -1,5 +1,6 @@
 use ethereum_types::U256;
 
+#[derive(Clone, Debug)]
 /// A partial trie, or a sub-trie thereof. This mimics the structure of an Ethereum trie, except
 /// with an additional `Hash` node type, representing a node whose data is not needed to process
 /// our transaction.
@@ -22,6 +23,7 @@ pub enum PartialTrie {
     Leaf { nibbles: Nibbles, value: Vec<u8> },
 }
 
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 /// A sequence of nibbles.
 pub struct Nibbles {
     /// The number of nibbles in this sequence.
