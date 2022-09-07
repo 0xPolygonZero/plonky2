@@ -607,32 +607,25 @@ sha2_compression_end:
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
     pop
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], message_schedule_addr, i, retdest
-    swap1
     %shl_const(32)
     or
-    swap1
-    %shl_const(64)
+    %shl_const(32)
     or
-    swap1
-    %shl_const(96)
+    %shl_const(32)
     or
-    swap1
-    %shl_const(128)
+    %shl_const(32)
     or
-    swap1
-    %shl_const(160)
+    %shl_const(32)
     or
-    swap1
-    %shl_const(192)
+    %shl_const(32)
     or
-    swap1
-    %shl_const(224)
+    %shl_const(32)
     or
-    // stack: concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), message_schedule_addr, i, retdest
+    // stack: concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), message_schedule_addr, i, retdest
     swap2
-    // stack: i, num_blocks, concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), retdest
+    // stack: i, num_blocks, concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
     %pop2
-    // stack: sha2_result = concat(h[0]+h[64], g[0]+g[64], f[0]+f[64], e[0]+e[64], d[0]+d[64], c[0]+c[64], b[0]+b[64], a[0]+a[64]), retdest
+    // stack: sha2_result = concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
     STOP
 
 global sha2:

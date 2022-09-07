@@ -555,7 +555,7 @@ mod tests {
         let push_label = get_push_opcode(BYTES_PER_OFFSET);
 
         let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
-        assert_eq!(kernel.code, vec![]);
+        assert_eq!(kernel.code, vec![] as Vec<u8>);
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (c, b, a)"]);
         assert_eq!(kernel.code, vec![swap2]);
