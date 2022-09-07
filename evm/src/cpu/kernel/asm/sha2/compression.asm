@@ -1,5 +1,4 @@
 global sha2_compression:
-    JUMPDEST
     // stack: message_schedule_addr, retdest
     push 0
     // stack: i=0, message_schedule_addr, retdest
@@ -48,7 +47,6 @@ global sha2_compression:
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
 sha2_compression_start_block:
     // Store the current values of the working variables, as the "initial values" to be added back in at the end of this block.
-    JUMPDEST
     dup10
     // stack: scratch_space_addr, a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
 
@@ -117,7 +115,6 @@ sha2_compression_start_block:
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
 sha2_compression_loop:
     // Update the eight working variables, using the next constant K[i] and the next message schedule chunk W[i].
-    JUMPDEST
     // stack: a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     dup11
     // stack: message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
@@ -253,7 +250,6 @@ sha2_compression_loop:
     %jump(sha2_compression_loop)
 sha2_compression_end_block:
     // Add the initial values of the eight working variables (from the start of this block's compression) back into them.
-    JUMPDEST
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     dup10
     // stack: scratch_space_addr, a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
@@ -351,7 +347,6 @@ sha2_compression_end_block:
     swap8
     %jump(sha2_compression_start_block)
 sha2_compression_end:
-    JUMPDEST
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     pop
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest

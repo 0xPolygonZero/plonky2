@@ -2,7 +2,6 @@
 // Postcondition: 256 bytes starting at given output address contain the 64 32-bit chunks
 //                of message schedule (in four-byte increments)
 global sha2_gen_message_schedule_from_block:
-    JUMPDEST
     // stack: block_addr, output_addr, retdest
     dup1
     // stack: block_addr, block_addr, output_addr, retdest
@@ -24,7 +23,6 @@ global sha2_gen_message_schedule_from_block:
     %jump(sha2_gen_message_schedule_from_block_0_loop)
 sha2_gen_message_schedule_from_block_0_loop:
     // Split the first half (256 bits) of the block into the first eight (32-bit) chunks of the message sdchedule.
-    JUMPDEST
     // stack: counter, output_addr, block[0], block[1], retdest
     swap2
     // stack: block[0], output_addr, counter, block[1], retdest
@@ -63,7 +61,6 @@ sha2_gen_message_schedule_from_block_0_loop:
     %jumpi(sha2_gen_message_schedule_from_block_0_end)
     %jump(sha2_gen_message_schedule_from_block_0_loop)
 sha2_gen_message_schedule_from_block_0_end:
-    JUMPDEST
     // stack: old counter=0, output_addr, block[0], block[1], retdest
     pop
     push 8
@@ -82,7 +79,6 @@ sha2_gen_message_schedule_from_block_0_end:
     // stack: counter, output_addr + 64, block[1], block[0], retdest
 sha2_gen_message_schedule_from_block_1_loop:
     // Split the second half (256 bits) of the block into the next eight (32-bit) chunks of the message sdchedule.
-    JUMPDEST
     // stack: counter, output_addr, block[1], block[0], retdest
     swap2
     // stack: block[1], output_addr, counter, block[0], retdest
@@ -121,7 +117,6 @@ sha2_gen_message_schedule_from_block_1_loop:
     %jumpi(sha2_gen_message_schedule_from_block_1_end)
     %jump(sha2_gen_message_schedule_from_block_1_loop)
 sha2_gen_message_schedule_from_block_1_end:
-    JUMPDEST
     // stack: old counter=0, output_addr, block[1], block[0], retdest
     pop
     // stack: output_addr, block[0], block[1], retdest
@@ -135,7 +130,6 @@ sha2_gen_message_schedule_from_block_1_end:
     // stack: counter, output_addr + 36, block[0], block[1], retdest
 sha2_gen_message_schedule_remaining_loop:
     // Generate the next 48 chunks of the message schedule, one at a time, from prior chunks.
-    JUMPDEST
     // stack: counter, output_addr, block[0], block[1], retdest
     swap1
     // stack: output_addr, counter, block[0], block[1], retdest
@@ -218,7 +212,6 @@ sha2_gen_message_schedule_remaining_loop:
     %jumpi(sha2_gen_message_schedule_remaining_end)
     %jump(sha2_gen_message_schedule_remaining_loop)
 sha2_gen_message_schedule_remaining_end:
-    JUMPDEST
     // stack: counter=0, output_addr, block[0], block[1], retdest
     %pop4
     JUMP
@@ -228,7 +221,6 @@ sha2_gen_message_schedule_remaining_end:
 // Postcondition: starting at output_addr, set of 256 bytes per block
 //                each contains the 64 32-bit chunks of the message schedule for that block (in four-byte increments)
 global sha2_gen_all_message_schedules: 
-    JUMPDEST
     // stack: output_addr, retdest
     dup1
     // stack: output_addr, output_addr, retdest
@@ -239,7 +231,6 @@ global sha2_gen_all_message_schedules:
     push 1
     // stack: cur_addr = 1, counter = num_blocks, output_addr, output_addr, retdest
 sha2_gen_all_message_schedules_loop:
-    JUMPDEST
     // stack: cur_addr, counter, cur_output_addr, output_addr, retdest
     push sha2_gen_all_message_schedules_loop_end
     // stack: new_retdest = sha2_gen_all_message_schedules_loop_end, cur_addr, counter, cur_output_addr, output_addr, retdest
@@ -249,7 +240,6 @@ sha2_gen_all_message_schedules_loop:
     // stack: cur_addr, cur_output_addr, new_retdest, cur_addr, counter, cur_output_addr, output_addr, retdest
     %jump(sha2_gen_message_schedule_from_block)
 sha2_gen_all_message_schedules_loop_end:
-    JUMPDEST
     // stack: cur_addr, counter, cur_output_addr, output_addr, retdest
     %add_const(64)
     // stack: cur_addr + 64, counter, cur_output_addr, output_addr, retdest
@@ -266,9 +256,7 @@ sha2_gen_all_message_schedules_loop_end:
     iszero
     %jumpi(sha2_gen_all_message_schedules_end)
     %jump(sha2_gen_all_message_schedules_loop)
-    JUMPDEST
 sha2_gen_all_message_schedules_end:
-    JUMPDEST
     // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     %pop3
     // stack: output_addr, retdest
