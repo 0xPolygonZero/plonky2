@@ -1,6 +1,6 @@
 #[cfg(not(feature = "parallel"))]
 use std::{
-    iter::{IntoIterator, Iterator},
+    iter::{FlatMap, IntoIterator, Iterator},
     slice::{Chunks, ChunksExact, ChunksExactMut, ChunksMut},
 };
 
@@ -223,13 +223,21 @@ impl<T: Send> MaybeParChunksMut<T> for [T] {
     }
 }
 
+#[cfg(not(feature = "parallel"))]
 pub trait ParallelIteratorMock {
     type Item;
     fn find_any<P>(self, predicate: P) -> Option<Self::Item>
     where
         P: Fn(&Self::Item) -> bool + Sync + Send;
+
+    fn flat_map_iter<U, F>(self, map_op: F) -> FlatMap<Self, U, F>
+    where
+        Self: Sized,
+        U: IntoIterator,
+        F: Fn(Self::Item) -> U;
 }
 
+#[cfg(not(feature = "parallel"))]
 impl<T: Iterator> ParallelIteratorMock for T {
     type Item = T::Item;
 
@@ -238,6 +246,15 @@ impl<T: Iterator> ParallelIteratorMock for T {
         P: Fn(&Self::Item) -> bool + Sync + Send,
     {
         self.find(predicate)
+    }
+
+    fn flat_map_iter<U, F>(self, map_op: F) -> FlatMap<Self, U, F>
+    where
+        Self: Sized,
+        U: IntoIterator,
+        F: Fn(Self::Item) -> U,
+    {
+        self.flat_map(map_op)
     }
 }
 
