@@ -155,7 +155,7 @@ round:
 box:
     jumpdest
     // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides
-    push after_F  dup5  dup5  dup5  dup10
+    push pre_rol  dup5  dup5  dup5  dup10
     // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides
     jump
 pre_rol:
@@ -204,7 +204,7 @@ post_rol:
     // stack: sides, rounds
     %mul_const(5)  push 10  sub  sub
     // stack: 10 - 5*sides - rounds
-%end_macro
+%endmacro
 
 
 %macro get_box_from_stack
@@ -213,4 +213,4 @@ post_rol:
     // stack:       boxes , 16*rounds , 80*sides, *7_args, boxes, rounds, sides
     push 160  sub  sub  sub
     // stack: 160 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
-%end_macro
+%endmacro

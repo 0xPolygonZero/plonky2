@@ -222,6 +222,7 @@
     // stack: 0xffffffff, x
     and
     // stack: 0xffffffff & x
+%endmacro
 
 %macro not_32
     // stack: x
