@@ -7,6 +7,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -19,7 +20,7 @@ const VAL_BITS: usize = 256;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
 pub(crate) const PACKED_LIMB_BITS: usize = 32;
 // Number of field elements needed to store each input/output at the specified packing.
-const PACKED_LEN: usize = (VAL_BITS + PACKED_LIMB_BITS - 1) / PACKED_LIMB_BITS;
+const PACKED_LEN: usize = ceil_div_usize(VAL_BITS, PACKED_LIMB_BITS);
 
 pub(crate) mod columns {
     use std::cmp::min;
