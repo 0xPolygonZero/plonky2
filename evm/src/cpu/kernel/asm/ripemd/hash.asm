@@ -145,9 +145,9 @@ round:
 ///     x   = load_block(r)
 ///     a  += x + K
 ///     s   = load_s(box)
-///     a   = ROL(s, a)
+///     a   = rol(s, a)
 ///     a  += e
-///     c   = ROL(10, c)
+///     c   = rol(10, c)
 ///
 ///     return e, a, b, c, d, F, K
 
@@ -177,7 +177,7 @@ pre_rol:
     // stack: box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
     %load_s
     // stack:   s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
-    %jump(ROL)
+    %jump(rol)
 mid_rol:
     jumpdest
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
@@ -185,15 +185,15 @@ mid_rol:
     // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides
     add %u32    
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
-    %stack (a, b, c) -> (10, c, post_rol, a, b)
+    SWAP1  SWAP2  PUSH post_rol  SWAP1  PUSH 10
     // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides
-    %jump(ROL)
+    %jump(rol)
 post_rol:
     jumpdest
     // stack: c, a, b, d, e, F, K, boxes  , rounds, sides
-    swap4
+    swap3
     // stack: d, a, b, c, e, F, K, boxes  , rounds, sides
-    swap5
+    swap4
     // stack: e, a, b, c, d, F, K, boxes  , rounds, sides
     swap7  push 1  swap1  sub  swap7
     // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides
