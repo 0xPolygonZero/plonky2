@@ -24,9 +24,7 @@
     // stack: rot, value, rot, value
     shr
     // stack: value >> rot, rot, value
-    swap2
-    // stack: value, rot, value >> rot
-    swap1
+    %stack (shifted, rot, value) -> (rot, value, shifted)
     // stack: rot, value, value >> rot
     push 32
     sub
@@ -55,9 +53,7 @@
     // stack: 32 - rot, value, rot, value
     shr
     // stack: value >> (32 - rot), rot, value
-    swap2
-    // stack: value, rot, value >> (32 - rot)
-    swap1
+    %stack (shifted, rot, value) -> (rot, value, shifted)
     // stack: rot, value, value >> (32 - rot)
     shl
     // stack: value << rot, value >> (32 - rot)
@@ -79,9 +75,7 @@
     push 7
     %rotr
     // stack: rotr(x, 7), x
-    swap1
-    // stack: x, rotr(x, 7)
-    dup1
+    %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 7)
     push 18
     %rotr
@@ -102,9 +96,7 @@
     push 17
     %rotr
     // stack: rotr(x, 17), x
-    swap1
-    // stack: x, rotr(x, 17)
-    dup1
+    %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 17)
     push 19
     %rotr
@@ -125,9 +117,7 @@
     push 2
     %rotr
     // stack: rotr(x, 2), x
-    swap1
-    // stack: x, rotr(x, 2)
-    dup1
+    %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 2)
     push 13
     %rotr
@@ -148,9 +138,7 @@
     push 6
     %rotr
     // stack: rotr(x, 6), x
-    swap1
-    // stack: x, rotr(x, 6)
-    dup1
+    %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 6)
     push 11
     %rotr
@@ -168,18 +156,16 @@
     // stack: x, y, z
     dup1
     // stack: x, x, y, z
-    swap2
-    // stack: y, x, x, z
-    and
-    // stack: x and y, x, z
-    swap2
-    // stack: z, x, x and y
-    swap1
-    // stack: x, z, x and y
     not
-    // stack: not x, z, x and y
+    // stack: not x, x, y, z
+    %stack (notx, x, y, z) -> (notx, z, x, y)
+    // stack: not x, z, x, y
     and
-    // stack: (not x) and z, x and y
+    // stack: (not x) and z, x, y
+    %stack (nxz, x, y) -> (x, y, nxz)
+    // stack: x, y, (not x) and z
+    and
+    // stack: x and y, (not x) and z
     or
 %endmacro
 
