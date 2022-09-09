@@ -19,7 +19,7 @@ pub(crate) enum Item {
     /// The first list gives names to items on the top of the stack.
     /// The second list specifies replacement items.
     /// Example: `(a, b, c) -> (c, 5, 0x20, @SOME_CONST, a)`.
-    StackManipulation(Vec<String>, Vec<StackReplacement>),
+    StackManipulation(Vec<StackPlaceholder>, Vec<StackReplacement>),
     /// Declares a global label.
     GlobalLabelDeclaration(String),
     /// Declares a label that is local to the current file.
@@ -36,6 +36,14 @@ pub(crate) enum Item {
     Bytes(Vec<u8>),
 }
 
+/// The left hand side of a %stack stack-manipulation macro.
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub(crate) enum StackPlaceholder {
+    Identifier(String),
+    Block(String, usize),
+}
+
+/// The right hand side of a %stack stack-manipulation macro.
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub(crate) enum StackReplacement {
     /// Can be either a named item or a label.
