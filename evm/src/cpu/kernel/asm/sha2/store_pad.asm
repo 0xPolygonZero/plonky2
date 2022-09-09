@@ -10,6 +10,11 @@ global sha2_store:
     // stack: addr=1, counter=num_bytes, x[0], x[1], x[2], ... , x[num_bytes-1], retdest
 sha2_store_loop:
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
+    DUP2
+    // stack: counter, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
+    ISZERO
+    %jumpi(sha2_store_end)
+    // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     DUP1
     // stack: addr, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     SWAP3
@@ -20,18 +25,13 @@ sha2_store_loop:
     // stack: counter, addr,  ... , x[num_bytes-1], retdest
     %decrement
     // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
-    DUP1
-    // stack: counter-1, counter-1, addr,  ... , x[num_bytes-1], retdest
-    ISZERO
-    %jumpi(sha2_store_end)
-    // stack: counter-1, addr,  ... , x[num_bytes-1], retdest
     SWAP1
     // stack: addr, counter-1,  ... , x[num_bytes-1], retdest
     %increment
     // stack: addr+1, counter-1,  ... , x[num_bytes-1], retdest
     %jump(sha2_store_loop)
 sha2_store_end:
-    // stack: counter=0, addr, retdest
+    // stack: addr, counter, retdest
     %pop2
     // stack: retdest
     %jump(sha2_pad)
