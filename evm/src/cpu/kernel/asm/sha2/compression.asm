@@ -136,15 +136,11 @@ sha2_compression_loop:
     // stack: sha2_constants_k + 4*i, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     %mload_kernel_code_u32
     // stack: K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    %stack ((start: 6), e, f, g, h, (end: 5)) -> (e, f, g, h, start, e, f, g, h, end)
+    %stack ((start: 6), e, f, g, h) -> (e, f, g, h, start, e, f, g, h)
     // stack: e[i], f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     %sha2_temp_word1
     // stack: T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    DUP4
-    // stack: c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    DUP4
-    // stack: b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    DUP4
+    %stack (t, a, b, c) -> (a, b, c, t, a, b, c)
     // stack: a[i], b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     %sha2_temp_word2
     // stack: T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
@@ -158,41 +154,7 @@ sha2_compression_loop:
     // stack: T2[i], T1[i], e[i+1], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     %add_u32
     // stack: a[i+1]=T1[i]+T2[i], e[i+1], b[i+1]=a[i], c[i+1]=b[i], d[i+1]=c[i], d[i], f[i+1]=e[i], g[i+1]=f[i], h[i+1]=g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP1
-    // stack: e[i+1], a[i+1], b[i+1], c[i+1], d[i+1], d[i], f[i+1], g[i+1], h[i+1], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP5
-    // stack: d[i], a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    POP
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP8
-    // stack: h[i], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    POP
-    // stack: b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], a[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP7
-    // stack: a[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], b[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP1
-    SWAP7
-    SWAP1
-    // stack: a[i+1], b[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], c[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP2
-    SWAP7
-    SWAP2
-    // stack: a[i+1], b[i+1], c[i+1], e[i+1], f[i+1], g[i+1], h[i+1], d[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP3
-    SWAP7
-    SWAP3
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], f[i+1], g[i+1], h[i+1], e[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP4
-    SWAP7
-    SWAP4
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], g[i+1], h[i+1], f[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP5
-    SWAP7
-    SWAP5
-    // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], h[i+1], g[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP6
-    SWAP7
-    SWAP6
+    %stack (a, e, b, c, d, old_d, f, g, h, old_h) -> (a, b, c, d, e, f, g, h)
     // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     DUP12
     // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
@@ -309,30 +271,7 @@ sha2_compression_end_block:
     // In this case, we've finished all the blocks.
     %jumpi(sha2_compression_end)
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
-    // TODO: "insertion" macro for the below
-    // Move num_blocks to the ninth spot on the stack, past the working variables.
-    SWAP1
-    SWAP2
-    SWAP1
-    SWAP2
-    SWAP3
-    SWAP2
-    SWAP3
-    SWAP4
-    SWAP3
-    SWAP4
-    SWAP5
-    SWAP4
-    SWAP5
-    SWAP6
-    SWAP5
-    SWAP6
-    SWAP7
-    SWAP6
-    SWAP7
-    SWAP8
-    SWAP7
-    SWAP8
+    %stack (num_blocks, (working: 8)) -> (working, num_blocks)
     %jump(sha2_compression_start_block)
 sha2_compression_end:
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
