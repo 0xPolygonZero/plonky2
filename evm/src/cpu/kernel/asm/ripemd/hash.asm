@@ -26,7 +26,7 @@
 global hash:
     jumpdest
     // stack: *state, retdest
-    push switch  push 0  push 5  push 16  push 0  push 0
+    push switch  push 1  push 5  push 16  push 0  push 0
     // stack: 0, 0, 16, 5, 1, switch, *state, retdest
     dup11  dup11  dup11  dup11  dup11
     // stack: *state, 0, 0, 16, 5, 1, switch, *state, retdest
@@ -113,7 +113,7 @@ loop:
 update_round_vars:
     jumpdest
     // stack:           *state, F , K , 16, rounds, sides, retdest
-    dup10  dup10  %get_round  dup1
+    dup9  dup11  %get_round  dup1
     // stack: rnd, rnd, *state, F , K , 16, rounds, sides, retdest
     swap7  pop  %push_F  swap7
     // stack: rnd, rnd, *state, F', K , 16, rounds, sides, retdest
