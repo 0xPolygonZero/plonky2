@@ -1,17 +1,17 @@
 // u32 addition (discarding 2^32 bit)
 %macro add_u32
     // stack: x, y
-    add
+    ADD
     // stack: x + y
-    dup1
+    DUP1
     // stack: x + y, x + y
     %shr_const(32)
     // stack: (x + y) >> 32, x + y
     %shl_const(32)
     // stack: ((x + y) >> 32) << 32, x + y
-    swap1
+    SWAP1
     // stack: x + y, ((x + y) >> 32) << 32
-    sub
+    SUB
     // stack: x + y - ((x + y) >> 32) << 32
 %endmacro
 
@@ -19,177 +19,177 @@
 // 32-bit right rotation
 %macro rotr
     // stack: rot, value
-    dup2
-    dup2
+    DUP2
+    DUP2
     // stack: rot, value, rot, value
-    shr
+    SHR
     // stack: value >> rot, rot, value
     %stack (shifted, rot, value) -> (rot, value, shifted)
     // stack: rot, value, value >> rot
-    push 32
-    sub
+    PUSH 32
+    SUB
     // stack: 32 - rot, value, value >> rot
-    shl
+    SHL
     // stack: value << (32 - rot), value >> rot
-    push 32
-    push 1
-    swap1
-    shl
+    PUSH 32
+    PUSH 1
+    SWAP1
+    SHL
     // stack: 1 << 32, value << (32 - rot), value >> rot
-    swap1
-    mod
+    SWAP1
+    MOD
     // stack: (value << (32 - rot)) % (1 << 32), value >> rot
-    add
+    ADD
 %endmacro
 
 // 32-bit left rotation
 %macro rotl
     // stack: rot, value
-    dup2
-    dup2
+    DUP2
+    DUP2
     // stack: rot, value, rot, value
-    push 32
-    sub
+    PUSH 32
+    SUB
     // stack: 32 - rot, value, rot, value
-    shr
+    SHR
     // stack: value >> (32 - rot), rot, value
     %stack (shifted, rot, value) -> (rot, value, shifted)
     // stack: rot, value, value >> (32 - rot)
-    shl
+    SHL
     // stack: value << rot, value >> (32 - rot)
-    push 32
-    push 1
-    swap1
-    shl
+    PUSH 32
+    PUSH 1
+    SWAP1
+    SHL
     // stack: 1 << 32, value << rot, value >> (32 - rot)
-    swap1
-    mod
+    SWAP1
+    MOD
     // stack: (value << rot) % (1 << 32), value >> (32 - rot)
-    add
+    ADD
 %endmacro
 
 %macro sha2_sigma_0
     // stack: x
-    dup1
+    DUP1
     // stack: x, x
-    push 7
+    PUSH 7
     %rotr
     // stack: rotr(x, 7), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 7)
-    push 18
+    PUSH 18
     %rotr
     // stack: rotr(x, 18), x, rotr(x, 7)
-    swap1
+    SWAP1
     // stack: x, rotr(x, 18), rotr(x, 7)
-    push 3
-    shr
+    PUSH 3
+    SHR
     // stack: shr(x, 3), rotr(x, 18), rotr(x, 7)
-    xor
-    xor
+    XOR
+    XOR
 %endmacro
 
 %macro sha2_sigma_1
     // stack: x
-    dup1
+    DUP1
     // stack: x, x
-    push 17
+    PUSH 17
     %rotr
     // stack: rotr(x, 17), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 17)
-    push 19
+    PUSH 19
     %rotr
     // stack: rotr(x, 19), x, rotr(x, 17)
-    swap1
+    SWAP1
     // stack: x, rotr(x, 19), rotr(x, 17)
-    push 10
-    shr
+    PUSH 10
+    SHR
     // stack: shr(x, 10), rotr(x, 19), rotr(x, 17)
-    xor
-    xor
+    XOR
+    XOR
 %endmacro
 
 %macro sha2_bigsigma_0
     // stack: x
-    dup1
+    DUP1
     // stack: x, x
-    push 2
+    PUSH 2
     %rotr
     // stack: rotr(x, 2), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 2)
-    push 13
+    PUSH 13
     %rotr
     // stack: rotr(x, 13), x, rotr(x, 2)
-    swap1
+    SWAP1
     // stack: x, rotr(x, 13), rotr(x, 2)
-    push 22
+    PUSH 22
     %rotr
     // stack: rotr(x, 22), rotr(x, 13), rotr(x, 2)
-    xor
-    xor
+    XOR
+    XOR
 %endmacro
 
 %macro sha2_bigsigma_1
     // stack: x
-    dup1
+    DUP1
     // stack: x, x
-    push 6
+    PUSH 6
     %rotr
     // stack: rotr(x, 6), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 6)
-    push 11
+    PUSH 11
     %rotr
     // stack: rotr(x, 11), x, rotr(x, 6)
-    swap1
+    SWAP1
     // stack: x, rotr(x, 11), rotr(x, 6)
-    push 25
+    PUSH 25
     %rotr
     // stack: rotr(x, 25), rotr(x, 11), rotr(x, 6)
-    xor
-    xor
+    XOR
+    XOR
 %endmacro
 
 %macro sha2_choice
     // stack: x, y, z
-    dup1
+    DUP1
     // stack: x, x, y, z
-    not
+    NOT
     // stack: not x, x, y, z
     %stack (notx, x, y, z) -> (notx, z, x, y)
     // stack: not x, z, x, y
-    and
+    AND
     // stack: (not x) and z, x, y
     %stack (nxz, x, y) -> (x, y, nxz)
     // stack: x, y, (not x) and z
-    and
+    AND
     // stack: x and y, (not x) and z
-    or
+    OR
 %endmacro
 
 %macro sha2_majority
     // stack: x, y, z
-    dup3
-    dup3
-    dup3
+    DUP3
+    DUP3
+    DUP3
     // stack: x, y, z, x, y, z
-    and
+    AND
     // stack: x and y, z, x, y, z
-    swap2
+    SWAP2
     // stack: x, z, x and y, y, z
-    and
+    AND
     // stack: x and z, x and y, y, z
-    swap2
+    SWAP2
     // stack: y, x and y, x and z, z
-    swap1
+    SWAP1
     // stack: x and y, y, x and z, z
-    swap3
+    SWAP3
     // stack: z, y, x and z, x and y
-    and
+    AND
     // stack: y and z, x and z, x and y
-    or
-    or
+    OR
+    OR
 %endmacro
     

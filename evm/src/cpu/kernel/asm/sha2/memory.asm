@@ -94,8 +94,8 @@
     %mload_kernel_general_u32
     OR
     // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0, offset
-    swap1
-    pop
+    SWAP1
+    POP
     // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0
 %endmacro
 
@@ -113,64 +113,64 @@
 // to kernel general memory.
 %macro mstore_kernel_general_u32
     // stack: offset, value
-    swap1
+    SWAP1
     // stack: value, offset
-    push 1
-    push 8
-    shl
+    PUSH 1
+    PUSH 8
+    SHL
     // stack: 1 << 8, value, offset
-    swap1
+    SWAP1
     // stack: value, 1 << 8, offset
-    dup2
-    dup2
+    DUP2
+    DUP2
     // stack: value, 1 << 8, value, 1 << 8, offset
-    mod
+    MOD
     // stack: c_0 = value % (1 << 8), value, 1 << 8, offset
-    swap2
-    swap1
+    SWAP2
+    SWAP1
     // stack: value, 1 << 8, c_0, offset
-    push 8
-    shr
+    PUSH 8
+    SHR
     // stack: value >> 8, 1 << 8, c_0, offset
-    dup2
-    dup2
+    DUP2
+    DUP2
     // stack: value >> 8, 1 << 8, value >> 8, 1 << 8, c_0, offset
-    mod
+    MOD
     // stack: c_1 = (value >> 8) % (1 << 8), value >> 8, 1 << 8, c_0, offset
-    swap2
-    swap1
+    SWAP2
+    SWAP1
     // stack: value >> 8, 1 << 8, c_1, c_0, offset
-    push 8
-    shr
+    PUSH 8
+    SHR
     // stack: value >> 16, 1 << 8, c_1, c_0, offset
-    dup2
-    dup2
+    DUP2
+    DUP2
     // stack: value >> 16, 1 << 8, value >> 16, 1 << 8, c_1, c_0, offset
-    mod
+    MOD
     // stack: c_2 = (value >> 16) % (1 << 8), value >> 16, 1 << 8, c_1, c_0, offset
-    swap2
-    swap1
+    SWAP2
+    SWAP1
     // stack: value >> 16, 1 << 8, c_2, c_1, c_0, offset
-    push 8
-    shr
+    PUSH 8
+    SHR
     // stack: value >> 24, 1 << 8, c_2, c_1, c_0, offset
-    mod
+    MOD
     // stack: c_3 = (value >> 24) % (1 << 8), c_2, c_1, c_0, offset
-    dup5
+    DUP5
     // stack: offset, c_3, c_2, c_1, c_0, offset
     %mstore_kernel_general
     // stack: c_2, c_1, c_0, offset
-    dup4
+    DUP4
     // stack: offset, c_2, c_1, c_0, offset
     %add_const(1)
     %mstore_kernel_general
     // stack: c_1, c_0, offset
-    dup3
+    DUP3
     // stack: offset, c_1, c_0, offset
     %add_const(2)
     %mstore_kernel_general
     // stack: c_0, offset
-    swap1
+    SWAP1
     // stack: offset, c_0
     %add_const(3)
     %mstore_kernel_general
