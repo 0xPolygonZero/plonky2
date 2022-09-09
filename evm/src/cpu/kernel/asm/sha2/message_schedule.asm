@@ -65,13 +65,7 @@ sha2_gen_message_schedule_from_block_0_end:
     POP
     PUSH 8
     // stack: counter=8, output_addr, block[0], block[1], retdest
-    SWAP2
-    // stack: block[0], output_addr, counter, block[1], retdest
-    SWAP3
-    // stack: block[1], output_addr, counter, block[0], retdest
-    SWAP2
-    // stack: counter, output_addr, block[1], block[0], retdest
-    SWAP1
+    %stack (counter, out, b0, b1) -> (out, counter, b1, b0)
     // stack: output_addr, counter, block[1], block[0], retdest
     %add_const(64)
     // stack: output_addr + 64, counter, block[1], block[0], retdest
@@ -191,13 +185,7 @@ sha2_gen_message_schedule_remaining_loop:
     %add_u32
     %add_u32
     // stack: sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
-    SWAP1
-    // stack: output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], counter, block[0], block[1], retdest
-    DUP1
-    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], counter, block[0], block[1], retdest
-    SWAP2
-    // stack: sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, output_addr, counter, block[0], block[1], retdest
-    SWAP1
+    DUP2
     // stack: output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
     %mstore_kernel_general_u32
     // stack: output_addr, counter, block[0], block[1], retdest

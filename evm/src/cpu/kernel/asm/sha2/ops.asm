@@ -171,7 +171,7 @@
 
 %macro sha2_majority
     // stack: x, y, z
-    %stack ((a: 3)) -> (a, a)
+    %stack ((xyz: 3)) -> (xyz, xyz)
     // stack: x, y, z, x, y, z
     AND
     // stack: x and y, z, x, y, z
