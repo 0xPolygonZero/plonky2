@@ -171,9 +171,7 @@
 
 %macro sha2_majority
     // stack: x, y, z
-    DUP3
-    DUP3
-    DUP3
+    %stack ((a: 3)) -> (a, a)
     // stack: x, y, z, x, y, z
     AND
     // stack: x and y, z, x, y, z
@@ -181,12 +179,8 @@
     // stack: x, z, x and y, y, z
     AND
     // stack: x and z, x and y, y, z
-    SWAP2
-    // stack: y, x and y, x and z, z
-    SWAP1
-    // stack: x and y, y, x and z, z
-    SWAP3
-    // stack: z, y, x and z, x and y
+    %stack ((a: 2), (b: 2)) -> (b, a)
+    // stack: y, z, x and z, x and y
     AND
     // stack: y and z, x and z, x and y
     OR
