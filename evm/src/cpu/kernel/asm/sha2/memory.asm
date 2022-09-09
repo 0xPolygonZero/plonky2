@@ -119,10 +119,7 @@
     PUSH 8
     SHL
     // stack: 1 << 8, value, offset
-    SWAP1
-    // stack: value, 1 << 8, offset
-    DUP2
-    DUP2
+    %stack (shift, val, offset) -> (val, shift, val, shift, offset)
     // stack: value, 1 << 8, value, 1 << 8, offset
     MOD
     // stack: c_0 = value % (1 << 8), value, 1 << 8, offset
