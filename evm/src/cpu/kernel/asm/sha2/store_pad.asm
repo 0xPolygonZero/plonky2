@@ -15,11 +15,7 @@ sha2_store_loop:
     ISZERO
     %jumpi(sha2_store_end)
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
-    DUP1
-    // stack: addr, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
-    SWAP3
-    // stack: x[num_bytes-counter], addr, counter, addr,  ... , x[num_bytes-1], retdest
-    SWAP1
+    %stack (addr, counter, val) -> (addr, val, counter, addr)
     // stack: addr, x[num_bytes-counter], counter, addr,  ... , x[num_bytes-1], retdest
     %mstore_kernel_general
     // stack: counter, addr,  ... , x[num_bytes-1], retdest
