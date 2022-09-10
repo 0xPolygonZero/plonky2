@@ -6,4 +6,5 @@ pub(crate) mod decode;
 mod jumps;
 pub mod kernel;
 mod simple_logic;
+mod stack_bounds;
 mod syscalls;

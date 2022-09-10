@@ -38,6 +38,13 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: The program counter for the current instruction.
     pub program_counter: T,
 
+    /// If CPU cycle: The stack length.
+    pub stack_len: T,
+
+    /// If CPU cycle: A prover-provided value needed to show that the instruction does not cause the
+    /// stack to underflow or overflow.
+    pub stack_len_bounds_aux: T,
+
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
