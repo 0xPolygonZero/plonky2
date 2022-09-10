@@ -24,63 +24,81 @@
 /// In mix, we denote state[i], stateL[i], stateR[i] by si, li, ri
 
 global hash:
-    jumpdest
+    JUMPDEST
     // stack: *state, retdest
-    push switch  push 1  push 5  push 16  push 0  push 0
+    PUSH switch  
+    PUSH 1
+    PUSH 5  
+    PUSH 16  
+    PUSH 0  
+    PUSH 0
     // stack: 0, 0, 16, 5, 1, switch, *state, retdest
-    dup11  dup11  dup11  dup11  dup11
+    DUP11  
+    DUP11  
+    DUP11  
+    DUP11  
+    DUP11
     // stack: *state, 0, 0, 16, 5, 1, switch, *state, retdest
     %jump(loop)
 switch:
-    jumpdest
+    JUMPDEST
     // stack: *stateL, *state, retdest
-    push mix  push 1  push 5  push 16  push 0  push 0
+    PUSH mix  
+    PUSH 0  
+    PUSH 5  
+    PUSH 16  
+    PUSH 0  
+    PUSH 0
     // stack: 0, 0, 16, 5, 0, mix, *stateL, *state, retdest
-    dup16  dup16  dup16  dup16  dup16
+    DUP16  
+    DUP16  
+    DUP16  
+    DUP16  
+    DUP16
     // stack: *state, 0, 0, 16, 5, 0, mix, *stateL, *state, retdest
     %jump(loop)
 mix:
-    jumpdest
+    JUMPDEST
     // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, retdest
-    swap10
+    SWAP10
     // stack: s0, r1, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
-    swap1
+    SWAP1
     // stack: r1, s0, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
-    swap6
+    SWAP6
     // stack: l1, s0, r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
     %add3_32
     // stack: s0+l1+r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
-    swap13
+    SWAP13
     // stack: retdest, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, s0+l1+r2
-    swap11
+    SWAP11
     // stack: s3, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, retdest, s4, s0+l1+r2
-    swap10
+    SWAP10
     // stack: s2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
-    swap1
+    SWAP1
     // stack: r3, s2, r4, l0, r1, l2, l3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
-    swap6
+    SWAP6
     // stack: l3, s2, r4, l0, r1, l2, r3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
     %add3_32
     // stack: s2+l3+r4, l0, r1, l2, r3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
-    swap8
+    SWAP8
     // stack: s3, l0, r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s4, s0+l1+r2
-    swap10
+    SWAP10
     // stack: s4, l0, r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s3, s0+l1+r2
     %add3_32
     // stack: s4+l0+r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s3, s0+l1+r2
-    swap8
+    SWAP8
     // stack: s3, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    swap5
+    SWAP5
     // stack: s1, l2, r3, l4, r0, s3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
     %add3_32
     // stack: s1+l2+r3, l4, r0, s3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    swap3
+    SWAP3
     // stack: s3, l4, r0, s1+l2+r3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
     %add3_32
     // stack: s3+l4+r0, s1+l2+r3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    swap3
+    SWAP3
     // stack: retdest, s1+l2+r3, s2+l3+r4, s3+l4+r0, s4+l0+r1, s0+l1+r2
-    jump
+    JUMP
 
 
 /// def loop(*state):
@@ -101,35 +119,52 @@ mix:
 
 
 loop:
-    jumpdest
+    JUMPDEST
     // stack:          *state, F, K, 16, rounds, sides, retdest
-    dup9
+    DUP9
     // stack:   round, *state, F, K, 16, rounds, sides, retdest
     %jumpi(update_round_vars)
     // stack:          *state, F, K, 16,      0, sides, retdest
     %stack (a, b, c, d, e, F, K, boxes, rounds, sides, retdest) -> (retdest, a, b, c, d, e)
     // stack: retdest, *state
-    jump
+    JUMP
 update_round_vars:
-    jumpdest
+    JUMPDEST
     // stack:           *state, F , K , 16, rounds, sides, retdest
-    dup9  dup11  %get_round  dup1
+    DUP9  
+    DUP11  
+    %get_round  
+    DUP1
     // stack: rnd, rnd, *state, F , K , 16, rounds, sides, retdest
-    swap7  pop  %push_F  swap7
+    SWAP7  
+    POP  
+    %push_F  
+    SWAP7
     // stack: rnd, rnd, *state, F', K , 16, rounds, sides, retdest
-    swap8  pop  %load_K  swap7  pop
+    SWAP8  
+    POP  
+    %load_K  
+    SWAP7  
+    POP
     // stack:           *state, F', K', 16, rounds, sides, retdest
     %jump(round)
 round:
-    jumpdest
+    JUMPDEST
     // stack:        *state, F, K, boxes, rounds  , sides, retdest
-    dup8
+    DUP8
     // stack: boxes, *state, F, K, boxes, rounds  , sides, retdest
     %jumpi(box)
     // stack:        *state, F, K,     0, rounds  , sides, retdest
-    swap7  pop  push 16  swap7
+    SWAP7  
+    POP  
+    PUSH 16 
+    SWAP7
     // stack:        *state, F, K,    16, rounds  , sides, retdest
-    push 1  dup10  sub  swap9  pop
+    PUSH 1  
+    DUP10  
+    SUB  
+    SWAP9  
+    POP
     // stack:        *state, F, K,    16, rounds-1, sides, retdest
     %jump(loop)
 
@@ -153,64 +188,90 @@ round:
 
 
 box:
-    jumpdest
+    JUMPDEST
     // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides
-    push pre_rol  dup5  dup5  dup5  dup10
+    PUSH pre_rol  
+    DUP5
+    DUP5
+    DUP5  
+    DUP10
     // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides
-    jump
+    JUMP
 pre_rol:
-    jumpdest
+    JUMPDEST
     // stack:   F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides
-    add
+    ADD
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
     %get_box_from_stack
     // stack:          box, a, b, c, d, e, F, K, boxes, rounds, sides
-    dup1  %load_r
+    DUP1  
+    %load_r
     // stack:       r, box, a, b, c, d, e, F, K, boxes, rounds, sides    
     %mload_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack:       x, box, a, b, c, d, e, F, K, boxes, rounds, sides
-    swap1  swap2 
+    SWAP1  
+    SWAP2 
     // stack:       a, x, box, b, c, d, e, F, K, boxes, rounds, sides
-    add  dup8  add  %u32
+    ADD  
+    DUP8  
+    ADD  
+    %u32
     // stack:          a, box, b, c, d, e, F, K, boxes, rounds, sides
-    push mid_rol  swap2
+    PUSH mid_rol  
+    SWAP2
     // stack: box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
     %load_s
     // stack:   s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
     %jump(rol)
 mid_rol:
-    jumpdest
+    JUMPDEST
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
-    dup5
+    DUP5
     // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides
-    add %u32    
+    ADD 
+    %u32    
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
-    SWAP1  SWAP2  PUSH post_rol  SWAP1  PUSH 10
+    SWAP1  
+    SWAP2  
+    PUSH post_rol  
+    SWAP1  
+    PUSH 10
     // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides
     %jump(rol)
 post_rol:
-    jumpdest
+    JUMPDEST
     // stack: c, a, b, d, e, F, K, boxes  , rounds, sides
-    swap3
+    SWAP3
     // stack: d, a, b, c, e, F, K, boxes  , rounds, sides
-    swap4
+    SWAP4
     // stack: e, a, b, c, d, F, K, boxes  , rounds, sides
-    swap7  push 1  swap1  sub  swap7
+    SWAP7  
+    PUSH 1  
+    SWAP1  
+    SUB  
+    SWAP7
     // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides
     %jump(round)
 
 
 %macro get_round
     // stack: sides, rounds
-    %mul_const(5)  push 10  sub  sub
+    %mul_const(5)  PUSH 10  sub  sub
     // stack: 10 - 5*sides - rounds
 %endmacro
 
 
 %macro get_box_from_stack
     // stack:                                     *7_args, boxes, rounds, sides
-    dup10  %mul_const(80)  dup10  %mul_const(16)  dup10  
+    DUP10  
+    %mul_const(80)  
+    DUP10  
+    %mul_const(16)  
+    DUP10  
     // stack:       boxes , 16*rounds , 80*sides, *7_args, boxes, rounds, sides
-    push 160  sub  sub  sub
-    // stack: 160 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
+    PUSH 176  
+    SUB  
+    SUB  
+    SUB
+    // stack: 176 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
 %endmacro
