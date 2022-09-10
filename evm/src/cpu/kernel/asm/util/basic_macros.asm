@@ -218,25 +218,25 @@
 
 %macro u32
     // stack: x
-    push 0xffffffff
+    PUSH 0xffffffff
     // stack: 0xffffffff, x
-    and
+    AND
     // stack: 0xffffffff & x
 %endmacro
 
 %macro not_32
     // stack: x
-    push 0xffffffff
+    PUSH 0xffffffff
     // stack: 0xffffffff, x
-    sub
+    SUB
     // stack: 0xffffffff - x
 %endmacro
 
 %macro add3_32
     // stack: x, y, z
-    add
+    ADD
     // stack: x+y, z
-    add
+    ADD
     // stack: x+y+z
     %u32
 %endmacro

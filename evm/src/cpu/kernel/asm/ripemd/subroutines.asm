@@ -2,27 +2,31 @@
 ///     return (u32(x << n)) | (x >> (32 - n))
 
 global rol:
-    jumpdest
+    JUMPDEST
     // stack:                        n, x, retdest
-    swap1  dup1  dup3
+    SWAP1  
+    DUP1  
+    DUP3
     // stack:                  n, x, x, n, retdest
-    push 32  sub
+    PUSH 32  
+    SUB
     // stack:               32-n, x, x, n, retdest
-    shr
+    SHR
     // stack:           x >> (32-n), x, n, retdest
-    swap2
+    SWAP2
     // stack:           n, x, x >> (32-n), retdest
-    shl
+    SHL
     // stack:         x << n, x >> (32-n), retdest
     %u32
     // stack:    u32(x << n), x >> (32-n), retdest
-    or
+    OR
     // stack: u32(x << n) | (x >> (32-n)), retdest
-    swap1  jump
+    SWAP1  
+    JUMP
 
 
-%macro push_F:
-  push 0
+%macro PUSH_F
+  PUSH 0
   %this_F(0,F0)
   %this_F(1,F1)
   %this_F(2,F2)
@@ -38,14 +42,14 @@ global rol:
 
 %macro this_F(i, F)
   // stack: acc, rnd
-  dup2
+  DUP2
   // stack: rnd, acc, rnd
   %eq_const(i)
   // stack: rnd==i, acc, j
   %mul_const(F)
   // stack: (rnd==i)*F, acc, rnd
-  add
-  acc + (rnd==j)*F, rnd
+  ADD
+  // stack: acc + (rnd==j)*F, rnd
 %endmacro
 
 
@@ -53,90 +57,95 @@ global rol:
 ///     return x ^ y ^ z
 
 global F0:
-    jumpdest
+    JUMPDEST
     // stack: x , y , z, retdest
-    xor
+    XOR
     // stack: x ^ y , z, retdest
-    xor
+    XOR
     // stack: x ^ y ^ z, retdest
-    swap1  jump
+    SWAP1  
+    JUMP
 
 
 /// def F1(x, y, z):
 ///     return (x & y) | (u32(~x) & z)
 
 global F1:
-    jumpdest
+    JUMPDEST
     // stack:            x, y, z, retdest
-    dup1
+    DUP1
     // stack:         x, x, y, z, retdest
-    swap2
+    SWAP2
     // stack:         y, x, x, z, retdest
-    and
+    AND
     // stack:        y & x, x, z, retdest
-    swap2
+    SWAP2
     // stack:        z, x, y & x, retdest
-    swap1
+    SWAP1
     // stack:        x, z, y & x, retdest
     %not_32
     // stack:       ~x, z, y & x, retdest
-    and
+    AND
     // stack:      ~x & z, y & x, retdest
-    or
+    OR
     // stack: (~x & z) | (y & x), retdest
-    swap1  jump
+    SWAP1  
+    JUMP
 
 
 /// def F2(x, y, z):
 ///     return (x | u32(~y)) ^ z
 
 global F2:
-    jumpdest
+    JUMPDEST
     // stack:      x, y, z, retdest
-    swap1
+    SWAP1
     // stack:      y, x, z, retdest
     %not_32
     // stack:     ~y, x, z, retdest
-    or
+    OR
     // stack:    ~y | x, z, retdest
-    xor
+    XOR
     // stack: (~y | x) ^ z, retdest
-    swap1  jump
+    SWAP1  
+    JUMP
 
 
 /// def F3(x, y, z):
 ///     return (x & z) | (u32(~z) & y)
 
 global F3:
-    jumpdest
+    JUMPDEST
     // stack:            x, y, z, retdest
-    dup3
+    DUP3
     // stack:         z, x, y, z, retdest
-    and
+    AND
     // stack:        z & x, y, z, retdest
-    swap2
+    SWAP2
     // stack:        z, y, z & x, retdest
     %not_32
     // stack:       ~z, y, z & x, retdest
-    and
+    AND
     // stack:      ~z & y, z & x, retdest
-    or
+    OR
     // stack: (~z & y) | (z & x), retdest
-    swap1  jump 
+    SWAP1  
+    JUMP 
 
 
 /// def F4(x, y, z):
 ///     return x ^ (y | u32(~z))
 
 global F4:
-    jumpdest 
+    JUMPDEST 
     // stack:      x, y, z, retdest
-    swap2
+    SWAP2
     // stack:      z, y, x, retdest
     %not_32
     // stack:     ~z, y, x, retdest
-    or
+    OR
     // stack:    ~z | y, x, retdest
-    xor
+    XOR
     // stack: (~z | y) ^ x, retdest
-    swap1  jump
+    SWAP1  
+    JUMP
