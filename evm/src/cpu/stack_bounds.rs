@@ -9,10 +9,19 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
-const MAX_STACK_SIZE: u64 = 1024;
+const MAX_USER_STACK_SIZE: u64 = 1024;
 
+// Below only includes the operations that pop the top of the stack **without reading the value from
+// memory**, i.e. `POP`.
+//   Other operations that have a minimum stack size (e.g. `MULMOD`, which has three inputs) read
+// all their inputs from memory. On underflow, the cross-table lookup fails, as -1, ..., -17 are
+// invalid memory addresses.
 const DECREMENTING_FLAGS: [usize; 1] = [COL_MAP.is_pop];
 
+// Operations that increase the stack length by 1, but excluding:
+//  - privileged (kernel-only) operations (superfluous; doesn't affect correctness),
+//  - operations that from userspace to the kernel (required for correctness).
+// TODO: This list is incomplete.
 const INCREMENTING_FLAGS: [usize; 2] = [COL_MAP.is_pc, COL_MAP.is_dup];
 
 /// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
@@ -26,14 +35,14 @@ pub fn generate<F: Field>(lv: &mut CpuColumnsView<F>) {
     let check_overflow: F = INCREMENTING_FLAGS.map(|i| lv[i]).into_iter().sum();
     let no_check = F::ONE - (check_underflow + check_overflow);
 
-    let disallowed_len = check_overflow * F::from_canonical_u64(MAX_STACK_SIZE) - no_check;
+    let disallowed_len = check_overflow * F::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
     let diff = lv.stack_len - disallowed_len;
 
     let user_mode = F::ONE - lv.is_kernel_mode;
     let rhs = user_mode + check_underflow;
 
     lv.stack_len_bounds_aux = match diff.try_inverse() {
-        Some(diff_inv) => diff_inv * rhs,
+        Some(diff_inv) => diff_inv * rhs, // `rhs` may be a value other than 1 or 0
         None => {
             assert_eq!(rhs, F::ZERO);
             F::ZERO
@@ -57,14 +66,14 @@ pub fn eval_packed<P: PackedField>(
     // sanity check.
     //   If `check_overflow`, then the instruction we are executing increases the stack length by 1.
     // If we are in user mode, then we must show that the stack length is not currently
-    // `MAX_STACK_SIZE`, as this is the maximum for the user stack. Note that this check must not
-    // run in kernel mode as the kernel's stack length is unrestricted.
+    // `MAX_USER_STACK_SIZE`, as this is the maximum for the user stack. Note that this check must
+    // not run in kernel mode as the kernel's stack length is unrestricted.
     //   If `no_check`, then we don't need to check anything. The constraint is written to always
     // test that `lv.stack_len` does not equal _something_ so we just show that it's not -1, which
     // is always true.
 
-    // 0 if `check_underflow`, `MAX_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
-    let disallowed_len = check_overflow * P::Scalar::from_canonical_u64(MAX_STACK_SIZE) - no_check;
+    // 0 if `check_underflow`, `MAX_USER_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
+    let disallowed_len = check_overflow * P::Scalar::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
     // This `lhs` must equal some `rhs`. If `rhs` is nonzero, then this shows that `lv.stack_len` is
     // not `disallowed_len`.
     let lhs = (lv.stack_len - disallowed_len) * lv.stack_len_bounds_aux;
@@ -74,6 +83,8 @@ pub fn eval_packed<P: PackedField>(
     let user_mode = P::ONES - lv.is_kernel_mode;
     // `rhs` is may be 0, 1, or 2. It's 0 if we're in kernel mode and we would be checking for
     // overflow.
+    // Note: if `user_mode` and `check_underflow` then, `rhs` is 2. This is fine: we're still
+    // showing that `lv.stack_len - disallowed_len` is nonzero.
     let rhs = user_mode + check_underflow;
 
     yield_constr.constraint(lv.is_cpu_cycle * (lhs - rhs));
@@ -85,7 +96,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let one = builder.one_extension();
-    let max_stack_size = builder.constant_extension(F::from_canonical_u64(MAX_STACK_SIZE).into());
+    let max_stack_size = builder.constant_extension(F::from_canonical_u64(MAX_USER_STACK_SIZE).into());
 
     // `check_underflow`, `check_overflow`, and `no_check` are mutually exclusive.
     let check_underflow = builder.add_many_extension(DECREMENTING_FLAGS.map(|i| lv[i]));
@@ -102,13 +113,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // sanity check.
     //   If `check_overflow`, then the instruction we are executing increases the stack length by 1.
     // If we are in user mode, then we must show that the stack length is not currently
-    // `MAX_STACK_SIZE`, as this is the maximum for the user stack. Note that this check must not
-    // run in kernel mode as the kernel's stack length is unrestricted.
+    // `MAX_USER_STACK_SIZE`, as this is the maximum for the user stack. Note that this check must
+    // not run in kernel mode as the kernel's stack length is unrestricted.
     //   If `no_check`, then we don't need to check anything. The constraint is written to always
     // test that `lv.stack_len` does not equal _something_ so we just show that it's not -1, which
     // is always true.
 
-    // 0 if `check_underflow`, `MAX_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
+    // 0 if `check_underflow`, `MAX_USER_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
     let disallowed_len = builder.mul_sub_extension(check_overflow, max_stack_size, no_check);
     // This `lhs` must equal some `rhs`. If `rhs` is nonzero, then this shows that `lv.stack_len` is
     // not `disallowed_len`.
@@ -122,6 +133,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let user_mode = builder.sub_extension(one, lv.is_kernel_mode);
     // `rhs` is may be 0, 1, or 2. It's 0 if we're in kernel mode and we would be checking for
     // overflow.
+    // Note: if `user_mode` and `check_underflow` then, `rhs` is 2. This is fine: we're still
+    // showing that `lv.stack_len - disallowed_len` is nonzero.
     let rhs = builder.add_extension(user_mode, check_underflow);
 
     let constr = {
