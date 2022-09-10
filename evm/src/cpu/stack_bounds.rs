@@ -1,4 +1,14 @@
 //! Checks for stack underflow and overflow.
+//!
+//! The constraints defined herein validate that stack exceptions (underflow and overflow) do not
+//! occur. For example, if `is_add` is set but an addition would underflow, these constraints would
+//! make the proof unverifiable.
+//!
+//! Faults are handled under a separate operation flag, `is_exception` (this is still TODO), which
+//! traps to the kernel. The kernel then handles the exception. However, before it may do so, the
+//! kernel must verify in software that an exception did in fact occur (i.e. the trap was
+//! warranted) and `PANIC` otherwise; this prevents the prover from faking an exception on a valid
+//! operation.
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -73,7 +83,8 @@ pub fn eval_packed<P: PackedField>(
     // is always true.
 
     // 0 if `check_underflow`, `MAX_USER_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
-    let disallowed_len = check_overflow * P::Scalar::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
+    let disallowed_len =
+        check_overflow * P::Scalar::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
     // This `lhs` must equal some `rhs`. If `rhs` is nonzero, then this shows that `lv.stack_len` is
     // not `disallowed_len`.
     let lhs = (lv.stack_len - disallowed_len) * lv.stack_len_bounds_aux;
@@ -96,7 +107,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let one = builder.one_extension();
-    let max_stack_size = builder.constant_extension(F::from_canonical_u64(MAX_USER_STACK_SIZE).into());
+    let max_stack_size =
+        builder.constant_extension(F::from_canonical_u64(MAX_USER_STACK_SIZE).into());
 
     // `check_underflow`, `check_overflow`, and `no_check` are mutually exclusive.
     let check_underflow = builder.add_many_extension(DECREMENTING_FLAGS.map(|i| lv[i]));
