@@ -54,8 +54,8 @@ where
 {
     // Ensure that the Merkle proof has the proper length. This protects against attacks like the
     // one mentioned in https://flawed.net.nz/2018/02/21/attacking-merkle-trees-with-a-second-preimage-attack/
-    let cap_bits = log2_strict(merkle_cap.len());
-    let implied_leaf_depth = proof.siblings.len() + cap_bits;
+    let cap_height = log2_strict(merkle_cap.len());
+    let implied_leaf_depth = proof.siblings.len() + cap_height;
     ensure!(
         implied_leaf_depth == leaf_depth,
         "Merkle proof implies leaf depth of {}, expected {}",
