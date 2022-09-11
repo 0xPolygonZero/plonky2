@@ -282,7 +282,7 @@ impl Buffer {
         arity: usize,
         compressed: bool,
     ) -> Result<FriQueryStep<F, C::Hasher, D>> {
-        let evals = self.read_field_ext_vec::<F, D>(arity - if compressed { 1 } else { 0 })?;
+        let evals = self.read_field_ext_vec::<F, D>(arity - usize::from(compressed))?;
         let merkle_proof = self.read_merkle_proof()?;
         Ok(FriQueryStep {
             evals,
