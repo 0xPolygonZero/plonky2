@@ -1,6 +1,5 @@
 use anyhow::{ensure, Result};
 use plonky2_field::extension::Extendable;
-use plonky2_util::log2_strict;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
@@ -37,7 +36,7 @@ where
     [(); H::HASH_SIZE]:,
 {
     let merkle_cap = MerkleCap(vec![merkle_root]);
-    verify_merkle_proof_to_cap(leaf_data, leaf_index, leaf_depth, &merkle_cap, proof)
+    verify_merkle_proof_to_cap(leaf_data, leaf_index, leaf_depth, &merkle_cap, 0, proof)
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
@@ -47,6 +46,7 @@ pub fn verify_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     leaf_index: usize,
     leaf_depth: usize,
     merkle_cap: &MerkleCap<F, H>,
+    cap_height: usize,
     proof: &MerkleProof<F, H>,
 ) -> Result<()>
 where
@@ -54,7 +54,6 @@ where
 {
     // Ensure that the Merkle proof has the proper length. This protects against attacks like the
     // one mentioned in https://flawed.net.nz/2018/02/21/attacking-merkle-trees-with-a-second-preimage-attack/
-    let cap_height = log2_strict(merkle_cap.len());
     let implied_leaf_depth = proof.siblings.len() + cap_height;
     ensure!(
         implied_leaf_depth == leaf_depth,
@@ -62,6 +61,8 @@ where
         implied_leaf_depth,
         leaf_depth
     );
+
+    ensure!(merkle_cap.height() == cap_height);
 
     let mut index = leaf_index;
     let mut current_digest = H::hash_or_noop(&leaf_data);

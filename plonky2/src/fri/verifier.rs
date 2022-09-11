@@ -122,6 +122,7 @@ where
             x_index,
             params.lde_bits(),
             cap,
+            params.config.cap_height,
             merkle_proof,
         )?;
     }
@@ -239,6 +240,7 @@ where
             coset_index,
             codeword_len_bits,
             &proof.commit_phase_merkle_caps[i],
+            params.config.cap_height,
             &round_proof.steps[i].merkle_proof,
         )?;
 
