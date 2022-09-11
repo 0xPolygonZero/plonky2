@@ -162,6 +162,10 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
         }
     }
 
+    pub fn height(&self) -> usize {
+        log2_strict(self.leaves.len())
+    }
+
     pub fn get(&self, i: usize) -> &[F] {
         &self.leaves[i]
     }
@@ -228,7 +232,7 @@ mod tests {
         let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);
-            verify_merkle_proof_to_cap(leaf, i, &tree.cap, &proof)?;
+            verify_merkle_proof_to_cap(leaf, i, tree.height(), &tree.cap, &proof)?;
         }
         Ok(())
     }
