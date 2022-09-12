@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::Hash;
 
 use itertools::Itertools;
 
 use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
-use crate::cpu::kernel::ast::{Item, PushTarget, StackReplacement};
+use crate::cpu::kernel::ast::{Item, PushTarget, StackPlaceholder, StackReplacement};
 use crate::cpu::kernel::stack::permutations::{get_stack_ops_for_perm, is_permutation};
 use crate::cpu::kernel::stack::stack_manipulation::StackOp::Pop;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
@@ -25,25 +25,50 @@ pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
     expanded
 }
 
-fn expand(names: Vec<String>, replacements: Vec<StackReplacement>) -> Vec<Item> {
+fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> Vec<Item> {
+    let mut stack_blocks = HashMap::new();
+    let mut stack_names = HashSet::new();
+
     let mut src = names
         .iter()
         .cloned()
-        .map(StackItem::NamedItem)
+        .flat_map(|item| match item {
+            StackPlaceholder::Identifier(name) => {
+                stack_names.insert(name.clone());
+                vec![StackItem::NamedItem(name)]
+            }
+            StackPlaceholder::Block(name, n) => {
+                stack_blocks.insert(name.clone(), n);
+                (0..n)
+                    .map(|i| {
+                        let literal_name = format!("block_{}_{}", name, i);
+                        StackItem::NamedItem(literal_name)
+                    })
+                    .collect_vec()
+            }
+        })
         .collect_vec();
 
     let mut dst = replacements
         .into_iter()
-        .map(|item| match item {
+        .flat_map(|item| match item {
             StackReplacement::Identifier(name) => {
                 // May be either a named item or a label. Named items have precedence.
-                if names.contains(&name) {
-                    StackItem::NamedItem(name)
+                if stack_blocks.contains_key(&name) {
+                    let n = *stack_blocks.get(&name).unwrap();
+                    (0..n)
+                        .map(|i| {
+                            let literal_name = format!("block_{}_{}", name, i);
+                            StackItem::NamedItem(literal_name)
+                        })
+                        .collect_vec()
+                } else if stack_names.contains(&name) {
+                    vec![StackItem::NamedItem(name)]
                 } else {
-                    StackItem::PushTarget(PushTarget::Label(name))
+                    vec![StackItem::PushTarget(PushTarget::Label(name))]
                 }
             }
-            StackReplacement::Literal(n) => StackItem::PushTarget(PushTarget::Literal(n)),
+            StackReplacement::Literal(n) => vec![StackItem::PushTarget(PushTarget::Literal(n))],
             StackReplacement::MacroLabel(_)
             | StackReplacement::MacroVar(_)
             | StackReplacement::Constant(_) => {
