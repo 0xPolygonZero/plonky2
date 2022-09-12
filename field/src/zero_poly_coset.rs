@@ -51,8 +51,8 @@ impl<F: Field> ZeroPolyOnCoset<F> {
         packed
     }
 
-    /// Returns `L_1(x) = Z_H(x)/(n * (x - 1))` with `x = w^i`.
-    pub fn eval_l1(&self, i: usize, x: F) -> F {
+    /// Returns `L_0(x) = Z_H(x)/(n * (x - 1))` with `x = w^i`.
+    pub fn eval_l_0(&self, i: usize, x: F) -> F {
         // Could also precompute the inverses using Montgomery.
         self.eval(i) * (self.n * (x - F::ONE)).inverse()
     }
