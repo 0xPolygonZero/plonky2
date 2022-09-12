@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap};
 use std::hash::Hash;
 
 use itertools::Itertools;
@@ -27,21 +27,20 @@ pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
 
 fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> Vec<Item> {
     let mut stack_blocks = HashMap::new();
-    let mut stack_names = HashSet::new();
 
     let mut src = names
         .iter()
         .cloned()
         .flat_map(|item| match item {
             StackPlaceholder::Identifier(name) => {
-                stack_names.insert(name.clone());
+                stack_blocks.insert(name.clone(), 1);
                 vec![StackItem::NamedItem(name)]
             }
             StackPlaceholder::Block(name, n) => {
                 stack_blocks.insert(name.clone(), n);
                 (0..n)
                     .map(|i| {
-                        let literal_name = format!("block_{}_{}", name, i);
+                        let literal_name = format!("@{}.{}", name, i);
                         StackItem::NamedItem(literal_name)
                     })
                     .collect_vec()
@@ -56,14 +55,17 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
                 // May be either a named item or a label. Named items have precedence.
                 if stack_blocks.contains_key(&name) {
                     let n = *stack_blocks.get(&name).unwrap();
-                    (0..n)
-                        .map(|i| {
-                            let literal_name = format!("block_{}_{}", name, i);
-                            StackItem::NamedItem(literal_name)
-                        })
-                        .collect_vec()
-                } else if stack_names.contains(&name) {
-                    vec![StackItem::NamedItem(name)]
+                    if n == 1 {
+                        // A name, not an actual block.
+                        vec![StackItem::NamedItem(name)]
+                    } else {
+                        (0..n)
+                            .map(|i| {
+                                let literal_name = format!("@{}.{}", name, i);
+                                StackItem::NamedItem(literal_name)
+                            })
+                            .collect_vec()
+                    }
                 } else {
                     vec![StackItem::PushTarget(PushTarget::Label(name))]
                 }
