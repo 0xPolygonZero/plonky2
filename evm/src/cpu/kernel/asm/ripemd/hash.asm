@@ -15,89 +15,96 @@
 ///
 /// def mix(*stateR, *stateL, *state):
 ///     return
-///         u32(state[1] + stateL[2] + stateR[3]),
-///         u32(state[2] + stateL[3] + stateR[4]),
-///         u32(state[3] + stateL[4] + stateR[0]),
-///         u32(state[4] + stateL[0] + stateR[1]),
-///         u32(state[0] + stateL[1] + stateR[2])
+///         u32(s1 + l2 + r3),
+///         u32(s2 + l3 + r4),
+///         u32(s3 + l4 + r0),
+///         u32(s4 + l0 + r1),
+///         u32(s0 + l1 + r2)
 /// 
-/// In mix, we denote state[i], stateL[i], stateR[i] by si, li, ri
+/// where si, li, ri, oi, OS, RD respectively denote 
+/// state[i], stateL[i], stateR[i], output[i], offset, retdest
 
 global hash:
     JUMPDEST
-    // stack: *state, retdest
-    PUSH switch  
+    // stack:                                         *state, offset, retdest 
+    PUSH switch
+    DUP7
     PUSH 1
     PUSH 5  
     PUSH 16  
     PUSH 0  
     PUSH 0
-    // stack: 0, 0, 16, 5, 1, switch, *state, retdest
-    DUP11  
-    DUP11  
-    DUP11  
-    DUP11  
-    DUP11
-    // stack: *state, 0, 0, 16, 5, 1, switch, *state, retdest
+    // stack:         0, 0, 16, 5, 1, offset, switch, *state, offset, retdest 
+    DUP12  
+    DUP12  
+    DUP12  
+    DUP12  
+    DUP12
+    // stack: *state, 0, 0, 16, 5, 1, offset, switch, *state, offset, retdest 
     %jump(loop)
 switch:
     JUMPDEST
-    // stack: *stateL, *state, retdest
-    PUSH mix  
-    PUSH 0  
+    // stack:                                      *stateL, *state, offset, retdest 
+    PUSH mix
+    DUP12  
+    PUSH 0
     PUSH 5  
     PUSH 16  
     PUSH 0  
     PUSH 0
-    // stack: 0, 0, 16, 5, 0, mix, *stateL, *state, retdest
-    DUP16  
-    DUP16  
-    DUP16  
-    DUP16  
-    DUP16
-    // stack: *state, 0, 0, 16, 5, 0, mix, *stateL, *state, retdest
+    // stack:         0, 0, 16, 5, 0, offset, mix, *stateL, *state, offset, retdest 
+    DUP17  
+    DUP17  
+    DUP17  
+    DUP17  
+    DUP17
+    // stack: *state, 0, 0, 16, 5, 0, offset, mix, *stateL, *state, offset, retdest 
     %jump(loop)
 mix:
     JUMPDEST
-    // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, retdest
+    // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, OS, RD 
     SWAP10
-    // stack: s0, r1, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
+    // stack: s0, r1, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, OS, RD 
     SWAP1
-    // stack: r1, s0, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
+    // stack: r1, s0, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, OS, RD 
     SWAP6
-    // stack: l1, s0, r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
+    // stack: l1, s0, r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, OS, RD 
     %add3_32
-    // stack: s0+l1+r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, retdest
-    SWAP13
-    // stack: retdest, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, s0+l1+r2
+    // stack:         o4, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, OS, RD 
+    SWAP14
+    // stack:         RD, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, OS, o4 
     SWAP11
-    // stack: s3, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, retdest, s4, s0+l1+r2
+    // stack:         s3, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, RD, s4, OS, o4 
     SWAP10
-    // stack: s2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
+    // stack:         s2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s3, RD, s4, OS, o4 
     SWAP1
-    // stack: r3, s2, r4, l0, r1, l2, l3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
+    // stack:         r3, s2, r4, l0, r1, l2, l3, l4, r0, s1, s3, RD, s4, OS, o4 
     SWAP6
-    // stack: l3, s2, r4, l0, r1, l2, r3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
+    // stack:         l3, s2, r4, l0, r1, l2, r3, l4, r0, s1, s3, RD, s4, OS, o4 
     %add3_32
-    // stack: s2+l3+r4, l0, r1, l2, r3, l4, r0, s1, s3, retdest, s4, s0+l1+r2
-    SWAP8
-    // stack: s3, l0, r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s4, s0+l1+r2
+    // stack:                 o1, l0, r1, l2, r3, l4, r0, s1, s3, RD, s4, OS, o4 
+    SWAP9
+    // stack:                 RD, l0, r1, l2, r3, l4, r0, s1, s3, o1, s4, OS, o4 
     SWAP10
-    // stack: s4, l0, r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s3, s0+l1+r2
+    // stack:                 s4, l0, r1, l2, r3, l4, r0, s1, s3, o1, RD, OS, o4 
     %add3_32
-    // stack: s4+l0+r1, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s3, s0+l1+r2
-    SWAP8
-    // stack: s3, l2, r3, l4, r0, s1, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
+    // stack:                         o3, l2, r3, l4, r0, s1, s3, o1, RD, OS, o4 
+    SWAP9
+    // stack:                         OS, l2, r3, l4, r0, s1, s3, o1, RD, o3, o4 
     SWAP5
-    // stack: s1, l2, r3, l4, r0, s3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
+    // stack:                         s1, l2, r3, l4, r0, OS, s3, o1, RD, o3, o4 
     %add3_32
-    // stack: s1+l2+r3, l4, r0, s3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    SWAP3
-    // stack: s3, l4, r0, s1+l2+r3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    %add3_32
-    // stack: s3+l4+r0, s1+l2+r3, s2+l3+r4, retdest, s4+l0+r1, s0+l1+r2
-    SWAP3
-    // stack: retdest, s1+l2+r3, s2+l3+r4, s3+l4+r0, s4+l0+r1, s0+l1+r2
+    // stack:                                 o0, l4, r0, OS, s3, o1, RD, o3, o4 
+    SWAP4
+    // stack:                                 s3, l4, r0, OS, o0, o1, RD, o3, o4 
+    %add3_32 
+    // stack:                                         o2, OS, o0, o1, RD, o3, o4 
+    SWAP4
+    // stack:                                         RD, OS, o0, o1, o2, o3, o4 
+    SWAP1
+    // stack:                                         OS, RD, o0, o1, o2, o3, o4 
+    POP
+    // stack:                                             RD, o0, o1, o2, o3, o4 
     JUMP
 
 
@@ -120,52 +127,52 @@ mix:
 
 loop:
     JUMPDEST
-    // stack:          *state, F, K, 16, rounds, sides, retdest
+    // stack:          *state, F, K, 16, rounds, sides, offset, retdest
     DUP9
-    // stack:   round, *state, F, K, 16, rounds, sides, retdest
+    // stack:   round, *state, F, K, 16, rounds, sides, offset, retdest
     %jumpi(update_round_vars)
-    // stack:          *state, F, K, 16,      0, sides, retdest
-    %stack (a, b, c, d, e, F, K, boxes, rounds, sides, retdest) -> (retdest, a, b, c, d, e)
+    // stack:          *state, F, K, 16,      0, sides, offset, retdest
+    %stack (a, b, c, d, e, F, K, boxes, rounds, sides, offset, retdest) -> (retdest, a, b, c, d, e)
     // stack: retdest, *state
     JUMP
 update_round_vars:
     JUMPDEST
-    // stack:           *state, F , K , 16, rounds, sides, retdest
+    // stack:           *state, F , K , 16, rounds, sides, offset, retdest
     DUP9  
     DUP11  
     %get_round  
     DUP1
-    // stack: rnd, rnd, *state, F , K , 16, rounds, sides, retdest
+    // stack: rnd, rnd, *state, F , K , 16, rounds, sides, offset, retdest
     SWAP7  
     POP  
     %push_F  
     SWAP7
-    // stack: rnd, rnd, *state, F', K , 16, rounds, sides, retdest
+    // stack: rnd, rnd, *state, F', K , 16, rounds, sides, offset, retdest
     SWAP8  
     POP  
     %load_K  
     SWAP7  
     POP
-    // stack:           *state, F', K', 16, rounds, sides, retdest
+    // stack:           *state, F', K', 16, rounds, sides, offset, retdest
     %jump(round)
 round:
     JUMPDEST
-    // stack:        *state, F, K, boxes, rounds  , sides, retdest
+    // stack:        *state, F, K, boxes, rounds  , sides, offset, retdest
     DUP8
-    // stack: boxes, *state, F, K, boxes, rounds  , sides, retdest
+    // stack: boxes, *state, F, K, boxes, rounds  , sides, offset, retdest
     %jumpi(box)
-    // stack:        *state, F, K,     0, rounds  , sides, retdest
+    // stack:        *state, F, K,     0, rounds  , sides, offset, retdest
     SWAP7  
     POP  
     PUSH 16 
     SWAP7
-    // stack:        *state, F, K,    16, rounds  , sides, retdest
+    // stack:        *state, F, K,    16, rounds  , sides, offset, retdest
     PUSH 1  
     DUP10  
     SUB  
     SWAP9  
     POP
-    // stack:        *state, F, K,    16, rounds-1, sides, retdest
+    // stack:        *state, F, K,    16, rounds-1, sides, offset, retdest
     %jump(loop)
 
 
@@ -189,68 +196,69 @@ round:
 
 box:
     JUMPDEST
-    // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides, offset
     PUSH pre_rol  
     DUP5
     DUP5
     DUP5  
     DUP10
-    // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     JUMP
 pre_rol:
     JUMPDEST
-    // stack:   F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:     F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD
-    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:                 a, b, c, d, e, F, K, boxes, rounds, sides, offset
     %get_box_from_stack
-    // stack:          box, a, b, c, d, e, F, K, boxes, rounds, sides
-    DUP1  
+    // stack:            box, a, b, c, d, e, F, K, boxes, rounds, sides, offset
+    DUP12
+    DUP2  
     %load_r
-    // stack:       r, box, a, b, c, d, e, F, K, boxes, rounds, sides    
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
-    // stack:       x, box, a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack: r, offset, box, a, b, c, d, e, F, K, boxes, rounds, sides, offset    
+    %load_block
+    // stack:         x, box, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     SWAP1  
     SWAP2 
-    // stack:       a, x, box, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:         a, x, box, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD  
     DUP8  
     ADD  
     %u32
-    // stack:          a, box, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:            a, box, b, c, d, e, F, K, boxes, rounds, sides, offset
     PUSH mid_rol  
     SWAP2
-    // stack: box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:   box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, offset
     %load_s
-    // stack:   s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:     s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, offset
     %jump(rol)
 mid_rol:
     JUMPDEST
-    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, offset
     DUP5
-    // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD 
     %u32    
-    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides
+    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, offset
     SWAP1  
     SWAP2  
     PUSH post_rol  
     SWAP1  
     PUSH 10
-    // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides
+    // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides, offset
     %jump(rol)
 post_rol:
     JUMPDEST
-    // stack: c, a, b, d, e, F, K, boxes  , rounds, sides
+    // stack: c, a, b, d, e, F, K, boxes  , rounds, sides, offset
     SWAP3
-    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides
+    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides, offset
     SWAP4
-    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides
+    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides, offset
     SWAP7  
     PUSH 1  
     SWAP1  
     SUB  
     SWAP7
-    // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides
+    // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides, offset
     %jump(round)
 
 
@@ -274,4 +282,10 @@ post_rol:
     SUB  
     SUB
     // stack: 176 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
+%endmacro
+
+
+%macro load_block
+    // stack: r, offset
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
 %endmacro
