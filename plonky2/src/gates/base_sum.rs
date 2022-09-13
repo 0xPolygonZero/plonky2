@@ -32,7 +32,8 @@ impl<const B: usize> BaseSumGate<B> {
     }
 
     pub fn new_from_config<F: Field64>(config: &CircuitConfig) -> Self {
-        let num_limbs = F::BITS.min(config.num_routed_wires - Self::START_LIMBS);
+        let num_limbs =
+            logarithm(F::ORDER as usize, B).min(config.num_routed_wires - Self::START_LIMBS);
         Self::new(num_limbs)
     }
 
@@ -188,6 +189,23 @@ impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> 
 
         for (b, b_value) in limbs.zip(limbs_value) {
             out_buffer.set_target(b, b_value);
+        }
+    }
+}
+
+/// Returns the largest `i` such that `base**i < n`.
+const fn logarithm(n: usize, base: usize) -> usize {
+    assert!(n > 0);
+    assert!(base > 1);
+    let mut i = 0;
+    let mut cur: usize = 1;
+    loop {
+        let (mul, overflow) = cur.overflowing_mul(base);
+        if overflow || mul >= n {
+            return i;
+        } else {
+            i += 1;
+            cur = mul;
         }
     }
 }
