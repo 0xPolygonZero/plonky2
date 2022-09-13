@@ -35,6 +35,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::utils::{polmul_lo, polsub};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -48,26 +49,17 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut aux_in_limbs = [0u64; N_LIMBS];
     let mut output_limbs = [0u64; N_LIMBS];
 
-    let mut unreduced_prod = [0u64; N_LIMBS];
-
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
-    // We have heaps of space at the top of each limb, so by
-    // calculating column-wise (instead of the usual row-wise) we
-    // avoid a bunch of carry propagation handling (at the expense of
-    // slightly worse cache coherency), and it makes it easy to
-    // calculate the coefficients of a(x)*b(x) (in unreduced_prod).
+    // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
+    // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0u64;
+    let mut unreduced_prod = polmul_lo(input0_limbs, input1_limbs);
     for col in 0..N_LIMBS {
-        for i in 0..=col {
-            // Invariant: i + j = col
-            let j = col - i;
-            let ai_x_bj = input0_limbs[i] * input1_limbs[j];
-            unreduced_prod[col] += ai_x_bj;
-        }
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
+
     // In principle, the last cy could be dropped because this is
     // multiplication modulo 2^256. However, we need it below for
     // aux_in_limbs to handle the fact that unreduced_prod will
@@ -76,10 +68,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     for (&c, output_limb) in MUL_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
-    for deg in 0..N_LIMBS {
-        // deg'th element <- a*b - c
-        unreduced_prod[deg] -= output_limbs[deg];
-    }
+    polsub(&mut unreduced_prod, output_limbs);
 
     // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
     // This must be zero when evaluated at x = β = 2^LIMB_BITS, hence it's
@@ -123,12 +112,9 @@ pub fn eval_packed_generic<P: PackedField>(
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
     // verified.
-    let mut constr_poly = [P::ZEROS; N_LIMBS];
-
-    assert_eq!(constr_poly.len(), N_LIMBS);
-
-    // After this loop constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
+    //
+    // These two lines set constr_poly to the polynomial A(x)B(x) - C(x),
+    // where A, B and C are the polynomials
     //
     //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
     //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
@@ -138,14 +124,8 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
-    for col in 0..N_LIMBS {
-        // Invariant: i + j = col
-        for i in 0..=col {
-            let j = col - i;
-            constr_poly[col] += input0_limbs[i] * input1_limbs[j];
-        }
-        constr_poly[col] -= output_limbs[col];
-    }
+    let mut constr_poly = polmul_lo(input0_limbs, input1_limbs);
+    polsub(&mut constr_poly, output_limbs);
 
     // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);

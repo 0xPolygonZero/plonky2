@@ -1,6 +1,6 @@
+use std::ops::{AddAssign, Mul, SubAssign};
+
 use log::error;
-use num::Zero;
-use std::ops::{Add, AddAssign, Mul, Sub};
 
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
@@ -52,37 +52,24 @@ macro_rules! range_check_error {
 
 pub(crate) fn polzero<T, const N: usize>() -> [T; N]
 where
-    T: Copy + Zero,
+    T: Copy + Default,
 {
-    [T::zero(); N]
+    // NB: This should really be T::zero() from num::Zero, because
+    // default() doesn't guarantee to initialise to zero (though in
+    // our case it always does). However I couldn't work out how to do
+    // that without touching half of the entire crate because it
+    // involves replacing Field::is_zero() with num::Zero::is_zero()
+    // which is used everywhere. Hence Default::default() it is.
+    [T::default(); N]
 }
 
-pub(crate) fn poladd<T, const N: usize>(
-    a: [T; N],
-    b: [T; N]
-) -> [T; N]
+pub(crate) fn polsub<T, const N: usize>(a: &mut [T; N], b: [T; N])
 where
-    T: Add<Output = T> + Copy + Zero,
+    T: SubAssign + Copy + Default,
 {
-    let mut sum = polzero();
     for i in 0..N {
-        sum[i] = a[i] + b[i];
+        a[i] -= b[i];
     }
-    sum
-}
-
-pub(crate) fn polsub<T, const N: usize>(
-    a: [T; N],
-    b: [T; N]
-) -> [T; N]
-where
-    T: Sub<Output = T> + Copy + Zero,
-{
-    let mut diff = polzero();
-    for i in 0..N {
-        diff[i] = a[i] - b[i];
-    }
-    diff
 }
 
 /// Given polynomials a(x) = \sum_{i=0}^{N-1} a[i] x^i and
@@ -90,15 +77,23 @@ where
 /// a(x)b(x) = \sum_{k=0}^{2N-2} c[k] x^k where
 /// c[k] = \sum_{i+j=k} a[i]b[j].
 ///
-/// FIXME: finish this comment
-/// To avoid overflow, the coefficients must be less than...
-pub(crate) fn polmul_wide<T, const N: usize>(
-    a: [T; N],
-    b: [T; N]
-) -> [T; 2 * N - 1]
+/// NB: The caller is responsible for ensuring that no undesired
+/// overflow occurs during the calculation of the coefficients of the
+/// product. In expected applications, N = 16 and the a[i] and b[j] are
+/// in [0, 2^16).
+///
+/// NB: The parameter M is inferred at the call site, but it should be
+/// *enforced* to be 2*N - 1. Unfortunately Rust's generics won't
+/// allow me to just put 2*N-1 in place of M below; worse, the
+/// static_assert package can't check that M == 2*N - 1 at compile
+/// time either, for reasons the compiler was not able to clearly
+/// explain.
+pub(crate) fn polmul_wide<T, const N: usize, const M: usize>(a: [T; N], b: [T; N]) -> [T; M]
 where
-    T: AddAssign + Copy + Mul<Output = T> + Zero,
+    T: AddAssign + Copy + Mul<Output = T> + Default,
 {
+    assert!(M == 2 * N - 1);
+
     let mut res = polzero();
     for (i, &ai) in a.iter().enumerate() {
         for (j, &bj) in b.iter().enumerate() {
@@ -108,44 +103,17 @@ where
     res
 }
 
-pub(crate) fn polmul_lo<T, const N: usize>(
-    a: [T; N],
-    b: [T; N]
-) -> [T; N]
+pub(crate) fn polmul_lo<T, const N: usize>(a: [T; N], b: [T; N]) -> [T; N]
 where
-    T: AddAssign + Copy + Mul<Output = T> + Zero,
+    T: AddAssign + Copy + Mul<Output = T> + Default,
 {
     let mut res = polzero();
     for deg in 0..N {
+        // Invariant: i + j = deg
         for i in 0..=deg {
-            // Invariant: i + j = deg
             let j = deg - i;
             res[deg] += a[i] * b[j];
         }
     }
     res
 }
-
-/*
-/// Given two 16N-bit unsigned integers `a` and `b`, return their
-/// product modulo 2^(16N).
-pub(crate) fn umul_cc<T, const N: usize>(
-    a: [T; N],
-    b: [T; N],
-    mask: T,
-    limb_bits: usize
-) -> [T; N]
-where
-    T: AddAssign + Copy + Mul<Output = T> + Zero,
-{
-    let mut cy = T::zero();
-    let mut res = polmul_lo(a, b);
-
-    for i in 0..N {
-        let t = res[i] + cy;
-        cy = t >> limb_bits;
-        res[i] = t & mask;
-    }
-    res
-}
-*/
