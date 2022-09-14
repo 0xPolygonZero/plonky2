@@ -814,7 +814,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,
-            num_virtual_targets: self.virtual_target_index,
             num_public_inputs,
             k_is,
             num_partial_products,
