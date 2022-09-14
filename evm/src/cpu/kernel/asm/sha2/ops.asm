@@ -3,21 +3,15 @@
     // stack: x, y
     ADD
     // stack: x + y
-    DUP1
-    // stack: x + y, x + y
-    %shr_const(32)
-    // stack: (x + y) >> 32, x + y
-    %shl_const(32)
-    // stack: ((x + y) >> 32) << 32, x + y
-    SWAP1
-    // stack: x + y, ((x + y) >> 32) << 32
-    SUB
-    // stack: x + y - ((x + y) >> 32) << 32
+    %and_const(0xFFFFFFFF)
+    // stack: (x + y) & u32::MAX
 %endmacro
 
 
 // 32-bit right rotation
-%macro rotr
+%macro rotr(rot)
+    // stack: value
+    PUSH $rot
     // stack: rot, value
     DUP2
     DUP2
@@ -42,43 +36,15 @@
     ADD
 %endmacro
 
-// 32-bit left rotation
-%macro rotl
-    // stack: rot, value
-    DUP2
-    DUP2
-    // stack: rot, value, rot, value
-    PUSH 32
-    SUB
-    // stack: 32 - rot, value, rot, value
-    SHR
-    // stack: value >> (32 - rot), rot, value
-    %stack (shifted, rot, value) -> (rot, value, shifted)
-    // stack: rot, value, value >> (32 - rot)
-    SHL
-    // stack: value << rot, value >> (32 - rot)
-    PUSH 32
-    PUSH 1
-    SWAP1
-    SHL
-    // stack: 1 << 32, value << rot, value >> (32 - rot)
-    SWAP1
-    MOD
-    // stack: (value << rot) % (1 << 32), value >> (32 - rot)
-    ADD
-%endmacro
-
 %macro sha2_sigma_0
     // stack: x
     DUP1
     // stack: x, x
-    PUSH 7
-    %rotr
+    %rotr(7)
     // stack: rotr(x, 7), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 7)
-    PUSH 18
-    %rotr
+    %rotr(18)
     // stack: rotr(x, 18), x, rotr(x, 7)
     SWAP1
     // stack: x, rotr(x, 18), rotr(x, 7)
@@ -93,13 +59,11 @@
     // stack: x
     DUP1
     // stack: x, x
-    PUSH 17
-    %rotr
+    %rotr(17)
     // stack: rotr(x, 17), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 17)
-    PUSH 19
-    %rotr
+    %rotr(19)
     // stack: rotr(x, 19), x, rotr(x, 17)
     SWAP1
     // stack: x, rotr(x, 19), rotr(x, 17)
@@ -114,18 +78,15 @@
     // stack: x
     DUP1
     // stack: x, x
-    PUSH 2
-    %rotr
+    %rotr(2)
     // stack: rotr(x, 2), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 2)
-    PUSH 13
-    %rotr
+    %rotr(13)
     // stack: rotr(x, 13), x, rotr(x, 2)
     SWAP1
     // stack: x, rotr(x, 13), rotr(x, 2)
-    PUSH 22
-    %rotr
+    %rotr(22)
     // stack: rotr(x, 22), rotr(x, 13), rotr(x, 2)
     XOR
     XOR
@@ -135,18 +96,15 @@
     // stack: x
     DUP1
     // stack: x, x
-    PUSH 6
-    %rotr
+    %rotr(6)
     // stack: rotr(x, 6), x
     %stack (rotated, x) -> (x, x, rotated)
     // stack: x, x, rotr(x, 6)
-    PUSH 11
-    %rotr
+    %rotr(11)
     // stack: rotr(x, 11), x, rotr(x, 6)
     SWAP1
     // stack: x, rotr(x, 11), rotr(x, 6)
-    PUSH 25
-    %rotr
+    %rotr(25)
     // stack: rotr(x, 25), rotr(x, 11), rotr(x, 6)
     XOR
     XOR

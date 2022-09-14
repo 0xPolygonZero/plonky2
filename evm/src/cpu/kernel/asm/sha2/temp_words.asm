@@ -4,7 +4,7 @@
     // stack: e, e, f, g, h, K[i], W[i]
     %sha2_bigsigma_1
     // stack: Sigma_1(e), e, f, g, h, K[i], W[i]
-    %stack (sig, efg: 3) -> (efg, sig)
+    %stack (sig, e, f, g) -> (e, f, g, sig)
     // stack: e, f, g, Sigma_1(e), h, K[i], W[i]
     %sha2_choice
     // stack: Ch(e, f, g), Sigma_1(e), h, K[i], W[i]
