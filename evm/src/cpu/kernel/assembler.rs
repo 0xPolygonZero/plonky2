@@ -562,7 +562,7 @@ mod tests {
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
         assert_eq!(kernel.code, vec![pop, swap1, pop]);
-        
+
         let kernel = parse_and_assemble(&["%stack (a, b: 3, c) -> (c)"]);
         assert_eq!(kernel.code, vec![pop, pop, pop, pop]);
 
