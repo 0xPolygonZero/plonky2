@@ -1,3 +1,4 @@
+// "T_1" in the SHA-256 spec
 %macro sha2_temp_word1
     // stack: e, f, g, h, K[i], W[i]
     DUP1
@@ -15,6 +16,7 @@
     // stack: Ch(e, f, g) + Sigma_1(e) + h + K[i] + W[i]
 %endmacro
 
+// "T_2" in the SHA-256 spec
 %macro sha2_temp_word2
     // stack: a, b, c
     DUP1
