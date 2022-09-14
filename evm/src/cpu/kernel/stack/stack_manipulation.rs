@@ -31,20 +31,14 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
     let mut src = names
         .iter()
         .cloned()
-        .flat_map(|item| match item {
-            StackPlaceholder::Identifier(name) => {
-                stack_blocks.insert(name.clone(), 1);
-                vec![StackItem::NamedItem(name)]
-            }
-            StackPlaceholder::Block(name, n) => {
-                stack_blocks.insert(name.clone(), n);
-                (0..n)
-                    .map(|i| {
-                        let literal_name = format!("@{}.{}", name, i);
-                        StackItem::NamedItem(literal_name)
-                    })
-                    .collect_vec()
-            }
+        .flat_map(|StackPlaceholder(name, n)| {
+            stack_blocks.insert(name.clone(), n);
+            (0..n)
+                .map(|i| {
+                    let literal_name = format!("@{}.{}", name, i);
+                    StackItem::NamedItem(literal_name)
+                })
+                .collect_vec()
         })
         .collect_vec();
 
@@ -56,17 +50,12 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
                 // May be either a named item or a label. Named items have precedence.
                 if stack_blocks.contains_key(&name) {
                     let n = *stack_blocks.get(&name).unwrap();
-                    if n == 1 {
-                        // A name, not an actual block.
-                        vec![StackItem::NamedItem(name)]
-                    } else {
-                        (0..n)
-                            .map(|i| {
-                                let literal_name = format!("@{}.{}", name, i);
-                                StackItem::NamedItem(literal_name)
-                            })
-                            .collect_vec()
-                    }
+                    (0..n)
+                        .map(|i| {
+                            let literal_name = format!("@{}.{}", name, i);
+                            StackItem::NamedItem(literal_name)
+                        })
+                        .collect_vec()
                 } else {
                     vec![StackItem::PushTarget(PushTarget::Label(name))]
                 }

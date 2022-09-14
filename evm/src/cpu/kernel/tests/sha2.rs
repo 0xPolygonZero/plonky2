@@ -20,7 +20,7 @@ fn test_sha2() -> Result<()> {
 
     let mut hasher = Sha256::new();
     hasher.update(message.clone());
-    let expected = format!("{:02X}", hasher.finalize());
+    let expected = format!("{:X}", hasher.finalize());
 
     let bytes: Vec<U256> = message.iter().map(|&x| U256::from(x as u32)).collect();
 
@@ -32,7 +32,7 @@ fn test_sha2() -> Result<()> {
     let after_sha2 = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
     let stack_after_sha2 = after_sha2.stack();
     let result = stack_after_sha2[1];
-    let actual = format!("{:02X}", result);
+    let actual = format!("{:X}", result);
 
     assert_eq!(expected, actual);
 
