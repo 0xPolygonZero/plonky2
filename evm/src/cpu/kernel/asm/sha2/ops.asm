@@ -3,7 +3,7 @@
     // stack: x, y
     ADD
     // stack: x + y
-    %and_const(0xFFFFFFFF)
+    %truncate_to_u32
     // stack: (x + y) & u32::MAX
 %endmacro
 
@@ -25,13 +25,7 @@
     // stack: 32 - rot, value, value >> rot
     SHL
     // stack: value << (32 - rot), value >> rot
-    PUSH 32
-    PUSH 1
-    SWAP1
-    SHL
-    // stack: 1 << 32, value << (32 - rot), value >> rot
-    SWAP1
-    MOD
+    %truncate_to_u32
     // stack: (value << (32 - rot)) % (1 << 32), value >> rot
     ADD
 %endmacro
