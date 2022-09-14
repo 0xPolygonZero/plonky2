@@ -38,6 +38,23 @@ pub fn log2_strict(n: usize) -> usize {
     res as usize
 }
 
+/// Returns the largest `i` such that `base**i < n`.
+pub const fn log_floor(n: usize, base: usize) -> usize {
+    assert!(n > 0);
+    assert!(base > 1);
+    let mut i = 0;
+    let mut cur: usize = 1;
+    loop {
+        let (mul, overflow) = cur.overflowing_mul(base);
+        if overflow || mul >= n {
+            return i;
+        } else {
+            i += 1;
+            cur = mul;
+        }
+    }
+}
+
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
 pub fn reverse_index_bits<T: Copy>(arr: &[T]) -> Vec<T> {
     let n = arr.len();
