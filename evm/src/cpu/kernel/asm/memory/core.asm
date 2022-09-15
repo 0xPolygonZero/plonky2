@@ -85,6 +85,32 @@
     // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
 %endmacro
 
+
+// Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3),
+// from kernel code.
+%macro mload_kernel_code_u32
+    // stack: offset
+    DUP1
+    %mload_kernel_code
+    // stack: c_0, offset
+    DUP2
+    %add_const(1)
+    %mload_kernel_code
+    %shl_const(8)
+    // stack: c0 | (c1 << 8), offset
+    DUP2
+    %add_const(2)
+    %mload_kernel_code
+    %shl_const(16)
+    // stack: c0 | (c1 << 8) | (c2 << 16), offset
+    DUP2
+    %add_const(3)
+    %mload_kernel_code
+    %shl_const(24)
+    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24), offset
+%endmacro
+
+
 // Store a single byte to kernel code.
 %macro mstore_kernel_code
     // stack: offset, value
