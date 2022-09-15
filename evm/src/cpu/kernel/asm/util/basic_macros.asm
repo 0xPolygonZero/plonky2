@@ -140,6 +140,13 @@
     // stack: input >= c, ...
 %endmacro
 
+%macro and_const(c)
+    // stack: x
+    PUSH $c
+    AND
+    // stack: c & x
+%endmacro
+
 %macro consume_gas_const(c)
     PUSH $c
     CONSUME_GAS
@@ -217,11 +224,7 @@
 %endmacro
 
 %macro u32
-    // stack: x
-    PUSH 0xffffffff
-    // stack: 0xffffffff, x
-    AND
-    // stack: 0xffffffff & x
+    %and_const(0xffffffff)
 %endmacro
 
 %macro not_32
@@ -240,3 +243,67 @@
     // stack: x+y+z
     %u32
 %endmacro
+
+// given u32 bytestring abcd return dcba
+%macro flip_bytes_u32
+    // stack: abcd
+    DUP1
+    %and_const(0xFF)
+    // stack: d, abcd
+    PUSH 0xFF
+    DUP1
+    SWAP2
+    // stack: abcd, d, 0xFF, d
+    SUB
+    DIV
+    // stack: abc, d
+    DUP1
+    %and_const(0xFF)
+    // stack: c, abcd, d
+    PUSH 0xFF
+    DUP1
+    SWAP2
+    // stack: abc, c, 0xFF, c, d
+    SUB
+    DIV
+    // stack: ab, c, d
+    DUP1
+    %and_const(0xFF)
+    // stack: b, ab, c, d
+    PUSH 0xFF
+    DUP1
+    SWAP2
+    // stack: ab, b, 0xFF, b, c, d
+    SUB
+    DIV
+    // stack: a, b, c, d
+    SWAP1
+    %mul_const(0x100)
+    ADD
+    // stack: ba, c, d
+    SWAP1
+    %mul_const(0x10000)
+    ADD
+    // stack: cba, d
+    SWAP1
+    %mul_const(0x1000000)
+    ADD
+    // stack: dcba
+%endmacro
+
+
+
+
+
+    
+
+
+
+def flip_bytes(x):
+    acc = 0
+    while x:
+        acc <<= 8
+        d = x % (1<<8)
+        acc += d
+        x = (x - d)//(1<<8)
+    return acc
