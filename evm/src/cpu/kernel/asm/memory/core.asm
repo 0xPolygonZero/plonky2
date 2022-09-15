@@ -103,11 +103,11 @@
     %mload_kernel_code
     %shl_const(16)
     // stack: c0 | (c1 << 8) | (c2 << 16), offset
-    DUP2
+    SWAP1
     %add_const(3)
     %mload_kernel_code
     %shl_const(24)
-    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24), offset
+    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
 %endmacro
 
 
