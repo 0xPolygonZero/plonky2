@@ -92,54 +92,54 @@ S_data:
 %end_macro
 
 R_data:
+    // Left Round 0
+    BYTES 00, 04, 08, 12
+    BYTES 16, 20, 24, 28
+    BYTES 32, 36, 40, 44
+    BYTES 48, 52, 56, 60
     // Left Round 1
-    BYTES 00, 01, 02, 03
-    BYTES 04, 05, 06, 07
-    BYTES 08, 09, 10, 11
-    BYTES 12, 13, 14, 15
+    BYTES 28, 16, 52, 04
+    BYTES 40, 24, 60, 12
+    BYTES 48, 00, 36, 20
+    BYTES 08, 56, 44, 32
     // Left Round 2
-    BYTES 07, 04, 13, 01
-    BYTES 10, 06, 15, 03
-    BYTES 12, 00, 09, 05
-    BYTES 02, 14, 11, 08
+    BYTES 12, 40, 56, 16
+    BYTES 36, 60, 32, 04
+    BYTES 08, 28, 00, 24
+    BYTES 52, 44, 20, 48
     // Left Round 3
-    BYTES 03, 10, 14, 04
-    BYTES 09, 15, 08, 01
-    BYTES 02, 07, 00, 06
-    BYTES 13, 11, 05, 12
+    BYTES 04, 36, 44, 40
+    BYTES 00, 32, 48, 16
+    BYTES 52, 12, 28, 60
+    BYTES 56, 20, 24, 08
     // Left Round 4
-    BYTES 01, 09, 11, 10
-    BYTES 00, 08, 12, 04
-    BYTES 13, 03, 07, 15
-    BYTES 14, 05, 06, 02
-    // Left Round 5
-    BYTES 04, 00, 05, 09
-    BYTES 07, 12, 02, 10
-    BYTES 14, 01, 03, 08
-    BYTES 11, 06, 15, 13
+    BYTES 16, 00, 20, 36
+    BYTES 28, 48, 08, 40
+    BYTES 56, 04, 12, 32
+    BYTES 44, 24, 60, 52
+    // Right Round 0
+    BYTES 20, 56, 28, 00
+    BYTES 36, 08, 44, 16
+    BYTES 52, 24, 60, 32
+    BYTES 04, 40, 12, 48
     // Right Round 1
-    BYTES 05, 14, 07, 00
-    BYTES 09, 02, 11, 04
-    BYTES 13, 06, 15, 08
-    BYTES 01, 10, 03, 12
+    BYTES 24, 44, 12, 28
+    BYTES 00, 52, 20, 40
+    BYTES 56, 60, 32, 48
+    BYTES 16, 36, 04, 08
     // Right Round 2
-    BYTES 06, 11, 03, 07
-    BYTES 00, 13, 05, 10
-    BYTES 14, 15, 08, 12
-    BYTES 04, 09, 01, 02
+    BYTES 60, 20, 04, 12
+    BYTES 28, 56, 24, 36
+    BYTES 44, 32, 48, 08
+    BYTES 40, 00, 16, 52
     // Right Round 3
-    BYTES 15, 05, 01, 03
-    BYTES 07, 14, 06, 09
-    BYTES 11, 08, 12, 02
-    BYTES 10, 00, 04, 13
+    BYTES 32, 24, 16, 04
+    BYTES 12, 44, 60, 00
+    BYTES 20, 48, 08, 52
+    BYTES 36, 28, 40, 56
     // Right Round 4
-    BYTES 08, 06, 04, 01
-    BYTES 03, 11, 15, 00
-    BYTES 05, 12, 02, 13
-    BYTES 09, 07, 10, 14
-    // Right Round 5
-    BYTES 12, 15, 10, 04
-    BYTES 01, 05, 08, 07
-    BYTES 06, 02, 13, 14
-    BYTES 00, 03, 09, 11
+    BYTES 48, 60, 40, 16
+    BYTES 04, 20, 32, 28
+    BYTES 24, 08, 52, 56
+    BYTES 00, 12, 36, 44
     
