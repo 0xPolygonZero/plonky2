@@ -88,7 +88,7 @@
 
 // Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3),
 // from kernel code.
-%macro mload_kernel_code_little_u32
+%macro mload_kernel_code_LE_u32
     // stack: offset
     DUP1
     %mload_kernel_code

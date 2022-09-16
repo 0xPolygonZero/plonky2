@@ -2,7 +2,6 @@
 ///     return (u32(x << n)) | (x >> (32 - n))
 
 global rol:
-    JUMPDEST
     // stack:                        n, x, retdest
     SWAP1  
     DUP1  
@@ -56,8 +55,7 @@ global rol:
 /// def F0(x, y, z):
 ///     return x ^ y ^ z
 
-global F0:
-    JUMPDEST
+global F0: 
     // stack: x , y , z, retdest
     XOR
     // stack: x ^ y , z, retdest
@@ -70,8 +68,7 @@ global F0:
 /// def F1(x, y, z):
 ///     return (x & y) | (u32(~x) & z)
 
-global F1:
-    JUMPDEST
+global F1:  
     // stack:            x, y, z, retdest
     DUP1
     // stack:         x, x, y, z, retdest
@@ -97,7 +94,6 @@ global F1:
 ///     return (x | u32(~y)) ^ z
 
 global F2:
-    JUMPDEST
     // stack:      x, y, z, retdest
     SWAP1
     // stack:      y, x, z, retdest
@@ -114,8 +110,7 @@ global F2:
 /// def F3(x, y, z):
 ///     return (x & z) | (u32(~z) & y)
 
-global F3:
-    JUMPDEST
+global F3: 
     // stack:            x, y, z, retdest
     DUP3
     // stack:         z, x, y, z, retdest
@@ -137,14 +132,13 @@ global F3:
 ///     return x ^ (y | u32(~z))
 
 global F4:
-    JUMPDEST 
-    // stack:      x, y, z, retdest
+    // stack:   x,  y,   z, retdest
     SWAP2
-    // stack:      z, y, x, retdest
+    // stack:   z,  y,   x, retdest
     %not_32
-    // stack:     ~z, y, x, retdest
+    // stack:  ~z,  y,   x, retdest
     OR
-    // stack:    ~z | y, x, retdest
+    // stack:  ~z | y,   x, retdest
     XOR
     // stack: (~z | y) ^ x, retdest
     SWAP1  
