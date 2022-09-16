@@ -9,7 +9,8 @@ use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::structure::{
-    FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
+    FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
+    FriPolynomialInfo,
 };
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
@@ -22,7 +23,7 @@ use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -342,7 +343,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let openings = vec![zeta_batch, zeta_next_batch];
         FriInstanceInfo {
-            oracles: FRI_ORACLES.to_vec(),
+            oracles: self.fri_oracles(),
             batches: openings,
         }
     }
@@ -368,9 +369,30 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let openings = vec![zeta_batch, zeta_next_batch];
         FriInstanceInfoTarget {
-            oracles: FRI_ORACLES.to_vec(),
+            oracles: self.fri_oracles(),
             batches: openings,
         }
+    }
+
+    fn fri_oracles(&self) -> Vec<FriOracleInfo> {
+        vec![
+            FriOracleInfo {
+                num_polys: self.num_preprocessed_polys(),
+                blinding: PlonkOracle::CONSTANTS_SIGMAS.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.config.num_wires,
+                blinding: PlonkOracle::WIRES.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.num_zs_partial_products_polys(),
+                blinding: PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.num_quotient_polys(),
+                blinding: PlonkOracle::QUOTIENT.blinding,
+            },
+        ]
     }
 
     fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
