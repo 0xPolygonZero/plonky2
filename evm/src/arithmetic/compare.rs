@@ -45,6 +45,14 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize)
     lv[CMP_OUTPUT] = F::from_canonical_u64(br);
 }
 
+fn eval_packed_generic_check_is_one_bit<P: PackedField>(
+    yield_constr: &mut ConstraintConsumer<P>,
+    filter: P,
+    x: P,
+) {
+    yield_constr.constraint(filter * x * (x - P::ONES));
+}
+
 pub(crate) fn eval_packed_generic_lt<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
@@ -69,15 +77,31 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(CMP_INPUT_0, 16);
     range_check_error!(CMP_INPUT_1, 16);
     range_check_error!(CMP_AUX_INPUT, 16);
-    range_check_error!([CMP_OUTPUT], 1);
+
+    let is_lt = lv[IS_LT];
+    let is_gt = lv[IS_GT];
 
     let input0 = CMP_INPUT_0.map(|c| lv[c]);
     let input1 = CMP_INPUT_1.map(|c| lv[c]);
     let aux = CMP_AUX_INPUT.map(|c| lv[c]);
     let output = lv[CMP_OUTPUT];
 
-    eval_packed_generic_lt(yield_constr, lv[IS_LT], input0, input1, aux, output);
-    eval_packed_generic_lt(yield_constr, lv[IS_GT], input1, input0, aux, output);
+    let is_cmp = is_lt + is_gt;
+    eval_packed_generic_check_is_one_bit(yield_constr, is_cmp, output);
+
+    eval_packed_generic_lt(yield_constr, is_lt, input0, input1, aux, output);
+    eval_packed_generic_lt(yield_constr, is_gt, input1, input0, aux, output);
+}
+
+fn eval_ext_circuit_check_is_one_bit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    filter: ExtensionTarget<D>,
+    x: ExtensionTarget<D>,
+) {
+    let constr = builder.mul_sub_extension(x, x, x);
+    let filtered_constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, filtered_constr);
 }
 
 #[allow(clippy::needless_collect)]
@@ -117,29 +141,19 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let is_lt = lv[IS_LT];
+    let is_gt = lv[IS_GT];
+
     let input0 = CMP_INPUT_0.map(|c| lv[c]);
     let input1 = CMP_INPUT_1.map(|c| lv[c]);
     let aux = CMP_AUX_INPUT.map(|c| lv[c]);
     let output = lv[CMP_OUTPUT];
 
-    eval_ext_circuit_lt(
-        builder,
-        yield_constr,
-        lv[IS_LT],
-        input0,
-        input1,
-        aux,
-        output,
-    );
-    eval_ext_circuit_lt(
-        builder,
-        yield_constr,
-        lv[IS_GT],
-        input1,
-        input0,
-        aux,
-        output,
-    );
+    let is_cmp = builder.add_extension(is_lt, is_gt);
+    eval_ext_circuit_check_is_one_bit(builder, yield_constr, is_cmp, output);
+
+    eval_ext_circuit_lt(builder, yield_constr, is_lt, input0, input1, aux, output);
+    eval_ext_circuit_lt(builder, yield_constr, is_gt, input1, input0, aux, output);
 }
 
 #[cfg(test)]
