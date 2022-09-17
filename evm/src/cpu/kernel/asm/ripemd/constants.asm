@@ -1,9 +1,11 @@
-%macro load_K
+%macro load_u32(loc)
     // stack: rnd
-    %mul_const(4)  push K_data  add
-    // stack: K_data + 4*rnd
+    %mul_const(4)  
+    push $loc  
+    ADD
+    // stack: loc + 4*rnd
     %mload_kernel_code_u32
-    // stack: K
+    // stack: u32
 %end_macro
 
 K_data:
@@ -21,75 +23,69 @@ K_data:
     BYTES 0x00, 0x00, 0x00, 0x00
 
 
-%macro load_s
+%macro load_byte(loc)
     // stack: box
-    push S_data  add
-    // stack: S_data + box
+    PUSH $loc  
+    ADD
+    // stack: loc + box
     %mload_kernel_code
-    // stack: s
-%end_macro
+    // stack: u8
+%endmacro
+
 
 S_data:
-    // Left Round 1
+    // Left Round 0
     BYTES 11, 14, 15, 12
     BYTES 05, 08, 07, 09
     BYTES 11, 13, 14, 15
     BYTES 06, 07, 09, 08
-    // Left Round 2
+    // Left Round 1
     BYTES 07, 06, 08, 13 
     BYTES 11, 09, 07, 15 
     BYTES 07, 12, 15, 09 
     BYTES 11, 07, 13, 12
-    // Left Round 3
+    // Left Round 2
     BYTES 11, 13, 06, 07 
     BYTES 14, 09, 13, 15 
     BYTES 14, 08, 13, 06 
     BYTES 05, 12, 07, 05
-    // Left Round 4
+    // Left Round 3
     BYTES 11, 12, 14, 15 
     BYTES 14, 15, 09, 08 
     BYTES 09, 14, 05, 06 
     BYTES 08, 06, 05, 12
-    // Left Round 5
+    // Left Round 4
     BYTES 09, 15, 05, 11
     BYTES 06, 08, 13, 12
     BYTES 05, 12, 13, 14
     BYTES 11, 08, 05, 06
 
-    // Right Round 1
+    // Right Round 0
     BYTES 08, 09, 09, 11
     BYTES 13, 15, 15, 05 
     BYTES 07, 07, 08, 11 
     BYTES 14, 14, 12, 06
-    // Right Round 2
+    // Right Round 1
     BYTES 09, 13, 15, 07 
     BYTES 12, 08, 09, 11 
     BYTES 07, 07, 12, 07
     BYTES 06, 15, 13, 11
-    // Right Round 3
+    // Right Round 2
     BYTES 09, 07, 15, 11 
     BYTES 08, 06, 06, 14 
     BYTES 12, 13, 05, 14 
     BYTES 13, 13, 07, 05
-    // Right Round 4
+    // Right Round 3
     BYTES 15, 05, 08, 11 
     BYTES 14, 14, 06, 14 
     BYTES 06, 09, 12, 09 
     BYTES 12, 05, 15, 08
-    // Right Round 5
+    // Right Round 4
     BYTES 08, 05, 12, 09 
     BYTES 12, 05, 14, 06 
     BYTES 08, 13, 06, 05 
     BYTES 15, 13, 11, 11
 
-
-%macro load_r
-    // stack: box
-    push R_data  add
-    // stack: R_data + box
-    %mload_kernel_code
-    // stack: r
-%end_macro
 
 R_data:
     // Left Round 0

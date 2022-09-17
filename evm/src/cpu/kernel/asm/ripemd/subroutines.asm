@@ -40,15 +40,15 @@ global rol:
 
 
 %macro this_F(i, F)
-  // stack: acc, rnd
+  // stack:              acc, rnd
   DUP2
-  // stack: rnd, acc, rnd
-  %eq_const(i)
-  // stack: rnd==i, acc, j
-  %mul_const(F)
-  // stack: (rnd==i)*F, acc, rnd
+  // stack:  rnd       , acc, rnd
+  %eq_const($i)
+  // stack:  rnd==i    , acc, j
+  %mul_const($F)
+  // stack: (rnd==i)*F , acc, rnd
   ADD
-  // stack: acc + (rnd==j)*F, rnd
+  // stack: (rnd==j)*F + acc, rnd
 %endmacro
 
 
@@ -71,19 +71,19 @@ global F0:
 global F1:  
     // stack:            x, y, z, retdest
     DUP1
-    // stack:         x, x, y, z, retdest
+    // stack:        x,  x, y, z, retdest
     SWAP2
-    // stack:         y, x, x, z, retdest
+    // stack:        y,  x, x, z, retdest
     AND
     // stack:        y & x, x, z, retdest
     SWAP2
-    // stack:        z, x, y & x, retdest
+    // stack:   z,  x,    y & x , retdest
     SWAP1
-    // stack:        x, z, y & x, retdest
+    // stack:   x,  z,    y & x , retdest
     %not_32
-    // stack:       ~x, z, y & x, retdest
+    // stack:  ~x,  z,    y & x , retdest
     AND
-    // stack:      ~x & z, y & x, retdest
+    // stack:  ~x & z  ,  y & x , retdest
     OR
     // stack: (~x & z) | (y & x), retdest
     SWAP1  
@@ -94,13 +94,13 @@ global F1:
 ///     return (x | u32(~y)) ^ z
 
 global F2:
-    // stack:      x, y, z, retdest
+    // stack:   x , y,   z, retdest
     SWAP1
-    // stack:      y, x, z, retdest
+    // stack:   y , x,   z, retdest
     %not_32
-    // stack:     ~y, x, z, retdest
+    // stack:  ~y , x ,  z, retdest
     OR
-    // stack:    ~y | x, z, retdest
+    // stack:  ~y | x ,  z, retdest
     XOR
     // stack: (~y | x) ^ z, retdest
     SWAP1  
@@ -111,17 +111,17 @@ global F2:
 ///     return (x & z) | (u32(~z) & y)
 
 global F3: 
-    // stack:            x, y, z, retdest
+    // stack:       x,    y , z , retdest
     DUP3
-    // stack:         z, x, y, z, retdest
+    // stack:   z , x,    y , z , retdest
     AND
-    // stack:        z & x, y, z, retdest
+    // stack:   z & x,    y , z , retdest
     SWAP2
-    // stack:        z, y, z & x, retdest
+    // stack:   z,  y,    z & x , retdest
     %not_32
-    // stack:       ~z, y, z & x, retdest
+    // stack:  ~z , y,    z & x , retdest
     AND
-    // stack:      ~z & y, z & x, retdest
+    // stack:  ~z & y,    z & x , retdest
     OR
     // stack: (~z & y) | (z & x), retdest
     SWAP1  

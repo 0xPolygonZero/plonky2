@@ -38,3 +38,26 @@ process:
     POP
     // stack: retdest, e'd'c'b'a'
     JUMP
+
+
+/// def padlength(count):
+///    x = 56 - (count // 8) % 64
+///    return x + 64*(x < 9)
+
+%macro padlength
+    // stack:           count
+    %div_const(8)
+    // stack:           count // 8
+    %mod_const(64)
+    // stack:          (count // 8) % 64
+    PUSH 56
+    SUB
+    // stack: x = 56 - (count // 8) % 64
+    DUP1
+    %lt_const(9)
+    // stack:     x < 9  , x
+    %mul_const(64)
+    // stack: 64*(x < 9) , x
+    ADD
+    // stack: 64*(x < 9) + x
+%endmacro
