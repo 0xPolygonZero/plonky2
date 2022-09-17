@@ -31,7 +31,6 @@ pub(crate) fn generate_partial_witness<
     let mut witness = PartitionWitness::new(
         config.num_wires,
         common_data.degree(),
-        common_data.num_virtual_targets,
         &prover_data.representative_map,
     );
 
