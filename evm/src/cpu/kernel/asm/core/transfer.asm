@@ -14,3 +14,15 @@ global transfer_eth:
     %jump(transfer_eth)
 %%after:
 %endmacro
+
+// Pre stack: should_transfer, from, to, amount
+// Post stack: (empty)
+%macro maybe_transfer_eth
+    %jumpi(%%transfer)
+    // We're skipping the transfer, so just pop the arguments and return.
+    %pop3
+    %jump(%%after)
+%%transfer:
+    %transfer_eth
+%%after:
+%endmacro
