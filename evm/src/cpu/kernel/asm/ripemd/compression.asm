@@ -2,7 +2,7 @@
 /// Note that state takes up 5 stack slots
 
 
-/// def hash(state, _block):
+/// def compression(state, _block):
 /// 
 ///     stateL = state
 ///     stateL = loop(stateL)
@@ -24,7 +24,7 @@
 /// where si, li, ri, oi, BL, RD respectively denote 
 /// state[i], stateL[i], stateR[i], output[i], block, retdest
 
-global hash:
+global compression:
     // stack:                                         *state, block, retdest 
     PUSH switch
     DUP7
@@ -42,7 +42,7 @@ global hash:
     // stack: *state, 0, 0, 16, 5, 1, block, switch, *state, block, retdest 
     %jump(loop)
 switch:
-    // stack:                                     *stateL, *state, block, retdest 
+    // stack:                                     *stateL, *state, block, retdest
     PUSH mix
     DUP12  
     PUSH 0
@@ -50,7 +50,7 @@ switch:
     PUSH 16  
     PUSH 0  
     PUSH 0
-    // stack:         0, 0, 16, 5, 0, block, mix, *stateL, *state, block, retdest 
+    // stack:         0, 0, 16, 5, 0, block, mix, *stateL, *state, block, retdest
     DUP17  
     DUP17  
     DUP17  
@@ -177,10 +177,10 @@ round:
 ///
 ///     box = get_box(sides, rounds, boxes)
 ///     a  += F(b, c, d)
-///     r   = load_r(box)
+///     r   = load_byte(r)(box)
 ///     x   = load_block(r)
 ///     a  += x + K
-///     s   = load_s(box)
+///     s   = load_byte(s)(box)
 ///     a   = rol(s, a)
 ///     a  += e
 ///     c   = rol(10, c)
@@ -198,15 +198,15 @@ box:
     // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides, block
     JUMP
 pre_rol:
-    // stack:     F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:    F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, block
     ADD
-    // stack:                 a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:                a, b, c, d, e, F, K, boxes, rounds, sides, block
     %get_box
-    // stack:            box, a, b, c, d, e, F, K, boxes, rounds, sides, block
-    DUP12
-    DUP2  
+    // stack:           box, a, b, c, d, e, F, K, boxes, rounds, sides, block
+    DUP1
     %load_byte(R_data)
-    // stack: r, block, box, a, b, c, d, e, F, K, boxes, rounds, sides, block    
+    DUP13
+    // stack: block, r, box, a, b, c, d, e, F, K, boxes, rounds, sides, block    
     %load_block
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, block
     SWAP1  
@@ -272,10 +272,4 @@ post_rol:
     SUB  
     SUB
     // stack: 176 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
-%endmacro
-
-
-%macro load_block
-    // stack: r, block
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
 %endmacro
