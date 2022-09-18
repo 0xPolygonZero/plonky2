@@ -1,4 +1,4 @@
-/// Variables beginning with _ are not maintained on the stack
+/// _block is stored in memory and its address block remains on the stack
 /// Note that state takes up 5 stack slots
 
 
@@ -207,7 +207,7 @@ pre_rol:
     %load_byte(R_data)
     DUP13
     // stack: block, r, box, a, b, c, d, e, F, K, boxes, rounds, sides, block    
-    %load_block
+    %load_from_block
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, block
     SWAP1  
     SWAP2 

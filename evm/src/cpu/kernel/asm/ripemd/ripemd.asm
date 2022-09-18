@@ -1,43 +1,45 @@
-/// Variables beginning with _ are in memory and not on the stack
-/// ripemd_update will receive and return the stack in the form:
-///     stack: *state, count, length, offset
-/// where offset is the virtual address of its final positional argument 
+/// Variables beginning with _ are in memory
 ///
 /// def ripemd160(_input):
 ///     state, count, _buffer = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0], 0, [0]*64
-///     state, count, _buffer = ripemd_update(state, count, _buffer,      len(_input),   _input)
-///     _padding = [0x80]+[0]*63
-///     _size    = get_size(count)
-///     state, count, _buffer = ripemd_update(state, count, _buffer, padlength(count), _padding)
-///     state, count, _buffer = ripemd_update(state, count, _buffer,                8,    _size)
+///     state, count, _buffer = ripemd_update(state, count, _buffer,           len(input) ,          _input  )
+///     state, count, _buffer = ripemd_update(state, count, _buffer, padlength(len(input)),     [0x80]+[0]*63)
+///     state, count, _buffer = ripemd_update(state, count, _buffer,                     8, size(len(_input)))
 ///     return process(state)
 
+/// ripemd is called on a stack with ADDR and length
+/// ripemd_update will receive and return the stack in the form:
+///     stack: *state, count, length, offset
+/// where offset is the virtual address of its final positional argument 
+
 global ripemd:
-    // stack: ADDR, length
-    %store_buffer   // store _buffer at location 0
-    %store_input    // store _input  at location 64
+    // stack:         ADDR, length
+    DUP4
+    // stack: length, ADDR, length
+    %init_buffer    // init  _buffer  at offset 0
+    %store_size     // store _size    at offset 64  [consumes length]
+    %store_padding  // store _padding at offset 72
+    %store_input    // store _input   at offset 136 [consumes ADDR]
     // stack: length
-    %stack (length) -> (        0, length,          64, ripemd_1, ripemd_2, process)
-    // stack:           count = 0, length, offset = 64, ripemd_1, ripemd_2, process
+    %stack (length) -> (        0, length,          136, ripemd_1, ripemd_2, process)
+    // stack:           count = 0, length, offset = 136, ripemd_1, ripemd_2, process
     %stack (c, l, o, l1, l2, l3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0,     c,      l,      o, l1, l2, l3)
     // stack:                        0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, offset, *labels
     %jump(ripemd_update)
 ripemd_1:
-    // stack:                   *state, count, length, offset, *labels
-    DUP6
-    DUP1
-    // stack:     count, count, *state, count, length, offset, *labels
-    %store_padding  // store _padding at location 64
-    %store_size     // store _size    at location 128 [note: consumes count]
+    // stack:            *state, count, length            , offset, *labels
+    DUP7
+    // stack:    length, *state, count, length            , offset, *labels
     %padlength
-    // stack: padlength, *state, count, length, offset, *labels
+    // stack: padlength, *state, count, length            , offset, *labels
     SWAP7
     POP
-    // stack:            *state, count, length, offset, *labels
+    // stack:            *state, count, length = padlength, offset, *labels
+    %stack (a, b, c, d, e, count, length, offset) -> (a, b, c, d, e, count, length, 72)
     %jump(ripemd_update)
 ripemd_2:
     // stack:            *state, count, length, offset, *labels
-    %stack (a, b, c, d, e, count, length, offset) -> (a, b, c, d, e, count, 8, 128)
+    %stack (a, b, c, d, e, count, length, offset) -> (a, b, c, d, e, count, 8, 64)
     // stack:            *state, count, length, offset, *labels
     %jump(ripemd_update)
 process:
@@ -68,19 +70,17 @@ process:
     // stack: result
 
 
-/// def padlength(count):
-///    x = 56 - (count // 8) % 64
+/// def padlength(length):
+///    x = 56 - length % 64
 ///    return x + 64*(x < 9)
 
 %macro padlength
-    // stack:           count
-    %div_const(8)
-    // stack:           count // 8
+    // stack:          count
     %mod_const(64)
-    // stack:          (count // 8) % 64
+    // stack:          count % 64
     PUSH 56
     SUB
-    // stack: x = 56 - (count // 8) % 64
+    // stack: x = 56 - count % 64
     DUP1
     %lt_const(9)
     // stack:     x < 9  , x
