@@ -4,10 +4,13 @@ use ethereum_types::U256;
 use hex_literal::hex;
 
 use crate::cpu::decode::invalid_opcodes_user;
+use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::context_metadata::ContextMetadata;
 use crate::cpu::kernel::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
+
+pub(crate) mod trie_type;
 
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {
@@ -29,6 +32,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
     for txn_field in ContextMetadata::all() {
         c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+    }
+    for trie_type in PartialTrieType::all() {
+        c.insert(trie_type.var_name().into(), (trie_type as u32).into());
     }
     c.insert(
         "INVALID_OPCODES_USER".into(),

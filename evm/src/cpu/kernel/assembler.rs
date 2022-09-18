@@ -9,13 +9,13 @@ use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
 use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::optimizer::optimize_asm;
-use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
 };
+use crate::generation::prover_input::ProverInputFn;
 
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be

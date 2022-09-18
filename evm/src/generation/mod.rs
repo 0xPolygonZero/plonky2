@@ -18,9 +18,11 @@ use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::util::trace_rows_to_poly_values;
 
 pub(crate) mod memory;
+pub(crate) mod mpt;
+pub(crate) mod prover_input;
 pub(crate) mod state;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 /// Inputs needed for trace generation.
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
@@ -49,7 +51,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     inputs: GenerationInputs,
     config: &StarkConfig,
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
-    let mut state = GenerationState::<F>::default();
+    let mut state = GenerationState::<F>::new(inputs.clone());
 
     generate_bootstrap_kernel::<F>(&mut state);
 
