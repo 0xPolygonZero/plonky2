@@ -2,24 +2,26 @@
 ///
 /// def ripemd160(_input):
 ///     state, count, _buffer = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0], 0, [0]*64
-///     state, count, _buffer = ripemd_update(state, count, _buffer,           len(input) ,          _input  )
-///     state, count, _buffer = ripemd_update(state, count, _buffer, padlength(len(input)),     [0x80]+[0]*63)
-///     state, count, _buffer = ripemd_update(state, count, _buffer,                     8, size(len(_input)))
+///     state, count, _buffer = ripemd_update(state, count, _buffer,           len(input) , bytes =          _input  )
+///     state, count, _buffer = ripemd_update(state, count, _buffer, padlength(len(input)), bytes =     [0x80]+[0]*63)
+///     state, count, _buffer = ripemd_update(state, count, _buffer,                     8, bytes = size(len(_input)))
 ///     return process(state)
-
+///
 /// ripemd is called on a stack with ADDR and length
 /// ripemd_update will receive and return the stack in the form:
 ///     stack: *state, count, length, offset
-/// where offset is the virtual address of its final positional argument 
+/// where offset is the virtual address of the bytes argument 
 
 global ripemd:
     // stack:         ADDR, length
-    DUP4
-    // stack: length, ADDR, length
-    %init_buffer    // init  _buffer  at offset 0
-    %store_size     // store _size    at offset 64  [consumes length]
-    %store_padding  // store _padding at offset 72
-    %store_input    // store _input   at offset 136 [consumes ADDR]
+    $stack (a, b, c, length) -> (64, length, 0x80, 63, a, b, c, length, length)
+    // stack:                    64, length, 0x80, 63, a, b, c, length, length
+    %jump(ripemd_storage) // stores the following into memory
+                          // init  _buffer  at offset 0   [consumes           64]
+                          // store _size    at offset 64  [consumes       length]
+                          // store _padding at offset 72  [consumes 0x80,     63]
+                          // store _input   at offset 136 [consumes ADDR, length]
+ripemd_init:
     // stack: length
     %stack (length) -> (        0, length,          136, ripemd_1, ripemd_2, process)
     // stack:           count = 0, length, offset = 136, ripemd_1, ripemd_2, process

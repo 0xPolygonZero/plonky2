@@ -1,11 +1,10 @@
-%macro load_u32(loc)
+%macro load_K
     // stack: rnd
     %mul_const(4)  
-    push $loc  
-    ADD
-    // stack: loc + 4*rnd
+    %add_const(K_data)
+    // stack: K_data + 4*rnd
     %mload_kernel_code_u32
-    // stack: u32
+    // stack: K
 %end_macro
 
 K_data:

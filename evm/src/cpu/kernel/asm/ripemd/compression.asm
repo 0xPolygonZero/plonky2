@@ -1,8 +1,8 @@
-/// _block is stored in memory and its address block remains on the stack
+/// _offset is stored in memory and its address offset remains on the stack
 /// Note that state takes up 5 stack slots
 
 
-/// def compression(state, _block):
+/// def compression(state, _offset):
 /// 
 ///     stateL = state
 ///     stateL = loop(stateL)
@@ -22,10 +22,10 @@
 ///         u32(s0 + l1 + r2)
 /// 
 /// where si, li, ri, oi, BL, RD respectively denote 
-/// state[i], stateL[i], stateR[i], output[i], block, retdest
+/// state[i], stateL[i], stateR[i], output[i], offset, retdest
 
 global compression:
-    // stack:                                         *state, block, retdest 
+    // stack:                                         *state, offset, retdest 
     PUSH switch
     DUP7
     PUSH 1
@@ -33,16 +33,16 @@ global compression:
     PUSH 16  
     PUSH 0  
     PUSH 0
-    // stack:         0, 0, 16, 5, 1, block, switch, *state, block, retdest 
+    // stack:         0, 0, 16, 5, 1, offset, switch, *state, offset, retdest 
     DUP12  
     DUP12  
     DUP12  
     DUP12  
     DUP12
-    // stack: *state, 0, 0, 16, 5, 1, block, switch, *state, block, retdest 
+    // stack: *state, 0, 0, 16, 5, 1, offset, switch, *state, offset, retdest 
     %jump(loop)
 switch:
-    // stack:                                     *stateL, *state, block, retdest
+    // stack:                                     *stateL, *state, offset, retdest
     PUSH mix
     DUP12  
     PUSH 0
@@ -50,13 +50,13 @@ switch:
     PUSH 16  
     PUSH 0  
     PUSH 0
-    // stack:         0, 0, 16, 5, 0, block, mix, *stateL, *state, block, retdest
+    // stack:         0, 0, 16, 5, 0, offset, mix, *stateL, *state, offset, retdest
     DUP17  
     DUP17  
     DUP17  
     DUP17  
     DUP17
-    // stack: *state, 0, 0, 16, 5, 0, block, mix, *stateL, *state, block, retdest 
+    // stack: *state, 0, 0, 16, 5, 0, offset, mix, *stateL, *state, offset, retdest 
     %jump(loop)
 mix:
     // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, BL, RD 
@@ -123,50 +123,50 @@ mix:
 
 
 loop:  
-    // stack:          *state, F, K, 16, rounds, sides, block, retdest
+    // stack:          *state, F, K, 16, rounds, sides, offset, retdest
     DUP9
-    // stack:   round, *state, F, K, 16, rounds, sides, block, retdest
+    // stack:   round, *state, F, K, 16, rounds, sides, offset, retdest
     %jumpi(update_round_vars)
-    // stack:          *state, F, K, 16,      0, sides, block, retdest
-    %stack (a, b, c, d, e, F, K, boxes, rounds, sides, block, retdest) -> (retdest, a, b, c, d, e)
+    // stack:          *state, F, K, 16,      0, sides, offset, retdest
+    %stack (a, b, c, d, e, F, K, boxes, rounds, sides, offset, retdest) -> (retdest, a, b, c, d, e)
     // stack: retdest, *state
     JUMP
 update_round_vars:
-    // stack:           *state, F , K , 16, rounds, sides, block, retdest
+    // stack:           *state, F , K , 16, rounds, sides, offset, retdest
     DUP9  
     DUP11  
     %get_round  
     DUP1
-    // stack: rnd, rnd, *state, F , K , 16, rounds, sides, block, retdest
+    // stack: rnd, rnd, *state, F , K , 16, rounds, sides, offset, retdest
     SWAP7  
     POP  
     %push_F  
     SWAP7
-    // stack: rnd, rnd, *state, F', K , 16, rounds, sides, block, retdest
+    // stack: rnd, rnd, *state, F', K , 16, rounds, sides, offset, retdest
     SWAP8  
     POP  
-    %load_u32(K_data)
+    %load_K
     SWAP7  
     POP
-    // stack:           *state, F', K', 16, rounds, sides, block, retdest
+    // stack:           *state, F', K', 16, rounds, sides, offset, retdest
     %jump(round)
 round:
-    // stack:        *state, F, K, boxes, rounds  , sides, block, retdest
+    // stack:        *state, F, K, boxes, rounds  , sides, offset, retdest
     DUP8
-    // stack: boxes, *state, F, K, boxes, rounds  , sides, block, retdest
+    // stack: boxes, *state, F, K, boxes, rounds  , sides, offset, retdest
     %jumpi(box)
-    // stack:        *state, F, K,     0, rounds  , sides, block, retdest
+    // stack:        *state, F, K,     0, rounds  , sides, offset, retdest
     SWAP7  
     POP  
     PUSH 16 
     SWAP7
-    // stack:        *state, F, K,    16, rounds  , sides, block, retdest
+    // stack:        *state, F, K,    16, rounds  , sides, offset, retdest
     PUSH 1  
     DUP10  
     SUB  
     SWAP9  
     POP
-    // stack:        *state, F, K,    16, rounds-1, sides, block, retdest
+    // stack:        *state, F, K,    16, rounds-1, sides, offset, retdest
     %jump(loop)
 
 
@@ -178,7 +178,7 @@ round:
 ///     box = get_box(sides, rounds, boxes)
 ///     a  += F(b, c, d)
 ///     r   = load_byte(r)(box)
-///     x   = load_block(r)
+///     x   = load_offset(r)
 ///     a  += x + K
 ///     s   = load_byte(s)(box)
 ///     a   = rol(s, a)
@@ -189,66 +189,67 @@ round:
 
 
 box:
-    // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides, offset
     PUSH pre_rol  
     DUP5
     DUP5
     DUP5  
     DUP10
-    // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     JUMP
 pre_rol:
-    // stack:    F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:      F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD
-    // stack:                a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:                  a, b, c, d, e, F, K, boxes, rounds, sides, offset
     %get_box
-    // stack:           box, a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:             box, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     DUP1
     %load_byte(R_data)
     DUP13
-    // stack: block, r, box, a, b, c, d, e, F, K, boxes, rounds, sides, block    
-    %load_from_block
-    // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, block
+    ADD
+    // stack: offset + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, offset    
+    %load_u32_from_block
+    // stack:          x, box, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     SWAP1  
     SWAP2 
-    // stack:        a, x, box, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:          a, x, box, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD  
     DUP8  
     ADD  
     %u32
-    // stack:           a, box, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:             a, box, b, c, d, e, F, K, boxes, rounds, sides, offset
     PUSH mid_rol  
     SWAP2
-    // stack:  box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:    box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, offset
     %load_byte(S_data)
-    // stack:    s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:      s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, offset
     %jump(rol)
 mid_rol:
-    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, offset
     DUP5
-    // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides, offset
     ADD 
     %u32    
-    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, block
+    // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, offset
     SWAP1  
     SWAP2  
     PUSH post_rol  
     SWAP1  
     PUSH 10
-    // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides, block
+    // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides, offset
     %jump(rol)
 post_rol:
-    // stack: c, a, b, d, e, F, K, boxes  , rounds, sides, block
+    // stack: c, a, b, d, e, F, K, boxes  , rounds, sides, offset
     SWAP3
-    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides, block
+    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides, offset
     SWAP4
-    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides, block
+    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides, offset
     SWAP7  
     PUSH 1  
     SWAP1  
     SUB  
     SWAP7
-    // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides, block
+    // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides, offset
     %jump(round)
 
 
@@ -257,7 +258,6 @@ post_rol:
     %mul_const(5)  PUSH 10  sub  sub
     // stack: 10 - 5*sides - rounds
 %endmacro
-
 
 %macro get_box
     // stack:                                     *7_args, boxes, rounds, sides
