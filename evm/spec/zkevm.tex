@@ -1,0 +1,59 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{cite}
+\usepackage{draftwatermark}
+\usepackage[margin=1.5in]{geometry}
+\usepackage{hyperref}
+\usepackage{makecell}
+\usepackage{mathtools}
+\usepackage{tabularx}
+\usepackage[textwidth=1.25in]{todonotes}
+
+% Scale for DRAFT watermark.
+\SetWatermarkFontSize{24cm}
+\SetWatermarkScale{5}
+\SetWatermarkLightness{0.92}
+
+% Hyperlink colors.
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+}
+
+% We want all section autorefs to say "Section".
+\def\sectionautorefname{Section}
+\let\subsectionautorefname\sectionautorefname
+\let\subsubsectionautorefname\sectionautorefname
+
+% \floor{...} and \ceil{...}
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\title{The Polygon Zero zkEVM}
+%\author{Polygon Zero Team}
+\date{DRAFT\\\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+  We describe the design of Polygon Zero's zkEVM, ...
+\end{abstract}
+
+\newpage
+{\hypersetup{hidelinks} \tableofcontents}
+\newpage
+
+\input{introduction}
+\input{framework}
+\input{tables}
+\input{tries}
+\input{instructions}
+
+\bibliography{bibliography}{}
+\bibliographystyle{ieeetr}
+
+\end{document}

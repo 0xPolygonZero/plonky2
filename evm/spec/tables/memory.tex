@@ -1,0 +1,61 @@
+\subsection{Memory}
+\label{memory}
+
+For simplicity, let's treat addresses and values as individual field elements. The generalization to multi-element addresses and values is straightforward.
+
+Each row of the memory table corresponds to a single memory operation (a read or a write), and contains the following columns:
+
+\begin{enumerate}
+  \item $a$, the target address
+  \item $r$, an ``is read'' flag, which should be 1 for a read or 0 for a write
+  \item $v$, the value being read or written
+  \item $\tau$, the timestamp of the operation
+\end{enumerate}
+The memory table should be ordered by $(a, \tau)$. Note that the correctness memory could be checked as follows:
+\begin{enumerate}
+  \item Verify the ordering by checking that $(a_i, \tau_i) < (a_{i+1}, \tau_{i+1})$ for each consecutive pair.
+  \item Enumerate the purportedly-ordered log while tracking a ``current'' value $c$, which is initially zero.\footnote{EVM memory is zero-initialized.}
+  \begin{enumerate}
+    \item Upon observing an address which doesn't match that of the previous row, set $c \leftarrow 0$.
+    \item Upon observing a write, set $c \leftarrow v$.
+    \item Upon observing a read, check that $v = c$.
+  \end{enumerate}
+\end{enumerate}
+
+The ordering check is slightly involved since we are comparing multiple columns. To facilitate this, we add an additional column $e$, where the prover can indicate whether two consecutive addresses are equal. An honest prover will set
+$$
+e_i \leftarrow \begin{cases}
+  1 & \text{if } a_i = a_{i + 1}, \\
+  0 & \text{otherwise}.
+\end{cases}
+$$
+We then impose the following transition constraints:
+\begin{enumerate}
+  \item $e_i (e_i - 1) = 0$,
+  \item $e_i (a_i - a_{i + 1}) = 0$,
+  \item $e_i (\tau_{i + 1} - \tau_i) + (1 - e_i) (a_{i + 1} - a_i - 1) < 2^{32}$.
+\end{enumerate}
+The last constraint emulates a comparison between two addresses or timestamps by bounding their difference; this assumes that all addresses and timestamps fit in 32 bits and that the field is larger than that.
+
+Finally, the iterative checks can be arithmetized by introducing a trace column for the current value $c$. We add a boundary constraint $c_0 = 0$, and the following transition constraints:
+\todo{This is out of date, we don't actually need a $c$ column.}
+\begin{enumerate}
+  \item $v_{\text{from},i} = c_i$,
+  \item $c_{i + 1} = e_i v_{\text{to},i}$.
+\end{enumerate}
+
+
+\subsubsection{Virtual memory}
+
+In the EVM, each contract call has its own address space. Within that address space, there are separate segments for code, main memory, stack memory, calldata, and returndata. Thus each address actually has three compoments:
+\begin{enumerate}
+  \item an execution context, representing a contract call,
+  \item a segment ID, used to separate code, main memory, and so forth, and so on
+  \item a virtual address.
+\end{enumerate}
+The comparisons now involve several columns, which requires some minor adaptations to the technique described above; we will leave these as an exercise to the reader.
+
+
+\subsubsection{Timestamps}
+
+TODO: Explain $\tau = \texttt{NUM\_CHANNELS} \times \texttt{cycle} + \texttt{channel}$.
