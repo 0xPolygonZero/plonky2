@@ -22,8 +22,8 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
 }
 
 impl<F: Field> OEF<1> for F {
-    const W: Self::BaseField = F::ZERO;
-    const DTH_ROOT: Self::BaseField = F::ZERO;
+    const W: Self::BaseField = F::ONE;
+    const DTH_ROOT: Self::BaseField = F::ONE;
 }
 
 pub trait Frobenius<const D: usize>: OEF<D> {
@@ -80,8 +80,8 @@ pub trait Extendable<const D: usize>: Field + Sized {
 
 impl<F: Field + Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
     type Extension = F;
-    const W: Self = F::ZERO;
-    const DTH_ROOT: Self = F::ZERO;
+    const W: Self = F::ONE;
+    const DTH_ROOT: Self = F::ONE;
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 1] = [F::MULTIPLICATIVE_GROUP_GENERATOR];
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 1] = [F::POWER_OF_TWO_GENERATOR];
 }
