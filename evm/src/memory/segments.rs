@@ -80,7 +80,7 @@ impl Segment {
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
-            Segment::RipeMD => 256,
+            Segment::RipeMD => 8,
         }
     }
 }
