@@ -24,6 +24,8 @@ pub(crate) enum Segment {
     TxnData = 9,
     /// Raw RLP data.
     RlpRaw = 10,
+    /// Ripe MD Blocks
+    RipeMD = 11,
 }
 
 impl Segment {
@@ -42,6 +44,7 @@ impl Segment {
             Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
+            Self::RipeMD
         ]
     }
 
@@ -59,6 +62,7 @@ impl Segment {
             Segment::TxnFields => "SEGMENT_NORMALIZED_TXN",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
+            Segment::RipeMD => "SEGMENT_RIPEMD"
         }
     }
 
@@ -76,6 +80,7 @@ impl Segment {
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
+            Segment::RipeMD => 256,
         }
     }
 }
