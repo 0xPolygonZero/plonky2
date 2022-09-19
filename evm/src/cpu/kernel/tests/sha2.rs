@@ -22,7 +22,7 @@ fn test_sha2() -> Result<()> {
     // Hash the message using a standard Sha256 implementation.
     let mut hasher = Sha256::new();
     hasher.update(message.clone());
-    let expected = format!("{:X}", hasher.finalize());
+    let expected = U256::from(&hasher.finalize()[..]);
 
     // Load the message onto the stack.
     let mut initial_stack = vec![U256::from(num_bytes)];
@@ -33,8 +33,7 @@ fn test_sha2() -> Result<()> {
 
     // Run the sha2 kernel code.
     let result = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
-    let result_hash = result.stack()[0];
-    let actual = format!("{:X}", result_hash);
+    let actual = result.stack()[0];
 
     // Check that the result is correct.
     assert_eq!(expected, actual);
