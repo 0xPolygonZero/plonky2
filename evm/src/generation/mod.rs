@@ -1,15 +1,16 @@
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::Address;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use serde::{Deserialize, Serialize};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::NUM_CPU_COLUMNS;
 use crate::cpu::kernel::global_metadata::GlobalMetadata;
-use crate::generation::partial_trie::PartialTrie;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;
@@ -17,9 +18,9 @@ use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::util::trace_rows_to_poly_values;
 
 pub(crate) mod memory;
-pub mod partial_trie;
 pub(crate) mod state;
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// Inputs needed for trace generation.
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
