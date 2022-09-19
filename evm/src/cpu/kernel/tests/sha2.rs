@@ -15,25 +15,28 @@ fn test_sha2() -> Result<()> {
 
     let mut rng = thread_rng();
 
+    // Generate a random message, between 0 and 9999 bytes.
     let num_bytes = rng.gen_range(0..10000);
     let message: Vec<u8> = (0..num_bytes).map(|_| rng.gen()).collect();
 
+    // Hash the message using a standard Sha256 implementation.
     let mut hasher = Sha256::new();
     hasher.update(message.clone());
     let expected = format!("{:X}", hasher.finalize());
 
-    let bytes: Vec<U256> = message.iter().map(|&x| U256::from(x as u32)).collect();
-
+    // Load the message onto the stack.
     let mut initial_stack = vec![U256::from(num_bytes)];
+    let bytes: Vec<U256> = message.iter().map(|&x| U256::from(x as u32)).collect();
     initial_stack.extend(bytes);
     initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
     initial_stack.reverse();
 
-    let after_sha2 = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
-    let stack_after_sha2 = after_sha2.stack();
-    let result = stack_after_sha2[1];
-    let actual = format!("{:X}", result);
+    // Run the sha2 kernel code.
+    let result = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
+    let result_hash = result.stack()[0];
+    let actual = format!("{:X}", result_hash);
 
+    // Check that the result is correct.
     assert_eq!(expected, actual);
 
     Ok(())

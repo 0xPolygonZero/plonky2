@@ -115,43 +115,31 @@
     // stack: offset, value
     SWAP1
     // stack: value, offset
-    PUSH 1
-    PUSH 8
-    SHL
-    // stack: 1 << 8, value, offset
-    %stack (shift, val, offset) -> (val, shift, val, shift, offset)
-    // stack: value, 1 << 8, value, 1 << 8, offset
-    MOD
-    // stack: c_0 = value % (1 << 8), value, 1 << 8, offset
-    SWAP2
+    DUP1
+    // stack: value, value, offset
+    %and_const(0xff)
+    // stack: c_0 = value % (1 << 8), value, offset
     SWAP1
-    // stack: value, 1 << 8, c_0, offset
-    PUSH 8
-    SHR
-    // stack: value >> 8, 1 << 8, c_0, offset
-    DUP2
-    DUP2
-    // stack: value >> 8, 1 << 8, value >> 8, 1 << 8, c_0, offset
-    MOD
-    // stack: c_1 = (value >> 8) % (1 << 8), value >> 8, 1 << 8, c_0, offset
-    SWAP2
+    // stack: value, c_0, offset
+    %shr_const(8)
+    // stack: value >> 8, c_0, offset
+    DUP1
+    // stack: value >> 8, value >> 8, c_0, offset
+    %and_const(0xff)
+    // stack: c_1 = (value >> 8) % (1 << 8), value >> 8, c_0, offset
     SWAP1
-    // stack: value >> 8, 1 << 8, c_1, c_0, offset
-    PUSH 8
-    SHR
-    // stack: value >> 16, 1 << 8, c_1, c_0, offset
-    DUP2
-    DUP2
-    // stack: value >> 16, 1 << 8, value >> 16, 1 << 8, c_1, c_0, offset
-    MOD
-    // stack: c_2 = (value >> 16) % (1 << 8), value >> 16, 1 << 8, c_1, c_0, offset
-    SWAP2
+    // stack: value >> 8, c_1, c_0, offset
+    %shr_const(8)
+    // stack: value >> 16, c_1, c_0, offset
+    DUP1
+    // stack: value >> 16, value >> 16, c_1, c_0, offset
+    %and_const(0xff)
+    // stack: c_2 = (value >> 16) % (1 << 8), value >> 16, c_1, c_0, offset
     SWAP1
-    // stack: value >> 16, 1 << 8, c_2, c_1, c_0, offset
-    PUSH 8
-    SHR
-    // stack: value >> 24, 1 << 8, c_2, c_1, c_0, offset
-    MOD
+    // stack: value >> 16, c_2, c_1, c_0, offset
+    %shr_const(8)
+    // stack: value >> 24, c_2, c_1, c_0, offset
+    %and_const(0xff)
     // stack: c_3 = (value >> 24) % (1 << 8), c_2, c_1, c_0, offset
     DUP5
     // stack: offset, c_3, c_2, c_1, c_0, offset
