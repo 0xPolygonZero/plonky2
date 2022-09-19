@@ -12,6 +12,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
@@ -58,7 +59,7 @@ pub struct TrieRoots {
     pub receipts_root: U256,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
     pub block_beneficiary: Address,
     pub block_timestamp: U256,

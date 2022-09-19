@@ -1,10 +1,10 @@
+use eth_trie_utils::partial_trie::PartialTrie;
 use hex_literal::hex;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::partial_trie::PartialTrie;
 use plonky2_evm::generation::GenerationInputs;
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
