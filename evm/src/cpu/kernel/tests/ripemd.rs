@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run;
@@ -8,7 +9,7 @@ fn test_ripemd() -> Result<()> {
     let kernel = combined_kernel();
     let ripemd = kernel.global_labels["ripemd_alt"];
 
-    let initial_stack = vec![
+    let input = vec![
         0x61, 0x62, 0x63, 0x64,
         0x65, 0x66, 0x67, 0x68,
         0x69, 0x6a, 0x6b, 0x6c,
@@ -18,6 +19,7 @@ fn test_ripemd() -> Result<()> {
         0x79, 0x7a
     ];
 
+    let initial_stack = input.iter().map(|&x| U256::from(x as u32)).collect();
     let hashed = run(&kernel.code, ripemd, initial_stack, &kernel.prover_inputs)?;
     let result = hashed.stack()[1];
     let actual = format!("{:X}", result);
