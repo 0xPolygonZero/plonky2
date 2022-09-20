@@ -60,7 +60,9 @@ where
     ensure!(openings.wires.len() == config.num_wires);
     ensure!(openings.plonk_zs.len() == config.num_challenges);
     ensure!(openings.plonk_zs_next.len() == config.num_challenges);
-    ensure!(openings.partial_products.len() == common_data.num_partial_products);
+    ensure!(
+        openings.partial_products.len() == config.num_challenges * common_data.num_partial_products
+    );
     ensure!(openings.quotient_polys.len() == common_data.num_quotient_polys());
 
     Ok(())
