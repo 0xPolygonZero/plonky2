@@ -22,9 +22,9 @@ store_size:
     // stack: ab
     %extract_and_store_byte(70)
     // stack: a
-    %mstore_ripemd(71)
-    // stack:           0x80 // padding has 0x80 in first position and zeros elsewhere
-    %mstore_ripemd(72)       // store first padding term here so as to avoid extra label
+    %mstore_ripemd_offset(71)
+    // stack:           0x80     // padding has 0x80 in first position and zeros elsewhere
+    %mstore_ripemd_offset(72)    // store first padding term here so as to avoid extra label
     %jump(store_padding)
 
 store_padding:
@@ -107,26 +107,26 @@ store_input:
     DIV
     SWAP1
     // stack: y, xs
-    %mstore_ripemd($offset)
+    %mstore_ripemd_offset($offset)
     // stack: xs
 %endmacro 
 
-%macro mstore_ripemd_offset($offset)
+%macro mstore_ripemd_offset(offset)
     // stack:         value 
     PUSH $offset
     // stack: offset, value 
-    %mstore_kernel(SEGMENT_RIPEMD)
+    %mstore_kernel(@SEGMENT_RIPEMD)
     // stack: 
 %endmacro
 
 %macro mstore_ripemd
     // stack: offset, value 
-    %mstore_kernel(SEGMENT_RIPEMD)
+    %mstore_kernel(@SEGMENT_RIPEMD)
     // stack: 
 %endmacro
 
 %macro mload_ripemd
-    %mload_kernel(SEGMENT_RIPEMD)
+    %mload_kernel(@SEGMENT_RIPEMD)
 %endmacro
 
 // Load LE u32 from 4 contiguous bytes a, b, c, d in SEGMENT_RIPEMD

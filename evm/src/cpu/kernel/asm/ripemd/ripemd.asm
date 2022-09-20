@@ -35,7 +35,7 @@ ripemd_init:
     // stack: length
     %stack (length) -> (        0, length,        136, ripemd_1, ripemd_2, process)
     // stack:           count = 0, length, virt = 136, ripemd_1, ripemd_2, process
-    %stack (c, l, o, l1, l2, l3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0,     c,      l,      o, l1, l2, l3)
+    %stack (c, l, o, l1, l2, l3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0,     c,      l,    o, l1, l2, l3)
     // stack:                        0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, *labels
     %jump(ripemd_update)
 ripemd_1:
@@ -59,26 +59,26 @@ process:
     %flip_bytes_u32
     // stack: a', b, c, d, e, *vars
     SWAP1
-    %flip_bytes_32
+    %flip_bytes_u32
     %shl_const(32)
     OR
     // stack: b' a', c, d, e, *vars
     SWAP1
-    %flip_bytes_32
+    %flip_bytes_u32
     %shl_const(64)
     OR
     // stack: c' b' a', d, e, *vars
     SWAP1
-    %flip_bytes_32
+    %flip_bytes_u32
     %shl_const(96)
     OR 
     // stack: d' c' b' a', e, *vars
     SWAP1
-    %flip_bytes_32
+    %flip_bytes_u32
     %shl_const(96)
     OR 
     // stack: e' d' c' b' a', *vars
-    %stack (result, x, y, z) -> result
+    %stack (result, x, y, z) -> (result)
     // stack: result
 
 
