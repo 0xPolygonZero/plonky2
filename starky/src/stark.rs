@@ -78,6 +78,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         1.max(self.constraint_degree() - 1)
     }
 
+    fn num_quotient_polys(&self, config: &StarkConfig) -> usize {
+        self.quotient_degree_factor() * config.num_challenges
+    }
+
     /// Computes the FRI instance used to prove this Stark.
     fn fri_instance(
         &self,

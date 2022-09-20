@@ -241,8 +241,7 @@ where
     ensure!(openings.permutation_ctl_zs.len() == num_zs);
     ensure!(openings.permutation_ctl_zs_next.len() == num_zs);
     ensure!(openings.ctl_zs_last.len() == num_ctl_zs);
-    let num_quotient_polys = stark.num_quotient_polys(config);
-    ensure!(openings.quotient_polys.len() == num_quotient_polys);
+    ensure!(openings.quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())
 }

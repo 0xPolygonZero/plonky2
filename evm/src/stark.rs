@@ -111,7 +111,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             num_permutation_batches..num_permutation_batches + num_ctl_zs,
         );
 
-        let num_quotient_polys = self.quotient_degree_factor() * config.num_challenges;
+        let num_quotient_polys = self.num_quotient_polys(config);
         let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
@@ -174,7 +174,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             num_permutation_batches..num_permutation_batches + num_ctl_zs,
         );
 
-        let num_quotient_polys = self.quotient_degree_factor() * inner_config.num_challenges;
+        let num_quotient_polys = self.num_quotient_polys(inner_config);
         let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
