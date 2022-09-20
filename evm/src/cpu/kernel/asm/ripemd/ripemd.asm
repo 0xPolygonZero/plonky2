@@ -12,9 +12,19 @@
 ///     stack: STATE, count, length, virt
 /// where virt is the virtual address of the bytes argument
 
+global ripemd_alt:
+    // stack: length, INPUT
+    %stack (length) -> (64, length, 0x80, 63, length, length)
+    // stack:                    64, length, 0x80, 63, length, length, INPUT
+    %jump(ripemd_storage) // stores the following into memory
+                          // init  _buffer  at virt 0   [consumes           64]
+                          // store _size    at virt 64  [consumes       length]
+                          // store _padding at virt 72  [consumes 0x80,     63]
+                          // store _input   at virt 136 [consumes       length]
+
 global ripemd:
     // stack:         ADDR, length
-    $stack (a, b, c, length) -> (64, length, 0x80, 63, a, b, c, length, length)
+    %stack (a, b, c, length) -> (64, length, 0x80, 63, a, b, c, length, length)
     // stack:                    64, length, 0x80, 63, a, b, c, length, length
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]

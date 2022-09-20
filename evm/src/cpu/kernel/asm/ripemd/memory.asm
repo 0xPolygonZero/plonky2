@@ -30,7 +30,25 @@ store_size:
 store_padding:
     // stack: i (init 63)
     %store_zeros(136, store_padding)
-    %jump(store_input)
+    %jump(store_input_alt)
+
+
+store_input_alt:
+    // stack:               rem, length, REM_INP
+    %stack (rem, length, head) -> (length, rem, 136, head, rem, length)
+    SUB
+    ADD
+    // stack: offset, byte, rem, length, REM_INP
+    %mstore_ripemd
+    // stack:               rem, length, REM_INP
+    %sub_const(1)
+    DUP1 
+    // stack:  rem - 1, rem - 1, length, REM_INP
+    %jumpi(store_input_alt)
+    // stack:                 0, length
+    POP
+    %jump(ripemd_init)
+
 
 store_input:
     // stack:               ADDR    , rem    , length
