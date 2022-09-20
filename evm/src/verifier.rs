@@ -209,7 +209,7 @@ fn validate_proof_shape<F, C, S, const D: usize>(
     stark: &S,
     proof: &StarkProof<F, C, D>,
     config: &StarkConfig,
-    num_ctls: usize,
+    num_ctl_zs: usize,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
@@ -237,7 +237,6 @@ where
 
     ensure!(openings.local_values.len() == S::COLUMNS);
     ensure!(openings.next_values.len() == S::COLUMNS);
-    let num_ctl_zs = num_ctls * config.num_challenges;
     let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
     ensure!(openings.permutation_ctl_zs.len() == num_zs);
     ensure!(openings.permutation_ctl_zs_next.len() == num_zs);
