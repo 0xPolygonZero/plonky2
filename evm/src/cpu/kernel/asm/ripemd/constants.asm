@@ -5,7 +5,7 @@
     // stack: K_data + 4*rnd
     %mload_kernel_code_u32
     // stack: K
-%end_macro
+%endmacro
 
 K_data:
     // Left

@@ -24,7 +24,7 @@ global rol:
     JUMP
 
 
-%macro PUSH_F
+%macro push_F
   PUSH 0
   %this_F(0,F0)
   %this_F(1,F1)

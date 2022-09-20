@@ -34,7 +34,7 @@ global ripemd_update:
     LT 
     NOT
     // stack:               Q, STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (Q, STATE, 0, shift, need, have) -> (have, Q, Q, STATE, 0, shift, need, have) 
+    %stack (Q, a, b, c, d, e, i, shift, need, have) -> (have, Q, Q, a, b, c, d, e, i, shift, need, have) 
     AND
     // stack:            P, Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %jumpi(update_1)
@@ -54,7 +54,7 @@ final_update:
     // stack: R, ARGS, shift, need, have, STATE, count, length, virt, retdest
     %jumpi(buffer_update)
     // stack:    ARGS, shift, need, have, STATE, count, length, virt, retdest
-    *pop3
+    %pop3
     JUMP
 return_step:
     // stack:          shift, need, have, STATE, count, length, virt, retdest
@@ -76,11 +76,11 @@ return_step:
 
 update_1:
     // stack: Q, STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (Q, a, b, c, d, e, 0, shift, need, have, count, length, virt) -> (virt, have, need, update_1a, a, b, c, d, e, 0, shift, need, have, count, length, virt)
+    %stack (Q, a, b, c, d, e, i, shift, need, have, count, length, virt) -> (virt, have, need, update_1a, a, b, c, d, e, i, shift, need, have, count, length, virt)
     %jump(buffer_update)
 update_1a:
     // stack: STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (a, b, c, d, e, 0, shift, need, have) -> (a, b, c, d, e, 0, update_2, need, need, 0)
+    %stack (a, b, c, d, e, i, shift, need, have) -> (a, b, c, d, e, i, update_2, need, need, 0)
     // stack: STATE, 0, update_2, shift, need, have, count, length, virt, retdest
     %jump(compress)
 

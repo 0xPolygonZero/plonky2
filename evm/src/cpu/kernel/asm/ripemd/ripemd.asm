@@ -31,7 +31,7 @@ global ripemd:
                           // store _size    at virt 64  [consumes       length]
                           // store _padding at virt 72  [consumes 0x80,     63]
                           // store _input   at virt 136 [consumes ADDR, length]
-ripemd_init:
+global ripemd_init:
     // stack: length
     %stack (length) -> (        0, length,        136, ripemd_1, ripemd_2, process)
     // stack:           count = 0, length, virt = 136, ripemd_1, ripemd_2, process

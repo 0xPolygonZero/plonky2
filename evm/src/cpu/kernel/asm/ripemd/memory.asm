@@ -1,4 +1,4 @@
-ripemd_storage: // starts by initializing buffer
+global ripemd_storage: // starts by initializing buffer
     // stack: i (init 64)
     %store_zeros(64, ripemd_storage)
     // stack: 
@@ -82,7 +82,9 @@ store_input:
 
 %macro store_zeros(N, label)
     // stack: i
-    %stack (i) -> ($N, i, 0, i)
+    PUSH 0
+    DUP2
+    PUSH $N
     SUB
     // stack: offset = N-i, 0, i
     %mstore_ripemd
