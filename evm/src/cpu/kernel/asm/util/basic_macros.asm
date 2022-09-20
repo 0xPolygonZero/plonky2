@@ -154,13 +154,6 @@
     // stack: input >= c, ...
 %endmacro
 
-%macro and_const(c)
-    // stack: x
-    PUSH $c
-    AND
-    // stack: c & x
-%endmacro
-
 %macro consume_gas_const(c)
     PUSH $c
     CONSUME_GAS
