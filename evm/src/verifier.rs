@@ -119,6 +119,7 @@ where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    validate_proof_shape(&stark, proof, config, ctl_vars.len())?;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -200,6 +201,57 @@ where
         &proof.opening_proof,
         &config.fri_params(degree_bits),
     )?;
+
+    Ok(())
+}
+
+fn validate_proof_shape<F, C, S, const D: usize>(
+    stark: &S,
+    proof: &StarkProof<F, C, D>,
+    config: &StarkConfig,
+    num_ctl_zs: usize,
+) -> anyhow::Result<()>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    [(); S::COLUMNS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let StarkProof {
+        trace_cap,
+        permutation_ctl_zs_cap,
+        quotient_polys_cap,
+        openings,
+        // The shape of the opening proof will be checked in the FRI verifier (see
+        // validate_fri_proof_shape), so we ignore it here.
+        opening_proof: _,
+    } = proof;
+
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        permutation_ctl_zs,
+        permutation_ctl_zs_next,
+        ctl_zs_last,
+        quotient_polys,
+    } = openings;
+
+    let degree_bits = proof.recover_degree_bits(config);
+    let fri_params = config.fri_params(degree_bits);
+    let cap_height = fri_params.config.cap_height;
+    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
+
+    ensure!(trace_cap.height() == cap_height);
+    ensure!(permutation_ctl_zs_cap.height() == cap_height);
+    ensure!(quotient_polys_cap.height() == cap_height);
+
+    ensure!(local_values.len() == S::COLUMNS);
+    ensure!(next_values.len() == S::COLUMNS);
+    ensure!(permutation_ctl_zs.len() == num_zs);
+    ensure!(permutation_ctl_zs_next.len() == num_zs);
+    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())
 }

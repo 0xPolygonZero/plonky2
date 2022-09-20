@@ -6,6 +6,7 @@ use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
+use crate::fri::validate_shape::validate_fri_proof_shape;
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
@@ -67,10 +68,7 @@ pub fn verify_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
-    ensure!(
-        params.final_poly_len() == proof.final_poly.len(),
-        "Final polynomial has wrong degree."
-    );
+    validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
     let n = params.lde_size();
