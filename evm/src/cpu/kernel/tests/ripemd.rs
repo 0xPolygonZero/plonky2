@@ -24,7 +24,9 @@ fn test_ripemd() -> Result<()> {
     let result = hashed.stack()[1];
     let actual = format!("{:X}", result);
 
+    println!("{}", actual);
     let expected = "0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc";
+    println!("{}", expected);
     assert_eq!(expected, actual);
 
     Ok(())
