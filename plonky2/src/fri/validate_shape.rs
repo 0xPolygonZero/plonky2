@@ -40,7 +40,15 @@ where
             .iter()
             .zip(&instance.oracles)
         {
-            ensure!(leaf.len() == oracle.num_polys); // TODO: Account for blinding if ZK?
+            ensure!(
+                leaf.len()
+                    == oracle.num_polys
+                        + if oracle.blinding && params.hiding {
+                            SALT_SIZE
+                        } else {
+                            0
+                        }
+            );
             ensure!(merkle_proof.len() + cap_height == params.lde_bits());
         }
 
