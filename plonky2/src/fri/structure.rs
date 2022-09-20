@@ -25,6 +25,7 @@ pub struct FriInstanceInfoTarget<const D: usize> {
 
 #[derive(Copy, Clone)]
 pub struct FriOracleInfo {
+    pub num_polys: usize,
     pub blinding: bool,
 }
 

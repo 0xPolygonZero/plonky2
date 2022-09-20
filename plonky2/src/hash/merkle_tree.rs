@@ -21,6 +21,10 @@ impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
         self.0.len()
     }
 
+    pub fn height(&self) -> usize {
+        log2_strict(self.len())
+    }
+
     pub fn flatten(&self) -> Vec<F> {
         self.0.iter().flat_map(|&h| h.to_vec()).collect()
     }

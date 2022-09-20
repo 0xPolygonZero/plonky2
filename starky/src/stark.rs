@@ -78,6 +78,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         1.max(self.constraint_degree() - 1)
     }
 
+    fn num_quotient_polys(&self, config: &StarkConfig) -> usize {
+        self.quotient_degree_factor() * config.num_challenges
+    }
+
     /// Computes the FRI instance used to prove this Stark.
     fn fri_instance(
         &self,
@@ -85,25 +89,32 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         g: F,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
-        let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let mut oracle_indices = 0..;
+        let mut oracles = vec![];
 
-        let trace_info =
-            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+        let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
+        oracles.push(FriOracleInfo {
+            num_polys: Self::COLUMNS,
+            blinding: false,
+        });
 
         let permutation_zs_info = if self.uses_permutation_args() {
-            FriPolynomialInfo::from_range(
-                oracle_indices.next().unwrap(),
-                0..self.num_permutation_batches(config),
-            )
+            let num_z_polys = self.num_permutation_batches(config);
+            let polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_z_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_z_polys,
+                blinding: false,
+            });
+            polys
         } else {
             vec![]
         };
 
-        let quotient_info = FriPolynomialInfo::from_range(
-            oracle_indices.next().unwrap(),
-            0..self.quotient_degree_factor() * config.num_challenges,
-        );
+        let num_quotient_polys = self.quotient_degree_factor() * config.num_challenges;
+        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+        oracles.push(FriOracleInfo {
+            num_polys: num_quotient_polys,
+            blinding: false,
+        });
 
         let zeta_batch = FriBatchInfo {
             point: zeta,
@@ -118,10 +129,9 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
-        FriInstanceInfo {
-            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
-            batches: vec![zeta_batch, zeta_next_batch],
-        }
+        let batches = vec![zeta_batch, zeta_next_batch];
+
+        FriInstanceInfo { oracles, batches }
     }
 
     /// Computes the FRI instance used to prove this Stark.
@@ -132,25 +142,32 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         g: F,
         config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
-        let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let mut oracle_indices = 0..;
+        let mut oracles = vec![];
 
-        let trace_info =
-            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+        let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
+        oracles.push(FriOracleInfo {
+            num_polys: Self::COLUMNS,
+            blinding: false,
+        });
 
         let permutation_zs_info = if self.uses_permutation_args() {
-            FriPolynomialInfo::from_range(
-                oracle_indices.next().unwrap(),
-                0..self.num_permutation_batches(config),
-            )
+            let num_z_polys = self.num_permutation_batches(config);
+            let polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_z_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_z_polys,
+                blinding: false,
+            });
+            polys
         } else {
             vec![]
         };
 
-        let quotient_info = FriPolynomialInfo::from_range(
-            oracle_indices.next().unwrap(),
-            0..self.quotient_degree_factor() * config.num_challenges,
-        );
+        let num_quotient_polys = self.quotient_degree_factor() * config.num_challenges;
+        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+        oracles.push(FriOracleInfo {
+            num_polys: num_quotient_polys,
+            blinding: false,
+        });
 
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,
@@ -166,10 +183,9 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta_next,
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
-        FriInstanceInfoTarget {
-            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
-            batches: vec![zeta_batch, zeta_next_batch],
-        }
+        let batches = vec![zeta_batch, zeta_next_batch];
+
+        FriInstanceInfoTarget { oracles, batches }
     }
 
     /// Pairs of lists of columns that should be permutations of one another. A permutation argument

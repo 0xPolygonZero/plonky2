@@ -8,6 +8,7 @@ use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::plonk::proof::{Proof, ProofChallenges, ProofWithPublicInputs};
+use crate::plonk::validate_shape::validate_proof_with_pis_shape;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
@@ -19,10 +20,8 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
-    ensure!(
-        proof_with_pis.public_inputs.len() == common_data.num_public_inputs,
-        "Number of public inputs doesn't match circuit data."
-    );
+    validate_proof_with_pis_shape(&proof_with_pis, common_data)?;
+
     let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
     let challenges = proof_with_pis.get_challenges(public_inputs_hash, common_data)?;
 

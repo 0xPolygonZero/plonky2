@@ -3,20 +3,12 @@ use plonky2_field::packed::PackedField;
 use plonky2_field::types::Field;
 
 use crate::fri::oracle::SALT_SIZE;
-use crate::fri::structure::FriOracleInfo;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
-
-pub(crate) const FRI_ORACLES: [FriOracleInfo; 4] = [
-    PlonkOracle::CONSTANTS_SIGMAS.as_fri_oracle(),
-    PlonkOracle::WIRES.as_fri_oracle(),
-    PlonkOracle::ZS_PARTIAL_PRODUCTS.as_fri_oracle(),
-    PlonkOracle::QUOTIENT.as_fri_oracle(),
-];
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
 #[derive(Debug, Copy, Clone)]
@@ -42,12 +34,6 @@ impl PlonkOracle {
         index: 3,
         blinding: true,
     };
-
-    pub(crate) const fn as_fri_oracle(&self) -> FriOracleInfo {
-        FriOracleInfo {
-            blinding: self.blinding,
-        }
-    }
 }
 
 pub fn salt_size(salted: bool) -> usize {
