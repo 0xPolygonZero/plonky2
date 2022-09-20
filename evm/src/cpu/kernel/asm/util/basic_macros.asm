@@ -258,6 +258,7 @@
     %u32
 %endmacro
 
+
 // given u32 bytestring abcd return dcba
 %macro flip_bytes_u32
     // stack: abcd
@@ -304,20 +305,3 @@
     ADD
     // stack: dcba
 %endmacro
-
-
-
-
-
-    
-
-
-
-def flip_bytes(x):
-    acc = 0
-    while x:
-        acc <<= 8
-        d = x % (1<<8)
-        acc += d
-        x = (x - d)//(1<<8)
-    return acc
