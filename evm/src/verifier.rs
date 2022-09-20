@@ -228,20 +228,30 @@ where
         opening_proof: _,
     } = proof;
 
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        permutation_ctl_zs,
+        permutation_ctl_zs_next,
+        ctl_zs_last,
+        quotient_polys,
+    } = openings;
+
     let degree_bits = proof.recover_degree_bits(config);
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
+    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
+
     ensure!(trace_cap.height() == cap_height);
     ensure!(permutation_ctl_zs_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
 
-    ensure!(openings.local_values.len() == S::COLUMNS);
-    ensure!(openings.next_values.len() == S::COLUMNS);
-    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
-    ensure!(openings.permutation_ctl_zs.len() == num_zs);
-    ensure!(openings.permutation_ctl_zs_next.len() == num_zs);
-    ensure!(openings.ctl_zs_last.len() == num_ctl_zs);
-    ensure!(openings.quotient_polys.len() == stark.num_quotient_polys(config));
+    ensure!(local_values.len() == S::COLUMNS);
+    ensure!(next_values.len() == S::COLUMNS);
+    ensure!(permutation_ctl_zs.len() == num_zs);
+    ensure!(permutation_ctl_zs_next.len() == num_zs);
+    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())
 }

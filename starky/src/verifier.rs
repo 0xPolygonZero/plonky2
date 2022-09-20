@@ -55,6 +55,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    validate_proof_shape(&stark, &proof_with_pis, config)?;
     check_permutation_options(&stark, &proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
@@ -146,7 +147,7 @@ where
 
 fn validate_proof_shape<F, C, S, const D: usize>(
     stark: &S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
     config: &StarkConfig,
 ) -> anyhow::Result<()>
 where
@@ -156,21 +157,29 @@ where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-
     let StarkProofWithPublicInputs {
-        proof:
-            StarkProof {
-                trace_cap,
-                permutation_zs_cap,
-                quotient_polys_cap,
-                openings,
-                // The shape of the opening proof will be checked in the FRI verifier (see
-                // validate_fri_proof_shape), so we ignore it here.
-                opening_proof: _,
-            },
+        proof,
         public_inputs,
     } = proof_with_pis;
+    let degree_bits = proof.recover_degree_bits(config);
+
+    let StarkProof {
+        trace_cap,
+        permutation_zs_cap,
+        quotient_polys_cap,
+        openings,
+        // The shape of the opening proof will be checked in the FRI verifier (see
+        // validate_fri_proof_shape), so we ignore it here.
+        opening_proof: _,
+    } = proof;
+
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        permutation_zs,
+        permutation_zs_next,
+        quotient_polys,
+    } = openings;
 
     ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
 
@@ -181,22 +190,28 @@ where
     ensure!(trace_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
 
-    ensure!(openings.local_values.len() == S::COLUMNS);
-    ensure!(openings.next_values.len() == S::COLUMNS);
-    ensure!(openings.quotient_polys.len() == stark.num_quotient_polys(config));
+    ensure!(local_values.len() == S::COLUMNS);
+    ensure!(next_values.len() == S::COLUMNS);
+    ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     if stark.uses_permutation_args() {
-        let permutation_zs_cap = permutation_zs_cap.ok_or_else(|| anyhow!("Missing Zs cap"))?;
-        let permutation_zs = openings
-            .permutation_zs
+        let permutation_zs_cap = permutation_zs_cap
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing Zs cap"))?;
+        let permutation_zs = permutation_zs
+            .as_ref()
             .ok_or_else(|| anyhow!("Missing permutation_zs"))?;
-        let permutation_zs_next = openings
-            .permutation_zs_next
+        let permutation_zs_next = permutation_zs_next
+            .as_ref()
             .ok_or_else(|| anyhow!("Missing permutation_zs_next"))?;
 
         ensure!(permutation_zs_cap.height() == cap_height);
         ensure!(permutation_zs.len() == num_zs);
         ensure!(permutation_zs_next.len() == num_zs);
+    } else {
+        ensure!(permutation_zs_cap.is_none());
+        ensure!(permutation_zs.is_none());
+        ensure!(permutation_zs_next.is_none());
     }
 
     Ok(())
