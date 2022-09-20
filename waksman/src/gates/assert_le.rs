@@ -1,25 +1,24 @@
 use std::marker::PhantomData;
 
+use plonky2::gates::gate::Gate;
+use plonky2::gates::packed_util::PackedEvaluableBase;
+use plonky2::gates::util::StridedConstraintConsumer;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use plonky2::iop::target::Target;
+use plonky2::iop::wire::Wire;
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
+use plonky2::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
 use plonky2_util::{bits_u64, ceil_div_usize};
-
-use crate::gates::gate::Gate;
-use crate::gates::packed_util::PackedEvaluableBase;
-use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
-use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
-use crate::plonk::vars::{
-    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
-    EvaluationVarsBasePacked,
-};
 
 // TODO: replace/merge this gate with `ComparisonGate`.
 
@@ -450,6 +449,11 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use plonky2::gates::gate::Gate;
+    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use plonky2::hash::hash_types::HashOut;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::quartic::QuarticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::types::Field;
@@ -457,11 +461,6 @@ mod tests {
     use rand::Rng;
 
     use crate::gates::assert_le::AssertLessThanGate;
-    use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {

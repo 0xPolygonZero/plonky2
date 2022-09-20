@@ -24,6 +24,8 @@ pub struct PolynomialValues<F: Field> {
 
 impl<F: Field> PolynomialValues<F> {
     pub fn new(values: Vec<F>) -> Self {
+        // Check that a subgroup exists of this size, which should be a power of two.
+        debug_assert!(log2_strict(values.len()) <= F::TWO_ADICITY);
         PolynomialValues { values }
     }
 
@@ -33,6 +35,10 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn zero(len: usize) -> Self {
         Self::constant(F::ZERO, len)
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.values.iter().all(|x| x.is_zero())
     }
 
     /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
@@ -116,6 +122,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         PolynomialCoeffs { coeffs }
     }
 
+    /// The empty list of coefficients, which is the smallest encoding of the zero polynomial.
     pub fn empty() -> Self {
         Self::new(Vec::new())
     }

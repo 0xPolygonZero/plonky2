@@ -12,7 +12,7 @@ use plonky2_field::types::{Field, PrimeField};
 
 use crate::curve::glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S};
 use crate::curve::secp256k1::Secp256K1;
-use crate::gadgets::biguint::{buffer_set_biguint_target, witness_get_biguint_target};
+use crate::gadgets::biguint::{GeneratedValuesBigUint, WitnessBigUint};
 use crate::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
 use crate::gadgets::curve_msm::curve_msm_circuit;
 use crate::gadgets::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
@@ -116,15 +116,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let k = Secp256K1Scalar::from_biguint(witness_get_biguint_target(
-            witness,
-            self.k.value.clone(),
-        ));
+        let k = Secp256K1Scalar::from_noncanonical_biguint(
+            witness.get_biguint_target(self.k.value.clone()),
+        );
 
         let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
 
-        buffer_set_biguint_target(out_buffer, &self.k1.value, &k1.to_canonical_biguint());
-        buffer_set_biguint_target(out_buffer, &self.k2.value, &k2.to_canonical_biguint());
+        out_buffer.set_biguint_target(&self.k1.value, &k1.to_canonical_biguint());
+        out_buffer.set_biguint_target(&self.k2.value, &k2.to_canonical_biguint());
         out_buffer.set_bool_target(self.k1_neg, k1_neg);
         out_buffer.set_bool_target(self.k2_neg, k2_neg);
     }

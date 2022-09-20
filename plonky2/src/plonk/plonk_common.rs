@@ -64,31 +64,31 @@ pub(crate) fn eval_zero_poly<F: Field>(n: usize, x: F) -> F {
     x.exp_u64(n as u64) - F::ONE
 }
 
-/// Evaluate the Lagrange basis `L_1` with `L_1(1) = 1`, and `L_1(x) = 0` for other members of an
+/// Evaluate the Lagrange basis `L_0` with `L_0(1) = 1`, and `L_0(x) = 0` for other members of the
 /// order `n` multiplicative subgroup.
-pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
+pub(crate) fn eval_l_0<F: Field>(n: usize, x: F) -> F {
     if x.is_one() {
         // The code below would divide by zero, since we have (x - 1) in both the numerator and
         // denominator.
         return F::ONE;
     }
 
-    // L_1(x) = (x^n - 1) / (n * (x - 1))
+    // L_0(x) = (x^n - 1) / (n * (x - 1))
     //        = Z(x) / (n * (x - 1))
     eval_zero_poly(n, x) / (F::from_canonical_usize(n) * (x - F::ONE))
 }
 
-/// Evaluates the Lagrange basis L_1(x), which has L_1(1) = 1 and vanishes at all other points in
+/// Evaluates the Lagrange basis L_0(x), which has L_0(1) = 1 and vanishes at all other points in
 /// the order-`n` subgroup.
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound.
-pub(crate) fn eval_l_1_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_l_0_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: usize,
     x: ExtensionTarget<D>,
     x_pow_n: ExtensionTarget<D>,
 ) -> ExtensionTarget<D> {
-    // L_1(x) = (x^n - 1) / (n * (x - 1))
+    // L_0(x) = (x^n - 1) / (n * (x - 1))
     //        = Z(x) / (n * (x - 1))
     let one = builder.one_extension();
     let neg_one = builder.neg_one();

@@ -1,5 +1,4 @@
 global ret_zero_ec_mul:
-    JUMPDEST
     // stack: x, y, s, retdest
     %pop3
     // stack: retdest

@@ -3,11 +3,11 @@
 
 pub mod arithmetic_base;
 pub mod arithmetic_extension;
-pub mod assert_le;
 pub mod base_sum;
 pub mod constant;
 pub mod exponentiation;
 pub mod gate;
+pub mod high_degree_interpolation;
 pub mod interpolation;
 pub mod low_degree_interpolation;
 pub mod multiplication_extension;

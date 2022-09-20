@@ -12,7 +12,6 @@
 // Pre stack: pos, retdest
 // Post stack: pos', len
 global decode_rlp_string_len:
-    JUMPDEST
     // stack: pos, retdest
     DUP1
     %mload_current(@SEGMENT_RLP_RAW)
@@ -32,7 +31,6 @@ global decode_rlp_string_len:
     JUMP
 
 decode_rlp_string_len_medium:
-    JUMPDEST
     // String is 0-55 bytes long. First byte contains the len.
     // stack: first_byte, pos, retdest
     %sub_const(0x80)
@@ -44,7 +42,6 @@ decode_rlp_string_len_medium:
     JUMP
 
 decode_rlp_string_len_large:
-    JUMPDEST
     // String is >55 bytes long. First byte contains the len of the len.
     // stack: first_byte, pos, retdest
     %sub_const(0xb7)
@@ -69,7 +66,6 @@ decode_rlp_string_len_large:
 // bytes, so that the result can be returned as a single word on the stack.
 // As per the spec, scalars must not have leading zeros.
 global decode_rlp_scalar:
-    JUMPDEST
     // stack: pos, retdest
     PUSH decode_int_given_len
     // stack: decode_int_given_len, pos, retdest
@@ -91,7 +87,6 @@ global decode_rlp_scalar:
 // Pre stack: pos, retdest
 // Post stack: pos', len
 global decode_rlp_list_len:
-    JUMPDEST
     // stack: pos, retdest
     DUP1
     %mload_current(@SEGMENT_RLP_RAW)
@@ -116,7 +111,6 @@ global decode_rlp_list_len:
     JUMP
 
 decode_rlp_list_len_big:
-    JUMPDEST
     // The length of the length is first_byte - 0xf7.
     // stack: first_byte, pos', retdest
     %sub_const(0xf7)
@@ -137,7 +131,6 @@ decode_rlp_list_len_big:
 // Pre stack: pos, len, retdest
 // Post stack: pos', int
 decode_int_given_len:
-    JUMPDEST
     %stack (pos, len, retdest) -> (pos, len, pos, retdest)
     ADD
     // stack: end_pos, pos, retdest
@@ -147,7 +140,6 @@ decode_int_given_len:
     // stack: acc, pos, end_pos, retdest
 
 decode_int_given_len_loop:
-    JUMPDEST
     // stack: acc, pos, end_pos, retdest
     DUP3
     DUP3
@@ -171,6 +163,5 @@ decode_int_given_len_loop:
     %jump(decode_int_given_len_loop)
 
 decode_int_given_len_finish:
-    JUMPDEST
     %stack (acc, pos, end_pos, retdest) -> (retdest, pos, acc)
     JUMP

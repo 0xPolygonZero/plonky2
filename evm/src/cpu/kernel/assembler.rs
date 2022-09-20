@@ -551,6 +551,7 @@ mod tests {
         let dup1 = get_opcode("DUP1");
         let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
+        let swap3 = get_opcode("SWAP3");
         let push_label = get_push_opcode(BYTES_PER_OFFSET);
 
         let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
@@ -561,6 +562,17 @@ mod tests {
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
         assert_eq!(kernel.code, vec![pop, swap1, pop]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b: 3, c) -> (c)"]);
+        assert_eq!(kernel.code, vec![pop, pop, pop, pop]);
+
+        let kernel = parse_and_assemble(&["%stack (a: 2, b: 2) -> (b, a)"]);
+        assert_eq!(kernel.code, vec![swap1, swap3, swap1, swap2]);
+
+        let kernel1 = parse_and_assemble(&["%stack (a: 3, b: 3, c) -> (c, b, a)"]);
+        let kernel2 =
+            parse_and_assemble(&["%stack (a, b, c, d, e, f, g) -> (g, d, e, f, a, b, c)"]);
+        assert_eq!(kernel1.code, kernel2.code);
 
         let mut consts = HashMap::new();
         consts.insert("LIFE".into(), 42.into());

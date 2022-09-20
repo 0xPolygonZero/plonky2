@@ -15,8 +15,11 @@ pub const fn reg_step(i: usize) -> usize {
 pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
     debug_assert!(i < 2 * NUM_INPUTS);
     let i_u64 = i / 2; // The index of the 64-bit chunk.
-    let x = i_u64 / 5;
-    let y = i_u64 % 5;
+
+    // The 5x5 state is treated as y-major, as per the Keccak spec.
+    let y = i_u64 / 5;
+    let x = i_u64 % 5;
+
     let reg_low_limb = reg_a(x, y);
     let is_high_limb = i % 2;
     Column::single(reg_low_limb + is_high_limb)
@@ -28,8 +31,11 @@ pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
 pub const fn reg_output_limb(i: usize) -> usize {
     debug_assert!(i < 2 * NUM_INPUTS);
     let i_u64 = i / 2; // The index of the 64-bit chunk.
-    let x = i_u64 / 5;
-    let y = i_u64 % 5;
+
+    // The 5x5 state is treated as y-major, as per the Keccak spec.
+    let y = i_u64 / 5;
+    let x = i_u64 % 5;
+
     let is_high_limb = i % 2;
     reg_a_prime_prime_prime(x, y) + is_high_limb
 }

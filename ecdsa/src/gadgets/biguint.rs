@@ -7,10 +7,10 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension::Extendable;
-use plonky2_field::types::PrimeField;
+use plonky2_field::types::{PrimeField, PrimeField64};
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
-use plonky2_u32::witness::{generated_values_set_u32_target, witness_set_u32_target};
+use plonky2_u32::witness::{GeneratedValuesU32, WitnessU32};
 
 #[derive(Clone, Debug)]
 pub struct BigUintTarget {
@@ -270,41 +270,44 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
     }
 }
 
-pub fn witness_get_biguint_target<W: Witness<F>, F: PrimeField>(
-    witness: &W,
-    bt: BigUintTarget,
-) -> BigUint {
-    bt.limbs
-        .into_iter()
-        .rev()
-        .fold(BigUint::zero(), |acc, limb| {
-            (acc << 32) + witness.get_target(limb.0).to_canonical_biguint()
-        })
+pub trait WitnessBigUint<F: PrimeField64>: Witness<F> {
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint;
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint);
 }
 
-pub fn witness_set_biguint_target<W: Witness<F>, F: PrimeField>(
-    witness: &mut W,
-    target: &BigUintTarget,
-    value: &BigUint,
-) {
-    let mut limbs = value.to_u32_digits();
-    assert!(target.num_limbs() >= limbs.len());
-    limbs.resize(target.num_limbs(), 0);
-    for i in 0..target.num_limbs() {
-        witness_set_u32_target(witness, target.limbs[i], limbs[i]);
+impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        target
+            .limbs
+            .into_iter()
+            .rev()
+            .fold(BigUint::zero(), |acc, limb| {
+                (acc << 32) + self.get_target(limb.0).to_canonical_biguint()
+            })
+    }
+
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
+        let mut limbs = value.to_u32_digits();
+        assert!(target.num_limbs() >= limbs.len());
+        limbs.resize(target.num_limbs(), 0);
+        for i in 0..target.num_limbs() {
+            self.set_u32_target(target.limbs[i], limbs[i]);
+        }
     }
 }
 
-pub fn buffer_set_biguint_target<F: PrimeField>(
-    buffer: &mut GeneratedValues<F>,
-    target: &BigUintTarget,
-    value: &BigUint,
-) {
-    let mut limbs = value.to_u32_digits();
-    assert!(target.num_limbs() >= limbs.len());
-    limbs.resize(target.num_limbs(), 0);
-    for i in 0..target.num_limbs() {
-        generated_values_set_u32_target(buffer, target.get_limb(i), limbs[i]);
+pub trait GeneratedValuesBigUint<F: PrimeField> {
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint);
+}
+
+impl<F: PrimeField> GeneratedValuesBigUint<F> for GeneratedValues<F> {
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
+        let mut limbs = value.to_u32_digits();
+        assert!(target.num_limbs() >= limbs.len());
+        limbs.resize(target.num_limbs(), 0);
+        for i in 0..target.num_limbs() {
+            self.set_u32_target(target.get_limb(i), limbs[i]);
+        }
     }
 }
 
@@ -330,12 +333,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a = witness_get_biguint_target(witness, self.a.clone());
-        let b = witness_get_biguint_target(witness, self.b.clone());
+        let a = witness.get_biguint_target(self.a.clone());
+        let b = witness.get_biguint_target(self.b.clone());
         let (div, rem) = a.div_rem(&b);
 
-        buffer_set_biguint_target(out_buffer, &self.div, &div);
-        buffer_set_biguint_target(out_buffer, &self.rem, &rem);
+        out_buffer.set_biguint_target(&self.div, &div);
+        out_buffer.set_biguint_target(&self.rem, &rem);
     }
 }
 
@@ -350,7 +353,7 @@ mod tests {
     };
     use rand::Rng;
 
-    use crate::gadgets::biguint::{witness_set_biguint_target, CircuitBuilderBiguint};
+    use crate::gadgets::biguint::{CircuitBuilderBiguint, WitnessBigUint};
 
     #[test]
     fn test_biguint_add() -> Result<()> {
@@ -373,9 +376,9 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        witness_set_biguint_target(&mut pw, &x, &x_value);
-        witness_set_biguint_target(&mut pw, &y, &y_value);
-        witness_set_biguint_target(&mut pw, &expected_z, &expected_z_value);
+        pw.set_biguint_target(&x, &x_value);
+        pw.set_biguint_target(&y, &y_value);
+        pw.set_biguint_target(&expected_z, &expected_z_value);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
@@ -433,9 +436,9 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        witness_set_biguint_target(&mut pw, &x, &x_value);
-        witness_set_biguint_target(&mut pw, &y, &y_value);
-        witness_set_biguint_target(&mut pw, &expected_z, &expected_z_value);
+        pw.set_biguint_target(&x, &x_value);
+        pw.set_biguint_target(&y, &y_value);
+        pw.set_biguint_target(&expected_z, &expected_z_value);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();

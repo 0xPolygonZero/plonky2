@@ -99,8 +99,8 @@ impl<F: Extendable<5>> Field for QuinticExtension<F> {
         Some(FieldExtension::<5>::scalar_mul(&f, g.inverse()))
     }
 
-    fn from_biguint(n: BigUint) -> Self {
-        Self([F::from_biguint(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO])
+    fn from_noncanonical_biguint(n: BigUint) -> Self {
+        F::from_noncanonical_biguint(n).into()
     }
 
     fn from_canonical_u64(n: u64) -> Self {

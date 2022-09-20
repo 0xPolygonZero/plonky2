@@ -298,7 +298,7 @@ where
 pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     permutation_vars: PermutationCheckVars<F, FE, P, D2>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -365,14 +365,13 @@ pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
     permutation_data: PermutationCheckDataTarget<D>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let PermutationCheckDataTarget {
         local_zs,

@@ -9,7 +9,6 @@ global ec_add:
     // PUSH 1
     // PUSH 0x1bf9384aa3f0b3ad763aee81940cacdde1af71617c06f46e11510f14f3d5d121
     // PUSH 0xe7313274bb29566ff0c8220eb9841de1d96c2923c6a4028f7dd3c6a14cee770
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Check if points are valid BN254 points.
@@ -38,7 +37,6 @@ global ec_add:
 // BN254 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points.
 global ec_add_valid_points:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Check if the first point is the identity.
@@ -92,7 +90,6 @@ global ec_add_valid_points:
 // BN254 elliptic curve addition.
 // Assumption: (x0,y0) == (0,0)
 ec_add_first_zero:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
     // Just return (x1,y1)
     %stack (x0, y0, x1, y1, retdest) -> (retdest, x1, y1)
@@ -101,7 +98,6 @@ ec_add_first_zero:
 // BN254 elliptic curve addition.
 // Assumption: (x1,y1) == (0,0)
 ec_add_snd_zero:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x0,y0)
@@ -111,7 +107,6 @@ ec_add_snd_zero:
 // BN254 elliptic curve addition.
 // Assumption: lambda = (y0 - y1)/(x0 - x1)
 ec_add_valid_points_with_lambda:
-    JUMPDEST
     // stack: lambda, x0, y0, x1, y1, retdest
 
     // Compute x2 = lambda^2 - x1 - x0
@@ -159,7 +154,6 @@ ec_add_valid_points_with_lambda:
 // BN254 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points and x0 == x1
 ec_add_equal_first_coord:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest with x0 == x1
 
     // Check if the points are equal
@@ -188,7 +182,6 @@ ec_add_equal_first_coord:
 // Assumption: x0 == x1 and y0 == y1
 // Standard doubling formula.
 ec_add_equal_points:
-    JUMPDEST
     // stack: x0, y0, x1, y1, retdest
 
     // Compute lambda = 3/2 * x0^2 / y0
@@ -216,7 +209,6 @@ ec_add_equal_points:
 // Assumption: (x0,y0) is a valid point.
 // Standard doubling formula.
 global ec_double:
-    JUMPDEST
     // stack: x0, y0, retdest
     DUP2
     // stack: y0, x0, y0, retdest

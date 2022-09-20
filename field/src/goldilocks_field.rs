@@ -90,7 +90,7 @@ impl Field for GoldilocksField {
         try_inverse_u64(self)
     }
 
-    fn from_biguint(n: BigUint) -> Self {
+    fn from_noncanonical_biguint(n: BigUint) -> Self {
         Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
     }
 

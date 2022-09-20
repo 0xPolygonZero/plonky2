@@ -29,7 +29,7 @@ pub fn curve_msm_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>
     let num_limbs = limbs_n.len();
 
     let hash_0 = KeccakHash::<32>::hash_no_pad(&[F::ZERO]);
-    let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
+    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(
         &GenericHashOut::<F>::to_bytes(&hash_0),
     ));
     let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();

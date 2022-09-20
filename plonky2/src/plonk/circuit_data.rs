@@ -265,8 +265,6 @@ pub struct CommonCircuitData<
     /// The number of constant wires.
     pub(crate) num_constants: usize,
 
-    pub(crate) num_virtual_targets: usize,
-
     pub(crate) num_public_inputs: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.

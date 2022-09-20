@@ -16,17 +16,15 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::columns::{
-    is_channel, value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE,
-    COUNTER, COUNTER_PERMUTED, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
+    value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER,
+    COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::segments::Segment;
-use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
+use crate::memory::VALUE_LIMBS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-
-pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -36,8 +34,8 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter<F: Field>(channel: usize) -> Column<F> {
-    Column::single(is_channel(channel))
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::single(FILTER)
 }
 
 #[derive(Copy, Clone, Default)]
@@ -47,8 +45,8 @@ pub struct MemoryStark<F, const D: usize> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MemoryOp {
-    /// The channel this operation came from, or `None` if it's a dummy operation for padding.
-    pub channel_index: Option<usize>,
+    /// true if this is an actual memory operation, or false if it's a padding row.
+    pub filter: bool,
     pub timestamp: usize,
     pub is_read: bool,
     pub context: usize,
@@ -64,9 +62,7 @@ impl MemoryOp {
     /// trace has been transposed into column-major form.
     fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
-        if let Some(channel) = self.channel_index {
-            row[is_channel(channel)] = F::ONE;
-        }
+        row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
         row[IS_READ] = F::from_bool(self.is_read);
         row[ADDR_CONTEXT] = F::from_canonical_usize(self.context);
@@ -178,12 +174,12 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
-        // - We change its channel to `None` to indicate that this is a dummy operation.
+        // - We change its filter to 0 to indicate that this is a dummy operation.
         // - We increment its timestamp in order to pass the ordering check.
         // - We make sure it's a read, sine dummy operations must be reads.
         for i in 0..to_pad {
             memory_ops.push(MemoryOp {
-                channel_index: None,
+                filter: false,
                 timestamp: last_op.timestamp + i + 1,
                 is_read: true,
                 ..last_op
@@ -220,11 +216,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
-    const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -245,21 +240,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_addr_virtual = vars.next_values[ADDR_VIRTUAL];
         let next_values: Vec<_> = (0..8).map(|i| vars.next_values[value_limb(i)]).collect();
 
-        // Each `is_channel` value must be 0 or 1.
-        for c in 0..NUM_CHANNELS {
-            let is_channel = vars.local_values[is_channel(c)];
-            yield_constr.constraint(is_channel * (is_channel - P::ONES));
-        }
+        // The filter must be 0 or 1.
+        let filter = vars.local_values[FILTER];
+        yield_constr.constraint(filter * (filter - P::ONES));
 
-        // The sum of `is_channel` flags, `has_channel`, must also be 0 or 1.
-        let has_channel: P = (0..NUM_CHANNELS)
-            .map(|c| vars.local_values[is_channel(c)])
-            .sum();
-        yield_constr.constraint(has_channel * (has_channel - P::ONES));
-
-        // If this is a dummy row (with no channel), it must be a read. This means the prover can
+        // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
-        let is_dummy = P::ONES - has_channel;
+        let is_dummy = P::ONES - filter;
         let is_write = P::ONES - vars.local_values[IS_READ];
         yield_constr.constraint(is_dummy * is_write);
 
@@ -312,7 +299,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let one = builder.one_extension();
@@ -330,22 +317,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_is_read = vars.next_values[IS_READ];
         let next_timestamp = vars.next_values[TIMESTAMP];
 
-        // Each `is_channel` value must be 0 or 1.
-        for c in 0..NUM_CHANNELS {
-            let is_channel = vars.local_values[is_channel(c)];
-            let constraint = builder.mul_sub_extension(is_channel, is_channel, is_channel);
-            yield_constr.constraint(builder, constraint);
-        }
+        // The filter must be 0 or 1.
+        let filter = vars.local_values[FILTER];
+        let constraint = builder.mul_sub_extension(filter, filter, filter);
+        yield_constr.constraint(builder, constraint);
 
-        // The sum of `is_channel` flags, `has_channel`, must also be 0 or 1.
-        let has_channel =
-            builder.add_many_extension((0..NUM_CHANNELS).map(|c| vars.local_values[is_channel(c)]));
-        let has_channel_bool = builder.mul_sub_extension(has_channel, has_channel, has_channel);
-        yield_constr.constraint(builder, has_channel_bool);
-
-        // If this is a dummy row (with no channel), it must be a read. This means the prover can
+        // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
-        let is_dummy = builder.sub_extension(one, has_channel);
+        let is_dummy = builder.sub_extension(one, filter);
         let is_write = builder.sub_extension(one, vars.local_values[IS_READ]);
         let is_dummy_write = builder.mul_extension(is_dummy, is_write);
         yield_constr.constraint(builder, is_dummy_write);
@@ -532,7 +511,7 @@ pub(crate) mod tests {
 
                 let timestamp = clock * NUM_CHANNELS + channel_index;
                 memory_ops.push(MemoryOp {
-                    channel_index: Some(channel_index),
+                    filter: true,
                     timestamp,
                     is_read,
                     context,

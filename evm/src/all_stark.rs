@@ -8,6 +8,9 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
+use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
+use crate::keccak_memory::keccak_memory_stark;
+use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
@@ -18,6 +21,7 @@ use crate::stark::Stark;
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
+    pub keccak_memory_stark: KeccakMemoryStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
@@ -28,6 +32,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
         Self {
             cpu_stark: CpuStark::default(),
             keccak_stark: KeccakStark::default(),
+            keccak_memory_stark: KeccakMemoryStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
@@ -36,26 +41,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
-    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
+            self.keccak_memory_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
             self.memory_stark.num_permutation_batches(config),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 
-    pub(crate) fn permutation_batch_sizes(&self) -> Vec<usize> {
-        let ans = vec![
+    pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
+        [
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
+            self.keccak_memory_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
             self.memory_stark.permutation_batch_size(),
-        ];
-        debug_assert_eq!(ans.len(), Table::num_tables());
-        ans
+        ]
     }
 }
 
@@ -63,34 +66,51 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
-    Logic = 2,
-    Memory = 3,
+    KeccakMemory = 2,
+    Logic = 3,
+    Memory = 4,
 }
 
-impl Table {
-    pub(crate) fn num_tables() -> usize {
-        Table::Memory as usize + 1
-    }
-}
+pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    let mut cross_table_lookups = vec![ctl_keccak(), ctl_logic()];
-    cross_table_lookups.extend((0..NUM_CHANNELS).map(ctl_memory));
-    cross_table_lookups
+    vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_memory()]
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+    let cpu_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_keccak(),
+        Some(cpu_stark::ctl_filter_keccak()),
+    );
+    let keccak_memory_looking = TableWithColumns::new(
+        Table::KeccakMemory,
+        keccak_memory_stark::ctl_looking_keccak(),
+        Some(keccak_memory_stark::ctl_filter()),
+    );
     CrossTableLookup::new(
-        vec![TableWithColumns::new(
-            Table::Cpu,
-            cpu_stark::ctl_data_keccak(),
-            Some(cpu_stark::ctl_filter_keccak()),
-        )],
+        vec![cpu_looking, keccak_memory_looking],
         TableWithColumns::new(
             Table::Keccak,
             keccak_stark::ctl_data(),
             Some(keccak_stark::ctl_filter()),
+        ),
+        None,
+    )
+}
+
+fn ctl_keccak_memory<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![TableWithColumns::new(
+            Table::Cpu,
+            cpu_stark::ctl_data_keccak_memory(),
+            Some(cpu_stark::ctl_filter_keccak_memory()),
+        )],
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looked_data(),
+            Some(keccak_memory_stark::ctl_filter()),
         ),
         None,
     )
@@ -108,17 +128,38 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-fn ctl_memory<F: Field>(channel: usize) -> CrossTableLookup<F> {
-    CrossTableLookup::new(
-        vec![TableWithColumns::new(
+fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
+    let cpu_memory_ops = (0..NUM_CHANNELS).map(|channel| {
+        TableWithColumns::new(
             Table::Cpu,
             cpu_stark::ctl_data_memory(channel),
             Some(cpu_stark::ctl_filter_memory(channel)),
-        )],
+        )
+    });
+    let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looking_memory(i, true),
+            Some(keccak_memory_stark::ctl_filter()),
+        )
+    });
+    let keccak_memory_writes = (0..KECCAK_WIDTH_BYTES).map(|i| {
+        TableWithColumns::new(
+            Table::KeccakMemory,
+            keccak_memory_stark::ctl_looking_memory(i, false),
+            Some(keccak_memory_stark::ctl_filter()),
+        )
+    });
+    let all_lookers = cpu_memory_ops
+        .chain(keccak_memory_reads)
+        .chain(keccak_memory_writes)
+        .collect();
+    CrossTableLookup::new(
+        all_lookers,
         TableWithColumns::new(
             Table::Memory,
             memory_stark::ctl_data(),
-            Some(memory_stark::ctl_filter(channel)),
+            Some(memory_stark::ctl_filter()),
         ),
         None,
     )
@@ -146,12 +187,13 @@ mod tests {
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cross_table_lookup::testutils::check_ctls;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
+    use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
     use crate::logic::{self, LogicStark, Operation};
     use crate::memory::memory_stark::tests::generate_random_memory_ops;
     use crate::memory::memory_stark::MemoryStark;
     use crate::memory::NUM_CHANNELS;
-    use crate::proof::AllProof;
-    use crate::prover::prove;
+    use crate::proof::{AllProof, PublicValues};
+    use crate::prover::prove_with_traces;
     use crate::recursive_verifier::{
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
@@ -173,6 +215,13 @@ mod tests {
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
         keccak_stark.generate_trace(keccak_inputs)
+    }
+
+    fn make_keccak_memory_trace(
+        keccak_memory_stark: &KeccakMemoryStark<F, D>,
+        config: &StarkConfig,
+    ) -> Vec<PolynomialValues<F>> {
+        keccak_memory_stark.generate_trace(vec![], 1 << config.fri_config.cap_height)
     }
 
     fn make_logic_trace<R: Rng>(
@@ -201,6 +250,19 @@ mod tests {
         let trace = memory_stark.generate_trace(memory_ops);
         let num_ops = trace[0].values.len();
         (trace, num_ops)
+    }
+
+    fn bits_from_opcode(opcode: u8) -> [F; 8] {
+        [
+            F::from_bool(opcode & (1 << 0) != 0),
+            F::from_bool(opcode & (1 << 1) != 0),
+            F::from_bool(opcode & (1 << 2) != 0),
+            F::from_bool(opcode & (1 << 3) != 0),
+            F::from_bool(opcode & (1 << 4) != 0),
+            F::from_bool(opcode & (1 << 5) != 0),
+            F::from_bool(opcode & (1 << 6) != 0),
+            F::from_bool(opcode & (1 << 7) != 0),
+        ]
     }
 
     fn make_cpu_trace(
@@ -256,39 +318,18 @@ mod tests {
             cpu_trace_rows.push(row.into());
         }
 
-        for i in 0..num_logic_rows {
+        // Pad to `num_memory_ops` for memory testing.
+        for _ in cpu_trace_rows.len()..num_memory_ops {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.opcode_bits = bits_from_opcode(0x5b);
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
-            row.program_counter = F::from_canonical_usize(i);
-            row.opcode = [
-                (logic::columns::IS_AND, 0x16),
-                (logic::columns::IS_OR, 0x17),
-                (logic::columns::IS_XOR, 0x18),
-            ]
-            .into_iter()
-            .map(|(col, opcode)| logic_trace[col].values[i] * F::from_canonical_u64(opcode))
-            .sum();
-            let logic = row.general.logic_mut();
-
-            let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
-            for (col_cpu, limb_cols_logic) in logic.input0.iter_mut().zip(input0_bit_cols) {
-                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
-            }
-
-            let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
-            for (col_cpu, limb_cols_logic) in logic.input1.iter_mut().zip(input1_bit_cols) {
-                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
-            }
-
-            for (col_cpu, col_logic) in logic.output.iter_mut().zip(logic::columns::RESULT) {
-                *col_cpu = logic_trace[col_logic].values[i];
-            }
-
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"]);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
+
         for i in 0..num_memory_ops {
             let mem_timestamp: usize = memory_trace[memory::columns::TIMESTAMP].values[i]
                 .to_canonical_u64()
@@ -297,27 +338,70 @@ mod tests {
             let clock = mem_timestamp / NUM_CHANNELS;
             let channel = mem_timestamp % NUM_CHANNELS;
 
-            let is_padding_row = (0..NUM_CHANNELS)
-                .map(|c| memory_trace[memory::columns::is_channel(c)].values[i])
-                .all(|x| x == F::ZERO);
+            let filter = memory_trace[memory::columns::FILTER].values[i];
+            assert!(filter.is_one() || filter.is_zero());
+            let is_actual_op = filter.is_one();
 
-            if !is_padding_row {
+            if is_actual_op {
                 let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
-
-                row.mem_channel_used[channel] = F::ONE;
                 row.clock = F::from_canonical_usize(clock);
-                row.mem_is_read[channel] = memory_trace[memory::columns::IS_READ].values[i];
-                row.mem_addr_context[channel] =
-                    memory_trace[memory::columns::ADDR_CONTEXT].values[i];
-                row.mem_addr_segment[channel] =
-                    memory_trace[memory::columns::ADDR_SEGMENT].values[i];
-                row.mem_addr_virtual[channel] =
-                    memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
+
+                let channel = &mut row.mem_channels[channel];
+                channel.used = F::ONE;
+                channel.is_read = memory_trace[memory::columns::IS_READ].values[i];
+                channel.addr_context = memory_trace[memory::columns::ADDR_CONTEXT].values[i];
+                channel.addr_segment = memory_trace[memory::columns::ADDR_SEGMENT].values[i];
+                channel.addr_virtual = memory_trace[memory::columns::ADDR_VIRTUAL].values[i];
                 for j in 0..8 {
-                    row.mem_value[channel][j] =
-                        memory_trace[memory::columns::value_limb(j)].values[i];
+                    channel.value[j] = memory_trace[memory::columns::value_limb(j)].values[i];
                 }
             }
+        }
+
+        for i in 0..num_logic_rows {
+            let mut row: cpu::columns::CpuColumnsView<F> =
+                [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
+            row.is_cpu_cycle = F::ONE;
+            row.is_kernel_mode = F::ONE;
+
+            // Since these are the first cycle rows, we must start with PC=route_txn then increment.
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"] + i);
+            row.opcode_bits = bits_from_opcode(
+                if logic_trace[logic::columns::IS_AND].values[i] != F::ZERO {
+                    0x16
+                } else if logic_trace[logic::columns::IS_OR].values[i] != F::ZERO {
+                    0x17
+                } else if logic_trace[logic::columns::IS_XOR].values[i] != F::ZERO {
+                    0x18
+                } else {
+                    panic!()
+                },
+            );
+
+            let input0_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT0);
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[0].value.iter_mut().zip(input0_bit_cols)
+            {
+                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
+            }
+
+            let input1_bit_cols = logic::columns::limb_bit_cols_for_input(logic::columns::INPUT1);
+            for (col_cpu, limb_cols_logic) in
+                row.mem_channels[1].value.iter_mut().zip(input1_bit_cols)
+            {
+                *col_cpu = limb_from_bits_le(limb_cols_logic.map(|col| logic_trace[col].values[i]));
+            }
+
+            for (col_cpu, col_logic) in row.mem_channels[2]
+                .value
+                .iter_mut()
+                .zip(logic::columns::RESULT)
+            {
+                *col_cpu = logic_trace[col_logic].values[i];
+            }
+
+            cpu_stark.generate(row.borrow_mut());
+            cpu_trace_rows.push(row.into());
         }
 
         // Trap to kernel
@@ -327,10 +411,10 @@ mod tests {
             let last_row: cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[cpu_trace_rows.len() - 1].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x0a); // `EXP` is implemented in software
+            row.opcode_bits = bits_from_opcode(0x0a); // `EXP` is implemented in software
             row.is_kernel_mode = F::ONE;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.general.syscalls_mut().output = [
+            row.mem_channels[0].value = [
                 row.program_counter,
                 F::ONE,
                 F::ZERO,
@@ -349,10 +433,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0xf9);
+            row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_usize(KERNEL.global_labels["sys_exp"]);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15682),
                 F::ONE,
                 F::ZERO,
@@ -371,10 +455,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15682);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(15106),
                 F::ZERO,
                 F::ZERO,
@@ -384,7 +468,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -408,10 +492,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0xf9);
+            row.opcode_bits = bits_from_opcode(0xf9);
             row.is_kernel_mode = F::ONE;
             row.program_counter = F::from_canonical_u16(15106);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(63064),
                 F::ZERO,
                 F::ZERO,
@@ -430,10 +514,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(63064);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(3754),
                 F::ZERO,
                 F::ZERO,
@@ -443,7 +527,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -468,10 +552,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x57);
+            row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(3754);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -481,7 +565,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ZERO,
                 F::ZERO,
                 F::ZERO,
@@ -506,10 +590,10 @@ mod tests {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x57);
+            row.opcode_bits = bits_from_opcode(0x57);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = F::from_canonical_u16(37543);
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -535,10 +619,10 @@ mod tests {
             let last_row: cpu::columns::CpuColumnsView<F> =
                 cpu_trace_rows[cpu_trace_rows.len() - 1].into();
             row.is_cpu_cycle = F::ONE;
-            row.opcode = F::from_canonical_u8(0x56);
+            row.opcode_bits = bits_from_opcode(0x56);
             row.is_kernel_mode = F::ZERO;
             row.program_counter = last_row.program_counter + F::ONE;
-            row.general.jumps_mut().input0 = [
+            row.mem_channels[0].value = [
                 F::from_canonical_u16(37543),
                 F::ZERO,
                 F::ZERO,
@@ -548,7 +632,7 @@ mod tests {
                 F::ZERO,
                 F::ZERO,
             ];
-            row.general.jumps_mut().input1 = [
+            row.mem_channels[1].value = [
                 F::ONE,
                 F::ZERO,
                 F::ZERO,
@@ -572,7 +656,7 @@ mod tests {
         for i in 0..cpu_trace_rows.len().next_power_of_two() - cpu_trace_rows.len() {
             let mut row: cpu::columns::CpuColumnsView<F> =
                 [F::ZERO; CpuStark::<F, D>::COLUMNS].into();
-            row.opcode = F::from_canonical_u8(0xff);
+            row.opcode_bits = bits_from_opcode(0xff);
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
             row.program_counter =
@@ -604,6 +688,7 @@ mod tests {
         let num_keccak_perms = 2;
 
         let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
+        let keccak_memory_trace = make_keccak_memory_trace(&all_stark.keccak_memory_stark, config);
         let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
         let mem_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
         let mut memory_trace = mem_trace.0;
@@ -618,14 +703,21 @@ mod tests {
             &mut memory_trace,
         );
 
-        let traces = vec![cpu_trace, keccak_trace, logic_trace, memory_trace];
+        let traces = [
+            cpu_trace,
+            keccak_trace,
+            keccak_memory_trace,
+            logic_trace,
+            memory_trace,
+        ];
         check_ctls(&traces, &all_stark.cross_table_lookups);
 
-        let proof = prove::<F, C, D>(
+        let public_values = PublicValues::default();
+        let proof = prove_with_traces::<F, C, D>(
             &all_stark,
             config,
             traces,
-            vec![vec![]; 4],
+            public_values,
             &mut TimingTree::default(),
         )?;
 

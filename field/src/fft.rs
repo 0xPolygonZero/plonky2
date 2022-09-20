@@ -61,7 +61,7 @@ pub fn fft_with_options<F: Field>(
 ) -> PolynomialValues<F> {
     let PolynomialCoeffs { coeffs: mut buffer } = poly;
     fft_dispatch(&mut buffer, zero_factor, root_table);
-    PolynomialValues { values: buffer }
+    PolynomialValues::new(buffer)
 }
 
 #[inline]

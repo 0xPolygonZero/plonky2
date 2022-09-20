@@ -17,11 +17,23 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install nightly toolchain
+        id: rustc-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
+
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -30,7 +42,7 @@ jobs:
           args: --all
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Cprefer-dynamic=y
-          CARGO_INCREMENTAL: 0
+          CARGO_INCREMENTAL: 1
 
   lints:
     name: Formatting and Clippy
@@ -41,6 +53,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install nightly toolchain
+        id: rustc-toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -48,15 +61,30 @@ jobs:
           override: true
           components: rustfmt, clippy
 
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-lints-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+        env:
+          CARGO_INCREMENTAL: 1
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --all-features --all-targets -- -D warnings -A incomplete-features
+        env:
+          CARGO_INCREMENTAL: 1
 

@@ -258,7 +258,7 @@ where
     let quotient_values = (0..size)
         .into_par_iter()
         .step_by(P::WIDTH)
-        .map(|i_start| {
+        .flat_map_iter(|i_start| {
             let i_next_start = (i_start + next_step) % size;
             let i_range = i_start..i_start + P::WIDTH;
 
@@ -292,13 +292,22 @@ where
                 permutation_check_data,
                 &mut consumer,
             );
+
             let mut constraints_evals = consumer.accumulators();
             // We divide the constraints evaluations by `Z_H(x)`.
-            let denominator_inv = z_h_on_coset.eval_inverse_packed(i_start);
+            let denominator_inv: P = z_h_on_coset.eval_inverse_packed(i_start);
+
             for eval in &mut constraints_evals {
                 *eval *= denominator_inv;
             }
-            constraints_evals
+
+            let num_challenges = alphas.len();
+
+            (0..P::WIDTH).into_iter().map(move |i| {
+                (0..num_challenges)
+                    .map(|j| constraints_evals[j].as_slice()[i])
+                    .collect()
+            })
         })
         .collect::<Vec<_>>();
 

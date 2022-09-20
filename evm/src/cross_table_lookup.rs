@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::iter::repeat;
 
 use anyhow::{ensure, Result};
@@ -13,18 +14,18 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
 
-use crate::all_stark::Table;
+use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::{
     get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget};
+use crate::proof::{StarkProof, StarkProofTarget};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Represent a linear combination of columns.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     constant: F,
@@ -38,8 +39,25 @@ impl<F: Field> Column<F> {
         }
     }
 
-    pub fn singles<I: IntoIterator<Item = usize>>(cs: I) -> impl Iterator<Item = Self> {
-        cs.into_iter().map(Self::single)
+    pub fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
+        cs: I,
+    ) -> impl Iterator<Item = Self> {
+        cs.into_iter().map(|c| Self::single(*c.borrow()))
+    }
+
+    pub fn constant(constant: F) -> Self {
+        Self {
+            linear_combination: vec![],
+            constant,
+        }
+    }
+
+    pub fn zero() -> Self {
+        Self::constant(F::ZERO)
+    }
+
+    pub fn one() -> Self {
+        Self::constant(F::ONE)
     }
 
     pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
@@ -63,12 +81,20 @@ impl<F: Field> Column<F> {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
-    pub fn le_bits<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(F::TWO.powers()))
+    pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
-    pub fn sum<I: IntoIterator<Item = usize>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().zip(repeat(F::ONE)))
+    pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(
+            cs.into_iter()
+                .map(|c| *c.borrow())
+                .zip(F::from_canonical_u16(256).powers()),
+        )
+    }
+
+    pub fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(repeat(F::ONE)))
     }
 
     pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
@@ -115,7 +141,7 @@ impl<F: Field> Column<F> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
@@ -168,23 +194,21 @@ impl<F: Field> CrossTableLookup<F> {
 }
 
 /// Cross-table lookup data for one table.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CtlData<F: Field> {
-    /// Challenges used in the argument.
-    pub(crate) challenges: GrandProductChallengeSet<F>,
-    /// Vector of `(Z, columns, filter_columns)` where `Z` is a Z-polynomial for a lookup
-    /// on columns `columns` with filter columns `filter_columns`.
-    pub zs_columns: Vec<(PolynomialValues<F>, Vec<Column<F>>, Option<Column<F>>)>,
+    pub(crate) zs_columns: Vec<CtlZData<F>>,
+}
+
+/// Cross-table lookup data associated with one Z(x) polynomial.
+#[derive(Clone)]
+pub(crate) struct CtlZData<F: Field> {
+    pub(crate) z: PolynomialValues<F>,
+    pub(crate) challenge: GrandProductChallenge<F>,
+    pub(crate) columns: Vec<Column<F>>,
+    pub(crate) filter_column: Option<Column<F>>,
 }
 
 impl<F: Field> CtlData<F> {
-    pub(crate) fn new(challenges: GrandProductChallengeSet<F>) -> Self {
-        Self {
-            challenges,
-            zs_columns: vec![],
-        }
-    }
-
     pub fn len(&self) -> usize {
         self.zs_columns.len()
     }
@@ -194,18 +218,21 @@ impl<F: Field> CtlData<F> {
     }
 
     pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
-        self.zs_columns.iter().map(|(p, _, _)| p.clone()).collect()
+        self.zs_columns
+            .iter()
+            .map(|zs_columns| zs_columns.z.clone())
+            .collect()
     }
 }
 
 pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
     config: &StarkConfig,
-    trace_poly_values: &[Vec<PolynomialValues<F>>],
+    trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     cross_table_lookups: &[CrossTableLookup<F>],
     challenger: &mut Challenger<F, C::Hasher>,
-) -> Vec<CtlData<F>> {
+) -> [CtlData<F>; NUM_TABLES] {
     let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
-    let mut ctl_data_per_table = vec![CtlData::new(challenges.clone()); trace_poly_values.len()];
+    let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
         looked_table,
@@ -252,19 +279,23 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
             );
 
             for (table, z) in looking_tables.iter().zip(zs_looking) {
-                ctl_data_per_table[table.table as usize].zs_columns.push((
-                    z,
-                    table.columns.clone(),
-                    table.filter_column.clone(),
-                ));
+                ctl_data_per_table[table.table as usize]
+                    .zs_columns
+                    .push(CtlZData {
+                        z,
+                        challenge,
+                        columns: table.columns.clone(),
+                        filter_column: table.filter_column.clone(),
+                    });
             }
             ctl_data_per_table[looked_table.table as usize]
                 .zs_columns
-                .push((
-                    z_looked,
-                    looked_table.columns.clone(),
-                    looked_table.filter_column.clone(),
-                ));
+                .push(CtlZData {
+                    z: z_looked,
+                    challenge,
+                    columns: looked_table.columns.clone(),
+                    filter_column: looked_table.filter_column.clone(),
+                });
         }
     }
     ctl_data_per_table
@@ -317,24 +348,23 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
-        proofs: &[StarkProofWithPublicInputs<F, C, D>],
+        proofs: &[StarkProof<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
-        num_permutation_zs: &[usize],
-    ) -> Vec<Vec<Self>> {
-        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
+        num_permutation_zs: &[usize; NUM_TABLES],
+    ) -> [Vec<Self>; NUM_TABLES] {
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)
             .map(|(p, &num_perms)| {
-                let openings = &p.proof.openings;
+                let openings = &p.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
                 let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
                 ctl_zs.zip(ctl_zs_next)
             })
             .collect::<Vec<_>>();
 
-        let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
+        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
         for CrossTableLookup {
             looking_tables,
             looked_table,
@@ -368,7 +398,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 }
 
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -421,24 +451,23 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
     pub(crate) fn from_proofs(
-        proofs: &[StarkProofWithPublicInputsTarget<D>],
+        proofs: &[StarkProofTarget<D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
-        num_permutation_zs: &[usize],
-    ) -> Vec<Vec<Self>> {
-        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
+        num_permutation_zs: &[usize; NUM_TABLES],
+    ) -> [Vec<Self>; NUM_TABLES] {
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)
             .map(|(p, &num_perms)| {
-                let openings = &p.proof.openings;
+                let openings = &p.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
                 let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
                 ctl_zs.zip(ctl_zs_next)
             })
             .collect::<Vec<_>>();
 
-        let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
+        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
         for CrossTableLookup {
             looking_tables,
             looked_table,
@@ -477,7 +506,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
@@ -539,17 +568,17 @@ pub(crate) fn verify_cross_table_lookups<
     const D: usize,
 >(
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProofWithPublicInputs<F, C, D>],
+    proofs: &[StarkProof<F, C, D>; NUM_TABLES],
     challenges: GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
     let degrees_bits = proofs
         .iter()
-        .map(|p| p.proof.recover_degree_bits(config))
+        .map(|p| p.recover_degree_bits(config))
         .collect::<Vec<_>>();
     let mut ctl_zs_openings = proofs
         .iter()
-        .map(|p| p.proof.openings.ctl_zs_last.iter())
+        .map(|p| p.openings.ctl_zs_last.iter())
         .collect::<Vec<_>>();
     for (
         i,
@@ -597,17 +626,17 @@ pub(crate) fn verify_cross_table_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProofWithPublicInputsTarget<D>],
+    proofs: &[StarkProofTarget<D>; NUM_TABLES],
     challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {
     let degrees_bits = proofs
         .iter()
-        .map(|p| p.proof.recover_degree_bits(inner_config))
+        .map(|p| p.recover_degree_bits(inner_config))
         .collect::<Vec<_>>();
     let mut ctl_zs_openings = proofs
         .iter()
-        .map(|p| p.proof.openings.ctl_zs_last.iter())
+        .map(|p| p.openings.ctl_zs_last.iter())
         .collect::<Vec<_>>();
     for (
         i,

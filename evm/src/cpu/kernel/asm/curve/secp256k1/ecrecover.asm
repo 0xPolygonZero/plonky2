@@ -1,6 +1,5 @@
 // ecrecover precompile.
 global ecrecover:
-    JUMPDEST
     // stack: hash, v, r, s, retdest
 
     // Check if inputs are valid.
@@ -47,7 +46,6 @@ global ecrecover:
 // let u2 = -hash * r_inv;
 // return u1*P + u2*GENERATOR;
 ecrecover_valid_input:
-    JUMPDEST
     // stack: hash, y, r, s, retdest
 
     // Compute u1 = s * r^(-1)
@@ -83,7 +81,6 @@ ecrecover_valid_input:
 // ecrecover precompile.
 // Assumption: (X,Y) = u1 * P. Result is (X,Y) + u2*GENERATOR
 ecrecover_with_first_point:
-    JUMPDEST
     // stack: X, Y, hash, r^(-1), retdest
     %secp_scalar
     // stack: p, X, Y, hash, r^(-1), retdest
@@ -132,7 +129,6 @@ ecrecover_with_first_point:
 
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
-    JUMPDEST
     // stack: PKx, PKy, retdest
     PUSH 0
     // stack: 0, PKx, PKy, retdest

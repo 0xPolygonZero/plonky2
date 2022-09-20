@@ -22,14 +22,27 @@ pub(crate) enum Segment {
     TxnFields = 8,
     /// Contains the data field of a transaction.
     TxnData = 9,
-    /// Raw RLP data.
+    /// A buffer used to hold raw RLP data.
     RlpRaw = 10,
-    /// Ripe MD Blocks
-    RipeMD = 11,
+    /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
+    /// append-only buffer. It is owned by the kernel, so it only lives on context 0.
+    TrieData = 11,
+    /// The account address associated with the `i`th storage trie. Only lives on context 0.
+    StorageTrieAddresses = 12,
+    /// A pointer to the `i`th storage trie within the `TrieData` buffer. Only lives on context 0.
+    StorageTriePointers = 13,
+    /// Like `StorageTriePointers`, except that these pointers correspond to the version of each
+    /// trie at the creation of a given context. This lets us easily revert a context by replacing
+    /// `StorageTriePointers` with `StorageTrieCheckpointPointers`.
+    /// See also `StateTrieCheckpointPointer`.
+    StorageTrieCheckpointPointers = 14,
+    /// RipeMD storage
+    /// 
+    RipeMd = 15,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 12;
+    pub(crate) const COUNT: usize = 16;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -44,7 +57,11 @@ impl Segment {
             Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
-            Self::RipeMD,
+            Self::TrieData,
+            Self::StorageTrieAddresses,
+            Self::StorageTriePointers,
+            Self::StorageTrieCheckpointPointers,
+            Self::RipeMd,
         ]
     }
 
@@ -62,7 +79,11 @@ impl Segment {
             Segment::TxnFields => "SEGMENT_NORMALIZED_TXN",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
-            Segment::RipeMD => "SEGMENT_RIPEMD"
+            Segment::TrieData => "SEGMENT_TRIE_DATA",
+            Segment::StorageTrieAddresses => "SEGMENT_STORAGE_TRIE_ADDRS",
+            Segment::StorageTriePointers => "SEGMENT_STORAGE_TRIE_PTRS",
+            Segment::StorageTrieCheckpointPointers => "SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS",
+            Segment::RipeMd => "SEGMENT_RIPEMD"
         }
     }
 
@@ -80,7 +101,11 @@ impl Segment {
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
-            Segment::RipeMD => 8,
+            Segment::TrieData => 256,
+            Segment::StorageTrieAddresses => 160,
+            Segment::StorageTriePointers => 32,
+            Segment::StorageTrieCheckpointPointers => 32,
+            Segment::RipeMd => 8,
         }
     }
 }

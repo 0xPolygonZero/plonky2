@@ -7,12 +7,12 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::keccak::columns::reg_step;
 use crate::keccak::columns::NUM_COLUMNS;
-use crate::keccak::keccak_stark::{NUM_PUBLIC_INPUTS, NUM_ROUNDS};
+use crate::keccak::keccak_stark::NUM_ROUNDS;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
 pub(crate) fn eval_round_flags<F: Field, P: PackedField<Scalar = F>>(
-    vars: StarkEvaluationVars<F, P, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
+    vars: StarkEvaluationVars<F, P, NUM_COLUMNS>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // Initially, the first step flag should be 1 while the others should be 0.
@@ -30,7 +30,7 @@ pub(crate) fn eval_round_flags<F: Field, P: PackedField<Scalar = F>>(
 
 pub(crate) fn eval_round_flags_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
+    vars: StarkEvaluationTargets<D, NUM_COLUMNS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let one = builder.one_extension();

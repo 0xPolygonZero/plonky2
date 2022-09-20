@@ -78,7 +78,7 @@ where
             .unwrap(),
     };
 
-    let (l_1, l_last) = eval_l_1_and_l_last(degree_bits, challenges.stark_zeta);
+    let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
@@ -88,7 +88,7 @@ where
             .map(|&alpha| F::Extension::from_basefield(alpha))
             .collect::<Vec<_>>(),
         z_last,
-        l_1,
+        l_0,
         l_last,
     );
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
@@ -144,10 +144,10 @@ where
     Ok(())
 }
 
-/// Evaluate the Lagrange polynomials `L_1` and `L_n` at a point `x`.
-/// `L_1(x) = (x^n - 1)/(n * (x - 1))`
-/// `L_n(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
-fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
+/// Evaluate the Lagrange polynomials `L_0` and `L_(n-1)` at a point `x`.
+/// `L_0(x) = (x^n - 1)/(n * (x - 1))`
+/// `L_(n-1)(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
+fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let n = F::from_canonical_usize(1 << log_n);
     let g = F::primitive_root_of_unity(log_n);
     let z_x = x.exp_power_of_2(log_n) - F::ONE;
@@ -189,10 +189,10 @@ mod tests {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
 
-    use crate::verifier::eval_l_1_and_l_last;
+    use crate::verifier::eval_l_0_and_l_last;
 
     #[test]
-    fn test_eval_l_1_and_l_last() {
+    fn test_eval_l_0_and_l_last() {
         type F = GoldilocksField;
         let log_n = 5;
         let n = 1 << log_n;
@@ -201,7 +201,7 @@ mod tests {
         let expected_l_first_x = PolynomialValues::selector(n, 0).ifft().eval(x);
         let expected_l_last_x = PolynomialValues::selector(n, n - 1).ifft().eval(x);
 
-        let (l_first_x, l_last_x) = eval_l_1_and_l_last(log_n, x);
+        let (l_first_x, l_last_x) = eval_l_0_and_l_last(log_n, x);
         assert_eq!(l_first_x, expected_l_first_x);
         assert_eq!(l_last_x, expected_l_last_x);
     }
