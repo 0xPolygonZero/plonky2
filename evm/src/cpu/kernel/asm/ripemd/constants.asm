@@ -28,7 +28,7 @@ K_data:
     ADD
     // stack: loc + box
     %mload_kernel_code
-    // stack: u8
+    // stack: byte
 %endmacro
 
 

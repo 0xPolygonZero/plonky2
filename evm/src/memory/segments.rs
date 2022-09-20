@@ -29,7 +29,7 @@ pub(crate) enum Segment {
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 11;
+    pub(crate) const COUNT: usize = 12;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -44,7 +44,7 @@ impl Segment {
             Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
-            Self::RipeMD
+            Self::RipeMD,
         ]
     }
 
