@@ -24,17 +24,15 @@ fn test_ripemd() -> Result<()> {
         0x73, 0x74, 0x75, 0x76, 
         0x77, 0x78, 0x79, 0x7a,
     ];
-
-    // let input: Vec<u32> = vec![0xabcd, 0x1234, 0x6789];
     let stack_init = input.iter().map(|&x| U256::from(x as u32)).collect();
 
-    let ripemd = kernel.global_labels["F0"];
-    let hashed = run(
+    let stack_result = run(
         &kernel.code, 
-        ripemd,
+        kernel.global_labels["ripemd_alt"],
         stack_init,
-        &kernel.prover_inputs)?;
-    let result = hashed.stack();
+        &kernel.prover_inputs
+    )?;
+    let result = stack_result.stack();
 
     for term in input {
         println!("{:X}", term);

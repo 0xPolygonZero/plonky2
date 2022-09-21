@@ -45,7 +45,7 @@ final_update:
     %stack (shift, need, have, STATE: 5, count, length) -> (length, shift, return_step, shift, need, have, STATE, count, length)
     SUB
     // stack:                                                                     ARGS, shift, need, have, STATE, count, length, virt, retdest
-    %stack (ARGS: 2, shift, need, have, STATE: 5, count, length, virt) -> (shift, virt, have, ARGS: 2, shift, need, have, STATE, count, length, virt)
+    %stack (ARGS: 2, shift, need, have, STATE: 5, count, length, virt) -> (shift, virt, have, ARGS, shift, need, have, STATE, count, length, virt)
     ADD
     // stack:                                                                  ARGS: 4, shift, need, have, STATE, count, length, virt, retdest
     PUSH 0

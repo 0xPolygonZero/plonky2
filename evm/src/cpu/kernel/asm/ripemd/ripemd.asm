@@ -17,6 +17,7 @@ global ripemd_alt:
     %stack (length) -> (64, length, 0x80, 63, length, length)
     // stack:           64, length, 0x80, 63, length, length, INPUT
 
+    %jump(0xdeadbeef)
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]
                           // store _size    at virt 64  [consumes       length]
