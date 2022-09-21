@@ -16,8 +16,6 @@ global ripemd_alt:
     // stack: length, INPUT
     %stack (length) -> (64, length, 0x80, 63, length, length)
     // stack:           64, length, 0x80, 63, length, length, INPUT
-
-    %jump(0xdeadbeef)
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]
                           // store _size    at virt 64  [consumes       length]
@@ -61,29 +59,30 @@ ripemd_2:
 process:
     // stack: a , b, c, d, e, count, length, virt
     %flip_bytes_u32
-    // stack: a', b, c, d, e, *vars
+    // stack: a', b, c, d, e, VARS
     SWAP1
     %flip_bytes_u32
     %shl_const(32)
     OR
-    // stack: b' a', c, d, e, *vars
+    // stack: b' a', c, d, e, VARS
     SWAP1
     %flip_bytes_u32
     %shl_const(64)
     OR
-    // stack: c' b' a', d, e, *vars
+    // stack: c' b' a', d, e, VARS
     SWAP1
     %flip_bytes_u32
     %shl_const(96)
     OR 
-    // stack: d' c' b' a', e, *vars
+    // stack: d' c' b' a', e, VARS
     SWAP1
     %flip_bytes_u32
     %shl_const(96)
     OR 
-    // stack: e' d' c' b' a', *vars
-    %stack (result, x, y, z) -> (result)
-    // stack: result
+    // stack: e' d' c' b' a', VARS
+    %stack (result, VARS: 3) -> (0xdeadbeef, result)
+    // stack: 0xdeadbeef, result
+    JUMP 
 
 
 /// def padlength(length):

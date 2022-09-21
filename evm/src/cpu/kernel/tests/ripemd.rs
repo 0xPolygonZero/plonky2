@@ -1,4 +1,3 @@
-// use std::env;
 use anyhow::Result;
 use ethereum_types::U256;
 
@@ -7,11 +6,8 @@ use crate::cpu::kernel::interpreter::run;
 
 #[test]
 fn test_ripemd() -> Result<()> {
-
-    // env::set_var("RUST_BACKTRACE", "1");
-
-    // let expected = "0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc";
-    // println!("{}", expected);
+    let expected = "0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc";
+    println!("{}", expected);
 
     let kernel = combined_kernel();
 
@@ -32,17 +28,10 @@ fn test_ripemd() -> Result<()> {
         stack_init,
         &kernel.prover_inputs
     )?;
-    let result = stack_result.stack();
-
-    for term in input {
-        println!("{:X}", term);
-    }
-
-    for term in result {
-        println!("{:X}", term);
-    }
-        
-    // assert_eq!(expected, actual);
+    let result = stack_result.stack()[1];
+    let actual = format!("{}", result);
+    println!("{}", actual); 
+    assert_eq!(expected, actual);
 
     Ok(())
 }
