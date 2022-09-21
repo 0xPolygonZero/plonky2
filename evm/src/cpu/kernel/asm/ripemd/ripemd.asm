@@ -80,7 +80,7 @@ process:
     %shl_const(96)
     OR 
     // stack: e' d' c' b' a', VARS
-    %stack (result, VARS: 3) -> (0xdeadbeef, result)
+    %stack (result, VARS: 3, fin) -> (fin, result)
     // stack: 0xdeadbeef, result
     JUMP 
 
