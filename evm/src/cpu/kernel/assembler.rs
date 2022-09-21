@@ -195,12 +195,12 @@ fn expand_macro_call(
             Item::StackManipulation(before, after) => {
                 let after = after
                     .iter()
-                    .map(|replacement| {
-                        if let StackReplacement::MacroLabel(label) = replacement {
+                    .map(|replacement| match replacement {
+                        StackReplacement::MacroLabel(label) => {
                             StackReplacement::Identifier(get_actual_label(label))
-                        } else {
-                            replacement.clone()
                         }
+                        StackReplacement::MacroVar(var) => get_arg(var).into(),
+                        _ => replacement.clone(),
                     })
                     .collect();
                 Item::StackManipulation(before.clone(), after)
@@ -508,8 +508,8 @@ mod tests {
             "%macro bar(y) PUSH $y %endmacro",
             "%foo(42)",
         ]);
-        let push = get_push_opcode(1);
-        assert_eq!(kernel.code, vec![push, 42, push, 42]);
+        let push1 = get_push_opcode(1);
+        assert_eq!(kernel.code, vec![push1, 42, push1, 42]);
     }
 
     #[test]
@@ -585,6 +585,34 @@ mod tests {
         // The "start" label gets shadowed by the "start" named stack item.
         let kernel = parse_and_assemble(&["start: %stack (start) -> (start, start)"]);
         assert_eq!(kernel.code, vec![dup1]);
+    }
+
+    #[test]
+    fn stack_manipulation_in_macro() {
+        let pop = get_opcode("POP");
+        let push1 = get_push_opcode(1);
+
+        let kernel = parse_and_assemble(&[
+            "%macro set_top(x) %stack (a) -> ($x) %endmacro",
+            "%set_top(42)",
+        ]);
+        assert_eq!(kernel.code, vec![pop, push1, 42]);
+    }
+
+    #[test]
+    fn stack_manipulation_in_macro_with_name_collision() {
+        let pop = get_opcode("POP");
+        let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        // In the stack directive, there's a named item `foo`.
+        // But when we invoke `%foo(foo)`, the argument refers to the `foo` label.
+        // Thus the expanded macro is `%stack (foo) -> (label foo)` (not real syntax).
+        let kernel = parse_and_assemble(&[
+            "global foo:",
+            "%macro foo(x) %stack (foo) -> ($x) %endmacro",
+            "%foo(foo)",
+        ]);
+        assert_eq!(kernel.code, vec![pop, push_label, 0, 0, 0]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {

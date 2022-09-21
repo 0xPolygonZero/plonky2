@@ -52,6 +52,7 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
     let mut dst = replacements
         .into_iter()
         .flat_map(|item| match item {
+            StackReplacement::Literal(n) => vec![StackItem::PushTarget(PushTarget::Literal(n))],
             StackReplacement::Identifier(name) => {
                 // May be either a named item or a label. Named items have precedence.
                 if stack_blocks.contains_key(&name) {
@@ -68,7 +69,7 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
                     vec![StackItem::PushTarget(PushTarget::Label(name))]
                 }
             }
-            StackReplacement::Literal(n) => vec![StackItem::PushTarget(PushTarget::Literal(n))],
+            StackReplacement::Label(name) => vec![StackItem::PushTarget(PushTarget::Label(name))],
             StackReplacement::MacroLabel(_)
             | StackReplacement::MacroVar(_)
             | StackReplacement::Constant(_) => {
