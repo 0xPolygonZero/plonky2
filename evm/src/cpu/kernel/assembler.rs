@@ -513,6 +513,12 @@ mod tests {
     }
 
     #[test]
+    fn macro_with_reserved_prefix() {
+        // The name `repeat` should be allowed, even though `rep` is reserved.
+        parse_and_assemble(&["%macro repeat %endmacro", "%repeat"]);
+    }
+
+    #[test]
     #[should_panic]
     fn macro_with_wrong_vars() {
         parse_and_assemble(&[
