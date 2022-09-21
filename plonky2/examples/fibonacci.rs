@@ -36,7 +36,7 @@ fn main() -> Result<()> {
 
     let proof = data.prove(pw)?;
 
-    println!("Public inputs: {:?}", proof.clone().public_inputs);
+    println!("100th Fibonacci number is: {:?}", proof.public_inputs[0]);
 
     verify(proof, &data.verifier_only, &data.common)
 }
