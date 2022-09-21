@@ -42,21 +42,8 @@ global compress:
     // stack: STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
     %jump(loop)
 switch:
-    // stack:                                   STATEL, STATE, virt, retdest
-    PUSH mix
-    DUP12  
-    PUSH 0
-    PUSH 5  
-    PUSH 16  
-    PUSH 0  
-    PUSH 0
-    // stack:        0, 0, 16, 5, 0, virt, mix, STATEL, STATE, virt, retdest
-    DUP17  
-    DUP17  
-    DUP17  
-    DUP17  
-    DUP17
-    // stack: STATE, 0, 0, 16, 5, 0, virt, mix, STATEL, STATE, virt, retdest 
+    // stack: STATEL, STATE, virt, retdest
+    %stack (STATEL: 5, STATE: 5, virt) -> (STATE, 0, 0, 16, 5, 0, virt, mix, STATEL, STATE, virt)
     %jump(loop)
 mix:
     // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, VR, RD 
