@@ -46,12 +46,25 @@ pub(crate) enum StackPlaceholder {
 /// The right hand side of a %stack stack-manipulation macro.
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub(crate) enum StackReplacement {
+    Literal(U256),
     /// Can be either a named item or a label.
     Identifier(String),
-    Literal(U256),
+    Label(String),
     MacroLabel(String),
     MacroVar(String),
     Constant(String),
+}
+
+impl From<PushTarget> for StackReplacement {
+    fn from(target: PushTarget) -> Self {
+        match target {
+            PushTarget::Literal(x) => Self::Literal(x),
+            PushTarget::Label(l) => Self::Label(l),
+            PushTarget::MacroLabel(l) => Self::MacroLabel(l),
+            PushTarget::MacroVar(v) => Self::MacroVar(v),
+            PushTarget::Constant(c) => Self::Constant(c),
+        }
+    }
 }
 
 /// The target of a `PUSH` operation.
