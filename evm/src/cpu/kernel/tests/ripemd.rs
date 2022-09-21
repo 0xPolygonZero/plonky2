@@ -20,7 +20,9 @@ fn test_ripemd() -> Result<()> {
         0x73, 0x74, 0x75, 0x76, 
         0x77, 0x78, 0x79, 0x7a,
     ];
-    let stack_init = input.iter().map(|&x| U256::from(x as u32)).collect();
+    let mut stack_init:Vec<U256> = input.iter().map(|&x| U256::from(x as u32)).collect();
+    stack_init.push(U256::from_str("0xdeadbeef").unwrap());
+
 
     let stack_result = run(
         &kernel.code, 
@@ -29,7 +31,7 @@ fn test_ripemd() -> Result<()> {
         &kernel.prover_inputs
     )?;
     let result = stack_result.stack()[1];
-    let actual = format!("{}", result);
+    let actual = format!("{:X}", result);
     println!("{}", actual); 
     assert_eq!(expected, actual);
 
