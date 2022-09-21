@@ -141,5 +141,5 @@ global F4:
     // stack:  ~z | y,   x, retdest
     XOR
     // stack: (~z | y) ^ x, retdest
-    SWAP1  
+    SWAP1
     JUMP

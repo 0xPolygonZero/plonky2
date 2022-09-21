@@ -115,7 +115,7 @@ loop:
     // stack:   round, STATE, F, K, 16, rounds, sides, virt, retdest
     %jumpi(update_round_vars)
     // stack:          STATE, F, K, 16,      0, sides, virt, retdest
-    %stack (a, b, c, d, e, F, K, boxes, rounds, sides, virt, retdest) -> (retdest, a, b, c, d, e)
+    %stack (STATE: 5, F, K, boxes, rounds, sides, virt, retdest) -> (retdest, STATE)
     // stack: retdest, STATE
     JUMP
 update_round_vars:

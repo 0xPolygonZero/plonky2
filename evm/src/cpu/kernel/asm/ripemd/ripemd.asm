@@ -15,7 +15,8 @@
 global ripemd_alt:
     // stack: length, INPUT
     %stack (length) -> (64, length, 0x80, 63, length, length)
-    // stack:                    64, length, 0x80, 63, length, length, INPUT
+    // stack:           64, length, 0x80, 63, length, length, INPUT
+
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]
                           // store _size    at virt 64  [consumes       length]
@@ -23,36 +24,38 @@ global ripemd_alt:
                           // store _input   at virt 136 [consumes       length]
 
 global ripemd:
-    // stack:         ADDR, length
-    %stack (a, b, c, length) -> (64, length, 0x80, 63, a, b, c, length, length)
-    // stack:                    64, length, 0x80, 63, a, b, c, length, length
+    // stack:  ADDR, length
+    %stack (ADDR: 3, length) -> (64, length, 0x80, 63, ADDR, length, length)
+    // stack:                    64, length, 0x80, 63, ADDR, length, length
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]
                           // store _size    at virt 64  [consumes       length]
                           // store _padding at virt 72  [consumes 0x80,     63]
                           // store _input   at virt 136 [consumes ADDR, length]
+
 global ripemd_init:
     // stack: length
     %stack (length) -> (        0, length,        136, ripemd_1, ripemd_2, process)
     // stack:           count = 0, length, virt = 136, ripemd_1, ripemd_2, process
-    %stack (c, l, o, l1, l2, l3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0,     c,      l,    o, l1, l2, l3)
-    // stack:                        0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, *labels
+    %stack (ARGS: 3, LABELS: 3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, ARGS,                LABELS)
+    // stack:                       0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
     %jump(ripemd_update)
 ripemd_1:
-    // stack:            STATE, count, length            , virt, *labels
+    // stack:                                  STATE, count, length            , virt     , LABELS
     DUP7
-    // stack:    length, STATE, count, length            , virt, *labels
+    // stack:                          length, STATE, count, length            , virt     , LABELS
     %padlength
-    // stack: padlength, STATE, count, length            , virt, *labels
+    // stack:                       padlength, STATE, count, length            , virt     , LABELS
     SWAP7
     POP
-    // stack:            STATE, count, length = padlength, virt, *labels
-    %stack (a, b, c, d, e, count, length, virt) -> (a, b, c, d, e, count, length, 72)
+    // stack:                                  STATE, count, length = padlength, virt     , LABELS
+    %stack (STATE: 5, count, length, virt) -> (STATE, count, length,                    72)
+    //                                         STATE, count, length            , virt = 72, LABELS
     %jump(ripemd_update)
 ripemd_2:
-    // stack:            STATE, count, length, virt, *labels
-    %stack (a, b, c, d, e, count, length, virt) -> (a, b, c, d, e, count, 8, 64)
-    // stack:            STATE, count, length, virt, *labels
+    // stack:                                  STATE, count, length    , virt     , LABELS
+    %stack (STATE: 5, count, length, virt) -> (STATE, count,          8,        64)
+    // stack:                                  STATE, count, length = 8, virt = 64, LABELS
     %jump(ripemd_update)
 process:
     // stack: a , b, c, d, e, count, length, virt

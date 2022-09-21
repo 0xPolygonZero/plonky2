@@ -20,7 +20,7 @@
 
 global ripemd_update:
     // stack:                           STATE, count, length, virt, retdest
-    %stack (a, b, c, d, e, count, length, virt) -> (count, 8, 64, a, b, c, d, e, count, length, virt)
+    %stack (STATE: 5, count, length, virt) -> (count, 8, 64, STATE, count, length, virt)
     DIV
     MOD
     // stack:                     have, STATE, count, length, virt, retdest
@@ -28,13 +28,13 @@ global ripemd_update:
     PUSH 64
     SUB
     PUSH 0
-    // stack:       shift, need, have, STATE, count, length, virt, retdest
-    %stack (shift, need, have, a, b, c, d, e, count, length) -> (length, need, a, b, c, d, e, 0, shift, need, have, count, length)
-    // stack:    length, need, STATE, 0, shift, need, have, count, length, virt, retdest
+    // stack:        shift, need, have, STATE, count, length, virt, retdest
+    %stack (shift, need, have, STATE: 5, count, length) -> (length, need, STATE, 0, shift, need, have, count, length)
+    // stack:                                               length, need, STATE, 0, shift, need, have, count, length, virt, retdest
     LT 
     NOT
     // stack:               Q, STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (Q, a, b, c, d, e, i, shift, need, have) -> (have, Q, Q, a, b, c, d, e, i, shift, need, have) 
+    %stack (Q, STATE: 5, i, shift, need, have) -> (have, Q, Q, STATE, i, shift, need, have) 
     AND
     // stack:            P, Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %jumpi(update_1)
@@ -42,18 +42,18 @@ global ripemd_update:
     %jumpi(update_2)
 final_update:
     // stack:          shift, need, have, STATE, count, length, virt, retdest
-    %stack (shift, need, have, a, b, c, d, e, count, length) -> (length, shift, return_step, shift, need, have, a, b, c, d, e, count, length)
+    %stack (shift, need, have, STATE: 5, count, length) -> (length, shift, return_step, shift, need, have, STATE, count, length)
     SUB
-    // stack:    ARGS, shift, need, have, STATE, count, length, virt, retdest
-    %stack (a, r, shift, need, have, a, b, c, d, e, count, length, virt) -> (shift, virt, have, a, r, shift, need, have, a, b, c, d, e, count, length, virt)
+    // stack:                                                                     ARGS, shift, need, have, STATE, count, length, virt, retdest
+    %stack (ARGS: 2, shift, need, have, STATE: 5, count, length, virt) -> (shift, virt, have, ARGS: 2, shift, need, have, STATE, count, length, virt)
     ADD
-    // stack:    ARGS, shift, need, have, STATE, count, length, virt, retdest
+    // stack:                                                                  ARGS: 4, shift, need, have, STATE, count, length, virt, retdest
     PUSH 0
     DUP4
     GT
-    // stack: R, ARGS, shift, need, have, STATE, count, length, virt, retdest
+    // stack:                                                                  R, ARGS, shift, need, have, STATE, count, length, virt, retdest
     %jumpi(buffer_update)
-    // stack:    ARGS, shift, need, have, STATE, count, length, virt, retdest
+    // stack:                                                                     ARGS, shift, need, have, STATE, count, length, virt, retdest
     %pop3
     JUMP
 return_step:
@@ -64,7 +64,7 @@ return_step:
     ADD
     SWAP8
     // stack:          shift, need, have, STATE, count += 8*length, length, virt, retdest
-    %stack (shift, need, have, a, b, c, d, e, count, length, virt, retdest) -> (retdest, a, b, c, d, e, count, length, virt)
+    %stack (shift, need, have, STATE: 5, count, length, virt, retdest) -> (retdest, STATE, count, length, virt)
     JUMP
 
 
@@ -76,12 +76,12 @@ return_step:
 
 update_1:
     // stack: Q, STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (Q, a, b, c, d, e, i, shift, need, have, count, length, virt) -> (virt, have, need, update_1a, a, b, c, d, e, i, shift, need, have, count, length, virt)
+    %stack (Q, STATE: 5, i, shift, need, have, count, length, virt) -> (virt, have, need, update_1a, STATE, i, shift, need, have, count, length, virt)
     %jump(buffer_update)
 update_1a:
     // stack: STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (a, b, c, d, e, i, shift, need, have) -> (a, b, c, d, e, i, update_2, need, need, 0)
-    // stack: STATE, 0, update_2, shift, need, have, count, length, virt, retdest
+    %stack (STATE: 5, i, shift, need, have) -> (STATE, i, update_2,         need, need,        0)
+    // stack:                                   STATE, 0, update_2, shift = need, need, have = 0, count, length, virt, retdest
     %jump(compress)
 
 /// def update_2():
@@ -93,7 +93,7 @@ update_1a:
 
 update_2:
     // stack:               STATE, shift, need, have, count, length, virt, retdest
-    %stack (a, b, c, d, e, shift, need, have, count, length) -> (length, shift, a, b, c, d, e, shift, need, have, count, length) 
+    %stack (STATE: 5, shift, need, have, count, length) -> (length, shift, STATE, shift, need, have, count, length) 
     SUB
     SUB
     // stack:         cond, STATE, shift, need, have, count, length, virt, retdest
@@ -101,7 +101,7 @@ update_2:
     DUP8
     ADD
     // stack: offset, cond,  STATE, shift, need, have, count, length, virt, retdest
-    %stack (offset, cond, a, b, c, d, e) -> (cond, 0, a, b, c, d, e, offset, compression_loop, cond)
+    %stack (offset, cond, STATE: 5) -> (cond, 0, STATE, offset, compression_loop, cond)
     LT
     NOT
     // cond >= 0, STATE, offset, compression_loop, cond, shift, need, have, count, length, virt, retdest
@@ -118,10 +118,10 @@ compression_loop:
     %add_const(64)
     SWAP7 
     // stack: STATE, offset+64,        cond-64, shift+64, need, have, count, length, virt, retdest
-    %stack (a, b, c, d, e, offset, cond, shift) -> (cond, 0, a, b, c, d, e, offset, compression_loop, cond, shift)
+    %stack (STATE: 5, offset, cond, shift) -> (cond, 0, STATE, offset, compression_loop, cond, shift)
     %jumpi(compress)
     // stack: STATE, offset   , label, cond   , shift   , need, have, count, length, virt, retdest
-    %stack (a, b, c, d, e, offset, label, cond, shift, need, have, count, length, virt, retdest) -> (shift, need, have, a, b, c, d, e, count, length, virt, retdest)
+    %stack (STATE: 5, offset, label, cond, shift, need, have, count, length, virt, retdest) -> (shift, need, have, STATE, count, length, virt, retdest)
     %jump(final_update)
 
 
