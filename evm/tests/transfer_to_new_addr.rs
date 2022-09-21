@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use eth_trie_utils::partial_trie::PartialTrie;
 use hex_literal::hex;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -31,6 +33,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         transactions_trie: PartialTrie::Empty,
         receipts_trie: PartialTrie::Empty,
         storage_tries: vec![],
+        contract_code: HashMap::new(),
         block_metadata,
     };
 
