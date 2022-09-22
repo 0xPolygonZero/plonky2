@@ -241,16 +241,16 @@ post_rol:
 %endmacro
 
 %macro get_box
-    // stack:                                     *7_args, boxes, rounds, sides
+    // stack:                                     ARGS: 7, boxes, rounds, sides
     DUP10  
     %mul_const(80)  
     DUP10  
     %mul_const(16)  
     DUP10  
-    // stack:       boxes , 16*rounds , 80*sides, *7_args, boxes, rounds, sides
+    // stack:       boxes , 16*rounds , 80*sides, ARGS: 7, boxes, rounds, sides
     PUSH 176  
     SUB  
     SUB  
     SUB
-    // stack: 176 - boxes - 16*rounds - 80*sides, *7_args, boxes, rounds, sides
+    // stack: 176 - boxes - 16*rounds - 80*sides, ARGS: 7, boxes, rounds, sides
 %endmacro
