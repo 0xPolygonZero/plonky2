@@ -37,6 +37,46 @@ global fp2:
     PUSH pp
     SWAP2
     ADDMOD
-    // stack:                         c0, c1          
+    // stack:                         c0, c1
 
-    
+
+y_mul:
+    // stack: a0, a1, a2, a3, a4, a5
+    SWAP2
+    SWAP4
+    SWAP1
+    SWAP3
+    SWAP5
+    SWAP1
+    // stack: a4, a5, a0, a1, a2, a3
+    %mul_9_plus_i
+    // stack: c4, c5, a0, a1, a2, a3
+
+
+%macro mul_9_plus_i
+    // stack:                b0, b1
+    PUSH pp
+    PUSH pp
+    DUP
+    PUSH 9
+    // stack: 9, b0, pp, pp, b0, b1
+    MULMOD
+    // stack:       9b0, pp, b0, b1
+    DUP3
+    ADDMOD
+    // stack:      b1 + 9b0, b0, b1
+    SWAP2
+    // stack:           b1,  b0, c1
+    PUSH pp
+    SUB
+    // stack:          -b1,  b0, c1
+    PUSH pp
+    PUSH pp
+    SWAP3
+    // stack:   b0, pp, -b1, pp, c1   
+    PUSH 9
+    // stack:    9, b0, pp, -b1, c1 
+    MULMOD
+    // stack:      9b0,     -b1, c1
+    ADDMOD
+%endmacro
