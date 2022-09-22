@@ -1,6 +1,6 @@
 use ethereum_types::U256;
 
-use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::generation::prover_input::ProverInputFn;
 
 #[derive(Debug)]
 pub(crate) struct File {

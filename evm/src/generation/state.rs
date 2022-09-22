@@ -6,6 +6,8 @@ use tiny_keccak::keccakf;
 
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
+use crate::generation::mpt::all_mpt_prover_inputs;
+use crate::generation::GenerationInputs;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::memory::memory_stark::MemoryOp;
 use crate::memory::segments::Segment;
@@ -15,6 +17,7 @@ use crate::{keccak, logic};
 
 #[derive(Debug)]
 pub(crate) struct GenerationState<F: Field> {
+    pub(crate) inputs: GenerationInputs,
     pub(crate) cpu_rows: Vec<[F; NUM_CPU_COLUMNS]>,
     pub(crate) current_cpu_row: CpuColumnsView<F>,
 
@@ -24,9 +27,30 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
     pub(crate) keccak_memory_inputs: Vec<KeccakMemoryOp>,
     pub(crate) logic_ops: Vec<logic::Operation>,
+
+    /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
+    /// via `pop()`.
+    pub(crate) mpt_prover_inputs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
+    pub(crate) fn new(inputs: GenerationInputs) -> Self {
+        let mut mpt_prover_inputs = all_mpt_prover_inputs(&inputs);
+        mpt_prover_inputs.reverse();
+
+        Self {
+            inputs,
+            cpu_rows: vec![],
+            current_cpu_row: [F::ZERO; NUM_CPU_COLUMNS].into(),
+            current_context: 0,
+            memory: MemoryState::default(),
+            keccak_inputs: vec![],
+            keccak_memory_inputs: vec![],
+            logic_ops: vec![],
+            mpt_prover_inputs,
+        }
+    }
+
     /// Compute logical AND, and record the operation to be added in the logic table later.
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn and(&mut self, input0: U256, input1: U256) -> U256 {
@@ -215,21 +239,5 @@ impl<F: Field> GenerationState<F> {
         let mut swapped_row = [F::ZERO; NUM_CPU_COLUMNS].into();
         mem::swap(&mut self.current_cpu_row, &mut swapped_row);
         self.cpu_rows.push(swapped_row.into());
-    }
-}
-
-// `GenerationState` can't `derive(Default)` because `Default` is only implemented for arrays up to
-// length 32 :-\.
-impl<F: Field> Default for GenerationState<F> {
-    fn default() -> Self {
-        Self {
-            cpu_rows: vec![],
-            current_cpu_row: [F::ZERO; NUM_CPU_COLUMNS].into(),
-            current_context: 0,
-            memory: MemoryState::default(),
-            keccak_inputs: vec![],
-            keccak_memory_inputs: vec![],
-            logic_ops: vec![],
-        }
     }
 }
