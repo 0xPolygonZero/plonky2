@@ -80,9 +80,9 @@ process:
     %shl_const(96)
     OR 
     // stack: e' d' c' b' a', VARS
-    %stack (result, VARS: 3, fin) -> (fin, result)
+    %stack (result, VARS: 3) -> (0xdeadbeef, result)
     // stack: 0xdeadbeef, result
-    JUMP 
+    JUMP
 
 
 /// def padlength(length):
