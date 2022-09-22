@@ -26,12 +26,15 @@
 
 global compress:
     // stack:                                                        STATE, virt, retdest
-    %stack (STATE: 5, virt) -> (STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt)
+    %stack (x) -> (0, 0, 16, 5, 1, x)
+    %stack (CONSTS: 5, virt, switch, STATE: 5) -> (STATE, CONSTS, virt, switch, STATE)
     // stack:                   STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
     %jump(loop)
 switch:
     // stack: STATEL, STATE, virt, retdest
-    %stack (STATEL: 5, STATE: 5, virt) -> (STATE, 0, 0, 16, 5, 0, virt, mix, STATEL, STATE, virt)
+    %stack (STATEL: 5, STATE: 5) -> (STATE, STATEL, STATE)
+    %stack (STATE: 5) -> (STATE, 0, 0, 16, 5, 0)
+    // %stack (STATEL: 5, STATE: 5, virt) -> (STATE, 0, 0, 16, 5, 0, virt, mix, STATEL, STATE, virt)
     %jump(loop)
 mix:
     // stack: r0, r1, r2, r3, r4, l0, l1, l2, l3, l4, s0, s1, s2, s3, s4, VR, RD 

@@ -7,7 +7,7 @@
     // stack: K
 %endmacro
 
-K_data:
+global K_data:
     // Left
     BYTES 0x00, 0x00, 0x00, 0x00
     BYTES 0x5A, 0x82, 0x79, 0x99
@@ -22,7 +22,7 @@ K_data:
     BYTES 0x00, 0x00, 0x00, 0x00
 
 
-S_data:
+global S_data:
     // Left Round 0
     BYTES 11, 14, 15, 12
     BYTES 05, 08, 07, 09
@@ -76,7 +76,7 @@ S_data:
     BYTES 15, 13, 11, 11
 
 
-R_data:
+global R_data:
     // Left Round 0
     BYTES 00, 04, 08, 12
     BYTES 16, 20, 24, 28
