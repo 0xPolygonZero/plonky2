@@ -4,7 +4,6 @@ use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-use plonky2::plonk::verifier::verify;
 
 fn main() -> Result<()> {
     const D: usize = 2;
@@ -31,7 +30,6 @@ fn main() -> Result<()> {
     builder.connect(fib_100_target, cur_target);
 
     let data = builder.build::<C>();
-
     let proof = data.prove(pw)?;
 
     println!(
@@ -39,5 +37,5 @@ fn main() -> Result<()> {
         proof.public_inputs[0]
     );
 
-    verify(proof, &data.verifier_only, &data.common)
+    data.verify(proof)
 }
