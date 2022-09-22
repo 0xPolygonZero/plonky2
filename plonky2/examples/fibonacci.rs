@@ -22,11 +22,10 @@ fn main() -> Result<()> {
         prev_target = cur_target;
         cur_target = temp;
     }
+    builder.register_public_input(cur_target);
 
     let fib_100 = F::from_canonical_u64(3736710860384812976);
     let fib_100_target = builder.constant(fib_100);
-    builder.register_public_input(fib_100_target);
-
     builder.connect(fib_100_target, cur_target);
 
     let data = builder.build::<C>();

@@ -20,11 +20,10 @@ fn main() -> Result<()> {
         let i_target = builder.constant(F::from_canonical_u32(i));
         cur_target = builder.mul(cur_target, i_target);
     }
+    builder.register_public_input(cur_target);
 
     let fact_100 = F::from_canonical_u64(3822706312645553057);
     let fact_100_target = builder.constant(fact_100);
-    builder.register_public_input(fact_100_target);
-
     builder.connect(fact_100_target, cur_target);
 
     let data = builder.build::<C>();
