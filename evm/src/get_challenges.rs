@@ -36,6 +36,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 
         AllProofChallenges {
             stark_challenges: std::array::from_fn(|i| {
+                challenger.duplexing();
                 self.stark_proofs[i].get_challenges(
                     &mut challenger,
                     num_permutation_zs[i] > 0,
