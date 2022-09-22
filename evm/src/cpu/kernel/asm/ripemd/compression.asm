@@ -177,31 +177,31 @@ box:
     // stack: F, b, c, d, pre_rol, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     JUMP
 pre_rol:
-    // stack:      F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:    F(b, c, d), a, b, c, d, e, F, K, boxes, rounds, sides, virt
     ADD
-    // stack:                  a, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:                a, b, c, d, e, F, K, boxes, rounds, sides, virt
     %get_box
-    // stack:             box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:           box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     DUP1
     %mload_kernel_code_label(R_data)
     DUP13
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt    
-    %load_u32_from_block
-    // stack:          x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
+    %mload_kernel_code_label_u32(Input_Block) // %load_u32_from_block
+    // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     SWAP1  
     SWAP2 
-    // stack:          a, x, box, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:        a, x, box, b, c, d, e, F, K, boxes, rounds, sides, virt
     ADD  
     DUP8  
     ADD  
     %u32
-    // stack:             a, box, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:           a, box, b, c, d, e, F, K, boxes, rounds, sides, virt
     PUSH mid_rol  
     SWAP2
-    // stack:    box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:  box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
     %mload_kernel_code_label(S_data)
-    // stack:      s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
+    // stack:    s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
     %jump(rol)
 mid_rol:
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, virt
