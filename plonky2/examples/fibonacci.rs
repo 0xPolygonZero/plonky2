@@ -16,10 +16,8 @@ fn main() -> Result<()> {
     let pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    let zero_target = builder.zero();
-    let one_target = builder.one();
-    let mut prev_target = zero_target;
-    let mut cur_target = one_target;
+    let mut prev_target = builder.zero();
+    let mut cur_target = builder.one();
     for _ in 0..99 {
         let temp = builder.add(prev_target, cur_target);
         prev_target = cur_target;
@@ -36,7 +34,10 @@ fn main() -> Result<()> {
 
     let proof = data.prove(pw)?;
 
-    println!("100th Fibonacci number is: {:?}", proof.public_inputs[0]);
+    println!(
+        "100th Fibonacci number (mod |F|) is: {}",
+        proof.public_inputs[0]
+    );
 
     verify(proof, &data.verifier_only, &data.common)
 }
