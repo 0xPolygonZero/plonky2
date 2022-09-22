@@ -23,7 +23,7 @@ global rol:
     SWAP1  
     JUMP
 
-// def push_F(rnd):
+// def push_f(rnd):
 //     Fs = [F0, F1, F2, F3, F4, F4, F3, F2, F1, F0]
 //     acc = 0
 //     for i, F in enumerate(Fs):
@@ -33,7 +33,7 @@ global rol:
 // the macro %this_F(i,F) enacts
 //     acc += (i==rnd)*F
 
-%macro push_F
+%macro push_f
     // stack:    rnd
     PUSH 0
     %this_F(0,F0)

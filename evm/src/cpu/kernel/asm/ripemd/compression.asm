@@ -115,7 +115,7 @@ update_round_vars:
     // stack: rnd, rnd, STATE, F , K , 16, rounds, sides, virt, retdest
     SWAP7  
     POP  
-    %push_F  
+    %push_f  
     SWAP7
     // stack: rnd, rnd, STATE, F', K , 16, rounds, sides, virt, retdest
     SWAP8  
