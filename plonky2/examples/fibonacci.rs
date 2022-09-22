@@ -1,5 +1,4 @@
 use anyhow::Result;
-use plonky2::field::types::Field;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
@@ -23,10 +22,6 @@ fn main() -> Result<()> {
         cur_target = temp;
     }
     builder.register_public_input(cur_target);
-
-    let fib_100 = F::from_canonical_u64(3736710860384812976);
-    let fib_100_target = builder.constant(fib_100);
-    builder.connect(fib_100_target, cur_target);
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;

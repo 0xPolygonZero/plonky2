@@ -22,10 +22,6 @@ fn main() -> Result<()> {
     }
     builder.register_public_input(cur_target);
 
-    let fact_100 = F::from_canonical_u64(3822706312645553057);
-    let fact_100_target = builder.constant(fact_100);
-    builder.connect(fact_100_target, cur_target);
-
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;
 
