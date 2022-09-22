@@ -62,12 +62,21 @@
     // stack: value
 %endmacro
 
-%macro mload_kernel_code_shift(label)
+%macro mload_kernel_code_label(label)
     // stack: shift
     PUSH $label  
     ADD
     // stack: label + shift
     %mload_kernel_code
+    // stack: byte
+%endmacro
+
+%macro mload_kernel_code_label_u32(label)
+    // stack: shift
+    PUSH $label  
+    ADD
+    // stack: label + shift
+    %mload_kernel_code_u32
     // stack: byte
 %endmacro
 

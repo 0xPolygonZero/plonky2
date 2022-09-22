@@ -1,12 +1,3 @@
-%macro load_K
-    // stack: rnd
-    %mul_const(4)  
-    %add_const(K_data)
-    // stack: K_data + 4*rnd
-    %mload_kernel_code_u32
-    // stack: K
-%endmacro
-
 global K_data:
     // Left
     BYTES 0x00, 0x00, 0x00, 0x00

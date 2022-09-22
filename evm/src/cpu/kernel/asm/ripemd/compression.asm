@@ -26,7 +26,7 @@
 
 global compress:
     // stack:                                                        STATE, virt, retdest
-    %stack (x) -> (0, 0, 16, 5, 1, x)
+    %stack (stack) -> (0, 0, 16, 5, 1, stack)
     %stack (CONSTS: 5, virt, switch, STATE: 5) -> (STATE, CONSTS, virt, switch, STATE)
     // stack:                   STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
     %jump(loop)
@@ -123,7 +123,8 @@ update_round_vars:
     // stack: rnd, rnd, STATE, F', K , 16, rounds, sides, virt, retdest
     SWAP8  
     POP  
-    %load_K
+    %mul_const(4)
+    %mload_kernel_code_label_u32(K_data)
     SWAP7  
     POP
     // stack:           STATE, F', K', 16, rounds, sides, virt, retdest
@@ -182,7 +183,7 @@ pre_rol:
     %get_box
     // stack:             box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     DUP1
-    %mload_kernel_code_shift(R_data)
+    %mload_kernel_code_label(R_data)
     DUP13
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt    
@@ -199,7 +200,7 @@ pre_rol:
     PUSH mid_rol  
     SWAP2
     // stack:    box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
-    %mload_kernel_code_shift(S_data)
+    %mload_kernel_code_label(S_data)
     // stack:      s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
     %jump(rol)
 mid_rol:
