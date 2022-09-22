@@ -129,7 +129,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
-    fn duplexing(&mut self) {
+    pub fn duplexing(&mut self) {
         assert!(self.input_buffer.len() <= SPONGE_RATE);
 
         // Overwrite the first r elements with the inputs. This differs from a standard sponge,
@@ -145,6 +145,10 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         self.output_buffer.clear();
         self.output_buffer
             .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
+    }
+
+    pub fn state(&self) -> [F; SPONGE_WIDTH] {
+        self.sponge_state
     }
 }
 
@@ -173,6 +177,15 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
             sponge_state: [zero; SPONGE_WIDTH],
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
+        }
+    }
+
+    pub fn from_state(sponge_state: [Target; SPONGE_WIDTH]) -> Self {
+        let output_buffer = sponge_state[0..SPONGE_RATE].to_vec();
+        RecursiveChallenger {
+            sponge_state,
+            input_buffer: vec![],
+            output_buffer,
         }
     }
 
@@ -271,6 +284,28 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
 
         self.input_buffer.clear();
+    }
+
+    pub fn duplexing(&mut self, builder: &mut CircuitBuilder<F, D>) {
+        for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
+            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+            // where we would xor or add in the inputs. This is a well-known variant, though,
+            // sometimes called "overwrite mode".
+            for (i, &input) in input_chunk.iter().enumerate() {
+                self.sponge_state[i] = input;
+            }
+
+            // Apply the permutation.
+            self.sponge_state = builder.permute::<H>(self.sponge_state);
+        }
+
+        self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
+
+        self.input_buffer.clear();
+    }
+
+    pub fn state(&self) -> [Target; SPONGE_WIDTH] {
+        self.sponge_state
     }
 }
 

@@ -208,6 +208,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b
     }
 
+    /// Add a virtual target and register it as a public input.
+    pub fn add_virtual_public_input(&mut self) -> Target {
+        let t = self.add_virtual_target();
+        self.register_public_input(t);
+        t
+    }
+
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, mut constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);

@@ -8,6 +8,7 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -35,6 +36,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub stark_challenges: [StarkProofChallenges<F, D>; NUM_TABLES],
+    pub ctl_challenges: GrandProductChallengeSet<F>,
+}
+
+pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usize> {
+    pub states: [[F; SPONGE_WIDTH]; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 

@@ -4,6 +4,8 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hashing::SPONGE_WIDTH;
+use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness};
@@ -19,15 +21,19 @@ use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVarsTarget};
+use crate::cross_table_lookup::{
+    verify_cross_table_lookups_circuit, CrossTableLookup, CtlCheckVarsTarget,
+};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::PermutationCheckDataTarget;
+use crate::permutation::{
+    GrandProductChallenge, GrandProductChallengeSet, PermutationCheckDataTarget,
+};
 use crate::proof::{
-    AllProof, AllProofChallengesTarget, AllProofTarget, BlockMetadata, BlockMetadataTarget,
-    PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    AllChallengerState, AllProof, AllProofChallengesTarget, AllProofTarget, BlockMetadata,
+    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
     StarkProofChallengesTarget, StarkProofTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
@@ -93,8 +99,10 @@ fn recursively_verify_stark_proof<
 >(
     table: Table,
     stark: S,
-    all_stark: &AllStark<F, D>,
-    all_proof: &AllProof<F, C, D>,
+    proof: &StarkProof<F, C, D>,
+    cross_table_lookups: &[CrossTableLookup<F>],
+    ctl_challenges: &GrandProductChallengeSet<F>,
+    challenger_state_before: [F; SPONGE_WIDTH],
     inner_config: &StarkConfig,
     circuit_config: &CircuitConfig,
 ) -> Result<(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>)>
@@ -106,36 +114,63 @@ where
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let mut pw = PartialWitness::new();
 
-    let nums_ctl_zs = all_proof.nums_ctl_zs();
-    let degree_bits = all_proof.degree_bits(inner_config);
     let num_permutation_zs = stark.num_permutation_batches(inner_config);
-    let all_proof_target = add_virtual_all_proof(
+    let num_permutation_batch_size = stark.permutation_batch_size();
+    let proof_target = add_virtual_stark_proof(
         &mut builder,
-        all_stark,
+        &stark,
         inner_config,
-        &degree_bits,
-        &nums_ctl_zs,
+        proof.recover_degree_bits(inner_config),
+        proof.num_ctl_zs(),
     );
-    set_all_proof_target(&mut pw, &all_proof_target, all_proof, builder.zero());
+    set_stark_proof_target(&mut pw, &proof_target, proof, builder.zero());
 
-    let AllProofChallengesTarget {
-        stark_challenges,
-        ctl_challenges,
-    } = all_proof_target.get_challenges::<F, C>(&mut builder, all_stark, inner_config);
+    let ctl_challenges_target = GrandProductChallengeSet {
+        challenges: (0..inner_config.num_challenges)
+            .map(|_| GrandProductChallenge {
+                beta: builder.add_virtual_public_input(),
+                gamma: builder.add_virtual_public_input(),
+            })
+            .collect(),
+    };
+    for i in 0..inner_config.num_challenges {
+        pw.set_target(
+            ctl_challenges_target.challenges[i].beta,
+            ctl_challenges.challenges[i].beta,
+        );
+        pw.set_target(
+            ctl_challenges_target.challenges[i].gamma,
+            ctl_challenges.challenges[i].gamma,
+        );
+    }
 
     let ctl_vars = CtlCheckVarsTarget::from_proof(
         table,
-        &all_proof_target.stark_proofs[table as usize],
-        &all_stark.cross_table_lookups,
-        &ctl_challenges,
+        &proof_target,
+        cross_table_lookups,
+        &ctl_challenges_target,
         num_permutation_zs,
     );
 
+    let challenger_state = std::array::from_fn(|_| builder.add_virtual_public_input());
+    pw.set_target_arr(challenger_state, challenger_state_before);
+    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::from_state(challenger_state);
+    let challenges = proof_target.get_challenges::<F, C>(
+        &mut builder,
+        &mut challenger,
+        num_permutation_zs > 0,
+        num_permutation_batch_size,
+        inner_config,
+    );
+    challenger.duplexing(&mut builder);
+    let challenger_state = challenger.state();
+    builder.register_public_inputs(&challenger_state);
+
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
-        stark,
-        &all_proof_target.stark_proofs[table as usize],
-        &stark_challenges[table as usize],
+        &stark,
+        &proof_target,
+        &challenges,
         &ctl_vars,
         inner_config,
     );
@@ -164,45 +199,59 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
+    let AllChallengerState {
+        states,
+        ctl_challenges,
+    } = all_proof.get_challenger_states(all_stark, inner_config);
     Ok(RecursiveAllProof {
         recursive_proofs: [
             recursively_verify_stark_proof(
                 Table::Cpu,
                 all_stark.cpu_stark,
-                all_stark,
-                all_proof,
+                &all_proof.stark_proofs[Table::Cpu as usize],
+                &all_stark.cross_table_lookups,
+                &ctl_challenges,
+                states[0],
                 inner_config,
                 &circuit_config,
             )?,
             recursively_verify_stark_proof(
                 Table::Keccak,
                 all_stark.keccak_stark,
-                all_stark,
-                all_proof,
+                &all_proof.stark_proofs[Table::Keccak as usize],
+                &all_stark.cross_table_lookups,
+                &ctl_challenges,
+                states[1],
                 inner_config,
                 &circuit_config,
             )?,
             recursively_verify_stark_proof(
                 Table::KeccakMemory,
                 all_stark.keccak_memory_stark,
-                all_stark,
-                all_proof,
+                &all_proof.stark_proofs[Table::KeccakMemory as usize],
+                &all_stark.cross_table_lookups,
+                &ctl_challenges,
+                states[2],
                 inner_config,
                 &circuit_config,
             )?,
             recursively_verify_stark_proof(
                 Table::Logic,
                 all_stark.logic_stark,
-                all_stark,
-                all_proof,
+                &all_proof.stark_proofs[Table::Logic as usize],
+                &all_stark.cross_table_lookups,
+                &ctl_challenges,
+                states[3],
                 inner_config,
                 &circuit_config,
             )?,
             recursively_verify_stark_proof(
                 Table::Memory,
                 all_stark.memory_stark,
-                all_stark,
-                all_proof,
+                &all_proof.stark_proofs[Table::Memory as usize],
+                &all_stark.cross_table_lookups,
+                &ctl_challenges,
+                states[4],
                 inner_config,
                 &circuit_config,
             )?,
@@ -255,7 +304,7 @@ pub fn verify_proof_circuit<
         "verify CPU proof",
         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
             builder,
-            cpu_stark,
+            &cpu_stark,
             &all_proof.stark_proofs[Table::Cpu as usize],
             &stark_challenges[Table::Cpu as usize],
             &ctl_vars_per_table[Table::Cpu as usize],
@@ -267,7 +316,7 @@ pub fn verify_proof_circuit<
         "verify Keccak proof",
         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
             builder,
-            keccak_stark,
+            &keccak_stark,
             &all_proof.stark_proofs[Table::Keccak as usize],
             &stark_challenges[Table::Keccak as usize],
             &ctl_vars_per_table[Table::Keccak as usize],
@@ -279,7 +328,7 @@ pub fn verify_proof_circuit<
         "verify Keccak memory proof",
         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
             builder,
-            keccak_memory_stark,
+            &keccak_memory_stark,
             &all_proof.stark_proofs[Table::KeccakMemory as usize],
             &stark_challenges[Table::KeccakMemory as usize],
             &ctl_vars_per_table[Table::KeccakMemory as usize],
@@ -291,7 +340,7 @@ pub fn verify_proof_circuit<
         "verify logic proof",
         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
             builder,
-            logic_stark,
+            &logic_stark,
             &all_proof.stark_proofs[Table::Logic as usize],
             &stark_challenges[Table::Logic as usize],
             &ctl_vars_per_table[Table::Logic as usize],
@@ -303,7 +352,7 @@ pub fn verify_proof_circuit<
         "verify memory proof",
         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
             builder,
-            memory_stark,
+            &memory_stark,
             &all_proof.stark_proofs[Table::Memory as usize],
             &stark_challenges[Table::Memory as usize],
             &ctl_vars_per_table[Table::Memory as usize],
@@ -332,7 +381,7 @@ fn verify_stark_proof_with_challenges_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     proof: &StarkProofTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
@@ -388,7 +437,7 @@ fn verify_stark_proof_with_challenges_circuit<
         "evaluate vanishing polynomial",
         eval_vanishing_poly_circuit::<F, C, S, D>(
             builder,
-            &stark,
+            stark,
             inner_config,
             vars,
             permutation_data,
@@ -462,35 +511,35 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
     let stark_proofs = [
         add_virtual_stark_proof(
             builder,
-            all_stark.cpu_stark,
+            &all_stark.cpu_stark,
             config,
             degree_bits[Table::Cpu as usize],
             nums_ctl_zs[Table::Cpu as usize],
         ),
         add_virtual_stark_proof(
             builder,
-            all_stark.keccak_stark,
+            &all_stark.keccak_stark,
             config,
             degree_bits[Table::Keccak as usize],
             nums_ctl_zs[Table::Keccak as usize],
         ),
         add_virtual_stark_proof(
             builder,
-            all_stark.keccak_memory_stark,
+            &all_stark.keccak_memory_stark,
             config,
             degree_bits[Table::KeccakMemory as usize],
             nums_ctl_zs[Table::KeccakMemory as usize],
         ),
         add_virtual_stark_proof(
             builder,
-            all_stark.logic_stark,
+            &all_stark.logic_stark,
             config,
             degree_bits[Table::Logic as usize],
             nums_ctl_zs[Table::Logic as usize],
         ),
         add_virtual_stark_proof(
             builder,
-            all_stark.memory_stark,
+            &all_stark.memory_stark,
             config,
             degree_bits[Table::Memory as usize],
             nums_ctl_zs[Table::Memory as usize],
@@ -553,7 +602,7 @@ pub fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
 
 pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
     num_ctl_zs: usize,
@@ -580,7 +629,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 
 fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     num_ctl_zs: usize,
     config: &StarkConfig,
 ) -> StarkOpeningSetTarget<D> {
