@@ -25,21 +25,9 @@
 /// state[i], stateL[i], stateR[i], output[i], virt, retdest
 
 global compress:
-    // stack:                                      STATE, virt, retdest 
-    PUSH switch
-    DUP7
-    PUSH 1
-    PUSH 5  
-    PUSH 16  
-    PUSH 0  
-    PUSH 0
-    // stack:        0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
-    DUP12  
-    DUP12  
-    DUP12  
-    DUP12  
-    DUP12
-    // stack: STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
+    // stack:                                                        STATE, virt, retdest
+    %stack (STATE: 5, virt) -> (STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt)
+    // stack:                   STATE, 0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest 
     %jump(loop)
 switch:
     // stack: STATEL, STATE, virt, retdest
@@ -53,7 +41,7 @@ mix:
     // stack: r1, s0, r2, r3, r4, l0, l1, l2, l3, l4, r0, s1, s2, s3, s4, VR, RD 
     SWAP6
     // stack: l1, s0, r2, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, VR, RD 
-    %add3_32
+    %add3_u32
     // stack:         o4, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, VR, RD 
     SWAP14
     // stack:         RD, r3, r4, l0, r1, l2, l3, l4, r0, s1, s2, s3, s4, VR, o4 
@@ -65,23 +53,23 @@ mix:
     // stack:         r3, s2, r4, l0, r1, l2, l3, l4, r0, s1, s3, RD, s4, VR, o4 
     SWAP6
     // stack:         l3, s2, r4, l0, r1, l2, r3, l4, r0, s1, s3, RD, s4, VR, o4 
-    %add3_32
+    %add3_u32
     // stack:                 o1, l0, r1, l2, r3, l4, r0, s1, s3, RD, s4, VR, o4 
     SWAP9
     // stack:                 RD, l0, r1, l2, r3, l4, r0, s1, s3, o1, s4, VR, o4 
     SWAP10
     // stack:                 s4, l0, r1, l2, r3, l4, r0, s1, s3, o1, RD, VR, o4 
-    %add3_32
+    %add3_u32
     // stack:                         o3, l2, r3, l4, r0, s1, s3, o1, RD, VR, o4 
     SWAP9
     // stack:                         VR, l2, r3, l4, r0, s1, s3, o1, RD, o3, o4 
     SWAP5
     // stack:                         s1, l2, r3, l4, r0, VR, s3, o1, RD, o3, o4 
-    %add3_32
+    %add3_u32
     // stack:                                 o0, l4, r0, VR, s3, o1, RD, o3, o4 
     SWAP4
     // stack:                                 s3, l4, r0, VR, o0, o1, RD, o3, o4 
-    %add3_32 
+    %add3_u32 
     // stack:                                         o2, VR, o0, o1, RD, o3, o4 
     SWAP4
     // stack:                                         RD, VR, o0, o1, o2, o3, o4 
@@ -164,10 +152,10 @@ round:
 ///
 ///     box = get_box(sides, rounds, boxes)
 ///     a  += F(b, c, d)
-///     r   = load_byte(r)(box)
+///     r   = load(r)(box)
 ///     x   = load_offset(r)
 ///     a  += x + K
-///     s   = load_byte(s)(box)
+///     s   = load(s)(box)
 ///     a   = rol(s, a)
 ///     a  += e
 ///     c   = rol(10, c)
@@ -191,7 +179,7 @@ pre_rol:
     %get_box
     // stack:             box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     DUP1
-    %load_byte(R_data)
+    %mload_kernel_code_shift(R_data)
     DUP13
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt    
@@ -208,7 +196,7 @@ pre_rol:
     PUSH mid_rol  
     SWAP2
     // stack:    box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
-    %load_byte(S_data)
+    %mload_kernel_code_shift(S_data)
     // stack:      s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
     %jump(rol)
 mid_rol:

@@ -164,4 +164,3 @@ store_input:
     %mstore_ripemd
     // stack:
 %endmacro
-    

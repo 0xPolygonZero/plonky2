@@ -23,19 +23,30 @@ global rol:
     SWAP1  
     JUMP
 
+// def push_F(rnd):
+//     Fs = [F0, F1, F2, F3, F4, F4, F3, F2, F1, F0]
+//     acc = 0
+//     for i, F in enumerate(Fs):
+//         acc += (i==rnd)*F
+//     return acc, rnd
+//
+// the macro %this_F(i,F) enacts
+//     acc += (i==rnd)*F
 
 %macro push_F
-  PUSH 0
-  %this_F(0,F0)
-  %this_F(1,F1)
-  %this_F(2,F2)
-  %this_F(3,F3)
-  %this_F(4,F4)
-  %this_F(5,F4)
-  %this_F(6,F3)
-  %this_F(7,F2)
-  %this_F(8,F1)
-  %this_F(9,F0)
+    // stack:    rnd
+    PUSH 0
+    %this_F(0,F0)
+    %this_F(1,F1)
+    %this_F(2,F2)
+    %this_F(3,F3)
+    %this_F(4,F4)
+    %this_F(5,F4)
+    %this_F(6,F3)
+    %this_F(7,F2)
+    %this_F(8,F1)
+    %this_F(9,F0)
+    // stack: F, rnd
 %endmacro
 
 
@@ -44,7 +55,7 @@ global rol:
   DUP2
   // stack:  rnd       , acc, rnd
   %eq_const($i)
-  // stack:  rnd==i    , acc, j
+  // stack:  rnd==i    , acc, rnd
   %mul_const($F)
   // stack: (rnd==i)*F , acc, rnd
   ADD
@@ -80,7 +91,7 @@ global F1:
     // stack:   z,  x,    y & x , retdest
     SWAP1
     // stack:   x,  z,    y & x , retdest
-    %not_32
+    %not_u32
     // stack:  ~x,  z,    y & x , retdest
     AND
     // stack:  ~x & z  ,  y & x , retdest
@@ -97,7 +108,7 @@ global F2:
     // stack:   x , y,   z, retdest
     SWAP1
     // stack:   y , x,   z, retdest
-    %not_32
+    %not_u32
     // stack:  ~y , x ,  z, retdest
     OR
     // stack:  ~y | x ,  z, retdest
@@ -118,7 +129,7 @@ global F3:
     // stack:   z & x,    y , z , retdest
     SWAP2
     // stack:   z,  y,    z & x , retdest
-    %not_32
+    %not_u32
     // stack:  ~z , y,    z & x , retdest
     AND
     // stack:  ~z & y,    z & x , retdest
@@ -135,7 +146,7 @@ global F4:
     // stack:   x,  y,   z, retdest
     SWAP2
     // stack:   z,  y,   x, retdest
-    %not_32
+    %not_u32
     // stack:  ~z,  y,   x, retdest
     OR
     // stack:  ~z | y,   x, retdest

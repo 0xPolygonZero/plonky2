@@ -22,16 +22,6 @@ K_data:
     BYTES 0x00, 0x00, 0x00, 0x00
 
 
-%macro load_byte(loc)
-    // stack: box
-    PUSH $loc  
-    ADD
-    // stack: loc + box
-    %mload_kernel_code
-    // stack: byte
-%endmacro
-
-
 S_data:
     // Left Round 0
     BYTES 11, 14, 15, 12

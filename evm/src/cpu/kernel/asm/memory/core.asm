@@ -62,6 +62,15 @@
     // stack: value
 %endmacro
 
+%macro mload_kernel_code_shift(label)
+    // stack: shift
+    PUSH $label  
+    ADD
+    // stack: label + shift
+    %mload_kernel_code
+    // stack: byte
+%endmacro
+
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
 // from kernel code.
 %macro mload_kernel_code_u32

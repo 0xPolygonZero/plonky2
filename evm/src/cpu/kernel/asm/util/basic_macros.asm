@@ -234,7 +234,7 @@
     %and_const(0xffffffff)
 %endmacro
 
-%macro not_32
+%macro not_u32
     // stack: x
     PUSH 0xffffffff
     // stack: 0xffffffff, x
@@ -242,7 +242,7 @@
     // stack: 0xffffffff - x
 %endmacro
 
-%macro add3_32
+%macro add3_u32
     // stack: x, y, z
     ADD
     // stack: x+y, z
@@ -253,7 +253,7 @@
 
 
 // given u32 bytestring abcd return dcba
-%macro flip_bytes_u32
+%macro reverse_bytes_u32
     // stack: abcd
     DUP1
     %and_const(0xFF)

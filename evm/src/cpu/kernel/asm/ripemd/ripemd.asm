@@ -58,25 +58,25 @@ ripemd_2:
     %jump(ripemd_update)
 process:
     // stack: a , b, c, d, e, count, length, virt
-    %flip_bytes_u32
+    %reverse_bytes_u32
     // stack: a', b, c, d, e, VARS
     SWAP1
-    %flip_bytes_u32
+    %reverse_bytes_u32
     %shl_const(32)
     OR
     // stack: b' a', c, d, e, VARS
     SWAP1
-    %flip_bytes_u32
+    %reverse_bytes_u32
     %shl_const(64)
     OR
     // stack: c' b' a', d, e, VARS
     SWAP1
-    %flip_bytes_u32
+    %reverse_bytes_u32
     %shl_const(96)
     OR 
     // stack: d' c' b' a', e, VARS
     SWAP1
-    %flip_bytes_u32
+    %reverse_bytes_u32
     %shl_const(96)
     OR 
     // stack: e' d' c' b' a', VARS
