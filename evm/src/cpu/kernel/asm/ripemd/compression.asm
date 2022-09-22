@@ -230,7 +230,10 @@ post_rol:
 
 %macro get_round
     // stack: sides, rounds
-    %mul_const(5)  PUSH 10  sub  sub
+    %mul_const(5)  
+    PUSH 10  
+    SUB  
+    SUB
     // stack: 10 - 5*sides - rounds
 %endmacro
 
