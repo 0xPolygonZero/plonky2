@@ -37,7 +37,7 @@ pub(crate) enum Segment {
     /// See also `StateTrieCheckpointPointer`.
     StorageTrieCheckpointPointers = 14,
     /// RipeMD storage
-    /// 
+    ///
     RipeMd = 15,
 }
 
@@ -83,7 +83,7 @@ impl Segment {
             Segment::StorageTrieAddresses => "SEGMENT_STORAGE_TRIE_ADDRS",
             Segment::StorageTriePointers => "SEGMENT_STORAGE_TRIE_PTRS",
             Segment::StorageTrieCheckpointPointers => "SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS",
-            Segment::RipeMd => "SEGMENT_RIPEMD"
+            Segment::RipeMd => "SEGMENT_RIPEMD",
         }
     }
 
