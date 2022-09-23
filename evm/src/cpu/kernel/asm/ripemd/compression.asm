@@ -207,7 +207,8 @@ pre_rol:
     %mload_kernel_code_label(R_data)
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt  
-    %mload_kernel_code_u32_LE(Input_Block) // %load_u32_from_block
+    // %mload_kernel_code_u32_LE(Input_Block) 
+    %load_u32_from_block
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     SWAP1  
     SWAP2 

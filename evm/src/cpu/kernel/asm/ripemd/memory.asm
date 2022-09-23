@@ -2,7 +2,7 @@ global ripemd_storage: // starts by initializing buffer
     // stack: i [init: 64]
     %store_zeros(64, ripemd_storage)
     // stack:
-    // %jump(store_size)
+    %jump(store_size)
 
 store_size:
     // stack: length
@@ -42,7 +42,7 @@ store_input_alt:
     %mstore_ripemd
     // stack:               rem, length, REM_INP
     %sub_const(1)
-    DUP1 
+    DUP1
     // stack:  rem - 1, rem - 1, length, REM_INP
     %jumpi(store_input_alt)
     // stack:                 0, length

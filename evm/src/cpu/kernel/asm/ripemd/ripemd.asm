@@ -40,6 +40,7 @@ global ripemd_init:
     // stack:                       0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
     %jump(ripemd_update)
 ripemd_1:
+    %break
     // stack:                                  STATE, count, length            , virt     , LABELS
     DUP7
     // stack:                          length, STATE, count, length            , virt     , LABELS

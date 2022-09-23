@@ -11,7 +11,7 @@
 ///         update_1()
 ///     if Q:
 ///         update_2()
-///     R = length - shift > 0
+///     R = length > shift
 ///     if R:
 ///         buffer_update(virt + shift, have, length - shift)
 /// 
@@ -32,24 +32,24 @@ global ripemd_update:
     %stack (shift, need, have, STATE: 5, count, length) -> (length, need, STATE, 0, shift, need, have, count, length)
     // stack:                                               length, need, STATE, 0, shift, need, have, count, length, virt, retdest
     LT 
-    NOT
+    ISZERO
     // stack:               Q, STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (Q, STATE: 5, i, shift, need, have) -> (have, Q, Q, STATE, i, shift, need, have) 
+    %stack (Q, STATE: 5, i, shift, need, have) -> (have, Q, Q, STATE, i, shift, need, have)
+    %eq_const(0)
     AND
     // stack:            P, Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %jumpi(update_1)
     // stack:               Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %jumpi(update_2)
 final_update:
-    // stack:          shift, need, have, STATE, count, length, virt, retdest
+    // stack:                                                                           shift, need, have, STATE, count, length, virt, retdest
     %stack (shift, need, have, STATE: 5, count, length) -> (length, shift, return_step, shift, need, have, STATE, count, length)
     SUB
     // stack:                                                                     ARGS, shift, need, have, STATE, count, length, virt, retdest
     %stack (ARGS: 2, shift, need, have, STATE: 5, count, length, virt) -> (shift, virt, have, ARGS, shift, need, have, STATE, count, length, virt)
     ADD
     // stack:                                                                  ARGS: 4, shift, need, have, STATE, count, length, virt, retdest
-    PUSH 0
-    DUP4
+    %stack (ARGS: 4, shift, need, have, STATE, count, length) -> (length, shift, ARGS, shift, need, have, STATE, count, length)
     GT
     // stack:                                                                  R, ARGS, shift, need, have, STATE, count, length, virt, retdest
     %jumpi(buffer_update)
@@ -57,7 +57,7 @@ final_update:
     %pop3
     JUMP
 return_step:
-    // stack:          shift, need, have, STATE, count, length, virt, retdest
+    // stack:          shift, need, have, STATE, count            , length, virt, retdest
     SWAP8
     DUP10
     %mul_const(8)
@@ -103,7 +103,7 @@ update_2:
     // stack: offset, cond,  STATE, shift, need, have, count, length, virt, retdest
     %stack (offset, cond, STATE: 5) -> (cond, 0, STATE, offset, compression_loop, cond)
     LT
-    NOT
+    ISZERO
     // cond >= 0, STATE, offset, compression_loop, cond, shift, need, have, count, length, virt, retdest
     %jumpi(compress)
 compression_loop:
@@ -129,7 +129,7 @@ compression_loop:
 ///     for i in range(times):
 ///         buffer[set+i] = bytestring[get+i]
 
-buffer_update: 
+buffer_update:
     // stack:           get  , set  , times  , retdest
     DUP2
     DUP2

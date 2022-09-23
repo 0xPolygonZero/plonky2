@@ -298,3 +298,7 @@
     ADD
     // stack: dcba
 %endmacro
+
+%macro break
+    %jump(0xdeadbeef)
+%endmacro
