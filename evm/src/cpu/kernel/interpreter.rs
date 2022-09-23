@@ -74,9 +74,6 @@ pub struct Interpreter<'a> {
     pub(crate) memory: InterpreterMemory,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
-    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
-    /// next prover input.
-    prover_inputs: Vec<U256>,
     pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
