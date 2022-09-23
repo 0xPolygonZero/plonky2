@@ -240,13 +240,8 @@ mid_rol:
     %jump(rol)
 post_rol:
     // stack: c, a, b, d, e, F, K, boxes  , rounds, sides, virt
-    SWAP3
-    // stack: d, a, b, c, e, F, K, boxes  , rounds, sides, virt
-    SWAP4
-    // stack: e, a, b, c, d, F, K, boxes  , rounds, sides, virt
-    SWAP7  
-    PUSH 1  
-    SWAP1  
+    %stack (c, a, b, d, e, F, K, boxes) -> (boxes, 1, a, b, c, d, F, K, e)
+    // stack: boxes, 1, a, b, c, d, F, K, e, rounds, sides, virt
     SUB  
     SWAP7
     // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides, virt
