@@ -52,6 +52,12 @@ impl Kernel {
     }
 }
 
+#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+struct MacroSignature {
+    name: String,
+    num_params: usize,
+}
+
 struct Macro {
     params: Vec<String>,
     items: Vec<Item>,
@@ -105,17 +111,21 @@ pub(crate) fn assemble(
     Kernel::new(code, global_labels, prover_inputs)
 }
 
-fn find_macros(files: &[File]) -> HashMap<String, Macro> {
+fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
     let mut macros = HashMap::new();
     for file in files {
         for item in &file.body {
             if let Item::MacroDef(name, params, items) = item {
-                let _macro = Macro {
+                let signature = MacroSignature {
+                    name: name.clone(),
+                    num_params: params.len(),
+                };
+                let macro_ = Macro {
                     params: params.clone(),
                     items: items.clone(),
                 };
-                let old = macros.insert(name.clone(), _macro);
-                assert!(old.is_none(), "Duplicate macro: {name}");
+                let old = macros.insert(signature.clone(), macro_);
+                assert!(old.is_none(), "Duplicate macro signature: {:?}", signature);
             }
         }
     }
@@ -124,7 +134,7 @@ fn find_macros(files: &[File]) -> HashMap<String, Macro> {
 
 fn expand_macros(
     body: Vec<Item>,
-    macros: &HashMap<String, Macro>,
+    macros: &HashMap<MacroSignature, Macro>,
     macro_counter: &mut u32,
 ) -> Vec<Item> {
     let mut expanded = vec![];
@@ -147,30 +157,25 @@ fn expand_macros(
 fn expand_macro_call(
     name: String,
     args: Vec<PushTarget>,
-    macros: &HashMap<String, Macro>,
+    macros: &HashMap<MacroSignature, Macro>,
     macro_counter: &mut u32,
 ) -> Vec<Item> {
-    let _macro = macros
-        .get(&name)
-        .unwrap_or_else(|| panic!("No such macro: {}", name));
-
-    assert_eq!(
-        args.len(),
-        _macro.params.len(),
-        "Macro `{}`: expected {} arguments, got {}",
+    let signature = MacroSignature {
         name,
-        _macro.params.len(),
-        args.len()
-    );
+        num_params: args.len(),
+    };
+    let macro_ = macros
+        .get(&signature)
+        .unwrap_or_else(|| panic!("No such macro: {:?}", signature));
 
     let get_actual_label = |macro_label| format!("@{}.{}", macro_counter, macro_label);
 
     let get_arg = |var| {
-        let param_index = _macro.get_param_index(var);
+        let param_index = macro_.get_param_index(var);
         args[param_index].clone()
     };
 
-    let expanded_item = _macro
+    let expanded_item = macro_
         .items
         .iter()
         .map(|item| match item {
@@ -516,6 +521,18 @@ mod tests {
     fn macro_with_reserved_prefix() {
         // The name `repeat` should be allowed, even though `rep` is reserved.
         parse_and_assemble(&["%macro repeat %endmacro", "%repeat"]);
+    }
+
+    #[test]
+    fn overloaded_macros() {
+        let kernel = parse_and_assemble(&[
+            "%macro push(x) PUSH $x %endmacro",
+            "%macro push(x, y) PUSH $x PUSH $y %endmacro",
+            "%push(5)",
+            "%push(6, 7)",
+        ]);
+        let push1 = get_push_opcode(1);
+        assert_eq!(kernel.code, vec![push1, 5, push1, 6, push1, 7]);
     }
 
     #[test]
