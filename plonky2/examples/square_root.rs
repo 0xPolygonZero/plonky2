@@ -12,25 +12,27 @@ use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2_field::extension::Extendable;
 
 #[derive(Debug)]
-struct SquareGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Target,
     x_squared: Target,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for SquareGenerator<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for SquareRootGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
-        vec![self.x]
+        vec![self.x_squared]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let x = witness.get_target(self.x);
-        let x_squared = x * x;
+        let x_squared = witness.get_target(self.x);
+        let s = F::from_canonical_u32(4294967295);
+        let x = 
 
-        out_buffer.set_target(self.x_squared, x_squared);
+        out_buffer.set_target(self.x, x);
     }
 }
 
+/// An example of using Plonky2 to prove a statement of the form
 fn main() -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -46,11 +48,11 @@ fn main() -> Result<()> {
     builder.register_public_input(x);
     builder.register_public_input(x_squared);
 
-    builder.add_simple_generator(SquareGenerator::<F, D> {
-        x,
-        x_squared,
-        _phantom: PhantomData,
-    });
+    // builder.add_simple_generator(SquareGenerator::<F, D> {
+    //     x,
+    //     x_squared,
+    //     _phantom: PhantomData,
+    // });
 
     let x_value = F::rand();
 
