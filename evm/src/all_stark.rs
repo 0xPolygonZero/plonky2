@@ -1,3 +1,5 @@
+use std::iter;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
@@ -5,6 +7,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
@@ -13,8 +16,8 @@ use crate::keccak_memory::keccak_memory_stark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic;
 use crate::logic::LogicStark;
+use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::memory::{memory_stark, NUM_CHANNELS};
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -129,11 +132,16 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    let cpu_memory_ops = (0..NUM_CHANNELS).map(|channel| {
+    let cpu_memory_code_read = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_code_memory(),
+        Some(cpu_stark::ctl_filter_code_memory()),
+    );
+    let cpu_memory_gp_ops = (0..NUM_GP_CHANNELS).map(|channel| {
         TableWithColumns::new(
             Table::Cpu,
-            cpu_stark::ctl_data_memory(channel),
-            Some(cpu_stark::ctl_filter_memory(channel)),
+            cpu_stark::ctl_data_gp_memory(channel),
+            Some(cpu_stark::ctl_filter_gp_memory(channel)),
         )
     });
     let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
@@ -150,7 +158,8 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_memory_stark::ctl_filter()),
         )
     });
-    let all_lookers = cpu_memory_ops
+    let all_lookers = iter::once(cpu_memory_code_read)
+        .chain(cpu_memory_gp_ops)
         .chain(keccak_memory_reads)
         .chain(keccak_memory_writes)
         .collect();
@@ -725,6 +734,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Ignoring but not deleting so the test can serve as an API usage example
     fn test_all_stark() -> Result<()> {
         let config = StarkConfig::standard_fast_config();
         let (all_stark, proof) = get_proof(&config)?;
@@ -732,6 +742,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Ignoring but not deleting so the test can serve as an API usage example
     fn test_all_stark_recursive_verifier() -> Result<()> {
         init_logger();
 
