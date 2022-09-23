@@ -3,13 +3,18 @@ use std::collections::HashMap;
 use anyhow::{anyhow, bail};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
+use crate::generation::prover_input::ProverInputFn;
+use crate::generation::state::GenerationState;
+use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+
+type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
@@ -55,8 +60,8 @@ pub struct Interpreter<'a> {
     offset: usize,
     context: usize,
     pub(crate) memory: InterpreterMemory,
+    generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
-    prover_inputs: Vec<U256>,
     pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
@@ -107,8 +112,8 @@ impl<'a> Interpreter<'a> {
             jumpdests: find_jumpdests(code),
             offset: initial_offset,
             memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
+            generation_state: GenerationState::new(GenerationInputs::default()),
             prover_inputs_map: prover_inputs,
-            prover_inputs: Vec::new(),
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
             running: true,
@@ -437,9 +442,9 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.offset - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = prover_input_fn.run(self.stack());
+        let stack = self.stack().to_vec();
+        let output = self.generation_state.prover_input(&stack, prover_input_fn);
         self.push(output);
-        self.prover_inputs.push(output);
         Ok(())
     }
 

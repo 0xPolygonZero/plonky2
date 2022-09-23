@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 plonky2 = { path = "../plonky2", default-features = false, features = ["rand", "timing"] }
 plonky2_util = { path = "../util" }
-eth-trie-utils = { git = "https://github.com/mir-protocol/eth-trie-utils.git", rev = "3ca443fd18e3f6d209dd96cbad851e05ae058b34" }
+eth-trie-utils = { git = "https://github.com/mir-protocol/eth-trie-utils.git", rev = "c52a04c9f349ac812b886f383a7306b27c8b96dc" }
 maybe_rayon = { path = "../maybe_rayon" }
 anyhow = "1.0.40"
 env_logger = "0.9.0"
