@@ -6,7 +6,7 @@ use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
 
 use crate::cpu::kernel::aggregator::combined_kernel;
-use crate::cpu::kernel::interpreter::run;
+use crate::cpu::kernel::interpreter::run_with_kernel;
 
 #[test]
 fn test_sha2() -> Result<()> {
