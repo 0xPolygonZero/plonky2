@@ -20,7 +20,7 @@ fn test_ripemd() -> Result<()> {
     let kernel = combined_kernel();
     let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u32)).rev().collect();
     let stack_output = run_with_kernel(&kernel, kernel.global_labels["compress"], stack_input)?;
-    let actual: Vec<String> = stack_output.stack().iter().map(|&x| format!("{:#?}", x)).collect();
+    let actual: Vec<String> = stack_output.stack().iter().map(|&x| format!("{:X}", x)).collect();
     println!("{:#?}", actual);
     assert_eq!(expected, actual);
 

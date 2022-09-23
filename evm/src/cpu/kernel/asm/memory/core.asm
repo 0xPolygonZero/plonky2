@@ -77,7 +77,7 @@
     ADD
     // stack: label + shift
     %mload_kernel_code_u32
-    // stack: byte
+    // stack: u32
 %endmacro
 
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
