@@ -32,7 +32,7 @@ fn test_sha2() -> Result<()> {
     initial_stack.reverse();
 
     // Run the sha2 kernel code.
-    let result = run(&kernel.code, sha2, initial_stack, &kernel.prover_inputs)?;
+    let result = run_with_kernel(&kernel, sha2, initial_stack)?;
     let actual = result.stack()[0];
 
     // Check that the result is correct.
