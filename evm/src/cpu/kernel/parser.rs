@@ -99,17 +99,17 @@ fn parse_stack(item: Pair<Rule>) -> Item {
     assert_eq!(item.as_rule(), Rule::stack);
     let mut inner = item.into_inner();
 
-    let params = inner.next().unwrap();
-    assert_eq!(params.as_rule(), Rule::stack_placeholders);
+    let placeholders = inner.next().unwrap();
+    assert_eq!(placeholders.as_rule(), Rule::stack_placeholders);
     let replacements = inner.next().unwrap();
     assert_eq!(replacements.as_rule(), Rule::stack_replacements);
 
-    let params = params.into_inner().map(parse_stack_placeholder).collect();
+    let placeholders = placeholders.into_inner().map(parse_stack_placeholder).collect();
     let replacements = replacements
         .into_inner()
         .map(parse_stack_replacement)
         .collect();
-    Item::StackManipulation(params, replacements)
+    Item::StackManipulation(placeholders, replacements)
 }
 
 fn parse_stack_placeholder(target: Pair<Rule>) -> StackPlaceholder {
