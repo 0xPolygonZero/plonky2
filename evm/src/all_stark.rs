@@ -172,7 +172,6 @@ mod tests {
     use anyhow::Result;
     use ethereum_types::U256;
     use itertools::Itertools;
-    use log::debug;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;

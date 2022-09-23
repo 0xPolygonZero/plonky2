@@ -5,17 +5,14 @@ use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
-use plonky2::hash::hash_types::{HashOut, RichField};
+use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::SPONGE_WIDTH;
-use plonky2::hash::merkle_tree::MerkleCap;
-use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
-use plonky2::plonk::config::GenericHashOut;
 use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -39,9 +36,9 @@ use crate::permutation::{
     GrandProductChallengeSet, PermutationCheckDataTarget,
 };
 use crate::proof::{
-    AllChallengerState, AllProof, AllProofChallengesTarget, AllProofTarget, BlockMetadata,
-    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
-    StarkProofChallengesTarget, StarkProofTarget, TrieRoots, TrieRootsTarget,
+    AllChallengerState, AllProof, AllProofTarget, BlockMetadata, BlockMetadataTarget, PublicValues,
+    PublicValuesTarget, StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget,
+    StarkProofTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
 use crate::util::{h160_limbs, u256_limbs};
@@ -424,120 +421,6 @@ where
         cross_table_lookups: all_stark.cross_table_lookups.clone(),
     })
 }
-
-// pub fn verify_proof_circuit<
-//     F: RichField + Extendable<D>,
-//     C: GenericConfig<D, F = F>,
-//     const D: usize,
-// >(
-//     builder: &mut CircuitBuilder<F, D>,
-//     all_stark: AllStark<F, D>,
-//     all_proof: AllProofTarget<D>,
-//     inner_config: &StarkConfig,
-// ) where
-//     [(); CpuStark::<F, D>::COLUMNS]:,
-//     [(); KeccakStark::<F, D>::COLUMNS]:,
-//     [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
-//     [(); LogicStark::<F, D>::COLUMNS]:,
-//     [(); MemoryStark::<F, D>::COLUMNS]:,
-//     C::Hasher: AlgebraicHasher<F>,
-// {
-//     let AllProofChallengesTarget {
-//         stark_challenges,
-//         ctl_challenges,
-//     } = all_proof.get_challenges::<F, C>(builder, &all_stark, inner_config);
-//
-//     let nums_permutation_zs = all_stark.nums_permutation_zs(inner_config);
-//
-//     let AllStark {
-//         cpu_stark,
-//         keccak_stark,
-//         keccak_memory_stark,
-//         logic_stark,
-//         memory_stark,
-//         cross_table_lookups,
-//     } = all_stark;
-//
-//     let ctl_vars_per_table = CtlCheckVarsTarget::from_proofs(
-//         &all_proof.stark_proofs,
-//         &cross_table_lookups,
-//         &ctl_challenges,
-//         &nums_permutation_zs,
-//     );
-//
-//     with_context!(
-//         builder,
-//         "verify CPU proof",
-//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-//             builder,
-//             &cpu_stark,
-//             &all_proof.stark_proofs[Table::Cpu as usize],
-//             &stark_challenges[Table::Cpu as usize],
-//             &ctl_vars_per_table[Table::Cpu as usize],
-//             inner_config,
-//         )
-//     );
-//     with_context!(
-//         builder,
-//         "verify Keccak proof",
-//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-//             builder,
-//             &keccak_stark,
-//             &all_proof.stark_proofs[Table::Keccak as usize],
-//             &stark_challenges[Table::Keccak as usize],
-//             &ctl_vars_per_table[Table::Keccak as usize],
-//             inner_config,
-//         )
-//     );
-//     with_context!(
-//         builder,
-//         "verify Keccak memory proof",
-//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-//             builder,
-//             &keccak_memory_stark,
-//             &all_proof.stark_proofs[Table::KeccakMemory as usize],
-//             &stark_challenges[Table::KeccakMemory as usize],
-//             &ctl_vars_per_table[Table::KeccakMemory as usize],
-//             inner_config,
-//         )
-//     );
-//     with_context!(
-//         builder,
-//         "verify logic proof",
-//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-//             builder,
-//             &logic_stark,
-//             &all_proof.stark_proofs[Table::Logic as usize],
-//             &stark_challenges[Table::Logic as usize],
-//             &ctl_vars_per_table[Table::Logic as usize],
-//             inner_config,
-//         )
-//     );
-//     with_context!(
-//         builder,
-//         "verify memory proof",
-//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-//             builder,
-//             &memory_stark,
-//             &all_proof.stark_proofs[Table::Memory as usize],
-//             &stark_challenges[Table::Memory as usize],
-//             &ctl_vars_per_table[Table::Memory as usize],
-//             inner_config,
-//         )
-//     );
-//
-//     with_context!(
-//         builder,
-//         "verify cross-table lookups",
-//         verify_cross_table_lookups_circuit::<F, C, D>(
-//             builder,
-//             cross_table_lookups,
-//             &all_proof.stark_proofs,
-//             ctl_challenges,
-//             inner_config,
-//         )
-//     );
-// }
 
 /// Recursively verifies an inner proof.
 fn verify_stark_proof_with_challenges_circuit<

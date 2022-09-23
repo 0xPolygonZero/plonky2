@@ -450,55 +450,6 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
-    pub(crate) fn from_proofs(
-        proofs: &[StarkProofTarget<D>; NUM_TABLES],
-        cross_table_lookups: &'a [CrossTableLookup<F>],
-        ctl_challenges: &'a GrandProductChallengeSet<Target>,
-        num_permutation_zs: &[usize; NUM_TABLES],
-    ) -> [Vec<Self>; NUM_TABLES] {
-        let mut ctl_zs = proofs
-            .iter()
-            .zip(num_permutation_zs)
-            .map(|(p, &num_perms)| {
-                let openings = &p.openings;
-                let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
-                let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
-                ctl_zs.zip(ctl_zs_next)
-            })
-            .collect::<Vec<_>>();
-
-        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
-        for CrossTableLookup {
-            looking_tables,
-            looked_table,
-            ..
-        } in cross_table_lookups
-        {
-            for &challenges in &ctl_challenges.challenges {
-                for table in looking_tables {
-                    let (looking_z, looking_z_next) = ctl_zs[table.table as usize].next().unwrap();
-                    ctl_vars_per_table[table.table as usize].push(Self {
-                        local_z: *looking_z,
-                        next_z: *looking_z_next,
-                        challenges,
-                        columns: &table.columns,
-                        filter_column: &table.filter_column,
-                    });
-                }
-
-                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize].next().unwrap();
-                ctl_vars_per_table[looked_table.table as usize].push(Self {
-                    local_z: *looked_z,
-                    next_z: *looked_z_next,
-                    challenges,
-                    columns: &looked_table.columns,
-                    filter_column: &looked_table.filter_column,
-                });
-            }
-        }
-        ctl_vars_per_table
-    }
-
     pub(crate) fn from_proof(
         table: Table,
         proof: &StarkProofTarget<D>,

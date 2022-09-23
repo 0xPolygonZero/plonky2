@@ -99,11 +99,6 @@ pub struct BlockMetadataTarget {
     pub block_base_fee: Target,
 }
 
-pub(crate) struct AllProofChallengesTarget<const D: usize> {
-    pub stark_challenges: [StarkProofChallengesTarget<D>; NUM_TABLES],
-    pub ctl_challenges: GrandProductChallengeSet<Target>,
-}
-
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
