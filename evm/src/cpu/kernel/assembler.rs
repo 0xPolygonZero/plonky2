@@ -579,7 +579,10 @@ mod tests {
         let push_label = get_push_opcode(BYTES_PER_OFFSET);
 
         let kernel = parse_and_assemble(&["%stack () -> (1, 2, 3)"]);
-        assert_eq!(kernel.code, vec![push_one_byte, 3, push_one_byte, 2, push_one_byte, 1]);
+        assert_eq!(
+            kernel.code,
+            vec![push_one_byte, 3, push_one_byte, 2, push_one_byte, 1]
+        );
 
         let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
         assert_eq!(kernel.code, vec![]);

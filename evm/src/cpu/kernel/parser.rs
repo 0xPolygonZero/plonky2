@@ -104,7 +104,10 @@ fn parse_stack(item: Pair<Rule>) -> Item {
     let replacements = inner.next().unwrap();
     assert_eq!(replacements.as_rule(), Rule::stack_replacements);
 
-    let placeholders = placeholders.into_inner().map(parse_stack_placeholder).collect();
+    let placeholders = placeholders
+        .into_inner()
+        .map(parse_stack_placeholder)
+        .collect();
     let replacements = replacements
         .into_inner()
         .map(parse_stack_replacement)
