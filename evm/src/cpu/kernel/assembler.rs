@@ -575,7 +575,14 @@ mod tests {
         let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
         let swap3 = get_opcode("SWAP3");
+        let push_one_byte = get_push_opcode(1);
         let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        let kernel = parse_and_assemble(&["%stack () -> (1, 2, 3)"]);
+        assert_eq!(
+            kernel.code,
+            vec![push_one_byte, 3, push_one_byte, 2, push_one_byte, 1]
+        );
 
         let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
         assert_eq!(kernel.code, vec![]);
@@ -585,6 +592,9 @@ mod tests {
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
         assert_eq!(kernel.code, vec![pop, swap1, pop]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (7, b)"]);
+        assert_eq!(kernel.code, vec![pop, swap1, pop, push_one_byte, 7]);
 
         let kernel = parse_and_assemble(&["%stack (a, b: 3, c) -> (c)"]);
         assert_eq!(kernel.code, vec![pop, pop, pop, pop]);

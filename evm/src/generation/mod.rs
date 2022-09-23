@@ -6,6 +6,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
@@ -56,6 +57,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
     config: &StarkConfig,
+    timing: &mut TimingTree,
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
     let mut state = GenerationState::<F>::new(inputs.clone());
 
@@ -101,12 +103,14 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS].into());
 
     let cpu_trace = trace_rows_to_poly_values(cpu_rows);
-    let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
-    let keccak_memory_trace = all_stark
-        .keccak_memory_stark
-        .generate_trace(keccak_memory_inputs, 1 << config.fri_config.cap_height);
-    let logic_trace = all_stark.logic_stark.generate_trace(logic_ops);
-    let memory_trace = all_stark.memory_stark.generate_trace(memory.log);
+    let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs, timing);
+    let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(
+        keccak_memory_inputs,
+        1 << config.fri_config.cap_height,
+        timing,
+    );
+    let logic_trace = all_stark.logic_stark.generate_trace(logic_ops, timing);
+    let memory_trace = all_stark.memory_stark.generate_trace(memory.log, timing);
     let traces = [
         cpu_trace,
         keccak_trace,
