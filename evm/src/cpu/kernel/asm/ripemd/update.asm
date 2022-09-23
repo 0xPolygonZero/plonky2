@@ -35,7 +35,7 @@ global ripemd_update:
     ISZERO
     // stack:               Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %stack (Q, STATE: 5, i, shift, need, have) -> (have, Q, Q, STATE, i, shift, need, have)
-    %eq_const(0)
+    %gt_const(0)
     AND
     // stack:            P, Q, STATE, 0, shift, need, have, count, length, virt, retdest
     %jumpi(update_1)
@@ -91,8 +91,8 @@ update_1a:
 ///         cond  -= 64
 
 update_2:
-    // stack:               STATE, 0, shift, need, have, count, length, virt, retdest
-    %stack (STATE: 5, i, shift, need, have, count, length) -> (length, shift, STATE, shift, need, have, count, length) 
+    // stack:               STATE,    shift, need, have, count, length, virt, retdest
+    %stack (STATE: 5, shift, need, have, count, length) -> (length, shift, STATE, shift, need, have, count, length) 
     SUB
     %ge_const(64)
     // stack:         cond, STATE,    shift, need, have, count, length, virt, retdest

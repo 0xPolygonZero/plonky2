@@ -99,7 +99,7 @@ mix:
     SWAP1
     // stack:                                         VR, RD, o0, o1, o2, o3, o4 
     POP
-    // stack:                                             RD, o0, o1, o2, o3, o4 
+    // stack:                                             RD, o0, o1, o2, o3, o4
     JUMP
 
 

@@ -258,44 +258,38 @@
     DUP1
     %and_const(0xFF)
     // stack: d, abcd
-    PUSH 0xFF
-    DUP1
-    SWAP2
-    // stack: abcd, d, 0xFF, d
+    %stack (d, abcd) -> (abcd, d, 0x100, d)
+    // stack: abcd, d, 0x100, d
     SUB
     DIV
     // stack: abc, d
     DUP1
     %and_const(0xFF)
-    // stack: c, abcd, d
-    PUSH 0xFF
-    DUP1
-    SWAP2
-    // stack: abc, c, 0xFF, c, d
+    // stack: c, abc, d
+    %stack (c, abc) -> (abc, c, 0x100, c)
+    // stack: abc, c, 0x100, c, d
     SUB
     DIV
     // stack: ab, c, d
     DUP1
     %and_const(0xFF)
     // stack: b, ab, c, d
-    PUSH 0xFF
-    DUP1
-    SWAP2
-    // stack: ab, b, 0xFF, b, c, d
+    %stack (b, ab) -> (ab, b, 0x100, b)
+    // stack: ab, b, 0x100, b, c, d
     SUB
     DIV
     // stack: a, b, c, d
     SWAP1
-    %mul_const(0x100)
-    ADD
+    %shl_const(8)
+    OR
     // stack: ba, c, d
     SWAP1
-    %mul_const(0x10000)
-    ADD
+    %shl_const(16)
+    OR
     // stack: cba, d
     SWAP1
-    %mul_const(0x1000000)
-    ADD
+    %shl_const(24)
+    OR
     // stack: dcba
 %endmacro
 

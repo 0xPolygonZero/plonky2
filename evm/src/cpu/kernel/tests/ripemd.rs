@@ -6,11 +6,8 @@ use crate::cpu::kernel::interpreter::run_with_kernel;
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    let expected = "0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc";
-    // let expected: Vec<&str> = vec!["10271CF7", "1B2C699C", "EBDCBB56", "65289D5B", "BC8D70B3"];
-    println!("{:#?}", expected);
-
-    // let input: Vec<u32> = vec![0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0, 0, 0xdeadbeef];
+    let expected = "f71c27109c692c1b56bbdceb5b9d2865b3708dbc";
+    println!("{:#}", expected);
 
     let input: Vec<u32> = vec![
         26,   0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e,
@@ -23,7 +20,7 @@ fn test_ripemd() -> Result<()> {
     let actual: Vec<String> = stack_output
         .stack()
         .iter()
-        .map(|&x| format!("{:X}", x))
+        .map(|&x| format!("{:x}", x))
         .rev()
         .collect();
     println!("{:#?}", actual);

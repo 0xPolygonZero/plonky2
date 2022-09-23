@@ -59,10 +59,11 @@ ripemd_2:
 global process:
     // stack: a , b, c, d, e, count, length, virt
     %reverse_bytes_u32
+    %shl_const(128)
     // stack: a', b, c, d, e, VARS
     SWAP1
     %reverse_bytes_u32
-    %shl_const(32)
+    %shl_const(96)
     OR
     // stack: b' a', c, d, e, VARS
     SWAP1
@@ -72,12 +73,11 @@ global process:
     // stack: c' b' a', d, e, VARS
     SWAP1
     %reverse_bytes_u32
-    %shl_const(96)
+    %shl_const(32)
     OR 
     // stack: d' c' b' a', e, VARS
     SWAP1
     %reverse_bytes_u32
-    %shl_const(96)
     OR 
     // stack: e' d' c' b' a', VARS
     %stack (result, VARS: 3) -> (0xdeadbeef, result)
