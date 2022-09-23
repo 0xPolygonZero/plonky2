@@ -26,13 +26,13 @@ const MAX_USER_STACK_SIZE: u64 = 1024;
 //   Other operations that have a minimum stack size (e.g. `MULMOD`, which has three inputs) read
 // all their inputs from memory. On underflow, the cross-table lookup fails, as -1, ..., -17 are
 // invalid memory addresses.
-const DECREMENTING_FLAGS: [usize; 1] = [COL_MAP.is_pop];
+const DECREMENTING_FLAGS: [usize; 1] = [COL_MAP.op.pop];
 
 // Operations that increase the stack length by 1, but excluding:
 //  - privileged (kernel-only) operations (superfluous; doesn't affect correctness),
 //  - operations that from userspace to the kernel (required for correctness).
 // TODO: This list is incomplete.
-const INCREMENTING_FLAGS: [usize; 2] = [COL_MAP.is_pc, COL_MAP.is_dup];
+const INCREMENTING_FLAGS: [usize; 2] = [COL_MAP.op.pc, COL_MAP.op.dup];
 
 /// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
 pub fn generate<F: Field>(lv: &mut CpuColumnsView<F>) {

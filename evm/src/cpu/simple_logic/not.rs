@@ -11,7 +11,7 @@ const LIMB_SIZE: usize = 32;
 const ALL_1_LIMB: u64 = (1 << LIMB_SIZE) - 1;
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let is_not_filter = lv.is_not.to_canonical_u64();
+    let is_not_filter = lv.op.not.to_canonical_u64();
     if is_not_filter == 0 {
         return;
     }
@@ -35,7 +35,7 @@ pub fn eval_packed<P: PackedField>(
     let input = lv.mem_channels[0].value;
     let output = lv.mem_channels[1].value;
     let cycle_filter = lv.is_cpu_cycle;
-    let is_not_filter = lv.is_not;
+    let is_not_filter = lv.op.not;
     let filter = cycle_filter * is_not_filter;
     for (input_limb, output_limb) in input.into_iter().zip(output) {
         yield_constr.constraint(
@@ -52,7 +52,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input = lv.mem_channels[0].value;
     let output = lv.mem_channels[1].value;
     let cycle_filter = lv.is_cpu_cycle;
-    let is_not_filter = lv.is_not;
+    let is_not_filter = lv.op.not;
     let filter = builder.mul_extension(cycle_filter, is_not_filter);
     for (input_limb, output_limb) in input.into_iter().zip(output) {
         let constr = builder.add_extension(output_limb, input_limb);
