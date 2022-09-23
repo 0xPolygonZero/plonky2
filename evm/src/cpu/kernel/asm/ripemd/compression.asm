@@ -1,7 +1,5 @@
 /// _block is stored in memory and its address virt remains on the stack
 /// Note that STATE takes up 5 stack slots
-
-
 /// def compress(state, _block):
 /// 
 ///     stateL = state
@@ -25,7 +23,7 @@
 /// state[i], stateL[i], stateR[i], output[i], virt, retdest
 
 global compress:
-    // stack:                                        STATE, virt, retdest
+    // stack:                                       STATE, virt, retdest
     PUSH switch
     DUP7
     PUSH 1
@@ -204,12 +202,12 @@ pre_rol:
     // stack:                a, b, c, d, e, F, K, boxes, rounds, sides, virt
     %get_box
     // stack:           box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
-    DUP1
+    DUP12
+    DUP2
     %mload_kernel_code_label(R_data)
-    DUP13
     ADD
-    // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt    
-    %mload_kernel_code_label_u32(Input_Block) // %load_u32_from_block
+    // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt  
+    %mload_kernel_code_u32_LE(Input_Block) // %load_u32_from_block
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     SWAP1  
     SWAP2 

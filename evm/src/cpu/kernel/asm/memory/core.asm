@@ -110,6 +110,36 @@
     // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
 %endmacro
 
+// Load LE u32 at given label from 4 bytes (a, b, c, d)
+%macro mload_kernel_code_u32_LE(label)
+    // stack:                           offset
+    PUSH $label
+    ADD
+    // stack:                           offset
+    DUP1
+    %mload_kernel_code
+    // stack: a                       , offset
+    DUP2
+    %add_const(1)
+    %mload_kernel_code
+    %shl_const(8)
+    OR
+    // stack: a | (b << 8)            , offset
+    DUP2
+    %add_const(2)
+    %mload_kernel_code
+    %shl_const(16)
+    OR
+    // stack: a | (b << 8) | (c << 16), offset
+    SWAP1
+    %add_const(3)
+    %mload_kernel_code
+    %shl_const(24)
+    OR
+    // stack: a | (b << 8) | (c << 16) | (d << 24)
+%endmacro
+
+
 // Store a single byte to kernel code.
 %macro mstore_kernel_code
     // stack: offset, value

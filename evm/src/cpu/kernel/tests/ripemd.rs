@@ -12,6 +12,7 @@ fn test_ripemd() -> Result<()> {
     println!("{:#?}", expected);
 
     let input: Vec<u32> = vec![0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0, 0, 0xdeadbeef];
+
     // let input: Vec<u32> = vec![
     //     0x1a, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e,
     //     0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a,
@@ -20,7 +21,7 @@ fn test_ripemd() -> Result<()> {
     let kernel = combined_kernel();
     let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u32)).rev().collect();
     let stack_output = run_with_kernel(&kernel, kernel.global_labels["compress"], stack_input)?;
-    let actual: Vec<String> = stack_output.stack().iter().map(|&x| format!("{:X}", x)).collect();
+    let actual: Vec<String> = stack_output.stack().iter().map(|&x| format!("{:X}", x)).rev().collect();
     println!("{:#?}", actual);
     assert_eq!(expected, actual);
 
