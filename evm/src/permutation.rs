@@ -1,5 +1,7 @@
 //! Permutation arguments.
 
+use std::fmt::Debug;
+
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::batch_util::batch_multiply_inplace;
@@ -42,14 +44,14 @@ impl PermutationPair {
 }
 
 /// A single instance of a permutation check protocol.
-pub(crate) struct PermutationInstance<'a, T: Copy> {
+pub(crate) struct PermutationInstance<'a, T: Copy + Eq + PartialEq + Debug> {
     pub(crate) pair: &'a PermutationPair,
     pub(crate) challenge: GrandProductChallenge<T>,
 }
 
 /// Randomness for a single instance of a permutation check protocol.
-#[derive(Copy, Clone)]
-pub(crate) struct GrandProductChallenge<T: Copy> {
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub(crate) struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
     /// Randomness used to combine multiple columns into one.
     pub(crate) beta: T,
     /// Random offset that's added to the beta-reduced column values.
@@ -92,8 +94,8 @@ impl GrandProductChallenge<Target> {
 }
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
-#[derive(Clone)]
-pub(crate) struct GrandProductChallengeSet<T: Copy> {
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
     pub(crate) challenges: Vec<GrandProductChallenge<T>>,
 }
 
@@ -261,7 +263,7 @@ pub(crate) fn get_n_grand_product_challenge_sets_target<
 /// Before batching, each permutation pair leads to `num_challenges` permutation arguments, so we
 /// start with the cartesian product of `permutation_pairs` and `0..num_challenges`. Then we
 /// chunk these arguments based on our batch size.
-pub(crate) fn get_permutation_batches<'a, T: Copy>(
+pub(crate) fn get_permutation_batches<'a, T: Copy + Eq + PartialEq + Debug>(
     permutation_pairs: &'a [PermutationPair],
     permutation_challenge_sets: &[GrandProductChallengeSet<T>],
     num_challenges: usize,

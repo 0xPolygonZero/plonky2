@@ -755,12 +755,13 @@ mod tests {
 
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
-        let mut pw = PartialWitness::new();
-        recursive_all_proof.verify_circuit(&mut builder, &mut pw);
-
-        let data = builder.build::<C>();
-        let proof = data.prove(pw)?;
-        data.verify(proof)
+        // let mut pw = PartialWitness::new();
+        recursive_all_proof.verify(inner_config)
+        // recursive_all_proof.verify_circuit(&mut builder, &mut pw);
+        //
+        // let data = builder.build::<C>();
+        // let proof = data.prove(pw)?;
+        // data.verify(proof)
     }
 
     fn init_logger() {

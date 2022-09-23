@@ -1,16 +1,19 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;
-use plonky2::iop::challenger::RecursiveChallenger;
+use plonky2::hash::merkle_tree::MerkleCap;
+use plonky2::hash::poseidon::PoseidonHash;
+use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
+use plonky2::plonk::config::GenericHashOut;
 use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -29,7 +32,8 @@ use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
-    GrandProductChallenge, GrandProductChallengeSet, PermutationCheckDataTarget,
+    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
+    PermutationCheckDataTarget,
 };
 use crate::proof::{
     AllChallengerState, AllProof, AllProofChallengesTarget, AllProofTarget, BlockMetadata,
@@ -52,14 +56,88 @@ pub struct RecursiveAllProof<
         [(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>); NUM_TABLES],
 }
 
+struct PublicInputs<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    trace_cap: MerkleCap<F, C::Hasher>,
+    ctl_zs_last: Vec<F>,
+    ctl_challenges: GrandProductChallengeSet<F>,
+    challenger_state_before: [F; SPONGE_WIDTH],
+    challenger_state_after: [F; SPONGE_WIDTH],
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    PublicInputs<F, C, D>
+{
+    fn from_vec(v: &[F], config: &StarkConfig) -> Self {
+        let mut start = 0;
+        let trace_cap = MerkleCap(
+            v[start..4 * (1 << config.fri_config.cap_height)]
+                .chunks(4)
+                .map(|chunk| <C::Hasher as Hasher<F>>::Hash::from_vec(chunk))
+                .collect(),
+        );
+        start += 4 * (1 << config.fri_config.cap_height);
+        let ctl_challenges = GrandProductChallengeSet {
+            challenges: (0..config.num_challenges)
+                .map(|i| GrandProductChallenge {
+                    beta: v[start + 2 * i],
+                    gamma: v[start + 2 * i + 1],
+                })
+                .collect(),
+        };
+        start += 2 * config.num_challenges;
+        let challenger_state_before = v[start..start + SPONGE_WIDTH].try_into().unwrap();
+        let challenger_state_after = v[start + SPONGE_WIDTH..start + 2 * SPONGE_WIDTH]
+            .try_into()
+            .unwrap();
+
+        start += 2 * SPONGE_WIDTH;
+        let ctl_zs_last = v[start..].to_vec();
+
+        Self {
+            trace_cap,
+            ctl_zs_last,
+            ctl_challenges,
+            challenger_state_before,
+            challenger_state_after,
+        }
+    }
+}
+
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     RecursiveAllProof<F, C, D>
 {
     /// Verify every recursive proof.
-    pub fn verify(self) -> Result<()>
+    pub fn verify(self, inner_config: &StarkConfig) -> Result<()>
     where
         [(); C::Hasher::HASH_SIZE]:,
     {
+        let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            PublicInputs::<F, C, D>::from_vec(
+                &self.recursive_proofs[i].0.public_inputs,
+                inner_config,
+            )
+        });
+
+        let mut challenger = Challenger::<F, C::Hasher>::new();
+        for pi in &pis {
+            challenger.observe_cap(&pi.trace_cap);
+        }
+        let ctl_challenges =
+            get_grand_product_challenge_set(&mut challenger, inner_config.num_challenges);
+        for pi in &pis {
+            ensure!(ctl_challenges == pi.ctl_challenges);
+        }
+        challenger.duplexing();
+        let state = challenger.state();
+        ensure!(state == pis[0].challenger_state_before);
+        for i in 1..NUM_TABLES {
+            dbg!(i);
+            dbg!(
+                pis[i].challenger_state_before,
+                pis[i - 1].challenger_state_after
+            );
+            ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
+        }
         for (proof, verifier_data) in self.recursive_proofs {
             verifier_data.verify(proof)?;
         }
@@ -124,6 +202,14 @@ where
         proof.num_ctl_zs(),
     );
     set_stark_proof_target(&mut pw, &proof_target, proof, builder.zero());
+    builder.register_public_inputs(
+        &proof_target
+            .trace_cap
+            .0
+            .iter()
+            .flat_map(|h| h.elements)
+            .collect::<Vec<_>>(),
+    );
 
     let ctl_challenges_target = GrandProductChallengeSet {
         challenges: (0..inner_config.num_challenges)
@@ -165,6 +251,8 @@ where
     challenger.duplexing(&mut builder);
     let challenger_state = challenger.state();
     builder.register_public_inputs(&challenger_state);
+
+    builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,

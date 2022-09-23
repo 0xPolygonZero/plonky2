@@ -287,16 +287,20 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     }
 
     pub fn duplexing(&mut self, builder: &mut CircuitBuilder<F, D>) {
-        for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
-            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
-            // where we would xor or add in the inputs. This is a well-known variant, though,
-            // sometimes called "overwrite mode".
-            for (i, &input) in input_chunk.iter().enumerate() {
-                self.sponge_state[i] = input;
-            }
-
-            // Apply the permutation.
+        if self.input_buffer.is_empty() {
             self.sponge_state = builder.permute::<H>(self.sponge_state);
+        } else {
+            for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
+                // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+                // where we would xor or add in the inputs. This is a well-known variant, though,
+                // sometimes called "overwrite mode".
+                for (i, &input) in input_chunk.iter().enumerate() {
+                    self.sponge_state[i] = input;
+                }
+
+                // Apply the permutation.
+                self.sponge_state = builder.permute::<H>(self.sponge_state);
+            }
         }
 
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
