@@ -26,11 +26,7 @@ global compress:
     // stack:                                       STATE, virt, retdest
     PUSH switch
     DUP7
-    PUSH 1
-    PUSH 5  
-    PUSH 16  
-    PUSH 0  
-    PUSH 0
+    %stack () ->     (0, 0, 16, 5, 1)
     // stack:         0, 0, 16, 5, 1, virt, switch, STATE, virt, retdest
     DUP12  
     DUP12  
