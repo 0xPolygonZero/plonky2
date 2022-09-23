@@ -18,129 +18,49 @@ struct StackBehavior {
     disable_other_channels: bool,
 }
 
+const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 1,
+    pushes: true,
+    disable_other_channels: true,
+});
+const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 2,
+    pushes: true,
+    disable_other_channels: true,
+});
+const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 2,
+    pushes: true,
+    disable_other_channels: true,
+});
+
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     stop: None, // TODO
-    add: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    mul: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    sub: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    div: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    sdiv: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    mod_: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    smod: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    addmod: Some(StackBehavior {
-        num_pops: 3,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    mulmod: Some(StackBehavior {
-        num_pops: 3,
-        pushes: true,
-        disable_other_channels: true,
-    }),
+    add: BASIC_BINARY_OP,
+    mul: BASIC_BINARY_OP,
+    sub: BASIC_BINARY_OP,
+    div: BASIC_BINARY_OP,
+    sdiv: BASIC_BINARY_OP,
+    mod_: BASIC_BINARY_OP,
+    smod: BASIC_BINARY_OP,
+    addmod: BASIC_TERNARY_OP,
+    mulmod: BASIC_TERNARY_OP,
     exp: None, // TODO
-    signextend: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    lt: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    gt: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    slt: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    sgt: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    eq: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    iszero: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    and: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    or: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    xor: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    not: Some(StackBehavior {
-        num_pops: 1,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    byte: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    shl: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    shr: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
-    sar: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: true,
-    }),
+    signextend: BASIC_BINARY_OP,
+    lt: BASIC_BINARY_OP,
+    gt: BASIC_BINARY_OP,
+    slt: BASIC_BINARY_OP,
+    sgt: BASIC_BINARY_OP,
+    eq: BASIC_BINARY_OP,
+    iszero: BASIC_UNARY_OP,
+    and: BASIC_BINARY_OP,
+    or: BASIC_BINARY_OP,
+    xor: BASIC_BINARY_OP,
+    not: BASIC_TERNARY_OP,
+    byte: BASIC_BINARY_OP,
+    shl: BASIC_BINARY_OP,
+    shr: BASIC_BINARY_OP,
+    sar: BASIC_BINARY_OP,
     keccak256: None,        // TODO
     address: None,          // TODO
     balance: None,          // TODO
