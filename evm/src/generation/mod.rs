@@ -30,6 +30,17 @@ pub(crate) mod state;
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
 
+    pub tries: TrieInputs,
+
+    /// Mapping between smart contract code hashes and the contract byte code.
+    /// All account smart contracts that are invoked will have an entry present.
+    pub contract_code: HashMap<H256, Vec<u8>>,
+
+    pub block_metadata: BlockMetadata,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct TrieInputs {
     /// A partial version of the state trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
     pub state_trie: PartialTrie,
@@ -45,12 +56,6 @@ pub struct GenerationInputs {
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
     pub storage_tries: Vec<(Address, PartialTrie)>,
-
-    /// Mapping between smart contract code hashes and the contract byte code.
-    /// All account smart contracts that are invoked will have an entry present.
-    pub contract_code: HashMap<H256, Vec<u8>>,
-
-    pub block_metadata: BlockMetadata,
 }
 
 pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
