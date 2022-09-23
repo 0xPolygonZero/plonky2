@@ -673,18 +673,12 @@ pub(crate) fn verify_cross_table_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProofTarget<D>; NUM_TABLES],
+    ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
+    degrees_bits: [usize; NUM_TABLES],
     challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {
-    let degrees_bits = proofs
-        .iter()
-        .map(|p| p.recover_degree_bits(inner_config))
-        .collect::<Vec<_>>();
-    let mut ctl_zs_openings = proofs
-        .iter()
-        .map(|p| p.openings.ctl_zs_last.iter())
-        .collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
     for (
         i,
         CrossTableLookup {

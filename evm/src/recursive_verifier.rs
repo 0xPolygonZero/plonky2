@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
@@ -33,8 +35,8 @@ use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
-    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
-    PermutationCheckDataTarget,
+    get_grand_product_challenge_set, get_grand_product_challenge_set_target, GrandProductChallenge,
+    GrandProductChallengeSet, PermutationCheckDataTarget,
 };
 use crate::proof::{
     AllChallengerState, AllProof, AllProofChallengesTarget, AllProofTarget, BlockMetadata,
@@ -58,25 +60,21 @@ pub struct RecursiveAllProof<
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
-struct PublicInputs<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    trace_cap: MerkleCap<F, C::Hasher>,
-    ctl_zs_last: Vec<F>,
-    ctl_challenges: GrandProductChallengeSet<F>,
-    challenger_state_before: [F; SPONGE_WIDTH],
-    challenger_state_after: [F; SPONGE_WIDTH],
+struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
+    trace_cap: Vec<Vec<T>>,
+    ctl_zs_last: Vec<T>,
+    ctl_challenges: GrandProductChallengeSet<T>,
+    challenger_state_before: [T; SPONGE_WIDTH],
+    challenger_state_after: [T; SPONGE_WIDTH],
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    PublicInputs<F, C, D>
-{
-    fn from_vec(v: &[F], config: &StarkConfig) -> Self {
+impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
+    fn from_vec(v: &[T], config: &StarkConfig) -> Self {
         let mut start = 0;
-        let trace_cap = MerkleCap(
-            v[start..4 * (1 << config.fri_config.cap_height)]
-                .chunks(4)
-                .map(|chunk| <C::Hasher as Hasher<F>>::Hash::from_vec(chunk))
-                .collect(),
-        );
+        let trace_cap = v[start..4 * (1 << config.fri_config.cap_height)]
+            .chunks(4)
+            .map(|chunk| chunk.to_vec())
+            .collect();
         start += 4 * (1 << config.fri_config.cap_height);
         let ctl_challenges = GrandProductChallengeSet {
             challenges: (0..config.num_challenges)
@@ -114,27 +112,31 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         [(); C::Hasher::HASH_SIZE]:,
     {
         let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
-            PublicInputs::<F, C, D>::from_vec(
-                &self.recursive_proofs[i].0.public_inputs,
-                inner_config,
-            )
+            PublicInputs::from_vec(&self.recursive_proofs[i].0.public_inputs, inner_config)
         });
 
         let mut challenger = Challenger::<F, C::Hasher>::new();
         for pi in &pis {
-            challenger.observe_cap(&pi.trace_cap);
+            for h in &pi.trace_cap {
+                challenger.observe_elements(h);
+            }
         }
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, inner_config.num_challenges);
+        // Check that the correct CTL challenges are used in every proof.
         for pi in &pis {
             ensure!(ctl_challenges == pi.ctl_challenges);
         }
+
         challenger.duplexing();
         let state = challenger.state();
         ensure!(state == pis[0].challenger_state_before);
+        // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
         }
+
+        // Verify the CTL checks.
         let degrees_bits = std::array::from_fn(|i| self.recursive_proofs[i].1.common.degree_bits);
         verify_cross_table_lookups::<F, C, D>(
             self.cross_table_lookups,
@@ -143,6 +145,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ctl_challenges,
             inner_config,
         )?;
+
+        // Verify the proofs.
         for (proof, verifier_data) in self.recursive_proofs {
             verifier_data.verify(proof)?;
         }
@@ -150,13 +154,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Recursively verify every recursive proof.
-    pub fn verify_circuit<W>(&self, builder: &mut CircuitBuilder<F, D>, pw: &mut W)
-    where
+    pub fn verify_circuit<W>(
+        self,
+        builder: &mut CircuitBuilder<F, D>,
+        pw: &mut W,
+        inner_config: &StarkConfig,
+    ) where
         W: Witness<F>,
         [(); C::Hasher::HASH_SIZE]:,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        for (proof, verifier_data) in &self.recursive_proofs {
+        let proofs_target: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            let verifier_data = &self.recursive_proofs[i].1;
+            let proof = &self.recursive_proofs[i].0;
             let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
             pw.set_proof_with_pis_target(&pt, proof);
             let inner_data = VerifierCircuitTarget {
@@ -167,7 +177,69 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &inner_data.constants_sigmas_cap,
                 &verifier_data.verifier_only.constants_sigmas_cap,
             );
-            builder.verify_proof(pt, &inner_data, &verifier_data.common);
+            (pt, inner_data)
+        });
+
+        let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            PublicInputs::from_vec(&proofs_target[i].0.public_inputs, inner_config)
+        });
+
+        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
+        for pi in &pis {
+            for h in &pi.trace_cap {
+                challenger.observe_elements(h);
+            }
+        }
+        let ctl_challenges = get_grand_product_challenge_set_target(
+            builder,
+            &mut challenger,
+            inner_config.num_challenges,
+        );
+        // Check that the correct CTL challenges are used in every proof.
+        for pi in &pis {
+            for i in 0..inner_config.num_challenges {
+                builder.connect(
+                    ctl_challenges.challenges[i].beta,
+                    pi.ctl_challenges.challenges[i].beta,
+                );
+                builder.connect(
+                    ctl_challenges.challenges[i].gamma,
+                    pi.ctl_challenges.challenges[i].gamma,
+                );
+            }
+        }
+
+        challenger.duplexing(builder);
+        let state = challenger.state();
+        for k in 0..SPONGE_WIDTH {
+            builder.connect(state[k], pis[0].challenger_state_before[k]);
+        }
+        // Check that the challenger state is consistent between proofs.
+        for i in 1..NUM_TABLES {
+            for k in 0..SPONGE_WIDTH {
+                builder.connect(
+                    pis[i].challenger_state_before[k],
+                    pis[i - 1].challenger_state_after[k],
+                );
+            }
+        }
+
+        // Verify the CTL checks.
+        let degrees_bits = std::array::from_fn(|i| self.recursive_proofs[i].1.common.degree_bits);
+        verify_cross_table_lookups_circuit::<F, C, D>(
+            builder,
+            self.cross_table_lookups,
+            pis.map(|p| p.ctl_zs_last),
+            degrees_bits,
+            ctl_challenges,
+            inner_config,
+        );
+        for (i, (proof_target, inner_data)) in proofs_target.into_iter().enumerate() {
+            builder.verify_proof(
+                proof_target,
+                &inner_data,
+                &self.recursive_proofs[i].1.common,
+            );
         }
     }
 }
@@ -353,119 +425,119 @@ where
     })
 }
 
-pub fn verify_proof_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    all_stark: AllStark<F, D>,
-    all_proof: AllProofTarget<D>,
-    inner_config: &StarkConfig,
-) where
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    let AllProofChallengesTarget {
-        stark_challenges,
-        ctl_challenges,
-    } = all_proof.get_challenges::<F, C>(builder, &all_stark, inner_config);
-
-    let nums_permutation_zs = all_stark.nums_permutation_zs(inner_config);
-
-    let AllStark {
-        cpu_stark,
-        keccak_stark,
-        keccak_memory_stark,
-        logic_stark,
-        memory_stark,
-        cross_table_lookups,
-    } = all_stark;
-
-    let ctl_vars_per_table = CtlCheckVarsTarget::from_proofs(
-        &all_proof.stark_proofs,
-        &cross_table_lookups,
-        &ctl_challenges,
-        &nums_permutation_zs,
-    );
-
-    with_context!(
-        builder,
-        "verify CPU proof",
-        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-            builder,
-            &cpu_stark,
-            &all_proof.stark_proofs[Table::Cpu as usize],
-            &stark_challenges[Table::Cpu as usize],
-            &ctl_vars_per_table[Table::Cpu as usize],
-            inner_config,
-        )
-    );
-    with_context!(
-        builder,
-        "verify Keccak proof",
-        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-            builder,
-            &keccak_stark,
-            &all_proof.stark_proofs[Table::Keccak as usize],
-            &stark_challenges[Table::Keccak as usize],
-            &ctl_vars_per_table[Table::Keccak as usize],
-            inner_config,
-        )
-    );
-    with_context!(
-        builder,
-        "verify Keccak memory proof",
-        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-            builder,
-            &keccak_memory_stark,
-            &all_proof.stark_proofs[Table::KeccakMemory as usize],
-            &stark_challenges[Table::KeccakMemory as usize],
-            &ctl_vars_per_table[Table::KeccakMemory as usize],
-            inner_config,
-        )
-    );
-    with_context!(
-        builder,
-        "verify logic proof",
-        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-            builder,
-            &logic_stark,
-            &all_proof.stark_proofs[Table::Logic as usize],
-            &stark_challenges[Table::Logic as usize],
-            &ctl_vars_per_table[Table::Logic as usize],
-            inner_config,
-        )
-    );
-    with_context!(
-        builder,
-        "verify memory proof",
-        verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
-            builder,
-            &memory_stark,
-            &all_proof.stark_proofs[Table::Memory as usize],
-            &stark_challenges[Table::Memory as usize],
-            &ctl_vars_per_table[Table::Memory as usize],
-            inner_config,
-        )
-    );
-
-    with_context!(
-        builder,
-        "verify cross-table lookups",
-        verify_cross_table_lookups_circuit::<F, C, D>(
-            builder,
-            cross_table_lookups,
-            &all_proof.stark_proofs,
-            ctl_challenges,
-            inner_config,
-        )
-    );
-}
+// pub fn verify_proof_circuit<
+//     F: RichField + Extendable<D>,
+//     C: GenericConfig<D, F = F>,
+//     const D: usize,
+// >(
+//     builder: &mut CircuitBuilder<F, D>,
+//     all_stark: AllStark<F, D>,
+//     all_proof: AllProofTarget<D>,
+//     inner_config: &StarkConfig,
+// ) where
+//     [(); CpuStark::<F, D>::COLUMNS]:,
+//     [(); KeccakStark::<F, D>::COLUMNS]:,
+//     [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+//     [(); LogicStark::<F, D>::COLUMNS]:,
+//     [(); MemoryStark::<F, D>::COLUMNS]:,
+//     C::Hasher: AlgebraicHasher<F>,
+// {
+//     let AllProofChallengesTarget {
+//         stark_challenges,
+//         ctl_challenges,
+//     } = all_proof.get_challenges::<F, C>(builder, &all_stark, inner_config);
+//
+//     let nums_permutation_zs = all_stark.nums_permutation_zs(inner_config);
+//
+//     let AllStark {
+//         cpu_stark,
+//         keccak_stark,
+//         keccak_memory_stark,
+//         logic_stark,
+//         memory_stark,
+//         cross_table_lookups,
+//     } = all_stark;
+//
+//     let ctl_vars_per_table = CtlCheckVarsTarget::from_proofs(
+//         &all_proof.stark_proofs,
+//         &cross_table_lookups,
+//         &ctl_challenges,
+//         &nums_permutation_zs,
+//     );
+//
+//     with_context!(
+//         builder,
+//         "verify CPU proof",
+//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+//             builder,
+//             &cpu_stark,
+//             &all_proof.stark_proofs[Table::Cpu as usize],
+//             &stark_challenges[Table::Cpu as usize],
+//             &ctl_vars_per_table[Table::Cpu as usize],
+//             inner_config,
+//         )
+//     );
+//     with_context!(
+//         builder,
+//         "verify Keccak proof",
+//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+//             builder,
+//             &keccak_stark,
+//             &all_proof.stark_proofs[Table::Keccak as usize],
+//             &stark_challenges[Table::Keccak as usize],
+//             &ctl_vars_per_table[Table::Keccak as usize],
+//             inner_config,
+//         )
+//     );
+//     with_context!(
+//         builder,
+//         "verify Keccak memory proof",
+//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+//             builder,
+//             &keccak_memory_stark,
+//             &all_proof.stark_proofs[Table::KeccakMemory as usize],
+//             &stark_challenges[Table::KeccakMemory as usize],
+//             &ctl_vars_per_table[Table::KeccakMemory as usize],
+//             inner_config,
+//         )
+//     );
+//     with_context!(
+//         builder,
+//         "verify logic proof",
+//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+//             builder,
+//             &logic_stark,
+//             &all_proof.stark_proofs[Table::Logic as usize],
+//             &stark_challenges[Table::Logic as usize],
+//             &ctl_vars_per_table[Table::Logic as usize],
+//             inner_config,
+//         )
+//     );
+//     with_context!(
+//         builder,
+//         "verify memory proof",
+//         verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+//             builder,
+//             &memory_stark,
+//             &all_proof.stark_proofs[Table::Memory as usize],
+//             &stark_challenges[Table::Memory as usize],
+//             &ctl_vars_per_table[Table::Memory as usize],
+//             inner_config,
+//         )
+//     );
+//
+//     with_context!(
+//         builder,
+//         "verify cross-table lookups",
+//         verify_cross_table_lookups_circuit::<F, C, D>(
+//             builder,
+//             cross_table_lookups,
+//             &all_proof.stark_proofs,
+//             ctl_challenges,
+//             inner_config,
+//         )
+//     );
+// }
 
 /// Recursively verifies an inner proof.
 fn verify_stark_proof_with_challenges_circuit<

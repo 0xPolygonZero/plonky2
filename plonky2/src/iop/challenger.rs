@@ -196,7 +196,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.input_buffer.push(target);
     }
 
-    pub(crate) fn observe_elements(&mut self, targets: &[Target]) {
+    pub fn observe_elements(&mut self, targets: &[Target]) {
         for &target in targets {
             self.observe_element(target);
         }
