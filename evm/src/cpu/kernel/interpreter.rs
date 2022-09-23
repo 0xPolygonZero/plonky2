@@ -282,6 +282,7 @@ impl<'a> Interpreter<'a> {
             0xff => todo!(),                                           // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
+        println!("{:X}", opcode);
         Ok(())
     }
 

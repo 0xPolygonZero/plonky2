@@ -40,7 +40,6 @@ global ripemd_init:
     // stack:                       0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
     %jump(ripemd_update)
 ripemd_1:
-    %break
     // stack:                                  STATE, count, length            , virt     , LABELS
     DUP7
     // stack:                          length, STATE, count, length            , virt     , LABELS
@@ -57,7 +56,7 @@ ripemd_2:
     %stack (STATE: 5, count, length, virt) -> (STATE, count,          8,        64)
     // stack:                                  STATE, count, length = 8, virt = 64, LABELS
     %jump(ripemd_update)
-process:
+global process:
     // stack: a , b, c, d, e, count, length, virt
     %reverse_bytes_u32
     // stack: a', b, c, d, e, VARS
