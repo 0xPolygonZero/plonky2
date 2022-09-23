@@ -229,7 +229,6 @@ impl<const D: usize> StarkProofTarget<D> {
 
         challenger.observe_cap(quotient_polys_cap);
         let stark_zeta = challenger.get_extension_challenge(builder);
-        dbg!(stark_zeta);
 
         challenger.observe_openings(&openings.to_fri_openings(builder.zero()));
 

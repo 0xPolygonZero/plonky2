@@ -25,7 +25,8 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{
-    verify_cross_table_lookups_circuit, CrossTableLookup, CtlCheckVarsTarget,
+    verify_cross_table_lookups, verify_cross_table_lookups_circuit, CrossTableLookup,
+    CtlCheckVarsTarget,
 };
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
@@ -54,6 +55,7 @@ pub struct RecursiveAllProof<
 > {
     pub recursive_proofs:
         [(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>); NUM_TABLES],
+    pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 struct PublicInputs<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -131,13 +133,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let state = challenger.state();
         ensure!(state == pis[0].challenger_state_before);
         for i in 1..NUM_TABLES {
-            dbg!(i);
-            dbg!(
-                pis[i].challenger_state_before,
-                pis[i - 1].challenger_state_after
-            );
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
         }
+        let degrees_bits = std::array::from_fn(|i| self.recursive_proofs[i].1.common.degree_bits);
+        verify_cross_table_lookups::<F, C, D>(
+            self.cross_table_lookups,
+            pis.map(|p| p.ctl_zs_last),
+            degrees_bits,
+            ctl_challenges,
+            inner_config,
+        )?;
         for (proof, verifier_data) in self.recursive_proofs {
             verifier_data.verify(proof)?;
         }
@@ -344,6 +349,7 @@ where
                 &circuit_config,
             )?,
         ],
+        cross_table_lookups: all_stark.cross_table_lookups.clone(),
     })
 }
 
