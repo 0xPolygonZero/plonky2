@@ -20,7 +20,6 @@ pub trait GenericHashOut<F: RichField>:
     fn from_bytes(bytes: &[u8]) -> Self;
 
     fn to_vec(&self) -> Vec<F>;
-    fn from_vec(v: &[F]) -> Self;
 }
 
 /// Trait for hash functions.
