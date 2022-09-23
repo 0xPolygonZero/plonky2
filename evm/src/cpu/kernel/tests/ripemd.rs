@@ -4,25 +4,28 @@ use ethereum_types::U256;
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run_with_kernel;
 
+fn make_input(word: &str) -> Vec<u8> {
+        let mut bytes: Vec<u8> = vec![word.len().try_into().unwrap()];
+        bytes.append(&mut word.as_bytes().to_vec());
+        bytes
+}
+
 #[test]
 fn test_ripemd() -> Result<()> {
-    let input: Vec<u32> = vec![
-        26, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e,
-        0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a,
-    ];
+
+    let input: Vec<u8> = make_input("abcdefghijklmnopqrstuvwxyz");
+    let expected = "f71c27109c692c1b56bbdceb5b9d2865b3708dbc";
 
     let kernel = combined_kernel();
-    let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u32)).rev().collect();
-    let stack_output = run_with_kernel(&kernel, kernel.global_labels["ripemd_alt"], stack_input)?;
-    let actual: String = stack_output
+    let label = kernel.global_labels["ripemd_alt"];
+    let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u8)).rev().collect();
+    let output: String = run_with_kernel(&kernel, label, stack_input)?
         .stack()
         .iter()
         .map(|&x| format!("{:x}", x))
         .rev()
         .collect();
-
-    let expected = "f71c27109c692c1b56bbdceb5b9d2865b3708dbc";
-    assert_eq!(expected, actual);
+    assert_eq!(output, expected);
 
     Ok(())
 }
