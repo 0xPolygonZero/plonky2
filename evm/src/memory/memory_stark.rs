@@ -187,12 +187,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
     }
 
-    pub(crate) fn generate_trace(&self, memory_ops: Vec<MemoryOp>) -> Vec<PolynomialValues<F>> {
-        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
-
+    pub(crate) fn generate_trace(
+        &self,
+        memory_ops: Vec<MemoryOp>,
+        timing: &mut TimingTree,
+    ) -> Vec<PolynomialValues<F>> {
         // Generate most of the trace in row-major form.
         let trace_rows = timed!(
-            &mut timing,
+            timing,
             "generate trace rows",
             self.generate_trace_row_major(memory_ops)
         );
@@ -204,13 +206,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         // A few final generation steps, which work better in column-major form.
         Self::generate_trace_col_major(&mut trace_col_vecs);
 
-        let trace_polys = trace_col_vecs
+        trace_col_vecs
             .into_iter()
             .map(|column| PolynomialValues::new(column))
-            .collect();
-
-        timing.print();
-        trace_polys
+            .collect()
     }
 }
 
