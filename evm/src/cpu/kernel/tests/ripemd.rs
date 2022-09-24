@@ -12,8 +12,8 @@ fn make_input(word: &str) -> Vec<u8> {
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    let input: Vec<u8> = make_input("a");
-    let expected = U256::from("0x0bdc9d2d256b3ee9daae347be6f4dc835a467ffe");
+    let input: Vec<u8> = make_input("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    let expected = U256::from("0xb0e20b6e3116640286ed3a87a5713079b21f5189");
 
     let kernel = combined_kernel();
     let label = kernel.global_labels["ripemd_alt"];
