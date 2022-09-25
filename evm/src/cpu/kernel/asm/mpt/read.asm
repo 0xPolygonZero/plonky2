@@ -16,12 +16,12 @@ global mpt_read:
     SWAP1 %add_const(1) SWAP1
     // stack: node_type, node_payload_ptr, key, nibbles, retdest
 
-    DUP1 %eq_const(@MPT_NODE_EMPTY) %jumpi(mpt_read_empty)
-    DUP1 %eq_const(@MPT_NODE_BRANCH) %jumpi(mpt_read_branch)
+    DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(mpt_read_empty)
+    DUP1 %eq_const(@MPT_NODE_BRANCH)    %jumpi(mpt_read_branch)
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(mpt_read_extension)
-    DUP1 %eq_const(@MPT_NODE_LEAF) %jumpi(mpt_read_leaf)
+    DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(mpt_read_leaf)
 
-    // There's still the MPT_NODE_DIGEST case, but if we hit a digest node,
+    // There's still the MPT_NODE_HASH case, but if we hit a digest node,
     // it means the prover failed to provide necessary Merkle data, so panic.
     PANIC
 

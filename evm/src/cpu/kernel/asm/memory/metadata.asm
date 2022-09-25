@@ -12,7 +12,7 @@
     // stack: value
     PUSH $field
     // stack: offset, value
-    %mload_kernel(@SEGMENT_GLOBAL_METADATA)
+    %mstore_kernel(@SEGMENT_GLOBAL_METADATA)
     // stack: (empty)
 %endmacro
 
@@ -30,18 +30,18 @@
     // stack: value
     PUSH $field
     // stack: offset, value
-    %mload_current(@SEGMENT_CONTEXT_METADATA)
+    %mstore_current(@SEGMENT_CONTEXT_METADATA)
     // stack: (empty)
 %endmacro
 
 %macro address
-    %mload_context_metadata(0) // TODO: Read proper field.
+    %mload_context_metadata(@CTX_METADATA_ADDRESS)
 %endmacro
 
 %macro sender
-    %mload_context_metadata(0) // TODO: Read proper field.
+    %mload_context_metadata(@CTX_METADATA_CALLER)
 %endmacro
 
 %macro callvalue
-    %mload_context_metadata(0) // TODO: Read proper field.
+    %mload_context_metadata(@CTX_METADATA_CALL_VALUE)
 %endmacro

@@ -2,22 +2,34 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::U256;
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
-use crate::generation::GenerationInputs;
+use crate::generation::TrieInputs;
 
-pub(crate) fn all_mpt_prover_inputs(inputs: &GenerationInputs) -> Vec<U256> {
+pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
+    let mut inputs = all_mpt_prover_inputs(trie_inputs);
+    inputs.reverse();
+    inputs
+}
+
+/// Generate prover inputs for the initial MPT data, in the format expected by `mpt/load.asm`.
+pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut prover_inputs = vec![];
 
-    mpt_prover_inputs(&inputs.state_trie, &mut prover_inputs, &|_rlp| vec![]); // TODO
+    mpt_prover_inputs(&trie_inputs.state_trie, &mut prover_inputs, &|rlp| {
+        rlp::decode_list(rlp)
+    });
 
-    mpt_prover_inputs(
-        &inputs.transactions_trie,
-        &mut prover_inputs,
-        &|_rlp| vec![],
-    ); // TODO
+    mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
+        rlp::decode_list(rlp)
+    });
 
-    mpt_prover_inputs(&inputs.receipts_trie, &mut prover_inputs, &|_rlp| vec![]); // TODO
+    mpt_prover_inputs(&trie_inputs.receipts_trie, &mut prover_inputs, &|_rlp| {
+        // TODO: Decode receipt RLP.
+        vec![]
+    });
 
-    for (_addr, storage_trie) in &inputs.storage_tries {
+    prover_inputs.push(trie_inputs.storage_tries.len().into());
+    for (addr, storage_trie) in &trie_inputs.storage_tries {
+        prover_inputs.push(addr.0.as_ref().into());
         mpt_prover_inputs(storage_trie, &mut prover_inputs, &|leaf_be| {
             vec![U256::from_big_endian(leaf_be)]
         });
@@ -45,7 +57,9 @@ pub(crate) fn mpt_prover_inputs<F>(
             for child in children {
                 mpt_prover_inputs(child, prover_inputs, parse_leaf);
             }
-            prover_inputs.extend(parse_leaf(value));
+            let leaf = parse_leaf(value);
+            prover_inputs.push(leaf.len().into());
+            prover_inputs.extend(leaf);
         }
         PartialTrie::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
@@ -55,7 +69,9 @@ pub(crate) fn mpt_prover_inputs<F>(
         PartialTrie::Leaf { nibbles, value } => {
             prover_inputs.push(nibbles.count.into());
             prover_inputs.push(nibbles.packed);
-            prover_inputs.extend(parse_leaf(value));
+            let leaf = parse_leaf(value);
+            prover_inputs.push(leaf.len().into());
+            prover_inputs.extend(leaf);
         }
     }
 }

@@ -85,20 +85,20 @@ pub(crate) fn assemble(
     let mut local_labels = Vec::with_capacity(files.len());
     let mut macro_counter = 0;
     for file in files {
-        let expanded_file = expand_macros(file.body, &macros, &mut macro_counter);
-        let expanded_file = expand_repeats(expanded_file);
-        let expanded_file = inline_constants(expanded_file, &constants);
-        let mut expanded_file = expand_stack_manipulation(expanded_file);
+        let mut file = file.body;
+        file = expand_macros(file, &macros, &mut macro_counter);
+        file = inline_constants(file, &constants);
+        file = expand_stack_manipulation(file);
         if optimize {
-            optimize_asm(&mut expanded_file);
+            optimize_asm(&mut file);
         }
         local_labels.push(find_labels(
-            &expanded_file,
+            &file,
             &mut offset,
             &mut global_labels,
             &mut prover_inputs,
         ));
-        expanded_files.push(expanded_file);
+        expanded_files.push(file);
     }
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
@@ -146,6 +146,11 @@ fn expand_macros(
             Item::MacroCall(m, args) => {
                 expanded.extend(expand_macro_call(m, args, macros, macro_counter));
             }
+            Item::Repeat(count, body) => {
+                for _ in 0..count.as_usize() {
+                    expanded.extend(expand_macros(body.clone(), macros, macro_counter));
+                }
+            }
             item => {
                 expanded.push(item);
             }
@@ -187,12 +192,10 @@ fn expand_macro_call(
             Item::MacroCall(name, args) => {
                 let expanded_args = args
                     .iter()
-                    .map(|arg| {
-                        if let PushTarget::MacroVar(var) = arg {
-                            get_arg(var)
-                        } else {
-                            arg.clone()
-                        }
+                    .map(|arg| match arg {
+                        PushTarget::MacroVar(var) => get_arg(var),
+                        PushTarget::MacroLabel(l) => PushTarget::Label(get_actual_label(l)),
+                        _ => arg.clone(),
                     })
                     .collect();
                 Item::MacroCall(name.clone(), expanded_args)
@@ -218,21 +221,6 @@ fn expand_macro_call(
 
     // Recursively expand any macros in the expanded code.
     expand_macros(expanded_item, macros, macro_counter)
-}
-
-fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
-    let mut expanded = vec![];
-    for item in body {
-        if let Item::Repeat(count, block) = item {
-            let reps = count.as_usize();
-            for _ in 0..reps {
-                expanded.extend(block.clone());
-            }
-        } else {
-            expanded.push(item);
-        }
-    }
-    expanded
 }
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
@@ -494,7 +482,8 @@ mod tests {
     #[test]
     fn macro_with_label() {
         let files = &[
-            "%macro spin %%start: PUSH %%start JUMP %endmacro",
+            "%macro jump(x) PUSH $x JUMP %endmacro",
+            "%macro spin %%start: %jump(%%start) %endmacro",
             "%spin %spin",
         ];
         let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
@@ -533,6 +522,11 @@ mod tests {
         ]);
         let push1 = get_push_opcode(1);
         assert_eq!(kernel.code, vec![push1, 5, push1, 6, push1, 7]);
+    }
+
+    #[test]
+    fn pop2_macro() {
+        parse_and_assemble(&["%macro pop2 %rep 2 pop %endrep %endmacro", "%pop2"]);
     }
 
     #[test]

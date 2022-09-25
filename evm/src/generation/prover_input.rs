@@ -25,7 +25,7 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn prover_input(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[0].as_str() {
             "ff" => self.run_ff(stack, input_fn),
-            "mpt" => self.run_mpt(input_fn),
+            "mpt" => self.run_mpt(),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -39,16 +39,10 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// MPT data.
-    fn run_mpt(&mut self, input_fn: &ProverInputFn) -> U256 {
-        let operation = input_fn.0[1].as_str();
-        match operation {
-            "trie_data" => self
-                .mpt_prover_inputs
-                .pop()
-                .unwrap_or_else(|| panic!("Out of MPT data")),
-            "num_storage_tries" => self.inputs.storage_tries.len().into(),
-            _ => panic!("Unrecognized MPT operation."),
-        }
+    fn run_mpt(&mut self) -> U256 {
+        self.mpt_prover_inputs
+            .pop()
+            .unwrap_or_else(|| panic!("Out of MPT data"))
     }
 }
 
