@@ -19,6 +19,8 @@ struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
+// We implement specifically for the Goldilocks field because it's currently the only field with
+// the sqrt() function written.
 impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2> {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.x_squared]
@@ -30,15 +32,14 @@ impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2
         out_buffer: &mut GeneratedValues<GoldilocksField>,
     ) {
         let x_squared = witness.get_target(self.x_squared);
-        dbg!(x_squared);
         let x = x_squared.sqrt().unwrap();
-        dbg!(x);
 
         out_buffer.set_target(self.x, x);
     }
 }
 
 /// An example of using Plonky2 to prove a statement of the form
+/// "I know the square root of this field element."
 fn main() -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
