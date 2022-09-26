@@ -324,8 +324,8 @@ impl GoldilocksField {
                 }
 
                 z = w * w;
-                b = b * z;
-                x = x * w;
+                b *= z;
+                x *= w;
                 v = k;
             }
             Some(x)
