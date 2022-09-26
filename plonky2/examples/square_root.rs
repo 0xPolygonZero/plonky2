@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use anyhow::Result;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
@@ -10,7 +10,6 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2_field::extension::Extendable;
-use plonky2_field::goldilocks_field::GoldilocksField;
 
 #[derive(Debug)]
 struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
@@ -19,18 +18,14 @@ struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-// We implement specifically for the Goldilocks field because it's currently the only field with
-// the sqrt() function written.
-impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for SquareRootGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         vec![self.x_squared]
     }
 
-    fn run_once(
-        &self,
-        witness: &PartitionWitness<GoldilocksField>,
-        out_buffer: &mut GeneratedValues<GoldilocksField>,
-    ) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let x_squared = witness.get_target(self.x_squared);
         let x = x_squared.sqrt().unwrap();
 
