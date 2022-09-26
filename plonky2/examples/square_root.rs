@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let x = builder.add_virtual_target();
-    let x_squared = builder.mul(x, x);
+    let x_squared = builder.square(x);
 
     builder.register_public_input(x);
     builder.register_public_input(x_squared);
