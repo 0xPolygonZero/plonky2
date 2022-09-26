@@ -68,8 +68,12 @@ fn main() -> Result<()> {
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;
 
-    println!("Random field element: {}", proof.public_inputs[1]);
-    println!("Its square root: {}", proof.public_inputs[0]);
+    let x_actual = proof.public_inputs[0];
+    let x_squared_actual = proof.public_inputs[1];
+    println!("Random field element: {}", x_squared_actual);
+    println!("Its square root: {}", x_actual);
+
+    assert!(x_actual * x_actual == x_squared_actual);
 
     data.verify(proof)
 }
