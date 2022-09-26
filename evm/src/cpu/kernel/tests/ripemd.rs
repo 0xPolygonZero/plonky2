@@ -19,6 +19,9 @@ fn test_ripemd() -> Result<()> {
     let input: Vec<u8> = make_input("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
     let expected = U256::from("0xb0e20b6e3116640286ed3a87a5713079b21f5189");
 
+    // let input: Vec<u8> = make_input("");
+    // let expected = U256::from("0x9c1185a5c5e9fc54612808977ee8f548b2258d31");
+
 
     let kernel = combined_kernel();
     let label = kernel.global_labels["ripemd_alt"];

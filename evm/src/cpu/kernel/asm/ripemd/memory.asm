@@ -30,7 +30,9 @@ store_size:
 store_padding:
     // stack: i (init 63)
     %store_zeros(136, store_padding)
-    %jump(store_input_alt)
+    DUP1
+    %jumpi(store_input_alt)
+    POP
     %jump(ripemd_init)
 
 store_input_alt:
