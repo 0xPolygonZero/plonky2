@@ -16,8 +16,8 @@ fn test_ripemd() -> Result<()> {
     // let input: Vec<u8> = make_input("12345678901234567890123456789012345678901234567890123456789012345678901234567890");
     // let expected = U256::from("0x9b752e45573d4b39f4dbd3323cab82bf63326bfb");
 
-    let input: Vec<u8> = make_input("abcdefghijklmnopqrstuvwxyz");
-    let expected = U256::from("0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc");
+    let input: Vec<u8> = make_input("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    let expected = U256::from("0xb0e20b6e3116640286ed3a87a5713079b21f5189");
 
 
     let kernel = combined_kernel();
