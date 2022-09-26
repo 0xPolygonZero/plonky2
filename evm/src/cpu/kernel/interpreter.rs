@@ -74,6 +74,9 @@ pub struct Interpreter<'a> {
     pub(crate) memory: InterpreterMemory,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
+    /// Non-deterministic prover inputs, stored backwards so that popping the last item gives the
+    /// next prover input.
+    prover_inputs: Vec<U256>,
     pub(crate) halt_offsets: Vec<usize>,
     running: bool,
 }
@@ -435,8 +438,14 @@ impl<'a> Interpreter<'a> {
 
     fn run_shl(&mut self) {
         let shift = self.pop();
-        let x = self.pop();
-        self.push(x << shift);
+        let value = self.pop();
+        self.push(value << shift);
+    }
+
+    fn run_shr(&mut self) {
+        let shift = self.pop();
+        let value = self.pop();
+        self.push(value >> shift);
     }
 
     fn run_shr(&mut self) {

@@ -12,6 +12,8 @@ use crate::cpu::kernel::interpreter::run;
 fn test_sha2_store() -> Result<()> {
     let kernel = combined_kernel();
     let sha2_store = kernel.global_labels["sha2_store"];
+    // let test_sha2_read = kernel.global_labels["test_sha2_read"];
+
     let mut rng = thread_rng();
     let num_bytes = rng.gen_range(1..17);
     let mut bytes: Vec<U256> = Vec::with_capacity(num_bytes);
@@ -26,13 +28,22 @@ fn test_sha2_store() -> Result<()> {
     dbg!(num_bytes);
     dbg!(bytes.clone());
 
-    let mut initial_stack = vec![U256::from(num_bytes)];
-    initial_stack.extend(bytes);
-    initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
-    initial_stack.reverse();
-    dbg!(initial_stack.clone());
-    let stack_with_kernel = run(&kernel.code, sha2_store, initial_stack)?.stack;
-    dbg!(stack_with_kernel);
+    let mut store_initial_stack = vec![U256::from(num_bytes)];
+    store_initial_stack.extend(bytes);
+    store_initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
+    store_initial_stack.reverse();
+    dbg!(store_initial_stack.clone());
+    
+    let after_storing = run(&kernel.code, sha2_store, store_initial_stack)?;
+    let stack_after_storing = after_storing.stack;
+    dbg!(stack_after_storing.clone());
+    let memory_after_storing = after_storing.memory;
+    dbg!(memory_after_storing);
+
+
+    // let load_initial_stack = vec![U256::from_str("0xdeadbeef").unwrap()];
+    // let stack_after_loading = run(&kernel.code, test_sha2_read, load_initial_stack)?.stack;
+    // dbg!(stack_after_loading);
 
     // let expected_stack = todo!();
     // assert_eq!(stack_with_kernel, expected_stack);
