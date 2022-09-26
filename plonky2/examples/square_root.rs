@@ -30,7 +30,9 @@ impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2
         out_buffer: &mut GeneratedValues<GoldilocksField>,
     ) {
         let x_squared = witness.get_target(self.x_squared);
+        dbg!(x_squared);
         let x = x_squared.sqrt().unwrap();
+        dbg!(x);
 
         out_buffer.set_target(self.x, x);
     }
