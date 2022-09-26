@@ -10,6 +10,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use plonky2_field::extension::Extendable;
+use plonky2_field::goldilocks_field::GoldilocksField;
 
 #[derive(Debug)]
 struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
@@ -18,15 +19,14 @@ struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for SquareRootGenerator<F, D> {
+impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2> {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.x_squared]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let x_squared = witness.get_target(self.x);
-        let s = F::from_canonical_u32(4294967295);
-        let x = 
+    fn run_once(&self, witness: &PartitionWitness<GoldilocksField>, out_buffer: &mut GeneratedValues<GoldilocksField>) {
+        let x_squared = witness.get_target(self.x_squared);
+        let x = x_squared.sqrt().unwrap();
 
         out_buffer.set_target(self.x, x);
     }
@@ -48,16 +48,22 @@ fn main() -> Result<()> {
     builder.register_public_input(x);
     builder.register_public_input(x_squared);
 
-    // builder.add_simple_generator(SquareGenerator::<F, D> {
-    //     x,
-    //     x_squared,
-    //     _phantom: PhantomData,
-    // });
+    builder.add_simple_generator(SquareRootGenerator::<F, D> {
+        x,
+        x_squared,
+        _phantom: PhantomData,
+    });
 
-    let x_value = F::rand();
+    let x_squared_value = {
+        let mut val = F::rand();
+        while !val.is_quadratic_residue() {
+            val = F::rand();
+        }
+        val
+    };
 
     let mut pw = PartialWitness::new();
-    pw.set_target(x, x_value);
+    pw.set_target(x_squared, x_squared_value);
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;

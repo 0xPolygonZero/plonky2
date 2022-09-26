@@ -280,6 +280,61 @@ impl DivAssign for GoldilocksField {
     }
 }
 
+impl GoldilocksField {
+    pub fn is_quadratic_residue(&self) -> bool {
+        if self.is_zero() {
+            return true;
+        }
+        // This is based on Euler's criterion.
+        let power = Self::NEG_ONE.to_canonical_biguint() / 2u8;
+        let exp = self.exp_biguint(&power);
+        if exp == Self::ONE {
+            return true;
+        }
+        if exp == Self::NEG_ONE {
+            return false;
+        }
+        panic!("Unreachable")
+    }
+
+    pub fn sqrt(&self) -> Option<Self> {
+        if self.is_zero() {
+            Some(*self)
+        } else if self.is_quadratic_residue() {
+            let t = (Self::order() - BigUint::from(1u32)) / (BigUint::from(2u32).pow(Self::TWO_ADICITY as u32));
+            let mut z = Self::POWER_OF_TWO_GENERATOR.exp_biguint(&t);
+            let mut w = self.exp_biguint(&((t - BigUint::from(1u32)) / BigUint::from(2u32)));
+            let mut x = w * *self;
+            let mut b = x * w;
+
+            let mut v = Self::TWO_ADICITY as usize;
+
+            while !b.is_one() {
+                let mut k = 0usize;
+                let mut b2k = b;
+                while !b2k.is_one() {
+                    b2k = b2k * b2k;
+                    k += 1;
+                }
+                let j = v - k - 1;
+                w = z;
+                for _ in 0..j {
+                    w = w * w;
+                }
+
+                z = w * w;
+                b = b * z;
+                x = x * w;
+                v = k;
+            }
+            Some(x)
+        } else {
+            None
+        }
+    }
+
+}
+
 /// Fast addition modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:
 ///   - It is only correct if x + y < 2**64 + ORDER = 0x1ffffffff00000001.
