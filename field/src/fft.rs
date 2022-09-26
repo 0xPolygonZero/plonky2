@@ -11,19 +11,24 @@ pub type FftRootTable<F> = Vec<Vec<F>>;
 
 pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
-    let base = F::primitive_root_of_unity(lg_n);
-
     let mut root_table = Vec::with_capacity(1);
-    let half_n = 1 << (lg_n - 1);
-    let mut root_row = vec![F::ZERO; half_n];
-    // store roots of unity in "reverse bits" order
-    // faster than calling: reverse_index_bits_in_place(&mut root_row[..])
-    for (i, b) in base.powers().take(half_n).enumerate() {
-        let j = i.reverse_bits() >> (64 - lg_n + 1);
-        root_row[j] = b;
+ 
+    if lg_n <= 1 {
+        let root_row = vec![F::ONE; 1];
+        root_table.push(root_row);
+    } else {
+        let base = F::primitive_root_of_unity(lg_n);
+        let half_n = 1 << (lg_n - 1);
+        let mut root_row = vec![F::ZERO; half_n];
+        // store roots of unity in "reverse bits" order
+        // faster than calling: reverse_index_bits_in_place(&mut root_row[..])
+        for (i, b) in base.powers().take(half_n).enumerate() {
+            let j = i.reverse_bits() >> (64 - lg_n + 1);
+            root_row[j] = b;
+        }
+        root_table.push(root_row);
     }
-    root_table.push(root_row);
-
+ 
     root_table
 }
 
