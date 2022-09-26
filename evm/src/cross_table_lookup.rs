@@ -191,6 +191,21 @@ impl<F: Field> CrossTableLookup<F> {
             default,
         }
     }
+
+    pub(crate) fn num_ctl_zs(ctls: &[Self], table: Table, num_challenges: usize) -> usize {
+        let mut ans = 0;
+        for ctl in ctls {
+            ans += ctl
+                .looking_tables
+                .iter()
+                .filter_map(|twc| (twc.table == table).then_some(num_challenges))
+                .sum::<usize>();
+            ans += (ctl.looked_table.table == table)
+                .then_some(num_challenges)
+                .unwrap_or_default();
+        }
+        ans
+    }
 }
 
 /// Cross-table lookup data for one table.

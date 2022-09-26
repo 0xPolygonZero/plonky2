@@ -52,8 +52,7 @@ pub struct RecursiveAllProof<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub recursive_proofs:
-        [(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>); NUM_TABLES],
+    pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
@@ -104,12 +103,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     RecursiveAllProof<F, C, D>
 {
     /// Verify every recursive proof.
-    pub fn verify(self, inner_config: &StarkConfig) -> Result<()>
+    pub fn verify(
+        self,
+        verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+        inner_config: &StarkConfig,
+    ) -> Result<()>
     where
         [(); C::Hasher::HASH_SIZE]:,
     {
         let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
-            PublicInputs::from_vec(&self.recursive_proofs[i].0.public_inputs, inner_config)
+            PublicInputs::from_vec(&self.recursive_proofs[i].public_inputs, inner_config)
         });
 
         let mut challenger = Challenger::<F, C::Hasher>::new();
@@ -134,7 +137,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         // Verify the CTL checks.
-        let degrees_bits = std::array::from_fn(|i| self.recursive_proofs[i].1.common.degree_bits);
+        let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits);
         verify_cross_table_lookups::<F, C, D>(
             self.cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
@@ -144,7 +147,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )?;
 
         // Verify the proofs.
-        for (proof, verifier_data) in self.recursive_proofs {
+        for (proof, verifier_data) in self.recursive_proofs.into_iter().zip(verifier_data) {
             verifier_data.verify(proof)?;
         }
         Ok(())
@@ -155,6 +158,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         builder: &mut CircuitBuilder<F, D>,
         pw: &mut W,
+        verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
         inner_config: &StarkConfig,
     ) where
         W: Witness<F>,
@@ -162,8 +166,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let proofs_target: [_; NUM_TABLES] = std::array::from_fn(|i| {
-            let verifier_data = &self.recursive_proofs[i].1;
-            let proof = &self.recursive_proofs[i].0;
+            let verifier_data = &verifier_data[i];
+            let proof = &self.recursive_proofs[i];
             let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
             pw.set_proof_with_pis_target(&pt, proof);
             let inner_data = VerifierCircuitTarget {
@@ -222,7 +226,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         // Verify the CTL checks.
-        let degrees_bits = std::array::from_fn(|i| self.recursive_proofs[i].1.common.degree_bits);
+        let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits);
         verify_cross_table_lookups_circuit::<F, C, D>(
             builder,
             self.cross_table_lookups,
@@ -232,11 +236,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             inner_config,
         );
         for (i, (proof_target, inner_data)) in proofs_target.into_iter().enumerate() {
-            builder.verify_proof(
-                proof_target,
-                &inner_data,
-                &self.recursive_proofs[i].1.common,
-            );
+            builder.verify_proof(proof_target, &inner_data, &verifier_data[i].common);
         }
     }
 }
@@ -341,6 +341,151 @@ where
     Ok((data.prove(pw)?, data.verifier_data()))
 }
 
+/// Returns the verifier data for the recursively Stark circuit.
+fn verifier_data_recursive_stark_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    table: Table,
+    stark: S,
+    degree_bits: usize,
+    cross_table_lookups: &[CrossTableLookup<F>],
+    inner_config: &StarkConfig,
+    circuit_config: &CircuitConfig,
+) -> VerifierCircuitData<F, C, D>
+where
+    [(); S::COLUMNS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
+
+    let num_permutation_zs = stark.num_permutation_batches(inner_config);
+    let num_permutation_batch_size = stark.permutation_batch_size();
+    let num_ctl_zs =
+        CrossTableLookup::num_ctl_zs(cross_table_lookups, table, inner_config.num_challenges);
+    let proof_target =
+        add_virtual_stark_proof(&mut builder, &stark, inner_config, degree_bits, num_ctl_zs);
+    builder.register_public_inputs(
+        &proof_target
+            .trace_cap
+            .0
+            .iter()
+            .flat_map(|h| h.elements)
+            .collect::<Vec<_>>(),
+    );
+
+    let ctl_challenges_target = GrandProductChallengeSet {
+        challenges: (0..inner_config.num_challenges)
+            .map(|_| GrandProductChallenge {
+                beta: builder.add_virtual_public_input(),
+                gamma: builder.add_virtual_public_input(),
+            })
+            .collect(),
+    };
+
+    let ctl_vars = CtlCheckVarsTarget::from_proof(
+        table,
+        &proof_target,
+        cross_table_lookups,
+        &ctl_challenges_target,
+        num_permutation_zs,
+    );
+
+    let challenger_state = std::array::from_fn(|_| builder.add_virtual_public_input());
+    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::from_state(challenger_state);
+    let challenges = proof_target.get_challenges::<F, C>(
+        &mut builder,
+        &mut challenger,
+        num_permutation_zs > 0,
+        num_permutation_batch_size,
+        inner_config,
+    );
+    challenger.duplexing(&mut builder);
+    let challenger_state = challenger.state();
+    builder.register_public_inputs(&challenger_state);
+
+    builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
+
+    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
+        &mut builder,
+        &stark,
+        &proof_target,
+        &challenges,
+        &ctl_vars,
+        inner_config,
+    );
+
+    let data = builder.build::<C>();
+    data.verifier_data()
+}
+
+/// Recursively verify every Stark proof in an `AllProof`.
+pub fn all_verifier_data_recursive_stark_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    all_stark: &AllStark<F, D>,
+    degree_bits: [usize; NUM_TABLES],
+    inner_config: &StarkConfig,
+    circuit_config: &CircuitConfig,
+) -> [VerifierCircuitData<F, C, D>; NUM_TABLES]
+where
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    [
+        verifier_data_recursive_stark_proof(
+            Table::Cpu,
+            all_stark.cpu_stark,
+            degree_bits[Table::Cpu as usize],
+            &all_stark.cross_table_lookups,
+            inner_config,
+            circuit_config,
+        ),
+        verifier_data_recursive_stark_proof(
+            Table::Keccak,
+            all_stark.keccak_stark,
+            degree_bits[Table::Keccak as usize],
+            &all_stark.cross_table_lookups,
+            inner_config,
+            circuit_config,
+        ),
+        verifier_data_recursive_stark_proof(
+            Table::KeccakMemory,
+            all_stark.keccak_memory_stark,
+            degree_bits[Table::KeccakMemory as usize],
+            &all_stark.cross_table_lookups,
+            inner_config,
+            circuit_config,
+        ),
+        verifier_data_recursive_stark_proof(
+            Table::Logic,
+            all_stark.logic_stark,
+            degree_bits[Table::Logic as usize],
+            &all_stark.cross_table_lookups,
+            inner_config,
+            circuit_config,
+        ),
+        verifier_data_recursive_stark_proof(
+            Table::Memory,
+            all_stark.memory_stark,
+            degree_bits[Table::Memory as usize],
+            &all_stark.cross_table_lookups,
+            inner_config,
+            circuit_config,
+        ),
+    ]
+}
+
 /// Recursively verify every Stark proof in an `AllProof`.
 pub fn recursively_verify_all_proof<
     F: RichField + Extendable<D>,
@@ -350,7 +495,7 @@ pub fn recursively_verify_all_proof<
     all_stark: &AllStark<F, D>,
     all_proof: &AllProof<F, C, D>,
     inner_config: &StarkConfig,
-    circuit_config: CircuitConfig,
+    circuit_config: &CircuitConfig,
 ) -> Result<RecursiveAllProof<F, C, D>>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
@@ -375,8 +520,9 @@ where
                 &ctl_challenges,
                 states[0],
                 inner_config,
-                &circuit_config,
-            )?,
+                circuit_config,
+            )?
+            .0,
             recursively_verify_stark_proof(
                 Table::Keccak,
                 all_stark.keccak_stark,
@@ -385,8 +531,9 @@ where
                 &ctl_challenges,
                 states[1],
                 inner_config,
-                &circuit_config,
-            )?,
+                circuit_config,
+            )?
+            .0,
             recursively_verify_stark_proof(
                 Table::KeccakMemory,
                 all_stark.keccak_memory_stark,
@@ -395,8 +542,9 @@ where
                 &ctl_challenges,
                 states[2],
                 inner_config,
-                &circuit_config,
-            )?,
+                circuit_config,
+            )?
+            .0,
             recursively_verify_stark_proof(
                 Table::Logic,
                 all_stark.logic_stark,
@@ -405,8 +553,9 @@ where
                 &ctl_challenges,
                 states[3],
                 inner_config,
-                &circuit_config,
-            )?,
+                circuit_config,
+            )?
+            .0,
             recursively_verify_stark_proof(
                 Table::Memory,
                 all_stark.memory_stark,
@@ -415,8 +564,9 @@ where
                 &ctl_challenges,
                 states[4],
                 inner_config,
-                &circuit_config,
-            )?,
+                circuit_config,
+            )?
+            .0,
         ],
         cross_table_lookups: all_stark.cross_table_lookups.clone(),
     })
