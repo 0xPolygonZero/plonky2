@@ -36,8 +36,8 @@ global ripemd_init:
     // stack: length
     %stack (length) -> (        0, length,        136, ripemd_1, ripemd_2, process)
     // stack:           count = 0, length, virt = 136, ripemd_1, ripemd_2, process
-    %stack (ARGS: 3, LABELS: 3) -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, ARGS,                LABELS)
-    // stack:                       0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
+    %stack () -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)
+    // stack:     0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
     %jump(ripemd_update)
 ripemd_1:
     // stack:                                  STATE, count, length            , virt     , LABELS

@@ -91,19 +91,19 @@ update_1a:
 ///         cond  -= 64
 
 update_2:
-    // stack:               STATE,    shift, need, have, count, length, virt, retdest
+    // stack:               STATE, shift, need, have, count, length, virt, retdest
     %stack (STATE: 5, shift, need, have, count, length) -> (length, shift, STATE, shift, need, have, count, length) 
     SUB
     %ge_const(64)
-    // stack:         cond, STATE,    shift, need, have, count, length, virt, retdest
+    // stack:         cond, STATE, shift, need, have, count, length, virt, retdest
     DUP12
     DUP8
     ADD
-    // stack: offset, cond, STATE,    shift, need, have, count, length, virt, retdest
+    // stack: offset, cond, STATE, shift, need, have, count, length, virt, retdest
     %stack (offset, cond, STATE: 5) -> (cond, STATE, offset, compression_loop)
     // stack: cond, STATE, offset, compression_loop, shift, need, have, count, length, virt, retdest
     %jumpi(compress)
-    %stack (STATE:5, offset, compression_loop) -> (STATE, offset)
+    %stack (STATE: 5, offset, compression_loop) -> (STATE, offset)
     %jump(final_update)
 compression_loop:
     // stack: STATE, offset   ,        cond   , shift, need, have, count, length, virt, retdest
