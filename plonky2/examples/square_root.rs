@@ -24,7 +24,11 @@ impl SimpleGenerator<GoldilocksField> for SquareRootGenerator<GoldilocksField, 2
         vec![self.x_squared]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<GoldilocksField>, out_buffer: &mut GeneratedValues<GoldilocksField>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<GoldilocksField>,
+        out_buffer: &mut GeneratedValues<GoldilocksField>,
+    ) {
         let x_squared = witness.get_target(self.x_squared);
         let x = x_squared.sqrt().unwrap();
 

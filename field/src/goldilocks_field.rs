@@ -301,7 +301,8 @@ impl GoldilocksField {
         if self.is_zero() {
             Some(*self)
         } else if self.is_quadratic_residue() {
-            let t = (Self::order() - BigUint::from(1u32)) / (BigUint::from(2u32).pow(Self::TWO_ADICITY as u32));
+            let t = (Self::order() - BigUint::from(1u32))
+                / (BigUint::from(2u32).pow(Self::TWO_ADICITY as u32));
             let mut z = Self::POWER_OF_TWO_GENERATOR.exp_biguint(&t);
             let mut w = self.exp_biguint(&((t - BigUint::from(1u32)) / BigUint::from(2u32)));
             let mut x = w * *self;
@@ -332,7 +333,6 @@ impl GoldilocksField {
             None
         }
     }
-
 }
 
 /// Fast addition modulo ORDER for x86-64.
