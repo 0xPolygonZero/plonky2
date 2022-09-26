@@ -46,7 +46,6 @@ use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
 /// Table-wise recursive proofs of an `AllProof`.
-/// Also contains verifier data for each proof.
 pub struct RecursiveAllProof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -341,7 +340,7 @@ where
     Ok((data.prove(pw)?, data.verifier_data()))
 }
 
-/// Returns the verifier data for the recursively Stark circuit.
+/// Returns the verifier data for the recursive Stark circuit.
 fn verifier_data_recursive_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -422,7 +421,7 @@ where
     data.verifier_data()
 }
 
-/// Recursively verify every Stark proof in an `AllProof`.
+/// Returns the recursive Stark circuit verifier data for every Stark in `AllStark`.
 pub fn all_verifier_data_recursive_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
