@@ -12,7 +12,7 @@ pub type FftRootTable<F> = Vec<Vec<F>>;
 pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
     let mut root_table = Vec::with_capacity(1);
- 
+
     if lg_n <= 1 {
         let root_row = vec![F::ONE; 1];
         root_table.push(root_row);
@@ -28,7 +28,7 @@ pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
         }
         root_table.push(root_row);
     }
- 
+
     root_table
 }
 
