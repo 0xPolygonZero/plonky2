@@ -2,6 +2,7 @@ mod core;
 mod curve_ops;
 mod ecrecover;
 mod exp;
+mod mpt;
 mod packing;
 mod ripemd;
 mod rlp;

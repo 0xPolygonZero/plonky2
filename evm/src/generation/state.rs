@@ -6,7 +6,7 @@ use tiny_keccak::keccakf;
 
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
-use crate::generation::mpt::all_mpt_prover_inputs;
+use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::memory::memory_stark::MemoryOp;
@@ -17,6 +17,7 @@ use crate::{keccak, logic};
 
 #[derive(Debug)]
 pub(crate) struct GenerationState<F: Field> {
+    #[allow(unused)] // TODO: Should be used soon.
     pub(crate) inputs: GenerationInputs,
     pub(crate) cpu_rows: Vec<[F; NUM_CPU_COLUMNS]>,
     pub(crate) current_cpu_row: CpuColumnsView<F>,
@@ -35,8 +36,7 @@ pub(crate) struct GenerationState<F: Field> {
 
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs) -> Self {
-        let mut mpt_prover_inputs = all_mpt_prover_inputs(&inputs);
-        mpt_prover_inputs.reverse();
+        let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
 
         Self {
             inputs,

@@ -1,6 +1,3 @@
-// After the transaction data has been parsed into a normalized set of fields
-// (see NormalizedTxnField), this routine processes the transaction.
-
 global intrinsic_gas:
     // stack: retdest
     // Calculate the number of zero and nonzero bytes in the txn data.

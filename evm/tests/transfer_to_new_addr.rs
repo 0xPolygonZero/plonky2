@@ -7,7 +7,7 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::GenerationInputs;
+use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
@@ -29,10 +29,12 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
-        state_trie: PartialTrie::Empty,
-        transactions_trie: PartialTrie::Empty,
-        receipts_trie: PartialTrie::Empty,
-        storage_tries: vec![],
+        tries: TrieInputs {
+            state_trie: PartialTrie::Empty,
+            transactions_trie: PartialTrie::Empty,
+            receipts_trie: PartialTrie::Empty,
+            storage_tries: vec![],
+        },
         contract_code: HashMap::new(),
         block_metadata,
     };

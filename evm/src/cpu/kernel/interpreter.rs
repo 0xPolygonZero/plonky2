@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{BigEndianHash, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::generation::prover_input::ProverInputFn;
@@ -57,10 +58,10 @@ impl InterpreterMemory {
 pub struct Interpreter<'a> {
     kernel_mode: bool,
     jumpdests: Vec<usize>,
-    offset: usize,
+    pub(crate) offset: usize,
     context: usize,
     pub(crate) memory: InterpreterMemory,
-    generation_state: GenerationState<F>,
+    pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
     running: bool,
@@ -116,11 +117,12 @@ impl<'a> Interpreter<'a> {
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
-            running: true,
+            running: false,
         }
     }
 
     pub(crate) fn run(&mut self) -> anyhow::Result<()> {
+        self.running = true;
         while self.running {
             self.run_opcode()?;
         }
@@ -151,6 +153,14 @@ impl<'a> Interpreter<'a> {
         &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
     }
 
+    pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
+        self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
+    }
+
+    pub(crate) fn get_trie_data(&self) -> &[U256] {
+        &self.memory.context_memory[0].segments[Segment::TrieData as usize].content
+    }
+
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
         self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
             .content
@@ -176,7 +186,7 @@ impl<'a> Interpreter<'a> {
         &mut self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
     }
 
-    fn push(&mut self, x: U256) {
+    pub(crate) fn push(&mut self, x: U256) {
         self.stack_mut().push(x);
     }
 
@@ -192,99 +202,99 @@ impl<'a> Interpreter<'a> {
         let opcode = self.code().get(self.offset).byte(0);
         self.incr(1);
         match opcode {
-            0x00 => self.run_stop(),                                   // "STOP",
-            0x01 => self.run_add(),                                    // "ADD",
-            0x02 => self.run_mul(),                                    // "MUL",
-            0x03 => self.run_sub(),                                    // "SUB",
-            0x04 => self.run_div(),                                    // "DIV",
-            0x05 => todo!(),                                           // "SDIV",
-            0x06 => self.run_mod(),                                    // "MOD",
-            0x07 => todo!(),                                           // "SMOD",
-            0x08 => self.run_addmod(),                                 // "ADDMOD",
-            0x09 => self.run_mulmod(),                                 // "MULMOD",
-            0x0a => self.run_exp(),                                    // "EXP",
-            0x0b => todo!(),                                           // "SIGNEXTEND",
-            0x10 => self.run_lt(),                                     // "LT",
-            0x11 => self.run_gt(),                                     // "GT",
-            0x12 => todo!(),                                           // "SLT",
-            0x13 => todo!(),                                           // "SGT",
-            0x14 => self.run_eq(),                                     // "EQ",
-            0x15 => self.run_iszero(),                                 // "ISZERO",
-            0x16 => self.run_and(),                                    // "AND",
-            0x17 => self.run_or(),                                     // "OR",
-            0x18 => self.run_xor(),                                    // "XOR",
-            0x19 => self.run_not(),                                    // "NOT",
-            0x1a => self.run_byte(),                                   // "BYTE",
-            0x1b => self.run_shl(),                                    // "SHL",
-            0x1c => self.run_shr(),                                    // "SHR",
-            0x1d => todo!(),                                           // "SAR",
-            0x20 => self.run_keccak256(),                              // "KECCAK256",
-            0x30 => todo!(),                                           // "ADDRESS",
-            0x31 => todo!(),                                           // "BALANCE",
-            0x32 => todo!(),                                           // "ORIGIN",
-            0x33 => todo!(),                                           // "CALLER",
-            0x34 => todo!(),                                           // "CALLVALUE",
-            0x35 => todo!(),                                           // "CALLDATALOAD",
-            0x36 => todo!(),                                           // "CALLDATASIZE",
-            0x37 => todo!(),                                           // "CALLDATACOPY",
-            0x38 => todo!(),                                           // "CODESIZE",
-            0x39 => todo!(),                                           // "CODECOPY",
-            0x3a => todo!(),                                           // "GASPRICE",
-            0x3b => todo!(),                                           // "EXTCODESIZE",
-            0x3c => todo!(),                                           // "EXTCODECOPY",
-            0x3d => todo!(),                                           // "RETURNDATASIZE",
-            0x3e => todo!(),                                           // "RETURNDATACOPY",
-            0x3f => todo!(),                                           // "EXTCODEHASH",
-            0x40 => todo!(),                                           // "BLOCKHASH",
-            0x41 => todo!(),                                           // "COINBASE",
-            0x42 => todo!(),                                           // "TIMESTAMP",
-            0x43 => todo!(),                                           // "NUMBER",
-            0x44 => todo!(),                                           // "DIFFICULTY",
-            0x45 => todo!(),                                           // "GASLIMIT",
-            0x46 => todo!(),                                           // "CHAINID",
-            0x48 => todo!(),                                           // "BASEFEE",
-            0x49 => self.run_prover_input()?,                          // "PROVER_INPUT",
-            0x50 => self.run_pop(),                                    // "POP",
-            0x51 => self.run_mload(),                                  // "MLOAD",
-            0x52 => self.run_mstore(),                                 // "MSTORE",
-            0x53 => self.run_mstore8(),                                // "MSTORE8",
-            0x54 => todo!(),                                           // "SLOAD",
-            0x55 => todo!(),                                           // "SSTORE",
-            0x56 => self.run_jump(),                                   // "JUMP",
-            0x57 => self.run_jumpi(),                                  // "JUMPI",
-            0x58 => todo!(),                                           // "GETPC",
-            0x59 => todo!(),                                           // "MSIZE",
-            0x5a => todo!(),                                           // "GAS",
-            0x5b => self.run_jumpdest(),                               // "JUMPDEST",
-            0x5c => todo!(),                                           // "GET_STATE_ROOT",
-            0x5d => todo!(),                                           // "SET_STATE_ROOT",
-            0x5e => todo!(),                                           // "GET_RECEIPT_ROOT",
-            0x5f => todo!(),                                           // "SET_RECEIPT_ROOT",
-            x if (0x60..0x80).contains(&x) => self.run_push(x - 0x5f), // "PUSH"
-            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),  // "DUP"
-            x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f), // "SWAP"
-            0xa0 => todo!(),                                           // "LOG0",
-            0xa1 => todo!(),                                           // "LOG1",
-            0xa2 => todo!(),                                           // "LOG2",
-            0xa3 => todo!(),                                           // "LOG3",
-            0xa4 => todo!(),                                           // "LOG4",
-            0xa5 => bail!("Executed PANIC"),                           // "PANIC",
-            0xf0 => todo!(),                                           // "CREATE",
-            0xf1 => todo!(),                                           // "CALL",
-            0xf2 => todo!(),                                           // "CALLCODE",
-            0xf3 => todo!(),                                           // "RETURN",
-            0xf4 => todo!(),                                           // "DELEGATECALL",
-            0xf5 => todo!(),                                           // "CREATE2",
-            0xf6 => self.run_get_context(),                            // "GET_CONTEXT",
-            0xf7 => self.run_set_context(),                            // "SET_CONTEXT",
-            0xf8 => todo!(),                                           // "CONSUME_GAS",
-            0xf9 => todo!(),                                           // "EXIT_KERNEL",
-            0xfa => todo!(),                                           // "STATICCALL",
-            0xfb => self.run_mload_general(),                          // "MLOAD_GENERAL",
-            0xfc => self.run_mstore_general(),                         // "MSTORE_GENERAL",
-            0xfd => todo!(),                                           // "REVERT",
-            0xfe => bail!("Executed INVALID"),                         // "INVALID",
-            0xff => todo!(),                                           // "SELFDESTRUCT",
+            0x00 => self.run_stop(),                                    // "STOP",
+            0x01 => self.run_add(),                                     // "ADD",
+            0x02 => self.run_mul(),                                     // "MUL",
+            0x03 => self.run_sub(),                                     // "SUB",
+            0x04 => self.run_div(),                                     // "DIV",
+            0x05 => todo!(),                                            // "SDIV",
+            0x06 => self.run_mod(),                                     // "MOD",
+            0x07 => todo!(),                                            // "SMOD",
+            0x08 => self.run_addmod(),                                  // "ADDMOD",
+            0x09 => self.run_mulmod(),                                  // "MULMOD",
+            0x0a => self.run_exp(),                                     // "EXP",
+            0x0b => todo!(),                                            // "SIGNEXTEND",
+            0x10 => self.run_lt(),                                      // "LT",
+            0x11 => self.run_gt(),                                      // "GT",
+            0x12 => todo!(),                                            // "SLT",
+            0x13 => todo!(),                                            // "SGT",
+            0x14 => self.run_eq(),                                      // "EQ",
+            0x15 => self.run_iszero(),                                  // "ISZERO",
+            0x16 => self.run_and(),                                     // "AND",
+            0x17 => self.run_or(),                                      // "OR",
+            0x18 => self.run_xor(),                                     // "XOR",
+            0x19 => self.run_not(),                                     // "NOT",
+            0x1a => self.run_byte(),                                    // "BYTE",
+            0x1b => self.run_shl(),                                     // "SHL",
+            0x1c => todo!(),                                            // "SHR",
+            0x1d => todo!(),                                            // "SAR",
+            0x20 => self.run_keccak256(),                               // "KECCAK256",
+            0x30 => todo!(),                                            // "ADDRESS",
+            0x31 => todo!(),                                            // "BALANCE",
+            0x32 => todo!(),                                            // "ORIGIN",
+            0x33 => todo!(),                                            // "CALLER",
+            0x34 => todo!(),                                            // "CALLVALUE",
+            0x35 => todo!(),                                            // "CALLDATALOAD",
+            0x36 => todo!(),                                            // "CALLDATASIZE",
+            0x37 => todo!(),                                            // "CALLDATACOPY",
+            0x38 => todo!(),                                            // "CODESIZE",
+            0x39 => todo!(),                                            // "CODECOPY",
+            0x3a => todo!(),                                            // "GASPRICE",
+            0x3b => todo!(),                                            // "EXTCODESIZE",
+            0x3c => todo!(),                                            // "EXTCODECOPY",
+            0x3d => todo!(),                                            // "RETURNDATASIZE",
+            0x3e => todo!(),                                            // "RETURNDATACOPY",
+            0x3f => todo!(),                                            // "EXTCODEHASH",
+            0x40 => todo!(),                                            // "BLOCKHASH",
+            0x41 => todo!(),                                            // "COINBASE",
+            0x42 => todo!(),                                            // "TIMESTAMP",
+            0x43 => todo!(),                                            // "NUMBER",
+            0x44 => todo!(),                                            // "DIFFICULTY",
+            0x45 => todo!(),                                            // "GASLIMIT",
+            0x46 => todo!(),                                            // "CHAINID",
+            0x48 => todo!(),                                            // "BASEFEE",
+            0x49 => self.run_prover_input()?,                           // "PROVER_INPUT",
+            0x50 => self.run_pop(),                                     // "POP",
+            0x51 => self.run_mload(),                                   // "MLOAD",
+            0x52 => self.run_mstore(),                                  // "MSTORE",
+            0x53 => self.run_mstore8(),                                 // "MSTORE8",
+            0x54 => todo!(),                                            // "SLOAD",
+            0x55 => todo!(),                                            // "SSTORE",
+            0x56 => self.run_jump(),                                    // "JUMP",
+            0x57 => self.run_jumpi(),                                   // "JUMPI",
+            0x58 => todo!(),                                            // "GETPC",
+            0x59 => todo!(),                                            // "MSIZE",
+            0x5a => todo!(),                                            // "GAS",
+            0x5b => self.run_jumpdest(),                                // "JUMPDEST",
+            0x5c => todo!(),                                            // "GET_STATE_ROOT",
+            0x5d => todo!(),                                            // "SET_STATE_ROOT",
+            0x5e => todo!(),                                            // "GET_RECEIPT_ROOT",
+            0x5f => todo!(),                                            // "SET_RECEIPT_ROOT",
+            x if (0x60..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
+            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
+            x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
+            0xa0 => todo!(),                                            // "LOG0",
+            0xa1 => todo!(),                                            // "LOG1",
+            0xa2 => todo!(),                                            // "LOG2",
+            0xa3 => todo!(),                                            // "LOG3",
+            0xa4 => todo!(),                                            // "LOG4",
+            0xa5 => bail!("Executed PANIC"),                            // "PANIC",
+            0xf0 => todo!(),                                            // "CREATE",
+            0xf1 => todo!(),                                            // "CALL",
+            0xf2 => todo!(),                                            // "CALLCODE",
+            0xf3 => todo!(),                                            // "RETURN",
+            0xf4 => todo!(),                                            // "DELEGATECALL",
+            0xf5 => todo!(),                                            // "CREATE2",
+            0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
+            0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
+            0xf8 => todo!(),                                            // "CONSUME_GAS",
+            0xf9 => todo!(),                                            // "EXIT_KERNEL",
+            0xfa => todo!(),                                            // "STATICCALL",
+            0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),                          // "MSTORE_GENERAL",
+            0xfd => todo!(),                                            // "REVERT",
+            0xfe => bail!("Executed INVALID"),                          // "INVALID",
+            0xff => todo!(),                                            // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
         Ok(())
@@ -528,9 +538,11 @@ impl<'a> Interpreter<'a> {
         self.push(self.stack()[self.stack().len() - n as usize]);
     }
 
-    fn run_swap(&mut self, n: u8) {
+    fn run_swap(&mut self, n: u8) -> anyhow::Result<()> {
         let len = self.stack().len();
+        ensure!(len > n as usize);
         self.stack_mut().swap(len - 1, len - n as usize - 1);
+        Ok(())
     }
 
     fn run_get_context(&mut self) {
