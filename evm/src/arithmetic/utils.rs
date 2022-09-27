@@ -1,4 +1,4 @@
-use std::ops::{AddAssign, Mul, SubAssign};
+use std::ops::{Add, AddAssign, Mul, SubAssign};
 
 use log::error;
 
@@ -50,7 +50,7 @@ macro_rules! range_check_error {
     };
 }
 
-pub(crate) fn polzero<T, const N: usize>() -> [T; N]
+pub(crate) fn pol_zero<T, const N: usize>() -> [T; N]
 where
     T: Copy + Default,
 {
@@ -63,11 +63,25 @@ where
     [T::default(); N]
 }
 
-pub(crate) fn polsub<T, const N: usize>(a: &mut [T; N], b: [T; N])
+pub(crate) fn pol_add<T, const M: usize, const N: usize>(a: [T; N], b: [T; N]) -> [T; M]
 where
-    T: SubAssign + Copy + Default,
+    T: Add<Output = T> + Copy + Default,
 {
+    // TODO: This should be static_assert-able
+    assert!(M >= N);
+    let mut sum = pol_zero();
     for i in 0..N {
+        sum[i] = a[i] + b[i];
+    }
+    sum
+}
+
+pub(crate) fn pol_sub_assign<T, const M: usize>(a: &mut [T; M], b: &[T])
+where
+    T: SubAssign + Copy,
+{
+    assert!(b.len() <= M, "expected {} <= {}", b.len(), M);
+    for i in 0..b.len() {
         a[i] -= b[i];
     }
 }
@@ -88,13 +102,15 @@ where
 /// static_assert package can't check that M == 2*N - 1 at compile
 /// time either, for reasons the compiler was not able to clearly
 /// explain.
-pub(crate) fn polmul_wide<T, const N: usize, const M: usize>(a: [T; N], b: [T; N]) -> [T; M]
+pub(crate) fn pol_mul_wide<T, const M: usize, const N: usize, const P: usize>(
+    a: [T; M],
+    b: [T; N],
+) -> [T; P]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
 {
-    assert!(M == 2 * N - 1);
-
-    let mut res = polzero();
+    assert!(P == M + N - 1);
+    let mut res = [T::default(); P];
     for (i, &ai) in a.iter().enumerate() {
         for (j, &bj) in b.iter().enumerate() {
             res[i + j] += ai * bj;
@@ -103,11 +119,11 @@ where
     res
 }
 
-pub(crate) fn polmul_lo<T, const N: usize>(a: [T; N], b: [T; N]) -> [T; N]
+pub(crate) fn pol_mul_lo<T, const N: usize>(a: [T; N], b: [T; N]) -> [T; N]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
 {
-    let mut res = polzero();
+    let mut res = pol_zero();
     for deg in 0..N {
         // Invariant: i + j = deg
         for i in 0..=deg {
@@ -116,4 +132,17 @@ where
         }
     }
     res
+}
+
+/// N.B. See comment above at pol_mul_wide for discussion of parameter M.
+pub(crate) fn pol_extend<T, const N: usize, const M: usize>(a: [T; N]) -> [T; M]
+where
+    T: Copy + Default,
+{
+    assert!(M == 2 * N - 1);
+
+    // Return [a[0], a[1], ..., a[N-1], 0, 0, ..., 0]
+    let mut zero_extend = pol_zero();
+    zero_extend[..N].copy_from_slice(&a);
+    zero_extend
 }

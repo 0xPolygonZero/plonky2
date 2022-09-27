@@ -35,7 +35,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::{polmul_lo, polsub};
+use crate::arithmetic::utils::{pol_mul_lo, pol_sub_assign};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -53,7 +53,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
     // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0u64;
-    let mut unreduced_prod = polmul_lo(input0_limbs, input1_limbs);
+    let mut unreduced_prod = pol_mul_lo(input0_limbs, input1_limbs);
     for col in 0..N_LIMBS {
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
@@ -68,20 +68,22 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     for (&c, output_limb) in MUL_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
-    polsub(&mut unreduced_prod, output_limbs);
+    pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
     // This must be zero when evaluated at x = β = 2^LIMB_BITS, hence it's
     // divisible by (β - x). If we write unreduced_prod as
     //
-    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i
-    //                    = (β - x) \sum_{i=0}^{n-1} q_i x^i
+    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i  + terms of degree > n
+    //                    = (β - x) \sum_{i=0}^{n-1} q_i x^i  + terms of degree > n
     //
     // then by comparing coefficients it is easy to see that
     //
     //   q_0 = p_0 / β  and  q_i = (p_i + q_{i-1}) / β
     //
-    // for 0 < i < n-1 (and the divisions are exact).
+    // for 0 < i < n-1 (and the divisions are exact). Because we're
+    // only calculating the result modulo 2^256, we can ignore the
+    // terms of degree > n = 15.
     aux_in_limbs[0] = unreduced_prod[0] >> LIMB_BITS;
     for deg in 1..N_LIMBS - 1 {
         aux_in_limbs[deg] = (unreduced_prod[deg] + aux_in_limbs[deg - 1]) >> LIMB_BITS;
@@ -124,8 +126,8 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
-    let mut constr_poly = polmul_lo(input0_limbs, input1_limbs);
-    polsub(&mut constr_poly, output_limbs);
+    let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
+    pol_sub_assign(&mut constr_poly, &output_limbs);
 
     // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
