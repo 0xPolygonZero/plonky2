@@ -58,7 +58,7 @@ impl InterpreterMemory {
 pub struct Interpreter<'a> {
     kernel_mode: bool,
     jumpdests: Vec<usize>,
-    offset: usize,
+    pub(crate) offset: usize,
     context: usize,
     pub(crate) memory: InterpreterMemory,
     pub(crate) generation_state: GenerationState<F>,
@@ -117,11 +117,12 @@ impl<'a> Interpreter<'a> {
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
-            running: true,
+            running: false,
         }
     }
 
     pub(crate) fn run(&mut self) -> anyhow::Result<()> {
+        self.running = true;
         while self.running {
             self.run_opcode()?;
         }
@@ -185,7 +186,7 @@ impl<'a> Interpreter<'a> {
         &mut self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
     }
 
-    fn push(&mut self, x: U256) {
+    pub(crate) fn push(&mut self, x: U256) {
         self.stack_mut().push(x);
     }
 
