@@ -99,8 +99,8 @@ update_2:
     SWAP5
     %add_const(64)
     SWAP5
-    %stack (STATE: 5, shift) -> (shift, 64, STATE)
-    DUP14
+    %stack (STATE: 5, shift) -> (shift, 64, STATE, shift)
+    DUP13
     ADD
     SUB
     // stack: offset, STATE, shift, need, have, count, length, virt, retdest
