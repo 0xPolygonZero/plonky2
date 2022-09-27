@@ -85,43 +85,28 @@ update_1a:
     %jump(compress)
 
 /// def update_2():
-///     while length - shift >= 64:
-///         state   = compress(state, bytestring[shift:])
+///     while length >= shift + 64:
 ///         shift += 64
-///         cond  -= 64
+///         state  = compress(state, bytestring[shift-64:])
 
 update_2:
-    // stack:               STATE, shift, need, have, count, length, virt, retdest
-    %stack (STATE: 5, shift, need, have, count, length) -> (length, shift, STATE, shift, need, have, count, length) 
-    SUB
-    %ge_const(64)
-    // stack:         cond, STATE, shift, need, have, count, length, virt, retdest
-    DUP12
-    DUP8
+    // stack:       STATE, shift, need, have, count, length, virt, retdest
+    %stack (STATE: 5, shift, need, have, count, length) -> (64, shift, length, STATE, shift, need, have, count, length) 
     ADD
-    // stack: offset, cond, STATE, shift, need, have, count, length, virt, retdest
-    %stack (offset, cond, STATE: 5) -> (cond, STATE, offset, compression_loop)
-    // stack: cond, STATE, offset, compression_loop, shift, need, have, count, length, virt, retdest
-    %jumpi(compress)
-    %stack (STATE: 5, offset, compression_loop) -> (STATE)
-    %jump(final_update)
-compression_loop:
-    // stack: STATE, offset   ,        cond   , shift, need, have, count, length, virt, retdest
+    GT
+    // stack: cond, STATE, shift, need, have, count, length, virt, retdest
+    %jumpi(final_update)
     SWAP5
     %add_const(64)
-    SWAP5 
-    SWAP6
-    %sub_const(64)
-    SWAP6
-    SWAP7 
-    %add_const(64)
-    SWAP7 
-    // stack: STATE, offset+64,        cond-64, shift+64, need, have, count, length, virt, retdest
-    %stack (STATE: 5, offset, cond, shift) -> (cond, 0, STATE, offset, compression_loop, cond, shift)
-    %jumpi(compress)
-    // stack: STATE, offset   , label, cond   , shift   , need, have, count, length, virt, retdest
-    %stack (STATE: 5, offset, label, cond, shift, need, have, count, length, virt, retdest) -> (shift, need, have, STATE, count, length, virt, retdest)
-    %jump(final_update)
+    SWAP5
+    %stack (STATE: 5, shift) -> (shift, 64, STATE)
+    DUP14
+    ADD
+    SUB
+    // stack: offset, STATE, shift, need, have, count, length, virt, retdest
+    %stack (offset, STATE: 5) -> (STATE, offset, update_2)
+    // stack: STATE, offset, update_2, shift, need, have, count, length, virt, retdest
+    %jump(compress)
 
 
 /// def buffer_update(get, set, times):
