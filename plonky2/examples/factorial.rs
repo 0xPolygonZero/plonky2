@@ -34,7 +34,10 @@ fn main() -> Result<()> {
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;
 
-    println!("100 factorial (mod |F|) is: {}", proof.public_inputs[1]);
+    println!(
+        "Factorial starting at {} is {}!",
+        proof.public_inputs[0], proof.public_inputs[1]
+    );
 
     data.verify(proof)
 }

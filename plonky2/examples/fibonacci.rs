@@ -41,8 +41,8 @@ fn main() -> Result<()> {
     let proof = data.prove(pw)?;
 
     println!(
-        "100th Fibonacci number (mod |F|) is: {}",
-        proof.public_inputs[2]
+        "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",
+        proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]
     );
 
     data.verify(proof)

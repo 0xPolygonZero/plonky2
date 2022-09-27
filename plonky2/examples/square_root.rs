@@ -31,6 +31,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let x_squared = witness.get_target(self.x_squared);
         let x = x_squared.sqrt().unwrap();
 
+        println!("Square root: {}", x);
+
         out_buffer.set_target(self.x, x);
     }
 }
@@ -49,7 +51,6 @@ fn main() -> Result<()> {
     let x = builder.add_virtual_target();
     let x_squared = builder.square(x);
 
-    builder.register_public_input(x);
     builder.register_public_input(x_squared);
 
     builder.add_simple_generator(SquareRootGenerator::<F, D> {
@@ -71,14 +72,10 @@ fn main() -> Result<()> {
     pw.set_target(x_squared, x_squared_value);
 
     let data = builder.build::<C>();
-    let proof = data.prove(pw)?;
+    let proof = data.prove(pw.clone())?;
 
-    let x_actual = proof.public_inputs[0];
-    let x_squared_actual = proof.public_inputs[1];
-    println!("Random field element: {}", x_squared_actual);
-    println!("Its square root: {}", x_actual);
-
-    assert!(x_actual * x_actual == x_squared_actual);
+    let x_squared_actual = proof.public_inputs[0];
+    println!("Field element (square): {}", x_squared_actual);
 
     data.verify(proof)
 }
