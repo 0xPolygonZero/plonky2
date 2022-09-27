@@ -48,13 +48,11 @@ fn test_ripemd() -> Result<()> {
         let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
             .stack()
             .to_vec();
-
         let actual = final_stack[0];
-    
-        let read_out: Vec<String> = final_stack.iter().map(|x| format!("{:x}", x)).rev().collect();
-        println!("{:x?}", read_out);
-
         assert_eq!(actual, expected);
+
+        // let read_out: Vec<String> = final_stack.iter().map(|x| format!("{:x}", x)).rev().collect();
+        // println!("{:x?}", read_out);
     }
     Ok(())
 }
