@@ -4,7 +4,6 @@ use ethereum_types::U256;
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run_with_kernel;
 
-
 fn make_input(word: &str) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![word.len().try_into().unwrap()];
     bytes.append(&mut word.as_bytes().to_vec());
@@ -15,24 +14,48 @@ fn make_input(word: &str) -> Vec<u8> {
 fn test_ripemd() -> Result<()> {
     // let input: Vec<u8> = make_input("12345678901234567890123456789012345678901234567890123456789012345678901234567890");
     // let expected = U256::from("0x9b752e45573d4b39f4dbd3323cab82bf63326bfb");
+    let reference = vec![
+        ("", "0x9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+        ("a", "0x0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
+        ("abc", "0x8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
+        (
+            "message digest",
+            "0x5d0689ef49d2fae572b881b123a85ffa21595f36",
+        ),
+        (
+            "abcdefghijklmnopqrstuvwxyz",
+            "0xf71c27109c692c1b56bbdceb5b9d2865b3708dbc",
+        ),
+        (
+            "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+            "0x12a053384a9c0c88e405a06c27dcf49ada62eb2b",
+        ),
+        (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+            "0xb0e20b6e3116640286ed3a87a5713079b21f5189",
+        ),
+    ];
 
-    let input: Vec<u8> = make_input("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
-    let expected = U256::from("0xb0e20b6e3116640286ed3a87a5713079b21f5189");
+    for (x, y) in reference {
+        let input: Vec<u8> = make_input(x);
+        let expected = U256::from(y);
 
+        let kernel = combined_kernel();
+        let label = kernel.global_labels["ripemd_alt"];
+        let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u8)).rev().collect();
+        let stack_output: Vec<U256> = run_with_kernel(&kernel, label, stack_input)?
+            .stack()
+            .to_vec();
+
+        let actual = stack_output[0];
+        assert_eq!(actual, expected);
+    }
+    Ok(())
+
+    // let input: Vec<u8> = make_input("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    // let expected = U256::from("0xb0e20b6e3116640286ed3a87a5713079b21f5189");
     // let input: Vec<u8> = make_input("");
     // let expected = U256::from("0x9c1185a5c5e9fc54612808977ee8f548b2258d31");
-
-
-    let kernel = combined_kernel();
-    let label = kernel.global_labels["ripemd_alt"];
-    let stack_input: Vec<U256> = input.iter().map(|&x| U256::from(x as u8)).rev().collect();
-    let stack_output: Vec<U256> = run_with_kernel(&kernel, label, stack_input)?.stack().to_vec();
-
-    let read_out: Vec<String> = stack_output.iter().map(|x| format!("{:x}", x)).rev().collect();
-    println!("{:x?}", read_out);
-
-    let actual = stack_output[0];
-    assert_eq!(actual, expected);
-
-    Ok(())
+    // let read_out: Vec<String> = stack_output.iter().map(|x| format!("{:x}", x)).rev().collect();
+    // println!("{:x?}", read_out);
 }
