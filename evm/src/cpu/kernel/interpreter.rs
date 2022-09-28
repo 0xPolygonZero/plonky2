@@ -429,8 +429,8 @@ impl<'a> Interpreter<'a> {
 
     fn run_shr(&mut self) {
         let shift = self.pop();
-        let value = self.pop();
-        self.push(value >> shift);
+        let x = self.pop();
+        self.push(x >> shift);
     }
 
     fn run_keccak256(&mut self) {
