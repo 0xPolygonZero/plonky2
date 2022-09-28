@@ -7,5 +7,6 @@ mod jumps;
 pub mod kernel;
 pub(crate) mod membus;
 mod simple_logic;
+mod stack;
 mod stack_bounds;
 mod syscalls;

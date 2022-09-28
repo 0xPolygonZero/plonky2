@@ -10,8 +10,8 @@ use crate::cpu::columns::CpuColumnsView;
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let input0 = lv.mem_channels[0].value;
 
-    let eq_filter = lv.is_eq.to_canonical_u64();
-    let iszero_filter = lv.is_iszero.to_canonical_u64();
+    let eq_filter = lv.op.eq.to_canonical_u64();
+    let iszero_filter = lv.op.iszero.to_canonical_u64();
     assert!(eq_filter <= 1);
     assert!(iszero_filter <= 1);
     assert!(eq_filter + iszero_filter <= 1);
@@ -62,8 +62,8 @@ pub fn eval_packed<P: PackedField>(
     let input1 = lv.mem_channels[1].value;
     let output = lv.mem_channels[2].value;
 
-    let eq_filter = lv.is_eq;
-    let iszero_filter = lv.is_iszero;
+    let eq_filter = lv.op.eq;
+    let iszero_filter = lv.op.iszero;
     let eq_or_iszero_filter = eq_filter + iszero_filter;
 
     let equal = output[0];
@@ -110,8 +110,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1 = lv.mem_channels[1].value;
     let output = lv.mem_channels[2].value;
 
-    let eq_filter = lv.is_eq;
-    let iszero_filter = lv.is_iszero;
+    let eq_filter = lv.op.eq;
+    let iszero_filter = lv.op.iszero;
     let eq_or_iszero_filter = builder.add_extension(eq_filter, iszero_filter);
 
     let equal = output[0];
