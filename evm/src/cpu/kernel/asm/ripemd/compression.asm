@@ -19,7 +19,7 @@
 ///         u32(s4 + l0 + r1),
 ///         u32(s0 + l1 + r2)
 /// 
-/// where si, li, ri, oi, OF, RD respectively denote 
+/// where si, li, ri, oi, VR, RD respectively denote 
 /// state[i], stateL[i], stateR[i], output[i], virt, retdest
 
 global compress:
@@ -39,9 +39,7 @@ switch:
     // stack:                                   STATEL, STATE, virt, retdest
     PUSH mix
     DUP12 
-    PUSH 0
-    PUSH 5  
-    PUSH 16 
+    %stack () ->          (16, 5, 0)
     // stack:              16, 5, 0, virt, mix, STATEL, STATE, virt, retdest
     DUP15
     DUP15
@@ -203,7 +201,6 @@ pre_rol:
     %mload_kernel_code_label(R_data)
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt  
-    // %mload_kernel_code_u32_LE(Input_Block) 
     %load_u32_from_block
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     SWAP1  

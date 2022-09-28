@@ -37,7 +37,6 @@ pub(crate) enum Segment {
     /// See also `StateTrieCheckpointPointer`.
     StorageTrieCheckpointPointers = 14,
     /// RipeMD storage
-    ///
     RipeMd = 15,
 }
 
