@@ -45,7 +45,7 @@ global sha2_compression:
     PUSH sha2_constants_h
     %mload_kernel_code_u32
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-sha2_compression_start_block:
+compression_start_block:
     // Store the current values of the working variables, as the "initial values" to be added back in at the end of this block.
     DUP10
     // stack: scratch_space_addr, a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
@@ -113,7 +113,7 @@ sha2_compression_start_block:
     // stack: scratch_space_addr+28, a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
     POP
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-sha2_compression_loop:
+compression_loop:
     // Update the eight working variables, using the next constant K[i] and the next message schedule chunk W[i].
     // stack: a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     DUP11
@@ -194,9 +194,9 @@ sha2_compression_loop:
     DUP12
     // stack: (i+1)%64, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, scratch_space_addr, message_schedule_addr new, (i+1)%64, retdest
     ISZERO
-    %jumpi(sha2_compression_end_block)
-    %jump(sha2_compression_loop)
-sha2_compression_end_block:
+    %jumpi(compression_end_block)
+    %jump(compression_loop)
+compression_end_block:
     // Add the initial values of the eight working variables (from the start of this block's compression) back into them.
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
     DUP10
@@ -267,11 +267,11 @@ sha2_compression_end_block:
     // stack: num_blocks, num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     ISZERO
     // In this case, we've finished all the blocks.
-    %jumpi(sha2_compression_end)
+    %jumpi(compression_end)
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     %stack (num_blocks, working: 8) -> (working, num_blocks)
-    %jump(sha2_compression_start_block)
-sha2_compression_end:
+    %jump(compression_start_block)
+compression_end:
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     POP
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest

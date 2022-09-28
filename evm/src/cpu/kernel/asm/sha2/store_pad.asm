@@ -8,12 +8,12 @@ global sha2_store:
     // stack: num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     PUSH 1
     // stack: addr=1, counter=num_bytes, x[0], x[1], x[2], ... , x[num_bytes-1], retdest
-sha2_store_loop:
+store_loop:
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     DUP2
     // stack: counter, addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     ISZERO
-    %jumpi(sha2_store_end)
+    %jumpi(store_end)
     // stack: addr, counter, x[num_bytes-counter], ... , x[num_bytes-1], retdest
     %stack (addr, counter, val) -> (addr, val, counter, addr)
     // stack: addr, x[num_bytes-counter], counter, addr,  ... , x[num_bytes-1], retdest
@@ -25,8 +25,8 @@ sha2_store_loop:
     // stack: addr, counter-1,  ... , x[num_bytes-1], retdest
     %increment
     // stack: addr+1, counter-1,  ... , x[num_bytes-1], retdest
-    %jump(sha2_store_loop)
-sha2_store_end:
+    %jump(store_loop)
+store_end:
     // stack: addr, counter, retdest
     %pop2
     // stack: retdest
