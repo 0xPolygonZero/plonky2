@@ -51,7 +51,6 @@ store_input_alt:
     POP
     %jump(ripemd_init)
 
-
 store_input:
     // stack:               ADDR    , rem    , length
     DUP3
@@ -80,7 +79,6 @@ store_input:
     %pop4
     // stack:                                  length
     %jump(ripemd_init)
-
 
 %macro store_zeros(N, label)
     // stack: i

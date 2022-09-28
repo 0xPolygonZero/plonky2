@@ -1,4 +1,4 @@
-global K_data:
+global k_data:
     // Left
     BYTES 0x00, 0x00, 0x00, 0x00
     BYTES 0x5A, 0x82, 0x79, 0x99
@@ -12,8 +12,7 @@ global K_data:
     BYTES 0x7A, 0x6D, 0x76, 0xE9
     BYTES 0x00, 0x00, 0x00, 0x00
 
-
-global S_data:
+global s_data:
     // Left Round 0
     BYTES 11, 14, 15, 12
     BYTES 05, 08, 07, 09
@@ -39,7 +38,6 @@ global S_data:
     BYTES 06, 08, 13, 12
     BYTES 05, 12, 13, 14
     BYTES 11, 08, 05, 06
-
     // Right Round 0
     BYTES 08, 09, 09, 11
     BYTES 13, 15, 15, 05 
@@ -66,8 +64,7 @@ global S_data:
     BYTES 08, 13, 06, 05 
     BYTES 15, 13, 11, 11
 
-
-global R_data:
+global r_data:
     // Left Round 0
     BYTES 00, 04, 08, 12
     BYTES 16, 20, 24, 28

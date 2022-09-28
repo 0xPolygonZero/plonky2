@@ -113,7 +113,6 @@ mix:
 ///     boxes   = 16
 ///     rounds -= 1
 
-
 loop:  
     // stack:          STATE, F, K, 16, rounds, sides, virt, retdest
     DUP9
@@ -138,7 +137,7 @@ update_round_vars:
     SWAP8  
     POP  
     %mul_const(4)
-    %mload_kernel_code_label_u32(K_data)
+    %mload_kernel_code_label_u32(k_data)
     SWAP7  
     POP
     // stack:           STATE, F', K', 16, rounds, sides, virt, retdest
@@ -180,7 +179,6 @@ round:
 ///
 ///     return e, a, b, c, d, F, K
 
-
 box:
     // stack:                      a, b, c, d, e, F, K, boxes, rounds, sides, virt
     PUSH pre_rol  
@@ -198,7 +196,7 @@ pre_rol:
     // stack:           box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     DUP12
     DUP2
-    %mload_kernel_code_label(R_data)
+    %mload_kernel_code_label(r_data)
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt  
     %load_u32_from_block
@@ -214,7 +212,7 @@ pre_rol:
     PUSH mid_rol  
     SWAP2
     // stack:  box, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
-    %mload_kernel_code_label(S_data)
+    %mload_kernel_code_label(s_data)
     // stack:    s, a, mid_rol, b, c, d, e, F, K, boxes, rounds, sides, virt
     %jump(rol)
 mid_rol:
@@ -239,7 +237,6 @@ post_rol:
     SWAP7
     // stack: e, a, b, c, d, F, K, boxes-1, rounds, sides, virt
     %jump(round)
-
 
 %macro get_round
     // stack: sides, rounds

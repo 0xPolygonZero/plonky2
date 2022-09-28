@@ -86,8 +86,8 @@ global process:
 
 
 /// def padlength(length):
-///    x = 56 - length % 64
-///    return x + 64*(x < 9)
+///    t = length % 64
+///    return 56 + 64*(t > 47) - t
 
 %macro padlength
     // stack:          count
