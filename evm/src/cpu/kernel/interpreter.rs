@@ -444,13 +444,7 @@ impl<'a> Interpreter<'a> {
         let value = self.pop();
         self.push(value >> shift);
     }
-
-    fn run_shr(&mut self) {
-        let shift = self.pop();
-        let x = self.pop();
-        self.push(x >> shift);
-    }
-
+    
     fn run_keccak256(&mut self) {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
