@@ -1,11 +1,11 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::mpt::state_trie_ext_to_account_leaf;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
@@ -19,13 +19,7 @@ fn load_all_mpts() -> Result<()> {
     let account_rlp = rlp::encode_list(&[nonce, balance, storage_root, code_hash]);
 
     let trie_inputs = TrieInputs {
-        state_trie: PartialTrie::Leaf {
-            nibbles: Nibbles {
-                count: 2,
-                packed: 123.into(),
-            },
-            value: account_rlp.to_vec(),
-        },
+        state_trie: state_trie_ext_to_account_leaf(account_rlp.to_vec()),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -40,14 +34,19 @@ fn load_all_mpts() -> Result<()> {
     assert_eq!(interpreter.stack(), vec![]);
 
     let type_empty = U256::from(PartialTrieType::Empty as u32);
+    let type_extension = U256::from(PartialTrieType::Extension as u32);
     let type_leaf = U256::from(PartialTrieType::Leaf as u32);
     assert_eq!(
         interpreter.get_trie_data(),
         vec![
-            0.into(), // First address is unused, so 0 can be treated as a null pointer.
+            0.into(), // First address is unused, so that 0 can be treated as a null pointer.
+            type_extension,
+            3.into(),     // 3 nibbles
+            0xABC.into(), // key part
+            5.into(),     // Pointer to the leaf node immediately below.
             type_leaf,
-            2.into(),
-            123.into(),
+            3.into(),     // 3 nibbles
+            0xDEF.into(), // key part
             nonce,
             balance,
             storage_root,

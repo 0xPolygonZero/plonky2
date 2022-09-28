@@ -110,9 +110,15 @@ load_mpt_extension:
     %append_to_trie_data
     // stack: retdest
 
-    %load_mpt_and_return_root_ptr
-    // stack: child_ptr, retdest
+    // Let i be the current trie data size. We still need to expand this node by
+    // one element, appending our child pointer. Thus our child node will start
+    // at i + 1. So we will set our child pointer to i + 1.
+    %get_trie_data_size
+    %add_const(1)
     %append_to_trie_data
+    // stack: retdest
+
+    %load_mpt
     // stack: retdest
     JUMP
 

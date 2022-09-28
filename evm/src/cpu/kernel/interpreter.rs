@@ -226,7 +226,7 @@ impl<'a> Interpreter<'a> {
             0x19 => self.run_not(),                                     // "NOT",
             0x1a => self.run_byte(),                                    // "BYTE",
             0x1b => self.run_shl(),                                     // "SHL",
-            0x1c => todo!(),                                            // "SHR",
+            0x1c => self.run_shr(),                                     // "SHR",
             0x1d => todo!(),                                            // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x30 => todo!(),                                            // "ADDRESS",
@@ -425,6 +425,12 @@ impl<'a> Interpreter<'a> {
         let shift = self.pop();
         let x = self.pop();
         self.push(x << shift);
+    }
+
+    fn run_shr(&mut self) {
+        let shift = self.pop();
+        let x = self.pop();
+        self.push(x >> shift);
     }
 
     fn run_keccak256(&mut self) {

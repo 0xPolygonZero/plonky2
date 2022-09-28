@@ -1,10 +1,10 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::mpt::state_trie_ext_to_account_leaf;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
@@ -19,13 +19,7 @@ fn mpt_read() -> Result<()> {
     let account_rlp = rlp::encode_list(account);
 
     let trie_inputs = TrieInputs {
-        state_trie: PartialTrie::Leaf {
-            nibbles: Nibbles {
-                count: 2,
-                packed: 123.into(),
-            },
-            value: account_rlp.to_vec(),
-        },
+        state_trie: state_trie_ext_to_account_leaf(account_rlp.to_vec()),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -43,14 +37,16 @@ fn mpt_read() -> Result<()> {
     // Now, execute mpt_read on the state trie.
     interpreter.offset = mpt_read;
     interpreter.push(0xdeadbeefu32.into());
-    interpreter.push(2.into());
-    interpreter.push(123.into());
+    interpreter.push(0xABCDEFu64.into());
+    interpreter.push(6.into());
     interpreter.push(interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot));
     interpreter.run()?;
 
+    dbg!(interpreter.stack());
     assert_eq!(interpreter.stack().len(), 1);
     let result_ptr = interpreter.stack()[0].as_usize();
-    let result = &interpreter.get_trie_data()[result_ptr..result_ptr + 4];
+    dbg!(result_ptr);
+    let result = &interpreter.get_trie_data()[result_ptr..][..account.len()];
     assert_eq!(result, account);
 
     Ok(())
