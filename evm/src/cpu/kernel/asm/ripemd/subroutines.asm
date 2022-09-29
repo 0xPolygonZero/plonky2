@@ -16,7 +16,7 @@ global rol:
     // stack:           n, x, x >> (32-n), retdest
     SHL
     // stack:         x << n, x >> (32-n), retdest
-    %u32
+    %as_u32
     // stack:    u32(x << n), x >> (32-n), retdest
     OR
     // stack: u32(x << n) | (x >> (32-n)), retdest

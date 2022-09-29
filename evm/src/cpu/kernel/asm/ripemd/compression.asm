@@ -135,8 +135,7 @@ update_round_vars:
     SWAP7
     // stack: rnd, rnd, STATE, F', K , 16, rounds, sides, virt, retdest
     SWAP8  
-    POP  
-    %mul_const(4)
+    POP
     %mload_kernel_code_label_u32(k_data)
     SWAP7  
     POP
@@ -207,7 +206,7 @@ pre_rol:
     ADD  
     DUP8  
     ADD  
-    %u32
+    %as_u32
     // stack:           a, box, b, c, d, e, F, K, boxes, rounds, sides, virt
     PUSH mid_rol  
     SWAP2
@@ -220,14 +219,10 @@ mid_rol:
     DUP5
     // stack:            e, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     ADD 
-    %u32    
+    %as_u32    
     // stack:               a, b, c, d, e, F, K, boxes, rounds, sides, virt
-    SWAP1  
-    SWAP2  
-    PUSH post_rol  
-    SWAP1  
-    PUSH 10
-    // stack: 10, c, post_rol, b, a, d, e, F, K, boxes, rounds, sides, virt
+    %stack (a, b, c) -> (10, c, post_rol, a, b) 
+    // stack: 10, c, post_rol, a, b, d, e, F, K, boxes, rounds, sides, virt
     %jump(rol)
 post_rol:
     // stack: c, a, b, d, e, F, K, boxes  , rounds, sides, virt

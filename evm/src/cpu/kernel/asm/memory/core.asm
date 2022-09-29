@@ -72,10 +72,12 @@
 %endmacro
 
 %macro mload_kernel_code_label_u32(label)
-    // stack: shift
+    // stack: u32_shift
+    %mul_const(4)
+    // stack: byte_shift
     PUSH $label  
     ADD
-    // stack: label + shift
+    // stack: label + byte_shift
     %mload_kernel_code_u32
     // stack: u32
 %endmacro

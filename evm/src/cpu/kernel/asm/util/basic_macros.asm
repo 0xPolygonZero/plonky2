@@ -230,7 +230,7 @@
     // stack: max
 %endmacro
 
-%macro u32
+%macro as_u32
     %and_const(0xffffffff)
 %endmacro
 
@@ -243,14 +243,13 @@
 %endmacro
 
 %macro add3_u32
-    // stack: x, y, z
+    // stack: x , y , z
     ADD
-    // stack: x+y, z
+    // stack: x + y , z
     ADD
-    // stack: x+y+z
-    %u32
+    // stack: x + y + z
+    %as_u32
 %endmacro
-
 
 // given u32 bytestring abcd return dcba
 %macro reverse_bytes_u32
@@ -291,8 +290,4 @@
     %shl_const(24)
     OR
     // stack: dcba
-%endmacro
-
-%macro break
-    %jump(0xdeadbeef)
 %endmacro
