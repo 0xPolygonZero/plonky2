@@ -39,11 +39,11 @@ pub fn log2_strict(n: usize) -> usize {
 }
 
 /// Returns the largest integer `i` such that `base**i <= n`.
-pub const fn log_floor(n: usize, base: usize) -> usize {
+pub const fn log_floor(n: u64, base: u64) -> usize {
     assert!(n > 0);
     assert!(base > 1);
     let mut i = 0;
-    let mut cur: usize = 1;
+    let mut cur: u64 = 1;
     loop {
         let (mul, overflow) = cur.overflowing_mul(base);
         if overflow || mul > n {
