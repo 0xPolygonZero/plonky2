@@ -193,18 +193,12 @@ impl<F: Field> CrossTableLookup<F> {
     }
 
     pub(crate) fn num_ctl_zs(ctls: &[Self], table: Table, num_challenges: usize) -> usize {
-        let mut ans = 0;
+        let mut num_ctls = 0;
         for ctl in ctls {
-            ans += ctl
-                .looking_tables
-                .iter()
-                .filter_map(|twc| (twc.table == table).then_some(num_challenges))
-                .sum::<usize>();
-            ans += (ctl.looked_table.table == table)
-                .then_some(num_challenges)
-                .unwrap_or_default();
+            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
+            num_ctls += all_tables.filter(|twc| twc.table == table).count();
         }
-        ans
+        num_ctls * num_challenges
     }
 }
 
