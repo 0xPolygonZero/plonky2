@@ -155,7 +155,6 @@ store_input:
     // stack: a | (b << 8) | (c << 16) | (d << 24)
 %endmacro
 
-
 // set offset i to offset j in SEGMENT_RIPEMD
 %macro mupdate_ripemd
     // stack: j, i

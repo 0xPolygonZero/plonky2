@@ -30,7 +30,7 @@ global rol:
 //         acc += (i==rnd)*F
 //     return acc, rnd
 //
-// the macro %this_F(i,F) enacts
+// %this_F(i,F) enacts
 //     acc += (i==rnd)*F
 
 %macro push_f
@@ -49,7 +49,6 @@ global rol:
     // stack: F, rnd
 %endmacro
 
-
 %macro this_F(i, F)
   // stack:              acc, rnd
   DUP2
@@ -62,7 +61,6 @@ global rol:
   // stack: (rnd==j)*F + acc, rnd
 %endmacro
 
-
 /// def F0(x, y, z):
 ///     return x ^ y ^ z
 
@@ -74,7 +72,6 @@ global F0:
     // stack: x ^ y ^ z, retdest
     SWAP1  
     JUMP
-
 
 /// def F1(x, y, z):
 ///     return (x & y) | (u32(~x) & z)
@@ -100,7 +97,6 @@ global F1:
     SWAP1  
     JUMP
 
-
 /// def F2(x, y, z):
 ///     return (x | u32(~y)) ^ z
 
@@ -116,7 +112,6 @@ global F2:
     // stack: (~y | x) ^ z, retdest
     SWAP1  
     JUMP
-
 
 /// def F3(x, y, z):
 ///     return (x & z) | (u32(~z) & y)
@@ -137,7 +132,6 @@ global F3:
     // stack: (~z & y) | (z & x), retdest
     SWAP1  
     JUMP 
-
 
 /// def F4(x, y, z):
 ///     return x ^ (y | u32(~z))
