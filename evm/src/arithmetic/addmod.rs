@@ -37,7 +37,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::{pol_add, pol_extend, pol_mul_wide, pol_sub_assign};
+use crate::arithmetic::utils::{pol_add, pol_adjoin_root, pol_extend, pol_mul_wide, pol_remove_root_2exp, pol_sub_assign};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -100,6 +100,7 @@ fn generate_modular_op<F: RichField>(
     // added/subtracted, which is where its meaning as the "constraint
     // polynomial" comes in.
     let mut constr_poly = operation(input0_limbs, input1_limbs);
+
     let input = columns_to_biguint(&constr_poly);
 
     // Assumes modulus != 0
@@ -117,11 +118,15 @@ fn generate_modular_op<F: RichField>(
     //
     pol_sub_assign(&mut constr_poly, &output_limbs);
     let tmp: [i64; 3 * N_LIMBS - 1] = pol_mul_wide(quot_limbs, modulus_limbs);
-    // FIXME: Double check the end index on tmp
-    pol_sub_assign(&mut constr_poly, &tmp[0..(2 * N_LIMBS - 1)]);
+    //pol_sub_assign(&mut constr_poly, &tmp[0..2 * N_LIMBS]);
+
+    let mut tmp2 = [0i64; 2 * N_LIMBS];
+    tmp2[..(2*N_LIMBS-1)].copy_from_slice(&constr_poly);
+    pol_sub_assign(&mut tmp2, &tmp[0..2 * N_LIMBS]);
+    let constr_poly = tmp2;
 
     // Higher order terms must be zero for valid quot and modulus:
-    debug_assert!(&tmp[(2 * N_LIMBS - 1)..].iter().all(|&x| x == 0i64));
+    debug_assert!(&tmp[2*N_LIMBS..].iter().all(|&x| x == 0i64));
 
     // constr_poly must be zero when evaluated at x = β := 2^LIMB_BITS,
     // hence it's divisible by (x - β). If we write it as
@@ -135,10 +140,11 @@ fn generate_modular_op<F: RichField>(
     //   q_0 = -p_0 / β  and  q_i = (q_{i-1} - p_i) / β
     //
     // for 0 < i <= n-1 (and the divisions are exact).
+
     let mut aux_limbs = [0i64; 2 * N_LIMBS];
     aux_limbs[0] = -(constr_poly[0] >> LIMB_BITS);
     for deg in 1..(2 * N_LIMBS - 1) {
-        aux_limbs[deg] = (-constr_poly[deg] + aux_limbs[deg - 1]) >> LIMB_BITS;
+        aux_limbs[deg] = (aux_limbs[deg - 1] - constr_poly[deg]) >> LIMB_BITS;
     }
     aux_limbs[2 * N_LIMBS - 1] = 0i64;
 
@@ -165,7 +171,7 @@ fn modular_constr_poly<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
-) -> [P; 2 * N_LIMBS - 1] {
+) -> [P; 2 * N_LIMBS] {
     range_check_error!(ADDMOD_INPUT_0, 16);
     range_check_error!(ADDMOD_INPUT_1, 16);
     range_check_error!(ADDMOD_MODULUS, 16);
@@ -208,18 +214,24 @@ fn modular_constr_poly<P: PackedField>(
     //
     //   s(x) = \sum_i aux_limbs[i] * 2^(2*LIMB_BITS - 1)
     //
-    let mut constr_poly = pol_extend(output);
+
+//    let mut constr_poly = pol_extend(output);
+    let mut constr_poly = [P::ZEROS; 2 * N_LIMBS];
+    constr_poly[..N_LIMBS].copy_from_slice(&output);
+
     //constr_poly = pol_add(constr_poly, &tmp[0..(2 * N_LIMBS - 1)]);
-    for i in 0..(2*N_LIMBS - 1) {
+    for i in 0..(2*N_LIMBS) {
         constr_poly[i] += tmp[i];
     }
+
+    // TODO: This is what we want:
+    //let constr_poly = pol_add(pol_extend(output), pol_adjoin_root(aux, base));
 
     // TODO: This is just copypasta from 'mul.rs'; refactor.
     // This adds (x - 2^LIMB_BITS) * q(x) to constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     constr_poly[0] += -base * aux[0];
-    // TODO: Check last index
-    for deg in 1..(2 * N_LIMBS - 1) {
+    for deg in 1..(2 * N_LIMBS) {
         constr_poly[deg] += -(base * aux[deg]) + aux[deg - 1];
     }
 
@@ -237,24 +249,30 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_lt();
     */
 
+    // constr_poly has 2*N_LIMBS
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);
 
     let input0 = ADDMOD_INPUT_0.map(|c| lv[c]);
     let input1 = ADDMOD_INPUT_1.map(|c| lv[c]);
 
-    let mut add_input: [_; 2*N_LIMBS - 1] = pol_add(input0, input1);
-    let mut mul_input = pol_mul_wide(input0, input1);
-    let mut mod_input = pol_extend(input0);
+    let add_input: [_; 2*N_LIMBS - 1] = pol_add(input0, input1);
+    let mul_input = pol_mul_wide(input0, input1);
+    let mod_input = pol_extend(input0);
 
-    for (mut input, &filter) in [(&mut add_input, &lv[columns::IS_ADDMOD]),
-                                 (&mut mul_input, &lv[columns::IS_MULMOD]),
-                                 (&mut mod_input, &lv[columns::IS_MOD])] {
+    for (input, &filter) in [(&add_input, &lv[columns::IS_ADDMOD]),
+                             (&mul_input, &lv[columns::IS_MULMOD]),
+                             (&mod_input, &lv[columns::IS_MOD])] {
         // At this point input holds the coefficients of the polynomial
         // operation(a(x), b(x)) - c(x) - s(x)*m(x) - (x - 2^LIMB_BITS)*q(x).
         // The modular operation is valid if and only if all of those
         // coefficients are zero.
-        pol_sub_assign(&mut input, &constr_poly);
-        for &c in input.iter() {
+
+        // Need constr_poly_copy to be the first argument to
+        // pol_sub_assign, since it is the longer of the two
+        // arguments.
+        let mut constr_poly_copy = constr_poly;
+        pol_sub_assign(&mut constr_poly_copy, input);
+        for &c in constr_poly_copy.iter() {
             yield_constr.constraint(filter * c);
         }
     }
