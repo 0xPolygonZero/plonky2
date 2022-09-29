@@ -255,39 +255,26 @@
 %macro reverse_bytes_u32
     // stack: abcd
     DUP1
-    %and_const(0xFF)
-    // stack: d, abcd
-    %stack (d, abcd) -> (abcd, d, 0x100, d)
-    // stack: abcd, d, 0x100, d
-    SUB
-    DIV
-    // stack: abc, d
-    DUP1
-    %and_const(0xFF)
-    // stack: c, abc, d
-    %stack (c, abc) -> (abc, c, 0x100, c)
-    // stack: abc, c, 0x100, c, d
-    SUB
-    DIV
-    // stack: ab, c, d
-    DUP1
-    %and_const(0xFF)
-    // stack: b, ab, c, d
-    %stack (b, ab) -> (ab, b, 0x100, b)
-    // stack: ab, b, 0x100, b, c, d
-    SUB
-    DIV
-    // stack: a, b, c, d
-    SWAP1
+    PUSH 28
+    BYTE
+    // stack:                a, abcd
+    DUP2
+    PUSH 29
+    BYTE
     %shl_const(8)
-    OR
-    // stack: ba, c, d
-    SWAP1
+    // stack:            b0, a, abcd 
+    DUP3
+    PUSH 30
+    BYTE
     %shl_const(16)
-    OR
-    // stack: cba, d
-    SWAP1
+    // stack:       c00, b0, a, abcd
+    SWAP3
+    PUSH 31
+    BYTE
     %shl_const(24)
+    // stack: d000, b0, a, c00
+    OR 
+    OR
     OR
     // stack: dcba
 %endmacro
