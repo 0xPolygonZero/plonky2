@@ -1,4 +1,4 @@
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -54,9 +54,9 @@ pub struct PublicValues {
 
 #[derive(Debug, Clone, Default)]
 pub struct TrieRoots {
-    pub state_root: U256,
-    pub transactions_root: U256,
-    pub receipts_root: U256,
+    pub state_root: H256,
+    pub transactions_root: H256,
+    pub receipts_root: H256,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
