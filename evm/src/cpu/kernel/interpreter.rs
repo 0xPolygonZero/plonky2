@@ -512,10 +512,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_msize(&mut self) {
-        let num_u256s = self.memory.context_memory[0].segments[Segment::MainMemory as usize]
+        let num_bytes = self.memory.context_memory[self.context].segments
+            [Segment::MainMemory as usize]
             .content
             .len();
-        let num_bytes = num_u256s * 32;
         self.push(U256::from(num_bytes));
     }
 
