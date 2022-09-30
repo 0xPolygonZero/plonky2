@@ -23,6 +23,7 @@ use crate::util::trace_rows_to_poly_values;
 pub(crate) mod memory;
 pub(crate) mod mpt;
 pub(crate) mod prover_input;
+pub(crate) mod rlp;
 pub(crate) mod state;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]

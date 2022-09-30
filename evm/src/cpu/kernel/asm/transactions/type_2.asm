@@ -8,5 +8,5 @@
 //                            access_list]))
 
 global process_type_2_txn:
-    // stack: (empty)
+    // stack: retdest
     PANIC // TODO: Unfinished

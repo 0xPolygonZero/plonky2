@@ -24,9 +24,21 @@ impl<F: Field> GenerationState<F> {
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn prover_input(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[0].as_str() {
+            "end_of_txns" => self.run_end_of_txns(),
             "ff" => self.run_ff(stack, input_fn),
             "mpt" => self.run_mpt(),
+            "rlp" => self.run_rlp(),
             _ => panic!("Unrecognized prover input function."),
+        }
+    }
+
+    fn run_end_of_txns(&mut self) -> U256 {
+        let end = self.next_txn_index == self.inputs.signed_txns.len();
+        if end {
+            U256::one()
+        } else {
+            self.next_txn_index += 1;
+            U256::zero()
         }
     }
 
@@ -43,6 +55,13 @@ impl<F: Field> GenerationState<F> {
         self.mpt_prover_inputs
             .pop()
             .unwrap_or_else(|| panic!("Out of MPT data"))
+    }
+
+    /// RLP data.
+    fn run_rlp(&mut self) -> U256 {
+        self.rlp_prover_inputs
+            .pop()
+            .unwrap_or_else(|| panic!("Out of RLP data"))
     }
 }
 
