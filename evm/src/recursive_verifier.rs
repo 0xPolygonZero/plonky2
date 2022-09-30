@@ -11,7 +11,6 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
-use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -27,9 +26,13 @@ use crate::proof::{
     StarkProofChallengesTarget, StarkProofTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h160_limbs, u256_limbs};
+use crate::util::h160_limbs;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
+use crate::{
+    all_stark::{AllStark, Table},
+    util::h256_limbs,
+};
 
 pub fn verify_proof_circuit<
     F: RichField + Extendable<D>,
@@ -504,15 +507,15 @@ pub fn set_trie_roots_target<F, W, const D: usize>(
 {
     witness.set_target_arr(
         trie_roots_target.state_root,
-        u256_limbs(trie_roots.state_root),
+        h256_limbs(trie_roots.state_root),
     );
     witness.set_target_arr(
         trie_roots_target.transactions_root,
-        u256_limbs(trie_roots.transactions_root),
+        h256_limbs(trie_roots.transactions_root),
     );
     witness.set_target_arr(
         trie_roots_target.receipts_root,
-        u256_limbs(trie_roots.receipts_root),
+        h256_limbs(trie_roots.receipts_root),
     );
 }
 
