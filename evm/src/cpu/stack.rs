@@ -105,29 +105,37 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     get_receipt_root: None, // TODO
     set_receipt_root: None, // TODO
     push: None,             // TODO
-    dup: None,              // TODO
-    swap: None,             // TODO
-    log0: None,             // TODO
-    log1: None,             // TODO
-    log2: None,             // TODO
-    log3: None,             // TODO
-    log4: None,             // TODO
-    create: None,           // TODO
-    call: None,             // TODO
-    callcode: None,         // TODO
-    return_: None,          // TODO
-    delegatecall: None,     // TODO
-    create2: None,          // TODO
-    get_context: None,      // TODO
-    set_context: None,      // TODO
-    consume_gas: None,      // TODO
-    exit_kernel: None,      // TODO
-    staticcall: None,       // TODO
-    mload_general: None,    // TODO
-    mstore_general: None,   // TODO
-    revert: None,           // TODO
-    selfdestruct: None,     // TODO
-    invalid: None,          // TODO
+    dup: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: false,
+    }),
+    swap: Some(StackBehavior {
+        num_pops: 1,
+        pushes: true,
+        disable_other_channels: false,
+    }),
+    log0: None,           // TODO
+    log1: None,           // TODO
+    log2: None,           // TODO
+    log3: None,           // TODO
+    log4: None,           // TODO
+    create: None,         // TODO
+    call: None,           // TODO
+    callcode: None,       // TODO
+    return_: None,        // TODO
+    delegatecall: None,   // TODO
+    create2: None,        // TODO
+    get_context: None,    // TODO
+    set_context: None,    // TODO
+    consume_gas: None,    // TODO
+    exit_kernel: None,    // TODO
+    staticcall: None,     // TODO
+    mload_general: None,  // TODO
+    mstore_general: None, // TODO
+    revert: None,         // TODO
+    selfdestruct: None,   // TODO
+    invalid: None,        // TODO
 };
 
 fn eval_packed_one<P: PackedField>(
