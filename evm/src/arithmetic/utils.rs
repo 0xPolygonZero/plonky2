@@ -1,5 +1,11 @@
 use std::ops::{Add, AddAssign, Mul, Neg, Shr, Sub, SubAssign};
+
 use log::error;
+
+use plonky2::field::extension::Extendable;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::N_LIMBS;
 
@@ -85,6 +91,19 @@ where
     sum
 }
 
+pub(crate) fn pol_add_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
+    let zero = builder.zero_extension();
+    let mut sum = [zero; 2 * N_LIMBS - 1];
+    for i in 0..N_LIMBS {
+        sum[i] = builder.add_extension(a[i], b[i]);
+    }
+    sum
+}
+
 pub(crate) fn pol_sub_assign<T>(a: &mut [T], b: &[T])
 where
     T: SubAssign + Copy,
@@ -92,6 +111,16 @@ where
     debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
     for i in 0..b.len() {
         a[i] -= b[i];
+    }
+}
+
+pub(crate) fn pol_sub_assign_circuit<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: &mut [ExtensionTarget<D>; 2 * N_LIMBS - 1],
+    b: [ExtensionTarget<D>; N],
+) {
+    for i in 0..N {
+        a[i] = builder.sub_extension(a[i], b[i]);
     }
 }
 
@@ -104,10 +133,7 @@ where
 /// overflow occurs during the calculation of the coefficients of the
 /// product. In expected applications, N = 16 and the a[i] and b[j] are
 /// in [0, 2^16).
-pub(crate) fn pol_mul_wide<T>(
-    a: [T; N_LIMBS],
-    b: [T; N_LIMBS],
-) -> [T; 2 * N_LIMBS - 1]
+pub(crate) fn pol_mul_wide<T>(a: [T; N_LIMBS], b: [T; N_LIMBS]) -> [T; 2 * N_LIMBS - 1]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
 {
@@ -120,10 +146,28 @@ where
     res
 }
 
-pub(crate) fn pol_mul_wide2<T>(
-    a: [T; 2 * N_LIMBS],
-    b: [T; N_LIMBS],
-) -> [T; 3 * N_LIMBS - 1]
+pub(crate) fn pol_mul_wide_circuit<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; M],
+    b: [ExtensionTarget<D>; N],
+) -> [ExtensionTarget<D>; P] {
+    let zero = builder.zero_extension();
+    let mut res = [zero; P];
+    for (i, &ai) in a.iter().enumerate() {
+        for (j, &bj) in b.iter().enumerate() {
+            res[i + j] = builder.mul_add_extension(ai, bj, res[i + j]);
+        }
+    }
+    res
+}
+
+pub(crate) fn pol_mul_wide2<T>(a: [T; 2 * N_LIMBS], b: [T; N_LIMBS]) -> [T; 3 * N_LIMBS - 1]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
 {
@@ -162,6 +206,17 @@ where
 
     let mut zero_extend = pol_zero();
     zero_extend[..N].copy_from_slice(&a);
+    zero_extend
+}
+
+pub(crate) fn pol_extend_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
+    let zero = builder.zero_extension();
+    let mut zero_extend = [zero; 2 * N_LIMBS - 1];
+
+    zero_extend[..N_LIMBS].copy_from_slice(&a);
     zero_extend
 }
 
@@ -207,3 +262,4 @@ where
 
     res
 }
+

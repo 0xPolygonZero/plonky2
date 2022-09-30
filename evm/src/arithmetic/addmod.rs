@@ -37,7 +37,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::{pol_add, pol_add_assign, pol_adjoin_root, pol_extend, pol_mul_wide, pol_mul_wide2, pol_remove_root_2exp, pol_sub_assign};
+use crate::arithmetic::utils::{
+    pol_add, pol_add_assign, pol_add_circuit, pol_adjoin_root, pol_extend, pol_extend_circuit,
+    pol_mul_wide, pol_mul_wide2, pol_mul_wide_circuit, pol_remove_root_2exp, pol_sub_assign,
+    pol_sub_assign_circuit,
+};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -83,8 +87,7 @@ fn biguint_to_columns<const N: usize>(num: &BigUint) -> [i64; N] {
 fn generate_modular_op<F: RichField>(
     lv: &mut [F; NUM_ARITH_COLUMNS],
     operation: fn([i64; N_LIMBS], [i64; N_LIMBS]) -> [i64; 2 * N_LIMBS - 1],
-)
-{
+) {
     // Inputs are all range-checked in [0, 2^16), so the "as i64"
     // conversion is safe.
     let input0_limbs = ADDMOD_INPUT_0.map(|c| F::to_canonical_u64(&lv[c]) as i64);
@@ -101,8 +104,7 @@ fn generate_modular_op<F: RichField>(
     // polynomial" comes in.
 
     let mut constr_poly = [0i64; 2 * N_LIMBS];
-    constr_poly[..2 * N_LIMBS - 1].copy_from_slice(
-        &operation(input0_limbs, input1_limbs));
+    constr_poly[..2 * N_LIMBS - 1].copy_from_slice(&operation(input0_limbs, input1_limbs));
 
     let input = columns_to_biguint(&constr_poly);
 
@@ -124,7 +126,7 @@ fn generate_modular_op<F: RichField>(
     pol_sub_assign(&mut constr_poly, &prod[0..2 * N_LIMBS]);
 
     // Higher order terms must be zero for valid quot and modulus:
-    debug_assert!(&prod[2*N_LIMBS..].iter().all(|&x| x == 0i64));
+    debug_assert!(&prod[2 * N_LIMBS..].iter().all(|&x| x == 0i64));
 
     // constr_poly must be zero when evaluated at x = β := 2^LIMB_BITS,
     // hence it's divisible by (x - β). If we write it as
@@ -230,13 +232,15 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let input0 = ADDMOD_INPUT_0.map(|c| lv[c]);
     let input1 = ADDMOD_INPUT_1.map(|c| lv[c]);
 
-    let add_input: [_; 2*N_LIMBS - 1] = pol_add(input0, input1);
+    let add_input: [_; 2 * N_LIMBS - 1] = pol_add(input0, input1);
     let mul_input = pol_mul_wide(input0, input1);
     let mod_input = pol_extend(input0);
 
-    for (input, &filter) in [(&add_input, &lv[columns::IS_ADDMOD]),
-                             (&mul_input, &lv[columns::IS_MULMOD]),
-                             (&mod_input, &lv[columns::IS_MOD])] {
+    for (input, &filter) in [
+        (&add_input, &lv[columns::IS_ADDMOD]),
+        (&mul_input, &lv[columns::IS_MULMOD]),
+        (&mod_input, &lv[columns::IS_MOD]),
+    ] {
         // At this point input holds the coefficients of the polynomial
         // operation(a(x), b(x)) - c(x) - s(x)*m(x) - (x - 2^LIMB_BITS)*q(x).
         // The modular operation is valid if and only if all of those
@@ -251,61 +255,6 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
             yield_constr.constraint(filter * c);
         }
     }
-}
-
-fn pol_add_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; N_LIMBS],
-    b: [ExtensionTarget<D>; N_LIMBS],
-) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
-    let zero = builder.zero_extension();
-    let mut sum = [zero; 2 * N_LIMBS - 1];
-    for i in 0..N_LIMBS {
-        sum[i] = builder.add_extension(a[i], b[i]);
-    }
-    sum
-}
-
-fn pol_sub_assign_circuit<F: RichField + Extendable<D>, const D: usize, const N: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: &mut [ExtensionTarget<D>; 2 * N_LIMBS - 1],
-    b: [ExtensionTarget<D>; N],
-) {
-    for i in 0..N {
-        a[i] = builder.sub_extension(a[i], b[i]);
-    }
-}
-
-fn pol_mul_wide_circuit<
-    F: RichField + Extendable<D>,
-    const D: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; M],
-    b: [ExtensionTarget<D>; N],
-) -> [ExtensionTarget<D>; P] {
-    let zero = builder.zero_extension();
-    let mut res = [zero; P];
-    for (i, &ai) in a.iter().enumerate() {
-        for (j, &bj) in b.iter().enumerate() {
-            res[i + j] = builder.mul_add_extension(ai, bj, res[i + j]);
-        }
-    }
-    res
-}
-
-fn pol_extend_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; N_LIMBS],
-) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
-    let zero = builder.zero_extension();
-    let mut zero_extend = [zero; 2 * N_LIMBS - 1];
-
-    zero_extend[..N_LIMBS].copy_from_slice(&a);
-    zero_extend
 }
 
 fn eval_ext_circuit_modular_op<F: RichField + Extendable<D>, const D: usize>(
@@ -427,7 +376,6 @@ mod tests {
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
         for op_filter in [IS_ADDMOD, IS_MOD, IS_MULMOD] {
-
             // Reset operation columns, then select one
             lv[IS_ADDMOD] = F::ZERO;
             lv[IS_MULMOD] = F::ZERO;
