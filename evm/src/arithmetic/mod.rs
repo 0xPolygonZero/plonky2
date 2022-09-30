@@ -1,6 +1,6 @@
 mod add;
-mod addmod;
 mod compare;
+mod modular;
 mod mul;
 mod sub;
 mod utils;
