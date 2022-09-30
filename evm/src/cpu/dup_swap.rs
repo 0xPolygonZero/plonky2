@@ -150,6 +150,7 @@ pub fn eval_packed_dup<P: PackedField>(
     channels_equal_packed(filter, in_channel, out_channel, yield_constr);
 
     constrain_channel_packed(true, filter, n, in_channel, lv, yield_constr);
+    // `out_channel` is constrained by the usual stack constraints.
 
     disable_unused_channels_packed(1, 1, filter, lv, yield_constr);
 }
@@ -168,6 +169,7 @@ pub fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     channels_equal_ext_circuit(builder, filter, in_channel, out_channel, yield_constr);
 
     constrain_channel_ext_circuit(builder, true, filter, n, in_channel, lv, yield_constr);
+    // `out_channel` is constrained by the usual stack constraints.
 
     disable_unused_channels_ext_circuit(builder, 1, 1, filter, lv, yield_constr);
 }
@@ -189,6 +191,7 @@ pub fn eval_packed_swap<P: PackedField>(
 
     constrain_channel_packed(true, filter, n, in2_channel, lv, yield_constr);
     constrain_channel_packed(false, filter, n, out1_channel, lv, yield_constr);
+    // `in1_channel` and `out2_channel` are constrained by the usual stack constraints.
 
     disable_unused_channels_packed(2, 2, filter, lv, yield_constr);
 }
@@ -211,6 +214,7 @@ pub fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
 
     constrain_channel_ext_circuit(builder, true, filter, n, in2_channel, lv, yield_constr);
     constrain_channel_ext_circuit(builder, false, filter, n, out1_channel, lv, yield_constr);
+    // `in1_channel` and `out2_channel` are constrained by the usual stack constraints.
 
     disable_unused_channels_ext_circuit(builder, 2, 2, filter, lv, yield_constr);
 }
