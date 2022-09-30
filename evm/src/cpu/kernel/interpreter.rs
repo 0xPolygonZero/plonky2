@@ -263,7 +263,7 @@ impl<'a> Interpreter<'a> {
             0x56 => self.run_jump(),                                    // "JUMP",
             0x57 => self.run_jumpi(),                                   // "JUMPI",
             0x58 => todo!(),                                            // "GETPC",
-            0x59 => todo!(),                                            // "MSIZE",
+            0x59 => self.run_msize(),                                   // "MSIZE",
             0x5a => todo!(),                                            // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
             0x5c => todo!(),                                            // "GET_STATE_ROOT",
@@ -509,6 +509,14 @@ impl<'a> Interpreter<'a> {
         if !b.is_zero() {
             self.jump_to(x);
         }
+    }
+
+    fn run_msize(&mut self) {
+        let num_u256s = self.memory.context_memory[0].segments[Segment::MainMemory as usize]
+            .content
+            .len();
+        let num_bytes = num_u256s * 32;
+        self.push(U256::from(num_bytes));
     }
 
     fn run_jumpdest(&mut self) {
