@@ -69,12 +69,12 @@ pub fn eval_packed_generic<P: PackedField>(
     );
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then:
-    //  - the `program_counter` of the CPU cycle row is `route_txn` (the entry point of our kernel),
+    //  - the `program_counter` of the CPU cycle row is `main` (the entry point of our kernel),
     //  - execution is in kernel mode, and
     //  - the stack is empty.
     let is_last_noncpu_cycle = (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle;
     let pc_diff =
-        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["main"]);
     yield_constr.constraint_transition(is_last_noncpu_cycle * pc_diff);
     yield_constr.constraint_transition(is_last_noncpu_cycle * (nv.is_kernel_mode - P::ONES));
     yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
@@ -118,18 +118,18 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then:
-    //  - the `program_counter` of the CPU cycle row is `route_txn` (the entry point of our kernel),
+    //  - the `program_counter` of the CPU cycle row is `main` (the entry point of our kernel),
     //  - execution is in kernel mode, and
     //  - the stack is empty.
     {
         let is_last_noncpu_cycle =
             builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
 
-        // Start at `route_txn`.
-        let route_txn = builder.constant_extension(F::Extension::from_canonical_usize(
-            KERNEL.global_labels["route_txn"],
+        // Start at `main`.
+        let main = builder.constant_extension(F::Extension::from_canonical_usize(
+            KERNEL.global_labels["main"],
         ));
-        let pc_diff = builder.sub_extension(nv.program_counter, route_txn);
+        let pc_diff = builder.sub_extension(nv.program_counter, main);
         let pc_constr = builder.mul_extension(is_last_noncpu_cycle, pc_diff);
         yield_constr.constraint_transition(builder, pc_constr);
 

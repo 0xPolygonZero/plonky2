@@ -338,7 +338,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x5b);
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
-            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["main"]);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
@@ -377,8 +377,8 @@ mod tests {
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
 
-            // Since these are the first cycle rows, we must start with PC=route_txn then increment.
-            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"] + i);
+            // Since these are the first cycle rows, we must start with PC=main then increment.
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["main"] + i);
             row.opcode_bits = bits_from_opcode(
                 if logic_trace[logic::columns::IS_AND].values[i] != F::ZERO {
                     0x16
