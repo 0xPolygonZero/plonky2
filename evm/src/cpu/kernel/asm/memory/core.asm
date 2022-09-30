@@ -98,3 +98,10 @@
     %mstore_kernel(@SEGMENT_CODE)
     // stack: (empty)
 %endmacro
+
+// Store a single value to @SEGMENT_KERNEL_GENERAL.
+%macro mstore_kernel_general
+    // stack: offset, value
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack: (empty)
+%endmacro

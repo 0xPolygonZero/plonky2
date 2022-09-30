@@ -18,6 +18,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     for (name, value) in EC_CONSTANTS {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
+    for (name, value) in HASH_CONSTANTS {
+        c.insert(name.into(), U256::from_big_endian(&value));
+    }
     for (name, value) in GAS_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
@@ -42,6 +45,14 @@ pub fn evm_constants() -> HashMap<String, U256> {
     );
     c
 }
+
+const HASH_CONSTANTS: [(&str, [u8; 32]); 1] = [
+    // Hash of an empty node: keccak(rlp.encode(b'')).hex()
+    (
+        "EMPTY_NODE_HASH",
+        hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+    ),
+];
 
 const EC_CONSTANTS: [(&str, [u8; 32]); 3] = [
     (

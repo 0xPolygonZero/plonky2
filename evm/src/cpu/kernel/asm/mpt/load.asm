@@ -39,7 +39,6 @@ storage_trie_loop:
     // stack: i, num_storage_tries, retdest
     %jump(storage_trie_loop)
 storage_trie_loop_end:
-    // TODO: Hash tries and set @GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE, etc.
     // stack: i, num_storage_tries, retdest
     %pop2
     // stack: retdest
