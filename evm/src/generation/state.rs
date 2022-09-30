@@ -7,6 +7,7 @@ use tiny_keccak::keccakf;
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::generation::memory::MemoryState;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
+use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::memory::memory_stark::MemoryOp;
@@ -19,6 +20,7 @@ use crate::{keccak, logic};
 pub(crate) struct GenerationState<F: Field> {
     #[allow(unused)] // TODO: Should be used soon.
     pub(crate) inputs: GenerationInputs,
+    pub(crate) next_txn_index: usize,
     pub(crate) cpu_rows: Vec<[F; NUM_CPU_COLUMNS]>,
     pub(crate) current_cpu_row: CpuColumnsView<F>,
 
@@ -32,14 +34,20 @@ pub(crate) struct GenerationState<F: Field> {
     /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) mpt_prover_inputs: Vec<U256>,
+
+    /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
+    /// via `pop()`.
+    pub(crate) rlp_prover_inputs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs) -> Self {
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
+        let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
 
         Self {
             inputs,
+            next_txn_index: 0,
             cpu_rows: vec![],
             current_cpu_row: [F::ZERO; NUM_CPU_COLUMNS].into(),
             current_context: 0,
@@ -48,6 +56,7 @@ impl<F: Field> GenerationState<F> {
             keccak_memory_inputs: vec![],
             logic_ops: vec![],
             mpt_prover_inputs,
+            rlp_prover_inputs,
         }
     }
 

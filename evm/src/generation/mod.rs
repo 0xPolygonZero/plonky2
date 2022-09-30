@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, BigEndianHash, H256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
@@ -23,6 +23,7 @@ use crate::util::trace_rows_to_poly_values;
 pub(crate) mod memory;
 pub(crate) mod mpt;
 pub(crate) mod prover_input;
+pub(crate) mod rlp;
 pub(crate) mod state;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -86,14 +87,20 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     };
 
     let trie_roots_before = TrieRoots {
-        state_root: read_metadata(GlobalMetadata::StateTrieRootDigestBefore),
-        transactions_root: read_metadata(GlobalMetadata::TransactionsTrieRootDigestBefore),
-        receipts_root: read_metadata(GlobalMetadata::ReceiptsTrieRootDigestBefore),
+        state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestBefore)),
+        transactions_root: H256::from_uint(&read_metadata(
+            GlobalMetadata::TransactionsTrieRootDigestBefore,
+        )),
+        receipts_root: H256::from_uint(&read_metadata(
+            GlobalMetadata::ReceiptsTrieRootDigestBefore,
+        )),
     };
     let trie_roots_after = TrieRoots {
-        state_root: read_metadata(GlobalMetadata::StateTrieRootDigestAfter),
-        transactions_root: read_metadata(GlobalMetadata::TransactionsTrieRootDigestAfter),
-        receipts_root: read_metadata(GlobalMetadata::ReceiptsTrieRootDigestAfter),
+        state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestAfter)),
+        transactions_root: H256::from_uint(&read_metadata(
+            GlobalMetadata::TransactionsTrieRootDigestAfter,
+        )),
+        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptsTrieRootDigestAfter)),
     };
 
     let GenerationState {

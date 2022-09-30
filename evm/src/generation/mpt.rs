@@ -52,7 +52,7 @@ pub(crate) fn mpt_prover_inputs<F>(
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
     match trie {
         PartialTrie::Empty => {}
-        PartialTrie::Hash(h) => prover_inputs.push(*h),
+        PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
         PartialTrie::Branch { children, value } => {
             for child in children {
                 mpt_prover_inputs(child, prover_inputs, parse_leaf);

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, ensure};
-use ethereum_types::{BigEndianHash, U256, U512};
+use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
@@ -263,7 +263,7 @@ impl<'a> Interpreter<'a> {
             0x56 => self.run_jump(),                                    // "JUMP",
             0x57 => self.run_jumpi(),                                   // "JUMPI",
             0x58 => todo!(),                                            // "GETPC",
-            0x59 => todo!(),                                            // "MSIZE",
+            0x59 => self.run_msize(),                                   // "MSIZE",
             0x5a => todo!(),                                            // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
             0x5c => todo!(),                                            // "GET_STATE_ROOT",
@@ -444,7 +444,7 @@ impl<'a> Interpreter<'a> {
             })
             .collect::<Vec<_>>();
         let hash = keccak(bytes);
-        self.push(hash.into_uint());
+        self.push(U256::from_big_endian(hash.as_bytes()));
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
@@ -509,6 +509,14 @@ impl<'a> Interpreter<'a> {
         if !b.is_zero() {
             self.jump_to(x);
         }
+    }
+
+    fn run_msize(&mut self) {
+        let num_bytes = self.memory.context_memory[self.context].segments
+            [Segment::MainMemory as usize]
+            .content
+            .len();
+        self.push(U256::from(num_bytes));
     }
 
     fn run_jumpdest(&mut self) {

@@ -3,6 +3,7 @@ use std::ops::Range;
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 use plonky2_field::types::{Field, Field64};
+use plonky2_util::log_floor;
 
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
@@ -32,7 +33,8 @@ impl<const B: usize> BaseSumGate<B> {
     }
 
     pub fn new_from_config<F: Field64>(config: &CircuitConfig) -> Self {
-        let num_limbs = F::BITS.min(config.num_routed_wires - Self::START_LIMBS);
+        let num_limbs =
+            log_floor(F::ORDER - 1, B as u64).min(config.num_routed_wires - Self::START_LIMBS);
         Self::new(num_limbs)
     }
 
