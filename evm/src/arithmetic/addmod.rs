@@ -1,6 +1,6 @@
-//! Support for the EVM ADDMOD instruction.
+//! Support for the EVM modular instructions ADDMOD, MULMOD and MOD.
 //!
-//! This crate verifies an EVM ADDMOD instruction, which takes three
+//! This crate verifies an EVM modular instruction, which takes three
 //! 256-bit inputs A, B and M, and produces a 256-bit output C satisfying
 //!
 //!    C = operation(A, B) (mod M).
@@ -90,9 +90,9 @@ fn generate_modular_op<F: RichField>(
 ) {
     // Inputs are all range-checked in [0, 2^16), so the "as i64"
     // conversion is safe.
-    let input0_limbs = ADDMOD_INPUT_0.map(|c| F::to_canonical_u64(&lv[c]) as i64);
-    let input1_limbs = ADDMOD_INPUT_1.map(|c| F::to_canonical_u64(&lv[c]) as i64);
-    let modulus_limbs = ADDMOD_MODULUS.map(|c| F::to_canonical_u64(&lv[c]) as i64);
+    let input0_limbs = MODULAR_INPUT_0.map(|c| F::to_canonical_u64(&lv[c]) as i64);
+    let input1_limbs = MODULAR_INPUT_1.map(|c| F::to_canonical_u64(&lv[c]) as i64);
+    let modulus_limbs = MODULAR_MODULUS.map(|c| F::to_canonical_u64(&lv[c]) as i64);
 
     // The use of BigUints is entirely to avoid having to implement
     // modular reduction.
@@ -144,11 +144,11 @@ fn generate_modular_op<F: RichField>(
     let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _>(constr_poly);
 
     for deg in 0..N_LIMBS {
-        lv[ADDMOD_OUTPUT[deg]] = F::from_canonical_i64(output_limbs[deg]);
-        lv[ADDMOD_QUO_INPUT[deg]] = F::from_canonical_i64(quot_limbs[deg]);
-        lv[ADDMOD_QUO_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(quot_limbs[deg + N_LIMBS]);
-        lv[ADDMOD_AUX_INPUT[deg]] = F::from_canonical_i64(aux_limbs[deg]);
-        lv[ADDMOD_AUX_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(aux_limbs[deg + N_LIMBS]);
+        lv[MODULAR_OUTPUT[deg]] = F::from_canonical_i64(output_limbs[deg]);
+        lv[MODULAR_QUO_INPUT[deg]] = F::from_canonical_i64(quot_limbs[deg]);
+        lv[MODULAR_QUO_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(quot_limbs[deg + N_LIMBS]);
+        lv[MODULAR_AUX_INPUT[deg]] = F::from_canonical_i64(aux_limbs[deg]);
+        lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(aux_limbs[deg + N_LIMBS]);
     }
 }
 
@@ -167,20 +167,20 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
 ) -> [P; 2 * N_LIMBS] {
-    range_check_error!(ADDMOD_INPUT_0, 16);
-    range_check_error!(ADDMOD_INPUT_1, 16);
-    range_check_error!(ADDMOD_MODULUS, 16);
-    range_check_error!(ADDMOD_QUO_INPUT, 16);
-    range_check_error!(ADDMOD_AUX_INPUT, 20, signed);
-    range_check_error!(ADDMOD_OUTPUT, 16);
+    range_check_error!(MODULAR_INPUT_0, 16);
+    range_check_error!(MODULAR_INPUT_1, 16);
+    range_check_error!(MODULAR_MODULUS, 16);
+    range_check_error!(MODULAR_QUO_INPUT, 16);
+    range_check_error!(MODULAR_AUX_INPUT, 20, signed);
+    range_check_error!(MODULAR_OUTPUT, 16);
 
     // FIXME: This code assumes that the modulus is greater than zero, and
     // that the output is less than the modulus.
 
-    let modulus = ADDMOD_MODULUS.map(|c| lv[c]);
-    let output = ADDMOD_OUTPUT.map(|c| lv[c]);
-    let quot = ADDMOD_QUO_INPUT.map(|c| lv[c]);
-    let aux = ADDMOD_AUX_INPUT.map(|c| lv[c]);
+    let modulus = MODULAR_MODULUS.map(|c| lv[c]);
+    let output = MODULAR_OUTPUT.map(|c| lv[c]);
+    let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
+    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
 
     let prod = pol_mul_wide2(quot, modulus);
     for &x in prod[2 * N_LIMBS..].iter() {
@@ -229,8 +229,8 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     // constr_poly has 2*N_LIMBS
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);
 
-    let input0 = ADDMOD_INPUT_0.map(|c| lv[c]);
-    let input1 = ADDMOD_INPUT_1.map(|c| lv[c]);
+    let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
+    let input1 = MODULAR_INPUT_1.map(|c| lv[c]);
 
     let add_input: [_; 2 * N_LIMBS - 1] = pol_add(input0, input1);
     let mul_input = pol_mul_wide(input0, input1);
@@ -268,12 +268,12 @@ fn eval_ext_circuit_modular_op<F: RichField + Extendable<D>, const D: usize>(
     ) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1],
     filter: ExtensionTarget<D>,
 ) {
-    let input0 = ADDMOD_INPUT_0.map(|c| lv[c]);
-    let input1 = ADDMOD_INPUT_1.map(|c| lv[c]);
-    let modulus = ADDMOD_MODULUS.map(|c| lv[c]);
-    let output = ADDMOD_OUTPUT.map(|c| lv[c]);
-    let quot = ADDMOD_QUO_INPUT.map(|c| lv[c]);
-    let aux = ADDMOD_AUX_INPUT.map(|c| lv[c]);
+    let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
+    let input1 = MODULAR_INPUT_1.map(|c| lv[c]);
+    let modulus = MODULAR_MODULUS.map(|c| lv[c]);
+    let output = MODULAR_OUTPUT.map(|c| lv[c]);
+    let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
+    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
 
     let mut constr_poly = operation(builder, input0, input1);
 
@@ -385,9 +385,9 @@ mod tests {
             for i in 0..N_RND_TESTS {
                 // set inputs to random values
                 for (&ai, &bi, &mi) in izip!(
-                    ADDMOD_INPUT_0.iter(),
-                    ADDMOD_INPUT_1.iter(),
-                    ADDMOD_MODULUS.iter()
+                    MODULAR_INPUT_0.iter(),
+                    MODULAR_INPUT_1.iter(),
+                    MODULAR_MODULUS.iter()
                 ) {
                     lv[ai] = F::from_canonical_u16(rng.gen());
                     lv[bi] = F::from_canonical_u16(rng.gen());
@@ -400,7 +400,7 @@ mod tests {
                 if i > N_RND_TESTS / 2 {
                     // 1 <= start < N_LIMBS
                     let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;
-                    for &mi in &ADDMOD_MODULUS[start..N_LIMBS] {
+                    for &mi in &MODULAR_MODULUS[start..N_LIMBS] {
                         lv[mi] = F::ZERO;
                     }
                 }
@@ -435,9 +435,9 @@ mod tests {
             // set inputs to random values and the modulus to zero;
             // the output is defined to be zero when modulus is zero.
             for (&ai, &bi, &mi) in izip!(
-                ADDMOD_INPUT_0.iter(),
-                ADDMOD_INPUT_1.iter(),
-                ADDMOD_MODULUS.iter()
+                MODULAR_INPUT_0.iter(),
+                MODULAR_INPUT_1.iter(),
+                MODULAR_MODULUS.iter()
             ) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
@@ -447,7 +447,7 @@ mod tests {
             generate(&mut lv, columns::IS_ADDMOD);
 
             // check that the correct output was generated
-            assert!(ADDMOD_OUTPUT.iter().all(|&oi| lv[oi] == F::ZERO));
+            assert!(MODULAR_OUTPUT.iter().all(|&oi| lv[oi] == F::ZERO));
 
             let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -462,7 +462,7 @@ mod tests {
                 .all(|&acc| acc == F::ZERO));
 
             // Corrupt one output limb by setting it to a non-zero value
-            let random_oi = ADDMOD_OUTPUT[rng.gen::<usize>() % N_LIMBS];
+            let random_oi = MODULAR_OUTPUT[rng.gen::<usize>() % N_LIMBS];
             lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
 
             eval_packed_generic(&lv, &mut constraint_consumer);
