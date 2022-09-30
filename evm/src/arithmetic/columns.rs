@@ -91,6 +91,8 @@ pub(crate) const MODULAR_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
 pub(crate) const MODULAR_MODULUS: [usize; N_LIMBS] = GENERAL_INPUT_2;
 pub(crate) const MODULAR_OUTPUT: [usize; N_LIMBS] = GENERAL_INPUT_3;
 pub(crate) const MODULAR_QUO_INPUT: [usize; 2 * N_LIMBS] = AUX_INPUT_0;
+// NB: Last value is not used in AUX, it is used in IS_ZERO
 pub(crate) const MODULAR_AUX_INPUT: [usize; 2 * N_LIMBS] = AUX_INPUT_1;
+pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1[2 * N_LIMBS - 1];
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

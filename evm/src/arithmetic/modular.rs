@@ -27,7 +27,7 @@
 //! TODO: Write up analysis of degrees of the polynomials and the
 //! bounds on their coefficients.
 
-use num::BigUint;
+use num::{BigUint, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -92,27 +92,35 @@ fn generate_modular_op<F: RichField>(
     // conversion is safe.
     let input0_limbs = MODULAR_INPUT_0.map(|c| F::to_canonical_u64(&lv[c]) as i64);
     let input1_limbs = MODULAR_INPUT_1.map(|c| F::to_canonical_u64(&lv[c]) as i64);
-    let modulus_limbs = MODULAR_MODULUS.map(|c| F::to_canonical_u64(&lv[c]) as i64);
+    let mut modulus_limbs = MODULAR_MODULUS.map(|c| F::to_canonical_u64(&lv[c]) as i64);
 
     // The use of BigUints is entirely to avoid having to implement
     // modular reduction.
-    let modulus = columns_to_biguint(&modulus_limbs);
+    let mut modulus = columns_to_biguint(&modulus_limbs);
 
     // constr_poly is initialised to the calculated input, and is
     // used as such for the BigUint reduction; later, other values are
     // added/subtracted, which is where its meaning as the "constraint
     // polynomial" comes in.
-
     let mut constr_poly = [0i64; 2 * N_LIMBS];
     constr_poly[..2 * N_LIMBS - 1].copy_from_slice(&operation(input0_limbs, input1_limbs));
 
+    if modulus.is_zero() {
+        modulus += 1u32;
+        modulus_limbs[0] += 1i64;
+        lv[MODULAR_MOD_IS_ZERO] = F::ONE;
+    } else {
+        lv[MODULAR_MOD_IS_ZERO] = F::ZERO;
+    }
+
     let input = columns_to_biguint(&constr_poly);
 
-    // Assumes modulus != 0
+    // modulus != 0 here, because, if the given modulus was zero, then
+    // we added 1 to it above.
     let res = &input % &modulus;
     let output_limbs = biguint_to_columns::<N_LIMBS>(&res);
-    let lambda = (input - &res) / &modulus; // exact division
-    let quot_limbs = biguint_to_columns::<{ 2 * N_LIMBS }>(&lambda);
+    let quot = (&input - &res) / &modulus; // exact division
+    let quot_limbs = biguint_to_columns::<{ 2 * N_LIMBS }>(&quot);
 
     // TODO: explain the mapping between a, b, c, etc. and the
     // variable names used!
@@ -148,7 +156,11 @@ fn generate_modular_op<F: RichField>(
         lv[MODULAR_QUO_INPUT[deg]] = F::from_canonical_i64(quot_limbs[deg]);
         lv[MODULAR_QUO_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(quot_limbs[deg + N_LIMBS]);
         lv[MODULAR_AUX_INPUT[deg]] = F::from_canonical_i64(aux_limbs[deg]);
-        lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(aux_limbs[deg + N_LIMBS]);
+        // Don't overwrite MODULAR_MOD_IS_ZERO, which is at the last
+        // index of MODULAR_AUX_INPUT
+        if deg < N_LIMBS - 1 {
+            lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(aux_limbs[deg + N_LIMBS]);
+        }
     }
 }
 
@@ -174,10 +186,37 @@ fn modular_constr_poly<P: PackedField>(
     range_check_error!(MODULAR_AUX_INPUT, 20, signed);
     range_check_error!(MODULAR_OUTPUT, 16);
 
-    // FIXME: This code assumes that the modulus is greater than zero, and
-    // that the output is less than the modulus.
+    // FIXME: This code assumes that the output is less than the modulus.
 
-    let modulus = MODULAR_MODULUS.map(|c| lv[c]);
+    let mut modulus = MODULAR_MODULUS.map(|c| lv[c]);
+    let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
+    // Check that mod_is_zero is zero or one
+    yield_constr.constraint(filter * (mod_is_zero * mod_is_zero - mod_is_zero));
+    // Check that mod_is_zero is zero if modulus is not zero (they
+    // could both be zero)
+    let limb_sum = modulus.into_iter().sum::<P>();
+    yield_constr.constraint(filter * limb_sum * mod_is_zero);
+
+    // Add mod_is_zero to modulus (can't overflow, as modulus[0] was
+    // range-checked and mod_is_zero is 0 or 1). The rest of the
+    // calculation proceeds as if modulus was actually 1; this
+    // correctly verifies that the output is zero, as required by the
+    // standard.
+    modulus[0] += mod_is_zero;
+
+    // Summary of the constraints above:
+    //
+    // - mod_is_zero is 0 or 1
+    // - if mod_is_zero is 1, then
+    //    - given modulus is 0
+    //    - updated modulus is 1, which forces the correct output of 0
+    // - if mod_is_zero is 0, then
+    //    - given modulus can be 0 or non-zero
+    //    - updated modulus is same as given
+    //    - if modulus is non-zero, correct output is obtained
+    //    - if modulus is 0, then the test output < modulus, checking that
+    //      the output is reduced, will fail, because output is non-negative.
+
     let output = MODULAR_OUTPUT.map(|c| lv[c]);
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
     let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
@@ -194,21 +233,21 @@ fn modular_constr_poly<P: PackedField>(
     // Set constr_poly[deg] to be the degree deg coefficient of the
     // polynomial operation(a(x), b(x)) - c(x) - q(x) * m(x) where
     //
-    //   a(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
-    //   b(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
-    //   c(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
-    //   q(x) = \sum_i quot_limbs[i] * 2^(2*LIMB_BITS)
-    //   m(x) = \sum_i modulus_limbs[i] * 2^LIMB_BITS
+    //   a(x) = \sum_i^N input0_limbs[i] * β^i
+    //   b(x) = \sum_i^N input1_limbs[i] * β^i
+    //   c(x) = \sum_i^N output_limbs[i] * β^i
+    //   q(x) = \sum_i^2N quot_limbs[i] * β^i
+    //   m(x) = \sum_i^N modulus_limbs[i] * β^i
     //
-    // This polynomial should equal (x - 2^LIMB_BITS) * s(x) where s is
+    // This polynomial should equal (x - β) * s(x) where s is
     //
-    //   s(x) = \sum_i aux_limbs[i] * 2^(2*LIMB_BITS - 1)
+    //   s(x) = \sum_i^{2N-1} aux_limbs[i] * β^i
     //
 
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign(&mut constr_poly, &output);
 
-    // Add (x - 2^LIMB_BITS) * s(x) to constr_poly.
+    // Add (x - β) * s(x) to constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
 
@@ -226,7 +265,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_lt();
     */
 
-    // constr_poly has 2*N_LIMBS
+    // constr_poly has 2*N_LIMBS limbs
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);
 
     let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
@@ -344,7 +383,7 @@ mod tests {
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
-    fn generate_eval_consistency_not_addmod() {
+    fn generate_eval_consistency_not_modular() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -369,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_addmod() {
+    fn generate_eval_consistency() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -422,56 +461,61 @@ mod tests {
     }
 
     #[test]
-    fn addmod_zero_modulus() {
+    fn zero_modulus() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        // set `IS_ADDMOD == 1` and ensure all constraints are satisfied.
-        lv[IS_ADDMOD] = F::ONE;
+        for op_filter in [IS_ADDMOD, IS_MOD, IS_MULMOD] {
+            // Reset operation columns, then select one
+            lv[IS_ADDMOD] = F::ZERO;
+            lv[IS_MULMOD] = F::ZERO;
+            lv[IS_MOD] = F::ZERO;
+            lv[op_filter] = F::ONE;
 
-        for _i in 0..N_RND_TESTS {
-            // set inputs to random values and the modulus to zero;
-            // the output is defined to be zero when modulus is zero.
-            for (&ai, &bi, &mi) in izip!(
-                MODULAR_INPUT_0.iter(),
-                MODULAR_INPUT_1.iter(),
-                MODULAR_MODULUS.iter()
-            ) {
-                lv[ai] = F::from_canonical_u16(rng.gen());
-                lv[bi] = F::from_canonical_u16(rng.gen());
-                lv[mi] = F::ZERO;
+            for _i in 0..N_RND_TESTS {
+                // set inputs to random values and the modulus to zero;
+                // the output is defined to be zero when modulus is zero.
+                for (&ai, &bi, &mi) in izip!(
+                    MODULAR_INPUT_0.iter(),
+                    MODULAR_INPUT_1.iter(),
+                    MODULAR_MODULUS.iter()
+                ) {
+                    lv[ai] = F::from_canonical_u16(rng.gen());
+                    lv[bi] = F::from_canonical_u16(rng.gen());
+                    lv[mi] = F::ZERO;
+                }
+
+                generate(&mut lv, op_filter);
+
+                // check that the correct output was generated
+                assert!(MODULAR_OUTPUT.iter().all(|&oi| lv[oi] == F::ZERO));
+
+                let mut constraint_consumer = ConstraintConsumer::new(
+                    vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                    GoldilocksField::ONE,
+                );
+                eval_packed_generic(&lv, &mut constraint_consumer);
+                assert!(constraint_consumer
+                        .constraint_accs
+                        .iter()
+                        .all(|&acc| acc == F::ZERO));
+
+                // Corrupt one output limb by setting it to a non-zero value
+                let random_oi = MODULAR_OUTPUT[rng.gen::<usize>() % N_LIMBS];
+                lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
+
+                eval_packed_generic(&lv, &mut constraint_consumer);
+
+                // Check that at least one of the constraints was non-zero
+                assert!(constraint_consumer
+                        .constraint_accs
+                        .iter()
+                        .any(|&acc| acc != F::ZERO));
             }
-
-            generate(&mut lv, columns::IS_ADDMOD);
-
-            // check that the correct output was generated
-            assert!(MODULAR_OUTPUT.iter().all(|&oi| lv[oi] == F::ZERO));
-
-            let mut constraint_consumer = ConstraintConsumer::new(
-                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-                GoldilocksField::ONE,
-            );
-            eval_packed_generic(&lv, &mut constraint_consumer);
-            assert!(constraint_consumer
-                .constraint_accs
-                .iter()
-                .all(|&acc| acc == F::ZERO));
-
-            // Corrupt one output limb by setting it to a non-zero value
-            let random_oi = MODULAR_OUTPUT[rng.gen::<usize>() % N_LIMBS];
-            lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
-
-            eval_packed_generic(&lv, &mut constraint_consumer);
-
-            // Check that at least one of the constraints was non-zero
-            assert!(constraint_consumer
-                .constraint_accs
-                .iter()
-                .any(|&acc| acc != F::ZERO));
         }
     }
 }

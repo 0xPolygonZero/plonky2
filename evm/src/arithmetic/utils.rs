@@ -223,16 +223,16 @@ pub(crate) fn pol_extend_circuit<F: RichField + Extendable<D>, const D: usize>(
 /// Given polynomial a(X) = \sum_{i=0}^{M-1} a[i] X^i and an element
 /// `root`, return b = (X - root) * a(X)
 ///
-/// NB: Assumes that a[2 * N_LIMBS - 1] = 0.
+/// NB: Ignores a[2 * N_LIMBS - 1], treating it as if it's 0.
 pub(crate) fn pol_adjoin_root<T, U>(a: [T; 2 * N_LIMBS], root: U) -> [T; 2 * N_LIMBS]
 where
-    T: Add<Output = T> + Copy + Default + Mul<Output = T> + Neg<Output = T>,
+    T: Add<Output = T> + Copy + Default + Mul<Output = T> + Sub<Output = T>,
     U: Copy + Mul<T, Output = T> + Neg<Output = U>,
 {
     let mut res = [T::default(); 2 * N_LIMBS];
     res[0] = -root * a[0];
     for deg in 1..(2 * N_LIMBS - 1) {
-        res[deg] = -(root * a[deg]) + a[deg - 1];
+        res[deg] = a[deg - 1] - (root * a[deg]);
     }
     // NB: We assumes that a[2 * N_LIMBS - 1] = 0, so the last
     // iteration has no "* root" term.
