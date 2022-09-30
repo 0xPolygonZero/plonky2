@@ -15,6 +15,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;
@@ -47,8 +48,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         let mut packed_bytes: u32 = 0;
-        for (addr, byte) in chunk {
-            let channel = addr % NUM_CHANNELS;
+        for (channel, (addr, byte)) in chunk.enumerate() {
             state.set_mem_cpu_current(channel, Segment::Code, addr, byte.into());
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
