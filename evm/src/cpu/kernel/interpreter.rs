@@ -161,10 +161,6 @@ impl<'a> Interpreter<'a> {
         &self.memory.context_memory[0].segments[Segment::TrieData as usize].content
     }
 
-    pub(crate) fn get_kernel_general_data(&self) -> &[U256] {
-        &self.memory.context_memory[0].segments[Segment::KernelGeneral as usize].content
-    }
-
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
         self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
             .content

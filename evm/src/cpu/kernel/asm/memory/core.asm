@@ -99,9 +99,9 @@
     // stack: (empty)
 %endmacro
 
-// Store a single value to @SEGMENT_KERNEL_GENERAL.
-%macro mstore_kernel_general
+// Store a single byte to @SEGMENT_RLP_RAW.
+%macro mstore_rlp
     // stack: offset, value
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel(@SEGMENT_RLP_RAW)
     // stack: (empty)
 %endmacro
