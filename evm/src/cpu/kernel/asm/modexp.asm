@@ -1,12 +1,25 @@
+// Return 
+global mod:
+    // stack: x_len, x[0], ..., x[x_len], p_len, p[0], ..., p[p_len]
+    
+
+
+
 /// Recursive implementation of exp.
 /// Equivalent to:
-///     def exp(x, e):
+///     def modexp(x, e, p):
 ///         if e == 0:
 ///             # The path where JUMPI does not jump to `step_case`
 ///             return 1
 ///         else:
 ///             # This is under the `step_case` label
-///             return (x if e % 2 else 1) * exp(x * x, e // 2)
+                let res = (x if e % 2 else 1) * exp(x * x, e // 2)
+                return res % p if 
+                if res > p:
+                    return res % p
+                    
+
+///             return 
 /// Note that this correctly handles exp(0, 0) == 1.
 
 global exp:
