@@ -4,7 +4,9 @@ global main:
     %jump(load_all_mpts)
 
 hash_initial_tries:
-    // TODO: Hash each trie and set @GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE, etc.
+    %mpt_hash_state_trie   %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)
+    %mpt_hash_txn_trie     %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
+    %mpt_hash_receipt_trie %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)
 
 txn_loop:
     // If the prover has no more txns for us to process, halt.
@@ -16,5 +18,7 @@ txn_loop:
     %jump(route_txn)
 
 hash_final_tries:
-    // TODO: Hash each trie and set @GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER, etc.
+    %mpt_hash_state_trie   %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)
+    %mpt_hash_txn_trie     %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)
+    %mpt_hash_receipt_trie %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)
     %jump(halt)

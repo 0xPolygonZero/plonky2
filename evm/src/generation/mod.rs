@@ -89,18 +89,16 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let trie_roots_before = TrieRoots {
         state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestBefore)),
         transactions_root: H256::from_uint(&read_metadata(
-            GlobalMetadata::TransactionsTrieRootDigestBefore,
+            GlobalMetadata::TransactionTrieRootDigestBefore,
         )),
-        receipts_root: H256::from_uint(&read_metadata(
-            GlobalMetadata::ReceiptsTrieRootDigestBefore,
-        )),
+        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptTrieRootDigestBefore)),
     };
     let trie_roots_after = TrieRoots {
         state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestAfter)),
         transactions_root: H256::from_uint(&read_metadata(
-            GlobalMetadata::TransactionsTrieRootDigestAfter,
+            GlobalMetadata::TransactionTrieRootDigestAfter,
         )),
-        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptsTrieRootDigestAfter)),
+        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptTrieRootDigestAfter)),
     };
 
     let GenerationState {

@@ -43,6 +43,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/rlp/decode.asm"),
         include_str!("asm/rlp/read_to_memory.asm"),
         include_str!("asm/mpt/hash.asm"),
+        include_str!("asm/mpt/hash_trie_specific.asm"),
         include_str!("asm/mpt/hex_prefix.asm"),
         include_str!("asm/mpt/load.asm"),
         include_str!("asm/mpt/read.asm"),
