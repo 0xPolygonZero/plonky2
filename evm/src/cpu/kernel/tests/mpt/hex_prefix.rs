@@ -20,9 +20,11 @@ fn hex_prefix_even_nonterminated() -> Result<()> {
     assert_eq!(
         interpreter.get_rlp_memory(),
         vec![
-            4, // length
-            0, // neither flag is set
-            0xAB, 0xCD, 0xEF
+            0x80 + 4, // prefix
+            0,        // neither flag is set
+            0xAB,
+            0xCD,
+            0xEF
         ]
     );
 
@@ -46,7 +48,7 @@ fn hex_prefix_odd_terminated() -> Result<()> {
     assert_eq!(
         interpreter.get_rlp_memory(),
         vec![
-            3, // length
+            0x80 + 3, // prefix
             (2 + 1) * 16 + 0xA,
             0xBC,
             0xDE,

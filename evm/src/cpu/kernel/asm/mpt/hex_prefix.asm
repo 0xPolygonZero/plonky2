@@ -30,7 +30,7 @@ global hex_prefix_rlp:
 
 rlp_header_medium:
     // stack: hp_len, i, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
-    DUP1 // value = hp_len
+    DUP1 %add_const(0x80) // value = 0x80 + hp_len
     DUP4 // offset = rlp_pos
     %mstore_rlp
 
@@ -44,7 +44,7 @@ rlp_header_large:
     // In practice hex-prefix length will never exceed 256, so the length of the
     // length will always be 1 byte in this case.
 
-    PUSH 1 // value = len_of_len = 1
+    PUSH 0xb8 // value = 0xb7 + len_of_len = 0xb8
     DUP4 // offset = rlp_pos
     %mstore_rlp
 

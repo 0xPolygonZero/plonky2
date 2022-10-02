@@ -1,5 +1,6 @@
 use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 
+mod hash;
 mod hex_prefix;
 mod load;
 mod read;

@@ -108,3 +108,48 @@ fn test_prepend_rlp_list_prefix_small() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_prepend_rlp_list_prefix_large() -> Result<()> {
+    let prepend_rlp_list_prefix = KERNEL.global_labels["prepend_rlp_list_prefix"];
+
+    let retdest = 0xDEADBEEFu32.into();
+    let end_pos = (9 + 60).into();
+    let initial_stack = vec![retdest, end_pos];
+    let mut interpreter = Interpreter::new_with_kernel(prepend_rlp_list_prefix, initial_stack);
+
+    #[rustfmt::skip]
+    interpreter.set_rlp_memory(vec![
+        // Nine 0s to leave room for the longest possible RLP list prefix.
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        // The actual RLP list payload, consisting of 60 tiny strings.
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+        40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+        50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+    ]);
+
+    interpreter.run()?;
+
+    let expected_rlp_len = 62.into();
+    let expected_start_pos = 7.into();
+    let expected_stack = vec![expected_rlp_len, expected_start_pos];
+
+    #[rustfmt::skip]
+    let expected_rlp = vec![
+        0, 0, 0, 0, 0, 0, 0, 0xf7 + 1, 60,
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+        30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+        40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+        50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+    ];
+
+    assert_eq!(interpreter.stack(), expected_stack);
+    assert_eq!(interpreter.get_rlp_memory(), expected_rlp);
+
+    Ok(())
+}

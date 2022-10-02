@@ -34,6 +34,7 @@ pub struct OpsColumnsView<T> {
     pub shr: T,
     pub sar: T,
     pub keccak256: T,
+    pub keccak_general: T,
     pub address: T,
     pub balance: T,
     pub origin: T,
