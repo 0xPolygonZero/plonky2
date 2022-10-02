@@ -207,6 +207,7 @@ prepend_rlp_list_prefix_big_done_writing_len:
 // Get the number of bytes required to represent the given scalar.
 // The scalar is assumed to be non-zero, as small scalars like zero should
 // have already been handled with the small-scalar encoding.
+// TODO: Should probably unroll the loop
 global num_bytes:
     // stack: x, retdest
     PUSH 0 // i
