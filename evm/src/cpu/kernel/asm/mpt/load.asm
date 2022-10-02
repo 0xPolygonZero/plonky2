@@ -9,8 +9,7 @@ global load_all_mpts:
     PUSH 1
     %set_trie_data_size
 
-    %load_mpt_and_return_root_ptr
-    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
     %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
 
