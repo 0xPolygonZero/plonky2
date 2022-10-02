@@ -17,7 +17,7 @@ type C = PoseidonGoldilocksConfig;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
-#[ignore] // TODO: Won't work until storage, etc. are implemented.
+#[ignore] // TODO: Won't work until witness generation logic is finished.
 fn test_empty_txn_list() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();

@@ -1,3 +1,22 @@
+// Given an address, return a pointer to the associated account data, which
+// consists of four words (nonce, balance, storage_root, code_hash), in the
+// state trie. Returns 0 if the address is not found.
+global mpt_read_state_trie:
+    // stack: addr, retdest
+    // The key is the hash of the address. Since KECCAK_GENERAL takes input from
+    // memory, we will write addr bytes to SEGMENT_KERNEL_GENERAL[0..20] first.
+    %stack (addr) -> (0, @SEGMENT_KERNEL_GENERAL, 0, addr, 20, mpt_read_state_trie_after_mstore)
+    %jump(mstore_unpacking)
+mpt_read_state_trie_after_mstore:
+    // stack: retdest
+    %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, 20) // context, segment, offset, len
+    KECCAK_GENERAL
+    // stack: key, retdest
+    PUSH 64 // num_nibbles
+    %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT) // node_ptr
+    // stack: node_ptr, num_nibbles, key, retdest
+    %jump(mpt_read)
+
 // Read a value from a MPT.
 //
 // Arguments:
@@ -6,7 +25,6 @@
 // - the number of nibbles in the key (should start at 64)
 //
 // This function returns a pointer to the leaf, or 0 if the key is not found.
-
 global mpt_read:
     // stack: node_ptr, num_nibbles, key, retdest
     DUP1
