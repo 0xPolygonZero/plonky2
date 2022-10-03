@@ -1,13 +1,27 @@
 use tiny_keccak::keccakf;
 
+use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
+
 /// A Keccak-f based hash.
 ///
 /// This hash does not use standard Keccak padding, since we don't care about extra zeros at the
-/// end of the code.
-pub(crate) fn hash_kernel(_code: &[u8]) -> [u32; 8] {
-    let state = [0u32; 50];
-    // TODO: absorb code
-    state[0..8].try_into().unwrap()
+/// end of the code. It also uses an overwrite-mode sponge, rather than a standard sponge where
+/// inputs are xor'ed in.
+pub(crate) fn hash_kernel(code: &[u8]) -> [u32; 8] {
+    debug_assert_eq!(
+        code.len() % KECCAK_RATE_BYTES,
+        0,
+        "Code should have been padded to a multiple of the Keccak rate."
+    );
+
+    let mut state = [0u32; 50];
+    for chunk in code.chunks(KECCAK_RATE_BYTES) {
+        for i in 0..KECCAK_RATE_U32S {
+            state[i] = u32::from_le_bytes(std::array::from_fn(|j| chunk[i * 4 + j]));
+        }
+        keccakf_u32s(&mut state);
+    }
+    state[..8].try_into().unwrap()
 }
 
 /// Like tiny-keccak's `keccakf`, but deals with `u32` limbs instead of `u64` limbs.

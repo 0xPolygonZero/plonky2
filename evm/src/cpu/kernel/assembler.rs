@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use ethereum_types::U256;
 use itertools::izip;
 use log::debug;
+use plonky2_util::ceil_div_usize;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
@@ -16,6 +17,7 @@ use crate::cpu::kernel::{
     opcodes::{get_opcode, get_push_opcode},
 };
 use crate::generation::prover_input::ProverInputFn;
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
@@ -42,13 +44,26 @@ impl Kernel {
         global_labels: HashMap<String, usize>,
         prover_inputs: HashMap<usize, ProverInputFn>,
     ) -> Self {
-        let code_hash = hash_kernel(&code);
+        let code_hash = hash_kernel(&Self::padded_code_helper(&code));
+
         Self {
             code,
             code_hash,
             global_labels,
             prover_inputs,
         }
+    }
+
+    /// Zero-pads the code such that its length is a multiple of the Keccak rate.
+    pub(crate) fn padded_code(&self) -> Vec<u8> {
+        Self::padded_code_helper(&self.code)
+    }
+
+    fn padded_code_helper(code: &[u8]) -> Vec<u8> {
+        let padded_len = ceil_div_usize(code.len(), KECCAK_RATE_BYTES) * KECCAK_RATE_BYTES;
+        let mut padded_code = code.to_vec();
+        padded_code.resize(padded_len, 0);
+        padded_code
     }
 }
 
