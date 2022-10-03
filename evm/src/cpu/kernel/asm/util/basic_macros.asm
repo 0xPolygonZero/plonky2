@@ -230,6 +230,36 @@
     // stack: max
 %endmacro
 
+%macro as_u32
+    %and_const(0xffffffff)
+%endmacro
+
+%macro not_u32
+    // stack: x
+    PUSH 0xffffffff
+    // stack: 0xffffffff, x
+    SUB
+    // stack: 0xffffffff - x
+%endmacro
+
+// u32 addition (discarding 2^32 bit)
+%macro add_u32
+    // stack: x, y
+    ADD
+    // stack: x + y
+    %as_u32
+    // stack: (x + y) & u32::MAX
+%endmacro
+
+%macro add3_u32
+    // stack: x , y , z
+    ADD
+    // stack: x + y , z
+    ADD
+    // stack: x + y + z
+    %as_u32
+%endmacro
+
 %macro increment
     %add_const(1)
 %endmacro
@@ -247,15 +277,30 @@
     ISZERO
 %endmacro
 
-%macro as_u32
-    %and_const(0xFFFFFFFF)
-%endmacro
-
-// u32 addition (discarding 2^32 bit)
-%macro add_u32
-    // stack: x, y
-    ADD
-    // stack: x + y
-    %as_u32
-    // stack: (x + y) & u32::MAX
+// given u32 bytestring abcd return dcba
+%macro reverse_bytes_u32
+    // stack: abcd
+    DUP1
+    PUSH 28
+    BYTE
+    // stack:                a, abcd
+    DUP2
+    PUSH 29
+    BYTE
+    %shl_const(8)
+    // stack:            b0, a, abcd 
+    DUP3
+    PUSH 30
+    BYTE
+    %shl_const(16)
+    // stack:       c00, b0, a, abcd
+    SWAP3
+    PUSH 31
+    BYTE
+    %shl_const(24)
+    // stack: d000, b0, a, c00
+    OR 
+    OR
+    OR
+    // stack: dcba
 %endmacro

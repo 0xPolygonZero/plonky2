@@ -3,7 +3,8 @@ use std::str::FromStr;
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
-use sha2::{Digest, Sha256};
+use ripemd::{Digest, Ripemd160};
+use sha2::Sha256;
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run_with_kernel;
@@ -11,6 +12,13 @@ use crate::cpu::kernel::interpreter::run_with_kernel;
 /// Standard Sha2 implementation.
 fn sha2(input: Vec<u8>) -> U256 {
     let mut hasher = Sha256::new();
+    hasher.update(input);
+    U256::from(&hasher.finalize()[..])
+}
+
+/// Standard RipeMD implementation.
+fn ripemd(input: Vec<u8>) -> U256 {
+    let mut hasher = Ripemd160::new();
     hasher.update(input);
     U256::from(&hasher.finalize()[..])
 }
@@ -47,4 +55,9 @@ fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U
 #[test]
 fn test_sha2() -> Result<()> {
     test_hash("sha2", &sha2)
+}
+
+#[test]
+fn test_ripemd() -> Result<()> {
+    test_hash("ripemd_stack", &ripemd)
 }
