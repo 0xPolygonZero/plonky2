@@ -23,8 +23,8 @@ store_size:
     %extract_and_store_byte(70)
     // stack: a
     %mstore_kernel_general(71)
-    // stack:           0x80     // padding has 0x80 in first position and zeros elsewhere
-    %mstore_kernel_general(72)    // store first padding term here so as to avoid extra label
+    // stack:           0x80    // padding has 0x80 in first position and zeros elsewhere
+    %mstore_kernel_general(72)  // store first padding term here so as to avoid extra label
     %jump(store_padding)
 
 store_padding:

@@ -30,26 +30,26 @@ global rol:
 //         acc += (i==rnd)*F
 //     return acc, rnd
 //
-// %this_F(i,F) enacts
+// %this_f(i,F) enacts
 //     acc += (i==rnd)*F
 
 %macro push_f
     // stack:    rnd
     PUSH 0
-    %this_F(0,F0)
-    %this_F(1,F1)
-    %this_F(2,F2)
-    %this_F(3,F3)
-    %this_F(4,F4)
-    %this_F(5,F4)
-    %this_F(6,F3)
-    %this_F(7,F2)
-    %this_F(8,F1)
-    %this_F(9,F0)
+    %this_f(0,F0)
+    %this_f(1,F1)
+    %this_f(2,F2)
+    %this_f(3,F3)
+    %this_f(4,F4)
+    %this_f(5,F4)
+    %this_f(6,F3)
+    %this_f(7,F2)
+    %this_f(8,F1)
+    %this_f(9,F0)
     // stack: F, rnd
 %endmacro
 
-%macro this_F(i, F)
+%macro this_f(i, F)
   // stack:              acc, rnd
   DUP2
   // stack:  rnd       , acc, rnd
