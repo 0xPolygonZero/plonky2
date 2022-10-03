@@ -39,6 +39,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/memory/metadata.asm"),
         include_str!("asm/memory/packing.asm"),
         include_str!("asm/memory/txn_fields.asm"),
+        include_str!("asm/ripemd/box.asm"),
         include_str!("asm/ripemd/compression.asm"),
         include_str!("asm/ripemd/constants.asm"),
         include_str!("asm/ripemd/functions.asm"),
