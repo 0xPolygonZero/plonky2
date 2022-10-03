@@ -9,16 +9,15 @@ fn make_input(word: &str) -> Vec<u32> {
     let mut input: Vec<u32> = vec![word.len().try_into().unwrap()];
     input.append(&mut word.as_bytes().iter().map(|&x| x as u32).collect_vec());
     input.push(u32::from_str_radix("deadbeef", 16).unwrap());
-    dbg!(input.clone());
     input
 }
 
-// #[test]
+#[test]
 fn test_ripemd_reference() -> Result<()> {
     let reference = vec![
-        // ("", "0x9c1185a5c5e9fc54612808977ee8f548b2258d31"),
-        // ("a", "0x0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
-        // ("abc", "0x8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
+        ("", "0x9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+        ("a", "0x0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
+        ("abc", "0x8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
         (
             "message digest",
             "0x5d0689ef49d2fae572b881b123a85ffa21595f36",
@@ -47,15 +46,12 @@ fn test_ripemd_reference() -> Result<()> {
 
         let kernel = combined_kernel();
         let initial_offset = kernel.global_labels["ripemd_stack"];
-        let initial_stack: Vec<U256> = input.iter().map(|&x| U256::from(x as u8)).rev().collect();
+        let initial_stack: Vec<U256> = input.iter().map(|&x| U256::from(x as u32)).rev().collect();
         let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
             .stack()
             .to_vec();
         let actual = final_stack[0];
         assert_eq!(actual, expected);
-
-        // let read_out: Vec<String> = final_stack.iter().map(|x| format!("{:x}", x)).rev().collect();
-        // println!("{:x?}", read_out);
     }
     Ok(())
 }
