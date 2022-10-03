@@ -79,6 +79,32 @@ store_input:
     // stack:                              length
     %jump(ripemd_init)
 
+/// def buffer_update(get, set, times):
+///     for i in range(times):
+///         buffer[set+i] = bytestring[get+i]
+
+global buffer_update:
+    // stack:           get  , set  , times  , retdest
+    DUP2
+    DUP2
+    // stack: get, set, get  , set  , times  , retdest
+    %mupdate_kernel_general
+    // stack:           get  , set  , times  , retdest
+    %add_const(1)
+    SWAP1 
+    %add_const(1)
+    SWAP1
+    SWAP2
+    %sub_const(1)
+    SWAP2
+    // stack:           get+1, set+1, times-1, retdest
+    DUP3
+    %jumpi(buffer_update)
+    // stack:           get  , set  , 0      , retdest
+    %pop3
+    JUMP
+    
+
 %macro store_zeros(N, label)
     // stack: i
     %stack (i) -> ($N, i, 0, i)
