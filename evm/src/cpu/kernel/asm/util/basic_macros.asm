@@ -246,3 +246,16 @@
     %mod_const(2)
     ISZERO
 %endmacro
+
+%macro as_u32
+    %and_const(0xFFFFFFFF)
+%endmacro
+
+// u32 addition (discarding 2^32 bit)
+%macro add_u32
+    // stack: x, y
+    ADD
+    // stack: x + y
+    %as_u32
+    // stack: (x + y) & u32::MAX
+%endmacro

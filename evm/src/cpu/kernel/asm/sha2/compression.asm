@@ -1,3 +1,11 @@
+// We use memory starting at 320 * num_blocks + 2 (after the message schedule
+// space) as scratch space to store stack values.
+%macro scratch_space_addr_from_num_blocks
+    // stack: num_blocks
+    %mul_const(320)
+    %add_const(2)
+%endmacro
+
 global sha2_compression:
     // stack: message_schedule_addr, retdest
     PUSH 0

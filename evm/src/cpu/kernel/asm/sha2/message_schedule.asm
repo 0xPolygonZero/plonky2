@@ -1,3 +1,10 @@
+// We put the message schedule in memory starting at 64 * num_blocks + 2.
+%macro message_schedule_addr_from_num_blocks
+    // stack: num_blocks
+    %mul_const(64)
+    %add_const(2)
+%endmacro
+
 // Precodition: stack contains address of one message block, followed by output address
 // Postcondition: 256 bytes starting at given output address contain the 64 32-bit chunks
 //                of message schedule (in four-byte increments)
@@ -32,7 +39,7 @@ gen_message_schedule_from_block_0_loop:
     // stack: block[0] >> 32, block[0], output_addr, counter, block[1], retdest
     SWAP1
     // stack: block[0], block[0] >> 32, output_addr, counter, block[1], retdest
-    %truncate_to_u32
+    %as_u32
     // stack: block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
     DUP3
     // stack: output_addr, block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
@@ -73,7 +80,7 @@ gen_message_schedule_from_block_1_loop:
     // stack: block[1] >> 32, block[1], output_addr, counter, block[0], retdest
     SWAP1
     // stack: block[1], block[1] >> 32, output_addr, counter, block[0], retdest
-    %truncate_to_u32
+    %as_u32
     // stack: block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest
     DUP3
     // stack: output_addr, block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest

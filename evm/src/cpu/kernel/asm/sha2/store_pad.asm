@@ -1,3 +1,6 @@
+global sha2:
+    %jump(sha2_store)
+
 global sha2_store:
     // stack: num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     DUP1
@@ -84,6 +87,3 @@ global sha2_pad:
     // stack: num_blocks, retdest
     %message_schedule_addr_from_num_blocks
     %jump(sha2_gen_all_message_schedules)
-
-global sha2:
-    %jump(sha2_store)

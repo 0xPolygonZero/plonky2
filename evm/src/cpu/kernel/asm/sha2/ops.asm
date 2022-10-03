@@ -1,13 +1,3 @@
-// u32 addition (discarding 2^32 bit)
-%macro add_u32
-    // stack: x, y
-    ADD
-    // stack: x + y
-    %truncate_to_u32
-    // stack: (x + y) & u32::MAX
-%endmacro
-
-
 // 32-bit right rotation
 %macro rotr(rot)
     // stack: value
@@ -25,7 +15,7 @@
     // stack: 32 - rot, value, value >> rot
     SHL
     // stack: value << (32 - rot), value >> rot
-    %truncate_to_u32
+    %as_u32
     // stack: (value << (32 - rot)) % (1 << 32), value >> rot
     ADD
 %endmacro
