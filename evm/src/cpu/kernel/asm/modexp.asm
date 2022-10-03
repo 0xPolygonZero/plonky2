@@ -1,6 +1,44 @@
-// Return 
-global mod:
+// use locations in kernel genoral memory
+
+// Return x >= p, where x and p are unbounded integers represented with one-byte limbs.
+global ge_unbounded:
+    // stack: x_len, x_0_loc, p_len, p_0_loc
+
+    // load x_len, p_len
+    // compare
+    // if same, loop:
+    //    load next limb of each
+    //    3-way compare
+    //    if equal, back to loop
+    
+
+// Return x - p, where x and p are unbounded integers represented with one-byte limbs.
+// Assumes x >= p.
+global sub_unbounded:
+    // stack: x_len, x_0_loc, p_len, p_0_loc
+    
+    // restict to lowest p_len limbs of x???
+    // loop for each limb:
+    //      if ge, subtract
+    //      if smaller
+    //            add 1<<8, subtract
+    //            take one from previous
+        
+    
+
+
+// Return x % p, where x and p are unbounded integers represented with one-byte limbs.
+global mod_unbounded:
     // stack: x_len, x[0], ..., x[x_len], p_len, p[0], ..., p[p_len]
+    
+    // save both to memory
+global mod_unbounded_inner:
+    // call 
+
+global mod_unbounded_inner:
+
+    // while x > p:
+        x -= p
     
 
 
@@ -22,7 +60,7 @@ global mod:
 ///             return 
 /// Note that this correctly handles exp(0, 0) == 1.
 
-global exp:
+global modexp:
     // stack: x, e, retdest
     dup2
     // stack: e, x, e, retdest
