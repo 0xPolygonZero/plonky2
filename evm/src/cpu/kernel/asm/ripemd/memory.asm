@@ -115,21 +115,21 @@ store_input:
     // stack:         value 
     PUSH $offset
     // stack: offset, value 
-    %mstore_kernel(@SEGMENT_RIPEMD)
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack: 
 %endmacro
 
 %macro mstore_ripemd
     // stack: offset, value 
-    %mstore_kernel(@SEGMENT_RIPEMD)
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack: 
 %endmacro
 
 %macro mload_ripemd
-    %mload_kernel(@SEGMENT_RIPEMD)
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
 %endmacro
 
-// Load LE u32 from 4 contiguous bytes a, b, c, d in SEGMENT_RIPEMD
+// Load LE u32 from 4 contiguous bytes a, b, c, d
 %macro load_u32_from_block
     // stack: offset
     DUP1
@@ -155,7 +155,7 @@ store_input:
     // stack: a | (b << 8) | (c << 16) | (d << 24)
 %endmacro
 
-// set offset i to offset j in SEGMENT_RIPEMD
+// set offset i to offset j in memory
 %macro mupdate_ripemd
     // stack: j, i
     %mload_ripemd

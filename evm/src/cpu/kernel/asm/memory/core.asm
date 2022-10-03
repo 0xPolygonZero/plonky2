@@ -62,24 +62,13 @@
     // stack: value
 %endmacro
 
-%macro mload_kernel_code_label(label)
+%macro mload_kernel_code(label)
     // stack: shift
     PUSH $label  
     ADD
     // stack: label + shift
     %mload_kernel_code
     // stack: byte
-%endmacro
-
-%macro mload_kernel_code_label_u32(label)
-    // stack: u32_shift
-    %mul_const(4)
-    // stack: byte_shift
-    PUSH $label  
-    ADD
-    // stack: label + byte_shift
-    %mload_kernel_code_u32
-    // stack: u32
 %endmacro
 
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
@@ -110,6 +99,17 @@
     %mload_kernel_code
     OR
     // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
+%endmacro
+
+%macro mload_kernel_code_u32(label)
+    // stack: u32_shift
+    %mul_const(4)
+    // stack: byte_shift
+    PUSH $label  
+    ADD
+    // stack: label + byte_shift
+    %mload_kernel_code_u32
+    // stack: u32
 %endmacro
 
 // Store a single byte to kernel code.

@@ -36,12 +36,10 @@ pub(crate) enum Segment {
     /// `StorageTriePointers` with `StorageTrieCheckpointPointers`.
     /// See also `StateTrieCheckpointPointer`.
     StorageTrieCheckpointPointers = 14,
-    /// RipeMD storage
-    RipeMd = 15,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 16;
+    pub(crate) const COUNT: usize = 15;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -60,7 +58,6 @@ impl Segment {
             Self::StorageTrieAddresses,
             Self::StorageTriePointers,
             Self::StorageTrieCheckpointPointers,
-            Self::RipeMd,
         ]
     }
 
@@ -82,7 +79,6 @@ impl Segment {
             Segment::StorageTrieAddresses => "SEGMENT_STORAGE_TRIE_ADDRS",
             Segment::StorageTriePointers => "SEGMENT_STORAGE_TRIE_PTRS",
             Segment::StorageTrieCheckpointPointers => "SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS",
-            Segment::RipeMd => "SEGMENT_RIPEMD",
         }
     }
 
@@ -104,7 +100,6 @@ impl Segment {
             Segment::StorageTrieAddresses => 160,
             Segment::StorageTriePointers => 32,
             Segment::StorageTrieCheckpointPointers => 32,
-            Segment::RipeMd => 8,
         }
     }
 }
