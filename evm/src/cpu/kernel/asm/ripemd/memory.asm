@@ -72,7 +72,7 @@ store_input:
     %add_const(1)
     SWAP3
     // stack:               rem-1, ADDR+1, length
-    DUP2
+    DUP1
     %jumpi(store_input)
     // stack:               0    , ADDR  , length
     %pop4
@@ -103,7 +103,7 @@ global buffer_update:
     // stack:           get  , set  , 0      , retdest
     %pop3
     JUMP
-    
+
 
 %macro store_zeros(N, label)
     // stack: i

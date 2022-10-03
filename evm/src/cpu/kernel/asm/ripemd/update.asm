@@ -17,7 +17,6 @@
 /// 
 ///     return state, count + 8*length, buffer
 
-
 global ripemd_update:
     // stack:                           STATE, count, length, virt, retdest
     %stack (STATE: 5, count, length, virt) -> (count, 8, 64, STATE, count, length, virt)
