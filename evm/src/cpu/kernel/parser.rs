@@ -119,12 +119,12 @@ fn parse_stack_placeholder(target: Pair<Rule>) -> StackPlaceholder {
     assert_eq!(target.as_rule(), Rule::stack_placeholder);
     let inner = target.into_inner().next().unwrap();
     match inner.as_rule() {
-        Rule::identifier => StackPlaceholder::Identifier(inner.as_str().into()),
+        Rule::identifier => StackPlaceholder(inner.as_str().into(), 1),
         Rule::stack_block => {
             let mut block = inner.into_inner();
             let identifier = block.next().unwrap().as_str();
             let length = block.next().unwrap().as_str().parse().unwrap();
-            StackPlaceholder::Block(identifier.to_string(), length)
+            StackPlaceholder(identifier.to_string(), length)
         }
         _ => panic!("Unexpected {:?}", inner.as_rule()),
     }
