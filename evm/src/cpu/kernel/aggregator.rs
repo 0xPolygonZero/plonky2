@@ -50,6 +50,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/mpt/write.asm"),
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/decode.asm"),
+        include_str!("asm/rlp/num_bytes.asm"),
         include_str!("asm/rlp/read_to_memory.asm"),
         include_str!("asm/sha2/compression.asm"),
         include_str!("asm/sha2/constants.asm"),

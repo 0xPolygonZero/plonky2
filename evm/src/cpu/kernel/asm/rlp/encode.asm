@@ -196,43 +196,6 @@ prepend_rlp_list_prefix_big_done_writing_len:
 %%after:
 %endmacro
 
-// Get the number of bytes required to represent the given scalar.
-// The scalar is assumed to be non-zero, as small scalars like zero should
-// have already been handled with the small-scalar encoding.
-// TODO: Should probably unroll the loop
-global num_bytes:
-    // stack: x, retdest
-    PUSH 0 // i
-    // stack: i, x, retdest
-
-num_bytes_loop:
-    // stack: i, x, retdest
-    // If x[i] != 0, break.
-    DUP2 DUP2
-    // stack: i, x, i, x, retdest
-    BYTE
-    // stack: x[i], i, x, retdest
-    %jumpi(num_bytes_finish)
-    // stack: i, x, retdest
-
-    %add_const(1)
-    // stack: i', x, retdest
-    %jump(num_bytes_loop)
-
-num_bytes_finish:
-    // stack: i, x, retdest
-    PUSH 32
-    SUB
-    %stack (num_bytes, x, retdest) -> (retdest, num_bytes)
-    JUMP
-
-// Convenience macro to call num_bytes and return where we left off.
-%macro num_bytes
-    %stack (x) -> (x, %%after)
-    %jump(num_bytes)
-%%after:
-%endmacro
-
 // Given some scalar, compute the number of bytes used in its RLP encoding,
 // including any length prefix.
 %macro scalar_rlp_len
