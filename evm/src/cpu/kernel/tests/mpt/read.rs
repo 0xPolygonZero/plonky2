@@ -2,7 +2,7 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::state_trie_ext_to_account_leaf;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
