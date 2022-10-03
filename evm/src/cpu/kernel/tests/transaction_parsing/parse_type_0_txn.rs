@@ -4,8 +4,8 @@ use hex_literal::hex;
 use NormalizedTxnField::*;
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 
 #[test]
 fn process_type_0_txn() -> Result<()> {

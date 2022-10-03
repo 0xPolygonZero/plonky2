@@ -7,8 +7,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::kernel::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;

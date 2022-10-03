@@ -4,13 +4,16 @@ use ethereum_types::U256;
 use hex_literal::hex;
 
 use crate::cpu::decode::invalid_opcodes_user;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
-use crate::cpu::kernel::context_metadata::ContextMetadata;
-use crate::cpu::kernel::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
+pub(crate) mod context_metadata;
+pub(crate) mod global_metadata;
 pub(crate) mod trie_type;
+pub(crate) mod txn_fields;
 
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {
