@@ -82,7 +82,7 @@ global process:
     %reverse_bytes_u32
     OR 
     // stack: e' d' c' b' a', VARS
-    %stack (result, VARS: 3) -> (0xdeadbeef, result)
+    %stack (result, VARS: 3, retdest) -> (retdest, result)
     // stack: 0xdeadbeef, result
     JUMP
 
