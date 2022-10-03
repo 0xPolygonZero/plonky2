@@ -201,23 +201,22 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
-    pub fn generate_trace(&self, inputs: Vec<[u64; NUM_INPUTS]>) -> Vec<PolynomialValues<F>> {
-        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
-
+    pub fn generate_trace(
+        &self,
+        inputs: Vec<[u64; NUM_INPUTS]>,
+        timing: &mut TimingTree,
+    ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
         let trace_rows = timed!(
-            &mut timing,
+            timing,
             "generate trace rows",
             self.generate_trace_rows(inputs)
         );
-
         let trace_polys = timed!(
-            &mut timing,
+            timing,
             "convert to PolynomialValues",
             trace_rows_to_poly_values(trace_rows)
         );
-
-        timing.print();
         trace_polys
     }
 }
@@ -542,12 +541,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::types::PrimeField64;
+    use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+    use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::fri::oracle::PolynomialBatch;
+    use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::timed;
+    use plonky2::util::timing::TimingTree;
     use tiny_keccak::keccakf;
 
+    use crate::config::StarkConfig;
+    use crate::cross_table_lookup::{CtlData, CtlZData};
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
+    use crate::permutation::GrandProductChallenge;
+    use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -608,5 +617,76 @@ mod tests {
         assert_eq!(output, expected);
 
         Ok(())
+    }
+
+    #[test]
+    fn keccak_benchmark() -> Result<()> {
+        const NUM_PERMS: usize = 85;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = KeccakStark<F, D>;
+        let stark = S::default();
+        let config = StarkConfig::standard_fast_config();
+
+        init_logger();
+
+        let input: Vec<[u64; NUM_INPUTS]> = (0..NUM_PERMS).map(|_| rand::random()).collect();
+
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
+        let trace_poly_values = timed!(
+            timing,
+            "generate trace",
+            stark.generate_trace(input.try_into().unwrap(), &mut timing)
+        );
+
+        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+        let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
+
+        let trace_commitments = timed!(
+            timing,
+            "compute trace commitment",
+            PolynomialBatch::<F, C, D>::from_values(
+                cloned_trace_poly_values,
+                config.fri_config.rate_bits,
+                false,
+                config.fri_config.cap_height,
+                &mut timing,
+                None,
+            )
+        );
+        let degree = 1 << trace_commitments.degree_log;
+
+        // Fake CTL data.
+        let ctl_z_data = CtlZData {
+            z: PolynomialValues::zero(degree),
+            challenge: GrandProductChallenge {
+                beta: F::ZERO,
+                gamma: F::ZERO,
+            },
+            columns: vec![],
+            filter_column: None,
+        };
+        let ctl_data = CtlData {
+            zs_columns: vec![ctl_z_data; config.num_challenges],
+        };
+
+        prove_single_table(
+            &stark,
+            &config,
+            &trace_poly_values,
+            &trace_commitments,
+            &ctl_data,
+            &mut Challenger::new(),
+            &mut timing,
+        )?;
+
+        timing.print();
+        Ok(())
+    }
+
+    fn init_logger() {
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
     }
 }

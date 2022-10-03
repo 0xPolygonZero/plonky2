@@ -427,6 +427,59 @@ pub trait Field:
 
 pub trait PrimeField: Field {
     fn to_canonical_biguint(&self) -> BigUint;
+
+    fn is_quadratic_residue(&self) -> bool {
+        if self.is_zero() {
+            return true;
+        }
+        // This is based on Euler's criterion.
+        let power = Self::NEG_ONE.to_canonical_biguint() / 2u8;
+        let exp = self.exp_biguint(&power);
+        if exp == Self::ONE {
+            return true;
+        }
+        if exp == Self::NEG_ONE {
+            return false;
+        }
+        panic!("Unreachable")
+    }
+
+    fn sqrt(&self) -> Option<Self> {
+        if self.is_zero() {
+            Some(*self)
+        } else if self.is_quadratic_residue() {
+            let t = (Self::order() - BigUint::from(1u32))
+                / (BigUint::from(2u32).pow(Self::TWO_ADICITY as u32));
+            let mut z = Self::POWER_OF_TWO_GENERATOR;
+            let mut w = self.exp_biguint(&((t - BigUint::from(1u32)) / BigUint::from(2u32)));
+            let mut x = w * *self;
+            let mut b = x * w;
+
+            let mut v = Self::TWO_ADICITY as usize;
+
+            while !b.is_one() {
+                let mut k = 0usize;
+                let mut b2k = b;
+                while !b2k.is_one() {
+                    b2k = b2k * b2k;
+                    k += 1;
+                }
+                let j = v - k - 1;
+                w = z;
+                for _ in 0..j {
+                    w = w * w;
+                }
+
+                z = w * w;
+                b *= z;
+                x *= w;
+                v = k;
+            }
+            Some(x)
+        } else {
+            None
+        }
+    }
 }
 
 /// A finite field of order less than 2^64.

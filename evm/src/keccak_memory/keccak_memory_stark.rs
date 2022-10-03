@@ -93,23 +93,21 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
         &self,
         operations: Vec<KeccakMemoryOp>,
         min_rows: usize,
+        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
-        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
-
         // Generate the witness row-wise.
         let trace_rows = timed!(
-            &mut timing,
+            timing,
             "generate trace rows",
             self.generate_trace_rows(operations, min_rows)
         );
 
         let trace_polys = timed!(
-            &mut timing,
+            timing,
             "convert to PolynomialValues",
             trace_rows_to_poly_values(trace_rows)
         );
 
-        timing.print();
         trace_polys
     }
 

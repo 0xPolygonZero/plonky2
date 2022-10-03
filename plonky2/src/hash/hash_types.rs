@@ -115,7 +115,7 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 pub struct BytesHash<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> BytesHash<N> {
-    #[cfg(feature = "parallel")]
+    #[cfg(feature = "rand")]
     pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         let mut buf = [0; N];
         rng.fill_bytes(&mut buf);

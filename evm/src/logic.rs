@@ -7,9 +7,13 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::timed;
+use plonky2::util::timing::TimingTree;
+use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
+use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -19,7 +23,7 @@ const VAL_BITS: usize = 256;
 // Number of bits stored per field element. Ensure that this fits; it is not checked.
 pub(crate) const PACKED_LIMB_BITS: usize = 32;
 // Number of field elements needed to store each input/output at the specified packing.
-const PACKED_LEN: usize = (VAL_BITS + PACKED_LIMB_BITS - 1) / PACKED_LIMB_BITS;
+const PACKED_LEN: usize = ceil_div_usize(VAL_BITS, PACKED_LIMB_BITS);
 
 pub(crate) mod columns {
     use std::cmp::min;
@@ -100,7 +104,25 @@ impl Operation {
 }
 
 impl<F: RichField, const D: usize> LogicStark<F, D> {
-    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(
+        &self,
+        operations: Vec<Operation>,
+        timing: &mut TimingTree,
+    ) -> Vec<PolynomialValues<F>> {
+        let trace_rows = timed!(
+            timing,
+            "generate trace rows",
+            self.generate_trace_rows(operations)
+        );
+        let trace_polys = timed!(
+            timing,
+            "convert to PolynomialValues",
+            trace_rows_to_poly_values(trace_rows)
+        );
+        trace_polys
+    }
+
+    fn generate_trace_rows(&self, operations: Vec<Operation>) -> Vec<[F; NUM_COLUMNS]> {
         let len = operations.len();
         let padded_len = len.next_power_of_two();
 
@@ -114,7 +136,7 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
             rows.push([F::ZERO; columns::NUM_COLUMNS]);
         }
 
-        trace_rows_to_poly_values(rows)
+        rows
     }
 
     fn generate_row(operation: Operation) -> [F; columns::NUM_COLUMNS] {

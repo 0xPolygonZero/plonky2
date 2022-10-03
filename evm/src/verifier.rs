@@ -122,6 +122,7 @@ where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    validate_proof_shape(&stark, proof, config, ctl_vars.len())?;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -136,7 +137,7 @@ where
     };
 
     let degree_bits = proof.recover_degree_bits(config);
-    let (l_1, l_last) = eval_l_1_and_l_last(degree_bits, challenges.stark_zeta);
+    let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
@@ -146,7 +147,7 @@ where
             .map(|&alpha| F::Extension::from_basefield(alpha))
             .collect::<Vec<_>>(),
         z_last,
-        l_1,
+        l_0,
         l_last,
     );
     let num_permutation_zs = stark.num_permutation_batches(config);
@@ -207,10 +208,61 @@ where
     Ok(())
 }
 
-/// Evaluate the Lagrange polynomials `L_1` and `L_n` at a point `x`.
-/// `L_1(x) = (x^n - 1)/(n * (x - 1))`
-/// `L_n(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
-fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
+fn validate_proof_shape<F, C, S, const D: usize>(
+    stark: &S,
+    proof: &StarkProof<F, C, D>,
+    config: &StarkConfig,
+    num_ctl_zs: usize,
+) -> anyhow::Result<()>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    [(); S::COLUMNS]:,
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let StarkProof {
+        trace_cap,
+        permutation_ctl_zs_cap,
+        quotient_polys_cap,
+        openings,
+        // The shape of the opening proof will be checked in the FRI verifier (see
+        // validate_fri_proof_shape), so we ignore it here.
+        opening_proof: _,
+    } = proof;
+
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        permutation_ctl_zs,
+        permutation_ctl_zs_next,
+        ctl_zs_last,
+        quotient_polys,
+    } = openings;
+
+    let degree_bits = proof.recover_degree_bits(config);
+    let fri_params = config.fri_params(degree_bits);
+    let cap_height = fri_params.config.cap_height;
+    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
+
+    ensure!(trace_cap.height() == cap_height);
+    ensure!(permutation_ctl_zs_cap.height() == cap_height);
+    ensure!(quotient_polys_cap.height() == cap_height);
+
+    ensure!(local_values.len() == S::COLUMNS);
+    ensure!(next_values.len() == S::COLUMNS);
+    ensure!(permutation_ctl_zs.len() == num_zs);
+    ensure!(permutation_ctl_zs_next.len() == num_zs);
+    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
+
+    Ok(())
+}
+
+/// Evaluate the Lagrange polynomials `L_0` and `L_(n-1)` at a point `x`.
+/// `L_0(x) = (x^n - 1)/(n * (x - 1))`
+/// `L_(n-1)(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
+fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let n = F::from_canonical_usize(1 << log_n);
     let g = F::primitive_root_of_unity(log_n);
     let z_x = x.exp_power_of_2(log_n) - F::ONE;
@@ -225,10 +277,10 @@ mod tests {
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
 
-    use crate::verifier::eval_l_1_and_l_last;
+    use crate::verifier::eval_l_0_and_l_last;
 
     #[test]
-    fn test_eval_l_1_and_l_last() {
+    fn test_eval_l_0_and_l_last() {
         type F = GoldilocksField;
         let log_n = 5;
         let n = 1 << log_n;
@@ -237,7 +289,7 @@ mod tests {
         let expected_l_first_x = PolynomialValues::selector(n, 0).ifft().eval(x);
         let expected_l_last_x = PolynomialValues::selector(n, n - 1).ifft().eval(x);
 
-        let (l_first_x, l_last_x) = eval_l_1_and_l_last(log_n, x);
+        let (l_first_x, l_last_x) = eval_l_0_and_l_last(log_n, x);
         assert_eq!(l_first_x, expected_l_first_x);
         assert_eq!(l_last_x, expected_l_last_x);
     }

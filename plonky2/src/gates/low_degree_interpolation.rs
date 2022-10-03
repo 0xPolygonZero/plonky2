@@ -7,9 +7,9 @@ use plonky2_field::interpolation::interpolant;
 use plonky2_field::polynomial::PolynomialCoeffs;
 use plonky2_field::types::Field;
 
-use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
+use crate::gates::interpolation::InterpolationGate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -20,8 +20,9 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// Interpolation gate with constraints of degree 2.
-/// `eval_unfiltered_recursively` uses more gates than `HighDegreeInterpolationGate`.
+/// One of the instantiations of `InterpolationGate`: all constraints are degree <= 2.
+/// The lower degree is a tradeoff for more gates (`eval_unfiltered_recursively` for
+/// this version uses more gates than `LowDegreeInterpolationGate`).
 #[derive(Copy, Clone, Debug)]
 pub struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
@@ -387,9 +388,9 @@ mod tests {
     use plonky2_field::polynomial::PolynomialCoeffs;
     use plonky2_field::types::Field;
 
-    use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::gates::interpolation::InterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

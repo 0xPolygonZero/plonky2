@@ -10,7 +10,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
-use crate::plonk::plonk_common::eval_l_1_circuit;
+use crate::plonk::plonk_common::eval_l_0_circuit;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::partial_products::{check_partial_products, check_partial_products_circuit};
 use crate::util::reducing::ReducingFactorTarget;
@@ -41,17 +41,17 @@ pub(crate) fn eval_vanishing_poly<
 
     let constraint_terms = evaluate_gate_constraints(common_data, vars);
 
-    // The L_1(x) (Z(x) - 1) vanishing terms.
+    // The L_0(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
 
-    let l1_x = plonk_common::eval_l_1(common_data.degree(), x);
+    let l_0_x = plonk_common::eval_l_0(common_data.degree(), x);
 
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gx = next_zs[i];
-        vanishing_z_1_terms.push(l1_x * (z_x - F::Extension::ONE));
+        vanishing_z_1_terms.push(l_0_x * (z_x - F::Extension::ONE));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
@@ -135,7 +135,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
     let mut numerator_values = Vec::with_capacity(num_routed_wires);
     let mut denominator_values = Vec::with_capacity(num_routed_wires);
 
-    // The L_1(x) (Z(x) - 1) vanishing terms.
+    // The L_0(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
@@ -152,11 +152,11 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 
         let constraint_terms = PackedStridedView::new(&constraint_terms_batch, n, k);
 
-        let l1_x = z_h_on_coset.eval_l1(index, x);
+        let l_0_x = z_h_on_coset.eval_l_0(index, x);
         for i in 0..num_challenges {
             let z_x = local_zs[i];
             let z_gx = next_zs[i];
-            vanishing_z_1_terms.push(l1_x * z_x.sub_one());
+            vanishing_z_1_terms.push(l_0_x * z_x.sub_one());
 
             numerator_values.extend((0..num_routed_wires).map(|j| {
                 let wire_value = vars.local_wires[j];
@@ -332,12 +332,12 @@ pub(crate) fn eval_vanishing_poly_circuit<
         evaluate_gate_constraints_circuit(builder, common_data, vars,)
     );
 
-    // The L_1(x) (Z(x) - 1) vanishing terms.
+    // The L_0(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
 
-    let l1_x = eval_l_1_circuit(builder, common_data.degree(), x, x_pow_deg);
+    let l_0_x = eval_l_0_circuit(builder, common_data.degree(), x, x_pow_deg);
 
     // Holds `k[i] * x`.
     let mut s_ids = Vec::new();
@@ -350,8 +350,8 @@ pub(crate) fn eval_vanishing_poly_circuit<
         let z_x = local_zs[i];
         let z_gx = next_zs[i];
 
-        // L_1(x) Z(x) = 0.
-        vanishing_z_1_terms.push(builder.mul_sub_extension(l1_x, z_x, l1_x));
+        // L_0(x) (Z(x) - 1) = 0.
+        vanishing_z_1_terms.push(builder.mul_sub_extension(l_0_x, z_x, l_0_x));
 
         let mut numerator_values = Vec::new();
         let mut denominator_values = Vec::new();

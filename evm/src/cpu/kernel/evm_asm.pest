@@ -17,17 +17,23 @@ constant = ${ "@" ~ identifier }
 
 item = { macro_def | macro_call | repeat | stack | global_label_decl | local_label_decl | macro_label_decl | bytes_item | push_instruction | prover_input_instruction | nullary_instruction }
 macro_def = { ^"%macro" ~ identifier ~ paramlist? ~ item* ~ ^"%endmacro" }
-macro_call = ${ "%" ~ !(^"macro" | ^"endmacro" | ^"rep" | ^"endrep" | ^"stack") ~ identifier ~ macro_arglist? }
+macro_call = ${ "%" ~ !((^"macro" | ^"endmacro" | ^"rep" | ^"endrep" | ^"stack") ~ !identifier_char) ~ identifier ~ macro_arglist? }
 repeat = { ^"%rep" ~ literal ~ item* ~ ^"%endrep" }
 paramlist = { "(" ~ identifier ~ ("," ~ identifier)* ~ ")" }
 macro_arglist = !{ "(" ~ push_target ~ ("," ~ push_target)* ~ ")" }
-stack = { ^"%stack" ~ paramlist ~ "->" ~ stack_replacements }
+
+stack = { ^"%stack" ~ stack_placeholders ~ "->" ~ stack_replacements }
+stack_placeholders = { "(" ~ (stack_placeholder ~ ("," ~ stack_placeholder)*)? ~ ")" }
+stack_placeholder = { stack_block | identifier }
+stack_block = { identifier ~ ":" ~ literal_decimal }
 stack_replacements = { "(" ~ stack_replacement ~ ("," ~ stack_replacement)* ~ ")" }
 stack_replacement = { literal | identifier | constant | macro_label | variable }
+
 global_label_decl = ${ ^"GLOBAL " ~ identifier ~ ":" }
 local_label_decl = ${ identifier ~ ":" }
 macro_label_decl = ${ "%%" ~ identifier ~ ":" }
 macro_label = ${ "%%" ~ identifier }
+
 bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
 push_instruction = { ^"PUSH " ~ push_target }
 push_target = { literal | identifier | macro_label | variable | constant }

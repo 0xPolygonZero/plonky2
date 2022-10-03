@@ -98,3 +98,10 @@
     %mstore_kernel(@SEGMENT_CODE)
     // stack: (empty)
 %endmacro
+
+// Store a single byte to @SEGMENT_RLP_RAW.
+%macro mstore_rlp
+    // stack: offset, value
+    %mstore_kernel(@SEGMENT_RLP_RAW)
+    // stack: (empty)
+%endmacro

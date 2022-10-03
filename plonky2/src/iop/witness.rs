@@ -278,14 +278,9 @@ pub struct PartitionWitness<'a, F: Field> {
 }
 
 impl<'a, F: Field> PartitionWitness<'a, F> {
-    pub fn new(
-        num_wires: usize,
-        degree: usize,
-        num_virtual_targets: usize,
-        representative_map: &'a [usize],
-    ) -> Self {
+    pub fn new(num_wires: usize, degree: usize, representative_map: &'a [usize]) -> Self {
         Self {
-            values: vec![None; degree * num_wires + num_virtual_targets],
+            values: vec![None; representative_map.len()],
             representative_map,
             num_wires,
             degree,

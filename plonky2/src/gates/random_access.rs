@@ -24,9 +24,15 @@ use crate::plonk::vars::{
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
 pub struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
+    /// Number of bits in the index (log2 of the list size).
     pub bits: usize,
+
+    /// How many separate copies are packed into one gate.
     pub num_copies: usize,
+
+    /// Leftover wires are used as global scratch space to store constants.
     pub num_extra_constants: usize,
+
     _phantom: PhantomData<F>,
 }
 
@@ -41,13 +47,18 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 
     pub fn new_from_config(config: &CircuitConfig, bits: usize) -> Self {
+        // We can access a list of 2^bits elements.
         let vec_size = 1 << bits;
-        // Need `(2 + vec_size) * num_copies` routed wires
+
+        // We need `(2 + vec_size) * num_copies` routed wires.
         let max_copies = (config.num_routed_wires / (2 + vec_size)).min(
-            // Need `(2 + vec_size + bits) * num_copies` wires
+            // We need `(2 + vec_size + bits) * num_copies` wires in total.
             config.num_wires / (2 + vec_size + bits),
         );
+
+        // Any leftover wires can be used for constants.
         let max_extra_constants = config.num_routed_wires - (2 + vec_size) * max_copies;
+
         Self::new(
             max_copies,
             bits,
@@ -55,20 +66,24 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         )
     }
 
+    /// Length of the list being accessed.
     fn vec_size(&self) -> usize {
         1 << self.bits
     }
 
+    /// For each copy, a wire containing the claimed index of the element.
     pub fn wire_access_index(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         (2 + self.vec_size()) * copy
     }
 
+    /// For each copy, a wire containing the element claimed to be at the index.
     pub fn wire_claimed_element(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         (2 + self.vec_size()) * copy + 1
     }
 
+    /// For each copy, wires containing the entire list.
     pub fn wire_list_item(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.vec_size());
         debug_assert!(copy < self.num_copies);
@@ -84,6 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         self.start_extra_constants() + i
     }
 
+    /// All above wires are routed.
     pub fn num_routed_wires(&self) -> usize {
         self.start_extra_constants() + self.num_extra_constants
     }
@@ -202,10 +218,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                     .collect()
             }
 
+            // Check that the one remaining element after the folding is the claimed element.
             debug_assert_eq!(list_items.len(), 1);
             constraints.push(builder.sub_extension(list_items[0], claimed_element));
         }
 
+        // Check the constant values.
         constraints.extend((0..self.num_extra_constants).map(|i| {
             builder.sub_extension(
                 vars.local_constants[i],

@@ -102,8 +102,8 @@ fn verify_stark_proof_with_challenges_circuit<
 
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
-    let (l_1, l_last) =
-        eval_l_1_and_l_last_circuit(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
+    let (l_0, l_last) =
+        eval_l_0_and_l_last_circuit(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
     let last =
         builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
@@ -112,7 +112,7 @@ fn verify_stark_proof_with_challenges_circuit<
         builder.zero_extension(),
         challenges.stark_alphas,
         z_last,
-        l_1,
+        l_0,
         l_last,
     );
 
@@ -170,7 +170,7 @@ fn verify_stark_proof_with_challenges_circuit<
     );
 }
 
-fn eval_l_1_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
+fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     log_n: usize,
     x: ExtensionTarget<D>,
@@ -179,12 +179,12 @@ fn eval_l_1_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     let n = builder.constant_extension(F::Extension::from_canonical_usize(1 << log_n));
     let g = builder.constant_extension(F::Extension::primitive_root_of_unity(log_n));
     let one = builder.one_extension();
-    let l_1_deno = builder.mul_sub_extension(n, x, n);
+    let l_0_deno = builder.mul_sub_extension(n, x, n);
     let l_last_deno = builder.mul_sub_extension(g, x, one);
     let l_last_deno = builder.mul_extension(n, l_last_deno);
 
     (
-        builder.div_extension(z_x, l_1_deno),
+        builder.div_extension(z_x, l_0_deno),
         builder.div_extension(z_x, l_last_deno),
     )
 }

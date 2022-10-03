@@ -9,13 +9,13 @@ use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
 use crate::cpu::kernel::ast::StackReplacement;
 use crate::cpu::kernel::keccak_util::hash_kernel;
 use crate::cpu::kernel::optimizer::optimize_asm;
-use crate::cpu::kernel::prover_input::ProverInputFn;
 use crate::cpu::kernel::stack::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::cpu::kernel::{
     ast::{File, Item},
     opcodes::{get_opcode, get_push_opcode},
 };
+use crate::generation::prover_input::ProverInputFn;
 
 /// The number of bytes to push when pushing an offset within the code (i.e. when assembling jumps).
 /// Ideally we would automatically use the minimal number of bytes required, but that would be
@@ -52,6 +52,12 @@ impl Kernel {
     }
 }
 
+#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+struct MacroSignature {
+    name: String,
+    num_params: usize,
+}
+
 struct Macro {
     params: Vec<String>,
     items: Vec<Item>,
@@ -79,20 +85,20 @@ pub(crate) fn assemble(
     let mut local_labels = Vec::with_capacity(files.len());
     let mut macro_counter = 0;
     for file in files {
-        let expanded_file = expand_macros(file.body, &macros, &mut macro_counter);
-        let expanded_file = expand_repeats(expanded_file);
-        let expanded_file = inline_constants(expanded_file, &constants);
-        let mut expanded_file = expand_stack_manipulation(expanded_file);
+        let mut file = file.body;
+        file = expand_macros(file, &macros, &mut macro_counter);
+        file = inline_constants(file, &constants);
+        file = expand_stack_manipulation(file);
         if optimize {
-            optimize_asm(&mut expanded_file);
+            optimize_asm(&mut file);
         }
         local_labels.push(find_labels(
-            &expanded_file,
+            &file,
             &mut offset,
             &mut global_labels,
             &mut prover_inputs,
         ));
-        expanded_files.push(expanded_file);
+        expanded_files.push(file);
     }
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
@@ -105,17 +111,21 @@ pub(crate) fn assemble(
     Kernel::new(code, global_labels, prover_inputs)
 }
 
-fn find_macros(files: &[File]) -> HashMap<String, Macro> {
+fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
     let mut macros = HashMap::new();
     for file in files {
         for item in &file.body {
             if let Item::MacroDef(name, params, items) = item {
-                let _macro = Macro {
+                let signature = MacroSignature {
+                    name: name.clone(),
+                    num_params: params.len(),
+                };
+                let macro_ = Macro {
                     params: params.clone(),
                     items: items.clone(),
                 };
-                let old = macros.insert(name.clone(), _macro);
-                assert!(old.is_none(), "Duplicate macro: {name}");
+                let old = macros.insert(signature.clone(), macro_);
+                assert!(old.is_none(), "Duplicate macro signature: {:?}", signature);
             }
         }
     }
@@ -124,7 +134,7 @@ fn find_macros(files: &[File]) -> HashMap<String, Macro> {
 
 fn expand_macros(
     body: Vec<Item>,
-    macros: &HashMap<String, Macro>,
+    macros: &HashMap<MacroSignature, Macro>,
     macro_counter: &mut u32,
 ) -> Vec<Item> {
     let mut expanded = vec![];
@@ -135,6 +145,11 @@ fn expand_macros(
             }
             Item::MacroCall(m, args) => {
                 expanded.extend(expand_macro_call(m, args, macros, macro_counter));
+            }
+            Item::Repeat(count, body) => {
+                for _ in 0..count.as_usize() {
+                    expanded.extend(expand_macros(body.clone(), macros, macro_counter));
+                }
             }
             item => {
                 expanded.push(item);
@@ -147,30 +162,25 @@ fn expand_macros(
 fn expand_macro_call(
     name: String,
     args: Vec<PushTarget>,
-    macros: &HashMap<String, Macro>,
+    macros: &HashMap<MacroSignature, Macro>,
     macro_counter: &mut u32,
 ) -> Vec<Item> {
-    let _macro = macros
-        .get(&name)
-        .unwrap_or_else(|| panic!("No such macro: {}", name));
-
-    assert_eq!(
-        args.len(),
-        _macro.params.len(),
-        "Macro `{}`: expected {} arguments, got {}",
+    let signature = MacroSignature {
         name,
-        _macro.params.len(),
-        args.len()
-    );
+        num_params: args.len(),
+    };
+    let macro_ = macros
+        .get(&signature)
+        .unwrap_or_else(|| panic!("No such macro: {:?}", signature));
 
     let get_actual_label = |macro_label| format!("@{}.{}", macro_counter, macro_label);
 
     let get_arg = |var| {
-        let param_index = _macro.get_param_index(var);
+        let param_index = macro_.get_param_index(var);
         args[param_index].clone()
     };
 
-    let expanded_item = _macro
+    let expanded_item = macro_
         .items
         .iter()
         .map(|item| match item {
@@ -182,12 +192,10 @@ fn expand_macro_call(
             Item::MacroCall(name, args) => {
                 let expanded_args = args
                     .iter()
-                    .map(|arg| {
-                        if let PushTarget::MacroVar(var) = arg {
-                            get_arg(var)
-                        } else {
-                            arg.clone()
-                        }
+                    .map(|arg| match arg {
+                        PushTarget::MacroVar(var) => get_arg(var),
+                        PushTarget::MacroLabel(l) => PushTarget::Label(get_actual_label(l)),
+                        _ => arg.clone(),
                     })
                     .collect();
                 Item::MacroCall(name.clone(), expanded_args)
@@ -195,12 +203,12 @@ fn expand_macro_call(
             Item::StackManipulation(before, after) => {
                 let after = after
                     .iter()
-                    .map(|replacement| {
-                        if let StackReplacement::MacroLabel(label) = replacement {
+                    .map(|replacement| match replacement {
+                        StackReplacement::MacroLabel(label) => {
                             StackReplacement::Identifier(get_actual_label(label))
-                        } else {
-                            replacement.clone()
                         }
+                        StackReplacement::MacroVar(var) => get_arg(var).into(),
+                        _ => replacement.clone(),
                     })
                     .collect();
                 Item::StackManipulation(before.clone(), after)
@@ -213,21 +221,6 @@ fn expand_macro_call(
 
     // Recursively expand any macros in the expanded code.
     expand_macros(expanded_item, macros, macro_counter)
-}
-
-fn expand_repeats(body: Vec<Item>) -> Vec<Item> {
-    let mut expanded = vec![];
-    for item in body {
-        if let Item::Repeat(count, block) = item {
-            let reps = count.as_usize();
-            for _ in 0..reps {
-                expanded.extend(block.clone());
-            }
-        } else {
-            expanded.push(item);
-        }
-    }
-    expanded
 }
 
 fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<Item> {
@@ -489,7 +482,8 @@ mod tests {
     #[test]
     fn macro_with_label() {
         let files = &[
-            "%macro spin %%start: PUSH %%start JUMP %endmacro",
+            "%macro jump(x) PUSH $x JUMP %endmacro",
+            "%macro spin %%start: %jump(%%start) %endmacro",
             "%spin %spin",
         ];
         let kernel = parse_and_assemble_ext(files, HashMap::new(), false);
@@ -508,8 +502,31 @@ mod tests {
             "%macro bar(y) PUSH $y %endmacro",
             "%foo(42)",
         ]);
-        let push = get_push_opcode(1);
-        assert_eq!(kernel.code, vec![push, 42, push, 42]);
+        let push1 = get_push_opcode(1);
+        assert_eq!(kernel.code, vec![push1, 42, push1, 42]);
+    }
+
+    #[test]
+    fn macro_with_reserved_prefix() {
+        // The name `repeat` should be allowed, even though `rep` is reserved.
+        parse_and_assemble(&["%macro repeat %endmacro", "%repeat"]);
+    }
+
+    #[test]
+    fn overloaded_macros() {
+        let kernel = parse_and_assemble(&[
+            "%macro push(x) PUSH $x %endmacro",
+            "%macro push(x, y) PUSH $x PUSH $y %endmacro",
+            "%push(5)",
+            "%push(6, 7)",
+        ]);
+        let push1 = get_push_opcode(1);
+        assert_eq!(kernel.code, vec![push1, 5, push1, 6, push1, 7]);
+    }
+
+    #[test]
+    fn pop2_macro() {
+        parse_and_assemble(&["%macro pop2 %rep 2 pop %endrep %endmacro", "%pop2"]);
     }
 
     #[test]
@@ -551,7 +568,15 @@ mod tests {
         let dup1 = get_opcode("DUP1");
         let swap1 = get_opcode("SWAP1");
         let swap2 = get_opcode("SWAP2");
+        let swap3 = get_opcode("SWAP3");
+        let push_one_byte = get_push_opcode(1);
         let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        let kernel = parse_and_assemble(&["%stack () -> (1, 2, 3)"]);
+        assert_eq!(
+            kernel.code,
+            vec![push_one_byte, 3, push_one_byte, 2, push_one_byte, 1]
+        );
 
         let kernel = parse_and_assemble(&["%stack (a) -> (a)"]);
         assert_eq!(kernel.code, vec![]);
@@ -561,6 +586,20 @@ mod tests {
 
         let kernel = parse_and_assemble(&["%stack (a, b, c) -> (b)"]);
         assert_eq!(kernel.code, vec![pop, swap1, pop]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b, c) -> (7, b)"]);
+        assert_eq!(kernel.code, vec![pop, swap1, pop, push_one_byte, 7]);
+
+        let kernel = parse_and_assemble(&["%stack (a, b: 3, c) -> (c)"]);
+        assert_eq!(kernel.code, vec![pop, pop, pop, pop]);
+
+        let kernel = parse_and_assemble(&["%stack (a: 2, b: 2) -> (b, a)"]);
+        assert_eq!(kernel.code, vec![swap1, swap3, swap1, swap2]);
+
+        let kernel1 = parse_and_assemble(&["%stack (a: 3, b: 3, c) -> (c, b, a)"]);
+        let kernel2 =
+            parse_and_assemble(&["%stack (a, b, c, d, e, f, g) -> (g, d, e, f, a, b, c)"]);
+        assert_eq!(kernel1.code, kernel2.code);
 
         let mut consts = HashMap::new();
         consts.insert("LIFE".into(), 42.into());
@@ -573,6 +612,34 @@ mod tests {
         // The "start" label gets shadowed by the "start" named stack item.
         let kernel = parse_and_assemble(&["start: %stack (start) -> (start, start)"]);
         assert_eq!(kernel.code, vec![dup1]);
+    }
+
+    #[test]
+    fn stack_manipulation_in_macro() {
+        let pop = get_opcode("POP");
+        let push1 = get_push_opcode(1);
+
+        let kernel = parse_and_assemble(&[
+            "%macro set_top(x) %stack (a) -> ($x) %endmacro",
+            "%set_top(42)",
+        ]);
+        assert_eq!(kernel.code, vec![pop, push1, 42]);
+    }
+
+    #[test]
+    fn stack_manipulation_in_macro_with_name_collision() {
+        let pop = get_opcode("POP");
+        let push_label = get_push_opcode(BYTES_PER_OFFSET);
+
+        // In the stack directive, there's a named item `foo`.
+        // But when we invoke `%foo(foo)`, the argument refers to the `foo` label.
+        // Thus the expanded macro is `%stack (foo) -> (label foo)` (not real syntax).
+        let kernel = parse_and_assemble(&[
+            "global foo:",
+            "%macro foo(x) %stack (foo) -> ($x) %endmacro",
+            "%foo(foo)",
+        ]);
+        assert_eq!(kernel.code, vec![pop, push_label, 0, 0, 0]);
     }
 
     fn parse_and_assemble(files: &[&str]) -> Kernel {

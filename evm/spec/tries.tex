@@ -1,0 +1,16 @@
+\section{Merkle Patricia tries}
+\label{tries}
+
+\subsection{Internal memory format}
+
+Withour our zkEVM's kernel memory,
+\begin{enumerate}
+  \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
+  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, c_1, \dots, c_{16}, v)$, where each $c_i$ is a pointer to a child node, and $v$ is a leaf payload.
+  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ is a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$, and $c$ is a pointer to a child node.
+  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, v)$, where $k$ is a 2-tuple as above, and $v$ is a leaf payload.
+  \item A digest node is encoded as $(\texttt{MPT\_NODE\_DIGEST}, d)$, where $d$ is a Keccak256 digest.
+\end{enumerate}
+
+
+\subsection{Prover input format}

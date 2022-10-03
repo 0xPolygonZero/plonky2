@@ -1,4 +1,4 @@
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -13,6 +13,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
@@ -57,12 +58,12 @@ pub struct PublicValues {
 
 #[derive(Debug, Clone, Default)]
 pub struct TrieRoots {
-    pub state_root: U256,
-    pub transactions_root: U256,
-    pub receipts_root: U256,
+    pub state_root: H256,
+    pub transactions_root: H256,
+    pub receipts_root: H256,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
     pub block_beneficiary: Address,
     pub block_timestamp: U256,
