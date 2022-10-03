@@ -34,6 +34,11 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     disable_other_channels: true,
 });
 
+// AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
+// that every general-purpose memory channel is either disabled or has its read flag and address
+// propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
+// except the first `num_pops` and the last `pushes as usize` channels have their read flag and
+// address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     stop: None, // TODO
     add: BASIC_BINARY_OP,
@@ -105,16 +110,8 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     get_receipt_root: None, // TODO
     set_receipt_root: None, // TODO
     push: None,             // TODO
-    dup: Some(StackBehavior {
-        num_pops: 0,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    swap: Some(StackBehavior {
-        num_pops: 1,
-        pushes: true,
-        disable_other_channels: false,
-    }),
+    dup: None,
+    swap: None,
     log0: None,           // TODO
     log1: None,           // TODO
     log2: None,           // TODO

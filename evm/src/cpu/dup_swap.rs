@@ -12,7 +12,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 /// Constrain two channels to have equal values.
-pub fn channels_equal_packed<P: PackedField>(
+fn channels_equal_packed<P: PackedField>(
     filter: P,
     ch_a: &MemoryChannelView<P>,
     ch_b: &MemoryChannelView<P>,
@@ -24,7 +24,7 @@ pub fn channels_equal_packed<P: PackedField>(
 }
 
 /// Constrain two channels to have equal values.
-pub fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     filter: ExtensionTarget<D>,
     ch_a: &MemoryChannelView<ExtensionTarget<D>>,
@@ -42,7 +42,7 @@ pub fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ///
 /// `offset` is the stack index before this instruction is executed, e.g. `0` for the top of the
 /// stack.
-pub fn constrain_channel_packed<P: PackedField>(
+fn constrain_channel_packed<P: PackedField>(
     is_read: bool,
     filter: P,
     offset: P,
@@ -56,7 +56,7 @@ pub fn constrain_channel_packed<P: PackedField>(
     yield_constr.constraint(
         filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
     );
-    // // Top of the stack is at `addr = lv.stack_len - 1`.
+    // Top of the stack is at `addr = lv.stack_len - 1`.
     let addr_virtual = lv.stack_len - P::ONES - offset;
     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
 }
@@ -65,7 +65,7 @@ pub fn constrain_channel_packed<P: PackedField>(
 ///
 /// `offset` is the stack index before this instruction is executed, e.g. `0` for the top of the
 /// stack.
-pub fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     is_read: bool,
     filter: ExtensionTarget<D>,
@@ -110,7 +110,7 @@ pub fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usiz
 }
 
 /// Disable unused channels (everything except the first `used_in` and the last `used_out`).
-pub fn disable_unused_channels_packed<P: PackedField>(
+fn disable_unused_channels_packed<P: PackedField>(
     used_in: usize,
     used_out: usize,
     filter: P,
@@ -123,7 +123,7 @@ pub fn disable_unused_channels_packed<P: PackedField>(
 }
 
 /// Disable unused channels (everything except the first `used_in` and the last `used_out`).
-pub fn disable_unused_channels_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+fn disable_unused_channels_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     used_in: usize,
     used_out: usize,
@@ -137,7 +137,7 @@ pub fn disable_unused_channels_ext_circuit<F: RichField + Extendable<D>, const D
     }
 }
 
-pub fn eval_packed_dup<P: PackedField>(
+fn eval_packed_dup<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -150,17 +150,26 @@ pub fn eval_packed_dup<P: PackedField>(
     channels_equal_packed(filter, in_channel, out_channel, yield_constr);
 
     constrain_channel_packed(true, filter, n, in_channel, lv, yield_constr);
-    // `out_channel` is constrained by the usual stack constraints.
+    constrain_channel_packed(
+        false,
+        filter,
+        P::Scalar::NEG_ONE.into(),
+        out_channel,
+        lv,
+        yield_constr,
+    );
 
     disable_unused_channels_packed(1, 1, filter, lv, yield_constr);
 }
 
-pub fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
+fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let neg_one = builder.constant_extension(F::NEG_ONE.into());
+
     let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.dup);
 
     let in_channel = &lv.mem_channels[0];
@@ -169,16 +178,26 @@ pub fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     channels_equal_ext_circuit(builder, filter, in_channel, out_channel, yield_constr);
 
     constrain_channel_ext_circuit(builder, true, filter, n, in_channel, lv, yield_constr);
-    // `out_channel` is constrained by the usual stack constraints.
+    constrain_channel_ext_circuit(
+        builder,
+        false,
+        filter,
+        neg_one,
+        out_channel,
+        lv,
+        yield_constr,
+    );
 
     disable_unused_channels_ext_circuit(builder, 1, 1, filter, lv, yield_constr);
 }
 
-pub fn eval_packed_swap<P: PackedField>(
+fn eval_packed_swap<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    let n_plus_one = n + P::ONES;
+
     let filter = lv.is_cpu_cycle * lv.op.swap;
 
     let in1_channel = &lv.mem_channels[0];
@@ -189,19 +208,24 @@ pub fn eval_packed_swap<P: PackedField>(
     channels_equal_packed(filter, in1_channel, out1_channel, yield_constr);
     channels_equal_packed(filter, in2_channel, out2_channel, yield_constr);
 
-    constrain_channel_packed(true, filter, n, in2_channel, lv, yield_constr);
-    constrain_channel_packed(false, filter, n, out1_channel, lv, yield_constr);
-    // `in1_channel` and `out2_channel` are constrained by the usual stack constraints.
+    constrain_channel_packed(true, filter, P::ZEROS, in1_channel, lv, yield_constr);
+    constrain_channel_packed(true, filter, n_plus_one, in2_channel, lv, yield_constr);
+    constrain_channel_packed(false, filter, n_plus_one, out1_channel, lv, yield_constr);
+    constrain_channel_packed(false, filter, P::ZEROS, out2_channel, lv, yield_constr);
 
     disable_unused_channels_packed(2, 2, filter, lv, yield_constr);
 }
 
-pub fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
+fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let zero = builder.zero_extension();
+    let one = builder.one_extension();
+    let n_plus_one = builder.add_extension(n, one);
+
     let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.swap);
 
     let in1_channel = &lv.mem_channels[0];
@@ -212,9 +236,26 @@ pub fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     channels_equal_ext_circuit(builder, filter, in1_channel, out1_channel, yield_constr);
     channels_equal_ext_circuit(builder, filter, in2_channel, out2_channel, yield_constr);
 
-    constrain_channel_ext_circuit(builder, true, filter, n, in2_channel, lv, yield_constr);
-    constrain_channel_ext_circuit(builder, false, filter, n, out1_channel, lv, yield_constr);
-    // `in1_channel` and `out2_channel` are constrained by the usual stack constraints.
+    constrain_channel_ext_circuit(builder, true, filter, zero, in1_channel, lv, yield_constr);
+    constrain_channel_ext_circuit(
+        builder,
+        true,
+        filter,
+        n_plus_one,
+        in2_channel,
+        lv,
+        yield_constr,
+    );
+    constrain_channel_ext_circuit(
+        builder,
+        false,
+        filter,
+        n_plus_one,
+        out1_channel,
+        lv,
+        yield_constr,
+    );
+    constrain_channel_ext_circuit(builder, false, filter, zero, out2_channel, lv, yield_constr);
 
     disable_unused_channels_ext_circuit(builder, 2, 2, filter, lv, yield_constr);
 }
