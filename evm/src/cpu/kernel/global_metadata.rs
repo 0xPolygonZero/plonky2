@@ -24,13 +24,13 @@ pub(crate) enum GlobalMetadata {
 
     // The root digests of each Merkle trie before these transactions.
     StateTrieRootDigestBefore = 8,
-    TransactionsTrieRootDigestBefore = 9,
-    ReceiptsTrieRootDigestBefore = 10,
+    TransactionTrieRootDigestBefore = 9,
+    ReceiptTrieRootDigestBefore = 10,
 
     // The root digests of each Merkle trie after these transactions.
     StateTrieRootDigestAfter = 11,
-    TransactionsTrieRootDigestAfter = 12,
-    ReceiptsTrieRootDigestAfter = 13,
+    TransactionTrieRootDigestAfter = 12,
+    ReceiptTrieRootDigestAfter = 13,
 }
 
 impl GlobalMetadata {
@@ -47,11 +47,11 @@ impl GlobalMetadata {
             Self::ReceiptTrieRoot,
             Self::NumStorageTries,
             Self::StateTrieRootDigestBefore,
-            Self::TransactionsTrieRootDigestBefore,
-            Self::ReceiptsTrieRootDigestBefore,
+            Self::TransactionTrieRootDigestBefore,
+            Self::ReceiptTrieRootDigestBefore,
             Self::StateTrieRootDigestAfter,
-            Self::TransactionsTrieRootDigestAfter,
-            Self::ReceiptsTrieRootDigestAfter,
+            Self::TransactionTrieRootDigestAfter,
+            Self::ReceiptTrieRootDigestAfter,
         ]
     }
 
@@ -67,18 +67,18 @@ impl GlobalMetadata {
             GlobalMetadata::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
             GlobalMetadata::NumStorageTries => "GLOBAL_METADATA_NUM_STORAGE_TRIES",
             GlobalMetadata::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
-            GlobalMetadata::TransactionsTrieRootDigestBefore => {
-                "GLOBAL_METADATA_TXNS_TRIE_DIGEST_BEFORE"
+            GlobalMetadata::TransactionTrieRootDigestBefore => {
+                "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE"
             }
-            GlobalMetadata::ReceiptsTrieRootDigestBefore => {
-                "GLOBAL_METADATA_RECEIPTS_TRIE_DIGEST_BEFORE"
+            GlobalMetadata::ReceiptTrieRootDigestBefore => {
+                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE"
             }
             GlobalMetadata::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
-            GlobalMetadata::TransactionsTrieRootDigestAfter => {
-                "GLOBAL_METADATA_TXNS_TRIE_DIGEST_AFTER"
+            GlobalMetadata::TransactionTrieRootDigestAfter => {
+                "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER"
             }
-            GlobalMetadata::ReceiptsTrieRootDigestAfter => {
-                "GLOBAL_METADATA_RECEIPTS_TRIE_DIGEST_AFTER"
+            GlobalMetadata::ReceiptTrieRootDigestAfter => {
+                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER"
             }
         }
     }

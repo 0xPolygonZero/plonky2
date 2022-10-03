@@ -1,11 +1,15 @@
 // Transfers some ETH from one address to another. The amount is given in wei.
 // Pre stack: from, to, amount, retdest
 // Post stack: (empty)
-
 global transfer_eth:
     // stack: from, to, amount, retdest
-    // TODO: Replace with actual implementation.
-    %pop3
+    %stack (from, to, amount, retdest)
+        -> (from, amount, to, amount)
+    %deduct_eth
+    // TODO: Handle exception from %deduct_eth?
+    // stack: to, amount, retdest
+    %add_eth
+    // stack: retdest
     JUMP
 
 // Convenience macro to call transfer_eth and return where we left off.
@@ -24,5 +28,28 @@ global transfer_eth:
     %jump(%%after)
 %%transfer:
     %transfer_eth
+%%after:
+%endmacro
+
+global deduct_eth:
+    // stack: addr, amount, retdest
+    %jump(mpt_read_state_trie)
+deduct_eth_after_read:
+    PANIC // TODO
+
+// Convenience macro to call deduct_eth and return where we left off.
+%macro deduct_eth
+    %stack (addr, amount) -> (addr, amount, %%after)
+    %jump(deduct_eth)
+%%after:
+%endmacro
+
+global add_eth:
+    PANIC // TODO
+
+// Convenience macro to call add_eth and return where we left off.
+%macro add_eth
+    %stack (addr, amount) -> (addr, amount, %%after)
+    %jump(add_eth)
 %%after:
 %endmacro

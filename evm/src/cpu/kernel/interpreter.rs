@@ -47,10 +47,21 @@ impl InterpreterMemory {
 
 impl InterpreterMemory {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
-        self.context_memory[context].segments[segment as usize].get(offset)
+        let value = self.context_memory[context].segments[segment as usize].get(offset);
+        assert!(
+            value.bits() <= segment.bit_range(),
+            "Value read from memory exceeds expected range of {:?} segment",
+            segment
+        );
+        value
     }
 
     fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
+        assert!(
+            value.bits() <= segment.bit_range(),
+            "Value written to memory exceeds expected range of {:?} segment",
+            segment
+        );
         self.context_memory[context].segments[segment as usize].set(offset, value)
     }
 }
@@ -162,7 +173,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
-        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize]
+        self.memory.context_memory[0].segments[Segment::RlpRaw as usize]
             .content
             .iter()
             .map(|x| x.as_u32() as u8)
@@ -170,7 +181,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
-        self.memory.context_memory[self.context].segments[Segment::RlpRaw as usize].content =
+        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();
     }
 
@@ -229,6 +240,7 @@ impl<'a> Interpreter<'a> {
             0x1c => self.run_shr(),                                     // "SHR",
             0x1d => todo!(),                                            // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
+            0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
             0x30 => todo!(),                                            // "ADDRESS",
             0x31 => todo!(),                                            // "BALANCE",
             0x32 => todo!(),                                            // "ORIGIN",
@@ -447,6 +459,18 @@ impl<'a> Interpreter<'a> {
         self.push(U256::from_big_endian(hash.as_bytes()));
     }
 
+    fn run_keccak_general(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        let bytes = (offset..offset + size)
+            .map(|i| self.memory.mload_general(context, segment, i).byte(0))
+            .collect::<Vec<_>>();
+        let hash = keccak(bytes);
+        self.push(U256::from_big_endian(hash.as_bytes()));
+    }
+
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
         let prover_input_fn = self
             .prover_inputs_map
@@ -567,7 +591,6 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.memory.mload_general(context, segment, offset);
-        assert!(value.bits() <= segment.bit_range());
         self.push(value);
     }
 
@@ -576,7 +599,6 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        assert!(value.bits() <= segment.bit_range());
         self.memory.mstore_general(context, segment, offset, value);
     }
 }

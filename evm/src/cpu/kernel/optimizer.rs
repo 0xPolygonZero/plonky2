@@ -80,9 +80,9 @@ fn no_op_jumps(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(Label(l)), StandardOp(jump), decl] = window
             && &jump == "JUMP"
-            && (decl == LocalLabelDeclaration(l.clone()) || decl == GlobalLabelDeclaration(l.clone()))
+            && (decl == LocalLabelDeclaration(l.clone()) || decl == GlobalLabelDeclaration(l))
         {
-            Some(vec![LocalLabelDeclaration(l)])
+            Some(vec![decl])
         } else {
             None
         }

@@ -62,6 +62,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     shr: BASIC_BINARY_OP,
     sar: BASIC_BINARY_OP,
     keccak256: None,        // TODO
+    keccak_general: None,   // TODO
     address: None,          // TODO
     balance: None,          // TODO
     origin: None,           // TODO
