@@ -28,14 +28,15 @@ store_size:
     %jump(store_padding)
 
 store_padding:
-    // stack: i (init 63)
+    // stack: i [init 63], length
     %store_zeros(136, store_padding)
+    // stack:              length
     DUP1
-    %jumpi(store_input_alt)
+    %jumpi(store_input_stack)
     POP
     %jump(ripemd_init)
 
-store_input_alt:
+store_input_stack:
     // stack:               rem, length, REM_INP
     %stack (rem, length, head) -> (length, rem, 136, head, rem, length)
     SUB
@@ -46,38 +47,36 @@ store_input_alt:
     %sub_const(1)
     DUP1
     // stack:  rem - 1, rem - 1, length, REM_INP
-    %jumpi(store_input_alt)
+    %jumpi(store_input_stack)
     // stack:                 0, length
     POP
     %jump(ripemd_init)
 
 store_input:
-    // stack:               ADDR    , rem    , length
-    DUP3
-    DUP3
-    DUP3
+    // stack:               rem  , ADDR  , length
+    DUP4
+    DUP4
+    DUP4
     MLOAD_GENERAL
-    // stack:         byte, ADDR    , rem    , length 
-    DUP5
+    // stack:         byte, rem  , ADDR  , length 
+    DUP2
     DUP7
     SUB
     %add_const(136)
-    // stack: offset, byte, ADDR    , rem    , length 
+    // stack: offset, byte, rem  , ADDR  , length 
     %mstore_kernel_general
-    // stack:               ADDR    , rem    , length 
-    SWAP2
-    %add_const(1)
-    SWAP2
-    // stack:               ADDR + 1, rem    , length
-    SWAP3
+    // stack:               rem  , ADDR  , length 
     %sub_const(1)
+    // stack:               rem-1, ADDR  , length
     SWAP3
-    // stack:               ADDR + 1, rem - 1, length 
-    DUP4
+    %add_const(1)
+    SWAP3
+    // stack:               rem-1, ADDR+1, length
+    DUP2
     %jumpi(store_input)
-    // stack:               ADDR    , 0      , length
+    // stack:               0    , ADDR  , length
     %pop4
-    // stack:                                  length
+    // stack:                              length
     %jump(ripemd_init)
 
 %macro store_zeros(N, label)

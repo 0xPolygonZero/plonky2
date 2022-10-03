@@ -1,18 +1,20 @@
 /// Variables beginning with _ are in memory
 ///
 /// def ripemd160(_input):
-///     state, count, _buffer = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0], 0, [0]*64
-///     state, count, _buffer = ripemd_update(state, count, _buffer,           len(input) , bytes =          _input  )
-///     state, count, _buffer = ripemd_update(state, count, _buffer, padlength(len(input)), bytes =     [0x80]+[0]*63)
-///     state, count, _buffer = ripemd_update(state, count, _buffer,                     8, bytes = size(len(_input)))
-///     return process(state)
+///     STATE, count, _buffer = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0], 0, [0]*64
+///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer,           len(input) , bytes =          _input  )
+///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer, padlength(len(input)), bytes =     [0x80]+[0]*63)
+///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer,                     8, bytes = size(len(_input)))
+///     return process(STATE)
 ///
 /// ripemd is called on a stack with ADDR and length
-/// ripemd_update will receive and return the stack in the form:
+/// ripemd_stack is called on a stack with length, followed by the input bytes
+///
+/// ripemd_update receives and return the stack in the form:
 ///     stack: STATE, count, length, virt
 /// where virt is the virtual address of the bytes argument
 
-global ripemd_alt:
+global ripemd_stack:
     // stack: length, INPUT
     %stack (length) -> (64, length, 0x80, 63, length, length)
     // stack:           64, length, 0x80, 63, length, length, INPUT
@@ -24,8 +26,8 @@ global ripemd_alt:
 
 global ripemd:
     // stack:  ADDR, length
-    %stack (ADDR: 3, length) -> (64, length, 0x80, 63, ADDR, length, length)
-    // stack:                    64, length, 0x80, 63, ADDR, length, length
+    %stack (ADDR: 3, length) -> (64, length, 0x80, 63, length, ADDR, length)
+    // stack:                    64, length, 0x80, 63, length, ADDR, length
     %jump(ripemd_storage) // stores the following into memory
                           // init  _buffer  at virt 0   [consumes           64]
                           // store _size    at virt 64  [consumes       length]

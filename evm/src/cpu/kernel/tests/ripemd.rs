@@ -43,7 +43,7 @@ fn test_ripemd() -> Result<()> {
         let expected = U256::from(y);
 
         let kernel = combined_kernel();
-        let initial_offset = kernel.global_labels["ripemd_alt"];
+        let initial_offset = kernel.global_labels["ripemd_stack"];
         let initial_stack: Vec<U256> = input.iter().map(|&x| U256::from(x as u8)).rev().collect();
         let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
             .stack()
