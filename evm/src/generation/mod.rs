@@ -13,7 +13,7 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::NUM_CPU_COLUMNS;
-use crate::cpu::kernel::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::NUM_CHANNELS;

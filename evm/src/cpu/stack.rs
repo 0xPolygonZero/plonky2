@@ -34,6 +34,11 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     disable_other_channels: true,
 });
 
+// AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
+// that every general-purpose memory channel is either disabled or has its read flag and address
+// propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
+// except the first `num_pops` and the last `pushes as usize` channels have their read flag and
+// address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     stop: None, // TODO
     add: BASIC_BINARY_OP,
@@ -106,29 +111,29 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     get_receipt_root: None, // TODO
     set_receipt_root: None, // TODO
     push: None,             // TODO
-    dup: None,              // TODO
-    swap: None,             // TODO
-    log0: None,             // TODO
-    log1: None,             // TODO
-    log2: None,             // TODO
-    log3: None,             // TODO
-    log4: None,             // TODO
-    create: None,           // TODO
-    call: None,             // TODO
-    callcode: None,         // TODO
-    return_: None,          // TODO
-    delegatecall: None,     // TODO
-    create2: None,          // TODO
-    get_context: None,      // TODO
-    set_context: None,      // TODO
-    consume_gas: None,      // TODO
-    exit_kernel: None,      // TODO
-    staticcall: None,       // TODO
-    mload_general: None,    // TODO
-    mstore_general: None,   // TODO
-    revert: None,           // TODO
-    selfdestruct: None,     // TODO
-    invalid: None,          // TODO
+    dup: None,
+    swap: None,
+    log0: None,           // TODO
+    log1: None,           // TODO
+    log2: None,           // TODO
+    log3: None,           // TODO
+    log4: None,           // TODO
+    create: None,         // TODO
+    call: None,           // TODO
+    callcode: None,       // TODO
+    return_: None,        // TODO
+    delegatecall: None,   // TODO
+    create2: None,        // TODO
+    get_context: None,    // TODO
+    set_context: None,    // TODO
+    consume_gas: None,    // TODO
+    exit_kernel: None,    // TODO
+    staticcall: None,     // TODO
+    mload_general: None,  // TODO
+    mstore_general: None, // TODO
+    revert: None,         // TODO
+    selfdestruct: None,   // TODO
+    invalid: None,        // TODO
 };
 
 fn eval_packed_one<P: PackedField>(

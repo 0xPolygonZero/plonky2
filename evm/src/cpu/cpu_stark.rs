@@ -11,8 +11,8 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, jumps, membus, simple_logic, stack, stack_bounds,
-    syscalls,
+    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, simple_logic, stack,
+    stack_bounds, syscalls,
 };
 use crate::cross_table_lookup::Column;
 use crate::memory::segments::Segment;
@@ -147,6 +147,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
+        dup_swap::eval_packed(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
@@ -166,6 +167,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
+        dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);

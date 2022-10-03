@@ -135,6 +135,7 @@ update_round_vars:
     // stack: rnd, rnd, STATE, F', K , 16, rounds, sides, virt, retdest
     SWAP8  
     POP
+    %mul_const(4)
     %mload_kernel_code_u32(k_data)
     SWAP7  
     POP

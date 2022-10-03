@@ -7,8 +7,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
-use crate::cpu::kernel::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
@@ -20,7 +20,7 @@ type F = GoldilocksField;
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct InterpreterMemory {
     pub(crate) context_memory: Vec<MemoryContextState>,
 }
@@ -435,14 +435,14 @@ impl<'a> Interpreter<'a> {
 
     fn run_shl(&mut self) {
         let shift = self.pop();
-        let x = self.pop();
-        self.push(x << shift);
+        let value = self.pop();
+        self.push(value << shift);
     }
 
     fn run_shr(&mut self) {
         let shift = self.pop();
-        let x = self.pop();
-        self.push(x >> shift);
+        let value = self.pop();
+        self.push(value >> shift);
     }
 
     fn run_keccak256(&mut self) {
@@ -591,6 +591,7 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.memory.mload_general(context, segment, offset);
+        assert!(value.bits() <= segment.bit_range());
         self.push(value);
     }
 
@@ -599,6 +600,7 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
+        assert!(value.bits() <= segment.bit_range());
         self.memory.mstore_general(context, segment, offset, value);
     }
 }
