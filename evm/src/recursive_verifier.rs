@@ -127,8 +127,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ensure!(ctl_challenges == pi.ctl_challenges);
         }
 
-        challenger.duplexing();
-        let state = challenger.state();
+        let state = challenger.compact();
         ensure!(state == pis[0].challenger_state_before);
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
@@ -209,8 +208,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             }
         }
 
-        challenger.duplexing(builder);
-        let state = challenger.state();
+        let state = challenger.compact(builder);
         for k in 0..SPONGE_WIDTH {
             builder.connect(state[k], pis[0].challenger_state_before[k]);
         }
@@ -321,8 +319,7 @@ where
         num_permutation_batch_size,
         inner_config,
     );
-    challenger.duplexing(&mut builder);
-    let challenger_state = challenger.state();
+    let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(&challenger_state);
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
@@ -402,8 +399,7 @@ where
         num_permutation_batch_size,
         inner_config,
     );
-    challenger.duplexing(&mut builder);
-    let challenger_state = challenger.state();
+    let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(&challenger_state);
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);

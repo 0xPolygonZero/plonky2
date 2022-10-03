@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 
         AllProofChallenges {
             stark_challenges: std::array::from_fn(|i| {
-                challenger.duplexing();
+                challenger.compact();
                 self.stark_proofs[i].get_challenges(
                     &mut challenger,
                     num_permutation_zs[i] > 0,
@@ -66,8 +66,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let num_permutation_zs = all_stark.nums_permutation_zs(config);
         let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
 
-        challenger.duplexing();
-        let mut challenger_states = vec![challenger.state()];
+        let mut challenger_states = vec![challenger.compact()];
         for i in 0..NUM_TABLES {
             self.stark_proofs[i].get_challenges(
                 &mut challenger,
@@ -75,8 +74,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
                 num_permutation_batch_sizes[i],
                 config,
             );
-            challenger.duplexing();
-            challenger_states.push(challenger.state());
+            challenger_states.push(challenger.compact());
         }
 
         AllChallengerState {

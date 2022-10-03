@@ -147,7 +147,11 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
             .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
     }
 
-    pub fn state(&self) -> [F; SPONGE_WIDTH] {
+    pub fn compact(&mut self) -> [F; SPONGE_WIDTH] {
+        if !self.input_buffer.is_empty() {
+            self.duplexing();
+        }
+        self.output_buffer.clear();
         self.sponge_state
     }
 }
@@ -181,11 +185,10 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     }
 
     pub fn from_state(sponge_state: [Target; SPONGE_WIDTH]) -> Self {
-        let output_buffer = sponge_state[0..SPONGE_RATE].to_vec();
         RecursiveChallenger {
             sponge_state,
             input_buffer: vec![],
-            output_buffer,
+            output_buffer: vec![],
         }
     }
 
@@ -286,29 +289,9 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.input_buffer.clear();
     }
 
-    pub fn duplexing(&mut self, builder: &mut CircuitBuilder<F, D>) {
-        if self.input_buffer.is_empty() {
-            self.sponge_state = builder.permute::<H>(self.sponge_state);
-        } else {
-            for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
-                // Overwrite the first r elements with the inputs. This differs from a standard sponge,
-                // where we would xor or add in the inputs. This is a well-known variant, though,
-                // sometimes called "overwrite mode".
-                for (i, &input) in input_chunk.iter().enumerate() {
-                    self.sponge_state[i] = input;
-                }
-
-                // Apply the permutation.
-                self.sponge_state = builder.permute::<H>(self.sponge_state);
-            }
-        }
-
-        self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
-
-        self.input_buffer.clear();
-    }
-
-    pub fn state(&self) -> [Target; SPONGE_WIDTH] {
+    pub fn compact(&mut self, builder: &mut CircuitBuilder<F, D>) -> [Target; SPONGE_WIDTH] {
+        self.absorb_buffered_inputs(builder);
+        self.output_buffer.clear();
         self.sponge_state
     }
 }
