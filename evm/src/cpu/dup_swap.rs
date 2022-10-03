@@ -109,34 +109,6 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
-/// Disable unused channels (everything except the first `used_in` and the last `used_out`).
-fn disable_unused_channels_packed<P: PackedField>(
-    used_in: usize,
-    used_out: usize,
-    filter: P,
-    lv: &CpuColumnsView<P>,
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    for i in used_in..NUM_GP_CHANNELS - used_out {
-        yield_constr.constraint(filter * lv.mem_channels[i].used);
-    }
-}
-
-/// Disable unused channels (everything except the first `used_in` and the last `used_out`).
-fn disable_unused_channels_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    used_in: usize,
-    used_out: usize,
-    filter: ExtensionTarget<D>,
-    lv: &CpuColumnsView<ExtensionTarget<D>>,
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
-    for i in used_in..NUM_GP_CHANNELS - used_out {
-        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
-        yield_constr.constraint(builder, constr);
-    }
-}
-
 fn eval_packed_dup<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
@@ -158,8 +130,6 @@ fn eval_packed_dup<P: PackedField>(
         lv,
         yield_constr,
     );
-
-    disable_unused_channels_packed(1, 1, filter, lv, yield_constr);
 }
 
 fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
@@ -187,8 +157,6 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
         lv,
         yield_constr,
     );
-
-    disable_unused_channels_ext_circuit(builder, 1, 1, filter, lv, yield_constr);
 }
 
 fn eval_packed_swap<P: PackedField>(
@@ -212,8 +180,6 @@ fn eval_packed_swap<P: PackedField>(
     constrain_channel_packed(true, filter, n_plus_one, in2_channel, lv, yield_constr);
     constrain_channel_packed(false, filter, n_plus_one, out1_channel, lv, yield_constr);
     constrain_channel_packed(false, filter, P::ZEROS, out2_channel, lv, yield_constr);
-
-    disable_unused_channels_packed(2, 2, filter, lv, yield_constr);
 }
 
 fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
@@ -256,8 +222,6 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
     );
     constrain_channel_ext_circuit(builder, false, filter, zero, out2_channel, lv, yield_constr);
-
-    disable_unused_channels_ext_circuit(builder, 2, 2, filter, lv, yield_constr);
 }
 
 pub fn eval_packed<P: PackedField>(
