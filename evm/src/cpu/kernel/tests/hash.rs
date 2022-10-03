@@ -11,7 +11,7 @@ use crate::cpu::kernel::interpreter::run_with_kernel;
 /// Standard Sha2 implementation.
 fn sha2(input: Vec<u8>) -> U256 {
     let mut hasher = Sha256::new();
-    hasher.update(input.clone());
+    hasher.update(input);
     U256::from(&hasher.finalize()[..])
 }
 
