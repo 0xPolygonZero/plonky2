@@ -19,6 +19,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
+use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -158,6 +159,93 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     /// Recursively verify every recursive proof.
     pub fn verify_circuit<W>(
+        self,
+        builder: &mut CircuitBuilder<F, D>,
+        pw: &mut W,
+        verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+        cross_table_lookups: Vec<CrossTableLookup<F>>,
+        inner_config: &StarkConfig,
+    ) where
+        W: Witness<F>,
+        [(); C::Hasher::HASH_SIZE]:,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let proofs_target: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            let verifier_data = &verifier_data[i];
+            let proof = &self.recursive_proofs[i];
+            let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
+            pw.set_proof_with_pis_target(&pt, proof);
+            let inner_data = VerifierCircuitTarget {
+                constants_sigmas_cap: builder
+                    .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
+            };
+            pw.set_cap_target(
+                &inner_data.constants_sigmas_cap,
+                &verifier_data.verifier_only.constants_sigmas_cap,
+            );
+            (pt, inner_data)
+        });
+
+        let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            PublicInputs::from_vec(&proofs_target[i].0.public_inputs, inner_config)
+        });
+
+        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
+        for pi in &pis {
+            for h in &pi.trace_cap {
+                challenger.observe_elements(h);
+            }
+        }
+        let ctl_challenges = get_grand_product_challenge_set_target(
+            builder,
+            &mut challenger,
+            inner_config.num_challenges,
+        );
+        // Check that the correct CTL challenges are used in every proof.
+        for pi in &pis {
+            for i in 0..inner_config.num_challenges {
+                builder.connect(
+                    ctl_challenges.challenges[i].beta,
+                    pi.ctl_challenges.challenges[i].beta,
+                );
+                builder.connect(
+                    ctl_challenges.challenges[i].gamma,
+                    pi.ctl_challenges.challenges[i].gamma,
+                );
+            }
+        }
+
+        let state = challenger.compact(builder);
+        for k in 0..SPONGE_WIDTH {
+            builder.connect(state[k], pis[0].challenger_state_before[k]);
+        }
+        // Check that the challenger state is consistent between proofs.
+        for i in 1..NUM_TABLES {
+            for k in 0..SPONGE_WIDTH {
+                builder.connect(
+                    pis[i].challenger_state_before[k],
+                    pis[i - 1].challenger_state_after[k],
+                );
+            }
+        }
+
+        // Verify the CTL checks.
+        let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits);
+        verify_cross_table_lookups_circuit::<F, C, D>(
+            builder,
+            cross_table_lookups,
+            pis.map(|p| p.ctl_zs_last),
+            degrees_bits,
+            ctl_challenges,
+            inner_config,
+        );
+        for (i, (proof_target, inner_data)) in proofs_target.into_iter().enumerate() {
+            builder.verify_proof(proof_target, &inner_data, &verifier_data[i].common);
+        }
+    }
+
+    /// Verifier data to recursively verify every recursive proof.
+    pub fn verifier_data_verify_circuit<W>(
         self,
         builder: &mut CircuitBuilder<F, D>,
         pw: &mut W,
@@ -420,8 +508,7 @@ where
         inner_config,
     );
 
-    let data = builder.build::<C>();
-    data.verifier_data()
+    builder.build_verifier::<C>()
 }
 
 /// Returns the recursive Stark circuit verifier data for every Stark in `AllStark`.
