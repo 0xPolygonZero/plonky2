@@ -78,14 +78,10 @@ encode_rlp_fixed:
     SWAP1
     %add_const(1) // increment pos
     // stack: pos, len, string, retdest
-    %stack (pos, len, string) -> (@SEGMENT_RLP_RAW, pos, string, len, encode_rlp_fixed_finish, pos, len)
-    PUSH 0 // context
-    // stack: context, segment, pos, string, len, encode_rlp_fixed, pos, retdest
-    %jump(mstore_unpacking)
-
+    %stack (pos, len, string) -> (pos, string, len, encode_rlp_fixed_finish)
+    // stack: context, segment, pos, string, len, encode_rlp_fixed_finish, retdest
+    %jump(mstore_unpacking_rlp)
 encode_rlp_fixed_finish:
-    // stack: pos, len, retdest
-    ADD
     // stack: pos', retdest
     SWAP1
     JUMP
@@ -121,13 +117,11 @@ encode_rlp_list_prefix_large:
     SWAP1 %add_const(1)
     // stack: pos', len_of_len, payload_len, retdest
     %stack (pos, len_of_len, payload_len, retdest)
-        -> (0, @SEGMENT_RLP_RAW, pos, payload_len, len_of_len,
+        -> (pos, payload_len, len_of_len,
             encode_rlp_list_prefix_large_done_writing_len,
-            pos, len_of_len, retdest)
-    %jump(mstore_unpacking)
+            retdest)
+    %jump(mstore_unpacking_rlp)
 encode_rlp_list_prefix_large_done_writing_len:
-    // stack: pos', len_of_len, retdest
-    ADD
     // stack: pos'', retdest
     SWAP1
     JUMP
@@ -182,15 +176,13 @@ prepend_rlp_list_prefix_big:
     DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[start_pos] = 0xf7 + len_of_len
     DUP1 %add_const(1) // start_len_pos = start_pos + 1
     %stack (start_len_pos, start_pos, len_of_len, payload_len, end_pos, retdest)
-        -> (0, @SEGMENT_RLP_RAW, start_len_pos, // context, segment, offset
-            payload_len, len_of_len,
+        -> (start_len_pos, payload_len, len_of_len,
             prepend_rlp_list_prefix_big_done_writing_len,
             start_pos, end_pos, retdest)
-    %jump(mstore_unpacking)
+    %jump(mstore_unpacking_rlp)
 prepend_rlp_list_prefix_big_done_writing_len:
-    // stack: start_pos, end_pos, retdest
-    DUP1
-    SWAP2
+    // stack: 9, start_pos, end_pos, retdest
+    %stack (_9, start_pos, end_pos) -> (end_pos, start_pos, start_pos)
     // stack: end_pos, start_pos, start_pos, retdest
     SUB
     // stack: rlp_len, start_pos, retdest
@@ -259,3 +251,12 @@ num_bytes_finish:
     %add_const(1) // Account for the length prefix.
     // stack: rlp_len
 %endmacro
+
+// Like mstore_unpacking, but specifically for the RLP segment.
+// Pre stack: offset, value, len, retdest
+// Post stack: offset'
+mstore_unpacking_rlp:
+    // stack: offset, value, len, retdest
+    PUSH @SEGMENT_RLP_RAW
+    PUSH 0 // context
+    %jump(mstore_unpacking)
