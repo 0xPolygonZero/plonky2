@@ -35,7 +35,7 @@ pre_rol:
     %mload_kernel_code(r_data)
     ADD
     // stack: virt + r, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt  
-    %mload_kernel_general_u32
+    %mload_kernel_general_u32_LE
     // stack:        x, box, a, b, c, d, e, F, K, boxes, rounds, sides, virt
     SWAP1  
     SWAP2 

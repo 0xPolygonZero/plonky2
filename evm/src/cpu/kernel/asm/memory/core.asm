@@ -55,8 +55,7 @@
     // stack: (empty)
 %endmacro
 
-// Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
-// from the kernel.
+// Load from the kernel a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0)
 %macro mload_kernel_u32(segment)
     // stack: offset
     DUP1
@@ -83,6 +82,32 @@
     %mload_kernel($segment)
     OR
     // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
+%endmacro
+
+// Load from the kernel a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3)
+%macro mload_kernel_u32_LE(segment)
+    // stack: offset
+    DUP1
+    %mload_kernel($segment)
+    // stack: c0                         , offset
+    DUP2
+    %add_const(1)
+    %mload_kernel($segment)
+    %shl_const(8)
+    OR
+    // stack: c0 | (c1 << 8)             , offset
+    DUP2
+    %add_const(2)
+    %mload_kernel($segment)
+    %shl_const(16)
+    OR
+    // stack: c0 | (c1 << 8) | (c2 << 16), offset
+    SWAP1
+    %add_const(3)
+    %mload_kernel($segment)
+    %shl_const(24)
+    OR
+    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
 %endmacro
 
 // Load a u256 (big-endian) from the kernel.
@@ -228,11 +253,30 @@
     // stack: value
 %endmacro
 
+%macro mload_kernel_code_u32(label)
+    // stack: u32_shift
+    %mul_const(4)
+    // stack: byte_shift
+    PUSH $label
+    ADD
+    // stack: offset
+    %mload_kernel_u32(@SEGMENT_CODE)
+    // stack: value
+%endmacro
+
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
 // from kernel general memory.
 %macro mload_kernel_general_u32
     // stack: offset
     %mload_kernel_u32(@SEGMENT_KERNEL_GENERAL)
+    // stack: value
+%endmacro
+
+// Load a little-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
+// from kernel general memory.
+%macro mload_kernel_general_u32_LE
+    // stack: offset
+    %mload_kernel_u32_LE(@SEGMENT_KERNEL_GENERAL)
     // stack: value
 %endmacro
 
