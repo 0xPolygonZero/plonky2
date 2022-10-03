@@ -251,7 +251,7 @@
 // Store a single byte to kernel general memory.
 %macro mstore_kernel_general
     // stack: offset, value
-    %mstore_kernel(@SEGMENT_RLP_RAW)
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack: (empty)
 %endmacro
 
