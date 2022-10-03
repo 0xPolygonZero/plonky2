@@ -95,7 +95,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs);
     let keccak_memory_trace = all_stark
         .keccak_memory_stark
-        .generate_trace(keccak_memory_inputs, 1 << config.fri_config.cap_height);
+        .generate_trace(keccak_memory_inputs, config.fri_config.num_cap_elements());
     let logic_trace = all_stark.logic_stark.generate_trace(logic_ops);
     let memory_trace = all_stark.memory_stark.generate_trace(memory.log);
     let traces = [

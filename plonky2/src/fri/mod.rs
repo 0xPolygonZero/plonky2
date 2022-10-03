@@ -45,6 +45,10 @@ impl FriConfig {
             reduction_arity_bits,
         }
     }
+
+    pub fn num_cap_elements(&self) -> usize {
+        1 << self.cap_height
+    }
 }
 
 /// FRI parameters, including generated parameters which are specific to an instance size, in

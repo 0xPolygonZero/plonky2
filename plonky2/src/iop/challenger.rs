@@ -129,7 +129,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
-    pub fn duplexing(&mut self) {
+    fn duplexing(&mut self) {
         assert!(self.input_buffer.len() <= SPONGE_RATE);
 
         // Overwrite the first r elements with the inputs. This differs from a standard sponge,

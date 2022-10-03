@@ -52,7 +52,6 @@ pub struct RecursiveAllProof<
     const D: usize,
 > {
     pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
-    pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
@@ -63,30 +62,32 @@ struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
     challenger_state_after: [T; SPONGE_WIDTH],
 }
 
+/// Similar to the unstable `Iterator::next_chunk`. Could be replaced with that when it's stable.
+fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [T; N] {
+    (0..N)
+        .flat_map(|_| iter.next())
+        .collect_vec()
+        .try_into()
+        .expect("Not enough elements")
+}
+
 impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
     fn from_vec(v: &[T], config: &StarkConfig) -> Self {
-        let mut start = 0;
-        let trace_cap = v[start..4 * (1 << config.fri_config.cap_height)]
-            .chunks(4)
-            .map(|chunk| chunk.to_vec())
+        let mut iter = v.iter().copied();
+        let trace_cap = (0..1 << config.fri_config.cap_height)
+            .map(|_| next_chunk::<_, 4>(&mut iter).to_vec())
             .collect();
-        start += 4 * (1 << config.fri_config.cap_height);
         let ctl_challenges = GrandProductChallengeSet {
             challenges: (0..config.num_challenges)
-                .map(|i| GrandProductChallenge {
-                    beta: v[start + 2 * i],
-                    gamma: v[start + 2 * i + 1],
+                .map(|_| GrandProductChallenge {
+                    beta: iter.next().unwrap(),
+                    gamma: iter.next().unwrap(),
                 })
                 .collect(),
         };
-        start += 2 * config.num_challenges;
-        let challenger_state_before = v[start..start + SPONGE_WIDTH].try_into().unwrap();
-        let challenger_state_after = v[start + SPONGE_WIDTH..start + 2 * SPONGE_WIDTH]
-            .try_into()
-            .unwrap();
-
-        start += 2 * SPONGE_WIDTH;
-        let ctl_zs_last = v[start..].to_vec();
+        let challenger_state_before = next_chunk(&mut iter);
+        let challenger_state_after = next_chunk(&mut iter);
+        let ctl_zs_last = iter.collect();
 
         Self {
             trace_cap,
@@ -105,6 +106,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn verify(
         self,
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+        cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
     ) -> Result<()>
     where
@@ -137,7 +139,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Verify the CTL checks.
         let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits);
         verify_cross_table_lookups::<F, C, D>(
-            self.cross_table_lookups,
+            cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
             degrees_bits,
             ctl_challenges,
@@ -157,6 +159,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         builder: &mut CircuitBuilder<F, D>,
         pw: &mut W,
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+        cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
     ) where
         W: Witness<F>,
@@ -226,7 +229,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits);
         verify_cross_table_lookups_circuit::<F, C, D>(
             builder,
-            self.cross_table_lookups,
+            cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
             degrees_bits,
             ctl_challenges,
@@ -251,7 +254,7 @@ fn recursively_verify_stark_proof<
     proof: &StarkProof<F, C, D>,
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_challenges: &GrandProductChallengeSet<F>,
-    challenger_state_before: [F; SPONGE_WIDTH],
+    challenger_state_before_vals: [F; SPONGE_WIDTH],
     inner_config: &StarkConfig,
     circuit_config: &CircuitConfig,
 ) -> Result<(ProofWithPublicInputs<F, C, D>, VerifierCircuitData<F, C, D>)>
@@ -309,9 +312,10 @@ where
         num_permutation_zs,
     );
 
-    let challenger_state = std::array::from_fn(|_| builder.add_virtual_public_input());
-    pw.set_target_arr(challenger_state, challenger_state_before);
-    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::from_state(challenger_state);
+    let challenger_state_before = std::array::from_fn(|_| builder.add_virtual_public_input());
+    pw.set_target_arr(challenger_state_before, challenger_state_before_vals);
+    let mut challenger =
+        RecursiveChallenger::<F, C::Hasher, D>::from_state(challenger_state_before);
     let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
@@ -319,8 +323,8 @@ where
         num_permutation_batch_size,
         inner_config,
     );
-    let challenger_state = challenger.compact(&mut builder);
-    builder.register_public_inputs(&challenger_state);
+    let challenger_state_after = challenger.compact(&mut builder);
+    builder.register_public_inputs(&challenger_state_after);
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
 
@@ -563,7 +567,6 @@ where
             )?
             .0,
         ],
-        cross_table_lookups: all_stark.cross_table_lookups.clone(),
     })
 }
 

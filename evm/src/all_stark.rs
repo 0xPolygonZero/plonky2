@@ -221,7 +221,7 @@ mod tests {
         keccak_memory_stark: &KeccakMemoryStark<F, D>,
         config: &StarkConfig,
     ) -> Vec<PolynomialValues<F>> {
-        keccak_memory_stark.generate_trace(vec![], 1 << config.fri_config.cap_height)
+        keccak_memory_stark.generate_trace(vec![], config.fri_config.num_cap_elements())
     }
 
     fn make_logic_trace<R: Rng>(
@@ -764,7 +764,13 @@ mod tests {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
-        recursive_all_proof.verify_circuit(&mut builder, &mut pw, &verifier_data, inner_config);
+        recursive_all_proof.verify_circuit(
+            &mut builder,
+            &mut pw,
+            &verifier_data,
+            inner_all_stark.cross_table_lookups,
+            inner_config,
+        );
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;

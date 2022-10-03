@@ -509,6 +509,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                 }
             }
         }
+        assert!(ctl_zs.next().is_none());
         ctl_vars
     }
 }
