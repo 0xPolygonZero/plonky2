@@ -22,36 +22,15 @@ global sha2_compression:
     // stack: scratch_space_addr, num_blocks, message_schedule_addr, i=0, retdest
     SWAP1
     // stack: num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(28)
-    %mload_kernel_code_u32
-    // stack: h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(24)
-    %mload_kernel_code_u32
-    // stack: g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(20)
-    %mload_kernel_code_u32
-    // stack: f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(16)
-    %mload_kernel_code_u32
-    // stack: e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(12)
-    %mload_kernel_code_u32
-    // stack: d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(8)
-    %mload_kernel_code_u32
-    // stack: c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %add_const(4)
-    %mload_kernel_code_u32
-    // stack: b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
-    PUSH sha2_constants_h
-    %mload_kernel_code_u32
+    // Push the initial hash values; these constants are called H^(0) in the spec.
+    PUSH 0x5be0cd19 // H^(0)_7
+    PUSH 0x1f83d9ab // H^(0)_6
+    PUSH 0x9b05688c // H^(0)_5
+    PUSH 0x510e527f // H^(0)_4
+    PUSH 0xa54ff53a // H^(0)_3
+    PUSH 0x3c6ef372 // H^(0)_2
+    PUSH 0xbb67ae85 // H^(0)_1
+    PUSH 0x6a09e667 // H^(0)_0
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, retdest
 compression_start_block:
     // Store the current values of the working variables, as the "initial values" to be added back in at the end of this block.
