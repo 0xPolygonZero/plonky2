@@ -7,7 +7,7 @@ global mload_packing:
     // stack: value
 
 // Pre stack: context, segment, offset, value, len, retdest
-// Post stack: (empty)
+// Post stack: offset'
 global mstore_unpacking:
     // stack: context, segment, offset, value, len, retdest
     // We will enumerate i in (32 - len)..32.
@@ -42,6 +42,6 @@ mstore_unpacking_loop:
 
 mstore_unpacking_finish:
     // stack: i, context, segment, offset, value, len, retdest
-    %pop6
-    // stack: retdest
+    %pop3
+    %stack (offset, value, len, retdest) -> (retdest, offset)
     JUMP
