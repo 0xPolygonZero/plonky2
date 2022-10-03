@@ -238,13 +238,6 @@
     // stack: byte
 %endmacro
 
-// Load a single byte from kernel general memory.
-%macro mload_kernel_general
-    // stack: offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
-    // stack: value
-%endmacro
-
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
 // from kernel code.
 %macro mload_kernel_code_u32
@@ -261,6 +254,13 @@
     ADD
     // stack: offset
     %mload_kernel_u32(@SEGMENT_CODE)
+    // stack: value
+%endmacro
+
+// Load a single byte from kernel general memory.
+%macro mload_kernel_general
+    // stack: offset
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack: value
 %endmacro
 
@@ -308,13 +308,6 @@
     %mstore_kernel_u32(@SEGMENT_CODE)
 %endmacro
 
-// Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
-// to kernel general memory.
-%macro mstore_kernel_general_u32
-    // stack: offset, value
-    %mstore_kernel_u32(@SEGMENT_KERNEL_GENERAL)
-%endmacro
-
 // Store a single byte to @SEGMENT_RLP_RAW.
 %macro mstore_rlp
     // stack: offset, value
@@ -334,6 +327,13 @@
     // stack: offset, value 
     %mstore_kernel_general
     // stack: 
+%endmacro
+
+// Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
+// to kernel general memory.
+%macro mstore_kernel_general_u32
+    // stack: offset, value
+    %mstore_kernel_u32(@SEGMENT_KERNEL_GENERAL)
 %endmacro
 
 // set offset i to offset j in kernel general
