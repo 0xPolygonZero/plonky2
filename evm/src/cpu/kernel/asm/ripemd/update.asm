@@ -118,7 +118,7 @@ buffer_update:
     DUP2
     DUP2
     // stack: get, set, get  , set  , times  , retdest
-    %mupdate_ripemd
+    %mupdate_kernel_general
     // stack:           get  , set  , times  , retdest
     %add_const(1)
     SWAP1 

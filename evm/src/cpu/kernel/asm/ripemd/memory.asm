@@ -22,9 +22,9 @@ store_size:
     // stack: ab
     %extract_and_store_byte(70)
     // stack: a
-    %mstore_ripemd(71)
+    %mstore_kernel_general(71)
     // stack:           0x80     // padding has 0x80 in first position and zeros elsewhere
-    %mstore_ripemd(72)    // store first padding term here so as to avoid extra label
+    %mstore_kernel_general(72)    // store first padding term here so as to avoid extra label
     %jump(store_padding)
 
 store_padding:
@@ -41,7 +41,7 @@ store_input_alt:
     SUB
     ADD
     // stack: offset, byte, rem, length, REM_INP
-    %mstore_ripemd
+    %mstore_kernel_general
     // stack:               rem, length, REM_INP
     %sub_const(1)
     DUP1
@@ -63,7 +63,7 @@ store_input:
     SUB
     %add_const(136)
     // stack: offset, byte, ADDR    , rem    , length 
-    %mstore_ripemd
+    %mstore_kernel_general
     // stack:               ADDR    , rem    , length 
     SWAP2
     %add_const(1)
@@ -85,7 +85,7 @@ store_input:
     %stack (i) -> ($N, i, 0, i)
     SUB
     // stack: offset = N-i, 0, i
-    %mstore_ripemd
+    %mstore_kernel_general
     // stack: i
     %sub_const(1)
     DUP1
@@ -107,60 +107,6 @@ store_input:
     DIV
     SWAP1
     // stack: y, xs
-    %mstore_ripemd($offset)
+    %mstore_kernel_general($offset)
     // stack: xs
 %endmacro 
-
-%macro mstore_ripemd(offset)
-    // stack:         value 
-    PUSH $offset
-    // stack: offset, value 
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
-    // stack: 
-%endmacro
-
-%macro mstore_ripemd
-    // stack: offset, value 
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
-    // stack: 
-%endmacro
-
-%macro mload_ripemd
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
-%endmacro
-
-// Load LE u32 from 4 contiguous bytes a, b, c, d
-%macro load_u32_from_block
-    // stack: offset
-    DUP1
-    %mload_ripemd
-    // stack: a                       , offset
-    DUP2
-    %add_const(1)
-    %mload_ripemd
-    %shl_const(8)
-    OR
-    // stack: a | (b << 8)            , offset
-    DUP2
-    %add_const(2)
-    %mload_ripemd
-    %shl_const(16)
-    OR
-    // stack: a | (b << 8) | (c << 16), offset
-    SWAP1
-    %add_const(3)
-    %mload_ripemd
-    %shl_const(24)
-    OR
-    // stack: a | (b << 8) | (c << 16) | (d << 24)
-%endmacro
-
-// set offset i to offset j in memory
-%macro mupdate_ripemd
-    // stack: j, i
-    %mload_ripemd
-    // stack: x, i
-    SWAP1
-    %mstore_ripemd
-    // stack:
-%endmacro
