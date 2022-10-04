@@ -16,12 +16,14 @@ use crate::permutation::PermutationPair;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
+const TRACE_ORACLE_INDEX: usize = 0;
+const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;
+const QUOTIENT_ORACLE_INDEX: usize = 2;
+
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize;
-    /// The number of public inputs.
-    const PUBLIC_INPUTS: usize;
 
     /// Evaluate constraints at a vector of points.
     ///
@@ -31,7 +33,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// constraints over `F`.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -40,7 +42,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
-        vars: StarkEvaluationVars<F, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<F, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -49,12 +51,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
-        vars: StarkEvaluationVars<
-            F::Extension,
-            F::Extension,
-            { Self::COLUMNS },
-            { Self::PUBLIC_INPUTS },
-        >,
+        vars: StarkEvaluationVars<F::Extension, F::Extension, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<F::Extension>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -67,7 +64,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
 
@@ -79,6 +76,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         1.max(self.constraint_degree() - 1)
     }
 
+    fn num_quotient_polys(&self, config: &StarkConfig) -> usize {
+        self.quotient_degree_factor() * config.num_challenges
+    }
+
     /// Computes the FRI instance used to prove this Stark.
     fn fri_instance(
         &self,
@@ -88,28 +89,35 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         num_ctl_zs: usize,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
-        let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let mut oracle_indices = 0..;
-
-        let trace_info =
-            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+        let trace_oracle = FriOracleInfo {
+            num_polys: Self::COLUMNS,
+            blinding: false,
+        };
+        let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
 
         let num_permutation_batches = self.num_permutation_batches(config);
-        let permutation_ctl_index = oracle_indices.next().unwrap();
+        let num_perutation_ctl_polys = num_permutation_batches + num_ctl_zs;
+        let permutation_ctl_oracle = FriOracleInfo {
+            num_polys: num_perutation_ctl_polys,
+            blinding: false,
+        };
         let permutation_ctl_zs_info = FriPolynomialInfo::from_range(
-            permutation_ctl_index,
-            0..num_permutation_batches + num_ctl_zs,
+            PERMUTATION_CTL_ORACLE_INDEX,
+            0..num_perutation_ctl_polys,
         );
 
         let ctl_zs_info = FriPolynomialInfo::from_range(
-            permutation_ctl_index,
+            PERMUTATION_CTL_ORACLE_INDEX,
             num_permutation_batches..num_permutation_batches + num_ctl_zs,
         );
 
-        let quotient_info = FriPolynomialInfo::from_range(
-            oracle_indices.next().unwrap(),
-            0..self.quotient_degree_factor() * config.num_challenges,
-        );
+        let num_quotient_polys = self.num_quotient_polys(config);
+        let quotient_oracle = FriOracleInfo {
+            num_polys: num_quotient_polys,
+            blinding: false,
+        };
+        let quotient_info =
+            FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
 
         let zeta_batch = FriBatchInfo {
             point: zeta,
@@ -129,7 +137,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: ctl_zs_info,
         };
         FriInstanceInfo {
-            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
+            oracles: vec![trace_oracle, permutation_ctl_oracle, quotient_oracle],
             batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
         }
     }
@@ -144,28 +152,35 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         num_ctl_zs: usize,
         inner_config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
-        let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let mut oracle_indices = 0..;
-
-        let trace_info =
-            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+        let trace_oracle = FriOracleInfo {
+            num_polys: Self::COLUMNS,
+            blinding: false,
+        };
+        let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
 
         let num_permutation_batches = self.num_permutation_batches(inner_config);
-        let permutation_ctl_index = oracle_indices.next().unwrap();
+        let num_perutation_ctl_polys = num_permutation_batches + num_ctl_zs;
+        let permutation_ctl_oracle = FriOracleInfo {
+            num_polys: num_perutation_ctl_polys,
+            blinding: false,
+        };
         let permutation_ctl_zs_info = FriPolynomialInfo::from_range(
-            permutation_ctl_index,
-            0..num_permutation_batches + num_ctl_zs,
+            PERMUTATION_CTL_ORACLE_INDEX,
+            0..num_perutation_ctl_polys,
         );
 
         let ctl_zs_info = FriPolynomialInfo::from_range(
-            permutation_ctl_index,
+            PERMUTATION_CTL_ORACLE_INDEX,
             num_permutation_batches..num_permutation_batches + num_ctl_zs,
         );
 
-        let quotient_info = FriPolynomialInfo::from_range(
-            oracle_indices.next().unwrap(),
-            0..self.quotient_degree_factor() * inner_config.num_challenges,
-        );
+        let num_quotient_polys = self.num_quotient_polys(inner_config);
+        let quotient_oracle = FriOracleInfo {
+            num_polys: num_quotient_polys,
+            blinding: false,
+        };
+        let quotient_info =
+            FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
 
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,
@@ -187,7 +202,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: ctl_zs_info,
         };
         FriInstanceInfoTarget {
-            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
+            oracles: vec![trace_oracle, permutation_ctl_oracle, quotient_oracle],
             batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
         }
     }

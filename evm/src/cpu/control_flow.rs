@@ -10,31 +10,31 @@ use crate::cpu::kernel::aggregator::KERNEL;
 
 // TODO: This list is incomplete.
 const NATIVE_INSTRUCTIONS: [usize; 25] = [
-    COL_MAP.is_add,
-    COL_MAP.is_mul,
-    COL_MAP.is_sub,
-    COL_MAP.is_div,
-    COL_MAP.is_sdiv,
-    COL_MAP.is_mod,
-    COL_MAP.is_smod,
-    COL_MAP.is_addmod,
-    COL_MAP.is_mulmod,
-    COL_MAP.is_signextend,
-    COL_MAP.is_lt,
-    COL_MAP.is_gt,
-    COL_MAP.is_slt,
-    COL_MAP.is_sgt,
-    COL_MAP.is_eq,
-    COL_MAP.is_iszero,
-    COL_MAP.is_and,
-    COL_MAP.is_or,
-    COL_MAP.is_xor,
-    COL_MAP.is_not,
-    COL_MAP.is_byte,
-    COL_MAP.is_shl,
-    COL_MAP.is_shr,
-    COL_MAP.is_sar,
-    COL_MAP.is_pop,
+    COL_MAP.op.add,
+    COL_MAP.op.mul,
+    COL_MAP.op.sub,
+    COL_MAP.op.div,
+    COL_MAP.op.sdiv,
+    COL_MAP.op.mod_,
+    COL_MAP.op.smod,
+    COL_MAP.op.addmod,
+    COL_MAP.op.mulmod,
+    COL_MAP.op.signextend,
+    COL_MAP.op.lt,
+    COL_MAP.op.gt,
+    COL_MAP.op.slt,
+    COL_MAP.op.sgt,
+    COL_MAP.op.eq,
+    COL_MAP.op.iszero,
+    COL_MAP.op.and,
+    COL_MAP.op.or,
+    COL_MAP.op.xor,
+    COL_MAP.op.not,
+    COL_MAP.op.byte,
+    COL_MAP.op.shl,
+    COL_MAP.op.shr,
+    COL_MAP.op.sar,
+    COL_MAP.op.pop,
 ];
 
 fn get_halt_pcs<F: Field>() -> (F, F) {
@@ -68,14 +68,16 @@ pub fn eval_packed_generic<P: PackedField>(
         lv.is_cpu_cycle * is_native_instruction * (lv.is_kernel_mode - nv.is_kernel_mode),
     );
 
-    // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
+    // If a non-CPU cycle row is followed by a CPU cycle row, then:
+    //  - the `program_counter` of the CPU cycle row is `main` (the entry point of our kernel),
+    //  - execution is in kernel mode, and
+    //  - the stack is empty.
+    let is_last_noncpu_cycle = (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle;
     let pc_diff =
-        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["route_txn"]);
-    yield_constr.constraint_transition((lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * pc_diff);
-    yield_constr.constraint_transition(
-        (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle * (nv.is_kernel_mode - P::ONES),
-    );
+        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["main"]);
+    yield_constr.constraint_transition(is_last_noncpu_cycle * pc_diff);
+    yield_constr.constraint_transition(is_last_noncpu_cycle * (nv.is_kernel_mode - P::ONES));
+    yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
 
     // The last row must be a CPU cycle row.
     yield_constr.constraint_last_row(lv.is_cpu_cycle - P::ONES);
@@ -115,17 +117,32 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, kernel_constr);
     }
 
-    // If a non-CPU cycle row is followed by a CPU cycle row, then the `program_counter` of the CPU
-    // cycle row is route_txn (the entry point of our kernel) and it is in kernel mode.
+    // If a non-CPU cycle row is followed by a CPU cycle row, then:
+    //  - the `program_counter` of the CPU cycle row is `main` (the entry point of our kernel),
+    //  - execution is in kernel mode, and
+    //  - the stack is empty.
     {
-        let filter = builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
-        let route_txn = builder.constant_extension(F::Extension::from_canonical_usize(
-            KERNEL.global_labels["route_txn"],
+        let is_last_noncpu_cycle =
+            builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
+
+        // Start at `main`.
+        let main = builder.constant_extension(F::Extension::from_canonical_usize(
+            KERNEL.global_labels["main"],
         ));
-        let pc_diff = builder.sub_extension(nv.program_counter, route_txn);
-        let pc_constr = builder.mul_extension(filter, pc_diff);
+        let pc_diff = builder.sub_extension(nv.program_counter, main);
+        let pc_constr = builder.mul_extension(is_last_noncpu_cycle, pc_diff);
         yield_constr.constraint_transition(builder, pc_constr);
-        let kernel_constr = builder.mul_sub_extension(filter, nv.is_kernel_mode, filter);
+
+        // Start in kernel mode
+        let kernel_constr = builder.mul_sub_extension(
+            is_last_noncpu_cycle,
+            nv.is_kernel_mode,
+            is_last_noncpu_cycle,
+        );
+        yield_constr.constraint_transition(builder, kernel_constr);
+
+        // Start with empty stack
+        let kernel_constr = builder.mul_extension(is_last_noncpu_cycle, nv.stack_len);
         yield_constr.constraint_transition(builder, kernel_constr);
     }
 

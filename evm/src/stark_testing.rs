@@ -26,13 +26,11 @@ pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let rate_bits = log2_ceil(stark.constraint_degree() + 1);
 
     let trace_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
     let size = trace_ldes.len();
-    let public_inputs = F::rand_arr::<{ S::PUBLIC_INPUTS }>();
 
     let lagrange_first = PolynomialValues::selector(WITNESS_SIZE, 0).lde(rate_bits);
     let lagrange_last = PolynomialValues::selector(WITNESS_SIZE, WITNESS_SIZE - 1).lde(rate_bits);
@@ -49,7 +47,6 @@ where
                     .clone()
                     .try_into()
                     .unwrap(),
-                public_inputs: &public_inputs,
             };
 
             let mut consumer = ConstraintConsumer::<F>::new(
@@ -63,17 +60,20 @@ where
         })
         .collect::<Vec<_>>();
 
-    let constraint_eval_degree = PolynomialValues::new(constraint_evals).degree();
-    let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
+    let constraint_poly_values = PolynomialValues::new(constraint_evals);
+    if !constraint_poly_values.is_zero() {
+        let constraint_eval_degree = constraint_poly_values.degree();
+        let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
 
-    ensure!(
-        constraint_eval_degree <= maximum_degree,
-        "Expected degrees at most {} * {} - 1 = {}, actual {:?}",
-        WITNESS_SIZE,
-        stark.constraint_degree(),
-        maximum_degree,
-        constraint_eval_degree
-    );
+        ensure!(
+            constraint_eval_degree <= maximum_degree,
+            "Expected degrees at most {} * {} - 1 = {}, actual {:?}",
+            WITNESS_SIZE,
+            stark.constraint_degree(),
+            maximum_degree,
+            constraint_eval_degree
+        );
+    }
 
     Ok(())
 }
@@ -89,14 +89,12 @@ pub fn test_stark_circuit_constraints<
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {
         local_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
         next_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
-        public_inputs: &F::Extension::rand_arr::<{ S::PUBLIC_INPUTS }>(),
     };
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();
@@ -124,8 +122,6 @@ where
     pw.set_extension_targets(&locals_t, vars.local_values);
     let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
     pw.set_extension_targets(&nexts_t, vars.next_values);
-    let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
-    pw.set_extension_targets(&pis_t, vars.public_inputs);
     let alphas_t = builder.add_virtual_targets(1);
     pw.set_target(alphas_t[0], alphas[0]);
     let z_last_t = builder.add_virtual_extension_target();
@@ -135,10 +131,9 @@ where
     let lagrange_last_t = builder.add_virtual_extension_target();
     pw.set_extension_target(lagrange_last_t, lagrange_last);
 
-    let vars = StarkEvaluationTargets::<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
+    let vars = StarkEvaluationTargets::<D, { S::COLUMNS }> {
         local_values: &locals_t.try_into().unwrap(),
         next_values: &nexts_t.try_into().unwrap(),
-        public_inputs: &pis_t.try_into().unwrap(),
     };
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
         builder.zero_extension(),

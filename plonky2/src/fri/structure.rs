@@ -25,6 +25,7 @@ pub struct FriInstanceInfoTarget<const D: usize> {
 
 #[derive(Copy, Clone)]
 pub struct FriOracleInfo {
+    pub num_polys: usize,
     pub blinding: bool,
 }
 
@@ -42,7 +43,7 @@ pub struct FriBatchInfoTarget<const D: usize> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct FriPolynomialInfo {
-    /// Index into `FriInstanceInfoTarget`'s `oracles` list.
+    /// Index into `FriInstanceInfo`'s `oracles` list.
     pub oracle_index: usize,
     /// Index of the polynomial within the oracle.
     pub polynomial_index: usize,

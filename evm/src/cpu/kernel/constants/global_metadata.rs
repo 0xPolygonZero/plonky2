@@ -18,13 +18,23 @@ pub(crate) enum GlobalMetadata {
     TransactionTrieRoot = 5,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
     ReceiptTrieRoot = 6,
-    /// The number of storage tries involved in this transaction. I.e. the number of values in
+    /// The number of storage tries involved in these transactions. I.e. the number of values in
     /// `StorageTrieAddresses`, `StorageTriePointers` and `StorageTrieCheckpointPointers`.
     NumStorageTries = 7,
+
+    // The root digests of each Merkle trie before these transactions.
+    StateTrieRootDigestBefore = 8,
+    TransactionTrieRootDigestBefore = 9,
+    ReceiptTrieRootDigestBefore = 10,
+
+    // The root digests of each Merkle trie after these transactions.
+    StateTrieRootDigestAfter = 11,
+    TransactionTrieRootDigestAfter = 12,
+    ReceiptTrieRootDigestAfter = 13,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 8;
+    pub(crate) const COUNT: usize = 14;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -36,6 +46,12 @@ impl GlobalMetadata {
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
             Self::NumStorageTries,
+            Self::StateTrieRootDigestBefore,
+            Self::TransactionTrieRootDigestBefore,
+            Self::ReceiptTrieRootDigestBefore,
+            Self::StateTrieRootDigestAfter,
+            Self::TransactionTrieRootDigestAfter,
+            Self::ReceiptTrieRootDigestAfter,
         ]
     }
 
@@ -50,6 +66,20 @@ impl GlobalMetadata {
             GlobalMetadata::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             GlobalMetadata::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
             GlobalMetadata::NumStorageTries => "GLOBAL_METADATA_NUM_STORAGE_TRIES",
+            GlobalMetadata::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
+            GlobalMetadata::TransactionTrieRootDigestBefore => {
+                "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE"
+            }
+            GlobalMetadata::ReceiptTrieRootDigestBefore => {
+                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE"
+            }
+            GlobalMetadata::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
+            GlobalMetadata::TransactionTrieRootDigestAfter => {
+                "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER"
+            }
+            GlobalMetadata::ReceiptTrieRootDigestAfter => {
+                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER"
+            }
         }
     }
 }

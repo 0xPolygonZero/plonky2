@@ -17,16 +17,16 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let jumps_lv = lv.general.jumps();
+    let input = lv.mem_channels[0].value;
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
     // flag. The top 6 (32-bit) limbs are ignored (this is not part of the spec, but we trust the
     // kernel to set them to zero).
     yield_constr.constraint_transition(
-        lv.is_cpu_cycle * lv.is_exit_kernel * (jumps_lv.input0[0] - nv.program_counter),
+        lv.is_cpu_cycle * lv.op.exit_kernel * (input[0] - nv.program_counter),
     );
     yield_constr.constraint_transition(
-        lv.is_cpu_cycle * lv.is_exit_kernel * (jumps_lv.input0[1] - nv.is_kernel_mode),
+        lv.is_cpu_cycle * lv.op.exit_kernel * (input[1] - nv.is_kernel_mode),
     );
 }
 
@@ -36,18 +36,18 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let jumps_lv = lv.general.jumps();
-    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.is_exit_kernel);
+    let input = lv.mem_channels[0].value;
+    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.exit_kernel);
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
     // flag. The top 6 (32-bit) limbs are ignored (this is not part of the spec, but we trust the
     // kernel to set them to zero).
 
-    let pc_constr = builder.sub_extension(jumps_lv.input0[0], nv.program_counter);
+    let pc_constr = builder.sub_extension(input[0], nv.program_counter);
     let pc_constr = builder.mul_extension(filter, pc_constr);
     yield_constr.constraint_transition(builder, pc_constr);
 
-    let kernel_constr = builder.sub_extension(jumps_lv.input0[1], nv.is_kernel_mode);
+    let kernel_constr = builder.sub_extension(input[1], nv.is_kernel_mode);
     let kernel_constr = builder.mul_extension(filter, kernel_constr);
     yield_constr.constraint_transition(builder, kernel_constr);
 }
@@ -58,16 +58,18 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let filter = lv.is_jump + lv.is_jumpi; // `JUMP` or `JUMPI`
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
+    let filter = lv.op.jump + lv.op.jumpi; // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(addr)` as `JUMPI(addr, cond=1)`.
-    yield_constr.constraint(lv.is_jump * (jumps_lv.input1[0] - P::ONES));
-    for &limb in &jumps_lv.input1[1..] {
+    yield_constr.constraint(lv.op.jump * (input1[0] - P::ONES));
+    for &limb in &input1[1..] {
         // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `input1[0] + ... + input1[7]` cannot overflow.
-        yield_constr.constraint(lv.is_jump * limb);
+        yield_constr.constraint(lv.op.jump * limb);
     }
 
     // Check `input0_upper_zero`
@@ -75,7 +77,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr
         .constraint(filter * jumps_lv.input0_upper_zero * (jumps_lv.input0_upper_zero - P::ONES));
     // The below sum cannot overflow due to the limb size.
-    let input0_upper_sum: P = jumps_lv.input0[1..].iter().copied().sum();
+    let input0_upper_sum: P = input0[1..].iter().copied().sum();
     // `input0_upper_zero` = 1 implies `input0_upper_sum` = 0.
     yield_constr.constraint(filter * jumps_lv.input0_upper_zero * input0_upper_sum);
     // `input0_upper_zero` = 0 implies `input0_upper_sum_inv * input0_upper_sum` = 1, which can only
@@ -113,7 +115,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
 
     // Validate `should_continue`
     // This sum cannot overflow (due to limb size).
-    let input1_sum: P = jumps_lv.input1.into_iter().sum();
+    let input1_sum: P = input1.into_iter().sum();
     // `should_continue` = 1 implies `input1_sum` = 0.
     yield_constr.constraint(filter * jumps_lv.should_continue * input1_sum);
     // `should_continue` = 0 implies `input1_sum * input1_sum_inv` = 1, which can only happen if
@@ -147,9 +149,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint_transition(
         filter * jumps_lv.should_continue * (nv.program_counter - lv.program_counter - P::ONES),
     );
-    yield_constr.constraint_transition(
-        filter * jumps_lv.should_jump * (nv.program_counter - jumps_lv.input0[0]),
-    );
+    yield_constr
+        .constraint_transition(filter * jumps_lv.should_jump * (nv.program_counter - input0[0]));
 }
 
 pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>(
@@ -159,19 +160,21 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let filter = builder.add_extension(lv.is_jump, lv.is_jumpi); // `JUMP` or `JUMPI`
+    let input0 = lv.mem_channels[0].value;
+    let input1 = lv.mem_channels[1].value;
+    let filter = builder.add_extension(lv.op.jump, lv.op.jumpi); // `JUMP` or `JUMPI`
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(addr)` as `JUMPI(addr, cond=1)`.
     {
-        let constr = builder.mul_sub_extension(lv.is_jump, jumps_lv.input1[0], lv.is_jump);
+        let constr = builder.mul_sub_extension(lv.op.jump, input1[0], lv.op.jump);
         yield_constr.constraint(builder, constr);
     }
-    for &limb in &jumps_lv.input1[1..] {
+    for &limb in &input1[1..] {
         // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `input1[0] + ... + input1[7]` cannot overflow.
-        let constr = builder.mul_extension(lv.is_jump, limb);
+        let constr = builder.mul_extension(lv.op.jump, limb);
         yield_constr.constraint(builder, constr);
     }
 
@@ -188,7 +191,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
     {
         // The below sum cannot overflow due to the limb size.
-        let input0_upper_sum = builder.add_many_extension(jumps_lv.input0[1..].iter());
+        let input0_upper_sum = builder.add_many_extension(input0[1..].iter());
 
         // `input0_upper_zero` = 1 implies `input0_upper_sum` = 0.
         let constr = builder.mul_extension(jumps_lv.input0_upper_zero, input0_upper_sum);
@@ -251,7 +254,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Validate `should_continue`
     {
         // This sum cannot overflow (due to limb size).
-        let input1_sum = builder.add_many_extension(jumps_lv.input1.into_iter());
+        let input1_sum = builder.add_many_extension(input1.into_iter());
 
         // `should_continue` = 1 implies `input1_sum` = 0.
         let constr = builder.mul_extension(jumps_lv.should_continue, input1_sum);
@@ -326,7 +329,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
     // ...or jumping.
     {
-        let constr = builder.sub_extension(nv.program_counter, jumps_lv.input0[0]);
+        let constr = builder.sub_extension(nv.program_counter, input0[0]);
         let constr = builder.mul_extension(jumps_lv.should_jump, constr);
         let constr = builder.mul_extension(filter, constr);
         yield_constr.constraint_transition(builder, constr);

@@ -4,7 +4,6 @@
 //     DST = (dst_ctx, dst_segment, dst_addr).
 // These tuple definitions are used for brevity in the stack comments below.
 global memcpy:
-    JUMPDEST
     // stack: DST, SRC, count, retdest
     DUP7
     // stack: count, DST, SRC, count, retdest
@@ -44,7 +43,6 @@ global memcpy:
     %jump(memcpy)
 
 memcpy_finish:
-    JUMPDEST
     // stack: DST, SRC, count, retdest
     %pop7
     // stack: retdest

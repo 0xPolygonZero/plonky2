@@ -22,13 +22,13 @@ impl Default for MemoryState {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct MemoryContextState {
     /// The content of each memory segment.
     pub segments: [MemorySegmentState; Segment::COUNT],
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct MemorySegmentState {
     pub content: Vec<U256>,
 }

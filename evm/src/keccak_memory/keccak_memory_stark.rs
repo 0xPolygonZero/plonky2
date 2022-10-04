@@ -18,8 +18,6 @@ use crate::util::trace_rows_to_poly_values;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
-const NUM_PUBLIC_INPUTS: usize = 0;
-
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     Column::singles([COL_CONTEXT, COL_SEGMENT, COL_VIRTUAL, COL_READ_TIMESTAMP]).collect()
 }
@@ -95,23 +93,21 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
         &self,
         operations: Vec<KeccakMemoryOp>,
         min_rows: usize,
+        timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
-        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
-
         // Generate the witness row-wise.
         let trace_rows = timed!(
-            &mut timing,
+            timing,
             "generate trace rows",
             self.generate_trace_rows(operations, min_rows)
         );
 
         let trace_polys = timed!(
-            &mut timing,
+            timing,
             "convert to PolynomialValues",
             trace_rows_to_poly_values(trace_rows)
         );
 
-        timing.print();
         trace_polys
     }
 
@@ -162,11 +158,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakMemoryStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
-    const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -180,7 +175,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakMemoryS
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         // is_real must be 0 or 1.

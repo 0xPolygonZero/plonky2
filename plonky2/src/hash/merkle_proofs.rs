@@ -17,6 +17,12 @@ pub struct MerkleProof<F: RichField, H: Hasher<F>> {
     pub siblings: Vec<H::Hash>,
 }
 
+impl<F: RichField, H: Hasher<F>> MerkleProof<F, H> {
+    pub fn len(&self) -> usize {
+        self.siblings.len()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.

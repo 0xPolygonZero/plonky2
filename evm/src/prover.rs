@@ -17,11 +17,12 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 
-use crate::all_stark::{AllStark, Table};
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
+use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic::LogicStark;
@@ -30,17 +31,16 @@ use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
 };
-use crate::proof::{AllProof, StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
+use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-/// Compute all STARK proofs.
+/// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
-    trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    public_inputs: Vec<Vec<F>>,
+    inputs: GenerationInputs,
     timing: &mut TimingTree,
 ) -> Result<AllProof<F, C, D>>
 where
@@ -48,20 +48,33 @@ where
     C: GenericConfig<D, F = F>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::PUBLIC_INPUTS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::PUBLIC_INPUTS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::PUBLIC_INPUTS]:,
 {
-    let num_starks = Table::num_tables();
-    debug_assert_eq!(num_starks, trace_poly_values.len());
-    debug_assert_eq!(num_starks, public_inputs.len());
+    let (traces, public_values) = generate_traces(all_stark, inputs, config, timing);
+    prove_with_traces(all_stark, config, traces, public_values, timing)
+}
 
+/// Compute all STARK proofs.
+pub(crate) fn prove_with_traces<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    public_values: PublicValues,
+    timing: &mut TimingTree,
+) -> Result<AllProof<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    [(); C::Hasher::HASH_SIZE]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+{
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
@@ -107,10 +120,6 @@ where
         &trace_poly_values[Table::Cpu as usize],
         &trace_commitments[Table::Cpu as usize],
         &ctl_data_per_table[Table::Cpu as usize],
-        public_inputs[Table::Cpu as usize]
-            .clone()
-            .try_into()
-            .unwrap(),
         &mut challenger,
         timing,
     )?;
@@ -120,10 +129,6 @@ where
         &trace_poly_values[Table::Keccak as usize],
         &trace_commitments[Table::Keccak as usize],
         &ctl_data_per_table[Table::Keccak as usize],
-        public_inputs[Table::Keccak as usize]
-            .clone()
-            .try_into()
-            .unwrap(),
         &mut challenger,
         timing,
     )?;
@@ -133,10 +138,6 @@ where
         &trace_poly_values[Table::KeccakMemory as usize],
         &trace_commitments[Table::KeccakMemory as usize],
         &ctl_data_per_table[Table::KeccakMemory as usize],
-        public_inputs[Table::KeccakMemory as usize]
-            .clone()
-            .try_into()
-            .unwrap(),
         &mut challenger,
         timing,
     )?;
@@ -146,10 +147,6 @@ where
         &trace_poly_values[Table::Logic as usize],
         &trace_commitments[Table::Logic as usize],
         &ctl_data_per_table[Table::Logic as usize],
-        public_inputs[Table::Logic as usize]
-            .clone()
-            .try_into()
-            .unwrap(),
         &mut challenger,
         timing,
     )?;
@@ -159,44 +156,40 @@ where
         &trace_poly_values[Table::Memory as usize],
         &trace_commitments[Table::Memory as usize],
         &ctl_data_per_table[Table::Memory as usize],
-        public_inputs[Table::Memory as usize]
-            .clone()
-            .try_into()
-            .unwrap(),
         &mut challenger,
         timing,
     )?;
 
-    let stark_proofs = vec![
+    let stark_proofs = [
         cpu_proof,
         keccak_proof,
         keccak_memory_proof,
         logic_proof,
         memory_proof,
     ];
-    debug_assert_eq!(stark_proofs.len(), num_starks);
 
-    Ok(AllProof { stark_proofs })
+    Ok(AllProof {
+        stark_proofs,
+        public_values,
+    })
 }
 
 /// Compute proof for a single STARK table.
-fn prove_single_table<F, C, S, const D: usize>(
+pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
     ctl_data: &CtlData<F>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<StarkProofWithPublicInputs<F, C, D>>
+) -> Result<StarkProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -217,7 +210,11 @@ where
         )
     });
     let permutation_zs = permutation_challenges.as_ref().map(|challenges| {
-        compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
+        timed!(
+            timing,
+            "compute permutation Z(x) polys",
+            compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
+        )
     });
     let num_permutation_zs = permutation_zs.as_ref().map(|v| v.len()).unwrap_or(0);
 
@@ -230,13 +227,17 @@ where
     };
     assert!(!z_polys.is_empty(), "No CTL?");
 
-    let permutation_ctl_zs_commitment = PolynomialBatch::from_values(
-        z_polys,
-        rate_bits,
-        false,
-        config.fri_config.cap_height,
+    let permutation_ctl_zs_commitment = timed!(
         timing,
-        None,
+        "compute Zs commitment",
+        PolynomialBatch::from_values(
+            z_polys,
+            rate_bits,
+            false,
+            config.fri_config.cap_height,
+            timing,
+            None,
+        )
     );
 
     let permutation_ctl_zs_cap = permutation_ctl_zs_commitment.merkle_tree.cap.clone();
@@ -250,35 +251,43 @@ where
             &permutation_ctl_zs_commitment,
             permutation_challenges.as_ref(),
             ctl_data,
-            public_inputs,
             alphas.clone(),
             degree_bits,
             num_permutation_zs,
             config,
         );
     }
-    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-        stark,
-        trace_commitment,
-        &permutation_ctl_zs_commitment,
-        permutation_challenges.as_ref(),
-        ctl_data,
-        public_inputs,
-        alphas,
-        degree_bits,
-        num_permutation_zs,
-        config,
+    let quotient_polys = timed!(
+        timing,
+        "compute quotient polys",
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            stark,
+            trace_commitment,
+            &permutation_ctl_zs_commitment,
+            permutation_challenges.as_ref(),
+            ctl_data,
+            alphas,
+            degree_bits,
+            num_permutation_zs,
+            config,
+        )
     );
-    let all_quotient_chunks = quotient_polys
-        .into_par_iter()
-        .flat_map(|mut quotient_poly| {
-            quotient_poly
-                .trim_to_len(degree * stark.quotient_degree_factor())
-                .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
-            // Split quotient into degree-n chunks.
-            quotient_poly.chunks(degree)
-        })
-        .collect();
+    let all_quotient_chunks = timed!(
+        timing,
+        "split quotient polys",
+        quotient_polys
+            .into_par_iter()
+            .flat_map(|mut quotient_poly| {
+                quotient_poly
+                    .trim_to_len(degree * stark.quotient_degree_factor())
+                    .expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
+                // Split quotient into degree-n chunks.
+                quotient_poly.chunks(degree)
+            })
+            .collect()
+    );
     let quotient_commitment = timed!(
         timing,
         "compute quotient commitment",
@@ -332,17 +341,13 @@ where
             timing,
         )
     );
-    let proof = StarkProof {
+
+    Ok(StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         permutation_ctl_zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
-    };
-
-    Ok(StarkProofWithPublicInputs {
-        proof,
-        public_inputs: public_inputs.to_vec(),
     })
 }
 
@@ -354,7 +359,6 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
     alphas: Vec<F>,
     degree_bits: usize,
     num_permutation_zs: usize,
@@ -366,7 +370,6 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
@@ -428,7 +431,6 @@ where
             let vars = StarkEvaluationVars {
                 local_values: &get_trace_values_packed(i_start),
                 next_values: &get_trace_values_packed(i_next_start),
-                public_inputs: &public_inputs,
             };
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
@@ -494,7 +496,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
     alphas: Vec<F>,
     degree_bits: usize,
     num_permutation_zs: usize,
@@ -504,7 +505,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
@@ -553,7 +553,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             let vars = StarkEvaluationVars {
                 local_values: trace_subgroup_evals[i].as_slice().try_into().unwrap(),
                 next_values: trace_subgroup_evals[i_next].as_slice().try_into().unwrap(),
-                public_inputs: &public_inputs,
             };
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
