@@ -53,7 +53,7 @@ where
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
-    let (traces, public_values) = generate_traces(all_stark, inputs, config);
+    let (traces, public_values) = generate_traces(all_stark, inputs, config, timing);
     prove_with_traces(all_stark, config, traces, public_values, timing)
 }
 
@@ -175,7 +175,7 @@ where
 }
 
 /// Compute proof for a single STARK table.
-fn prove_single_table<F, C, S, const D: usize>(
+pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
@@ -210,7 +210,11 @@ where
         )
     });
     let permutation_zs = permutation_challenges.as_ref().map(|challenges| {
-        compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
+        timed!(
+            timing,
+            "compute permutation Z(x) polys",
+            compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
+        )
     });
     let num_permutation_zs = permutation_zs.as_ref().map(|v| v.len()).unwrap_or(0);
 
@@ -223,13 +227,17 @@ where
     };
     assert!(!z_polys.is_empty(), "No CTL?");
 
-    let permutation_ctl_zs_commitment = PolynomialBatch::from_values(
-        z_polys,
-        rate_bits,
-        false,
-        config.fri_config.cap_height,
+    let permutation_ctl_zs_commitment = timed!(
         timing,
-        None,
+        "compute Zs commitment",
+        PolynomialBatch::from_values(
+            z_polys,
+            rate_bits,
+            false,
+            config.fri_config.cap_height,
+            timing,
+            None,
+        )
     );
 
     let permutation_ctl_zs_cap = permutation_ctl_zs_commitment.merkle_tree.cap.clone();
@@ -249,27 +257,37 @@ where
             config,
         );
     }
-    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-        stark,
-        trace_commitment,
-        &permutation_ctl_zs_commitment,
-        permutation_challenges.as_ref(),
-        ctl_data,
-        alphas,
-        degree_bits,
-        num_permutation_zs,
-        config,
+    let quotient_polys = timed!(
+        timing,
+        "compute quotient polys",
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            stark,
+            trace_commitment,
+            &permutation_ctl_zs_commitment,
+            permutation_challenges.as_ref(),
+            ctl_data,
+            alphas,
+            degree_bits,
+            num_permutation_zs,
+            config,
+        )
     );
-    let all_quotient_chunks = quotient_polys
-        .into_par_iter()
-        .flat_map(|mut quotient_poly| {
-            quotient_poly
-                .trim_to_len(degree * stark.quotient_degree_factor())
-                .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
-            // Split quotient into degree-n chunks.
-            quotient_poly.chunks(degree)
-        })
-        .collect();
+    let all_quotient_chunks = timed!(
+        timing,
+        "split quotient polys",
+        quotient_polys
+            .into_par_iter()
+            .flat_map(|mut quotient_poly| {
+                quotient_poly
+                    .trim_to_len(degree * stark.quotient_degree_factor())
+                    .expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
+                // Split quotient into degree-n chunks.
+                quotient_poly.chunks(degree)
+            })
+            .collect()
+    );
     let quotient_commitment = timed!(
         timing,
         "compute quotient commitment",

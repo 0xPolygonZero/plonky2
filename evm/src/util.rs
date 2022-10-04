@@ -1,6 +1,6 @@
 use std::mem::{size_of, transmute_copy, ManuallyDrop};
 
-use ethereum_types::{H160, U256};
+use ethereum_types::{H160, H256, U256};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -53,6 +53,17 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
             let hi = (limb_64 >> 32) as u32;
             [lo, hi]
         })
+        .map(F::from_canonical_u32)
+        .collect_vec()
+        .try_into()
+        .unwrap()
+}
+
+/// Returns the 32-bit little-endian limbs of a `H256`.
+pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
+    h256.0
+        .chunks(4)
+        .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
         .map(F::from_canonical_u32)
         .collect_vec()
         .try_into()

@@ -1,6 +1,6 @@
 use ethereum_types::U256;
 
-use crate::cpu::kernel::prover_input::ProverInputFn;
+use crate::generation::prover_input::ProverInputFn;
 
 #[derive(Debug)]
 pub(crate) struct File {
@@ -38,10 +38,7 @@ pub(crate) enum Item {
 
 /// The left hand side of a %stack stack-manipulation macro.
 #[derive(Eq, PartialEq, Clone, Debug)]
-pub(crate) enum StackPlaceholder {
-    Identifier(String),
-    Block(String, usize),
-}
+pub(crate) struct StackPlaceholder(pub String, pub usize);
 
 /// The right hand side of a %stack stack-manipulation macro.
 #[derive(Eq, PartialEq, Clone, Debug)]

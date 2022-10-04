@@ -22,101 +22,102 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 92] = [
+const OPCODES: [(u8, usize, bool, usize); 93] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
-    (0x00, 0, false, COL_MAP.is_stop),
-    (0x01, 0, false, COL_MAP.is_add),
-    (0x02, 0, false, COL_MAP.is_mul),
-    (0x03, 0, false, COL_MAP.is_sub),
-    (0x04, 0, false, COL_MAP.is_div),
-    (0x05, 0, false, COL_MAP.is_sdiv),
-    (0x06, 0, false, COL_MAP.is_mod),
-    (0x07, 0, false, COL_MAP.is_smod),
-    (0x08, 0, false, COL_MAP.is_addmod),
-    (0x09, 0, false, COL_MAP.is_mulmod),
-    (0x0a, 0, false, COL_MAP.is_exp),
-    (0x0b, 0, false, COL_MAP.is_signextend),
-    (0x10, 0, false, COL_MAP.is_lt),
-    (0x11, 0, false, COL_MAP.is_gt),
-    (0x12, 0, false, COL_MAP.is_slt),
-    (0x13, 0, false, COL_MAP.is_sgt),
-    (0x14, 0, false, COL_MAP.is_eq),
-    (0x15, 0, false, COL_MAP.is_iszero),
-    (0x16, 0, false, COL_MAP.is_and),
-    (0x17, 0, false, COL_MAP.is_or),
-    (0x18, 0, false, COL_MAP.is_xor),
-    (0x19, 0, false, COL_MAP.is_not),
-    (0x1a, 0, false, COL_MAP.is_byte),
-    (0x1b, 0, false, COL_MAP.is_shl),
-    (0x1c, 0, false, COL_MAP.is_shr),
-    (0x1d, 0, false, COL_MAP.is_sar),
-    (0x20, 0, false, COL_MAP.is_keccak256),
-    (0x30, 0, false, COL_MAP.is_address),
-    (0x31, 0, false, COL_MAP.is_balance),
-    (0x32, 0, false, COL_MAP.is_origin),
-    (0x33, 0, false, COL_MAP.is_caller),
-    (0x34, 0, false, COL_MAP.is_callvalue),
-    (0x35, 0, false, COL_MAP.is_calldataload),
-    (0x36, 0, false, COL_MAP.is_calldatasize),
-    (0x37, 0, false, COL_MAP.is_calldatacopy),
-    (0x38, 0, false, COL_MAP.is_codesize),
-    (0x39, 0, false, COL_MAP.is_codecopy),
-    (0x3a, 0, false, COL_MAP.is_gasprice),
-    (0x3b, 0, false, COL_MAP.is_extcodesize),
-    (0x3c, 0, false, COL_MAP.is_extcodecopy),
-    (0x3d, 0, false, COL_MAP.is_returndatasize),
-    (0x3e, 0, false, COL_MAP.is_returndatacopy),
-    (0x3f, 0, false, COL_MAP.is_extcodehash),
-    (0x40, 0, false, COL_MAP.is_blockhash),
-    (0x41, 0, false, COL_MAP.is_coinbase),
-    (0x42, 0, false, COL_MAP.is_timestamp),
-    (0x43, 0, false, COL_MAP.is_number),
-    (0x44, 0, false, COL_MAP.is_difficulty),
-    (0x45, 0, false, COL_MAP.is_gaslimit),
-    (0x46, 0, false, COL_MAP.is_chainid),
-    (0x47, 0, false, COL_MAP.is_selfbalance),
-    (0x48, 0, false, COL_MAP.is_basefee),
-    (0x49, 0, true, COL_MAP.is_prover_input),
-    (0x50, 0, false, COL_MAP.is_pop),
-    (0x51, 0, false, COL_MAP.is_mload),
-    (0x52, 0, false, COL_MAP.is_mstore),
-    (0x53, 0, false, COL_MAP.is_mstore8),
-    (0x54, 0, false, COL_MAP.is_sload),
-    (0x55, 0, false, COL_MAP.is_sstore),
-    (0x56, 0, false, COL_MAP.is_jump),
-    (0x57, 0, false, COL_MAP.is_jumpi),
-    (0x58, 0, false, COL_MAP.is_pc),
-    (0x59, 0, false, COL_MAP.is_msize),
-    (0x5a, 0, false, COL_MAP.is_gas),
-    (0x5b, 0, false, COL_MAP.is_jumpdest),
-    (0x5c, 0, true, COL_MAP.is_get_state_root),
-    (0x5d, 0, true, COL_MAP.is_set_state_root),
-    (0x5e, 0, true, COL_MAP.is_get_receipt_root),
-    (0x5f, 0, true, COL_MAP.is_set_receipt_root),
-    (0x60, 5, false, COL_MAP.is_push), // 0x60-0x7f
-    (0x80, 4, false, COL_MAP.is_dup),  // 0x80-0x8f
-    (0x90, 4, false, COL_MAP.is_swap), // 0x90-0x9f
-    (0xa0, 0, false, COL_MAP.is_log0),
-    (0xa1, 0, false, COL_MAP.is_log1),
-    (0xa2, 0, false, COL_MAP.is_log2),
-    (0xa3, 0, false, COL_MAP.is_log3),
-    (0xa4, 0, false, COL_MAP.is_log4),
+    (0x00, 0, false, COL_MAP.op.stop),
+    (0x01, 0, false, COL_MAP.op.add),
+    (0x02, 0, false, COL_MAP.op.mul),
+    (0x03, 0, false, COL_MAP.op.sub),
+    (0x04, 0, false, COL_MAP.op.div),
+    (0x05, 0, false, COL_MAP.op.sdiv),
+    (0x06, 0, false, COL_MAP.op.mod_),
+    (0x07, 0, false, COL_MAP.op.smod),
+    (0x08, 0, false, COL_MAP.op.addmod),
+    (0x09, 0, false, COL_MAP.op.mulmod),
+    (0x0a, 0, false, COL_MAP.op.exp),
+    (0x0b, 0, false, COL_MAP.op.signextend),
+    (0x10, 0, false, COL_MAP.op.lt),
+    (0x11, 0, false, COL_MAP.op.gt),
+    (0x12, 0, false, COL_MAP.op.slt),
+    (0x13, 0, false, COL_MAP.op.sgt),
+    (0x14, 0, false, COL_MAP.op.eq),
+    (0x15, 0, false, COL_MAP.op.iszero),
+    (0x16, 0, false, COL_MAP.op.and),
+    (0x17, 0, false, COL_MAP.op.or),
+    (0x18, 0, false, COL_MAP.op.xor),
+    (0x19, 0, false, COL_MAP.op.not),
+    (0x1a, 0, false, COL_MAP.op.byte),
+    (0x1b, 0, false, COL_MAP.op.shl),
+    (0x1c, 0, false, COL_MAP.op.shr),
+    (0x1d, 0, false, COL_MAP.op.sar),
+    (0x20, 0, false, COL_MAP.op.keccak256),
+    (0x21, 0, true, COL_MAP.op.keccak_general),
+    (0x30, 0, false, COL_MAP.op.address),
+    (0x31, 0, false, COL_MAP.op.balance),
+    (0x32, 0, false, COL_MAP.op.origin),
+    (0x33, 0, false, COL_MAP.op.caller),
+    (0x34, 0, false, COL_MAP.op.callvalue),
+    (0x35, 0, false, COL_MAP.op.calldataload),
+    (0x36, 0, false, COL_MAP.op.calldatasize),
+    (0x37, 0, false, COL_MAP.op.calldatacopy),
+    (0x38, 0, false, COL_MAP.op.codesize),
+    (0x39, 0, false, COL_MAP.op.codecopy),
+    (0x3a, 0, false, COL_MAP.op.gasprice),
+    (0x3b, 0, false, COL_MAP.op.extcodesize),
+    (0x3c, 0, false, COL_MAP.op.extcodecopy),
+    (0x3d, 0, false, COL_MAP.op.returndatasize),
+    (0x3e, 0, false, COL_MAP.op.returndatacopy),
+    (0x3f, 0, false, COL_MAP.op.extcodehash),
+    (0x40, 0, false, COL_MAP.op.blockhash),
+    (0x41, 0, false, COL_MAP.op.coinbase),
+    (0x42, 0, false, COL_MAP.op.timestamp),
+    (0x43, 0, false, COL_MAP.op.number),
+    (0x44, 0, false, COL_MAP.op.difficulty),
+    (0x45, 0, false, COL_MAP.op.gaslimit),
+    (0x46, 0, false, COL_MAP.op.chainid),
+    (0x47, 0, false, COL_MAP.op.selfbalance),
+    (0x48, 0, false, COL_MAP.op.basefee),
+    (0x49, 0, true, COL_MAP.op.prover_input),
+    (0x50, 0, false, COL_MAP.op.pop),
+    (0x51, 0, false, COL_MAP.op.mload),
+    (0x52, 0, false, COL_MAP.op.mstore),
+    (0x53, 0, false, COL_MAP.op.mstore8),
+    (0x54, 0, false, COL_MAP.op.sload),
+    (0x55, 0, false, COL_MAP.op.sstore),
+    (0x56, 0, false, COL_MAP.op.jump),
+    (0x57, 0, false, COL_MAP.op.jumpi),
+    (0x58, 0, false, COL_MAP.op.pc),
+    (0x59, 0, false, COL_MAP.op.msize),
+    (0x5a, 0, false, COL_MAP.op.gas),
+    (0x5b, 0, false, COL_MAP.op.jumpdest),
+    (0x5c, 0, true, COL_MAP.op.get_state_root),
+    (0x5d, 0, true, COL_MAP.op.set_state_root),
+    (0x5e, 0, true, COL_MAP.op.get_receipt_root),
+    (0x5f, 0, true, COL_MAP.op.set_receipt_root),
+    (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
+    (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
+    (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
+    (0xa0, 0, false, COL_MAP.op.log0),
+    (0xa1, 0, false, COL_MAP.op.log1),
+    (0xa2, 0, false, COL_MAP.op.log2),
+    (0xa3, 0, false, COL_MAP.op.log3),
+    (0xa4, 0, false, COL_MAP.op.log4),
     // Opcode 0xa5 is PANIC when Kernel. Make the proof unverifiable by giving it no flag to decode to.
-    (0xf0, 0, false, COL_MAP.is_create),
-    (0xf1, 0, false, COL_MAP.is_call),
-    (0xf2, 0, false, COL_MAP.is_callcode),
-    (0xf3, 0, false, COL_MAP.is_return),
-    (0xf4, 0, false, COL_MAP.is_delegatecall),
-    (0xf5, 0, false, COL_MAP.is_create2),
-    (0xf6, 0, true, COL_MAP.is_get_context),
-    (0xf7, 0, true, COL_MAP.is_set_context),
-    (0xf8, 0, true, COL_MAP.is_consume_gas),
-    (0xf9, 0, true, COL_MAP.is_exit_kernel),
-    (0xfa, 0, false, COL_MAP.is_staticcall),
-    (0xfb, 0, true, COL_MAP.is_mload_general),
-    (0xfc, 0, true, COL_MAP.is_mstore_general),
-    (0xfd, 0, false, COL_MAP.is_revert),
-    (0xff, 0, false, COL_MAP.is_selfdestruct),
+    (0xf0, 0, false, COL_MAP.op.create),
+    (0xf1, 0, false, COL_MAP.op.call),
+    (0xf2, 0, false, COL_MAP.op.callcode),
+    (0xf3, 0, false, COL_MAP.op.return_),
+    (0xf4, 0, false, COL_MAP.op.delegatecall),
+    (0xf5, 0, false, COL_MAP.op.create2),
+    (0xf6, 0, true, COL_MAP.op.get_context),
+    (0xf7, 0, true, COL_MAP.op.set_context),
+    (0xf8, 0, true, COL_MAP.op.consume_gas),
+    (0xf9, 0, true, COL_MAP.op.exit_kernel),
+    (0xfa, 0, false, COL_MAP.op.staticcall),
+    (0xfb, 0, true, COL_MAP.op.mload_general),
+    (0xfc, 0, true, COL_MAP.op.mstore_general),
+    (0xfd, 0, false, COL_MAP.op.revert),
+    (0xff, 0, false, COL_MAP.op.selfdestruct),
 ];
 
 /// Bitfield of invalid opcodes, in little-endian order.
@@ -150,8 +151,8 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter == F::ZERO {
         // These columns cannot be shared.
-        lv.is_eq = F::ZERO;
-        lv.is_iszero = F::ZERO;
+        lv.op.eq = F::ZERO;
+        lv.op.iszero = F::ZERO;
         return;
     }
     // This assert is not _strictly_ necessary, but I include it as a sanity check.
@@ -196,7 +197,7 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
         any_flag_set = any_flag_set || flag;
     }
     // is_invalid is a catch-all for opcodes we can't decode.
-    lv.is_invalid = F::from_bool(!any_flag_set);
+    lv.op.invalid = F::from_bool(!any_flag_set);
 }
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -234,13 +235,13 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
-    yield_constr.constraint(cycle_filter * lv.is_invalid * (lv.is_invalid - P::ONES));
+    yield_constr.constraint(cycle_filter * lv.op.invalid * (lv.op.invalid - P::ONES));
     // Now check that exactly one is 1.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
         .sum::<P>()
-        + lv.is_invalid;
+        + lv.op.invalid;
     yield_constr.constraint(cycle_filter * (P::ONES - flag_sum));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
@@ -305,7 +306,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
     {
-        let constr = builder.mul_sub_extension(lv.is_invalid, lv.is_invalid, lv.is_invalid);
+        let constr = builder.mul_sub_extension(lv.op.invalid, lv.op.invalid, lv.op.invalid);
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
@@ -316,7 +317,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             let flag = lv[flag_col];
             constr = builder.sub_extension(constr, flag);
         }
-        constr = builder.sub_extension(constr, lv.is_invalid);
+        constr = builder.sub_extension(constr, lv.op.invalid);
         constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }

@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 
 const GAS_TX: u32 = 21_000;
 const GAS_TXCREATE: u32 = 32_000;

@@ -1,3 +1,5 @@
+use std::iter;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
@@ -5,6 +7,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
@@ -13,8 +16,8 @@ use crate::keccak_memory::keccak_memory_stark;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
 use crate::logic;
 use crate::logic::LogicStark;
+use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::memory::{memory_stark, NUM_CHANNELS};
 use crate::stark::Stark;
 
 #[derive(Clone)]
@@ -129,11 +132,16 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
-    let cpu_memory_ops = (0..NUM_CHANNELS).map(|channel| {
+    let cpu_memory_code_read = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_code_memory(),
+        Some(cpu_stark::ctl_filter_code_memory()),
+    );
+    let cpu_memory_gp_ops = (0..NUM_GP_CHANNELS).map(|channel| {
         TableWithColumns::new(
             Table::Cpu,
-            cpu_stark::ctl_data_memory(channel),
-            Some(cpu_stark::ctl_filter_memory(channel)),
+            cpu_stark::ctl_data_gp_memory(channel),
+            Some(cpu_stark::ctl_filter_gp_memory(channel)),
         )
     });
     let keccak_memory_reads = (0..KECCAK_WIDTH_BYTES).map(|i| {
@@ -150,7 +158,8 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_memory_stark::ctl_filter()),
         )
     });
-    let all_lookers = cpu_memory_ops
+    let all_lookers = iter::once(cpu_memory_code_read)
+        .chain(cpu_memory_gp_ops)
         .chain(keccak_memory_reads)
         .chain(keccak_memory_writes)
         .collect();
@@ -214,14 +223,18 @@ mod tests {
         let keccak_inputs = (0..num_keccak_perms)
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
-        keccak_stark.generate_trace(keccak_inputs)
+        keccak_stark.generate_trace(keccak_inputs, &mut TimingTree::default())
     }
 
     fn make_keccak_memory_trace(
         keccak_memory_stark: &KeccakMemoryStark<F, D>,
         config: &StarkConfig,
     ) -> Vec<PolynomialValues<F>> {
-        keccak_memory_stark.generate_trace(vec![], 1 << config.fri_config.cap_height)
+        keccak_memory_stark.generate_trace(
+            vec![],
+            1 << config.fri_config.cap_height,
+            &mut TimingTree::default(),
+        )
     }
 
     fn make_logic_trace<R: Rng>(
@@ -238,7 +251,7 @@ mod tests {
                 Operation::new(op, input0, input1)
             })
             .collect();
-        logic_stark.generate_trace(ops)
+        logic_stark.generate_trace(ops, &mut TimingTree::default())
     }
 
     fn make_memory_trace<R: Rng>(
@@ -247,7 +260,7 @@ mod tests {
         rng: &mut R,
     ) -> (Vec<PolynomialValues<F>>, usize) {
         let memory_ops = generate_random_memory_ops(num_memory_ops, rng);
-        let trace = memory_stark.generate_trace(memory_ops);
+        let trace = memory_stark.generate_trace(memory_ops, &mut TimingTree::default());
         let num_ops = trace[0].values.len();
         (trace, num_ops)
     }
@@ -325,7 +338,7 @@ mod tests {
             row.opcode_bits = bits_from_opcode(0x5b);
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
-            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"]);
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["main"]);
             cpu_stark.generate(row.borrow_mut());
             cpu_trace_rows.push(row.into());
         }
@@ -364,8 +377,8 @@ mod tests {
             row.is_cpu_cycle = F::ONE;
             row.is_kernel_mode = F::ONE;
 
-            // Since these are the first cycle rows, we must start with PC=route_txn then increment.
-            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["route_txn"] + i);
+            // Since these are the first cycle rows, we must start with PC=main then increment.
+            row.program_counter = F::from_canonical_usize(KERNEL.global_labels["main"] + i);
             row.opcode_bits = bits_from_opcode(
                 if logic_trace[logic::columns::IS_AND].values[i] != F::ZERO {
                     0x16
@@ -725,6 +738,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Ignoring but not deleting so the test can serve as an API usage example
     fn test_all_stark() -> Result<()> {
         let config = StarkConfig::standard_fast_config();
         let (all_stark, proof) = get_proof(&config)?;
@@ -732,6 +746,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Ignoring but not deleting so the test can serve as an API usage example
     fn test_all_stark_recursive_verifier() -> Result<()> {
         init_logger();
 

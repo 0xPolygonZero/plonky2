@@ -9,22 +9,15 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::columns::KECCAK_RATE_U32S;
 use crate::memory::segments::Segment;
-use crate::memory::NUM_CHANNELS;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-
-/// The Keccak rate (1088 bits), measured in bytes.
-const KECCAK_RATE_BYTES: usize = 1088 / 8;
-
-/// The Keccak rate (1088 bits), measured in u32 limbs.
-const KECCAK_RATE_LIMBS: usize = 1088 / 32;
 
 /// We can't process more than `NUM_CHANNELS` bytes per row, since that's all the memory bandwidth
 /// we have. We also can't process more than 4 bytes (or the number of bytes in a `u32`), since we
@@ -32,23 +25,21 @@ const KECCAK_RATE_LIMBS: usize = 1088 / 32;
 const BYTES_PER_ROW: usize = 4;
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
-    let mut code = KERNEL.code.clone();
-
-    // Zero-pad the code such that its size is a multiple of the Keccak rate.
-    let padded_size = ceil_div_usize(code.len(), KECCAK_RATE_BYTES) * KECCAK_RATE_BYTES;
-    code.resize(padded_size, 0);
-
     let mut sponge_state = [0u32; 50];
     let mut sponge_input_pos: usize = 0;
 
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
-    for chunk in &code.into_iter().enumerate().chunks(BYTES_PER_ROW) {
+    for chunk in &KERNEL
+        .padded_code()
+        .iter()
+        .enumerate()
+        .chunks(BYTES_PER_ROW)
+    {
         state.current_cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         let mut packed_bytes: u32 = 0;
-        for (addr, byte) in chunk {
-            let channel = addr % NUM_CHANNELS;
+        for (channel, (addr, &byte)) in chunk.enumerate() {
             state.set_mem_cpu_current(channel, Segment::Code, addr, byte.into());
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
@@ -59,7 +50,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         keccak.input_limbs = sponge_state.map(F::from_canonical_u32);
         state.commit_cpu_row();
 
-        sponge_input_pos = (sponge_input_pos + 1) % KECCAK_RATE_LIMBS;
+        sponge_input_pos = (sponge_input_pos + 1) % KECCAK_RATE_U32S;
         // If we just crossed a multiple of KECCAK_RATE_LIMBS, then we've filled the Keccak input
         // buffer, so it's time to absorb.
         if sponge_input_pos == 0 {

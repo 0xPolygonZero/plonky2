@@ -21,9 +21,9 @@ impl StarkConfig {
             fri_config: FriConfig {
                 rate_bits: 1,
                 cap_height: 4,
-                proof_of_work_bits: 10,
+                proof_of_work_bits: 16,
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
-                num_query_rounds: 90,
+                num_query_rounds: 84,
             },
         }
     }

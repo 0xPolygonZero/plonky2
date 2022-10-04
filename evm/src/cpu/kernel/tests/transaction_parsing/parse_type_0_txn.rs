@@ -4,15 +4,16 @@ use hex_literal::hex;
 use NormalizedTxnField::*;
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::txn_fields::NormalizedTxnField;
 
 #[test]
 fn process_type_0_txn() -> Result<()> {
     let process_type_0_txn = KERNEL.global_labels["process_type_0_txn"];
     let process_normalized_txn = KERNEL.global_labels["process_normalized_txn"];
 
-    let mut interpreter = Interpreter::new_with_kernel(process_type_0_txn, vec![]);
+    let retaddr = 0xDEADBEEFu32.into();
+    let mut interpreter = Interpreter::new_with_kernel(process_type_0_txn, vec![retaddr]);
 
     // When we reach process_normalized_txn, we're done with parsing and normalizing.
     // Processing normalized transactions is outside the scope of this test.
