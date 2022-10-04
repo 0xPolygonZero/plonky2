@@ -1,7 +1,6 @@
 use std::ops::{Add, AddAssign, Mul, Neg, Shr, Sub, SubAssign};
 
 use log::error;
-
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
@@ -80,6 +79,17 @@ where
     }
 }
 
+pub(crate) fn pol_add_assign_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: &mut [ExtensionTarget<D>],
+    b: &[ExtensionTarget<D>],
+) {
+    debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
+    for i in 0..b.len() {
+        a[i] = builder.add_extension(a[i], b[i]);
+    }
+}
+
 pub(crate) fn pol_add<T>(a: [T; N_LIMBS], b: [T; N_LIMBS]) -> [T; 2 * N_LIMBS - 1]
 where
     T: Add<Output = T> + Copy + Default,
@@ -91,7 +101,7 @@ where
     sum
 }
 
-pub(crate) fn pol_add_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn pol_add_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: [ExtensionTarget<D>; N_LIMBS],
     b: [ExtensionTarget<D>; N_LIMBS],
@@ -114,12 +124,13 @@ where
     }
 }
 
-pub(crate) fn pol_sub_assign_circuit<F: RichField + Extendable<D>, const D: usize, const N: usize>(
+pub(crate) fn pol_sub_assign_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    a: &mut [ExtensionTarget<D>; 2 * N_LIMBS - 1],
-    b: [ExtensionTarget<D>; N],
+    a: &mut [ExtensionTarget<D>],
+    b: &[ExtensionTarget<D>],
 ) {
-    for i in 0..N {
+    debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
+    for i in 0..b.len() {
         a[i] = builder.sub_extension(a[i], b[i]);
     }
 }
@@ -146,7 +157,7 @@ where
     res
 }
 
-pub(crate) fn pol_mul_wide_circuit<
+pub(crate) fn pol_mul_wide_ext_circuit<
     F: RichField + Extendable<D>,
     const D: usize,
     const M: usize,
@@ -175,6 +186,21 @@ where
     for (i, &ai) in a.iter().enumerate() {
         for (j, &bj) in b.iter().enumerate() {
             res[i + j] += ai * bj;
+        }
+    }
+    res
+}
+
+pub(crate) fn pol_mul_wide2_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; 2 * N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 3 * N_LIMBS - 1] {
+    let zero = builder.zero_extension();
+    let mut res = [zero; 3 * N_LIMBS - 1];
+    for (i, &ai) in a.iter().enumerate() {
+        for (j, &bj) in b.iter().enumerate() {
+            res[i + j] = builder.mul_add_extension(ai, bj, res[i + j]);
         }
     }
     res
@@ -209,7 +235,7 @@ where
     zero_extend
 }
 
-pub(crate) fn pol_extend_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn pol_extend_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: [ExtensionTarget<D>; N_LIMBS],
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
@@ -240,6 +266,25 @@ where
     res
 }
 
+pub(crate) fn pol_adjoin_root_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; 2 * N_LIMBS],
+    root: ExtensionTarget<D>,
+) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
+    let zero = builder.zero_extension();
+    let mut res = [zero; 2 * N_LIMBS];
+    let t = builder.mul_extension(root, a[0]);
+    res[0] = builder.sub_extension(zero, t);
+    for deg in 1..(2 * N_LIMBS - 1) {
+        let t = builder.mul_extension(root, a[deg]);
+        res[deg] = builder.sub_extension(a[deg - 1], t);
+    }
+    // NB: We assumes that a[2 * N_LIMBS - 1] = 0, so the last
+    // iteration has no "* root" term.
+    res[2 * N_LIMBS - 1] = a[2 * N_LIMBS - 2];
+    res
+}
+
 /// Given polynomial a(X) = \sum_{i=0}^{M-1} a[i] X^i and a root of `a`
 /// of the form 2^Exp, return q(X) satisfying a(X) = (X - root) * q(X).
 ///
@@ -262,4 +307,3 @@ where
 
     res
 }
-

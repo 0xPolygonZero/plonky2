@@ -37,11 +37,12 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
 use crate::arithmetic::columns::*;
-use crate::arithmetic::compare::{eval_packed_generic_lt, eval_ext_circuit_lt};
+use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
 use crate::arithmetic::utils::{
-    pol_add, pol_add_assign, pol_add_circuit, pol_adjoin_root, pol_extend, pol_extend_circuit,
-    pol_mul_wide, pol_mul_wide2, pol_mul_wide_circuit, pol_remove_root_2exp, pol_sub_assign,
-    pol_sub_assign_circuit,
+    pol_add, pol_add_assign, pol_add_assign_ext_circuit, pol_add_ext_circuit, pol_adjoin_root,
+    pol_adjoin_root_ext_circuit, pol_extend, pol_extend_ext_circuit, pol_mul_wide, pol_mul_wide2,
+    pol_mul_wide2_ext_circuit, pol_mul_wide_ext_circuit, pol_remove_root_2exp, pol_sub_assign,
+    pol_sub_assign_ext_circuit,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
@@ -230,7 +231,14 @@ fn modular_constr_poly<P: PackedField>(
     // with the requirements of the EVM definition.
     let out_aux_red = MODULAR_OUT_AUX_RED.map(|c| lv[c]);
     let is_less_than = P::ONES;
-    eval_packed_generic_lt(yield_constr, filter, output, modulus, out_aux_red, is_less_than);
+    eval_packed_generic_lt(
+        yield_constr,
+        filter,
+        output,
+        modulus,
+        out_aux_red,
+        is_less_than,
+    );
 
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
     let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
@@ -284,7 +292,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
     let input1 = MODULAR_INPUT_1.map(|c| lv[c]);
 
-    let add_input: [_; 2 * N_LIMBS - 1] = pol_add(input0, input1);
+    let add_input = pol_add(input0, input1);
     let mul_input = pol_mul_wide(input0, input1);
     let mod_input = pol_extend(input0);
 
@@ -309,47 +317,56 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     }
 }
 
-fn eval_ext_circuit_modular_op<F: RichField + Extendable<D>, const D: usize>(
+fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    operation: fn(
-        &mut CircuitBuilder<F, D>,
-        [ExtensionTarget<D>; N_LIMBS],
-        [ExtensionTarget<D>; N_LIMBS],
-    ) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1],
     filter: ExtensionTarget<D>,
-) {
-    let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
-    let input1 = MODULAR_INPUT_1.map(|c| lv[c]);
-    let modulus = MODULAR_MODULUS.map(|c| lv[c]);
+) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
+    let mut modulus = MODULAR_MODULUS.map(|c| lv[c]);
+    let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
+
+    let t = builder.mul_sub_extension(mod_is_zero, mod_is_zero, mod_is_zero);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+
+    let limb_sum = builder.add_many_extension(&modulus);
+    let t = builder.mul_extension(limb_sum, mod_is_zero);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+
+    modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
+
     let output = MODULAR_OUTPUT.map(|c| lv[c]);
+    let out_aux_red = MODULAR_OUT_AUX_RED.map(|c| lv[c]);
+    let is_less_than = builder.one_extension();
+    eval_ext_circuit_lt(
+        builder,
+        yield_constr,
+        filter,
+        output,
+        modulus,
+        out_aux_red,
+        is_less_than,
+    );
+
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
     let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
 
-    let mut constr_poly = operation(builder, input0, input1);
-
-    pol_sub_assign_circuit(builder, &mut constr_poly, output);
-    let tmp: [ExtensionTarget<D>; 3 * N_LIMBS - 1] = pol_mul_wide_circuit(builder, quot, modulus);
-    pol_sub_assign_circuit(builder, &mut constr_poly, tmp);
-    for &x in tmp[2 * N_LIMBS..].iter() {
+    let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
+    for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
         yield_constr.constraint(builder, t);
     }
 
-    let base = F::from_canonical_u64(1 << LIMB_BITS);
-    let t = builder.mul_const_extension(base, aux[0]);
-    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
-    for deg in 1..(2 * N_LIMBS - 1) {
-        let t0 = builder.mul_const_extension(base, aux[deg]);
-        let t1 = builder.sub_extension(t0, aux[deg - 1]);
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
-    }
+    let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
+    pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
-    for &c in &constr_poly {
-        let t = builder.mul_extension(filter, c);
-        yield_constr.constraint(builder, t);
-    }
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
+    let t = pol_adjoin_root_ext_circuit(builder, aux, base);
+    pol_add_assign_ext_circuit(builder, &mut constr_poly, &t);
+
+    constr_poly
 }
 
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -357,27 +374,33 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_modular_op(
-        lv,
-        builder,
-        yield_constr,
-        pol_add_circuit,
+    let filter = builder.add_many_extension(&[
         lv[columns::IS_ADDMOD],
-    );
-    eval_ext_circuit_modular_op(
-        lv,
-        builder,
-        yield_constr,
-        pol_mul_wide_circuit,
         lv[columns::IS_MULMOD],
-    );
-    eval_ext_circuit_modular_op(
-        lv,
-        builder,
-        yield_constr,
-        |bldr, a, _| pol_extend_circuit(bldr, a),
         lv[columns::IS_MOD],
-    );
+    ]);
+
+    let constr_poly = modular_constr_poly_ext_circuit(lv, builder, yield_constr, filter);
+
+    let input0 = MODULAR_INPUT_0.map(|c| lv[c]);
+    let input1 = MODULAR_INPUT_1.map(|c| lv[c]);
+
+    let add_input = pol_add_ext_circuit(builder, input0, input1);
+    let mul_input = pol_mul_wide_ext_circuit(builder, input0, input1);
+    let mod_input = pol_extend_ext_circuit(builder, input0);
+
+    for (input, &filter) in [
+        (&add_input, &lv[columns::IS_ADDMOD]),
+        (&mul_input, &lv[columns::IS_MULMOD]),
+        (&mod_input, &lv[columns::IS_MOD]),
+    ] {
+        let mut constr_poly_copy = constr_poly;
+        pol_sub_assign_ext_circuit(builder, &mut constr_poly_copy, input);
+        for &c in constr_poly_copy.iter() {
+            let t = builder.mul_extension(filter, c);
+            yield_constr.constraint(builder, t);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -513,9 +536,9 @@ mod tests {
                 );
                 eval_packed_generic(&lv, &mut constraint_consumer);
                 assert!(constraint_consumer
-                        .constraint_accs
-                        .iter()
-                        .all(|&acc| acc == F::ZERO));
+                    .constraint_accs
+                    .iter()
+                    .all(|&acc| acc == F::ZERO));
 
                 // Corrupt one output limb by setting it to a non-zero value
                 let random_oi = MODULAR_OUTPUT[rng.gen::<usize>() % N_LIMBS];
@@ -525,9 +548,9 @@ mod tests {
 
                 // Check that at least one of the constraints was non-zero
                 assert!(constraint_consumer
-                        .constraint_accs
-                        .iter()
-                        .any(|&acc| acc != F::ZERO));
+                    .constraint_accs
+                    .iter()
+                    .any(|&acc| acc != F::ZERO));
             }
         }
     }
