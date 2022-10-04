@@ -204,7 +204,8 @@ mod tests {
     use crate::proof::{AllProof, PublicValues};
     use crate::prover::prove_with_traces;
     use crate::recursive_verifier::{
-        all_verifier_data_recursive_stark_proof, recursively_verify_all_proof,
+        add_virtual_recursive_all_proof, all_verifier_data_recursive_stark_proof,
+        recursively_verify_all_proof, set_recursive_all_proof_target,
     };
     use crate::stark::Stark;
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
@@ -779,9 +780,17 @@ mod tests {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
+        let recursive_all_proof_target =
+            add_virtual_recursive_all_proof(&mut builder, &verifier_data);
+        set_recursive_all_proof_target(
+            &mut pw,
+            &recursive_all_proof_target,
+            &recursive_all_proof,
+            &verifier_data,
+        );
         recursive_all_proof.verify_circuit(
             &mut builder,
-            &mut pw,
+            recursive_all_proof_target,
             &verifier_data,
             inner_all_stark.cross_table_lookups,
             inner_config,

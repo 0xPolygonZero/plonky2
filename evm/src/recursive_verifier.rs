@@ -15,7 +15,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
 use plonky2::plonk::config::Hasher;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
-use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
@@ -56,6 +56,11 @@ pub struct RecursiveAllProof<
     const D: usize,
 > {
     pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
+}
+
+pub struct RecursiveAllProofTargetWithData<const D: usize> {
+    pub recursive_proofs: [ProofWithPublicInputsTarget<D>; NUM_TABLES],
+    pub verifier_data: [VerifierCircuitTarget; NUM_TABLES],
 }
 
 struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
@@ -158,36 +163,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Recursively verify every recursive proof.
-    pub fn verify_circuit<W>(
+    pub fn verify_circuit(
         self,
         builder: &mut CircuitBuilder<F, D>,
-        pw: &mut W,
+        recursive_all_proof_target: RecursiveAllProofTargetWithData<D>,
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
         cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
     ) where
-        W: Witness<F>,
         [(); C::Hasher::HASH_SIZE]:,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let proofs_target: [_; NUM_TABLES] = std::array::from_fn(|i| {
-            let verifier_data = &verifier_data[i];
-            let proof = &self.recursive_proofs[i];
-            let pt = builder.add_virtual_proof_with_pis(&verifier_data.common);
-            pw.set_proof_with_pis_target(&pt, proof);
-            let inner_data = VerifierCircuitTarget {
-                constants_sigmas_cap: builder
-                    .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
-            };
-            pw.set_cap_target(
-                &inner_data.constants_sigmas_cap,
-                &verifier_data.verifier_only.constants_sigmas_cap,
-            );
-            (pt, inner_data)
-        });
-
+        let RecursiveAllProofTargetWithData {
+            recursive_proofs,
+            verifier_data: verifier_data_target,
+        } = recursive_all_proof_target;
         let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
-            PublicInputs::from_vec(&proofs_target[i].0.public_inputs, inner_config)
+            PublicInputs::from_vec(&recursive_proofs[i].public_inputs, inner_config)
         });
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
@@ -239,8 +231,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ctl_challenges,
             inner_config,
         );
-        for (i, (proof_target, inner_data)) in proofs_target.into_iter().enumerate() {
-            builder.verify_proof(proof_target, &inner_data, &verifier_data[i].common);
+        for (i, (recursive_proof, verifier_data_target)) in recursive_proofs
+            .into_iter()
+            .zip(verifier_data_target)
+            .enumerate()
+        {
+            builder.verify_proof(
+                recursive_proof,
+                &verifier_data_target,
+                &verifier_data[i].common,
+            );
         }
     }
 
@@ -840,6 +840,31 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+pub fn add_virtual_recursive_all_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+) -> RecursiveAllProofTargetWithData<D> {
+    let recursive_proofs = std::array::from_fn(|i| {
+        let verifier_data = &verifier_data[i];
+        builder.add_virtual_proof_with_pis(&verifier_data.common)
+    });
+    let verifier_data = std::array::from_fn(|i| {
+        let verifier_data = &verifier_data[i];
+        VerifierCircuitTarget {
+            constants_sigmas_cap: builder
+                .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
+        }
+    });
+    RecursiveAllProofTargetWithData {
+        recursive_proofs,
+        verifier_data,
+    }
+}
+
 pub fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
@@ -934,6 +959,27 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
     }
 }
 
+pub fn set_recursive_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+    witness: &mut W,
+    recursive_all_proof_target: &RecursiveAllProofTargetWithData<D>,
+    all_proof: &RecursiveAllProof<F, C, D>,
+    verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
+) where
+    F: RichField + Extendable<D>,
+    C::Hasher: AlgebraicHasher<F>,
+    W: Witness<F>,
+{
+    for i in 0..NUM_TABLES {
+        witness.set_proof_with_pis_target(
+            &recursive_all_proof_target.recursive_proofs[i],
+            &all_proof.recursive_proofs[i],
+        );
+        witness.set_cap_target(
+            &recursive_all_proof_target.verifier_data[i].constants_sigmas_cap,
+            &verifier_data[i].verifier_only.constants_sigmas_cap,
+        );
+    }
+}
 pub fn set_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     all_proof_target: &AllProofTarget<D>,
