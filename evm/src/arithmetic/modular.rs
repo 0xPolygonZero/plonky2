@@ -37,6 +37,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
 use crate::arithmetic::columns::*;
+use crate::arithmetic::compare::{eval_packed_generic_lt, eval_ext_circuit_lt};
 use crate::arithmetic::utils::{
     pol_add, pol_add_assign, pol_add_circuit, pol_adjoin_root, pol_extend, pol_extend_circuit,
     pol_mul_wide, pol_mul_wide2, pol_mul_wide_circuit, pol_remove_root_2exp, pol_sub_assign,
@@ -117,10 +118,14 @@ fn generate_modular_op<F: RichField>(
 
     // modulus != 0 here, because, if the given modulus was zero, then
     // we added 1 to it above.
-    let res = &input % &modulus;
-    let output_limbs = biguint_to_columns::<N_LIMBS>(&res);
-    let quot = (&input - &res) / &modulus; // exact division
+    let output = &input % &modulus;
+    let output_limbs = biguint_to_columns::<N_LIMBS>(&output);
+    let quot = (&input - &output) / &modulus; // exact division
     let quot_limbs = biguint_to_columns::<{ 2 * N_LIMBS }>(&quot);
+
+    let mut two_exp_256 = BigUint::zero();
+    two_exp_256.set_bit(256, true);
+    let out_aux_red = biguint_to_columns::<N_LIMBS>(&(two_exp_256 + output - modulus));
 
     // TODO: explain the mapping between a, b, c, etc. and the
     // variable names used!
@@ -153,6 +158,7 @@ fn generate_modular_op<F: RichField>(
 
     for deg in 0..N_LIMBS {
         lv[MODULAR_OUTPUT[deg]] = F::from_canonical_i64(output_limbs[deg]);
+        lv[MODULAR_OUT_AUX_RED[deg]] = F::from_canonical_i64(out_aux_red[deg]);
         lv[MODULAR_QUO_INPUT[deg]] = F::from_canonical_i64(quot_limbs[deg]);
         lv[MODULAR_QUO_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(quot_limbs[deg + N_LIMBS]);
         lv[MODULAR_AUX_INPUT[deg]] = F::from_canonical_i64(aux_limbs[deg]);
@@ -186,8 +192,6 @@ fn modular_constr_poly<P: PackedField>(
     range_check_error!(MODULAR_AUX_INPUT, 20, signed);
     range_check_error!(MODULAR_OUTPUT, 16);
 
-    // FIXME: This code assumes that the output is less than the modulus.
-
     let mut modulus = MODULAR_MODULUS.map(|c| lv[c]);
     let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
     // Check that mod_is_zero is zero or one
@@ -218,6 +222,16 @@ fn modular_constr_poly<P: PackedField>(
     //      the output is reduced, will fail, because output is non-negative.
 
     let output = MODULAR_OUTPUT.map(|c| lv[c]);
+
+    // Verify that the output is reduced, i.e. output < modulus.
+    //
+    // NB: If given modulus was 0, then the updated modulus will be 1,
+    // which means we're verifying that the output is 0, which agrees
+    // with the requirements of the EVM definition.
+    let out_aux_red = MODULAR_OUT_AUX_RED.map(|c| lv[c]);
+    let is_less_than = P::ONES;
+    eval_packed_generic_lt(yield_constr, filter, output, modulus, out_aux_red, is_less_than);
+
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
     let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
 
@@ -262,7 +276,6 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     /*
     // TODO: Do I need to check this here?
     yield_constr.constraint(filter * filter - filter);
-    eval_packed_generic_lt();
     */
 
     // constr_poly has 2*N_LIMBS limbs
@@ -433,9 +446,9 @@ mod tests {
                     lv[mi] = F::from_canonical_u16(rng.gen());
                 }
 
-                // For the second half of the tests, set the top 16 - start
-                // digits to zero, so the modulus is much smaller than the
-                // inputs.
+                // For the second half of the tests, set the top 16 -
+                // start digits of the modulus to zero so it is much
+                // smaller than the inputs.
                 if i > N_RND_TESTS / 2 {
                     // 1 <= start < N_LIMBS
                     let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;

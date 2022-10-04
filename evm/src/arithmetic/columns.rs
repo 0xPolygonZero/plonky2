@@ -44,7 +44,7 @@ pub(crate) const ALL_OPERATIONS: [usize; 16] = [
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.  Can be increased as needed as other operations are
 /// implemented.
-const NUM_SHARED_COLS: usize = 128; // only need 64 for add, sub, and mul
+const NUM_SHARED_COLS: usize = 144; // only need 64 for add, sub, and mul
 
 const fn shared_col(i: usize) -> usize {
     assert!(i < NUM_SHARED_COLS);
@@ -67,6 +67,7 @@ const GENERAL_INPUT_2: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(2 * N_LIMBS)
 const GENERAL_INPUT_3: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(3 * N_LIMBS);
 const AUX_INPUT_0: [usize; 2 * N_LIMBS] = gen_input_cols::<{ 2 * N_LIMBS }>(4 * N_LIMBS);
 const AUX_INPUT_1: [usize; 2 * N_LIMBS] = gen_input_cols::<{ 2 * N_LIMBS }>(6 * N_LIMBS);
+const AUX_INPUT_2: [usize; N_LIMBS] = gen_input_cols::<N_LIMBS>(8 * N_LIMBS);
 
 pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = GENERAL_INPUT_0;
 pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = GENERAL_INPUT_1;
@@ -94,5 +95,6 @@ pub(crate) const MODULAR_QUO_INPUT: [usize; 2 * N_LIMBS] = AUX_INPUT_0;
 // NB: Last value is not used in AUX, it is used in IS_ZERO
 pub(crate) const MODULAR_AUX_INPUT: [usize; 2 * N_LIMBS] = AUX_INPUT_1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1[2 * N_LIMBS - 1];
+pub(crate) const MODULAR_OUT_AUX_RED: [usize; N_LIMBS] = AUX_INPUT_2;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
