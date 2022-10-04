@@ -330,7 +330,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint(builder, t);
 
-    let limb_sum = builder.add_many_extension(&modulus);
+    let limb_sum = builder.add_many_extension(modulus);
     let t = builder.mul_extension(limb_sum, mod_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint(builder, t);
@@ -374,7 +374,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = builder.add_many_extension(&[
+    let filter = builder.add_many_extension([
         lv[columns::IS_ADDMOD],
         lv[columns::IS_MULMOD],
         lv[columns::IS_MOD],
