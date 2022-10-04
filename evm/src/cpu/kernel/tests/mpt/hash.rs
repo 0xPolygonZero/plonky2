@@ -1,22 +1,21 @@
 use anyhow::Result;
 use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 use ethereum_types::{BigEndianHash, H256, U256};
-use hex_literal::hex;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
 #[test]
 fn mpt_hash() -> Result<()> {
-    let nonce = U256::from(1111);
-    let balance = U256::from(2222);
-    let storage_root = U256::from(3333);
-    let code_hash = U256::from(4444);
-
-    let account = &[nonce, balance, storage_root, code_hash];
-    let account_rlp = rlp::encode_list(account);
+    let account = AccountRlp {
+        nonce: U256::from(1111),
+        balance: U256::from(2222),
+        storage_root: H256::from_uint(&U256::from(3333)),
+        code_hash: H256::from_uint(&U256::from(4444)),
+    };
+    let account_rlp = rlp::encode(&account);
 
     // TODO: Try this more "advanced" trie.
     // let state_trie = state_trie_ext_to_account_leaf(account_rlp.to_vec());
@@ -27,11 +26,7 @@ fn mpt_hash() -> Result<()> {
         },
         value: account_rlp.to_vec(),
     };
-    // TODO: It seems like calc_hash isn't giving the expected hash yet, so for now, I'm using a
-    // hardcoded hash obtained from py-evm.
-    // let state_trie_hash = state_trie.calc_hash();
-    let state_trie_hash =
-        hex!("e38d6053838fe057c865ec0c74a8f0de21865d74fac222a2d3241fe57c9c3a0f").into();
+    let state_trie_hash = state_trie.calc_hash();
 
     let trie_inputs = TrieInputs {
         state_trie,

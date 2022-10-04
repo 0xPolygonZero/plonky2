@@ -1,22 +1,23 @@
 use anyhow::Result;
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::state_trie_ext_to_account_leaf;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
 #[test]
 fn load_all_mpts() -> Result<()> {
-    let nonce = U256::from(1111);
-    let balance = U256::from(2222);
-    let storage_root = U256::from(3333);
-    let code_hash = U256::from(4444);
-
-    let account_rlp = rlp::encode_list(&[nonce, balance, storage_root, code_hash]);
+    let account = AccountRlp {
+        nonce: U256::from(1111),
+        balance: U256::from(2222),
+        storage_root: H256::from_uint(&U256::from(3333)),
+        code_hash: H256::from_uint(&U256::from(4444)),
+    };
+    let account_rlp = rlp::encode(&account);
 
     let trie_inputs = TrieInputs {
         state_trie: state_trie_ext_to_account_leaf(account_rlp.to_vec()),
@@ -47,10 +48,10 @@ fn load_all_mpts() -> Result<()> {
             type_leaf,
             3.into(),     // 3 nibbles
             0xDEF.into(), // key part
-            nonce,
-            balance,
-            storage_root,
-            code_hash,
+            account.nonce,
+            account.balance,
+            account.storage_root.into_uint(),
+            account.code_hash.into_uint(),
             type_empty,
             type_empty,
         ]

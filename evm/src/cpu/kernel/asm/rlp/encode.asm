@@ -12,7 +12,7 @@ global encode_rlp_scalar:
     // stack: pos, scalar, retdest
     %stack (pos, scalar) -> (pos, scalar, pos)
     // stack: pos, scalar, pos, retdest
-    %mstore_current(@SEGMENT_RLP_RAW)
+    %mstore_rlp
     // stack: pos, retdest
     %add_const(1)
     // stack: pos', retdest
@@ -73,7 +73,7 @@ encode_rlp_fixed:
     // stack: first_byte, len, pos, string, retdest
     DUP3
     // stack: pos, first_byte, len, pos, string, retdest
-    %mstore_current(@SEGMENT_RLP_RAW)
+    %mstore_rlp
     // stack: len, pos, string, retdest
     SWAP1
     %add_const(1) // increment pos
@@ -86,6 +86,64 @@ encode_rlp_fixed_finish:
     SWAP1
     JUMP
 
+// Writes the RLP prefix for a string of the given length. This does not handle
+// the trivial encoding of certain single-byte strings, as handling that would
+// require access to the actual string, while this method only accesses its
+// length. This method should generally be used only when we know a string
+// contains at least two bytes.
+//
+// Pre stack: pos, str_len, retdest
+// Post stack: pos'
+global encode_rlp_multi_byte_string_prefix:
+    // stack: pos, str_len, retdest
+    DUP2 %gt_const(55)
+    // stack: str_len > 55, pos, str_len, retdest
+    %jumpi(encode_rlp_multi_byte_string_prefix_large)
+    // Medium case; prefix is 0x80 + str_len.
+    // stack: pos, str_len, retdest
+    SWAP1 %add_const(0x80)
+    // stack: prefix, pos, retdest
+    DUP2
+    // stack: pos, prefix, pos, retdest
+    %mstore_rlp
+    // stack: pos, retdest
+    %increment
+    // stack: pos', retdest
+    SWAP1
+    JUMP
+encode_rlp_multi_byte_string_prefix_large:
+    // Large case; prefix is 0xb7 + len_of_len, followed by str_len.
+    // stack: pos, str_len, retdest
+    DUP2
+    %num_bytes
+    // stack: len_of_len, pos, str_len, retdest
+    SWAP1
+    DUP2 // len_of_len
+    %add_const(0xb7)
+    // stack: first_byte, pos, len_of_len, str_len, retdest
+    DUP2
+    // stack: pos, first_byte, pos, len_of_len, str_len, retdest
+    %mstore_rlp
+    // stack: pos, len_of_len, str_len, retdest
+    %increment
+    // stack: pos', len_of_len, str_len, retdest
+    %stack (pos, len_of_len, str_len)
+        -> (pos, str_len, len_of_len,
+            encode_rlp_multi_byte_string_prefix_large_done_writing_len)
+    %jump(mstore_unpacking_rlp)
+encode_rlp_multi_byte_string_prefix_large_done_writing_len:
+    // stack: pos'', retdest
+    SWAP1
+    JUMP
+
+%macro encode_rlp_multi_byte_string_prefix
+    %stack (pos, str_len) -> (pos, str_len, %%after)
+    %jump(encode_rlp_multi_byte_string_prefix)
+%%after:
+%endmacro
+
+// Writes the RLP prefix for a list with the given payload length.
+//
 // Pre stack: pos, payload_len, retdest
 // Post stack: pos'
 global encode_rlp_list_prefix:
@@ -116,10 +174,9 @@ encode_rlp_list_prefix_large:
     // stack: len_of_len, pos, payload_len, retdest
     SWAP1 %add_const(1)
     // stack: pos', len_of_len, payload_len, retdest
-    %stack (pos, len_of_len, payload_len, retdest)
+    %stack (pos, len_of_len, payload_len)
         -> (pos, payload_len, len_of_len,
-            encode_rlp_list_prefix_large_done_writing_len,
-            retdest)
+            encode_rlp_list_prefix_large_done_writing_len)
     %jump(mstore_unpacking_rlp)
 encode_rlp_list_prefix_large_done_writing_len:
     // stack: pos'', retdest
@@ -198,7 +255,7 @@ prepend_rlp_list_prefix_big_done_writing_len:
 
 // Given some scalar, compute the number of bytes used in its RLP encoding,
 // including any length prefix.
-%macro scalar_rlp_len
+%macro rlp_scalar_len
     // stack: scalar
     // Since the scalar fits in a word, we can't hit the large (>55 byte)
     // case, so we just check for small vs medium.
@@ -207,12 +264,36 @@ prepend_rlp_list_prefix_big_done_writing_len:
     %jumpi(%%medium)
     // Small case; result is 1.
     %stack (scalar) -> (1)
+    %jump(%%finish)
 %%medium:
     // stack: scalar
     %num_bytes
     // stack: scalar_bytes
     %add_const(1) // Account for the length prefix.
     // stack: rlp_len
+%%finish:
+%endmacro
+
+// Given some list with the given payload length, compute the number of bytes
+// used in its RLP encoding, including the list prefix.
+%macro rlp_list_len
+    // stack: payload_len
+    DUP1 %gt_const(55)
+    // stack: is_large, payload_len
+    %jumpi(%%large)
+    // Small case; prefix is a single byte.
+    %increment
+    // stack: 1 + payload_len
+    %jump(%%finish)
+%%large:
+    // Prefix is 1 byte containing len_of_len, followed by len_of_len bytes containing len.
+    // stack: payload_len
+    DUP1 %num_bytes
+    // stack: len_of_len, payload_len
+    %increment
+    // stack: prefix_len, payload_len
+    ADD
+%%finish:
 %endmacro
 
 // Like mstore_unpacking, but specifically for the RLP segment.

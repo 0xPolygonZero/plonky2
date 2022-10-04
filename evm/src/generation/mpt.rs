@@ -1,8 +1,17 @@
 use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, H256, U256};
+use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub(crate) struct AccountRlp {
+    pub(crate) nonce: U256,
+    pub(crate) balance: U256,
+    pub(crate) storage_root: H256,
+    pub(crate) code_hash: H256,
+}
 
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut inputs = all_mpt_prover_inputs(trie_inputs);
@@ -15,7 +24,13 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut prover_inputs = vec![];
 
     mpt_prover_inputs(&trie_inputs.state_trie, &mut prover_inputs, &|rlp| {
-        rlp::decode_list(rlp)
+        let account: AccountRlp = rlp::decode(rlp).expect("Decoding failed");
+        vec![
+            account.nonce,
+            account.balance,
+            account.storage_root.into_uint(),
+            account.code_hash.into_uint(),
+        ]
     });
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {

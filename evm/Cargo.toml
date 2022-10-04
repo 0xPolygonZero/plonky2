@@ -23,6 +23,7 @@ pest_derive = "2.1.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rlp = "0.5.1"
+rlp-derive = "0.1.0"
 serde = { version = "1.0.144", features = ["derive"] }
 sha2 = "0.10.2"
 tiny-keccak = "2.0.2"

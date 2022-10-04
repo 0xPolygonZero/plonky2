@@ -43,33 +43,40 @@ encode_account:
     // to determine their contribution, while the other two fields are fixed
     // 32-bytes integers.
     DUP2 %mload_trie_data // nonce = value[0]
-    %scalar_rlp_len
+    %rlp_scalar_len
     // stack: nonce_rlp_len, rlp_pos, value_ptr, retdest
     DUP3 %add_const(1) %mload_trie_data // balance = value[1]
-    %scalar_rlp_len
-    // stack: balance_rlp_lenm, nonce_rlp_len, rlp_pos, value_ptr, retdest
+    %rlp_scalar_len
+    // stack: balance_rlp_len, nonce_rlp_len, rlp_pos, value_ptr, retdest
     PUSH 66 // storage_root and code_hash fields each take 1 + 32 bytes
     ADD ADD
     // stack: payload_len, rlp_pos, value_ptr, retdest
     SWAP1
+    // stack: rlp_pos, payload_len, value_ptr, retdest
+    DUP2 %rlp_list_len
+    // stack: list_len, rlp_pos, payload_len, value_ptr, retdest
+    SWAP1
+    // stack: rlp_pos, list_len, payload_len, value_ptr, retdest
+    %encode_rlp_multi_byte_string_prefix
+    // stack: rlp_pos_2, payload_len, value_ptr, retdest
     %encode_rlp_list_prefix
-    // stack: rlp_pos', value_ptr, retdest
+    // stack: rlp_pos_3, value_ptr, retdest
     DUP2 %mload_trie_data // nonce = value[0]
-    // stack: nonce, rlp_pos', value_ptr, retdest
+    // stack: nonce, rlp_pos_3, value_ptr, retdest
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos'', value_ptr, retdest
+    // stack: rlp_pos_4, value_ptr, retdest
     DUP2 %add_const(1) %mload_trie_data // balance = value[1]
-    // stack: balance, rlp_pos'', value_ptr, retdest
+    // stack: balance, rlp_pos_4, value_ptr, retdest
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos''', value_ptr, retdest
+    // stack: rlp_pos_5, value_ptr, retdest
     DUP2 %add_const(2) %mload_trie_data // storage_root = value[2]
-    // stack: storage_root, rlp_pos''', value_ptr, retdest
+    // stack: storage_root, rlp_pos_5, value_ptr, retdest
     SWAP1 %encode_rlp_256
-    // stack: rlp_pos'''', value_ptr, retdest
+    // stack: rlp_pos_6, value_ptr, retdest
     SWAP1 %add_const(3) %mload_trie_data // code_hash = value[3]
-    // stack: code_hash, rlp_pos'''', retdest
+    // stack: code_hash, rlp_pos_6, retdest
     SWAP1 %encode_rlp_256
-    // stack: rlp_pos''''', retdest
+    // stack: rlp_pos_7, retdest
     SWAP1
     JUMP
 
