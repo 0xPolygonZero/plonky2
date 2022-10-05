@@ -24,7 +24,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof_with_pis0: ProofWithPublicInputsTarget<D>,
         inner_verifier_data0: &VerifierCircuitTarget,
         proof_with_pis1: ProofWithPublicInputsTarget<D>,
-        verifier_data1: &VerifierCircuitTarget,
+        inner_verifier_data1: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
@@ -82,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: self.select_cap(
                 condition,
                 inner_verifier_data0.constants_sigmas_cap.clone(),
-                verifier_data1.constants_sigmas_cap.clone(),
+                inner_verifier_data1.constants_sigmas_cap.clone(),
             ),
         };
 

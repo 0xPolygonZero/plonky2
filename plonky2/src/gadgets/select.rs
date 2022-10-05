@@ -32,9 +32,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// See `select_ext`.
     pub fn select(&mut self, b: BoolTarget, x: Target, y: Target) -> Target {
-        let x_ext = self.convert_to_ext(x);
-        let y_ext = self.convert_to_ext(y);
-        self.select_ext(b, x_ext, y_ext).to_target_array()[0]
+        let tmp = self.mul_sub(b.target, y, y);
+        self.mul_sub(b.target, x, tmp)
     }
 }
 
