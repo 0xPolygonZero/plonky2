@@ -13,6 +13,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
+use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
@@ -20,15 +21,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         condition: BoolTarget,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
+        dummy_proof_with_pis: ProofWithPublicInputsTarget<D>,
+        dummy_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let dummy_proof = self.add_virtual_proof_with_pis(inner_common_data);
-        let dummy_verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self
-                .add_virtual_cap(inner_common_data.config.fri_config.cap_height),
-        };
         let ProofWithPublicInputsTarget {
             proof:
                 ProofTarget {
@@ -51,35 +49,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     opening_proof: dummy_opening_proof,
                 },
             public_inputs: dummy_public_inputs,
-        } = dummy_proof;
+        } = dummy_proof_with_pis;
 
-        let selected_wires_cap = self.select_cap(condition, wires_cap, dummy_wires_cap);
-        let selected_plonk_zs_partial_products_cap = self.select_cap(
-            condition,
-            plonk_zs_partial_products_cap,
-            dummy_plonk_zs_partial_products_cap,
-        );
-        let selected_quotient_polys_cap =
-            self.select_cap(condition, quotient_polys_cap, dummy_quotient_polys_cap);
-        let selected_openings = self.select_opening_set(condition, openings, dummy_openings);
-        let selected_opening_proof =
-            self.select_opening_proof(condition, opening_proof, dummy_opening_proof);
-        let selected_public_inputs = self.select_vec(condition, public_inputs, dummy_public_inputs);
-        let selected_proof = ProofWithPublicInputsTarget {
-            proof: ProofTarget {
-                wires_cap: selected_wires_cap,
-                plonk_zs_partial_products_cap: selected_plonk_zs_partial_products_cap,
-                quotient_polys_cap: selected_quotient_polys_cap,
-                openings: selected_openings,
-                opening_proof: selected_opening_proof,
-            },
-            public_inputs: selected_public_inputs,
-        };
+        let selected_proof = with_context!(self, "select proof", {
+            let selected_wires_cap = self.select_cap(condition, wires_cap, dummy_wires_cap);
+            let selected_plonk_zs_partial_products_cap = self.select_cap(
+                condition,
+                plonk_zs_partial_products_cap,
+                dummy_plonk_zs_partial_products_cap,
+            );
+            let selected_quotient_polys_cap =
+                self.select_cap(condition, quotient_polys_cap, dummy_quotient_polys_cap);
+            let selected_openings = self.select_opening_set(condition, openings, dummy_openings);
+            let selected_opening_proof =
+                self.select_opening_proof(condition, opening_proof, dummy_opening_proof);
+            let selected_public_inputs =
+                self.select_vec(condition, public_inputs, dummy_public_inputs);
+            ProofWithPublicInputsTarget {
+                proof: ProofTarget {
+                    wires_cap: selected_wires_cap,
+                    plonk_zs_partial_products_cap: selected_plonk_zs_partial_products_cap,
+                    quotient_polys_cap: selected_quotient_polys_cap,
+                    openings: selected_openings,
+                    opening_proof: selected_opening_proof,
+                },
+                public_inputs: selected_public_inputs,
+            }
+        });
         let selected_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.select_cap(
                 condition,
                 inner_verifier_data.constants_sigmas_cap.clone(),
-                dummy_verifier_data.constants_sigmas_cap,
+                dummy_verifier_data.constants_sigmas_cap.clone(),
             ),
         };
 
@@ -271,5 +272,79 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip_eq(v1)
             .map(|(qs0, qs1)| self.select_query_step(b, qs0, qs1))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+
+    use super::*;
+    use crate::field::types::Field;
+    use crate::gates::noop::NoopGate;
+    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    #[test]
+    fn test_conditional_recursive_verifier() -> Result<()> {
+        init_logger();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let config = CircuitConfig::standard_recursion_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut pw = PartialWitness::new();
+        let t = builder.add_virtual_target();
+        pw.set_target(t, F::rand());
+        builder.register_public_input(t);
+        let _t2 = builder.square(t);
+        for _ in 0..64 {
+            builder.add_gate(NoopGate, vec![]);
+        }
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+        data.verify(proof.clone())?;
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut pw = PartialWitness::new();
+        let pt = builder.add_virtual_proof_with_pis(&data.common);
+        pw.set_proof_with_pis_target(&pt, &proof);
+        let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
+        pw.set_proof_with_pis_target(&dummy_pt, &proof);
+
+        let inner_data = VerifierCircuitTarget {
+            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+        };
+        pw.set_cap_target(
+            &inner_data.constants_sigmas_cap,
+            &data.verifier_only.constants_sigmas_cap,
+        );
+        let dummy_inner_data = VerifierCircuitTarget {
+            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+        };
+        pw.set_cap_target(
+            &dummy_inner_data.constants_sigmas_cap,
+            &data.verifier_only.constants_sigmas_cap,
+        );
+        let b = builder.constant_bool(F::rand().0 % 2 == 0);
+        builder.conditionally_verify_proof(
+            b,
+            pt,
+            &inner_data,
+            dummy_pt,
+            &dummy_inner_data,
+            &data.common,
+        );
+
+        builder.print_gate_counts(100);
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+        data.verify(proof)
+    }
+
+    fn init_logger() {
+        let _ = env_logger::builder().format_timestamp(None).try_init();
     }
 }
