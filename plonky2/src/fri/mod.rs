@@ -11,7 +11,7 @@ mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct FriConfig {
     /// `rate = 2^{-rate_bits}`.
     pub rate_bits: usize,
@@ -50,7 +50,7 @@ impl FriConfig {
 
 /// FRI parameters, including generated parameters which are specific to an instance size, in
 /// contrast to `FriConfig` which is user-specified and independent of instance size.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct FriParams {
     /// User-specified FRI configuration.
     pub config: FriConfig,

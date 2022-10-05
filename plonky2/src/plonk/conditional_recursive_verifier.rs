@@ -16,13 +16,15 @@ use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTa
 use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Verify `proof0` if `condition` else verify `proof1`.
+    /// `proof0` and `proof1` are assumed to use the same `CommonCircuitData`.
     pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         condition: BoolTarget,
-        proof_with_pis: ProofWithPublicInputsTarget<D>,
-        inner_verifier_data: &VerifierCircuitTarget,
-        dummy_proof_with_pis: ProofWithPublicInputsTarget<D>,
-        dummy_verifier_data: &VerifierCircuitTarget,
+        proof_with_pis0: ProofWithPublicInputsTarget<D>,
+        inner_verifier_data0: &VerifierCircuitTarget,
+        proof_with_pis1: ProofWithPublicInputsTarget<D>,
+        verifier_data1: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
@@ -37,7 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     opening_proof,
                 },
             public_inputs,
-        } = proof_with_pis;
+        } = proof_with_pis0;
         let ProofWithPublicInputsTarget {
             proof:
                 ProofTarget {
@@ -49,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     opening_proof: dummy_opening_proof,
                 },
             public_inputs: dummy_public_inputs,
-        } = dummy_proof_with_pis;
+        } = proof_with_pis1;
 
         let selected_proof = with_context!(self, "select proof", {
             let selected_wires_cap = self.select_cap(condition, wires_cap, dummy_wires_cap);
@@ -79,8 +81,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let selected_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.select_cap(
                 condition,
-                inner_verifier_data.constants_sigmas_cap.clone(),
-                dummy_verifier_data.constants_sigmas_cap.clone(),
+                inner_verifier_data0.constants_sigmas_cap.clone(),
+                verifier_data1.constants_sigmas_cap.clone(),
             ),
         };
 

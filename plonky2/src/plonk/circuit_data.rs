@@ -29,7 +29,7 @@ use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::timing::TimingTree;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -239,7 +239,7 @@ pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
 }
 
 /// Circuit data required by both the prover and the verifier.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct CommonCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
