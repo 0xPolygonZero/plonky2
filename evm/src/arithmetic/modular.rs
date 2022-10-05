@@ -166,7 +166,8 @@ fn generate_modular_op<F: RichField>(
         // Don't overwrite MODULAR_MOD_IS_ZERO, which is at the last
         // index of MODULAR_AUX_INPUT
         if deg < N_LIMBS - 1 {
-            lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_noncanonical_i64(aux_limbs[deg + N_LIMBS]);
+            lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] =
+                F::from_noncanonical_i64(aux_limbs[deg + N_LIMBS]);
         }
     }
 }
