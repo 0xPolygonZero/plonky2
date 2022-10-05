@@ -162,11 +162,11 @@ fn generate_modular_op<F: RichField>(
         lv[MODULAR_OUT_AUX_RED[deg]] = F::from_canonical_i64(out_aux_red[deg]);
         lv[MODULAR_QUO_INPUT[deg]] = F::from_canonical_i64(quot_limbs[deg]);
         lv[MODULAR_QUO_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(quot_limbs[deg + N_LIMBS]);
-        lv[MODULAR_AUX_INPUT[deg]] = F::from_canonical_i64(aux_limbs[deg]);
+        lv[MODULAR_AUX_INPUT[deg]] = F::from_noncanonical_i64(aux_limbs[deg]);
         // Don't overwrite MODULAR_MOD_IS_ZERO, which is at the last
         // index of MODULAR_AUX_INPUT
         if deg < N_LIMBS - 1 {
-            lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_canonical_i64(aux_limbs[deg + N_LIMBS]);
+            lv[MODULAR_AUX_INPUT[deg + N_LIMBS]] = F::from_noncanonical_i64(aux_limbs[deg + N_LIMBS]);
         }
     }
 }
