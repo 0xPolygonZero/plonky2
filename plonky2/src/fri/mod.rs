@@ -11,7 +11,7 @@ mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
     /// `rate = 2^{-rate_bits}`.
     pub rate_bits: usize,
