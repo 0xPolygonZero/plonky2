@@ -32,14 +32,17 @@ fn make_random_input() -> (u32, Vec<u8>) {
 
 fn make_custom_input() -> (u32, Vec<u8>) {
     // Hardcode a custom message
-    (48, vec![
-        86, 124, 206, 245, 74, 57, 250, 43, 60, 30, 254, 43, 143, 144, 242, 215, 13, 103, 237, 61,
-        90, 105, 123, 250, 189, 181, 110, 192, 227, 57, 145, 46, 221, 238, 7, 181, 146, 111, 209,
-        150, 31, 157, 229, 126, 206, 105, 37, 17,
-    ])
+    (
+        48,
+        vec![
+            86, 124, 206, 245, 74, 57, 250, 43, 60, 30, 254, 43, 143, 144, 242, 215, 13, 103, 237,
+            61, 90, 105, 123, 250, 189, 181, 110, 192, 227, 57, 145, 46, 221, 238, 7, 181, 146,
+            111, 209, 150, 31, 157, 229, 126, 206, 105, 37, 17,
+        ],
+    )
 }
 
-fn make_input_stack(length: u32, message: Vec<u8>) ->  Vec<U256> {
+fn make_input_stack(length: u32, message: Vec<u8>) -> Vec<U256> {
     let mut initial_stack = vec![U256::from(length)];
     let bytes: Vec<U256> = message.iter().map(|&x| U256::from(x as u32)).collect();
     initial_stack.extend(bytes);
@@ -50,7 +53,7 @@ fn make_input_stack(length: u32, message: Vec<u8>) ->  Vec<U256> {
 
 fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U256) -> Result<()> {
     // Make the inputs.
-    let (length_random, message_random) = make_random_input(); 
+    let (length_random, message_random) = make_random_input();
     let (length_custom, message_custom) = make_custom_input();
 
     // Hash the message using a standard implementation.
@@ -68,7 +71,7 @@ fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U
     // Run the kernel code.
     let result_random = run_with_kernel(&kernel, kernel_function, initial_stack_random)?;
     let result_custom = run_with_kernel(&kernel, kernel_function, initial_stack_custom)?;
-    
+
     // Print stack for debugging
     // let printable_stack: Vec <String> = result.stack().iter().map(|x| format!("{:x}", x)).collect();
     // println!("{:#?}", printable_stack);
