@@ -88,20 +88,20 @@ global process:
 
 
 /// def padlength(length):
-///    t = length % 64
-///    return 56 + 64*(t > 47) - t
+///     t = length % 64
+///     return 56 + 64*(t > 55) - t
 
 %macro padlength
     // stack:          count
     %mod_const(64)
     // stack:      t = count % 64
-    PUSH 47
+    PUSH 55
     DUP2
-    // stack:          t , 47 , t
+    // stack:          t , 55 , t
     GT
-    // stack:          t > 47 , t
+    // stack:          t > 55 , t
     %mul_const(64)
     %add_const(56)
-    // stack: 56 + 64*(t > 47), t 
+    // stack: 56 + 64*(t > 55), t 
     SUB
 %endmacro
