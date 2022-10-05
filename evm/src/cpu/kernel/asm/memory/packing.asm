@@ -3,7 +3,7 @@
 
 global mload_packing:
     // stack: context, segment, offset, len, retdest
-    // TODO
+    PANIC // TODO
     // stack: value
 
 // Pre stack: context, segment, offset, value, len, retdest

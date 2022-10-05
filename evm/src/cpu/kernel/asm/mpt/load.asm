@@ -159,6 +159,7 @@ load_mpt_digest:
 
 // Load a leaf from prover input, and append it to trie data.
 %macro load_leaf_value
+    // TODO: Need to store leaf len, or at least a has_leaf flag for branch nodes.
     // stack: (empty)
     PROVER_INPUT(mpt)
     // stack: leaf_len

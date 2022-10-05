@@ -2,9 +2,10 @@
 
 global mpt_hash_state_trie:
     // stack: retdest
+    PUSH encode_account
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
-    // stack: node_ptr, retdest
-    %mpt_hash(encode_account)
+    // stack: node_ptr, encode_account, retdest
+    %jump(mpt_hash)
 
 %macro mpt_hash_state_trie
     PUSH %%after
@@ -14,9 +15,10 @@ global mpt_hash_state_trie:
 
 global mpt_hash_txn_trie:
     // stack: retdest
+    PUSH encode_txn
     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
-    // stack: node_ptr, retdest
-    %mpt_hash(encode_txn)
+    // stack: node_ptr, encode_txn, retdest
+    %jump(mpt_hash)
 
 %macro mpt_hash_txn_trie
     PUSH %%after
@@ -26,9 +28,10 @@ global mpt_hash_txn_trie:
 
 global mpt_hash_receipt_trie:
     // stack: retdest
+    PUSH encode_receipt
     %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
-    // stack: node_ptr, retdest
-    %mpt_hash(encode_receipt)
+    // stack: node_ptr, encode_receipt, retdest
+    %jump(mpt_hash)
 
 %macro mpt_hash_receipt_trie
     PUSH %%after
