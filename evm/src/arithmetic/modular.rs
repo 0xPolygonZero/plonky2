@@ -6,26 +6,81 @@
 //!    C = operation(A, B) (mod M).
 //!
 //! where operation can be addition, multiplication, or just return
-//! the first argument.  Inputs A, B and M, and output C, are given as
-//! arrays of 16-bit limbs. For example, if the limbs of A are
-//! a[0]...a[15], then
+//! the first argument (for MOD).  Inputs A, B and M, and output C,
+//! are given as arrays of 16-bit limbs. For example, if the limbs of
+//! A are a[0]...a[15], then
 //!
 //!    A = \sum_{i=0}^15 a[i] β^i,
 //!
-//! where β = 2^16. To verify that A, B, M and C satisfy the equation we
-//! proceed as follows. Define a(x) = \sum_{i=0}^15 a[i] x^i (so A = a(β))
-//! and similarly for b(x), m(x) and c(x). Then operation(A,B) = C (mod M)
-//! if and only if there exist polynomials q and s such that
+//! where β = 2^16 = 2^LIMB_BITS. To verify that A, B, M and C satisfy
+//! the equation we proceed as follows. Define
 //!
-//!    operation(a(x), b(x)) - c(x) - m(x)*s(x) - (x - β)*q(x) == 0.
+//!    a(x) = \sum_{i=0}^15 a[i] x^i
+//!
+//! (so A = a(β)) and similarly for b(x), m(x) and c(x). Then
+//! operation(A,B) = C (mod M) if and only if the polynomial
+//!
+//!    operation(a(x), b(x)) - c(x) - m(x) * q(x)
+//!
+//! is zero when evaluated at x = β, i.e. it is divisible by (x - β).
+//! Thus exists a polynomial s such that
+//!
+//!    operation(a(x), b(x)) - c(x) - m(x) * q(x) - (x - β) * s(x) == 0
+//!
+//! if and only if operation(A,B) = C (mod M). In the code below, this
+//! "constraint polynomial" is constructed in the variable
+//! `constr_poly`. It must be identically zero for the modular
+//! operation to be verified, or, equivalently, each of its
+//! coefficients must be zero. The variable names of the constituent
+//! polynomials are (writing N for N_LIMBS=16):
+//!
+//!   a(x) = \sum_{i=0}^{N-1} input0[i] * β^i
+//!   b(x) = \sum_{i=0}^{N-1} input1[i] * β^i
+//!   c(x) = \sum_{i=0}^{N-1} output[i] * β^i
+//!   m(x) = \sum_{i=0}^{N-1} modulus[i] * β^i
+//!   q(x) = \sum_{i=0}^{2N-1} quot[i] * β^i
+//!   s(x) = \sum_i^{2N-2} aux[i] * β^i
 //!
 //! Because A, B, M and C are 256-bit numbers, the degrees of a, b, m
-//! and c are (at most) 15. On the other hand, the deg(m) can be 0, in
-//! which case deg(s) may need to be 15, so in general we need to
-//! accommodate deg(m*s) <= 30. Hence deg(q) can be up to 29.
+//! and c are (at most) N-1 = 15. If m = 1, then Q would be A*B which
+//! can be up to 2^512 - ε, so deg(q) can be up to 2*N-1 = 31. Note
+//! that, although for arbitrary m and q we might have deg(m*q) = 3*N-2,
+//! because the magnitude of M*Q must match that of operation(A,B), we
+//! always have deg(m*q) <= 2*N-1. Finally, in order for all the degrees
+//! to match, we have deg(s) <= 2*N-2 = 30.
 //!
-//! TODO: Write up analysis of degrees of the polynomials and the
-//! bounds on their coefficients.
+//! -*-
+//!
+//! To verify that the output is reduced, that is, output < modulus,
+//! the prover supplies the value `out_aux_red` which must satisfy
+//!
+//!    output - modulus = out_aux_red + 2^256
+//!
+//! and these values are passed to the "less than" operation.
+//!
+//! -*-
+//!
+//! The EVM defines division by zero as zero. We handle this as
+//! follows:
+//!
+//! The prover supplies a binary value `mod_is_zero` which is one if
+//! the modulus is zero and zero otherwise. This is verified, then
+//! added to the modulus (this can't overflow, as modulus[0] was
+//! range-checked and mod_is_zero is 0 or 1). The rest of the
+//! calculation proceeds as if modulus was actually 1; this correctly
+//! verifies that the output is zero, as required by the standard.
+//! To summarise:
+//!
+//! - mod_is_zero is 0 or 1
+//! - if mod_is_zero is 1, then
+//!    - given modulus is 0
+//!    - updated modulus is 1, which forces the correct output of 0
+//! - if mod_is_zero is 0, then
+//!    - given modulus can be 0 or non-zero
+//!    - updated modulus is same as given
+//!    - if modulus is non-zero, correct output is obtained
+//!    - if modulus is 0, then the test output < modulus, checking that
+//!      the output is reduced, will fail, because output is non-negative.
 
 use num::{BigUint, Zero};
 use plonky2::field::extension::Extendable;
@@ -38,16 +93,16 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use super::columns;
 use crate::arithmetic::columns::*;
 use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
-use crate::arithmetic::utils::{
-    pol_add, pol_add_assign, pol_add_assign_ext_circuit, pol_add_ext_circuit, pol_adjoin_root,
-    pol_adjoin_root_ext_circuit, pol_extend, pol_extend_ext_circuit, pol_mul_wide, pol_mul_wide2,
-    pol_mul_wide2_ext_circuit, pol_mul_wide_ext_circuit, pol_remove_root_2exp, pol_sub_assign,
-    pol_sub_assign_ext_circuit,
-};
+use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-/// Convert the base-2^16 representation into a base-2^32 representation
+/// Convert the base-2^16 representation of a number into a BigUint.
+///
+/// Given `N` unsigned 16-bit values in `limbs`, return the BigUint
+///
+///   \sum_{i=0}^{N-1} limbs[i] * β^i.
+///
 fn columns_to_biguint<const N: usize>(limbs: &[i64; N]) -> BigUint {
     const BASE: i64 = 1i64 << LIMB_BITS;
 
@@ -75,7 +130,15 @@ fn columns_to_biguint<const N: usize>(limbs: &[i64; N]) -> BigUint {
     BigUint::from_slice(&limbs_u32)
 }
 
-/// Convert the base-2^32 representation into a base-2^16 representation
+/// Convert a BigUint into a base-2^16 representation.
+///
+/// Given a BigUint `num`, return an array of `N` unsigned 16-bit
+/// values, say `limbs`, such that
+///
+///   num = \sum_{i=0}^{N-1} limbs[i] * β^i.
+///
+/// Note that `N` must be at least ceil(log2(num)/16) in order to be
+/// big enough to hold `num`.
 fn biguint_to_columns<const N: usize>(num: &BigUint) -> [i64; N] {
     assert!(num.bits() <= 16 * N as u64);
     let mut output = [0i64; N];
@@ -86,6 +149,10 @@ fn biguint_to_columns<const N: usize>(num: &BigUint) -> [i64; N] {
     output
 }
 
+/// Generate the output and auxiliary values for given `operation`.
+///
+/// NB: `operation` can set the higher order elements in its result to
+/// zero if they are not used.
 fn generate_modular_op<F: RichField>(
     lv: &mut [F; NUM_ARITH_COLUMNS],
     operation: fn([i64; N_LIMBS], [i64; N_LIMBS]) -> [i64; 2 * N_LIMBS - 1],
@@ -96,7 +163,7 @@ fn generate_modular_op<F: RichField>(
     let input1_limbs = MODULAR_INPUT_1.map(|c| F::to_canonical_u64(&lv[c]) as i64);
     let mut modulus_limbs = MODULAR_MODULUS.map(|c| F::to_canonical_u64(&lv[c]) as i64);
 
-    // The use of BigUints is entirely to avoid having to implement
+    // The use of BigUints is just to avoid having to implement
     // modular reduction.
     let mut modulus = columns_to_biguint(&modulus_limbs);
 
@@ -124,12 +191,11 @@ fn generate_modular_op<F: RichField>(
     let quot = (&input - &output) / &modulus; // exact division
     let quot_limbs = biguint_to_columns::<{ 2 * N_LIMBS }>(&quot);
 
+    // two_exp_256 == 2^256
     let mut two_exp_256 = BigUint::zero();
     two_exp_256.set_bit(256, true);
+    // output < modulus here, so the proof requires (output - modulus) % 2^256:
     let out_aux_red = biguint_to_columns::<N_LIMBS>(&(two_exp_256 + output - modulus));
-
-    // TODO: explain the mapping between a, b, c, etc. and the
-    // variable names used!
 
     // constr_poly is the array of coefficients of the polynomial
     //
@@ -139,22 +205,12 @@ fn generate_modular_op<F: RichField>(
     let prod = pol_mul_wide2(quot_limbs, modulus_limbs);
     pol_sub_assign(&mut constr_poly, &prod[0..2 * N_LIMBS]);
 
-    // Higher order terms must be zero for valid quot and modulus:
+    // Higher order terms of the product must be zero for valid quot and modulus:
     debug_assert!(&prod[2 * N_LIMBS..].iter().all(|&x| x == 0i64));
 
-    // constr_poly must be zero when evaluated at x = β := 2^LIMB_BITS,
-    // hence it's divisible by (x - β). If we write it as
-    //
-    //   operation(a(x), b(x)) - c(x) - s(x)*m(x)
-    //       = \sum_{i=0}^n p_i x^i
-    //       = (x - β) \sum_{i=0}^{n-1} q_i x^i
-    //
-    // then by comparing coefficients it is easy to see that
-    //
-    //   q_0 = -p_0 / β  and  q_i = (q_{i-1} - p_i) / β
-    //
-    // for 0 < i <= n-1 (and the divisions are exact).
-
+    // constr_poly must be zero when evaluated at x = β :=
+    // 2^LIMB_BITS, hence it's divisible by (x - β). `aux_limbs` is
+    // the result of removing that root.
     let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _>(constr_poly);
 
     for deg in 0..N_LIMBS {
@@ -172,6 +228,9 @@ fn generate_modular_op<F: RichField>(
     }
 }
 
+/// Generate the output and auxiliary values for modular operations.
+///
+/// `filter` must be one of `columns::IS_{ADDMOD,MULMOD,MOD}`.
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], filter: usize) {
     match filter {
         columns::IS_ADDMOD => generate_modular_op(lv, pol_add),
@@ -181,6 +240,14 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], filter: us
     }
 }
 
+/// Build the part of the constraint polynomial that's common to all
+/// modular operations, and perform the common verifications.
+///
+/// Specifically, with the notation above, build the polynomial
+///
+///   c(x) + q(x) * m(x) + (x - β) * s(x)
+///
+/// and check consistency when m = 0, and that c is reduced.
 #[allow(clippy::needless_range_loop)]
 fn modular_constr_poly<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
@@ -196,40 +263,22 @@ fn modular_constr_poly<P: PackedField>(
 
     let mut modulus = MODULAR_MODULUS.map(|c| lv[c]);
     let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
+
     // Check that mod_is_zero is zero or one
     yield_constr.constraint(filter * (mod_is_zero * mod_is_zero - mod_is_zero));
+
     // Check that mod_is_zero is zero if modulus is not zero (they
     // could both be zero)
     let limb_sum = modulus.into_iter().sum::<P>();
     yield_constr.constraint(filter * limb_sum * mod_is_zero);
 
-    // Add mod_is_zero to modulus (can't overflow, as modulus[0] was
-    // range-checked and mod_is_zero is 0 or 1). The rest of the
-    // calculation proceeds as if modulus was actually 1; this
-    // correctly verifies that the output is zero, as required by the
-    // standard.
+    // See the file documentation for why this suffices to handle
+    // modulus = 0.
     modulus[0] += mod_is_zero;
-
-    // Summary of the constraints above:
-    //
-    // - mod_is_zero is 0 or 1
-    // - if mod_is_zero is 1, then
-    //    - given modulus is 0
-    //    - updated modulus is 1, which forces the correct output of 0
-    // - if mod_is_zero is 0, then
-    //    - given modulus can be 0 or non-zero
-    //    - updated modulus is same as given
-    //    - if modulus is non-zero, correct output is obtained
-    //    - if modulus is 0, then the test output < modulus, checking that
-    //      the output is reduced, will fail, because output is non-negative.
 
     let output = MODULAR_OUTPUT.map(|c| lv[c]);
 
     // Verify that the output is reduced, i.e. output < modulus.
-    //
-    // NB: If given modulus was 0, then the updated modulus will be 1,
-    // which means we're verifying that the output is 0, which agrees
-    // with the requirements of the EVM definition.
     let out_aux_red = MODULAR_OUT_AUX_RED.map(|c| lv[c]);
     let is_less_than = P::ONES;
     eval_packed_generic_lt(
@@ -241,42 +290,27 @@ fn modular_constr_poly<P: PackedField>(
         is_less_than,
     );
 
+    // prod = q(x) * m(x)
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
-    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
-
     let prod = pol_mul_wide2(quot, modulus);
+    // higher order terms must be zero
     for &x in prod[2 * N_LIMBS..].iter() {
         yield_constr.constraint(filter * x);
     }
 
-    // Constraint poly holds the coefficients of the polynomial that
-    // must be identically zero for this modular addition to be
-    // verified.
-    //
-    // Set constr_poly[deg] to be the degree deg coefficient of the
-    // polynomial operation(a(x), b(x)) - c(x) - q(x) * m(x) where
-    //
-    //   a(x) = \sum_i^N input0_limbs[i] * β^i
-    //   b(x) = \sum_i^N input1_limbs[i] * β^i
-    //   c(x) = \sum_i^N output_limbs[i] * β^i
-    //   q(x) = \sum_i^2N quot_limbs[i] * β^i
-    //   m(x) = \sum_i^N modulus_limbs[i] * β^i
-    //
-    // This polynomial should equal (x - β) * s(x) where s is
-    //
-    //   s(x) = \sum_i^{2N-1} aux_limbs[i] * β^i
-    //
-
+    // constr_poly = c(x) + q(x) * m(x)
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign(&mut constr_poly, &output);
 
-    // Add (x - β) * s(x) to constr_poly.
+    // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
+    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
 
     constr_poly
 }
 
+/// Add constraints for modular operations.
 pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
@@ -302,16 +336,20 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
         (&mul_input, &lv[columns::IS_MULMOD]),
         (&mod_input, &lv[columns::IS_MOD]),
     ] {
-        // At this point input holds the coefficients of the polynomial
-        // operation(a(x), b(x)) - c(x) - s(x)*m(x) - (x - 2^LIMB_BITS)*q(x).
-        // The modular operation is valid if and only if all of those
-        // coefficients are zero.
-
         // Need constr_poly_copy to be the first argument to
         // pol_sub_assign, since it is the longer of the two
         // arguments.
         let mut constr_poly_copy = constr_poly;
         pol_sub_assign(&mut constr_poly_copy, input);
+
+        // At this point constr_poly_copy holds the coefficients of
+        // the polynomial
+        //
+        //   operation(a(x), b(x)) - c(x) - q(x) * m(x) - (x - β) * s(x)
+        //
+        // where operation is add, mul or |a,b|->a.  The modular
+        // operation is valid if and only if all of those coefficients
+        // are zero.
         for &c in constr_poly_copy.iter() {
             yield_constr.constraint(filter * c);
         }
@@ -352,8 +390,6 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     );
 
     let quot = MODULAR_QUO_INPUT.map(|c| lv[c]);
-    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
-
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
     for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
@@ -363,6 +399,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
+    let aux = MODULAR_AUX_INPUT.map(|c| lv[c]);
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &t);

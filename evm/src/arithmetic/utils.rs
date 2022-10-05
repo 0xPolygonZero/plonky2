@@ -56,6 +56,7 @@ macro_rules! range_check_error {
     };
 }
 
+/// Return an array of `N` zeros of type T.
 pub(crate) fn pol_zero<T, const N: usize>() -> [T; N]
 where
     T: Copy + Default,
@@ -69,6 +70,7 @@ where
     [T::default(); N]
 }
 
+/// a(x) += b(x), but must have deg(a) >= deg(b).
 pub(crate) fn pol_add_assign<T>(a: &mut [T], b: &[T])
 where
     T: AddAssign + Copy + Default,
@@ -90,6 +92,8 @@ pub(crate) fn pol_add_assign_ext_circuit<F: RichField + Extendable<D>, const D: 
     }
 }
 
+/// Return a(x) + b(x); returned array is bigger than necessary to
+/// make the interface consistent with `pol_mul_wide`.
 pub(crate) fn pol_add<T>(a: [T; N_LIMBS], b: [T; N_LIMBS]) -> [T; 2 * N_LIMBS - 1]
 where
     T: Add<Output = T> + Copy + Default,
@@ -114,6 +118,7 @@ pub(crate) fn pol_add_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     sum
 }
 
+/// a(x) -= b(x), but must have deg(a) >= deg(b).
 pub(crate) fn pol_sub_assign<T>(a: &mut [T], b: &[T])
 where
     T: SubAssign + Copy,
@@ -135,15 +140,11 @@ pub(crate) fn pol_sub_assign_ext_circuit<F: RichField + Extendable<D>, const D: 
     }
 }
 
-/// Given polynomials a(x) = \sum_{i=0}^{N-1} a[i] x^i and
-/// b(x) = \sum_{j=0}^{N-1} b[j] x^j, return their product
-/// a(x)b(x) = \sum_{k=0}^{2N-2} c[k] x^k where
-/// c[k] = \sum_{i+j=k} a[i]b[j].
+/// Given polynomials a(x) and b(x), return a(x)*b(x).
 ///
 /// NB: The caller is responsible for ensuring that no undesired
 /// overflow occurs during the calculation of the coefficients of the
-/// product. In expected applications, N = 16 and the a[i] and b[j] are
-/// in [0, 2^16).
+/// product.
 pub(crate) fn pol_mul_wide<T>(a: [T; N_LIMBS], b: [T; N_LIMBS]) -> [T; 2 * N_LIMBS - 1]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
@@ -178,6 +179,8 @@ pub(crate) fn pol_mul_wide_ext_circuit<
     res
 }
 
+/// As for `pol_mul_wide` but the first argument has 2N elements and
+/// hence the result has 3N-1.
 pub(crate) fn pol_mul_wide2<T>(a: [T; 2 * N_LIMBS], b: [T; N_LIMBS]) -> [T; 3 * N_LIMBS - 1]
 where
     T: AddAssign + Copy + Mul<Output = T> + Default,
@@ -206,6 +209,7 @@ pub(crate) fn pol_mul_wide2_ext_circuit<F: RichField + Extendable<D>, const D: u
     res
 }
 
+/// Given a(x) and b(x), return a(x)*b(x) mod 2^256.
 pub(crate) fn pol_mul_lo<T, const N: usize>(a: [T; N], b: [T; N]) -> [T; N]
 where
     T: AddAssign + Copy + Default + Mul<Output = T>,
@@ -222,8 +226,6 @@ where
 }
 
 /// Adjoin M - N zeros to a, returning [a[0], a[1], ..., a[N-1], 0, 0, ..., 0].
-///
-/// N.B. See comment above at pol_mul_wide for discussion of parameter M.
 pub(crate) fn pol_extend<T, const N: usize, const M: usize>(a: [T; N]) -> [T; M]
 where
     T: Copy + Default,
@@ -246,21 +248,25 @@ pub(crate) fn pol_extend_ext_circuit<F: RichField + Extendable<D>, const D: usiz
     zero_extend
 }
 
-/// Given polynomial a(X) = \sum_{i=0}^{M-1} a[i] X^i and an element
-/// `root`, return b = (X - root) * a(X)
+/// Given polynomial a(x) = \sum_{i=0}^{2N-2} a[i] x^i and an element
+/// `root`, return b = (x - root) * a(x).
 ///
-/// NB: Ignores a[2 * N_LIMBS - 1], treating it as if it's 0.
+/// NB: Ignores element a[2 * N_LIMBS - 1], treating it as if it's 0.
 pub(crate) fn pol_adjoin_root<T, U>(a: [T; 2 * N_LIMBS], root: U) -> [T; 2 * N_LIMBS]
 where
     T: Add<Output = T> + Copy + Default + Mul<Output = T> + Sub<Output = T>,
     U: Copy + Mul<T, Output = T> + Neg<Output = U>,
 {
+    // \sum_i res[i] x^i = (x - root) \sum_i a[i] x^i. Comparing
+    // coefficients, res[0] = -root*a[0] and
+    // res[i] = a[i-1] - root * a[i]
+
     let mut res = [T::default(); 2 * N_LIMBS];
     res[0] = -root * a[0];
     for deg in 1..(2 * N_LIMBS - 1) {
         res[deg] = a[deg - 1] - (root * a[deg]);
     }
-    // NB: We assumes that a[2 * N_LIMBS - 1] = 0, so the last
+    // NB: We assume that a[2 * N_LIMBS - 1] = 0, so the last
     // iteration has no "* root" term.
     res[2 * N_LIMBS - 1] = a[2 * N_LIMBS - 2];
     res
@@ -285,25 +291,37 @@ pub(crate) fn pol_adjoin_root_ext_circuit<F: RichField + Extendable<D>, const D:
     res
 }
 
-/// Given polynomial a(X) = \sum_{i=0}^{M-1} a[i] X^i and a root of `a`
-/// of the form 2^Exp, return q(X) satisfying a(X) = (X - root) * q(X).
+/// Given polynomial a(x) = \sum_{i=0}^{2N-1} a[i] x^i and a root of `a`
+/// of the form 2^EXP, return q(x) satisfying a(x) = (x - root) * q(x).
 ///
-/// NB: We do not verify that a(2^Exp) = 0.
+/// NB: We do not verify that a(2^EXP) = 0; if this doesn't hold the
+/// result is basically junk.
 ///
 /// NB: The result could be returned in 2*N-1 elements, but we return
-/// 2*N and set the last element to zero since the calling code requires
-/// a result zero-extended to 2*N elements anyway.
+/// 2*N and set the last element to zero since the calling code
+/// happens to require a result zero-extended to 2*N elements.
 pub(crate) fn pol_remove_root_2exp<const EXP: usize, T>(a: [T; 2 * N_LIMBS]) -> [T; 2 * N_LIMBS]
 where
     T: Copy + Default + Neg<Output = T> + Shr<usize, Output = T> + Sub<Output = T>,
 {
-    let mut res = [T::default(); 2 * N_LIMBS];
-    res[0] = -(a[0] >> EXP);
+    // By assumption β := 2^EXP is a root of `a`, i.e. (x - β) divides
+    // `a`; if we write
+    //
+    //    a(x) = \sum_{i=0}^{2N-1} a[i] x^i
+    //         = (x - β) \sum_{i=0}^{2N-2} q[i] x^i
+    //
+    // then by comparing coefficients it is easy to see that
+    //
+    //   q[0] = -a[0] / β  and  q[i] = (q[i-1] - a[i]) / β
+    //
+    // for 0 < i <= 2N-1 (and the divisions are exact).
 
-    // NB: Last element of res is deliberately left equal to zero.
+    let mut q = [T::default(); 2 * N_LIMBS];
+    q[0] = -(a[0] >> EXP);
+
+    // NB: Last element of q is deliberately left equal to zero.
     for deg in 1..2 * N_LIMBS - 1 {
-        res[deg] = (res[deg - 1] - a[deg]) >> EXP;
+        q[deg] = (q[deg - 1] - a[deg]) >> EXP;
     }
-
-    res
+    q
 }
