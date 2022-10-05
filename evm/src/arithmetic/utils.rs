@@ -225,6 +225,22 @@ where
     res
 }
 
+pub(crate) fn pol_mul_lo_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; N_LIMBS] {
+    let zero = builder.zero_extension();
+    let mut res = [zero; N_LIMBS];
+    for deg in 0..N_LIMBS {
+        for i in 0..=deg {
+            let j = deg - i;
+            res[deg] = builder.mul_add_extension(a[i], b[j], res[deg]);
+        }
+    }
+    res
+}
+
 /// Adjoin M - N zeros to a, returning [a[0], a[1], ..., a[N-1], 0, 0, ..., 0].
 pub(crate) fn pol_extend<T, const N: usize, const M: usize>(a: [T; N]) -> [T; M]
 where
@@ -248,11 +264,9 @@ pub(crate) fn pol_extend_ext_circuit<F: RichField + Extendable<D>, const D: usiz
     zero_extend
 }
 
-/// Given polynomial a(x) = \sum_{i=0}^{2N-2} a[i] x^i and an element
+/// Given polynomial a(x) = \sum_{i=0}^{N-2} a[i] x^i and an element
 /// `root`, return b = (x - root) * a(x).
-///
-/// NB: Ignores element a[2 * N_LIMBS - 1], treating it as if it's 0.
-pub(crate) fn pol_adjoin_root<T, U>(a: [T; 2 * N_LIMBS], root: U) -> [T; 2 * N_LIMBS]
+pub(crate) fn pol_adjoin_root<T, U, const N: usize>(a: [T; N], root: U) -> [T; N]
 where
     T: Add<Output = T> + Copy + Default + Mul<Output = T> + Sub<Output = T>,
     U: Copy + Mul<T, Output = T> + Neg<Output = U>,
@@ -261,66 +275,64 @@ where
     // coefficients, res[0] = -root*a[0] and
     // res[i] = a[i-1] - root * a[i]
 
-    let mut res = [T::default(); 2 * N_LIMBS];
+    let mut res = [T::default(); N];
     res[0] = -root * a[0];
-    for deg in 1..(2 * N_LIMBS - 1) {
+    for deg in 1..N {
         res[deg] = a[deg - 1] - (root * a[deg]);
     }
-    // NB: We assume that a[2 * N_LIMBS - 1] = 0, so the last
-    // iteration has no "* root" term.
-    res[2 * N_LIMBS - 1] = a[2 * N_LIMBS - 2];
     res
 }
 
-pub(crate) fn pol_adjoin_root_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn pol_adjoin_root_ext_circuit<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const N: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; 2 * N_LIMBS],
+    a: [ExtensionTarget<D>; N],
     root: ExtensionTarget<D>,
-) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
+) -> [ExtensionTarget<D>; N] {
     let zero = builder.zero_extension();
-    let mut res = [zero; 2 * N_LIMBS];
+    let mut res = [zero; N];
     // res[deg] = NEG_ONE * root * a[0] + ZERO * zero
     res[0] = builder.arithmetic_extension(F::NEG_ONE, F::ZERO, root, a[0], zero);
-    for deg in 1..(2 * N_LIMBS - 1) {
+    for deg in 1..N {
         // res[deg] = NEG_ONE * root * a[deg] + ONE * a[deg - 1]
         res[deg] = builder.arithmetic_extension(F::NEG_ONE, F::ONE, root, a[deg], a[deg - 1]);
     }
-    // NB: We assumes that a[2 * N_LIMBS - 1] = 0, so the last
-    // iteration has no "* root" term.
-    res[2 * N_LIMBS - 1] = a[2 * N_LIMBS - 2];
     res
 }
 
-/// Given polynomial a(x) = \sum_{i=0}^{2N-1} a[i] x^i and a root of `a`
+/// Given polynomial a(x) = \sum_{i=0}^{N-1} a[i] x^i and a root of `a`
 /// of the form 2^EXP, return q(x) satisfying a(x) = (x - root) * q(x).
 ///
 /// NB: We do not verify that a(2^EXP) = 0; if this doesn't hold the
 /// result is basically junk.
 ///
-/// NB: The result could be returned in 2*N-1 elements, but we return
-/// 2*N and set the last element to zero since the calling code
-/// happens to require a result zero-extended to 2*N elements.
-pub(crate) fn pol_remove_root_2exp<const EXP: usize, T>(a: [T; 2 * N_LIMBS]) -> [T; 2 * N_LIMBS]
+/// NB: The result could be returned in N-1 elements, but we return
+/// N and set the last element to zero since the calling code
+/// happens to require a result zero-extended to N elements.
+pub(crate) fn pol_remove_root_2exp<const EXP: usize, T, const N: usize>(a: [T; N]) -> [T; N]
 where
     T: Copy + Default + Neg<Output = T> + Shr<usize, Output = T> + Sub<Output = T>,
 {
     // By assumption β := 2^EXP is a root of `a`, i.e. (x - β) divides
     // `a`; if we write
     //
-    //    a(x) = \sum_{i=0}^{2N-1} a[i] x^i
-    //         = (x - β) \sum_{i=0}^{2N-2} q[i] x^i
+    //    a(x) = \sum_{i=0}^{N-1} a[i] x^i
+    //         = (x - β) \sum_{i=0}^{N-2} q[i] x^i
     //
     // then by comparing coefficients it is easy to see that
     //
     //   q[0] = -a[0] / β  and  q[i] = (q[i-1] - a[i]) / β
     //
-    // for 0 < i <= 2N-1 (and the divisions are exact).
+    // for 0 < i <= N-1 (and the divisions are exact).
 
-    let mut q = [T::default(); 2 * N_LIMBS];
+    let mut q = [T::default(); N];
     q[0] = -(a[0] >> EXP);
 
     // NB: Last element of q is deliberately left equal to zero.
-    for deg in 1..2 * N_LIMBS - 1 {
+    for deg in 1..N - 1 {
         q[deg] = (q[deg - 1] - a[deg]) >> EXP;
     }
     q
