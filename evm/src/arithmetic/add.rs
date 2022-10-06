@@ -201,7 +201,7 @@ mod tests {
         // set `IS_ADD == 1` and ensure all constraints are satisfied.
         lv[IS_ADD] = F::ONE;
 
-        for _i in 0..N_RND_TESTS {
+        for _ in 0..N_RND_TESTS {
             // set inputs to random values
             for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());

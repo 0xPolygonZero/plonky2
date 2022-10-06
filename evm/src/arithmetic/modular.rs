@@ -315,11 +315,9 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    // NB: The CTL code guarantees that filter is 0 or 1, i.e. that
+    // only one of the operations below is "live".
     let filter = lv[columns::IS_ADDMOD] + lv[columns::IS_MULMOD] + lv[columns::IS_MOD];
-    /*
-    // TODO: Do I need to check this here?
-    yield_constr.constraint(filter * filter - filter);
-    */
 
     // constr_poly has 2*N_LIMBS limbs
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);

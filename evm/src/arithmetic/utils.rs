@@ -61,7 +61,7 @@ pub(crate) fn pol_zero<T, const N: usize>() -> [T; N]
 where
     T: Copy + Default,
 {
-    // NB: This should really be T::zero() from num::Zero, because
+    // TODO: This should really be T::zero() from num::Zero, because
     // default() doesn't guarantee to initialise to zero (though in
     // our case it always does). However I couldn't work out how to do
     // that without touching half of the entire crate because it
@@ -76,8 +76,8 @@ where
     T: AddAssign + Copy + Default,
 {
     debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
-    for i in 0..b.len() {
-        a[i] += b[i];
+    for (a_item, b_item) in a.iter_mut().zip(b) {
+        *a_item += *b_item;
     }
 }
 
@@ -87,8 +87,8 @@ pub(crate) fn pol_add_assign_ext_circuit<F: RichField + Extendable<D>, const D: 
     b: &[ExtensionTarget<D>],
 ) {
     debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
-    for i in 0..b.len() {
-        a[i] = builder.add_extension(a[i], b[i]);
+    for (a_item, b_item) in a.iter_mut().zip(b) {
+        *a_item = builder.add_extension(*a_item, *b_item);
     }
 }
 
@@ -124,8 +124,8 @@ where
     T: SubAssign + Copy,
 {
     debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
-    for i in 0..b.len() {
-        a[i] -= b[i];
+    for (a_item, b_item) in a.iter_mut().zip(b) {
+        *a_item -= *b_item;
     }
 }
 
@@ -135,8 +135,8 @@ pub(crate) fn pol_sub_assign_ext_circuit<F: RichField + Extendable<D>, const D: 
     b: &[ExtensionTarget<D>],
 ) {
     debug_assert!(a.len() >= b.len(), "expected {} >= {}", a.len(), b.len());
-    for i in 0..b.len() {
-        a[i] = builder.sub_extension(a[i], b[i]);
+    for (a_item, b_item) in a.iter_mut().zip(b) {
+        *a_item = builder.sub_extension(*a_item, *b_item);
     }
 }
 
@@ -230,7 +230,7 @@ pub(crate) fn pol_extend<T, const N: usize, const M: usize>(a: [T; N]) -> [T; M]
 where
     T: Copy + Default,
 {
-    assert!(M == 2 * N - 1);
+    assert_eq!(M, 2 * N - 1);
 
     let mut zero_extend = pol_zero();
     zero_extend[..N].copy_from_slice(&a);

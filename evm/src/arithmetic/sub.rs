@@ -132,7 +132,7 @@ mod tests {
         // set `IS_SUB == 1` and ensure all constraints are satisfied.
         lv[IS_SUB] = F::ONE;
 
-        for _i in 0..N_RND_TESTS {
+        for _ in 0..N_RND_TESTS {
             // set inputs to random values
             for (&ai, bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
