@@ -205,7 +205,7 @@ mod tests {
     use crate::prover::prove_with_traces;
     use crate::recursive_verifier::{
         add_virtual_recursive_all_proof, all_verifier_data_recursive_stark_proof,
-        recursively_verify_all_proof, set_recursive_all_proof_target,
+        recursively_verify_all_proof, set_recursive_all_proof_target, RecursiveAllProof,
     };
     use crate::stark::Stark;
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};
@@ -360,6 +360,7 @@ mod tests {
                 let row: &mut cpu::columns::CpuColumnsView<F> = cpu_trace_rows[clock].borrow_mut();
                 row.clock = F::from_canonical_usize(clock);
 
+                dbg!(channel, row.mem_channels.len());
                 let channel = &mut row.mem_channels[channel];
                 channel.used = F::ONE;
                 channel.is_read = memory_trace[memory::columns::IS_READ].values[i];
@@ -788,7 +789,7 @@ mod tests {
             &recursive_all_proof,
             &verifier_data,
         );
-        recursive_all_proof.verify_circuit(
+        RecursiveAllProof::verify_circuit(
             &mut builder,
             recursive_all_proof_target,
             &verifier_data,
