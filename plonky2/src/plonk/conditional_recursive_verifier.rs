@@ -32,41 +32,39 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let ProofWithPublicInputsTarget {
             proof:
                 ProofTarget {
-                    wires_cap,
-                    plonk_zs_partial_products_cap,
-                    quotient_polys_cap,
-                    openings,
-                    opening_proof,
+                    wires_cap: wires_cap0,
+                    plonk_zs_partial_products_cap: plonk_zs_partial_products_cap0,
+                    quotient_polys_cap: quotient_polys_cap0,
+                    openings: openings0,
+                    opening_proof: opening_proof0,
                 },
-            public_inputs,
+            public_inputs: public_inputs0,
         } = proof_with_pis0;
         let ProofWithPublicInputsTarget {
             proof:
                 ProofTarget {
-                    wires_cap: dummy_wires_cap,
-                    plonk_zs_partial_products_cap: dummy_plonk_zs_partial_products_cap,
-                    quotient_polys_cap: dummy_quotient_polys_cap,
-                    openings: dummy_openings,
-
-                    opening_proof: dummy_opening_proof,
+                    wires_cap: wires_cap1,
+                    plonk_zs_partial_products_cap: plonk_zs_partial_products_cap1,
+                    quotient_polys_cap: quotient_polys_cap1,
+                    openings: openings1,
+                    opening_proof: opening_proof1,
                 },
-            public_inputs: dummy_public_inputs,
+            public_inputs: public_inputs1,
         } = proof_with_pis1;
 
         let selected_proof = with_context!(self, "select proof", {
-            let selected_wires_cap = self.select_cap(condition, wires_cap, dummy_wires_cap);
+            let selected_wires_cap = self.select_cap(condition, wires_cap0, wires_cap1);
             let selected_plonk_zs_partial_products_cap = self.select_cap(
                 condition,
-                plonk_zs_partial_products_cap,
-                dummy_plonk_zs_partial_products_cap,
+                plonk_zs_partial_products_cap0,
+                plonk_zs_partial_products_cap1,
             );
             let selected_quotient_polys_cap =
-                self.select_cap(condition, quotient_polys_cap, dummy_quotient_polys_cap);
-            let selected_openings = self.select_opening_set(condition, openings, dummy_openings);
+                self.select_cap(condition, quotient_polys_cap0, quotient_polys_cap1);
+            let selected_openings = self.select_opening_set(condition, openings0, openings1);
             let selected_opening_proof =
-                self.select_opening_proof(condition, opening_proof, dummy_opening_proof);
-            let selected_public_inputs =
-                self.select_vec(condition, public_inputs, dummy_public_inputs);
+                self.select_opening_proof(condition, opening_proof0, opening_proof1);
+            let selected_public_inputs = self.select_vec(condition, public_inputs0, public_inputs1);
             ProofWithPublicInputsTarget {
                 proof: ProofTarget {
                     wires_cap: selected_wires_cap,
@@ -96,6 +94,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
+    fn select_hash(
+        &mut self,
+        b: BoolTarget,
+        h0: HashOutTarget,
+        h1: HashOutTarget,
+    ) -> HashOutTarget {
+        HashOutTarget {
+            elements: std::array::from_fn(|i| self.select(b, h0.elements[i], h1.elements[i])),
+        }
+    }
+
     fn select_cap(
         &mut self,
         b: BoolTarget,
@@ -107,11 +116,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             cap0.0
                 .into_iter()
                 .zip_eq(cap1.0)
-                .map(|(h0, h1)| HashOutTarget {
-                    elements: std::array::from_fn(|i| {
-                        self.select(b, h0.elements[i], h1.elements[i])
-                    }),
-                })
+                .map(|(h0, h1)| self.select_hash(b, h0, h1))
                 .collect(),
         )
     }
@@ -243,11 +248,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .siblings
                 .into_iter()
                 .zip_eq(proof1.siblings)
-                .map(|(h0, h1)| HashOutTarget {
-                    elements: std::array::from_fn(|i| {
-                        self.select(b, h0.elements[i], h1.elements[i])
-                    }),
-                })
+                .map(|(h0, h1)| self.select_hash(b, h0, h1))
                 .collect(),
         }
     }
