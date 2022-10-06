@@ -107,18 +107,84 @@ global encode_node_hash:
     %stack (hash, encode_value, retdest) -> (retdest, hash, 32)
     JUMP
 
+// Part of the encode_node_branch function. Encodes the i'th child.
+// Stores the result in SEGMENT_KERNEL_GENERAL[i], and its length in
+// SEGMENT_KERNEL_GENERAL_2[i].
+%macro encode_child(i)
+    // stack: node_payload_ptr, encode_value, retdest
+    PUSH %%after_encode
+    DUP3 DUP3
+    // stack: node_payload_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
+    %add_const($i) %mload_trie_data
+    // stack: child_i_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
+    %jump(encode_or_hash_node)
+%%after_encode:
+    // stack: result, result_len, node_payload_ptr, encode_value, retdest
+    %mstore_kernel_general($i)
+    %mstore_kernel_general_2($i)
+    // stack: node_payload_ptr, encode_value, retdest
+%endmacro
+
+// Part of the encode_node_branch function. Appends the i'th child's RLP.
+%macro append_child(i)
+    // stack: rlp_pos, node_payload_ptr, encode_value, retdest
+    %mload_kernel_general($i) // load result_i
+    %mload_kernel_general_2($i) // load result_i_len
+    %stack (result, result_len, rlp_pos, node_payload_ptr, encode_value, retdest)
+        -> (rlp_pos, result, result_len, %%after_unpacking, node_payload_ptr, encode_value, retdest)
+    %jump(mstore_unpacking_rlp)
+%%after_unpacking:
+    // stack: rlp_pos', node_payload_ptr, encode_value, retdest
+%endmacro
+
 encode_node_branch:
     // stack: node_type, node_payload_ptr, encode_value, retdest
     POP
     // stack: node_payload_ptr, encode_value, retdest
+
+    // We will call encode_or_hash_node on each child. For the i'th child, we
+    // will store the result in SEGMENT_KERNEL_GENERAL[i], and its length in
+    // SEGMENT_KERNEL_GENERAL_2[i].
+    %encode_child(0)  %encode_child(1)  %encode_child(2)  %encode_child(3)
+    %encode_child(4)  %encode_child(5)  %encode_child(6)  %encode_child(7)
+    %encode_child(8)  %encode_child(9)  %encode_child(10) %encode_child(11)
+    %encode_child(12) %encode_child(13) %encode_child(14) %encode_child(15)
+    // stack: node_payload_ptr, encode_value, retdest
+
+    // Now, append each child to our RLP tape.
     PUSH 9 // rlp_pos; we start at 9 to leave room to prepend a list prefix
-    %rep 16
-        // stack: rlp_pos, node_child_ptr, encode_value, retdest
-        // TODO: Append encode_or_hash_node(child) to our RLP. Do all encode_or_hash_node calls first to avoid clobbering.
-        SWAP1 %increment SWAP1 // node_child_ptr += 1
-    %endrep
-    // stack: node_value_ptr, encode_value, retdest
-    PANIC // TODO
+    %append_child(0)  %append_child(1)  %append_child(2)  %append_child(3)
+    %append_child(4)  %append_child(5)  %append_child(6)  %append_child(7)
+    %append_child(8)  %append_child(9)  %append_child(10) %append_child(11)
+    %append_child(12) %append_child(13) %append_child(14) %append_child(15)
+
+    // stack: rlp_pos', node_payload_ptr, encode_value, retdest
+    SWAP1
+    %add_const(16)
+    // stack: value_len_ptr, rlp_pos', encode_value, retdest
+    DUP1 %mload_trie_data
+    // stack: value_len, value_len_ptr, rlp_pos', encode_value, retdest
+    %jumpi(encode_node_branch_with_value)
+    // No value; append the empty string (0x80).
+    // stack: value_len_ptr, rlp_pos', encode_value, retdest
+    %stack (value_len_ptr, rlp_pos, encode_value) -> (rlp_pos, 0x80, rlp_pos)
+    %mstore_rlp
+    // stack: rlp_pos', retdest
+    %increment
+    // stack: rlp_pos'', retdest
+    %jump(encode_node_branch_prepend_prefix)
+encode_node_branch_with_value:
+    // stack: value_len_ptr, rlp_pos', encode_value, retdest
+    %increment
+    // stack: value_ptr, rlp_pos', encode_value, retdest
+    %stack (value_ptr, rlp_pos, encode_value)
+        -> (encode_value, rlp_pos, value_ptr, encode_node_branch_prepend_prefix)
+    JUMP // call encode_value
+encode_node_branch_prepend_prefix:
+    // stack: rlp_pos'', retdest
+    %prepend_rlp_list_prefix
+    %stack (start_pos, rlp_len, retdest) -> (retdest, start_pos, rlp_len)
+    JUMP
 
 encode_node_extension:
     // stack: node_type, node_payload_ptr, encode_value, retdest
@@ -143,7 +209,7 @@ encode_node_leaf:
 encode_node_leaf_after_hex_prefix:
     // stack: rlp_pos, node_payload_ptr, encode_value, retdest
     SWAP1
-    %add_const(2) // The value starts at index 2.
+    %add_const(3) // The value starts at index 3, after num_nibbles, packed_nibbles, and value_len.
     // stack: value_ptr, rlp_pos, encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value, retdest)
         -> (encode_value, rlp_pos, value_ptr, encode_node_leaf_after_encode_value, retdest)

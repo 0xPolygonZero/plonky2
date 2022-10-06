@@ -257,9 +257,16 @@
     // stack: value
 %endmacro
 
-// Load a single byte from kernel general memory.
+// Load a single value from kernel general memory.
 %macro mload_kernel_general
     // stack: offset
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack: value
+%endmacro
+
+// Load a single value from kernel general memory.
+%macro mload_kernel_general(offset)
+    PUSH $offset
     %mload_kernel(@SEGMENT_KERNEL_GENERAL)
     // stack: value
 %endmacro
@@ -318,7 +325,7 @@
 %macro mstore_kernel_general
     // stack: offset, value 
     %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
-    // stack: 
+    // stack: (empty)
 %endmacro
 
 %macro mstore_kernel_general(offset)
@@ -326,7 +333,7 @@
     PUSH $offset
     // stack: offset, value 
     %mstore_kernel_general
-    // stack: 
+    // stack: (empty)
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
@@ -343,5 +350,33 @@
     // stack: x, i
     SWAP1
     %mstore_kernel_general
-    // stack:
+    // stack: (empty)
+%endmacro
+
+// Load a single value from kernel general 2 memory.
+%macro mload_kernel_general_2
+    // stack: offset
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL_2)
+    // stack: value
+%endmacro
+
+// Load a single value from kernel general memory.
+%macro mload_kernel_general_2(offset)
+    PUSH $offset
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack: value
+%endmacro
+
+%macro mstore_kernel_general_2
+    // stack: offset, value
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL_2)
+    // stack: (empty)
+%endmacro
+
+%macro mstore_kernel_general_2(offset)
+    // stack:         value
+    PUSH $offset
+    // stack: offset, value
+    %mstore_kernel_general_2
+    // stack: (empty)
 %endmacro

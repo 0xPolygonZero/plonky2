@@ -1,7 +1,7 @@
 global ripemd_storage: // starts by initializing buffer
     // stack: i [init: 64]
     %store_zeros(64, ripemd_storage)
-    // stack:
+    // stack: (empty)
     %jump(store_size)
 
 store_size:

@@ -248,7 +248,7 @@ prepend_rlp_list_prefix_big_done_writing_len:
 
 // Convenience macro to call prepend_rlp_list_prefix and return where we left off.
 %macro prepend_rlp_list_prefix
-    %stack (start_pos) -> (start_pos, %%after)
+    %stack (end_pos) -> (end_pos, %%after)
     %jump(prepend_rlp_list_prefix)
 %%after:
 %endmacro
@@ -299,7 +299,7 @@ prepend_rlp_list_prefix_big_done_writing_len:
 // Like mstore_unpacking, but specifically for the RLP segment.
 // Pre stack: offset, value, len, retdest
 // Post stack: offset'
-mstore_unpacking_rlp:
+global mstore_unpacking_rlp:
     // stack: offset, value, len, retdest
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context
