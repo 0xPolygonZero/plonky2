@@ -5,6 +5,7 @@ use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
 };
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
@@ -14,6 +15,22 @@ use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
 use crate::with_context;
+
+pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, C, D>,
+) {
+    let config = common_data.config.clone();
+
+    // let mut pw = PartialWitness::new();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+    let degree = 1 << common_data.degree_bits;
+    for _ in 0..degree - 10 {
+        builder.add_gate(NoopGate, vec![]);
+    }
+    for gate in &common_data.gates {
+        builder.add_gate_to_gate_set(gate.clone());
+    }
+}
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verify `proof0` if `condition` else verify `proof1`.

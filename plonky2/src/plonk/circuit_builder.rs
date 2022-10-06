@@ -263,6 +263,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
+    pub fn add_gate_to_gate_set(&mut self, gate: GateRef<F, D>) {
+        self.gates.insert(gate);
+    }
+
     pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
         for i in 0..D {
             self.connect(src.0[i], dst.0[i]);
