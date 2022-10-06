@@ -1,5 +1,6 @@
 pub mod circuit_builder;
 pub mod circuit_data;
+pub mod conditional_recursive_verifier;
 pub mod config;
 pub(crate) mod copy_constraint;
 mod get_challenges;
