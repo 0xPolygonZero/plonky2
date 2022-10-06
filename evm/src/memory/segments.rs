@@ -18,28 +18,30 @@ pub(crate) enum Segment {
     /// General purpose kernel memory, used by various kernel functions.
     /// In general, calling a helper function can result in this memory being clobbered.
     KernelGeneral = 7,
+    /// Another segment for general purpose kernel use.
+    KernelGeneral2 = 8,
     /// Contains normalized transaction fields; see `NormalizedTxnField`.
-    TxnFields = 8,
+    TxnFields = 9,
     /// Contains the data field of a transaction.
-    TxnData = 9,
+    TxnData = 10,
     /// A buffer used to hold raw RLP data.
-    RlpRaw = 10,
+    RlpRaw = 11,
     /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
     /// append-only buffer. It is owned by the kernel, so it only lives on context 0.
-    TrieData = 11,
+    TrieData = 12,
     /// The account address associated with the `i`th storage trie. Only lives on context 0.
-    StorageTrieAddresses = 12,
+    StorageTrieAddresses = 13,
     /// A pointer to the `i`th storage trie within the `TrieData` buffer. Only lives on context 0.
-    StorageTriePointers = 13,
+    StorageTriePointers = 14,
     /// Like `StorageTriePointers`, except that these pointers correspond to the version of each
     /// trie at the creation of a given context. This lets us easily revert a context by replacing
     /// `StorageTriePointers` with `StorageTrieCheckpointPointers`.
     /// See also `StateTrieCheckpointPointer`.
-    StorageTrieCheckpointPointers = 14,
+    StorageTrieCheckpointPointers = 15,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 15;
+    pub(crate) const COUNT: usize = 16;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -51,6 +53,7 @@ impl Segment {
             Self::GlobalMetadata,
             Self::ContextMetadata,
             Self::KernelGeneral,
+            Self::KernelGeneral2,
             Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
@@ -72,6 +75,7 @@ impl Segment {
             Segment::GlobalMetadata => "SEGMENT_GLOBAL_METADATA",
             Segment::ContextMetadata => "SEGMENT_CONTEXT_METADATA",
             Segment::KernelGeneral => "SEGMENT_KERNEL_GENERAL",
+            Segment::KernelGeneral2 => "SEGMENT_KERNEL_GENERAL_2",
             Segment::TxnFields => "SEGMENT_NORMALIZED_TXN",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
@@ -93,6 +97,7 @@ impl Segment {
             Segment::GlobalMetadata => 256,
             Segment::ContextMetadata => 256,
             Segment::KernelGeneral => 256,
+            Segment::KernelGeneral2 => 256,
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,

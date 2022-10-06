@@ -75,7 +75,16 @@ mpt_read_branch_end_of_key:
     %stack (node_payload_ptr, num_nibbles, key, retdest) -> (node_payload_ptr, retdest)
     // stack: node_payload_ptr, retdest
     %add_const(16) // skip over the 16 child nodes
-    // stack: leaf_ptr, retdest
+    // stack: value_len_ptr, retdest
+    DUP1 %mload_trie_data
+    // stack: value_len, value_len_ptr, retdest
+    %jumpi(mpt_read_branch_found_value)
+    // This branch node contains no value, so return null.
+    %stack (value_len_ptr, retdest) -> (retdest, 0)
+mpt_read_branch_found_value:
+    // stack: value_len_ptr, retdest
+    %increment
+    // stack: value_ptr, retdest
     SWAP1
     JUMP
 
@@ -138,7 +147,7 @@ mpt_read_leaf:
     JUMP
 mpt_read_leaf_found:
     // stack: node_payload_ptr, retdest
-    %add_const(2) // The leaf data is located after num_nibbles and the key.
+    %add_const(3) // The value is located after num_nibbles, the key, and the value length.
     // stack: value_ptr, retdest
     SWAP1
     JUMP

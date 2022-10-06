@@ -48,12 +48,13 @@ fn load_all_mpts() -> Result<()> {
             type_leaf,
             3.into(),     // 3 nibbles
             0xDEF.into(), // key part
+            4.into(),     // value length
             account.nonce,
             account.balance,
             account.storage_root.into_uint(),
             account.code_hash.into_uint(),
-            type_empty,
-            type_empty,
+            type_empty, // txn trie
+            type_empty, // receipt trie
         ]
     );
 
