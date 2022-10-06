@@ -47,6 +47,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             ctl_challenges,
         }
     }
+
+    #[allow(unused)] // TODO: should be used soon
     pub(crate) fn get_challenger_states(
         &self,
         all_stark: &AllStark<F, D>,

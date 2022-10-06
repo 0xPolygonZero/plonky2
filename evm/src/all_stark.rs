@@ -203,9 +203,10 @@ mod tests {
     use crate::memory::NUM_CHANNELS;
     use crate::proof::{AllProof, PublicValues};
     use crate::prover::prove_with_traces;
+    use crate::recursive_verifier::tests::recursively_verify_all_proof;
     use crate::recursive_verifier::{
         add_virtual_recursive_all_proof, all_verifier_data_recursive_stark_proof,
-        recursively_verify_all_proof, set_recursive_all_proof_target, RecursiveAllProof,
+        set_recursive_all_proof_target, RecursiveAllProof,
     };
     use crate::stark::Stark;
     use crate::util::{limb_from_bits_le, trace_rows_to_poly_values};

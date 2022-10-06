@@ -36,6 +36,7 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
+#[allow(unused)] // TODO: should be used soon
 pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usize> {
     /// Sponge state of the challenger before starting each proof,
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
