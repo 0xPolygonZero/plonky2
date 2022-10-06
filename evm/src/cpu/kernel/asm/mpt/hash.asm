@@ -64,7 +64,13 @@ maybe_hash_node:
     JUMP
 pack_small_rlp:
     // stack: result_ptr, result_len, retdest
-    PANIC // TODO: Return packed RLP
+    %stack (result_ptr, result_len)
+        -> (0, @SEGMENT_RLP_RAW, result_ptr, result_len,
+            after_packed_small_rlp, result_len)
+    %jump(mload_packing)
+after_packed_small_rlp:
+    %stack (result, result_len, retdest) -> (retdest, result, result_len)
+    JUMP
 
 // RLP encode the given trie node, and return an (pointer, length) pair
 // indicating where the data lives within @SEGMENT_RLP_RAW.
@@ -128,9 +134,19 @@ global encode_node_hash:
 // Part of the encode_node_branch function. Appends the i'th child's RLP.
 %macro append_child(i)
     // stack: rlp_pos, node_payload_ptr, encode_value, retdest
-    %mload_kernel_general($i) // load result_i
-    %mload_kernel_general_2($i) // load result_i_len
-    %stack (result, result_len, rlp_pos, node_payload_ptr, encode_value, retdest)
+    %mload_kernel_general($i) // load result
+    %mload_kernel_general_2($i) // load result_len
+    // stack: result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest
+    // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
+    DUP1 %eq_const(32) ISZERO %jumpi(%%unpack)
+    // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
+    // stack: result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest
+    PUSH 160
+    DUP4 // rlp_pos
+    %mstore_rlp
+    SWAP2 %increment SWAP2 // rlp_pos += 1
+%%unpack:
+    %stack (result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest)
         -> (rlp_pos, result, result_len, %%after_unpacking, node_payload_ptr, encode_value, retdest)
     %jump(mstore_unpacking_rlp)
 %%after_unpacking:
