@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Shr, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
 use log::error;
 use plonky2::field::extension::Extendable;
@@ -14,7 +14,7 @@ use crate::arithmetic::columns::N_LIMBS;
 pub(crate) fn _range_check_error<const RC_BITS: u32>(
     file: &str,
     line: u32,
-    cols: &[usize],
+    cols: Range<usize>,
     signedness: &str,
 ) {
     error!(
@@ -23,8 +23,8 @@ pub(crate) fn _range_check_error<const RC_BITS: u32>(
         file,
         RC_BITS,
         signedness,
-        cols[0],
-        cols[0] + cols.len() - 1
+        cols.start,
+        cols.end - 1,
     );
 }
 
@@ -34,7 +34,7 @@ macro_rules! range_check_error {
         $crate::arithmetic::utils::_range_check_error::<$rc_bits>(
             file!(),
             line!(),
-            &$cols,
+            $cols,
             "unsigned",
         );
     };
@@ -42,7 +42,7 @@ macro_rules! range_check_error {
         $crate::arithmetic::utils::_range_check_error::<$rc_bits>(
             file!(),
             line!(),
-            &$cols,
+            $cols,
             "signed",
         );
     };
