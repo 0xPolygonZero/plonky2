@@ -23,8 +23,9 @@ use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::selector_polynomials;
-use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
     ConstantGenerator, CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
@@ -366,6 +367,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             self._false()
         }
+    }
+
+    pub fn constant_hash(&mut self, h: HashOut<F>) -> HashOutTarget {
+        HashOutTarget {
+            elements: h.elements.map(|x| self.constant(x)),
+        }
+    }
+
+    pub fn constant_merkle_cap<H: Hasher<F, Hash = HashOut<F>>>(
+        &mut self,
+        cap: &MerkleCap<F, H>,
+    ) -> MerkleCapTarget {
+        MerkleCapTarget(cap.0.iter().map(|h| self.constant_hash(*h)).collect())
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns

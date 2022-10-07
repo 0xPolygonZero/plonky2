@@ -185,12 +185,12 @@ mod tests {
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::AllStark;
+    use crate::all_stark::{AllStark, NUM_TABLES};
     use crate::config::StarkConfig;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cpu::kernel::aggregator::KERNEL;
@@ -773,23 +773,19 @@ mod tests {
             &circuit_config,
         )?;
 
-        let verifier_data = all_verifier_data_recursive_stark_proof(
-            &inner_all_stark,
-            inner_proof.degree_bits(inner_config),
-            inner_config,
-            &circuit_config,
-        );
+        let verifier_data: [VerifierCircuitData<F, C, D>; NUM_TABLES] =
+            all_verifier_data_recursive_stark_proof(
+                &inner_all_stark,
+                inner_proof.degree_bits(inner_config),
+                inner_config,
+                &circuit_config,
+            );
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
         let recursive_all_proof_target =
             add_virtual_recursive_all_proof(&mut builder, &verifier_data);
-        set_recursive_all_proof_target(
-            &mut pw,
-            &recursive_all_proof_target,
-            &recursive_all_proof,
-            &verifier_data,
-        );
+        set_recursive_all_proof_target(&mut pw, &recursive_all_proof_target, &recursive_all_proof);
         RecursiveAllProof::verify_circuit(
             &mut builder,
             recursive_all_proof_target,

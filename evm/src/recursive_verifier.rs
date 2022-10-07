@@ -5,7 +5,7 @@ use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
@@ -567,14 +567,16 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
-pub fn add_virtual_recursive_all_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+/// Returns `RecursiveAllProofTargetWithData` where the proofs targets are virtual and the
+/// verifier data targets are constants.
+pub fn add_virtual_recursive_all_proof<F: RichField + Extendable<D>, H, C, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
-) -> RecursiveAllProofTargetWithData<D> {
+) -> RecursiveAllProofTargetWithData<D>
+where
+    H: Hasher<F, Hash = HashOut<F>>,
+    C: GenericConfig<D, F = F, Hasher = H>,
+{
     let recursive_proofs = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];
         builder.add_virtual_proof_with_pis(&verifier_data.common)
@@ -583,7 +585,7 @@ pub fn add_virtual_recursive_all_proof<
         let verifier_data = &verifier_data[i];
         VerifierCircuitTarget {
             constants_sigmas_cap: builder
-                .add_virtual_cap(verifier_data.common.config.fri_config.cap_height),
+                .constant_merkle_cap(&verifier_data.verifier_only.constants_sigmas_cap),
         }
     });
     RecursiveAllProofTargetWithData {
@@ -690,7 +692,6 @@ pub fn set_recursive_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D:
     witness: &mut W,
     recursive_all_proof_target: &RecursiveAllProofTargetWithData<D>,
     all_proof: &RecursiveAllProof<F, C, D>,
-    verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
 ) where
     F: RichField + Extendable<D>,
     C::Hasher: AlgebraicHasher<F>,
@@ -700,10 +701,6 @@ pub fn set_recursive_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D:
         witness.set_proof_with_pis_target(
             &recursive_all_proof_target.recursive_proofs[i],
             &all_proof.recursive_proofs[i],
-        );
-        witness.set_cap_target(
-            &recursive_all_proof_target.verifier_data[i].constants_sigmas_cap,
-            &verifier_data[i].verifier_only.constants_sigmas_cap,
         );
     }
 }
