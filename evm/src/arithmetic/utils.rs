@@ -279,11 +279,11 @@ pub(crate) fn pol_adjoin_root_ext_circuit<F: RichField + Extendable<D>, const D:
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
     let zero = builder.zero_extension();
     let mut res = [zero; 2 * N_LIMBS];
-    let t = builder.mul_extension(root, a[0]);
-    res[0] = builder.sub_extension(zero, t);
+    // res[deg] = NEG_ONE * root * a[0] + ZERO * zero
+    res[0] = builder.arithmetic_extension(F::NEG_ONE, F::ZERO, root, a[0], zero);
     for deg in 1..(2 * N_LIMBS - 1) {
-        let t = builder.mul_extension(root, a[deg]);
-        res[deg] = builder.sub_extension(a[deg - 1], t);
+        // res[deg] = NEG_ONE * root * a[deg] + ONE * a[deg - 1]
+        res[deg] = builder.arithmetic_extension(F::NEG_ONE, F::ONE, root, a[deg], a[deg - 1]);
     }
     // NB: We assumes that a[2 * N_LIMBS - 1] = 0, so the last
     // iteration has no "* root" term.

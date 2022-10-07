@@ -170,12 +170,20 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     let base = F::from_canonical_u64(1 << LIMB_BITS);
-    let t = builder.mul_const_extension(base, aux_in_limbs[0]);
-    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
+    let one = builder.one_extension();
+    // constr_poly[0] = constr_poly[0] - base * aux_in_limbs[0]
+    constr_poly[0] =
+        builder.arithmetic_extension(F::ONE, -base, constr_poly[0], one, aux_in_limbs[0]);
     for deg in 1..N_LIMBS {
-        let t0 = builder.mul_const_extension(base, aux_in_limbs[deg]);
-        let t1 = builder.sub_extension(t0, aux_in_limbs[deg - 1]);
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
+        // constr_poly[deg] -= (base*aux_in_limbs[deg] - aux_in_limbs[deg-1])
+        let t = builder.arithmetic_extension(
+            base,
+            F::NEG_ONE,
+            aux_in_limbs[deg],
+            one,
+            aux_in_limbs[deg - 1],
+        );
+        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t);
     }
 
     for &c in &constr_poly {
