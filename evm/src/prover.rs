@@ -201,6 +201,8 @@ where
         "FRI total reduction arity is too large.",
     );
 
+    challenger.compact();
+
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
         get_n_grand_product_challenge_sets(

@@ -23,8 +23,9 @@ use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::selector_polynomials;
-use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
     ConstantGenerator, CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
@@ -208,6 +209,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b
     }
 
+    /// Add a virtual target and register it as a public input.
+    pub fn add_virtual_public_input(&mut self) -> Target {
+        let t = self.add_virtual_target();
+        self.register_public_input(t);
+        t
+    }
+
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, mut constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
@@ -359,6 +367,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             self._false()
         }
+    }
+
+    pub fn constant_hash(&mut self, h: HashOut<F>) -> HashOutTarget {
+        HashOutTarget {
+            elements: h.elements.map(|x| self.constant(x)),
+        }
+    }
+
+    pub fn constant_merkle_cap<H: Hasher<F, Hash = HashOut<F>>>(
+        &mut self,
+        cap: &MerkleCap<F, H>,
+    ) -> MerkleCapTarget {
+        MerkleCapTarget(cap.0.iter().map(|h| self.constant_hash(*h)).collect())
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
@@ -835,15 +856,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [(); C::Hasher::HASH_SIZE]:,
     {
         // TODO: Can skip parts of this.
-        let CircuitData {
-            prover_only,
-            common,
-            ..
-        } = self.build();
-        ProverCircuitData {
-            prover_only,
-            common,
-        }
+        let circuit_data = self.build();
+        circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
@@ -852,14 +866,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [(); C::Hasher::HASH_SIZE]:,
     {
         // TODO: Can skip parts of this.
-        let CircuitData {
-            verifier_only,
-            common,
-            ..
-        } = self.build();
-        VerifierCircuitData {
-            verifier_only,
-            common,
-        }
+        let circuit_data = self.build();
+        circuit_data.verifier_data()
     }
 }
