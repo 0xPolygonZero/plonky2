@@ -64,7 +64,7 @@
     %shl_const(8)
     // stack: c_3 << 8, offset
     DUP2
-    %add_const(1)
+    %increment
     %mload_kernel($segment)
     OR
     // stack: (c_3 << 8) | c_2, offset
@@ -91,7 +91,7 @@
     %mload_kernel($segment)
     // stack: c0                         , offset
     DUP2
-    %add_const(1)
+    %increment
     %mload_kernel($segment)
     %shl_const(8)
     OR
@@ -208,7 +208,7 @@
     // stack: c_2, c_1, c_0, offset
     DUP4
     // stack: offset, c_2, c_1, c_0, offset
-    %add_const(1)
+    %increment
     %mstore_kernel($segment)
     // stack: c_1, c_0, offset
     DUP3

@@ -31,7 +31,7 @@ global mpt_read:
     %mload_trie_data
     // stack: node_type, node_ptr, num_nibbles, key, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
-    SWAP1 %add_const(1) SWAP1
+    SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
 
     DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(mpt_read_empty)
@@ -103,7 +103,7 @@ mpt_read_extension:
     %mul_const(4) SHR // key_part = key >> (future_nibbles * 4)
     DUP1
     // stack: key_part, key_part, future_nibbles, key, node_payload_ptr, retdest
-    DUP5 %add_const(1) %mload_trie_data
+    DUP5 %increment %mload_trie_data
     // stack: node_key, key_part, key_part, future_nibbles, key, node_payload_ptr, retdest
     EQ // does the first part of our key match the node's key?
     %jumpi(mpt_read_extension_found)
@@ -131,7 +131,7 @@ mpt_read_leaf:
     // stack: node_payload_ptr, num_nibbles, key, retdest
     DUP1 %mload_trie_data
     // stack: node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
-    DUP2 %add_const(1) %mload_trie_data
+    DUP2 %increment %mload_trie_data
     // stack: node_key, node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
     SWAP3
     // stack: num_nibbles, node_num_nibbles, node_payload_ptr, node_key, key, retdest

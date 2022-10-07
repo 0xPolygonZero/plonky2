@@ -82,7 +82,7 @@ global encode_node:
     DUP1 %mload_trie_data
     // stack: node_type, node_ptr, encode_value, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
-    SWAP1 %add_const(1) SWAP1
+    SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, encode_value, retdest
 
     DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(encode_node_empty)
@@ -214,7 +214,7 @@ encode_node_extension_after_encode_child:
     PUSH encode_node_extension_after_hex_prefix // retdest
     PUSH 0 // terminated
     // stack: terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
-    DUP5 %add_const(1) %mload_trie_data // Load the packed_nibbles field, which is at index 1.
+    DUP5 %increment %mload_trie_data // Load the packed_nibbles field, which is at index 1.
     // stack: packed_nibbles, terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
     DUP6 %mload_trie_data // Load the num_nibbles field, which is at index 0.
     // stack: num_nibbles, packed_nibbles, terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
@@ -247,7 +247,7 @@ encode_node_leaf:
     PUSH encode_node_leaf_after_hex_prefix // retdest
     PUSH 1 // terminated
     // stack: terminated, encode_node_leaf_after_hex_prefix, node_payload_ptr, encode_value, retdest
-    DUP3 %add_const(1) %mload_trie_data // Load the packed_nibbles field, which is at index 1.
+    DUP3 %increment %mload_trie_data // Load the packed_nibbles field, which is at index 1.
     // stack: packed_nibbles, terminated, encode_node_leaf_after_hex_prefix, node_payload_ptr, encode_value, retdest
     DUP4 %mload_trie_data // Load the num_nibbles field, which is at index 0.
     // stack: num_nibbles, packed_nibbles, terminated, encode_node_leaf_after_hex_prefix, node_payload_ptr, encode_value, retdest

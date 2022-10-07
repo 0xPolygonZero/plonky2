@@ -28,7 +28,7 @@
     %get_trie_data_size
     // stack: trie_data_size, value
     DUP1
-    %add_const(1)
+    %increment
     // stack: trie_data_size', trie_data_size, value
     %set_trie_data_size
     // stack: trie_data_size, value
@@ -45,7 +45,7 @@
 //     return (first_nibble, num_nibbles, key)
 %macro split_first_nibble
     // stack: num_nibbles, key
-    %sub_const(1) // num_nibbles -= 1
+    %decrement // num_nibbles -= 1
     // stack: num_nibbles, key
     DUP2
     // stack: key, num_nibbles, key

@@ -111,7 +111,7 @@ load_mpt_extension:
     // one element, appending our child pointer. Thus our child node will start
     // at i + 1. So we will set our child pointer to i + 1.
     %get_trie_data_size
-    %add_const(1)
+    %increment
     %append_to_trie_data
     // stack: retdest
 
@@ -172,7 +172,7 @@ load_mpt_digest:
     // stack: leaf_part, leaf_len
     %append_to_trie_data
     // stack: leaf_len
-    %sub_const(1)
+    %decrement
     // stack: leaf_len'
     %jump(%%loop)
 %%finish:
