@@ -14,7 +14,7 @@
 %macro next_context_id
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
-    %add_const(1)
+    %increment
     // stack: new_ctx
     DUP1
     %mstore_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
