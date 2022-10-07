@@ -6,11 +6,21 @@
 Withour our zkEVM's kernel memory,
 \begin{enumerate}
   \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
-  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, c_1, \dots, c_{16}, v)$, where each $c_i$ is a pointer to a child node, and $v$ is a leaf payload.
-  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ is a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$, and $c$ is a pointer to a child node.
-  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, v)$, where $k$ is a 2-tuple as above, and $v$ is a leaf payload.
+  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, c_1, \dots, c_{16}, \abs{v}, v)$, where each $c_i$ is a pointer to a child node, and $v$ is a value of length $\abs{v}$.\footnote{If a branch node has no associated value, then $\abs{v} = 0$ and $v = ()$.}
+  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ represents the part of the key associated with this extension, and is encoded as a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$. $c$ is a pointer to a child node.
+  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, \abs{v}, v)$, where $k$ is a 2-tuple as above, and $v$ is a leaf payload.
   \item A digest node is encoded as $(\texttt{MPT\_NODE\_DIGEST}, d)$, where $d$ is a Keccak256 digest.
 \end{enumerate}
 
 
 \subsection{Prover input format}
+
+The initial state of each trie is given by the prover as a nondeterministic input tape. This tape has a similar format:
+\begin{enumerate}
+  \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
+  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, \abs{v}, v, c_1, \dots, c_{16})$, where $\abs{v}$ is the length of the value, and $v$ is the value itself. Each $c_i$ is the encoding of a child node.
+  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ represents the part of the key associated with this extension, and is encoded as a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$. $c$ is a pointer to a child node.
+  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, \abs{v}, v)$, where $k$ is a 2-tuple as above, and $v$ is a leaf payload.
+  \item A digest node is encoded as $(\texttt{MPT\_NODE\_DIGEST}, d)$, where $d$ is a Keccak256 digest.
+\end{enumerate}
+Nodes are thus given in depth-first order, leading to natural recursive methods for encoding and decoding this format.
