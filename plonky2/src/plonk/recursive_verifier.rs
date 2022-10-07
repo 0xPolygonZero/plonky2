@@ -1,8 +1,9 @@
 use plonky2_field::extension::Extendable;
+use crate::fri::FriParams;
 
 use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
@@ -23,20 +24,44 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        assert_eq!(
-            proof_with_pis.public_inputs.len(),
-            inner_common_data.num_public_inputs
-        );
+        let inner_circuit_digest = self.constant_hash(inner_common_data.circuit_digest);
+        Self::verify_proof_dynamic_digest(
+            proof_with_pis,
+            inner_verifier_data,
+            inner_circuit_digest,
+            &inner_common_data.config,
+        )
+    }
+
+    /// Recursively verifies an inner proof. Unlike `verify_proof`, this accepts a `HashOutTarget`
+    /// for the circuit digest, so it can be dynamic rather than constant.
+    fn verify_proof_dynamic_digest<C: GenericConfig<D, F = F>>(
+        &mut self,
+        proof_with_pis: ProofWithPublicInputsTarget<D>,
+        inner_verifier_data: &VerifierCircuitTarget,
+        inner_circuit_digest: HashOutTarget,
+        inner_config: &CircuitConfig,
+        inner_fri_params: &FriParams,
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges(self, public_inputs_hash, inner_common_data);
+        let challenges = proof_with_pis.get_challenges(
+            self,
+            public_inputs_hash,
+            inner_circuit_digest,
+            inner_config,
+        );
 
         self.verify_proof_with_challenges(
             proof_with_pis.proof,
             public_inputs_hash,
             challenges,
             inner_verifier_data,
-            inner_common_data,
+            inner_circuit_digest,
+            inner_config,
+            inner_fri_params,
         );
     }
 
@@ -47,7 +72,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         public_inputs_hash: HashOutTarget,
         challenges: ProofChallengesTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_circuit_digest: HashOutTarget,
+        inner_config: &CircuitConfig,
+        inner_fri_params: &FriParams,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -66,7 +93,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let zeta_pow_deg =
-            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits);
+            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_fri_params.degree_bits);
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",

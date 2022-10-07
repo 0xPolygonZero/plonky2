@@ -11,7 +11,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::{Challenger, RecursiveChallenger};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet,
@@ -237,20 +237,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
         pow_witness: Target,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_circuit_digest: HashOutTarget,
+        inner_config: &CircuitConfig,
     ) -> ProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let config = &inner_common_data.config;
-        let num_challenges = config.num_challenges;
+        let num_challenges = inner_config.num_challenges;
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
 
         // Observe the instance.
-        let digest =
-            HashOutTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
-        challenger.observe_hash(&digest);
+        challenger.observe_hash(&inner_circuit_digest);
         challenger.observe_hash(&public_inputs_hash);
 
         challenger.observe_cap(wires_cap);
@@ -275,7 +273,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 commit_phase_merkle_caps,
                 final_poly,
                 pow_witness,
-                &inner_common_data.config.fri_config,
+                &inner_config.fri_config,
             ),
         }
     }
@@ -286,7 +284,8 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         public_inputs_hash: HashOutTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_circuit_digest: HashOutTarget,
+        inner_config: &CircuitConfig,
     ) -> ProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
@@ -314,7 +313,8 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
-            inner_common_data,
+            inner_circuit_digest,
+            inner_config,
         )
     }
 }
