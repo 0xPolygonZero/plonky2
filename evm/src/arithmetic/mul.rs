@@ -15,7 +15,7 @@
 //! and similarly for b(x) and c(x). Then A*B = C (mod 2^256) if and only
 //! if there exist polynomials q and m such that
 //!
-//!    a(x)*b(x) - c(x) - m(x)*x^16 - (x - β)*q(x) == 0.
+//!    a(x)*b(x) - c(x) - m(x)*x^16 - (β - x)*q(x) == 0.
 //!
 //! Because A, B and C are 256-bit numbers, the degrees of a, b and c
 //! are (at most) 15. Thus deg(a*b) <= 30, so deg(m) <= 14 and deg(q)
@@ -24,7 +24,7 @@
 //! them evaluating at β gives a factor of β^16 = 2^256 which is 0.
 //!
 //! Hence, to verify the equality, we don't need m(x) at all, and we
-//! only need to know q(x) up to degree 14 (so that (x-β)*q(x) has
+//! only need to know q(x) up to degree 14 (so that (β - x)*q(x) has
 //! degree 15). On the other hand, the coefficients of q(x) can be as
 //! large as 16*(β-2) or 20 bits.
 
@@ -35,6 +35,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::utils::{pol_mul_lo, pol_sub_assign};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -48,26 +49,17 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut aux_in_limbs = [0u64; N_LIMBS];
     let mut output_limbs = [0u64; N_LIMBS];
 
-    let mut unreduced_prod = [0u64; N_LIMBS];
-
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
-    // We have heaps of space at the top of each limb, so by
-    // calculating column-wise (instead of the usual row-wise) we
-    // avoid a bunch of carry propagation handling (at the expense of
-    // slightly worse cache coherency), and it makes it easy to
-    // calculate the coefficients of a(x)*b(x) (in unreduced_prod).
+    // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
+    // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0u64;
+    let mut unreduced_prod = pol_mul_lo(input0_limbs, input1_limbs);
     for col in 0..N_LIMBS {
-        for i in 0..=col {
-            // Invariant: i + j = col
-            let j = col - i;
-            let ai_x_bj = input0_limbs[i] * input1_limbs[j];
-            unreduced_prod[col] += ai_x_bj;
-        }
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
+
     // In principle, the last cy could be dropped because this is
     // multiplication modulo 2^256. However, we need it below for
     // aux_in_limbs to handle the fact that unreduced_prod will
@@ -76,23 +68,22 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     for (&c, output_limb) in MUL_OUTPUT.iter().zip(output_limbs) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
-    for deg in 0..N_LIMBS {
-        // deg'th element <- a*b - c
-        unreduced_prod[deg] -= output_limbs[deg];
-    }
+    pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
-    // This must be zero when evaluated at x = B = 2^LIMB_BITS, hence it's
-    // divisible by (B - x). If we write unreduced_prod as
+    // This must be zero when evaluated at x = β = 2^LIMB_BITS, hence it's
+    // divisible by (β - x). If we write unreduced_prod as
     //
-    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i
-    //                    = (B - x) \sum_{i=0}^{n-1} q_i x^i
+    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i  + terms of degree > n
+    //                    = (β - x) \sum_{i=0}^{n-1} q_i x^i  + terms of degree > n
     //
     // then by comparing coefficients it is easy to see that
     //
-    //   q_0 = p_0 / B  and  q_i = (p_i + q_{i-1}) / B
+    //   q_0 = p_0 / β  and  q_i = (p_i + q_{i-1}) / β
     //
-    // for 0 < i < n-1 (and the divisions are exact).
+    // for 0 < i < n-1 (and the divisions are exact). Because we're
+    // only calculating the result modulo 2^256, we can ignore the
+    // terms of degree > n = 15.
     aux_in_limbs[0] = unreduced_prod[0] >> LIMB_BITS;
     for deg in 1..N_LIMBS - 1 {
         aux_in_limbs[deg] = (unreduced_prod[deg] + aux_in_limbs[deg - 1]) >> LIMB_BITS;
@@ -122,14 +113,10 @@ pub fn eval_packed_generic<P: PackedField>(
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
-    // verified. It is initialised to the /negative/ of the claimed
-    // output.
-    let mut constr_poly = [P::ZEROS; N_LIMBS];
-
-    assert_eq!(constr_poly.len(), N_LIMBS);
-
-    // After this loop constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
+    // verified.
+    //
+    // These two lines set constr_poly to the polynomial A(x)B(x) - C(x),
+    // where A, B and C are the polynomials
     //
     //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
     //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
@@ -139,14 +126,8 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
     //
-    for col in 0..N_LIMBS {
-        // Invariant: i + j = col
-        for i in 0..=col {
-            let j = col - i;
-            constr_poly[col] += input0_limbs[i] * input1_limbs[j];
-        }
-        constr_poly[col] -= output_limbs[col];
-    }
+    let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
+    pol_sub_assign(&mut constr_poly, &output_limbs);
 
     // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
@@ -156,7 +137,7 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS)*Q(x). The
+    // polynomial A(x)B(x) - C(x) - (2^LIMB_BITS - x)*Q(x). The
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
@@ -189,12 +170,20 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     let base = F::from_canonical_u64(1 << LIMB_BITS);
-    let t = builder.mul_const_extension(base, aux_in_limbs[0]);
-    constr_poly[0] = builder.sub_extension(constr_poly[0], t);
+    let one = builder.one_extension();
+    // constr_poly[0] = constr_poly[0] - base * aux_in_limbs[0]
+    constr_poly[0] =
+        builder.arithmetic_extension(F::ONE, -base, constr_poly[0], one, aux_in_limbs[0]);
     for deg in 1..N_LIMBS {
-        let t0 = builder.mul_const_extension(base, aux_in_limbs[deg]);
-        let t1 = builder.sub_extension(t0, aux_in_limbs[deg - 1]);
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t1);
+        // constr_poly[deg] -= (base*aux_in_limbs[deg] - aux_in_limbs[deg-1])
+        let t = builder.arithmetic_extension(
+            base,
+            F::NEG_ONE,
+            aux_in_limbs[deg],
+            one,
+            aux_in_limbs[deg - 1],
+        );
+        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t);
     }
 
     for &c in &constr_poly {
@@ -214,6 +203,8 @@ mod tests {
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use crate::constraint_consumer::ConstraintConsumer;
 
+    const N_RND_TESTS: usize = 1000;
+
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
     fn generate_eval_consistency_not_mul() {
@@ -226,14 +217,14 @@ mod tests {
         // if all values are garbage.
         lv[IS_MUL] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
+        let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
             GoldilocksField::ONE,
             GoldilocksField::ONE,
             GoldilocksField::ONE,
         );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
+        eval_packed_generic(&lv, &mut constraint_consumer);
+        for &acc in &constraint_consumer.constraint_accs {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -247,23 +238,26 @@ mod tests {
 
         // set `IS_MUL == 1` and ensure all constraints are satisfied.
         lv[IS_MUL] = F::ONE;
-        // set inputs to random values
-        for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
-            lv[ai] = F::from_canonical_u16(rng.gen());
-            lv[bi] = F::from_canonical_u16(rng.gen());
-        }
 
-        generate(&mut lv);
+        for _i in 0..N_RND_TESTS {
+            // set inputs to random values
+            for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                lv[bi] = F::from_canonical_u16(rng.gen());
+            }
 
-        let mut constrant_consumer = ConstraintConsumer::new(
-            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-        );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
-            assert_eq!(acc, GoldilocksField::ZERO);
+            generate(&mut lv);
+
+            let mut constraint_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_packed_generic(&lv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
         }
     }
 }
