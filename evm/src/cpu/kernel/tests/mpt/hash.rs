@@ -4,11 +4,9 @@ use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::mpt::extension_to_leaf;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
-
-// TODO: Try this more "advanced" trie.
-// let state_trie = state_trie_ext_to_account_leaf(account_rlp.to_vec());
 
 // TODO: Test with short leaf. Might need to be a storage trie.
 
@@ -53,7 +51,29 @@ fn mpt_hash_leaf() -> Result<()> {
 }
 
 #[test]
-fn mpt_hash_branch_to_account_leaf() -> Result<()> {
+fn mpt_hash_extension_to_leaf() -> Result<()> {
+    let account = AccountRlp {
+        nonce: U256::from(1111),
+        balance: U256::from(2222),
+        storage_root: H256::from_uint(&U256::from(3333)),
+        code_hash: H256::from_uint(&U256::from(4444)),
+    };
+    let account_rlp = rlp::encode(&account);
+
+    let state_trie = extension_to_leaf(account_rlp.to_vec());
+
+    let trie_inputs = TrieInputs {
+        state_trie,
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    test_state_trie(trie_inputs)
+}
+
+#[test]
+fn mpt_hash_branch_to_leaf() -> Result<()> {
     let account = AccountRlp {
         nonce: U256::from(1111),
         balance: U256::from(2222),

@@ -6,7 +6,7 @@ mod load;
 mod read;
 
 /// A `PartialTrie` where an extension node leads to a leaf node containing an account.
-pub(crate) fn state_trie_ext_to_account_leaf(value: Vec<u8>) -> PartialTrie {
+pub(crate) fn extension_to_leaf(value: Vec<u8>) -> PartialTrie {
     PartialTrie::Extension {
         nibbles: Nibbles {
             count: 3,
