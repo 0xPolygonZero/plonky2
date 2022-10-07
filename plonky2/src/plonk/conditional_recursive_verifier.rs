@@ -33,8 +33,9 @@ pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, con
     for gate in &common_data.gates {
         builder.add_gate_to_gate_set(gate.clone());
     }
-    // builder.add_virtual_pub
-    for i in 0..common_data.num_public_inputs {}
+    for _ in 0..common_data.num_public_inputs {
+        let t = builder.add_virtual_public_input();
+    }
     let data = builder.build::<C>();
     assert_eq!(&data.common, common_data);
     let proof = data.prove(PartialWitness::new());
