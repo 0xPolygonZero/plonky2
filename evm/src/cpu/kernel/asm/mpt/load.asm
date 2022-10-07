@@ -70,6 +70,9 @@ load_mpt_branch:
     // stack: node_type, retdest
     POP
     // stack: retdest
+    // Save the offset of our 16 child pointers so we can write them later.
+    // Then advance out current trie pointer beyond them, so we can load the
+    // value and have it placed after our child pointers.
     %get_trie_data_size
     // stack: ptr_children, retdest
     DUP1 %add_const(16)
@@ -78,24 +81,20 @@ load_mpt_branch:
     // stack: ptr_children, retdest
     %load_leaf_value
 
-    // Save the current trie_data_size (which now points to the end of the leaf)
-    // for later, then have it point to the start of our 16 child pointers.
-    %get_trie_data_size
-    // stack: ptr_end_of_leaf, ptr_children, retdest
-    SWAP1
-    %set_trie_data_size
-    // stack: ptr_end_of_leaf, retdest
-
     // Load the 16 children.
     %rep 16
         %load_mpt_and_return_root_ptr
-        // stack: child_ptr, ptr_end_of_leaf, retdest
-        %append_to_trie_data
-        // stack: ptr_end_of_leaf, retdest
+        // stack: child_ptr, ptr_next_child, retdest
+        DUP2
+        // stack: ptr_next_child, child_ptr, ptr_next_child, retdest
+        %mstore_trie_data
+        // stack: ptr_next_child, retdest
+        %increment
+        // stack: ptr_next_child, retdest
     %endrep
 
-    %set_trie_data_size
-    // stack: retdest
+    // stack: ptr_next_child, retdest
+    POP
     JUMP
 
 load_mpt_extension:
