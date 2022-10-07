@@ -4,7 +4,7 @@ use ethereum_types::{BigEndianHash, H256, U256};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::state_trie_ext_to_account_leaf;
+use crate::cpu::kernel::tests::mpt::extension_to_leaf;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
@@ -19,7 +19,7 @@ fn mpt_read() -> Result<()> {
     let account_rlp = rlp::encode(&account);
 
     let trie_inputs = TrieInputs {
-        state_trie: state_trie_ext_to_account_leaf(account_rlp.to_vec()),
+        state_trie: extension_to_leaf(account_rlp.to_vec()),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
