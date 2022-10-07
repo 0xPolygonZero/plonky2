@@ -69,12 +69,17 @@ pub(crate) fn mpt_prover_inputs<F>(
         PartialTrie::Empty => {}
         PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
         PartialTrie::Branch { children, value } => {
+            if value.is_empty() {
+                // There's no value, so length=0.
+                prover_inputs.push(U256::zero());
+            } else {
+                let leaf = parse_leaf(value);
+                prover_inputs.push(leaf.len().into());
+                prover_inputs.extend(leaf);
+            }
             for child in children {
                 mpt_prover_inputs(child, prover_inputs, parse_leaf);
             }
-            let leaf = parse_leaf(value);
-            prover_inputs.push(leaf.len().into());
-            prover_inputs.extend(leaf);
         }
         PartialTrie::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());

@@ -5,11 +5,11 @@ use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
-use crate::all_stark::AllStark;
+use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::permutation::{
-    get_grand_product_challenge_set, get_grand_product_challenge_set_target,
-    get_n_grand_product_challenge_sets, get_n_grand_product_challenge_sets_target,
+    get_grand_product_challenge_set, get_n_grand_product_challenge_sets,
+    get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
 
@@ -36,6 +36,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 
         AllProofChallenges {
             stark_challenges: std::array::from_fn(|i| {
+                challenger.compact();
                 self.stark_proofs[i].get_challenges(
                     &mut challenger,
                     num_permutation_zs[i] > 0,
@@ -46,40 +47,40 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             ctl_challenges,
         }
     }
-}
 
-impl<const D: usize> AllProofTarget<D> {
-    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
+    #[allow(unused)] // TODO: should be used soon
+    pub(crate) fn get_challenger_states(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllProofChallengesTarget<D>
-    where
-        C::Hasher: AlgebraicHasher<F>,
-    {
-        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
+    ) -> AllChallengerState<F, D> {
+        let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.trace_cap);
         }
 
+        // TODO: Observe public values.
+
         let ctl_challenges =
-            get_grand_product_challenge_set_target(builder, &mut challenger, config.num_challenges);
+            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
         let num_permutation_zs = all_stark.nums_permutation_zs(config);
         let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
 
-        AllProofChallengesTarget {
-            stark_challenges: std::array::from_fn(|i| {
-                self.stark_proofs[i].get_challenges::<F, C>(
-                    builder,
-                    &mut challenger,
-                    num_permutation_zs[i] > 0,
-                    num_permutation_batch_sizes[i],
-                    config,
-                )
-            }),
+        let mut challenger_states = vec![challenger.compact()];
+        for i in 0..NUM_TABLES {
+            self.stark_proofs[i].get_challenges(
+                &mut challenger,
+                num_permutation_zs[i] > 0,
+                num_permutation_batch_sizes[i],
+                config,
+            );
+            challenger_states.push(challenger.compact());
+        }
+
+        AllChallengerState {
+            states: challenger_states.try_into().unwrap(),
             ctl_challenges,
         }
     }

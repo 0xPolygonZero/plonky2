@@ -64,7 +64,13 @@ maybe_hash_node:
     JUMP
 pack_small_rlp:
     // stack: result_ptr, result_len, retdest
-    PANIC // TODO: Return packed RLP
+    %stack (result_ptr, result_len)
+        -> (0, @SEGMENT_RLP_RAW, result_ptr, result_len,
+            after_packed_small_rlp, result_len)
+    %jump(mload_packing)
+after_packed_small_rlp:
+    %stack (result, result_len, retdest) -> (retdest, result, result_len)
+    JUMP
 
 // RLP encode the given trie node, and return an (pointer, length) pair
 // indicating where the data lives within @SEGMENT_RLP_RAW.
@@ -106,36 +112,6 @@ global encode_node_hash:
     %mload_trie_data
     %stack (hash, encode_value, retdest) -> (retdest, hash, 32)
     JUMP
-
-// Part of the encode_node_branch function. Encodes the i'th child.
-// Stores the result in SEGMENT_KERNEL_GENERAL[i], and its length in
-// SEGMENT_KERNEL_GENERAL_2[i].
-%macro encode_child(i)
-    // stack: node_payload_ptr, encode_value, retdest
-    PUSH %%after_encode
-    DUP3 DUP3
-    // stack: node_payload_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
-    %add_const($i) %mload_trie_data
-    // stack: child_i_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
-    %jump(encode_or_hash_node)
-%%after_encode:
-    // stack: result, result_len, node_payload_ptr, encode_value, retdest
-    %mstore_kernel_general($i)
-    %mstore_kernel_general_2($i)
-    // stack: node_payload_ptr, encode_value, retdest
-%endmacro
-
-// Part of the encode_node_branch function. Appends the i'th child's RLP.
-%macro append_child(i)
-    // stack: rlp_pos, node_payload_ptr, encode_value, retdest
-    %mload_kernel_general($i) // load result_i
-    %mload_kernel_general_2($i) // load result_i_len
-    %stack (result, result_len, rlp_pos, node_payload_ptr, encode_value, retdest)
-        -> (rlp_pos, result, result_len, %%after_unpacking, node_payload_ptr, encode_value, retdest)
-    %jump(mstore_unpacking_rlp)
-%%after_unpacking:
-    // stack: rlp_pos', node_payload_ptr, encode_value, retdest
-%endmacro
 
 encode_node_branch:
     // stack: node_type, node_payload_ptr, encode_value, retdest
@@ -186,11 +162,83 @@ encode_node_branch_prepend_prefix:
     %stack (start_pos, rlp_len, retdest) -> (retdest, start_pos, rlp_len)
     JUMP
 
+// Part of the encode_node_branch function. Encodes the i'th child.
+// Stores the result in SEGMENT_KERNEL_GENERAL[i], and its length in
+// SEGMENT_KERNEL_GENERAL_2[i].
+%macro encode_child(i)
+    // stack: node_payload_ptr, encode_value, retdest
+    PUSH %%after_encode
+    DUP3 DUP3
+    // stack: node_payload_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
+    %add_const($i) %mload_trie_data
+    // stack: child_i_ptr, encode_value, %%after_encode, node_payload_ptr, encode_value, retdest
+    %jump(encode_or_hash_node)
+%%after_encode:
+    // stack: result, result_len, node_payload_ptr, encode_value, retdest
+    %mstore_kernel_general($i)
+    %mstore_kernel_general_2($i)
+    // stack: node_payload_ptr, encode_value, retdest
+%endmacro
+
+// Part of the encode_node_branch function. Appends the i'th child's RLP.
+%macro append_child(i)
+    // stack: rlp_pos, node_payload_ptr, encode_value, retdest
+    %mload_kernel_general($i) // load result
+    %mload_kernel_general_2($i) // load result_len
+    // stack: result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest
+    // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
+    DUP1 %sub_const(32) %jumpi(%%unpack)
+    // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
+    // stack: result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest
+    PUSH 160
+    DUP4 // rlp_pos
+    %mstore_rlp
+    SWAP2 %increment SWAP2 // rlp_pos += 1
+%%unpack:
+    %stack (result_len, result, rlp_pos, node_payload_ptr, encode_value, retdest)
+        -> (rlp_pos, result, result_len, %%after_unpacking, node_payload_ptr, encode_value, retdest)
+    %jump(mstore_unpacking_rlp)
+%%after_unpacking:
+    // stack: rlp_pos', node_payload_ptr, encode_value, retdest
+%endmacro
+
 encode_node_extension:
     // stack: node_type, node_payload_ptr, encode_value, retdest
-    POP
-    // stack: node_payload_ptr, encode_value, retdest
-    PANIC // TODO
+    %stack (node_type, node_payload_ptr, encode_value)
+        -> (node_payload_ptr, encode_value, encode_node_extension_after_encode_child, node_payload_ptr)
+    %add_const(2) %mload_trie_data
+    // stack: child_ptr, encode_value, encode_node_extension_after_encode_child, node_payload_ptr, retdest
+    %jump(encode_or_hash_node)
+encode_node_extension_after_encode_child:
+    // stack: result, result_len, node_payload_ptr, retdest
+    PUSH encode_node_extension_after_hex_prefix // retdest
+    PUSH 0 // terminated
+    // stack: terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
+    DUP5 %add_const(1) %mload_trie_data // Load the packed_nibbles field, which is at index 1.
+    // stack: packed_nibbles, terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
+    DUP6 %mload_trie_data // Load the num_nibbles field, which is at index 0.
+    // stack: num_nibbles, packed_nibbles, terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
+    PUSH 9 // We start at 9 to leave room to prepend the largest possible RLP list header.
+    // stack: rlp_start, num_nibbles, packed_nibbles, terminated, encode_node_extension_after_hex_prefix, result, result_len, node_payload_ptr, retdest
+    %jump(hex_prefix_rlp)
+encode_node_extension_after_hex_prefix:
+    // stack: rlp_pos, result, result_len, node_payload_ptr, retdest
+    // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
+    DUP3 %sub_const(32) %jumpi(encode_node_extension_unpack)
+    // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
+    PUSH 160
+    DUP2 // rlp_pos
+    %mstore_rlp
+    %increment // rlp_pos += 1
+encode_node_extension_unpack:
+    %stack (rlp_pos, result, result_len, node_payload_ptr)
+        -> (rlp_pos, result, result_len, encode_node_extension_after_unpacking)
+    %jump(mstore_unpacking_rlp)
+encode_node_extension_after_unpacking:
+    // stack: rlp_end_pos, retdest
+    %prepend_rlp_list_prefix
+    %stack (rlp_start_pos, rlp_len, retdest) -> (retdest, rlp_start_pos, rlp_len)
+    JUMP
 
 encode_node_leaf:
     // stack: node_type, node_payload_ptr, encode_value, retdest

@@ -363,7 +363,7 @@
 // Load a single value from kernel general memory.
 %macro mload_kernel_general_2(offset)
     PUSH $offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL_2)
     // stack: value
 %endmacro
 

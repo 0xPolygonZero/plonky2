@@ -131,6 +131,18 @@ impl Field64 for GoldilocksField {
     }
 
     #[inline]
+    fn from_noncanonical_i64(n: i64) -> Self {
+        Self::from_canonical_u64(if n < 0 {
+            // If n < 0, then this is guaranteed to overflow since
+            // both arguments have their high bit set, so the result
+            // is in the canonical range.
+            Self::ORDER.wrapping_add(n as u64)
+        } else {
+            n as u64
+        })
+    }
+
+    #[inline]
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
         let (res_wrapped, carry) = self.0.overflowing_add(rhs);
         // Add EPSILON * carry cannot overflow unless rhs is not in canonical form.

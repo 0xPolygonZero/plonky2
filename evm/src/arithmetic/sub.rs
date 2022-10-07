@@ -96,6 +96,8 @@ mod tests {
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
     use crate::constraint_consumer::ConstraintConsumer;
 
+    const N_RND_TESTS: usize = 1000;
+
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
     fn generate_eval_consistency_not_sub() {
@@ -108,14 +110,14 @@ mod tests {
         // if all values are garbage.
         lv[IS_SUB] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
+        let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
             GoldilocksField::ONE,
             GoldilocksField::ONE,
             GoldilocksField::ONE,
         );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
+        eval_packed_generic(&lv, &mut constraint_consumer);
+        for &acc in &constraint_consumer.constraint_accs {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -129,23 +131,26 @@ mod tests {
 
         // set `IS_SUB == 1` and ensure all constraints are satisfied.
         lv[IS_SUB] = F::ONE;
-        // set inputs to random values
-        for (&ai, bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1) {
-            lv[ai] = F::from_canonical_u16(rng.gen());
-            lv[bi] = F::from_canonical_u16(rng.gen());
-        }
 
-        generate(&mut lv);
+        for _ in 0..N_RND_TESTS {
+            // set inputs to random values
+            for (&ai, bi) in SUB_INPUT_0.iter().zip(SUB_INPUT_1) {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                lv[bi] = F::from_canonical_u16(rng.gen());
+            }
 
-        let mut constrant_consumer = ConstraintConsumer::new(
-            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-            GoldilocksField::ONE,
-        );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
-            assert_eq!(acc, GoldilocksField::ZERO);
+            generate(&mut lv);
+
+            let mut constraint_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_packed_generic(&lv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
         }
     }
 }

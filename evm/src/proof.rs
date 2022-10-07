@@ -8,6 +8,7 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -28,14 +29,18 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         std::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
     }
-
-    pub fn nums_ctl_zs(&self) -> [usize; NUM_TABLES] {
-        std::array::from_fn(|i| self.stark_proofs[i].openings.ctl_zs_last.len())
-    }
 }
 
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub stark_challenges: [StarkProofChallenges<F, D>; NUM_TABLES],
+    pub ctl_challenges: GrandProductChallengeSet<F>,
+}
+
+#[allow(unused)] // TODO: should be used soon
+pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usize> {
+    /// Sponge state of the challenger before starting each proof,
+    /// along with the final state after all proofs are done. This final state isn't strictly needed.
+    pub states: [[F; SPONGE_WIDTH]; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
@@ -94,11 +99,6 @@ pub struct BlockMetadataTarget {
     pub block_base_fee: Target,
 }
 
-pub(crate) struct AllProofChallengesTarget<const D: usize> {
-    pub stark_challenges: [StarkProofChallengesTarget<D>; NUM_TABLES],
-    pub ctl_challenges: GrandProductChallengeSet<Target>,
-}
-
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
@@ -122,6 +122,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
             .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
+    }
+
+    pub fn num_ctl_zs(&self) -> usize {
+        self.openings.ctl_zs_last.len()
     }
 }
 

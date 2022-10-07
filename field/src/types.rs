@@ -490,6 +490,18 @@ pub trait Field64: Field {
     // TODO: Move to `Field`.
     fn from_noncanonical_u64(n: u64) -> Self;
 
+    /// Returns `n` as an element of this field.
+    // TODO: Move to `Field`.
+    fn from_noncanonical_i64(n: i64) -> Self;
+
+    /// Returns `n` as an element of this field. Assumes that `0 <= n < Self::ORDER`.
+    // TODO: Move to `Field`.
+    // TODO: Should probably be unsafe.
+    #[inline]
+    fn from_canonical_i64(n: i64) -> Self {
+        Self::from_canonical_u64(n as u64)
+    }
+
     #[inline]
     // TODO: Move to `Field`.
     fn add_one(&self) -> Self {

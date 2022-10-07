@@ -191,6 +191,15 @@ impl<F: Field> CrossTableLookup<F> {
             default,
         }
     }
+
+    pub(crate) fn num_ctl_zs(ctls: &[Self], table: Table, num_challenges: usize) -> usize {
+        let mut num_ctls = 0;
+        for ctl in ctls {
+            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
+            num_ctls += all_tables.filter(|twc| twc.table == table).count();
+        }
+        num_ctls * num_challenges
+    }
 }
 
 /// Cross-table lookup data for one table.
@@ -450,24 +459,24 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
-    pub(crate) fn from_proofs(
-        proofs: &[StarkProofTarget<D>; NUM_TABLES],
+    pub(crate) fn from_proof(
+        table: Table,
+        proof: &StarkProofTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
-        num_permutation_zs: &[usize; NUM_TABLES],
-    ) -> [Vec<Self>; NUM_TABLES] {
-        let mut ctl_zs = proofs
-            .iter()
-            .zip(num_permutation_zs)
-            .map(|(p, &num_perms)| {
-                let openings = &p.openings;
-                let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
-                let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
-                ctl_zs.zip(ctl_zs_next)
-            })
-            .collect::<Vec<_>>();
+        num_permutation_zs: usize,
+    ) -> Vec<Self> {
+        let mut ctl_zs = {
+            let openings = &proof.openings;
+            let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_permutation_zs);
+            let ctl_zs_next = openings
+                .permutation_ctl_zs_next
+                .iter()
+                .skip(num_permutation_zs);
+            ctl_zs.zip(ctl_zs_next)
+        };
 
-        let mut ctl_vars_per_table = [0; NUM_TABLES].map(|_| vec![]);
+        let mut ctl_vars = vec![];
         for CrossTableLookup {
             looking_tables,
             looked_table,
@@ -475,28 +484,33 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
         } in cross_table_lookups
         {
             for &challenges in &ctl_challenges.challenges {
-                for table in looking_tables {
-                    let (looking_z, looking_z_next) = ctl_zs[table.table as usize].next().unwrap();
-                    ctl_vars_per_table[table.table as usize].push(Self {
-                        local_z: *looking_z,
-                        next_z: *looking_z_next,
-                        challenges,
-                        columns: &table.columns,
-                        filter_column: &table.filter_column,
-                    });
+                for looking_table in looking_tables {
+                    if looking_table.table == table {
+                        let (looking_z, looking_z_next) = ctl_zs.next().unwrap();
+                        ctl_vars.push(Self {
+                            local_z: *looking_z,
+                            next_z: *looking_z_next,
+                            challenges,
+                            columns: &looking_table.columns,
+                            filter_column: &looking_table.filter_column,
+                        });
+                    }
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize].next().unwrap();
-                ctl_vars_per_table[looked_table.table as usize].push(Self {
-                    local_z: *looked_z,
-                    next_z: *looked_z_next,
-                    challenges,
-                    columns: &looked_table.columns,
-                    filter_column: &looked_table.filter_column,
-                });
+                if looked_table.table == table {
+                    let (looked_z, looked_z_next) = ctl_zs.next().unwrap();
+                    ctl_vars.push(Self {
+                        local_z: *looked_z,
+                        next_z: *looked_z_next,
+                        challenges,
+                        columns: &looked_table.columns,
+                        filter_column: &looked_table.filter_column,
+                    });
+                }
             }
         }
-        ctl_vars_per_table
+        assert!(ctl_zs.next().is_none());
+        ctl_vars
     }
 }
 
@@ -568,18 +582,12 @@ pub(crate) fn verify_cross_table_lookups<
     const D: usize,
 >(
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProof<F, C, D>; NUM_TABLES],
+    ctl_zs_lasts: [Vec<F>; NUM_TABLES],
+    degrees_bits: [usize; NUM_TABLES],
     challenges: GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
-    let degrees_bits = proofs
-        .iter()
-        .map(|p| p.recover_degree_bits(config))
-        .collect::<Vec<_>>();
-    let mut ctl_zs_openings = proofs
-        .iter()
-        .map(|p| p.openings.ctl_zs_last.iter())
-        .collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
     for (
         i,
         CrossTableLookup {
@@ -626,18 +634,12 @@ pub(crate) fn verify_cross_table_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    proofs: &[StarkProofTarget<D>; NUM_TABLES],
+    ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
+    degrees_bits: [usize; NUM_TABLES],
     challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {
-    let degrees_bits = proofs
-        .iter()
-        .map(|p| p.recover_degree_bits(inner_config))
-        .collect::<Vec<_>>();
-    let mut ctl_zs_openings = proofs
-        .iter()
-        .map(|p| p.openings.ctl_zs_last.iter())
-        .collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
     for (
         i,
         CrossTableLookup {

@@ -146,6 +146,14 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         self.output_buffer
             .extend_from_slice(&self.sponge_state[0..SPONGE_RATE]);
     }
+
+    pub fn compact(&mut self) -> [F; SPONGE_WIDTH] {
+        if !self.input_buffer.is_empty() {
+            self.duplexing();
+        }
+        self.output_buffer.clear();
+        self.sponge_state
+    }
 }
 
 impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
@@ -176,6 +184,14 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
+    pub fn from_state(sponge_state: [Target; SPONGE_WIDTH]) -> Self {
+        RecursiveChallenger {
+            sponge_state,
+            input_buffer: vec![],
+            output_buffer: vec![],
+        }
+    }
+
     pub(crate) fn observe_element(&mut self, target: Target) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
@@ -183,7 +199,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.input_buffer.push(target);
     }
 
-    pub(crate) fn observe_elements(&mut self, targets: &[Target]) {
+    pub fn observe_elements(&mut self, targets: &[Target]) {
         for &target in targets {
             self.observe_element(target);
         }
@@ -271,6 +287,12 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
 
         self.input_buffer.clear();
+    }
+
+    pub fn compact(&mut self, builder: &mut CircuitBuilder<F, D>) -> [Target; SPONGE_WIDTH] {
+        self.absorb_buffered_inputs(builder);
+        self.output_buffer.clear();
+        self.sponge_state
     }
 }
 
