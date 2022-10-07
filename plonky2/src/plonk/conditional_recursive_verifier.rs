@@ -10,15 +10,18 @@ use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
 use crate::with_context;
 
 pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     common_data: &CommonCircuitData<F, C, D>,
-) {
+) where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let config = common_data.config.clone();
 
     // let mut pw = PartialWitness::new();
@@ -30,6 +33,11 @@ pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, con
     for gate in &common_data.gates {
         builder.add_gate_to_gate_set(gate.clone());
     }
+    // builder.add_virtual_pub
+    for i in 0..common_data.num_public_inputs {}
+    let data = builder.build::<C>();
+    assert_eq!(&data.common, common_data);
+    let proof = data.prove(PartialWitness::new());
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -326,6 +334,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
+        let dummy = dummy_proof(&data.common);
 
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
