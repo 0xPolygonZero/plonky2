@@ -168,8 +168,17 @@ impl<'a> Interpreter<'a> {
         self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
     }
 
+    pub(crate) fn set_global_metadata_field(&mut self, field: GlobalMetadata, value: U256) {
+        self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize]
+            .set(field as usize, value)
+    }
+
     pub(crate) fn get_trie_data(&self) -> &[U256] {
         &self.memory.context_memory[0].segments[Segment::TrieData as usize].content
+    }
+
+    pub(crate) fn get_trie_data_mut(&mut self) -> &mut Vec<U256> {
+        &mut self.memory.context_memory[0].segments[Segment::TrieData as usize].content
     }
 
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
@@ -205,7 +214,7 @@ impl<'a> Interpreter<'a> {
         self.push(if x { U256::one() } else { U256::zero() });
     }
 
-    fn pop(&mut self) -> U256 {
+    pub(crate) fn pop(&mut self) -> U256 {
         self.stack_mut().pop().expect("Pop on empty stack.")
     }
 
