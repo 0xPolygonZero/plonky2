@@ -443,7 +443,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut current = base;
         let mut product = self.one_extension();
 
-        for j in 0..bits_u64(exponent as u64) {
+        for j in 0..bits_u64(exponent) {
             if j != 0 {
                 current = self.square_extension(current);
             }
