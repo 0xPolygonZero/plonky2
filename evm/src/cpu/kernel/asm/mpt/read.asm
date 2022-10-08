@@ -39,7 +39,7 @@ global mpt_read:
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(mpt_read_extension)
     DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(mpt_read_leaf)
 
-    // There's still the MPT_NODE_HASH case, but if we hit a digest node,
+    // There's still the MPT_NODE_HASH case, but if we hit a hash node,
     // it means the prover failed to provide necessary Merkle data, so panic.
     PANIC
 
