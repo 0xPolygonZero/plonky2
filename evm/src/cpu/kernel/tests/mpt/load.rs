@@ -48,6 +48,7 @@ fn load_all_mpts() -> Result<()> {
             type_leaf,
             3.into(),     // 3 nibbles
             0xDEF.into(), // key part
+            9.into(),     // value pointer
             4.into(),     // value length
             account.nonce,
             account.balance,

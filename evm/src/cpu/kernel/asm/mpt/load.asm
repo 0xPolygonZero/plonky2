@@ -76,8 +76,13 @@ load_mpt_branch:
     %get_trie_data_size
     // stack: ptr_children, retdest
     DUP1 %add_const(16)
-    // stack: ptr_leaf, ptr_children, retdest
+    // stack: ptr_value, ptr_children, retdest
     %set_trie_data_size
+    // stack: ptr_children, retdest
+    // We need to append a pointer to where the value will live.
+    // %load_leaf_value will append the value just after this pointer;
+    // we add 1 to account for the pointer itself.
+    %get_trie_data_size %increment %append_to_trie_data
     // stack: ptr_children, retdest
     %load_leaf_value
 
@@ -127,6 +132,11 @@ load_mpt_leaf:
     %append_to_trie_data
     PROVER_INPUT(mpt) // read packed_nibbles
     %append_to_trie_data
+    // stack: retdest
+    // We need to append a pointer to where the value will live.
+    // %load_leaf_value will append the value just after this pointer;
+    // we add 1 to account for the pointer itself.
+    %get_trie_data_size %increment %append_to_trie_data
     // stack: retdest
     %load_leaf_value
     // stack: retdest

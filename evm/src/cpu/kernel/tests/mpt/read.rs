@@ -44,11 +44,12 @@ fn mpt_read() -> Result<()> {
 
     assert_eq!(interpreter.stack().len(), 1);
     let result_ptr = interpreter.stack()[0].as_usize();
-    let result = &interpreter.get_trie_data()[result_ptr..][..4];
-    assert_eq!(result[0], account.nonce);
-    assert_eq!(result[1], account.balance);
-    assert_eq!(result[2], account.storage_root.into_uint());
-    assert_eq!(result[3], account.code_hash.into_uint());
+    let result = &interpreter.get_trie_data()[result_ptr..][..5];
+    assert_eq!(result[0], 4.into());
+    assert_eq!(result[1], account.nonce);
+    assert_eq!(result[2], account.balance);
+    assert_eq!(result[3], account.storage_root.into_uint());
+    assert_eq!(result[4], account.code_hash.into_uint());
 
     Ok(())
 }

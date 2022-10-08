@@ -137,6 +137,8 @@ encode_node_branch:
     // stack: rlp_pos', node_payload_ptr, encode_value, retdest
     SWAP1
     %add_const(16)
+    // stack: value_ptr_ptr, rlp_pos', encode_value, retdest
+    %mload_trie_data
     // stack: value_len_ptr, rlp_pos', encode_value, retdest
     DUP1 %mload_trie_data
     // stack: value_len, value_len_ptr, rlp_pos', encode_value, retdest
@@ -257,7 +259,10 @@ encode_node_leaf:
 encode_node_leaf_after_hex_prefix:
     // stack: rlp_pos, node_payload_ptr, encode_value, retdest
     SWAP1
-    %add_const(3) // The value starts at index 3, after num_nibbles, packed_nibbles, and value_len.
+    %add_const(2) // The value pointer starts at index 3, after num_nibbles and packed_nibbles.
+    // stack: value_ptr_ptr, rlp_pos, encode_value, retdest
+    %mload_trie_data
+    %increment // skip over length prefix
     // stack: value_ptr, rlp_pos, encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value, retdest)
         -> (encode_value, rlp_pos, value_ptr, encode_node_leaf_after_encode_value, retdest)
