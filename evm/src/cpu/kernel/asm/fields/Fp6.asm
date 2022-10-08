@@ -54,6 +54,36 @@
     // stack:
 %endmacro
 
+// cost: 49
+%macro store_fp6_sh(offset)
+    // stack: x0, x1, x2, x3, x4, x5
+    PUSH $offset
+    %add_const(2)
+    %mstore_kernel_general
+    // stack:     x1, x2, x3, x4, x5
+    PUSH $offset
+    %add_const(3)
+    %mstore_kernel_general
+    // stack:         x2, x3, x4, x5
+    PUSH $offset
+    %add_const(4)
+    %mstore_kernel_general
+    // stack:             x3, x4, x5
+    PUSH $offset
+    %add_const(5)
+    %mstore_kernel_general
+    // stack:                 x4, x5
+    %i9
+    // stack:                 y5, y4
+    PUSH $offset
+    %add_const(1)
+    %mstore_kernel_general
+    // stack:                     y4
+    PUSH $offset
+    %mstore_kernel_general
+    // stack:
+%endmacro
+
 // cost: 6
 %macro dup1_fp6
     // stack:       F: 6
@@ -160,142 +190,147 @@
 %endmacro
 
 %macro mul_Fp6
-    DUP3
-    DUP11
-    MUL
-    DUP2
-    DUP14
-    MUL
-    SUB
-    DUP12
-    DUP8
-    MUL
-    DUP9
-    DUP5
-    MUL
-    ADD
-    DUP7
-    DUP7
-    MUL
-    DUP12
-    DUP12
-    MUL
-    ADD
-    SUB
-    DUP7
-    DUP5
-    MUL
-    DUP10
-    DUP8
-    MUL
-    ADD
-    DUP12
-    DUP10
-    MUL
-    ADD
-    DUP14
-    DUP12
-    MUL
-    ADD
-    DUP15
-    DUP7
-    MUL
-    DUP14
     DUP6
-    MUL
-    ADD
-    DUP2
-    DUP4
-    PUSH 9
-    MUL
-    SUB
-    ADD
-    %mstore_kernel_general(0)
-    PUSH 9
-    MUL
-    ADD
-    ADD
-    %mstore_kernel_general(1)
-    DUP4
     DUP12
     MUL
+    DUP5
+    DUP5
+    MUL
+    SUB
     DUP3
-    DUP11
+    DUP10
+    MUL
+    DUP14
+    DUP8
     MUL
     ADD
-    DUP3
+    DUP11
+    DUP10
+    MUL
     DUP13
-    MUL
-    DUP6
-    DUP12
-    MUL
-    SUB
-    DUP12
-    DUP10
-    MUL
-    DUP9
-    DUP7
+    DUP5
     MUL
     ADD
-    DUP2
-    DUP4
-    PUSH 9
+    SUB
+    DUP11
+    DUP8
     MUL
-    SUB
-    SUB
+    DUP15
+    DUP11
+    MUL
+    ADD
+    DUP13
+    DUP12
+    MUL
+    ADD
+    DUP5
+    DUP5
+    MUL
+    ADD
+    DUP6
+    DUP10
+    MUL
     DUP15
     DUP9
     MUL
-    DUP12
-    DUP6
+    ADD
+    DUP2
+    DUP4
+    PUSH 9
     MUL
+    SUB
     ADD
-    ADD
-    %mstore_kernel_general(2)
+    SWAP15
+    SWAP3
+    SWAP2
+    SWAP1
     PUSH 9
     MUL
     ADD
-    DUP13
+    ADD
+    SWAP9
     DUP9
+    DUP5
     MUL
-    DUP12
     DUP8
+    DUP14
     MUL
     ADD
-    DUP10
+    DUP8
     DUP6
     MUL
+    DUP11
+    DUP15
+    MUL
+    SUB
+    DUP15
+    DUP5
+    MUL
+    DUP4
+    DUP12
+    MUL
     ADD
+    DUP2
+    DUP4
+    PUSH 9
+    MUL
+    SUB
+    SUB
     DUP8
+    DUP15
+    MUL
+    DUP7
+    DUP11
+    MUL
+    ADD
+    ADD
+    SWAP13
+    SWAP2
+    SWAP1
+    PUSH 9
+    MUL
+    ADD
+    DUP7
+    DUP5
+    MUL
+    DUP16
     DUP4
     MUL
     ADD
+    DUP6
+    DUP12
+    MUL
     ADD
-    %mstore_kernel_general(3)
+    DUP4
+    DUP10
+    MUL
+    ADD
+    ADD
+    SWAP13
+    DUP15
+    DUP7
+    MUL
+    DUP4
+    DUP6
+    MUL
+    ADD
     DUP10
     DUP12
     MUL
-    DUP7
-    DUP9
-    MUL
     ADD
+    DUP8
     DUP3
+    MUL
+    DUP7
     DUP5
     MUL
     ADD
     DUP13
     DUP11
     MUL
-    DUP10
-    DUP8
-    MUL
-    ADD
-    DUP6
-    DUP4
-    MUL
     ADD
     SUB
-    %mstore_kernel_general(4)
+    SWAP15
     MUL
     SWAP2
     MUL
@@ -312,5 +347,21 @@
     SWAP2
     MUL
     ADD
-    %mstore_kernel_general(5)
+    SWAP5
+%endmacro
+
+// cost: 9; note this returns y, x for x + yi
+%macro i9
+    // stack:          a , b
+    DUP2
+    DUP2
+    // stack:  a , b,  a , b
+    %mul_const(9)
+    SUB
+    // stack: 9a - b,  a , b
+    SWAP2 
+    // stack:  b , a, 9a - b
+    %mul_const(9)
+    ADD
+    // stack: 9b + a, 9a - b 
 %endmacro

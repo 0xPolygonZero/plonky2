@@ -214,9 +214,12 @@ impl<'a> Interpreter<'a> {
         self.incr(1);
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
-            0x01 => self.run_add(),                                     // "ADD",
-            0x02 => self.run_mul(),                                     // "MUL",
-            0x03 => self.run_sub(),                                     // "SUB",
+            // 0x01 => self.run_add(),                                     // "ADD",
+            // 0x02 => self.run_mul(),                                     // "MUL",
+            // 0x03 => self.run_sub(),                                     // "SUB",
+            0x01 => self.run_add_p(),                                   // "ADD",
+            0x02 => self.run_mul_p(),                                   // "MUL",
+            0x03 => self.run_sub_p(),                                   // "SUB",
             0x04 => self.run_div(),                                     // "DIV",
             0x05 => todo!(),                                            // "SDIV",
             0x06 => self.run_mod(),                                     // "MOD",
@@ -322,16 +325,34 @@ impl<'a> Interpreter<'a> {
         self.push(x.overflowing_add(y).0);
     }
 
+    fn run_add_p(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(U256::try_from((x + y) % 101).unwrap());
+    }
+
     fn run_mul(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_mul(y).0);
     }
 
+    fn run_mul_p(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(U256::try_from(x.full_mul(y) % 101).unwrap());
+    }
+    
     fn run_sub(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_sub(y).0);
+    }
+
+    fn run_sub_p(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(U256::try_from((x - y) % 101).unwrap());
     }
 
     fn run_div(&mut self) {
