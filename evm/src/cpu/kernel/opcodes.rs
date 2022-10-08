@@ -2,7 +2,7 @@
 pub(crate) fn get_push_opcode(n: u8) -> u8 {
     assert!(n > 0);
     assert!(n <= 32);
-    0x60 + (n as u8 - 1)
+    0x60 + n - 1
 }
 
 /// The opcode of a standard instruction (not a `PUSH`).

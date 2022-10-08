@@ -455,7 +455,7 @@ pub trait PrimeField: Field {
             let mut x = w * *self;
             let mut b = x * w;
 
-            let mut v = Self::TWO_ADICITY as usize;
+            let mut v = Self::TWO_ADICITY;
 
             while !b.is_one() {
                 let mut k = 0usize;
