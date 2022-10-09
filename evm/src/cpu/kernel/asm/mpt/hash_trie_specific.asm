@@ -39,7 +39,7 @@ global mpt_hash_receipt_trie:
 %%after:
 %endmacro
 
-encode_account:
+global encode_account:
     // stack: rlp_pos, value_ptr, retdest
     // First, we compute the length of the RLP data we're about to write.
     // The nonce and balance fields are variable-length, so we need to load them
