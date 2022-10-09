@@ -23,7 +23,6 @@ fn mpt_insert_empty() -> Result<()> {
 }
 
 #[test]
-#[ignore] // TODO: Enable when mpt_insert_leaf is done.
 fn mpt_insert_leaf_same_key() -> Result<()> {
     let key = Nibbles {
         count: 3,
@@ -142,7 +141,12 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
     interpreter.push(insert.nibbles.count.into()); // num_nibbles
 
     interpreter.run()?;
-    assert_eq!(interpreter.stack().len(), 0);
+    assert_eq!(
+        interpreter.stack().len(),
+        0,
+        "Expected empty stack after insert, found {:?}",
+        interpreter.stack()
+    );
 
     // Now, execute mpt_hash_state_trie.
     interpreter.offset = mpt_hash_state_trie;
@@ -152,7 +156,7 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
     assert_eq!(
         interpreter.stack().len(),
         1,
-        "Expected 1 item on stack, found {:?}",
+        "Expected 1 item on stack after hashing, found {:?}",
         interpreter.stack()
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);

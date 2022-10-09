@@ -106,13 +106,40 @@ mpt_insert_branch_nonterminal_after_recursion:
     JUMP
 
 mpt_insert_extension:
-    // stack: node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_type, node_payload_ptr, insert_len, insert_key, value_ptr, retdest
     POP
-    // stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_payload_ptr, insert_len, insert_key, value_ptr, retdest
     PANIC // TODO
 
 mpt_insert_leaf:
-    // stack: node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_type, node_payload_ptr, insert_len, insert_key, value_ptr, retdest
     POP
-    // stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_payload_ptr, insert_len, insert_key, value_ptr, retdest
+    %stack (node_payload_ptr, insert_len, insert_key) -> (insert_len, insert_key, node_payload_ptr)
+    // stack: insert_len, insert_key, node_payload_ptr, value_ptr, retdest
+    DUP3 %increment %mload_trie_data
+    // stack: node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
+    DUP4 %mload_trie_data
+    // stack: node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
+    // TODO: Maybe skip %split_common_prefix if lengths & keys exactly match.
+    %split_common_prefix
+    // stack: common_len, common_key, node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
+    DUP3 DUP6 ADD %jumpi(mpt_insert_leaf_not_exact_match)
+    // If we got here, the node key exactly matches the insert key, so we will
+    // keep the same leaf node structure and just replace its value.
+    %stack (common_len, common_key, node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr)
+        -> (common_len, common_key, value_ptr)
+    // stack: common_len, common_key, value_ptr, retdest
+    %get_trie_data_size
+    // stack: updated_leaf_ptr, common_len, common_key, value_ptr, retdest
+    PUSH @MPT_NODE_LEAF %append_to_trie_data
+    SWAP1 %append_to_trie_data // append common_len
+    SWAP1 %append_to_trie_data // append common_key
+    SWAP1 %append_to_trie_data // append value_ptr
+    // stack: updated_leaf_ptr, retdest
+    SWAP1
+    JUMP
+mpt_insert_leaf_not_exact_match:
+    // stack: common_len, common_key, node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
+    // %get_trie_data_size
     PANIC // TODO
