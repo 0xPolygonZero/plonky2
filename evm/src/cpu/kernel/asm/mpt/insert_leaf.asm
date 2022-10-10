@@ -21,7 +21,7 @@
 //     branch[17] = insert_value
 //
 // if common_len > 0:
-//     return Extension[common_key, branch]
+//     return Extension[common_len, common_key, branch]
 // else:
 //     return branch
 
@@ -104,7 +104,19 @@ finished_processing_insert_value:
 
 extension_for_common_key:
     // stack: branch_ptr, common_len, common_key, node_len, node_key, insert_len, insert_key, node_value_ptr, insert_value_ptr, retdest
-    PANIC // TODO
+    // return Extension[common_len, common_key, branch]
+    %get_trie_data_size
+    // stack: extension_ptr, branch_ptr, common_len, common_key, ...
+    PUSH @MPT_NODE_EXTENSION %append_to_trie_data
+    SWAP2 %append_to_trie_data // Append common_len to our node
+    SWAP2 %append_to_trie_data // Append common_key to our node
+    SWAP1 %append_to_trie_data // Append branch_ptr to our node
+    // stack: extension_ptr, node_len, node_key, insert_len, insert_key, node_value_ptr, insert_value_ptr, retdest
+    SWAP6
+    %pop6
+    // stack: extension_ptr, retdest
+    SWAP1
+    JUMP
 
 node_key_continues:
     // stack: branch_ptr, common_len, common_key, node_len, node_key, insert_len, insert_key, node_value_ptr, insert_value_ptr, retdest
