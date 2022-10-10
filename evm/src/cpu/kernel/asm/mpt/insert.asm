@@ -98,55 +98,10 @@ mpt_insert_branch_nonterminal:
             child_ptr_ptr, updated_branch_ptr)
     %mload_trie_data // Deref child_ptr_ptr, giving child_ptr
     %jump(mpt_insert)
+
 mpt_insert_branch_nonterminal_after_recursion:
     // stack: updated_child_ptr, child_ptr_ptr, updated_branch_ptr, retdest
     SWAP1 %mstore_trie_data // Store the pointer to the updated child.
     // stack: updated_branch_ptr, retdest
-    SWAP1
-    JUMP
-
-mpt_insert_extension:
-    // stack: node_type, node_payload_ptr, insert_len, insert_key, value_ptr, retdest
-    POP
-    // stack: node_payload_ptr, insert_len, insert_key, value_ptr, retdest
-    PANIC // TODO
-
-mpt_insert_leaf:
-    // stack: node_type, node_payload_ptr, insert_len, insert_key, value_ptr, retdest
-    POP
-    // stack: node_payload_ptr, insert_len, insert_key, value_ptr, retdest
-    %stack (node_payload_ptr, insert_len, insert_key) -> (insert_len, insert_key, node_payload_ptr)
-    // stack: insert_len, insert_key, node_payload_ptr, value_ptr, retdest
-    DUP3 %increment %mload_trie_data
-    // stack: node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
-    DUP4 %mload_trie_data
-    // stack: node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
-
-    // If the keys match, i.e. node_len == insert_len && node_key == insert_key,
-    // then we're simply replacing the leaf node's value. Since this is a common
-    // case, it's best to detect it early. Calling %split_common_prefix could be
-    // expensive as leaf keys tend to be long.
-    DUP1 DUP4 EQ // node_len == insert_len
-    DUP3 DUP6 EQ // node_key == insert_key
-    MUL // Cheaper than AND
-    // stack: key_match, node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
-    %jumpi(mpt_insert_leaf_keys_match)
-
-    %split_common_prefix
-    PANIC // TODO
-
-mpt_insert_leaf_keys_match:
-    // The keys match exactly, so we simply create a new leaf node with the new value.xs
-    // stack: node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr, retdest
-    %stack (node_len, node_key, insert_len, insert_key, node_payload_ptr, value_ptr)
-        -> (node_len, node_key, value_ptr)
-    // stack: common_len, common_key, value_ptr, retdest
-    %get_trie_data_size
-    // stack: updated_leaf_ptr, common_len, common_key, value_ptr, retdest
-    PUSH @MPT_NODE_LEAF %append_to_trie_data
-    SWAP1 %append_to_trie_data // append common_len
-    SWAP1 %append_to_trie_data // append common_key
-    SWAP1 %append_to_trie_data // append value_ptr
-    // stack: updated_leaf_ptr, retdestx
     SWAP1
     JUMP
