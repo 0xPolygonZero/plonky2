@@ -23,7 +23,7 @@ fn mpt_insert_empty() -> Result<()> {
 }
 
 #[test]
-fn mpt_insert_leaf_same_key() -> Result<()> {
+fn mpt_insert_leaf_identical_keys() -> Result<()> {
     let key = Nibbles {
         count: 3,
         packed: 0xABC.into(),
@@ -41,7 +41,7 @@ fn mpt_insert_leaf_same_key() -> Result<()> {
 }
 
 #[test]
-fn mpt_insert_leaf_nonoverlapping_key() -> Result<()> {
+fn mpt_insert_leaf_nonoverlapping_keys() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
         nibbles: Nibbles {
             count: 3,
@@ -53,6 +53,26 @@ fn mpt_insert_leaf_nonoverlapping_key() -> Result<()> {
         nibbles: Nibbles {
             count: 3,
             packed: 0x123.into(),
+        },
+        v: test_account_2_rlp(),
+    };
+
+    test_state_trie(state_trie, insert)
+}
+
+#[test]
+fn mpt_insert_leaf_overlapping_keys() -> Result<()> {
+    let state_trie = PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0xABC.into(),
+        },
+        value: test_account_1_rlp(),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0xADE.into(),
         },
         v: test_account_2_rlp(),
     };
