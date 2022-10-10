@@ -7,29 +7,25 @@ use crate::packed::PackedField;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::types::Field;
 
-pub type FftRootTable<F> = Vec<Vec<F>>;
+pub type FftRootTable<F> = Vec<F>;
 
 pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
-    let mut root_table = Vec::with_capacity(1);
 
     if lg_n <= 1 {
-        let root_row = vec![F::ONE; 1];
-        root_table.push(root_row);
+        vec![F::ONE; 1]
     } else {
         let base = F::primitive_root_of_unity(lg_n);
         let half_n = 1 << (lg_n - 1);
-        let mut root_row = vec![F::ZERO; half_n];
+        let mut root_table = vec![F::ZERO; half_n];
         // store roots of unity in "reverse bits" order
-        // faster than calling: reverse_index_bits_in_place(&mut root_row[..])
+        // faster than calling: reverse_index_bits_in_place(&mut root_table[..])
         for (i, b) in base.powers().take(half_n).enumerate() {
             let j = i.reverse_bits() >> (64 - lg_n + 1);
-            root_row[j] = b;
+            root_table[j] = b;
         }
-        root_table.push(root_row);
+        root_table
     }
-
-    root_table
 }
 
 #[inline]
@@ -132,7 +128,7 @@ fn fft_bowers_simd<P: PackedField>(
         let mut omega_idx = 1;
         for k in (packed_m..packed_n).step_by(packed_m) {
             // use the same omega for the whole inner loop!
-            let omega = root_table[0][omega_idx];
+            let omega = root_table[omega_idx];
             for j in 0..half_packed_m {
                 // decimation in frequency butterlfy
                 let u = packed_values[k + j];
@@ -156,14 +152,6 @@ pub(crate) fn fft_bowers<F: Field>(values: &mut [F], r: usize, root_table: &FftR
 
     let n = values.len();
     let lg_n = log2_strict(n);
-
-    if root_table.len() != 1 {
-        panic!(
-            "Expected root table of length {}, but it was {}.",
-            1,
-            root_table.len()
-        );
-    }
 
     let lg_packed_width = log2_strict(<F as Packable>::Packing::WIDTH);
     if lg_n <= lg_packed_width {
