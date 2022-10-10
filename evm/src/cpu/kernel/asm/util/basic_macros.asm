@@ -44,6 +44,12 @@
     %endrep
 %endmacro
 
+%macro pop8
+    %rep 8
+        POP
+    %endrep
+%endmacro
+
 %macro and_const(c)
     // stack: input, ...
     PUSH $c

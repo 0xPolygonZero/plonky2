@@ -44,6 +44,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/mpt/hash_trie_specific.asm"),
         include_str!("asm/mpt/hex_prefix.asm"),
         include_str!("asm/mpt/insert.asm"),
+        include_str!("asm/mpt/insert_extension.asm"),
+        include_str!("asm/mpt/insert_leaf.asm"),
         include_str!("asm/mpt/insert_trie_specific.asm"),
         include_str!("asm/mpt/load.asm"),
         include_str!("asm/mpt/read.asm"),

@@ -41,6 +41,26 @@ fn mpt_insert_leaf_same_key() -> Result<()> {
 }
 
 #[test]
+fn mpt_insert_leaf_nonoverlapping_key() -> Result<()> {
+    let state_trie = PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0xABC.into(),
+        },
+        value: test_account_1_rlp(),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0x123.into(),
+        },
+        v: test_account_2_rlp(),
+    };
+
+    test_state_trie(state_trie, insert)
+}
+
+#[test]
 fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
     let children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
     let state_trie = PartialTrie::Branch {
@@ -76,7 +96,6 @@ fn mpt_insert_extension_to_leaf_same_key() -> Result<()> {
 }
 
 #[test]
-#[ignore] // TODO: Enable when mpt_insert_leaf is done.
 fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
     let leaf = PartialTrie::Leaf {
         nibbles: Nibbles {
@@ -161,7 +180,8 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let expected_state_trie_hash = apply_insert(state_trie, insert).calc_hash();
+    let updated_trie = apply_insert(state_trie, insert);
+    let expected_state_trie_hash = updated_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())

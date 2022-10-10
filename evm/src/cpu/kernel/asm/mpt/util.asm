@@ -73,7 +73,12 @@
     // stack: first_nibble, num_nibbles, key
 %endmacro
 
-// Split off the common prefix among two key parts. Roughly equivalent to
+// Split off the common prefix among two key parts.
+//
+// Pre stack: len_1, key_1, len_2, key_2
+// Post stack: len_common, key_common, len_1, key_1, len_2, key_2
+//
+// Roughly equivalent to
 // def split_common_prefix(len_1, key_1, len_2, key_2):
 //     bits_1 = len_1 * 4
 //     bits_2 = len_2 * 4
@@ -155,5 +160,8 @@
     // stack: first_nib_1, first_nib_2, len_common, key_common, bits_1, key_1, bits_2, key_2
     %pop2
 %%return:
+    // stack: len_common, key_common, bits_1, key_1, bits_2, key_2
+    SWAP2 %div_const(4) SWAP2 // bits_1 -> len_1 (in nibbles)
+    SWAP4 %div_const(4) SWAP4 // bits_2 -> len_2 (in nibbles)
     // stack: len_common, key_common, len_1, key_1, len_2, key_2
 %endmacro
