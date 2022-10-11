@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_util::ceil_div_usize;
@@ -33,6 +33,10 @@ where
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
+    ensure!(
+        !common_data.config.zero_knowledge,
+        "Degree calculation can be off if zero-knowledge is on."
+    );
     let degree = 1 << common_data.degree_bits;
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
