@@ -1,3 +1,5 @@
+//! An EVM interpreter for testing and debugging purposes.
+
 use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, ensure};
@@ -631,7 +633,13 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        assert!(value.bits() <= segment.bit_range());
+        assert!(
+            value.bits() <= segment.bit_range(),
+            "Value {} exceeds {:?} range of {} bits",
+            value,
+            segment,
+            segment.bit_range()
+        );
         self.memory.mstore_general(context, segment, offset, value);
     }
 }

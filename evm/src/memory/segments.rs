@@ -38,10 +38,14 @@ pub(crate) enum Segment {
     /// `StorageTriePointers` with `StorageTrieCheckpointPointers`.
     /// See also `StateTrieCheckpointPointer`.
     StorageTrieCheckpointPointers = 15,
+    /// A buffer used to store the encodings of a branch node's children.
+    TrieEncodedChild = 16,
+    /// A buffer used to store the lengths of the encodings of a branch node's children.
+    TrieEncodedChildLen = 17,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 16;
+    pub(crate) const COUNT: usize = 18;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -61,6 +65,8 @@ impl Segment {
             Self::StorageTrieAddresses,
             Self::StorageTriePointers,
             Self::StorageTrieCheckpointPointers,
+            Self::TrieEncodedChild,
+            Self::TrieEncodedChildLen,
         ]
     }
 
@@ -83,6 +89,8 @@ impl Segment {
             Segment::StorageTrieAddresses => "SEGMENT_STORAGE_TRIE_ADDRS",
             Segment::StorageTriePointers => "SEGMENT_STORAGE_TRIE_PTRS",
             Segment::StorageTrieCheckpointPointers => "SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS",
+            Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
+            Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
         }
     }
 
@@ -105,6 +113,8 @@ impl Segment {
             Segment::StorageTrieAddresses => 160,
             Segment::StorageTriePointers => 32,
             Segment::StorageTrieCheckpointPointers => 32,
+            Segment::TrieEncodedChild => 256,
+            Segment::TrieEncodedChildLen => 6,
         }
     }
 }
