@@ -272,7 +272,7 @@ pub struct ProverOnlyCircuitData<
     pub fft_root_table: Option<FftRootTable<F>>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 /// Circuit data required by the verifier, but not the prover.

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
+use plonky2_util::ceil_div_usize;
 
 use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
@@ -31,9 +32,13 @@ where
 
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
-    let degree = 1 << common_data.degree_bits;
 
-    for _ in 0..degree - 10 {
+    let degree = 1 << common_data.degree_bits;
+    // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
+    // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
+    let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
+
+    for _ in 0..num_noop_gate {
         builder.add_gate(NoopGate, vec![]);
     }
     for gate in &common_data.gates {
