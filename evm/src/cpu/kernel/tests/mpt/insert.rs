@@ -6,7 +6,7 @@ use ethereum_types::{BigEndianHash, H256};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1_rlp, test_account_2_rlp};
+use crate::cpu::kernel::tests::mpt::{test_account_1_rlp, test_account_2_rlp};
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
@@ -36,7 +36,6 @@ fn mpt_insert_leaf_identical_keys() -> Result<()> {
         nibbles: key,
         v: test_account_2_rlp(),
     };
-
     test_state_trie(state_trie, insert)
 }
 
@@ -56,7 +55,6 @@ fn mpt_insert_leaf_nonoverlapping_keys() -> Result<()> {
         },
         v: test_account_2_rlp(),
     };
-
     test_state_trie(state_trie, insert)
 }
 
@@ -76,7 +74,44 @@ fn mpt_insert_leaf_overlapping_keys() -> Result<()> {
         },
         v: test_account_2_rlp(),
     };
+    test_state_trie(state_trie, insert)
+}
 
+#[test]
+fn mpt_insert_leaf_insert_key_extends_leaf_key() -> Result<()> {
+    let state_trie = PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0xABC.into(),
+        },
+        value: test_account_1_rlp(),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 5,
+            packed: 0xABCDE.into(),
+        },
+        v: test_account_2_rlp(),
+    };
+    test_state_trie(state_trie, insert)
+}
+
+#[test]
+fn mpt_insert_leaf_leaf_key_extends_insert_key() -> Result<()> {
+    let state_trie = PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 5,
+            packed: 0xABCDE.into(),
+        },
+        value: test_account_1_rlp(),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 3,
+            packed: 0xABC.into(),
+        },
+        v: test_account_2_rlp(),
+    };
     test_state_trie(state_trie, insert)
 }
 
@@ -100,18 +135,32 @@ fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
 }
 
 #[test]
-#[ignore] // TODO: Enable when mpt_insert_extension is done.
 fn mpt_insert_extension_to_leaf_same_key() -> Result<()> {
-    let state_trie = extension_to_leaf(test_account_1_rlp());
-
-    let insert = InsertEntry {
+    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
+    children[0xD] = Box::new(PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 2,
+            packed: 0xEF.into(),
+        },
+        value: test_account_1_rlp(),
+    });
+    let state_trie = PartialTrie::Extension {
         nibbles: Nibbles {
             count: 3,
+            packed: 0xABC.into(),
+        },
+        child: Box::new(PartialTrie::Branch {
+            children,
+            value: test_account_1_rlp(),
+        }),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 6,
             packed: 0xABCDEF.into(),
         },
         v: test_account_2_rlp(),
     };
-
     test_state_trie(state_trie, insert)
 }
 
