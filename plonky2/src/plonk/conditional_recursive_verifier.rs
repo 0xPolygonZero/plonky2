@@ -20,6 +20,7 @@ use crate::plonk::proof::{
 };
 use crate::with_context;
 
+/// Generate a proof having a given `CommonCircuitData`.
 pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<(ProofWithPublicInputs<F, C, D>, CircuitData<F, C, D>)>
@@ -31,6 +32,7 @@ where
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
     let degree = 1 << common_data.degree_bits;
+
     for _ in 0..degree - 10 {
         builder.add_gate(NoopGate, vec![]);
     }
@@ -41,9 +43,11 @@ where
         let t = builder.add_virtual_public_input();
         pw.set_target(t, F::ZERO);
     }
+
     let data = builder.build::<C>();
     assert_eq!(&data.common, common_data);
     let proof = data.prove(pw)?;
+
     Ok((proof, data))
 }
 
@@ -334,6 +338,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
+        // Generate proof.
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let t = builder.add_virtual_target();
@@ -346,15 +351,17 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
+
+        // Generate dummy proof with the same `CommonCircuitData`.
         let (dummy_proof, dummy_data) = dummy_proof(&data.common)?;
 
+        // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&dummy_pt, &dummy_proof);
-
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
