@@ -755,11 +755,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             Some(&fft_root_table),
         );
 
-        let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
-        let verifier_only = VerifierOnlyCircuitData {
-            constants_sigmas_cap: constants_sigmas_cap.clone(),
-        };
-
         // Map between gates where not all generators are used and the gate's number of used generators.
         let incomplete_gates = self
             .current_slots
@@ -800,17 +795,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             indices.shrink_to_fit();
         }
 
-        let prover_only = ProverOnlyCircuitData {
-            generators: self.generators,
-            generator_indices_by_watches,
-            constants_sigmas_commitment,
-            sigmas: transpose_poly_values(sigma_vecs),
-            subgroup,
-            public_inputs: self.public_inputs,
-            representative_map: forest.parents,
-            fft_root_table: Some(fft_root_table),
-        };
-
         let num_gate_constraints = gates
             .iter()
             .map(|gate| gate.0.num_constraints())
@@ -820,6 +804,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_partial_products =
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
+        let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
@@ -842,6 +827,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_public_inputs,
             k_is,
             num_partial_products,
+        };
+
+        let prover_only = ProverOnlyCircuitData {
+            generators: self.generators,
+            generator_indices_by_watches,
+            constants_sigmas_commitment,
+            sigmas: transpose_poly_values(sigma_vecs),
+            subgroup,
+            public_inputs: self.public_inputs,
+            representative_map: forest.parents,
+            fft_root_table: Some(fft_root_table),
+            circuit_digest,
+        };
+
+        let verifier_only = VerifierOnlyCircuitData {
+            constants_sigmas_cap,
             circuit_digest,
         };
 

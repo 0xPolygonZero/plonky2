@@ -1,3 +1,4 @@
+use anyhow::Result;
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 
@@ -10,21 +11,24 @@ use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::circuit_data::{CircuitData, CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
-use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
+use crate::plonk::proof::{
+    OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
+};
 use crate::with_context;
 
 pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     common_data: &CommonCircuitData<F, C, D>,
-) where
+) -> Result<(ProofWithPublicInputs<F, C, D>, CircuitData<F, C, D>)>
+where
     [(); C::Hasher::HASH_SIZE]:,
 {
     let config = common_data.config.clone();
 
-    // let mut pw = PartialWitness::new();
+    let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
     let degree = 1 << common_data.degree_bits;
     for _ in 0..degree - 10 {
@@ -35,10 +39,12 @@ pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, con
     }
     for _ in 0..common_data.num_public_inputs {
         let t = builder.add_virtual_public_input();
+        pw.set_target(t, F::ZERO);
     }
     let data = builder.build::<C>();
     assert_eq!(&data.common, common_data);
-    let proof = data.prove(PartialWitness::new());
+    let proof = data.prove(pw)?;
+    Ok((proof, data))
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -107,6 +113,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 condition,
                 inner_verifier_data0.constants_sigmas_cap.clone(),
                 inner_verifier_data1.constants_sigmas_cap.clone(),
+            ),
+            circuit_digest: self.select_hash(
+                condition,
+                inner_verifier_data0.circuit_digest,
+                inner_verifier_data1.circuit_digest,
             ),
         };
 
@@ -335,29 +346,25 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
-        let dummy = dummy_proof(&data.common);
+        let (dummy_proof, dummy_data) = dummy_proof(&data.common)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target(&dummy_pt, &proof);
+        pw.set_proof_with_pis_target(&dummy_pt, &dummy_proof);
 
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&inner_data, &data.verifier_only);
         let dummy_inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &dummy_inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof(
             b,

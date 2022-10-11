@@ -29,7 +29,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges(self, public_inputs_hash, inner_common_data);
+        let challenges = proof_with_pis.get_challenges(
+            self,
+            public_inputs_hash,
+            inner_verifier_data.circuit_digest,
+            inner_common_data,
+        );
 
         self.verify_proof_with_challenges(
             proof_with_pis.proof,
@@ -205,9 +210,9 @@ mod tests {
         let config = CircuitConfig::standard_recursion_zk_config();
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
-        let (proof, _vd, cd) =
+        let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        test_serialization(&proof, &cd)?;
+        test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
     }
@@ -231,11 +236,11 @@ mod tests {
         assert_eq!(cd.degree_bits, 13);
 
         // Shrink it to 2^12.
-        let (proof, _vd, cd) =
+        let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
-        test_serialization(&proof, &cd)?;
+        test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
     }
@@ -287,11 +292,11 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, _vd, cd) =
+        let (proof, vd, cd) =
             recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12, "final proof too large");
 
-        test_serialization(&proof, &cd)?;
+        test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
     }
@@ -309,11 +314,11 @@ mod tests {
 
         let (proof, vd, cd) =
             recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
+        test_serialization(&proof, &vd, &cd)?;
 
-        let (proof, _vd, cd) =
+        let (proof, vd, cd) =
             recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
+        test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
     }
@@ -372,11 +377,13 @@ mod tests {
 
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,
         );
+        pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
 
         builder.verify_proof(pt, &inner_data, &inner_cd);
 
@@ -414,6 +421,7 @@ mod tests {
         const D: usize,
     >(
         proof: &ProofWithPublicInputs<F, C, D>,
+        vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, C, D>,
     ) -> Result<()>
     where
@@ -425,8 +433,10 @@ mod tests {
         assert_eq!(proof, &proof_from_bytes);
 
         let now = std::time::Instant::now();
-        let compressed_proof = proof.clone().compress(cd)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(cd)?;
+        let compressed_proof = proof.clone().compress(&vd.circuit_digest, cd)?;
+        let decompressed_compressed_proof = compressed_proof
+            .clone()
+            .decompress(&vd.circuit_digest, cd)?;
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
