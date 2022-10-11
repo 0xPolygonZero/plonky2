@@ -67,8 +67,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::range_check_error;
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0 = read_value_i64_limbs(&lv, MUL_INPUT_0);
-    let input1 = read_value_i64_limbs(&lv, MUL_INPUT_1);
+    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
+    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
 
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 

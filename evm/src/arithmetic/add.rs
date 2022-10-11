@@ -95,8 +95,8 @@ where
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0 = read_value_u64_limbs(&lv, ADD_INPUT_0);
-    let input1 = read_value_u64_limbs(&lv, ADD_INPUT_1);
+    let input0 = read_value_u64_limbs(lv, ADD_INPUT_0);
+    let input1 = read_value_u64_limbs(lv, ADD_INPUT_1);
 
     // Input and output have 16-bit limbs
     let (output_limbs, _) = u256_add_cc(input0, input1);

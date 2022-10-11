@@ -6,7 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::arithmetic::columns::{N_LIMBS, NUM_ARITH_COLUMNS};
+use crate::arithmetic::columns::{NUM_ARITH_COLUMNS, N_LIMBS};
 
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,

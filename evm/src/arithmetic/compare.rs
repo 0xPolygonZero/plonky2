@@ -27,8 +27,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::range_check_error;
 
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
-    let input0 = read_value_u64_limbs(&lv, CMP_INPUT_0);
-    let input1 = read_value_u64_limbs(&lv, CMP_INPUT_1);
+    let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
+    let input1 = read_value_u64_limbs(lv, CMP_INPUT_1);
 
     let (diff, br) = match op {
         // input0 - input1 == diff + br*2^256

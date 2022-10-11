@@ -160,9 +160,9 @@ fn generate_modular_op<F: RichField>(
 ) {
     // Inputs are all range-checked in [0, 2^16), so the "as i64"
     // conversion is safe.
-    let input0_limbs = read_value_i64_limbs(&lv, MODULAR_INPUT_0);
-    let input1_limbs = read_value_i64_limbs(&lv, MODULAR_INPUT_1);
-    let mut modulus_limbs = read_value_i64_limbs(&lv, MODULAR_MODULUS);
+    let input0_limbs = read_value_i64_limbs(lv, MODULAR_INPUT_0);
+    let input1_limbs = read_value_i64_limbs(lv, MODULAR_INPUT_1);
+    let mut modulus_limbs = read_value_i64_limbs(lv, MODULAR_MODULUS);
 
     // The use of BigUints is just to avoid having to implement
     // modular reduction.
@@ -283,7 +283,7 @@ fn modular_constr_poly<P: PackedField>(
     );
 
     // prod = q(x) * m(x)
-    let quot = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_QUO_INPUT);
+    let quot = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2(quot, modulus);
     // higher order terms must be zero
     for &x in prod[2 * N_LIMBS..].iter() {
@@ -295,7 +295,7 @@ fn modular_constr_poly<P: PackedField>(
     pol_add_assign(&mut constr_poly, output);
 
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
-    let mut aux = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_AUX_INPUT);
+    let mut aux = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_AUX_INPUT);
     aux[2 * N_LIMBS - 1] = P::ZEROS; // zero out the MOD_IS_ZERO flag
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
@@ -380,7 +380,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         is_less_than,
     );
 
-    let quot = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_QUO_INPUT);
+    let quot = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
     for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
@@ -390,7 +390,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, output);
 
-    let mut aux = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_AUX_INPUT);
+    let mut aux = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_AUX_INPUT);
     aux[2 * N_LIMBS - 1] = builder.zero_extension();
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);

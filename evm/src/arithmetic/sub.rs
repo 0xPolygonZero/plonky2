@@ -29,8 +29,8 @@ pub(crate) fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0 = read_value_u64_limbs(&lv, SUB_INPUT_0);
-    let input1 = read_value_u64_limbs(&lv, SUB_INPUT_1);
+    let input0 = read_value_u64_limbs(lv, SUB_INPUT_0);
+    let input1 = read_value_u64_limbs(lv, SUB_INPUT_1);
 
     let (output_limbs, _) = u256_sub_br(input0, input1);
 
