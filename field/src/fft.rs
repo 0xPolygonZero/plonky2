@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::option::Option;
 
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
@@ -90,6 +91,58 @@ pub fn ifft_with_options<F: Field>(
     PolynomialCoeffs { coeffs: buffer }
 }
 
+/// Form omega for the case where `half_m` is smaller than `P::WIDTH`.
+///
+/// `half_m` is the number of contiguous values that are multiplied by the same twiddle factor.
+/// When `half_m >= P::WIDTH`, all packed values in the loop iteration are multiplied by the same
+/// twiddle factor, so the `omega` vector is just one value repeated `P::WIDTH` times. However, when
+/// `half_m < P::WIDTH`, the `omega` vector is composed of different `P::WIDTH / half_m` twiddle
+/// factors, and we construct it here.
+///
+/// We return the twiddle factors for `P::WIDTH / half_m` values (`half_m` doubles with every
+/// iteration). More concretely, the return value is read from
+/// `root_table[(k / 2) * P::WIDTH / half_m][..P::WIDTH / half_m]`, with each twiddle factor
+/// repeated `half_m` times.
+///
+/// The twiddle factors are permuted in a seemingly strange way, but this is needed for consistency
+/// with `PackedField::interleave`. To minimize the movement of data, `u.interleave(v, half_m)`
+/// exchanges `u[half_m..2 * half_m]` with `v[0..half_m]`, `u[3 * half_m..4 * half_m]` with
+/// `v[2 * half_m..3 * half_m]`, and so on. Therefore, the arrangement we want is:
+///  - For `roots[..roots.len() / 2]` (the first half of the twiddle factors we read), `roots[i]`
+///    gets written to `omega[2 * half_m * i..2 * half_m * i + half_m]`. Note that this leaves gaps
+///    of `half_m`.
+///  - We fill those gaps with `roots[roots.len() / 2..]`. `roots[roots.len() / 2 + i]` gets written
+///    to `omega[2 * half_m * i + half_m..2 * half_m * i + 2 * half_m]`.
+/// As an example, suppose we have a packing of width 8. Then:
+///  - For `half_m == 1`, we return
+///    `[roots[0], roots[4], roots[1], roots[5], roots[2], roots[6], roots[3], roots[7]]`.
+///  - For `half_m == 2`, we return
+///    `[roots[0], roots[0], roots[2], roots[2], roots[1], roots[1], roots[3], roots[3]]`.
+///  - For `half_m == 4`, we return
+///    `[roots[0], roots[0], roots[0], roots[0], roots[1], roots[1], roots[1], roots[1]]`.
+fn form_small_m_omega<P: PackedField>(
+    k: usize,
+    lg_half_m: usize,
+    root_table: &FftRootTable<P::Scalar>,
+) -> P {
+    let half_k = k / 2;
+    let lg_m = lg_half_m + 1;
+    let half_m = 1 << lg_half_m;
+
+    // Ideally, we'd like the compiler to optimize the permutation below and just emit vector
+    // instructions. Thankfully, LLVM seems to do just that: https://godbolt.org/z/MG11W8Wj6
+
+    let roots = &root_table[half_k * (P::WIDTH >> lg_half_m)..][..P::WIDTH >> lg_half_m];
+
+    let mut omega = P::default();
+    let omega_slice = omega.as_slice_mut();
+    for i in 0..P::WIDTH >> lg_m {
+        omega_slice[i << lg_m..][..half_m].fill(roots[i]);
+        omega_slice[(i << lg_m) + half_m..][..half_m].fill(roots[i + (P::WIDTH >> lg_m)]);
+    }
+    omega
+}
+
 /// FFT implementation that works with both scalar and packed inputs.
 /// Bowers et al., Improved Twiddle Access for Fast Fourier Transforms
 /// https://doi.org/10.1109/TSP.2009.2035984
@@ -109,8 +162,25 @@ fn fft_bowers_simd<P: PackedField>(
     let packed_n = packed_values.len();
     debug_assert!(packed_n == 1 << (lg_n - lg_packed_width));
 
+    // Handle `half_m < P::WIDTH`; this is when `omega` is composed of multiple values and must be
+    // specially constructed.
+    // Want the below for loop to unroll, hence the need for a literal.
+    // This loop will not run when P is a scalar.
+    assert!(lg_packed_width <= 4);
+    for lg_half_m in 0..4 {
+        if (0..min(lg_n, lg_packed_width)).contains(&lg_half_m) {
+            let half_m = 1 << lg_half_m;
+            for k in (0..packed_n).step_by(2) {
+                let omega: P = form_small_m_omega(k, lg_half_m, root_table);
+                let (u, v) = packed_values[k].interleave(packed_values[k + 1], half_m);
+                (packed_values[k], packed_values[k + 1]) =
+                    (u + v).interleave((u - v) * omega, half_m);
+            }
+        }
+    }
+
     // decimation in time loop
-    for lg_half_m in 0..lg_n {
+    for lg_half_m in lg_packed_width..lg_n {
         let lg_m = lg_half_m + 1;
         let m = 1 << lg_m; // Subarray size (in field elements).
         let packed_m = m >> lg_packed_width; // Subarray size (in vectors).
