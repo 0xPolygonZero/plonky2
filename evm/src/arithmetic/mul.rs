@@ -67,8 +67,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::range_check_error;
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c].to_canonical_u64() as i64);
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c].to_canonical_u64() as i64);
+    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
+    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
 
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
@@ -79,7 +79,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
     // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0i64;
-    let mut unreduced_prod = pol_mul_lo(input0_limbs, input1_limbs);
+    let mut unreduced_prod = pol_mul_lo(input0, input1);
     for col in 0..N_LIMBS {
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
@@ -90,15 +90,13 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // aux_limbs to handle the fact that unreduced_prod will
     // inevitably contain one digit's worth that is > 2^256.
 
+    lv[MUL_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
     aux_limbs[N_LIMBS - 1] = -cy;
 
-    for deg in 0..N_LIMBS {
-        lv[MUL_OUTPUT[deg]] = F::from_canonical_i64(output_limbs[deg]);
-        lv[MUL_AUX_INPUT[deg]] = F::from_noncanonical_i64(aux_limbs[deg]);
-    }
+    lv[MUL_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -111,10 +109,10 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_AUX_INPUT, 20);
 
     let is_mul = lv[IS_MUL];
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
-    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
-    let aux_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -123,13 +121,13 @@ pub fn eval_packed_generic<P: PackedField>(
     // These two lines set constr_poly to the polynomial a(x)b(x) - c(x),
     // where a, b and c are the polynomials
     //
-    //   a(x) = \sum_i input0_limbs[i] * β^i
-    //   b(x) = \sum_i input1_limbs[i] * β^i
-    //   c(x) = \sum_i output_limbs[i] * β^i
+    //   a(x) = \sum_i input0_limbs[i] * x^i
+    //   b(x) = \sum_i input1_limbs[i] * x^i
+    //   c(x) = \sum_i output_limbs[i] * x^i
     //
-    // This polynomial should equal  where s is
+    // This polynomial should equal (x - β)*s(x) where s is
     //
-    //   s(x) = \sum_i aux_limbs[i] * β^i
+    //   s(x) = \sum_i aux_limbs[i] * x^i
     //
     let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
     pol_sub_assign(&mut constr_poly, &output_limbs);
@@ -153,10 +151,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_mul = lv[IS_MUL];
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
-    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
-    let aux_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
@@ -220,7 +218,7 @@ mod tests {
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values
-            for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
+            for (ai, bi) in MUL_INPUT_0.zip(MUL_INPUT_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }
