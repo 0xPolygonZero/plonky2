@@ -75,6 +75,7 @@ pub struct Interpreter<'a> {
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
+    pub(crate) debug_offsets: Vec<usize>,
     running: bool,
 }
 
@@ -128,6 +129,7 @@ impl<'a> Interpreter<'a> {
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
+            debug_offsets: vec![],
             running: false,
         }
     }
@@ -283,7 +285,7 @@ impl<'a> Interpreter<'a> {
             0x55 => todo!(),                                            // "SSTORE",
             0x56 => self.run_jump(),                                    // "JUMP",
             0x57 => self.run_jumpi(),                                   // "JUMPI",
-            0x58 => todo!(),                                            // "GETPC",
+            0x58 => self.run_pc(),                                      // "PC",
             0x59 => self.run_msize(),                                   // "MSIZE",
             0x5a => todo!(),                                            // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
@@ -318,7 +320,22 @@ impl<'a> Interpreter<'a> {
             0xff => todo!(),                                            // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
+
+        if self.debug_offsets.contains(&self.offset) {
+            println!("At {}, stack={:?}", self.offset_name(), self.stack());
+        }
+
         Ok(())
+    }
+
+    /// Get a string representation of the current offset for debugging purposes.
+    fn offset_name(&self) -> String {
+        // TODO: Not sure we should use KERNEL? Interpreter is more general in other places.
+        let label = KERNEL
+            .global_labels
+            .iter()
+            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()));
+        label.unwrap_or_else(|| self.offset.to_string())
     }
 
     fn run_stop(&mut self) {
@@ -476,6 +493,7 @@ impl<'a> Interpreter<'a> {
         let bytes = (offset..offset + size)
             .map(|i| self.memory.mload_general(context, segment, i).byte(0))
             .collect::<Vec<_>>();
+        println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()));
     }
@@ -542,6 +560,10 @@ impl<'a> Interpreter<'a> {
         if !b.is_zero() {
             self.jump_to(x);
         }
+    }
+
+    fn run_pc(&mut self) {
+        self.push((self.offset - 1).into());
     }
 
     fn run_msize(&mut self) {
