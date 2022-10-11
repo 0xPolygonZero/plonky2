@@ -90,7 +90,11 @@ fn mpt_hash_branch_to_leaf() -> Result<()> {
         value: account_rlp.to_vec(),
     };
     let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0] = Box::new(leaf);
+    children[5] = Box::new(PartialTrie::Branch {
+        children: children.clone(),
+        value: vec![],
+    });
+    children[3] = Box::new(leaf);
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],

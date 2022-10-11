@@ -135,7 +135,8 @@ fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
 }
 
 #[test]
-fn mpt_insert_extension_to_leaf_same_key() -> Result<()> {
+fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
+    // Existing keys are 0xABC, 0xABCDEF; inserted key is 0x12345.
     let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
     children[0xD] = Box::new(PartialTrie::Leaf {
         nibbles: Nibbles {
@@ -148,6 +149,37 @@ fn mpt_insert_extension_to_leaf_same_key() -> Result<()> {
         nibbles: Nibbles {
             count: 3,
             packed: 0xABC.into(),
+        },
+        child: Box::new(PartialTrie::Branch {
+            children,
+            value: test_account_1_rlp(),
+        }),
+    };
+    let insert = InsertEntry {
+        nibbles: Nibbles {
+            count: 5,
+            packed: 0x12345.into(),
+        },
+        v: test_account_2_rlp(),
+    };
+    test_state_trie(state_trie, insert)
+}
+
+#[test]
+fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
+    // Existing keys are 0xA, 0xABCD; inserted key is 0xABCDEF.
+    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
+    children[0xB] = Box::new(PartialTrie::Leaf {
+        nibbles: Nibbles {
+            count: 2,
+            packed: 0xCD.into(),
+        },
+        value: test_account_1_rlp(),
+    });
+    let state_trie = PartialTrie::Extension {
+        nibbles: Nibbles {
+            count: 1,
+            packed: 0xA.into(),
         },
         child: Box::new(PartialTrie::Branch {
             children,
