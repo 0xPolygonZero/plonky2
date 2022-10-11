@@ -3,9 +3,10 @@
 //! This crate verifies an EVM MUL instruction, which takes two
 //! 256-bit inputs A and B, and produces a 256-bit output C satisfying
 //!
-//!    C = A*B (mod 2^256).
+//!    C = A*B (mod 2^256),
 //!
-//! Inputs A and B, and output C, are given as arrays of 16-bit
+//! i.e. C is the lower half of the usual long multiplication
+//! A*B. Inputs A and B, and output C, are given as arrays of 16-bit
 //! limbs. For example, if the limbs of A are a[0]...a[15], then
 //!
 //!    A = \sum_{i=0}^15 a[i] β^i,
@@ -18,41 +19,41 @@
 //! (so A = a(β)) and similarly for b(x) and c(x). Then A*B = C (mod
 //! 2^256) if and only if there exists q such that the polynomial
 //!
-//!    a(x) * b(x) - c(x) - m(x) * q(x)
+//!    a(x) * b(x) - c(x) - x^16 * q(x)
 //!
 //! is zero when evaluated at x = β, i.e. it is divisible by (x - β);
-//! equivalently, exists a polynomial s such that
+//! equivalently, there exists a polynomial s (representing the
+//! carries from the long multiplication) such that
 //!
-//!    operation(a(x), b(x)) - c(x) - m(x) * q(x) - (x - β) * s(x) == 0
+//!    a(x) * b(x) - c(x) - x^16 * q(x) - (x - β) * s(x) == 0
 //!
-//! if and only if operation(A,B) = C (mod M). In the code below, this
-//! "constraint polynomial" is constructed in the variable
-//! `constr_poly`. It must be identically zero for the multiplication
-//! operation to be verified, or, equivalently, each of its
-//! coefficients must be zero. The variable names of the constituent
-//! polynomials are (writing N for N_LIMBS=16):
+//! As we only need the lower half of the product, we can omit q(x)
+//! since it is multiplied by the modulus β^16 = 2^256. Thus we only
+//! need to verify
 //!
-//!   a(x) = \sum_{i=0}^{N-1} input0[i] * β^i
-//!   b(x) = \sum_{i=0}^{N-1} input1[i] * β^i
-//!   c(x) = \sum_{i=0}^{N-1} output[i] * β^i
-//!   m(x) = \sum_{i=0}^{N-1} modulus[i] * β^i
-//!   q(x) = \sum_{i=0}^{N-2} quot[i] * β^i
-//!   s(x) = \sum_i^{2N-3} aux[i] * β^i
+//!    a(x) * b(x) - c(x) - (x - β) * s(x) == 0
+//!
+//! In the code below, this "constraint polynomial" is constructed in
+//! the variable `constr_poly`. It must be identically zero for the
+//! multiplication operation to be verified, or, equivalently, each of
+//! its coefficients must be zero. The variable names of the
+//! constituent polynomials are (writing N for N_LIMBS=16):
+//!
+//!   a(x) = \sum_{i=0}^{N-1} input0[i] * x^i
+//!   b(x) = \sum_{i=0}^{N-1} input1[i] * x^i
+//!   c(x) = \sum_{i=0}^{N-1} output[i] * x^i
+//!   s(x) = \sum_i^{2N-3} aux[i] * x^i
 //!
 //! Because A, B and C are 256-bit numbers, the degrees of a, b and c
-//! are (at most) 15. Thus deg(a*b) <= 30, so deg(q) <= 14 and deg(s)
-//! <= 29. However, the fact that we're verifying the equality modulo
-//! 2^256 means that we can ignore terms of degree >= 16, since for
-//! them evaluating at β gives a factor of β^16 = 2^256 which is 0.
-//!
-//! Hence, to verify the equality, *we don't need q(x) (quot) at all*,
-//! and we only need to know s(x) up to degree 14 (so that (x - β)*s(x)
-//! has degree 15). On the other hand, the coefficients of s(x) can be
-//! as large as 16*(β-2) or 20 bits.
+//! are (at most) 15. Thus deg(a*b) <= 30 and deg(s) <= 29; however,
+//! as we're only verifying the lower half of A*B, we only need to
+//! know s(x) up to degree 14 (so that (x - β)*s(x) has degree 15). On
+//! the other hand, the coefficients of s(x) can be as large as
+//! 16*(β-2) or 20 bits.
 //!
 //! Note that, unlike for the general modular multiplication (see the
 //! file `modular.rs`), we don't need to check that output is reduced,
-//! since any value of output is less than x^16 and is hence reduced.
+//! since any value of output is less than β^16 and is hence reduced.
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -91,7 +92,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
 
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
-    let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, _>(unreduced_prod);
+    let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
     aux_limbs[N_LIMBS - 1] = -cy;
 
     for deg in 0..N_LIMBS {

@@ -35,12 +35,12 @@
 //! coefficients must be zero. The variable names of the constituent
 //! polynomials are (writing N for N_LIMBS=16):
 //!
-//!   a(x) = \sum_{i=0}^{N-1} input0[i] * β^i
-//!   b(x) = \sum_{i=0}^{N-1} input1[i] * β^i
-//!   c(x) = \sum_{i=0}^{N-1} output[i] * β^i
-//!   m(x) = \sum_{i=0}^{N-1} modulus[i] * β^i
-//!   q(x) = \sum_{i=0}^{2N-1} quot[i] * β^i
-//!   s(x) = \sum_i^{2N-2} aux[i] * β^i
+//!   a(x) = \sum_{i=0}^{N-1} input0[i] * x^i
+//!   b(x) = \sum_{i=0}^{N-1} input1[i] * x^i
+//!   c(x) = \sum_{i=0}^{N-1} output[i] * x^i
+//!   m(x) = \sum_{i=0}^{N-1} modulus[i] * x^i
+//!   q(x) = \sum_{i=0}^{2N-1} quot[i] * x^i
+//!   s(x) = \sum_i^{2N-2} aux[i] * x^i
 //!
 //! Because A, B, M and C are 256-bit numbers, the degrees of a, b, m
 //! and c are (at most) N-1 = 15. If m = 1, then Q would be A*B which
@@ -212,7 +212,7 @@ fn generate_modular_op<F: RichField>(
     // constr_poly must be zero when evaluated at x = β :=
     // 2^LIMB_BITS, hence it's divisible by (x - β). `aux_limbs` is
     // the result of removing that root.
-    let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, _>(constr_poly);
+    let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
 
     for deg in 0..N_LIMBS {
         lv[MODULAR_OUTPUT[deg]] = F::from_canonical_i64(output_limbs[deg]);
