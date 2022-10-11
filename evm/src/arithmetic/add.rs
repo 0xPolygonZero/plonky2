@@ -6,6 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -94,11 +95,8 @@ where
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs: [_; N_LIMBS] = lv[ADD_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[ADD_INPUT_1].try_into().unwrap();
-
-    let input0 = input0_limbs.map(|c| F::to_canonical_u64(&c));
-    let input1 = input1_limbs.map(|c| F::to_canonical_u64(&c));
+    let input0 = read_value_u64_limbs(&lv, ADD_INPUT_0);
+    let input1 = read_value_u64_limbs(&lv, ADD_INPUT_1);
 
     // Input and output have 16-bit limbs
     let (output_limbs, _) = u256_add_cc(input0, input1);

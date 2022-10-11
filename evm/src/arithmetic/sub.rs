@@ -6,6 +6,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::add::{eval_ext_circuit_are_equal, eval_packed_generic_are_equal};
 use crate::arithmetic::columns::*;
+use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -28,11 +29,8 @@ pub(crate) fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs: [_; N_LIMBS] = lv[SUB_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[SUB_INPUT_1].try_into().unwrap();
-
-    let input0 = input0_limbs.map(|c| F::to_canonical_u64(&c));
-    let input1 = input1_limbs.map(|c| F::to_canonical_u64(&c));
+    let input0 = read_value_u64_limbs(&lv, SUB_INPUT_0);
+    let input1 = read_value_u64_limbs(&lv, SUB_INPUT_1);
 
     let (output_limbs, _) = u256_sub_br(input0, input1);
 

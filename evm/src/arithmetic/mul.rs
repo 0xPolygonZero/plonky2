@@ -67,11 +67,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::range_check_error;
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs: [_; N_LIMBS] = lv[ADD_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[ADD_INPUT_1].try_into().unwrap();
-
-    let input0_limbs = input0_limbs.map(|c| F::to_canonical_u64(&c) as i64);
-    let input1_limbs = input1_limbs.map(|c| F::to_canonical_u64(&c) as i64);
+    let input0 = read_value_i64_limbs(&lv, MUL_INPUT_0);
+    let input1 = read_value_i64_limbs(&lv, MUL_INPUT_1);
 
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
@@ -82,7 +79,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
     // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0i64;
-    let mut unreduced_prod = pol_mul_lo(input0_limbs, input1_limbs);
+    let mut unreduced_prod = pol_mul_lo(input0, input1);
     for col in 0..N_LIMBS {
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
@@ -112,10 +109,10 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_AUX_INPUT, 20);
 
     let is_mul = lv[IS_MUL];
-    let input0_limbs: [_; N_LIMBS] = lv[MUL_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[MUL_INPUT_1].try_into().unwrap();
-    let output_limbs: [_; N_LIMBS] = lv[MUL_OUTPUT].try_into().unwrap();
-    let aux_limbs: [_; N_LIMBS] = lv[MUL_AUX_INPUT].try_into().unwrap();
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -124,13 +121,13 @@ pub fn eval_packed_generic<P: PackedField>(
     // These two lines set constr_poly to the polynomial a(x)b(x) - c(x),
     // where a, b and c are the polynomials
     //
-    //   a(x) = \sum_i input0_limbs[i] * β^i
-    //   b(x) = \sum_i input1_limbs[i] * β^i
-    //   c(x) = \sum_i output_limbs[i] * β^i
+    //   a(x) = \sum_i input0_limbs[i] * x^i
+    //   b(x) = \sum_i input1_limbs[i] * x^i
+    //   c(x) = \sum_i output_limbs[i] * x^i
     //
-    // This polynomial should equal  where s is
+    // This polynomial should equal (x - β)*s(x) where s is
     //
-    //   s(x) = \sum_i aux_limbs[i] * β^i
+    //   s(x) = \sum_i aux_limbs[i] * x^i
     //
     let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
     pol_sub_assign(&mut constr_poly, &output_limbs);
@@ -154,10 +151,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_mul = lv[IS_MUL];
-    let input0_limbs: [_; N_LIMBS] = lv[MUL_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[MUL_INPUT_1].try_into().unwrap();
-    let output_limbs: [_; N_LIMBS] = lv[MUL_OUTPUT].try_into().unwrap();
-    let aux_limbs: [_; N_LIMBS] = lv[MUL_AUX_INPUT].try_into().unwrap();
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);

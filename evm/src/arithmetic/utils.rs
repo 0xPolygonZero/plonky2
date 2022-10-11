@@ -6,7 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::arithmetic::columns::N_LIMBS;
+use crate::arithmetic::columns::{N_LIMBS, NUM_ARITH_COLUMNS};
 
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
@@ -336,4 +336,35 @@ where
         q[deg] = (q[deg - 1] - a[deg]) >> EXP;
     }
     q
+}
+
+/// Read the range `value_idxs` of values from `lv` into an array of
+/// length `N`. Panics if the length of the range is not `N`.
+pub(crate) fn read_value<const N: usize, T: Copy>(
+    lv: &[T; NUM_ARITH_COLUMNS],
+    value_idxs: Range<usize>,
+) -> [T; N] {
+    lv[value_idxs].try_into().unwrap()
+}
+
+/// Read the range `value_idxs` of values from `lv` into an array of
+/// length `N`, interpreting the values as `u64`s. Panics if the
+/// length of the range is not `N`.
+pub(crate) fn read_value_u64_limbs<const N: usize, F: RichField>(
+    lv: &[F; NUM_ARITH_COLUMNS],
+    value_idxs: Range<usize>,
+) -> [u64; N] {
+    let limbs: [_; N] = lv[value_idxs].try_into().unwrap();
+    limbs.map(|c| F::to_canonical_u64(&c))
+}
+
+/// Read the range `value_idxs` of values from `lv` into an array of
+/// length `N`, interpreting the values as `i64`s. Panics if the
+/// length of the range is not `N`.
+pub(crate) fn read_value_i64_limbs<const N: usize, F: RichField>(
+    lv: &[F; NUM_ARITH_COLUMNS],
+    value_idxs: Range<usize>,
+) -> [i64; N] {
+    let limbs: [_; N] = lv[value_idxs].try_into().unwrap();
+    limbs.map(|c| F::to_canonical_u64(&c) as i64)
 }

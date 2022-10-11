@@ -160,13 +160,9 @@ fn generate_modular_op<F: RichField>(
 ) {
     // Inputs are all range-checked in [0, 2^16), so the "as i64"
     // conversion is safe.
-    let input0_limbs: [_; N_LIMBS] = lv[MODULAR_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[MODULAR_INPUT_1].try_into().unwrap();
-    let modulus_limbs: [_; N_LIMBS] = lv[MODULAR_MODULUS].try_into().unwrap();
-
-    let input0_limbs = input0_limbs.map(|c| F::to_canonical_u64(&c) as i64);
-    let input1_limbs = input1_limbs.map(|c| F::to_canonical_u64(&c) as i64);
-    let mut modulus_limbs = modulus_limbs.map(|c| F::to_canonical_u64(&c) as i64);
+    let input0_limbs = read_value_i64_limbs(&lv, MODULAR_INPUT_0);
+    let input1_limbs = read_value_i64_limbs(&lv, MODULAR_INPUT_1);
+    let mut modulus_limbs = read_value_i64_limbs(&lv, MODULAR_MODULUS);
 
     // The use of BigUints is just to avoid having to implement
     // modular reduction.
@@ -257,7 +253,7 @@ fn modular_constr_poly<P: PackedField>(
     range_check_error!(MODULAR_AUX_INPUT, 20, signed);
     range_check_error!(MODULAR_OUTPUT, 16);
 
-    let mut modulus: [_; N_LIMBS] = lv[MODULAR_MODULUS].try_into().unwrap();
+    let mut modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
     let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
 
     // Check that mod_is_zero is zero or one
@@ -272,10 +268,10 @@ fn modular_constr_poly<P: PackedField>(
     // modulus = 0.
     modulus[0] += mod_is_zero;
 
-    let output = lv[MODULAR_OUTPUT].try_into().unwrap();
+    let output = &lv[MODULAR_OUTPUT];
 
     // Verify that the output is reduced, i.e. output < modulus.
-    let out_aux_red = lv[MODULAR_OUT_AUX_RED].try_into().unwrap();
+    let out_aux_red = &lv[MODULAR_OUT_AUX_RED];
     let is_less_than = P::ONES;
     eval_packed_generic_lt(
         yield_constr,
@@ -287,7 +283,7 @@ fn modular_constr_poly<P: PackedField>(
     );
 
     // prod = q(x) * m(x)
-    let quot = lv[MODULAR_QUO_INPUT].try_into().unwrap();
+    let quot = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2(quot, modulus);
     // higher order terms must be zero
     for &x in prod[2 * N_LIMBS..].iter() {
@@ -299,7 +295,7 @@ fn modular_constr_poly<P: PackedField>(
     pol_add_assign(&mut constr_poly, output);
 
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
-    let mut aux: [_; 2 * N_LIMBS] = lv[MODULAR_AUX_INPUT].try_into().unwrap();
+    let mut aux = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_AUX_INPUT);
     aux[2 * N_LIMBS - 1] = P::ZEROS; // zero out the MOD_IS_ZERO flag
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
@@ -319,8 +315,8 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     // constr_poly has 2*N_LIMBS limbs
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);
 
-    let input0 = lv[MODULAR_INPUT_0].try_into().unwrap();
-    let input1 = lv[MODULAR_INPUT_1].try_into().unwrap();
+    let input0 = read_value(lv, MODULAR_INPUT_0);
+    let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add(input0, input1);
     let mul_input = pol_mul_wide(input0, input1);
@@ -357,7 +353,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
-    let mut modulus: [_; N_LIMBS] = lv[MODULAR_MODULUS].try_into().unwrap();
+    let mut modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
     let mod_is_zero = lv[MODULAR_MOD_IS_ZERO];
 
     let t = builder.mul_sub_extension(mod_is_zero, mod_is_zero, mod_is_zero);
@@ -371,8 +367,8 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
-    let output = lv[MODULAR_OUTPUT].try_into().unwrap();
-    let out_aux_red = lv[MODULAR_OUT_AUX_RED].try_into().unwrap();
+    let output = &lv[MODULAR_OUTPUT];
+    let out_aux_red = &lv[MODULAR_OUT_AUX_RED];
     let is_less_than = builder.one_extension();
     eval_ext_circuit_lt(
         builder,
@@ -384,7 +380,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         is_less_than,
     );
 
-    let quot = lv[MODULAR_QUO_INPUT].try_into().unwrap();
+    let quot = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
     for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
@@ -394,7 +390,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, output);
 
-    let mut aux: [_; 2 * N_LIMBS] = lv[MODULAR_AUX_INPUT].try_into().unwrap();
+    let mut aux = read_value::<{2 * N_LIMBS}, _>(lv, MODULAR_AUX_INPUT);
     aux[2 * N_LIMBS - 1] = builder.zero_extension();
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);
@@ -416,8 +412,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let constr_poly = modular_constr_poly_ext_circuit(lv, builder, yield_constr, filter);
 
-    let input0 = lv[MODULAR_INPUT_0].try_into().unwrap();
-    let input1 = lv[MODULAR_INPUT_1].try_into().unwrap();
+    let input0 = read_value(lv, MODULAR_INPUT_0);
+    let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add_ext_circuit(builder, input0, input1);
     let mul_input = pol_mul_wide_ext_circuit(builder, input0, input1);

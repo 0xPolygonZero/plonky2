@@ -22,15 +22,13 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::add::{eval_ext_circuit_are_equal, eval_packed_generic_are_equal};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::sub::u256_sub_br;
+use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
-    let input0_limbs: [_; N_LIMBS] = lv[CMP_INPUT_0].try_into().unwrap();
-    let input1_limbs: [_; N_LIMBS] = lv[CMP_INPUT_1].try_into().unwrap();
-
-    let input0 = input0_limbs.map(|c| F::to_canonical_u64(&c));
-    let input1 = input1_limbs.map(|c| F::to_canonical_u64(&c));
+    let input0 = read_value_u64_limbs(&lv, CMP_INPUT_0);
+    let input1 = read_value_u64_limbs(&lv, CMP_INPUT_1);
 
     let (diff, br) = match op {
         // input0 - input1 == diff + br*2^256
