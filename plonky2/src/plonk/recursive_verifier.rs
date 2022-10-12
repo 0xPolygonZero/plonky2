@@ -445,4 +445,46 @@ mod tests {
     fn init_logger() {
         let _ = env_logger::builder().format_timestamp(None).try_init();
     }
+
+    #[test]
+    fn test_cyclic_recursion() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        // type FF = <C as GenericConfig<D>>::FE;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 1 << 13)?;
+
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, false, false)?;
+        let (_proof, _vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, false, false)?;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let verifier_data = VerifierCircuitTarget {
+            constants_sigmas_cap: builder.add_virtual_cap(builder.config.fri_config.cap_height),
+        };
+        for i in 0..1 << builder.config.fri_config.cap_height {
+            builder.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
+        }
+        let pt = builder.add_virtual_proof_with_pis(&cd);
+        builder.verify_proof(pt, &verifier_data, &cd);
+
+        let inner_gates = cd.gates.iter().map(|g| g.0.id()).collect::<Vec<_>>();
+        for gate in &builder.gates {
+            assert!(inner_gates.contains(&gate.0.id()), "{}", gate.0.id());
+        }
+        for _ in builder.num_gates()..(1 << 13) - 100 {
+            builder.add_gate(NoopGate, vec![]);
+        }
+        let data = builder.build::<C>();
+        dbg!(data.common.degree_bits);
+        let proof = data.prove(pw)?;
+
+        data.verify(proof)
+    }
 }

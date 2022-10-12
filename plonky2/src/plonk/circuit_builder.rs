@@ -50,7 +50,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
     /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F, D>>,
+    pub(crate) gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
