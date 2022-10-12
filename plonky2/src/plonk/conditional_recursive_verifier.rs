@@ -1,19 +1,64 @@
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
+use plonky2_util::ceil_div_usize;
 
 use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
 };
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
+use crate::plonk::circuit_data::{CircuitData, CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::proof::{
+    OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
+};
 use crate::with_context;
+
+/// Generate a proof having a given `CommonCircuitData`.
+pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, C, D>,
+) -> Result<(ProofWithPublicInputs<F, C, D>, CircuitData<F, C, D>)>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let config = common_data.config.clone();
+
+    let mut pw = PartialWitness::new();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+
+    ensure!(
+        !common_data.config.zero_knowledge,
+        "Degree calculation can be off if zero-knowledge is on."
+    );
+    let degree = 1 << common_data.degree_bits;
+    // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
+    // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
+    let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
+
+    for _ in 0..num_noop_gate {
+        builder.add_gate(NoopGate, vec![]);
+    }
+    for gate in &common_data.gates {
+        builder.add_gate_to_gate_set(gate.clone());
+    }
+    for _ in 0..common_data.num_public_inputs {
+        let t = builder.add_virtual_public_input();
+        pw.set_target(t, F::ZERO);
+    }
+
+    let data = builder.build::<C>();
+    assert_eq!(&data.common, common_data);
+    let proof = data.prove(pw)?;
+
+    Ok((proof, data))
+}
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verify `proof0` if `condition` else verify `proof1`.
@@ -81,6 +126,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 condition,
                 inner_verifier_data0.constants_sigmas_cap.clone(),
                 inner_verifier_data1.constants_sigmas_cap.clone(),
+            ),
+            circuit_digest: self.select_hash(
+                condition,
+                inner_verifier_data0.circuit_digest,
+                inner_verifier_data1.circuit_digest,
             ),
         };
 
@@ -297,6 +347,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
+        // Generate proof.
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let t = builder.add_virtual_target();
@@ -310,27 +361,26 @@ mod tests {
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
 
+        // Generate dummy proof with the same `CommonCircuitData`.
+        let (dummy_proof, dummy_data) = dummy_proof(&data.common)?;
+
+        // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target(&dummy_pt, &proof);
-
+        pw.set_proof_with_pis_target(&dummy_pt, &dummy_proof);
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&inner_data, &data.verifier_only);
         let dummy_inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &dummy_inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof(
             b,

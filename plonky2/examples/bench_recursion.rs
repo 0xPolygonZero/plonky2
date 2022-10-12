@@ -117,11 +117,9 @@ where
 
     let inner_data = VerifierCircuitTarget {
         constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
+        circuit_digest: builder.add_virtual_hash(),
     };
-    pw.set_cap_target(
-        &inner_data.constants_sigmas_cap,
-        &inner_vd.constants_sigmas_cap,
-    );
+    pw.set_verifier_data_target(&inner_data, inner_vd);
 
     builder.verify_proof(pt, &inner_data, inner_cd);
     builder.print_gate_counts(0);
@@ -151,6 +149,7 @@ where
 /// Test serialization and print some size info.
 fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof: &ProofWithPublicInputs<F, C, D>,
+    vd: &VerifierOnlyCircuitData<C, D>,
     cd: &CommonCircuitData<F, C, D>,
 ) -> Result<()>
 where
@@ -162,8 +161,10 @@ where
     assert_eq!(proof, &proof_from_bytes);
 
     let now = std::time::Instant::now();
-    let compressed_proof = proof.clone().compress(cd)?;
-    let decompressed_compressed_proof = compressed_proof.clone().decompress(cd)?;
+    let compressed_proof = proof.clone().compress(&vd.circuit_digest, cd)?;
+    let decompressed_compressed_proof = compressed_proof
+        .clone()
+        .decompress(&vd.circuit_digest, cd)?;
     info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
     assert_eq!(proof, &decompressed_compressed_proof);
 
@@ -204,14 +205,14 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
 
     // Add a second layer of recursion to shrink the proof size further
     let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
-    let (proof, _, cd) = &outer;
+    let (proof, vd, cd) = &outer;
     info!(
         "Double recursion proof degree {} = 2^{}",
         cd.degree(),
         cd.degree_bits
     );
 
-    test_serialization(proof, cd)?;
+    test_serialization(proof, vd, cd)?;
 
     Ok(())
 }

@@ -15,7 +15,7 @@ use crate::fri::structure::{
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
 use crate::gates::selectors::SelectorsInfo;
-use crate::hash::hash_types::{MerkleCapTarget, RichField};
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
@@ -29,7 +29,7 @@ use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::timing::TimingTree;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -139,6 +139,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         [(); C::Hasher::HASH_SIZE]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
+    }
+
+    pub fn compress(
+        &self,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> Result<CompressedProofWithPublicInputs<F, C, D>> {
+        proof.compress(&self.verifier_only.circuit_digest, &self.common)
+    }
+
+    pub fn decompress(
+        &self,
+        proof: CompressedProofWithPublicInputs<F, C, D>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
 
     pub fn verifier_data(self) -> VerifierCircuitData<F, C, D> {
@@ -253,6 +270,9 @@ pub struct ProverOnlyCircuitData<
     pub representative_map: Vec<usize>,
     /// Pre-computed roots for faster FFT.
     pub fft_root_table: Option<FftRootTable<F>>,
+    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
+    /// seed Fiat-Shamir.
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -260,10 +280,13 @@ pub struct ProverOnlyCircuitData<
 pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
+    /// seed Fiat-Shamir.
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
 }
 
 /// Circuit data required by both the prover and the verifier.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CommonCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -276,7 +299,7 @@ pub struct CommonCircuitData<
     pub degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub(crate) gates: Vec<GateRef<F, D>>,
+    pub(crate) gates: Vec<GateRef<C::F, D>>,
 
     /// Information on the circuit's selector polynomials.
     pub(crate) selectors_info: SelectorsInfo,
@@ -293,14 +316,10 @@ pub struct CommonCircuitData<
     pub(crate) num_public_inputs: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
-    pub(crate) k_is: Vec<F>,
+    pub(crate) k_is: Vec<C::F>,
 
     /// The number of partial products needed to compute the `Z` polynomials.
     pub(crate) num_partial_products: usize,
-
-    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
-    /// seed Fiat-Shamir.
-    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -476,4 +495,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub constants_sigmas_cap: MerkleCapTarget,
+    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
+    /// seed Fiat-Shamir.
+    pub circuit_digest: HashOutTarget,
 }
