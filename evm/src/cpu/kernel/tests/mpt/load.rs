@@ -1,12 +1,12 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, U256};
 
-use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
+use crate::cpu::kernel::{aggregator::KERNEL, tests::mpt::nibbles};
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
@@ -54,10 +54,7 @@ fn load_all_mpts_empty() -> Result<()> {
 fn load_all_mpts_leaf() -> Result<()> {
     let trie_inputs = TrieInputs {
         state_trie: PartialTrie::Leaf {
-            nibbles: Nibbles {
-                count: 3,
-                packed: 0xABC.into(),
-            },
+            nibbles: nibbles(0xABC),
             value: test_account_1_rlp(),
         },
         transactions_trie: Default::default(),
@@ -109,7 +106,7 @@ fn load_all_mpts_leaf() -> Result<()> {
 
 #[test]
 fn load_all_mpts_empty_branch() -> Result<()> {
-    let children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
+    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
