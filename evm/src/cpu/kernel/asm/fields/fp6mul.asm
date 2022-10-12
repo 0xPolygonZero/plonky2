@@ -1,4 +1,5 @@
-%macro mul_Fp6
+mul_Fp6:
+
     DUP6
     // stack: c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
     DUP12
@@ -315,4 +316,5 @@
     // stack: d2c0_ + d2_c0 + d0c2_ + d1c1_ + d1_c1 + d0_c2, 9d1c2_ + d1_c2 + d2c1_ + d2_c1 + d1c2 + d2c1 - d2_c1_ + d1_c2_ + d0c0 - d0_c0_, c0d1 + c1d0 + 9c2d2_ + c2_d2 - c2d2 - c2_d2_ - c0_d1_ + c1_d0_, c0d1_ + c0_d1 + c1d0_ + c1_d0 + 9c2d2 - c2_d2_ + c2d2_ + c2_d2, c0d2 + c1d1 + c2d0 - c0_d2_ + c1_d1_ + c2_d0_, 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0
     SWAP5
     // stack: 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0, 9d1c2_ + d1_c2 + d2c1_ + d2_c1 + d1c2 + d2c1 - d2_c1_ + d1_c2_ + d0c0 - d0_c0_, c0d1 + c1d0 + 9c2d2_ + c2_d2 - c2d2 - c2_d2_ - c0_d1_ + c1_d0_, c0d1_ + c0_d1 + c1d0_ + c1_d0 + 9c2d2 - c2_d2_ + c2d2_ + c2_d2, c0d2 + c1d1 + c2d0 - c0_d2_ + c1_d1_ + c2_d0_, d2c0_ + d2_c0 + d0c2_ + d1c1_ + d1_c1 + d0_c2
-%endmacro 
+
+    %jump(0xdeadbeef)
