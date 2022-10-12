@@ -1,8 +1,8 @@
 use anyhow::Result;
 use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
-use eth_trie_utils::trie_builder::InsertEntry;
 use ethereum_types::{BigEndianHash, H256};
 
+use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -12,218 +12,124 @@ use crate::generation::TrieInputs;
 
 #[test]
 fn mpt_insert_empty() -> Result<()> {
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(Default::default(), insert)
+    test_state_trie(Default::default(), nibbles(0xABC), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_leaf_identical_keys() -> Result<()> {
-    let key = Nibbles {
-        count: 3,
-        packed: 0xABC.into(),
-    };
+    let key = nibbles(0xABC);
     let state_trie = PartialTrie::Leaf {
         nibbles: key,
         value: test_account_1_rlp(),
     };
-    let insert = InsertEntry {
-        nibbles: key,
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, key, test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_leaf_nonoverlapping_keys() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
+        nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0x123.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0x123), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_leaf_overlapping_keys() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
+        nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xADE.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xADE), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_leaf_insert_key_extends_leaf_key() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
+        nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 5,
-            packed: 0xABCDE.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xABCDE), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_leaf_leaf_key_extends_insert_key() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 5,
-            packed: 0xABCDE.into(),
-        },
+        nibbles: nibbles(0xABCDE),
         value: test_account_1_rlp(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xABC), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
-    let children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
+    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
     };
 
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xABC), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
     // Existing keys are 0xABC, 0xABCDEF; inserted key is 0x12345.
-    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0xD] = Box::new(PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 2,
-            packed: 0xEF.into(),
-        },
+    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    children[0xD] = PartialTrie::Leaf {
+        nibbles: nibbles(0xEF),
         value: test_account_1_rlp(),
-    });
+    }
+    .into();
     let state_trie = PartialTrie::Extension {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        child: Box::new(PartialTrie::Branch {
+        nibbles: nibbles(0xABC),
+        child: PartialTrie::Branch {
             children,
             value: test_account_1_rlp(),
-        }),
+        }
+        .into(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 5,
-            packed: 0x12345.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0x12345), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
     // Existing keys are 0xA, 0xABCD; inserted key is 0xABCDEF.
-    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0xB] = Box::new(PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 2,
-            packed: 0xCD.into(),
-        },
+    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    children[0xB] = PartialTrie::Leaf {
+        nibbles: nibbles(0xCD),
         value: test_account_1_rlp(),
-    });
+    }
+    .into();
     let state_trie = PartialTrie::Extension {
-        nibbles: Nibbles {
-            count: 1,
-            packed: 0xA.into(),
-        },
-        child: Box::new(PartialTrie::Branch {
+        nibbles: nibbles(0xA),
+        child: PartialTrie::Branch {
             children,
             value: test_account_1_rlp(),
-        }),
+        }
+        .into(),
     };
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 6,
-            packed: 0xABCDEF.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xABCDEF), test_account_2_rlp())
 }
 
 #[test]
 fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
     let leaf = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xBCD.into(),
-        },
+        nibbles: nibbles(0xBCD),
         value: test_account_1_rlp(),
-    };
-    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0xA] = Box::new(leaf);
+    }
+    .into();
+    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    children[0xA] = leaf;
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
     };
 
-    let insert = InsertEntry {
-        nibbles: Nibbles {
-            count: 4,
-            packed: 0xABCD.into(),
-        },
-        v: test_account_2_rlp(),
-    };
-
-    test_state_trie(state_trie, insert)
+    test_state_trie(state_trie, nibbles(0xABCD), test_account_2_rlp())
 }
 
-fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
+fn test_state_trie(state_trie: PartialTrie, k: Nibbles, v: Vec<u8>) -> Result<()> {
     let trie_inputs = TrieInputs {
         state_trie: state_trie.clone(),
         transactions_trie: Default::default(),
@@ -249,7 +155,7 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
         trie_data.push(0.into());
     }
     let value_ptr = trie_data.len();
-    let account: AccountRlp = rlp::decode(&insert.v).expect("Decoding failed");
+    let account: AccountRlp = rlp::decode(&v).expect("Decoding failed");
     let account_data = account.to_vec();
     trie_data.push(account_data.len().into());
     trie_data.extend(account_data);
@@ -257,8 +163,8 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(insert.nibbles.packed); // key
-    interpreter.push(insert.nibbles.count.into()); // num_nibbles
+    interpreter.push(k.packed); // key
+    interpreter.push(k.count.into()); // num_nibbles
 
     interpreter.run()?;
     assert_eq!(
@@ -281,18 +187,9 @@ fn test_state_trie(state_trie: PartialTrie, insert: InsertEntry) -> Result<()> {
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = apply_insert(state_trie, insert);
+    let updated_trie = state_trie.insert(k, v);
     let expected_state_trie_hash = updated_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())
-}
-
-fn apply_insert(trie: PartialTrie, insert: InsertEntry) -> PartialTrie {
-    let mut trie = Box::new(trie);
-    if let Some(updated_trie) = PartialTrie::insert_into_trie(&mut trie, insert) {
-        *updated_trie
-    } else {
-        *trie
-    }
 }
