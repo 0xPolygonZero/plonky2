@@ -1,9 +1,52 @@
 //! Implementation of the shift left instruction (SHL)
 //!
-//! SHL takes a 256-bit input value x and an 8-bit displacement d and
-//! returns x << d (mod 2^256).  The implementation delegates most
-//! work to the MUL instruction. The displacement d is provided as the
-//! 8-bit value d and the 256-bit value 2^d; then SHL returns MUL(x, 2^d).
+//! SHL takes a 256-bit input value x and an 256-bit displacement d
+//! and returns x << d (mod 2^256).  The implementation verifies that
+//! `pow_exp` is `2^exp (mod 2^256)`, then just "calls" MUL(x, pow_exp).
+//!
+//! The method for verifying that `pow_exp` is `2^exp (mod 2^256)` is
+//! as follows:
+//!
+//! exp ∈ [0, 2^256).
+//! 2^exp (mod 2^256) ∈ [0, 2^256). For exp >= 256, 2^exp = 0 (mod 2^256).
+//!
+//! Write exp = E + Q*16 + Z*256
+//!           = (e[0] + e[1]*2 + e[2]*4 + e[3]*8) + Q*16 + Z*256
+//!
+//! where
+//!  - E = exp mod 16
+//!  - e[i] ∈ {0, 1}
+//!  - Q = ceil((exp mod 256) / 16) ∈ [0, 16)
+//!  - Z = ceil(exp / 256)
+//!
+//! So we need to verify that
+//!
+//!   pow_exp = 2^exp (mod 2^256)
+//!           = 2^E * 2^(Q * 16) * 2^(Z * 256)  (mod 2^256)
+//!
+//! If Z > 0, then pow_exp = 0.
+//!
+//! **Otherwise, pow_exp has the value 2^E at the Qth limb and zero
+//! elsewhere.**
+//!
+//! In the code we write exp_mod256_quo16 for Q and exp_mod16_bits for
+//! E. We also write exp_limb0_quo256 for 256*Z mod 2^16.
+//!
+//! To obtain 2^E where E = \sum_{i=0}^3 exp_mod16_bits[i] * 2^i, we
+//! use the auxiliary values pow_exp_aux_[012], in particular we
+//! verify that pow_exp_aux_2 = 2^E.  To do this, observe that
+//!
+//! 2^E = \prod_i=0^3 (2^(2^i) if exp_mod16_bits[i] = 1 else 1)
+//!     = \prod_i=0^3 ((2^(2^i) - 1) * exp_mod16_bits[i] + 1)
+//!
+//! We verify the degree 4 product using the auxiliary values
+//!
+//!    pow_exp_aux_0 = \prod_i=0^1 ((2^i - 1) * exp_mod16_bits[i] + 1)
+//!    pow_exp_aux_1 = \prod_i=2^3 ((2^i - 1) * exp_mod16_bits[i] + 1)
+//!
+//! Then
+//!
+//!    2^E = pow_exp_aux_0 * pow_exp_aux_1 = pow_exp_aux_2
 
 use std::ops::Range;
 
@@ -94,29 +137,6 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     pow_exp_aux_1: usize,
     pow_exp_aux_2: usize,
 ) {
-    // exp ∈ [0, 2^256).
-    // pow_exp ?= 2^exp (mod 2^256) ∈ [0, 2^256). For exp >= 256, pow_exp = 0.
-    //
-    // Write exp = E + Q*16 + Z*256
-    //           = (e[0] + e[1]*2 + e[2]*4 + e[3]*8) + Q*16 + Z*256
-    //
-    // where
-    //  - E = exp mod 16, e[i] ∈ {0, 1}
-    //  - Q = ceil((exp mod 256) / 16) ∈ [0, 16)
-    //  - Z = ceil(exp / 256)
-    //
-    // So we need to verify that
-    //
-    //   pow_exp = 2^exp (mod 2^256)
-    //           = 2^E * 2^(Q * 16) * 2^(Z * 256)  (mod 2^256)
-    //
-    // If Z > 0, then pow_exp = 0.
-    // Otherwise, pow_exp has the value 2^E at the Qth limb and zero
-    // elsewhere.
-    //
-    // Below we write exp_mod256_quo16 for Q and exp_mod16_bits for
-    // E. We also write exp_limb0_quo256 for 256*Z mod 2^16.
-
     let exp_limb0_quo256 = lv[exp_limb0_quo256];
     let exp_mod256_quo16 = lv[exp_mod256_quo16];
     let exp_mod16_bits: [P; 4] = read_value(lv, exp_mod16_bits);
@@ -142,7 +162,7 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     // This value is zero if ceil(exp/256) = 0 and nonzero
     // otherwise. Because of the range checks on exp, it is bounded
     // above by 2^8 + 15 * 2^16.
-    // NB: I don't understand why I do lv[exp].into_iter().skip(1).sum::<P>();
+    // NB: I don't understand why I can't do lv[exp].into_iter().skip(1).sum::<P>();
     let sum_tail = |ps: &[P]| ps.iter().skip(1).fold(P::ZEROS, |acc, &x| acc + x);
     let exp_quo256_is_nonzero = exp_limb0_quo256 + sum_tail(&lv[exp]);
 
@@ -170,19 +190,6 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     let nz_limb = limb_sum;
 
     // Check that nz_limb = 2^E where E = \sum_{i=0}^3 exp_mod16_bits[i] * 2^i.
-    // To do this, observe that
-    //
-    // 2^E = \prod_i=0^3 (2^(2^i) if exp_mod16_bits[i] = 1 else 1)
-    //     = \prod_i=0^3 ((2^(2^i) - 1) * exp_mod16_bits[i] + 1)
-    //
-    // We verify the degree 4 product using the auxiliary values
-    //
-    //    pow_exp_aux_0 = \prod_i=0^1 ((2^i - 1) * exp_mod16_bits[i] + 1)
-    //    pow_exp_aux_1 = \prod_i=2^3 ((2^i - 1) * exp_mod16_bits[i] + 1)
-    //
-    // Then
-    //
-    //    2^E = pow_exp_aux_0 * pow_exp_aux_1 = pow_exp_aux_2
 
     // c[i-1] = 2^(2^i) - 1
     let c = [
@@ -203,6 +210,7 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     let constr3 = pow_exp_aux_0 * pow_exp_aux_1;
     yield_constr.constraint(filter * (constr3 - pow_exp_aux_2));
 
+    // Finally, either pow_exp is zero or the nonzero limb matches 2^E.
     yield_constr.constraint(filter * nz_limb * (pow_exp_aux_2 - nz_limb));
 }
 
