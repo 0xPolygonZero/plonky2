@@ -380,7 +380,7 @@ impl<'a> Interpreter<'a> {
     fn run_sub_p(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from((x - y) % 101).unwrap());
+        self.push(U256::try_from((U256::from(101) + x - y) % 101).unwrap());
     }
 
     fn run_div(&mut self) {

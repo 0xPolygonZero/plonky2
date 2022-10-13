@@ -1,4 +1,5 @@
-mul_Fp6:
+global mul_Fp6:
+    // stack: d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
     DUP6
     // stack: c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
     DUP12
@@ -99,7 +100,7 @@ mul_Fp6:
     // stack: 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1, c0d0_ + c0_d0, d1c2_ + d1_c2 + d2c1_ + d2_c1, d1c2 + d2c1 - d2_c1_ + d1_c2_, d0c0 - d0_c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
     ADDFP254
     // stack: 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0, d1c2_ + d1_c2 + d2c1_ + d2_c1, d1c2 + d2c1 - d2_c1_ + d1_c2_, d0c0 - d0_c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
-    SWAP15
+    SWAP15    
     // stack: c1_, d1c2_ + d1_c2 + d2c1_ + d2_c1, d1c2 + d2c1 - d2_c1_ + d1_c2_, d0c0 - d0_c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0
     SWAP3
     // stack: d0c0 - d0_c0_, d1c2_ + d1_c2 + d2c1_ + d2_c1, d1c2 + d2c1 - d2_c1_ + d1_c2_, c1_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0
