@@ -143,7 +143,7 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     // otherwise. Because of the range checks on exp, it is bounded
     // above by 2^8 + 15 * 2^16.
     // NB: I don't understand why I do lv[exp].into_iter().skip(1).sum::<P>();
-    let sum_tail = |ps: &[P]| ps.into_iter().skip(1).fold(P::ZEROS, |acc, &x| acc + x);
+    let sum_tail = |ps: &[P]| ps.iter().skip(1).fold(P::ZEROS, |acc, &x| acc + x);
     let exp_quo256_is_nonzero = exp_limb0_quo256 + sum_tail(&lv[exp]);
 
     // If exp_quo256_is_nonzero is zero, then exp < 256 and the
@@ -159,7 +159,7 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     // Check that the only non-zero limb of pow_exp is the
     // nz_limb_idx-th limb (it doesn't have to be nonzero though).
     let mut limb_sum = P::ZEROS;
-    for (i, &limb_i) in (0..).zip(lv[pow_exp].into_iter()) {
+    for (i, &limb_i) in (0..).zip(lv[pow_exp].iter()) {
         let i = P::Scalar::from_canonical_u64(i);
         yield_constr.constraint(filter * limb_i * (nz_limb_idx - i));
         limb_sum += limb_i;
@@ -237,6 +237,93 @@ pub fn eval_packed_generic<P: PackedField>(
         SHIFT_AUX_INPUT,
     );
     //verify_div_packed(lv, yield_constr, lv[IS_SHR], SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT, ...);
+}
+
+pub(crate) fn verify_2exp_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    filter: ExtensionTarget<D>,
+    exp: Range<usize>,
+    pow_exp: Range<usize>,
+    exp_limb0_quo256: usize,
+    exp_mod256_quo16: usize,
+    exp_mod16_bits: Range<usize>,
+    pow_exp_aux_0: usize,
+    pow_exp_aux_1: usize,
+    pow_exp_aux_2: usize,
+) {
+    let exp_limb0_quo256 = lv[exp_limb0_quo256];
+    let exp_mod256_quo16 = lv[exp_mod256_quo16];
+    let exp_mod16_bits: [_; 4] = read_value(lv, exp_mod16_bits);
+    for b in exp_mod16_bits {
+        let t = builder.mul_sub_extension(b, b, b);
+        let t = builder.mul_extension(filter, t);
+        yield_constr.constraint(builder, t);
+    }
+
+    let mut t = exp_mod16_bits[0];
+    t = builder.mul_const_add_extension(F::TWO, exp_mod16_bits[1], t);
+    t = builder.mul_const_add_extension(F::from_canonical_u64(4), exp_mod16_bits[2], t);
+    t = builder.mul_const_add_extension(F::from_canonical_u64(8), exp_mod16_bits[3], t);
+    t = builder.mul_const_add_extension(F::from_canonical_u64(16), exp_mod256_quo16, t);
+
+    t = builder.mul_const_add_extension(F::from_canonical_u64(256), exp_limb0_quo256, t);
+    let expected_exp_limb0 = t;
+    let c = builder.sub_extension(lv[exp.start], expected_exp_limb0);
+    let c = builder.mul_extension(filter, c);
+    yield_constr.constraint(builder, c);
+
+    let exp_tail: [_; 15] = lv[exp].try_into().unwrap();
+    let sum_tail = builder.add_many_extension(exp_tail);
+    let exp_quo256_is_nonzero = builder.add_extension(exp_limb0_quo256, sum_tail);
+    let nz_limb_idx = builder.mul_const_add_extension(
+        F::from_canonical_u64(16),
+        exp_quo256_is_nonzero,
+        exp_mod256_quo16,
+    );
+
+    let mut limb_sum = builder.zero_extension();
+    for (i, &limb_i) in (0..).zip(lv[pow_exp].iter()) {
+        let i = F::from_canonical_u64(i);
+        // t = limb_i * (nz_limb_idx - i)
+        let t = builder.arithmetic_extension(F::ONE, -i, limb_i, nz_limb_idx, limb_i);
+        let c = builder.mul_extension(filter, t);
+        yield_constr.constraint(builder, c);
+        limb_sum = builder.add_extension(limb_sum, limb_i);
+    }
+
+    let nz_limb = limb_sum;
+    let c = [
+        F::from_canonical_u64(3),
+        F::from_canonical_u64(15),
+        F::from_canonical_u64(255),
+    ];
+
+    let pow_exp_aux_0 = lv[pow_exp_aux_0];
+    let t = builder.add_const_extension(exp_mod16_bits[0], F::ONE);
+    let constr1 = builder.arithmetic_extension(c[0], F::ONE, t, exp_mod16_bits[1], t);
+    let t = builder.sub_extension(constr1, pow_exp_aux_0);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+
+    let pow_exp_aux_1 = lv[pow_exp_aux_1];
+    let one = builder.one_extension();
+    let t = builder.mul_const_add_extension(c[1], exp_mod16_bits[2], one);
+    let constr2 = builder.arithmetic_extension(c[2], F::ONE, t, exp_mod16_bits[3], t);
+    let t = builder.sub_extension(constr2, pow_exp_aux_1);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+
+    let pow_exp_aux_2 = lv[pow_exp_aux_2];
+    let t = builder.mul_sub_extension(pow_exp_aux_0, pow_exp_aux_1, pow_exp_aux_2);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+
+    let t = builder.sub_extension(pow_exp_aux_2, nz_limb);
+    let t = builder.mul_extension(nz_limb, t);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -321,7 +408,8 @@ mod tests {
 
         for iter in 0..N_ITERS {
             //for (op, other_op) in [(IS_SHL, IS_SHR), (IS_SHR, IS_SHL)] {
-            for (op, other_op) in [(IS_SHL, IS_SHR)] {
+            let (op, other_op) = (IS_SHL, IS_SHR);
+            {
                 // set op == 1 and ensure all constraints are satisfied.
                 // we have to explicitly set the other op to zero since both
                 // are treated by the call.
