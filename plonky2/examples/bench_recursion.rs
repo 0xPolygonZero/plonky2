@@ -190,7 +190,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     info!(
         "Initial proof degree {} = 2^{}",
         cd.degree(),
-        cd.degree_bits
+        cd.degree_bits()
     );
 
     // Recursively verify the proof
@@ -199,7 +199,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     info!(
         "Single recursion proof degree {} = 2^{}",
         cd.degree(),
-        cd.degree_bits
+        cd.degree_bits()
     );
 
     // Add a second layer of recursion to shrink the proof size further
@@ -208,7 +208,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     info!(
         "Double recursion proof degree {} = 2^{}",
         cd.degree(),
-        cd.degree_bits
+        cd.degree_bits()
     );
 
     test_serialization(proof, cd)?;

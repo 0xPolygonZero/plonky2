@@ -66,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let zeta_pow_deg =
-            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits);
+            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits());
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
@@ -223,17 +223,17 @@ mod tests {
 
         // Start with a degree 2^14 proof
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
-        assert_eq!(cd.degree_bits, 14);
+        assert_eq!(cd.degree_bits(), 14);
 
         // Shrink it to 2^13.
         let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
-        assert_eq!(cd.degree_bits, 13);
+        assert_eq!(cd.degree_bits(), 13);
 
         // Shrink it to 2^12.
         let (proof, _vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits(), 12);
 
         test_serialization(&proof, &cd)?;
 
@@ -255,11 +255,11 @@ mod tests {
 
         // An initial dummy proof.
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits(), 12);
 
         // A standard recursive proof.
         let (proof, vd, cd) = recursive_proof(proof, vd, cd, &standard_config, None, false, false)?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits(), 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
@@ -273,7 +273,7 @@ mod tests {
         };
         let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits(), 12);
 
         // A final proof, optimized for size.
         let final_config = CircuitConfig {
@@ -289,7 +289,7 @@ mod tests {
         };
         let (proof, _vd, cd) =
             recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
-        assert_eq!(cd.degree_bits, 12, "final proof too large");
+        assert_eq!(cd.degree_bits(), 12, "final proof too large");
 
         test_serialization(&proof, &cd)?;
 
