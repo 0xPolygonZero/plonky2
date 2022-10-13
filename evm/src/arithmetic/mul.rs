@@ -66,7 +66,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 pub(crate) fn generate_mul<F: RichField>(
     lv: &mut [F; NUM_ARITH_COLUMNS],
@@ -164,7 +163,15 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    verify_mul_packed(lv, yield_constr, lv[IS_MUL], MUL_INPUT_0, MUL_INPUT_1, MUL_OUTPUT, MUL_AUX_INPUT);
+    verify_mul_packed(
+        lv,
+        yield_constr,
+        lv[IS_MUL],
+        MUL_INPUT_0,
+        MUL_INPUT_1,
+        MUL_OUTPUT,
+        MUL_AUX_INPUT,
+    );
 }
 
 pub fn verify_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -200,7 +207,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    verify_mul_circuit(builder, lv, yield_constr, lv[IS_MUL], MUL_INPUT_0, MUL_INPUT_1, MUL_OUTPUT, MUL_AUX_INPUT);
+    verify_mul_circuit(
+        builder,
+        lv,
+        yield_constr,
+        lv[IS_MUL],
+        MUL_INPUT_0,
+        MUL_INPUT_1,
+        MUL_OUTPUT,
+        MUL_AUX_INPUT,
+    );
 }
 
 #[cfg(test)]

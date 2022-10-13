@@ -8,15 +8,15 @@
 use std::ops::Range;
 
 use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::mul::{generate_mul, verify_mul_packed, verify_mul_circuit};
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::arithmetic::mul::{generate_mul, verify_mul_circuit, verify_mul_packed};
 use crate::arithmetic::utils::{read_value, read_value_u64_limbs};
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 pub(crate) fn generate_2exp<F: RichField>(
     lv: &mut [F; NUM_ARITH_COLUMNS],
@@ -31,7 +31,12 @@ pub(crate) fn generate_2exp<F: RichField>(
 ) {
     let exp: [u64; N_LIMBS] = read_value_u64_limbs(lv, exp);
     let exp_mod16 = exp[0] % 16;
-    let bits = [exp_mod16 & 1, (exp_mod16 >> 1) & 1, (exp_mod16 >> 2) & 1, (exp_mod16 >> 3) & 1];
+    let bits = [
+        exp_mod16 & 1,
+        (exp_mod16 >> 1) & 1,
+        (exp_mod16 >> 2) & 1,
+        (exp_mod16 >> 3) & 1,
+    ];
     lv[pow_exp_aux_0] = F::from_canonical_u64((bits[0] + 1) * (3 * bits[1] + 1));
     lv[pow_exp_aux_1] = F::from_canonical_u64((15 * bits[2] + 1) * (255 * bits[3] + 1));
     lv[pow_exp_aux_2] = lv[pow_exp_aux_0] * lv[pow_exp_aux_1];
@@ -50,10 +55,7 @@ pub(crate) fn generate_2exp<F: RichField>(
     lv[pow_exp].copy_from_slice(&pow.map(|c| F::from_canonical_u64(c)));
 }
 
-pub fn generate<F: RichField>(
-    lv: &mut [F; NUM_ARITH_COLUMNS],
-    is_op: usize,
-) {
+pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], is_op: usize) {
     generate_2exp(
         lv,
         SHIFT_INPUT_EXP,
@@ -66,7 +68,13 @@ pub fn generate<F: RichField>(
         SHIFT_INPUT_POW_EXP_AUX_2,
     );
     match is_op {
-        IS_SHL => generate_mul(lv, SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT),
+        IS_SHL => generate_mul(
+            lv,
+            SHIFT_INPUT_VALUE,
+            SHIFT_INPUT_POW_EXP,
+            SHIFT_OUTPUT,
+            SHIFT_AUX_INPUT,
+        ),
         //IS_SHR => generate_div(lv, SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT, ...),
         IS_SHR => todo!(),
         _ => panic!("unrecognized shift instruction"),
@@ -177,9 +185,11 @@ pub(crate) fn verify_2exp_packed<P: PackedField>(
     //    2^E = pow_exp_aux_0 * pow_exp_aux_1 = pow_exp_aux_2
 
     // c[i-1] = 2^(2^i) - 1
-    let c = [P::Scalar::from_canonical_u64(3),
-             P::Scalar::from_canonical_u64(15),
-             P::Scalar::from_canonical_u64(255)];
+    let c = [
+        P::Scalar::from_canonical_u64(3),
+        P::Scalar::from_canonical_u64(15),
+        P::Scalar::from_canonical_u64(255),
+    ];
 
     let pow_exp_aux_0 = lv[pow_exp_aux_0];
     let constr1 = (exp_mod16_bits[0] + P::ONES) * (exp_mod16_bits[1] * c[0] + P::ONES);
@@ -217,18 +227,51 @@ pub fn eval_packed_generic<P: PackedField>(
         SHIFT_INPUT_POW_EXP_AUX_2,
     );
 
-    verify_mul_packed(lv, yield_constr, lv[IS_SHL], SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT);
+    verify_mul_packed(
+        lv,
+        yield_constr,
+        lv[IS_SHL],
+        SHIFT_INPUT_VALUE,
+        SHIFT_INPUT_POW_EXP,
+        SHIFT_OUTPUT,
+        SHIFT_AUX_INPUT,
+    );
     //verify_div_packed(lv, yield_constr, lv[IS_SHR], SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT, ...);
 }
-
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    verify_mul_circuit(builder, lv, yield_constr, lv[IS_SHL], SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT);
-    todo!();
+    let filter = builder.add_extension(lv[IS_SHL], lv[IS_SHR]);
+
+    verify_2exp_circuit(
+        builder,
+        lv,
+        yield_constr,
+        filter,
+        SHIFT_INPUT_EXP,
+        SHIFT_INPUT_POW_EXP,
+        SHIFT_INPUT_EXP_LIMB0_QUO256,
+        SHIFT_INPUT_EXP_MOD256_QUO16,
+        SHIFT_INPUT_EXP_MOD16_BITS,
+        SHIFT_INPUT_POW_EXP_AUX_0,
+        SHIFT_INPUT_POW_EXP_AUX_1,
+        SHIFT_INPUT_POW_EXP_AUX_2,
+    );
+
+    verify_mul_circuit(
+        builder,
+        lv,
+        yield_constr,
+        lv[IS_SHL],
+        SHIFT_INPUT_VALUE,
+        SHIFT_INPUT_POW_EXP,
+        SHIFT_OUTPUT,
+        SHIFT_AUX_INPUT,
+    );
+    //verify_div_circuit(builder, lv, yield_constr, lv[IS_SHR], SHIFT_INPUT_VALUE, SHIFT_INPUT_POW_EXP, SHIFT_OUTPUT, SHIFT_AUX_INPUT);
 }
 
 #[cfg(test)]
