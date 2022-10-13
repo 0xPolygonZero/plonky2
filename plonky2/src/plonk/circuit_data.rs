@@ -276,7 +276,7 @@ pub struct ProverOnlyCircuitData<
 }
 
 /// Circuit data required by the verifier, but not the prover.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
