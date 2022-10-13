@@ -84,4 +84,16 @@ pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_2;
 
+pub(crate) const SHIFT_INPUT_VALUE: Range<usize> = GENERAL_INPUT_0;
+pub(crate) const SHIFT_INPUT_EXP: Range<usize> = GENERAL_INPUT_1;
+pub(crate) const SHIFT_INPUT_POW_EXP: Range<usize> = GENERAL_INPUT_2;
+pub(crate) const SHIFT_OUTPUT: Range<usize> = GENERAL_INPUT_3;
+pub(crate) const SHIFT_AUX_INPUT: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
+pub(crate) const SHIFT_INPUT_EXP_MOD16_BITS: Range<usize> = SHIFT_AUX_INPUT.end..SHIFT_AUX_INPUT.end + 4;
+pub(crate) const SHIFT_INPUT_EXP_LIMB0_QUO256: usize = SHIFT_INPUT_EXP_MOD16_BITS.end + 1;
+pub(crate) const SHIFT_INPUT_EXP_MOD256_QUO16: usize = SHIFT_INPUT_EXP_LIMB0_QUO256 + 1;
+pub(crate) const SHIFT_INPUT_POW_EXP_AUX_0: usize = SHIFT_INPUT_EXP_MOD256_QUO16 + 1;
+pub(crate) const SHIFT_INPUT_POW_EXP_AUX_1: usize = SHIFT_INPUT_POW_EXP_AUX_0 + 1;
+pub(crate) const SHIFT_INPUT_POW_EXP_AUX_2: usize = SHIFT_INPUT_POW_EXP_AUX_1 + 1;
+
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

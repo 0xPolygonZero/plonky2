@@ -55,6 +55,8 @@
 //! file `modular.rs`), we don't need to check that output is reduced,
 //! since any value of output is less than β^16 and is hence reduced.
 
+use std::ops::Range;
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -66,11 +68,15 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
-    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
-
-    const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
+pub(crate) fn generate_mul<F: RichField>(
+    lv: &mut [F; NUM_ARITH_COLUMNS],
+    input0: Range<usize>,
+    input1: Range<usize>,
+    output: Range<usize>,
+    aux_input: Range<usize>,
+) {
+    let input0 = read_value_i64_limbs(lv, input0);
+    let input1 = read_value_i64_limbs(lv, input1);
 
     // Input and output have 16-bit limbs
     let mut output_limbs = [0i64; N_LIMBS];
@@ -81,6 +87,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut cy = 0i64;
     let mut unreduced_prod = pol_mul_lo(input0, input1);
     for col in 0..N_LIMBS {
+        const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
@@ -90,29 +97,37 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     // aux_limbs to handle the fact that unreduced_prod will
     // inevitably contain one digit's worth that is > 2^256.
 
-    lv[MUL_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[output].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
     aux_limbs[N_LIMBS - 1] = -cy;
 
-    lv[MUL_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
+    lv[aux_input].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+    generate_mul(lv, MUL_INPUT_0, MUL_INPUT_1, MUL_OUTPUT, MUL_AUX_INPUT);
+}
+
+pub(crate) fn verify_mul_packed<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
+    filter: P,
+    input0: Range<usize>,
+    input1: Range<usize>,
+    output: Range<usize>,
+    aux_input: Range<usize>,
 ) {
-    range_check_error!(MUL_INPUT_0, 16);
-    range_check_error!(MUL_INPUT_1, 16);
-    range_check_error!(MUL_OUTPUT, 16);
-    range_check_error!(MUL_AUX_INPUT, 20);
+    // range_check_error!(input0, 16);
+    // range_check_error!(input1, 16);
+    // range_check_error!(output, 16);
+    // range_check_error!(aux_input, 20);
 
-    let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, input0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, input1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, output);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, aux_input);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -141,20 +156,31 @@ pub fn eval_packed_generic<P: PackedField>(
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
-        yield_constr.constraint(is_mul * c);
+        yield_constr.constraint(filter * c);
     }
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub fn eval_packed_generic<P: PackedField>(
+    lv: &[P; NUM_ARITH_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    verify_mul_packed(lv, yield_constr, lv[IS_MUL], MUL_INPUT_0, MUL_INPUT_1, MUL_OUTPUT, MUL_AUX_INPUT);
+}
+
+pub fn verify_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    filter: ExtensionTarget<D>,
+    input0: Range<usize>,
+    input1: Range<usize>,
+    output: Range<usize>,
+    aux_input: Range<usize>,
 ) {
-    let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, input0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, input1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, output);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, aux_input);
 
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
@@ -164,9 +190,17 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &rhs);
 
     for &c in &constr_poly {
-        let filter = builder.mul_extension(is_mul, c);
-        yield_constr.constraint(builder, filter);
+        let t = builder.mul_extension(filter, c);
+        yield_constr.constraint(builder, t);
     }
+}
+
+pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    verify_mul_circuit(builder, lv, yield_constr, lv[IS_MUL], MUL_INPUT_0, MUL_INPUT_1, MUL_OUTPUT, MUL_AUX_INPUT);
 }
 
 #[cfg(test)]

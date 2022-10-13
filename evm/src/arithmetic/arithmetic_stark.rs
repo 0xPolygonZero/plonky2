@@ -11,6 +11,7 @@ use crate::arithmetic::columns;
 use crate::arithmetic::compare;
 use crate::arithmetic::modular;
 use crate::arithmetic::mul;
+use crate::arithmetic::shift;
 use crate::arithmetic::sub;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
@@ -57,6 +58,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             modular::generate(local_values, columns::IS_MULMOD);
         } else if local_values[columns::IS_MOD].is_one() {
             modular::generate(local_values, columns::IS_MOD);
+        } else if local_values[columns::IS_SHL].is_one() {
+            shift::generate(local_values, columns::IS_SHL);
+        } else if local_values[columns::IS_SHR].is_one() {
+            shift::generate(local_values, columns::IS_SHR);
         } else {
             todo!("the requested operation has not yet been implemented");
         }
@@ -80,6 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         mul::eval_packed_generic(lv, yield_constr);
         compare::eval_packed_generic(lv, yield_constr);
         modular::eval_packed_generic(lv, yield_constr);
+        shift::eval_packed_generic(lv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -94,6 +100,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         mul::eval_ext_circuit(builder, lv, yield_constr);
         compare::eval_ext_circuit(builder, lv, yield_constr);
         modular::eval_ext_circuit(builder, lv, yield_constr);
+        shift::eval_ext_circuit(builder, lv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
