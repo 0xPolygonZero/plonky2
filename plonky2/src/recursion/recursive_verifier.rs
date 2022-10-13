@@ -494,7 +494,7 @@ mod tests {
         pw.set_bool_target(condition, false);
 
         let (dummy_proof, dummy_data) =
-            crate::plonk::conditional_recursive_verifier::dummy_proof(&cd)?;
+            crate::recursion::conditional_recursive_verifier::dummy_proof(&cd)?;
         let pt0 = builder.add_virtual_proof_with_pis(&cd);
         let pt1 = builder.add_virtual_proof_with_pis(&cd);
 
