@@ -71,9 +71,9 @@ mstore_unpacking_loop:
     // stack: i, context, segment, offset, value, len, retdest
 
     // Increment offset.
-    SWAP3 %add_const(1) SWAP3
+    SWAP3 %increment SWAP3
     // Increment i.
-    %add_const(1)
+    %increment
 
     %jump(mstore_unpacking_loop)
 

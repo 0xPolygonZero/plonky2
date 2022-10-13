@@ -3,30 +3,57 @@
 //! This crate verifies an EVM MUL instruction, which takes two
 //! 256-bit inputs A and B, and produces a 256-bit output C satisfying
 //!
-//!    C = A*B (mod 2^256).
+//!    C = A*B (mod 2^256),
 //!
-//! Inputs A and B, and output C, are given as arrays of 16-bit
+//! i.e. C is the lower half of the usual long multiplication
+//! A*B. Inputs A and B, and output C, are given as arrays of 16-bit
 //! limbs. For example, if the limbs of A are a[0]...a[15], then
 //!
 //!    A = \sum_{i=0}^15 a[i] β^i,
 //!
-//! where β = 2^16. To verify that A, B and C satisfy the equation we
-//! proceed as follows. Define a(x) = \sum_{i=0}^15 a[i] x^i (so A = a(β))
-//! and similarly for b(x) and c(x). Then A*B = C (mod 2^256) if and only
-//! if there exist polynomials q and m such that
+//! where β = 2^16 = 2^LIMB_BITS. To verify that A, B and C satisfy
+//! the equation we proceed as follows. Define
 //!
-//!    a(x)*b(x) - c(x) - m(x)*x^16 - (β - x)*q(x) == 0.
+//!    a(x) = \sum_{i=0}^15 a[i] x^i
+//!
+//! (so A = a(β)) and similarly for b(x) and c(x). Then A*B = C (mod
+//! 2^256) if and only if there exists q such that the polynomial
+//!
+//!    a(x) * b(x) - c(x) - x^16 * q(x)
+//!
+//! is zero when evaluated at x = β, i.e. it is divisible by (x - β);
+//! equivalently, there exists a polynomial s (representing the
+//! carries from the long multiplication) such that
+//!
+//!    a(x) * b(x) - c(x) - x^16 * q(x) - (x - β) * s(x) == 0
+//!
+//! As we only need the lower half of the product, we can omit q(x)
+//! since it is multiplied by the modulus β^16 = 2^256. Thus we only
+//! need to verify
+//!
+//!    a(x) * b(x) - c(x) - (x - β) * s(x) == 0
+//!
+//! In the code below, this "constraint polynomial" is constructed in
+//! the variable `constr_poly`. It must be identically zero for the
+//! multiplication operation to be verified, or, equivalently, each of
+//! its coefficients must be zero. The variable names of the
+//! constituent polynomials are (writing N for N_LIMBS=16):
+//!
+//!   a(x) = \sum_{i=0}^{N-1} input0[i] * x^i
+//!   b(x) = \sum_{i=0}^{N-1} input1[i] * x^i
+//!   c(x) = \sum_{i=0}^{N-1} output[i] * x^i
+//!   s(x) = \sum_i^{2N-3} aux[i] * x^i
 //!
 //! Because A, B and C are 256-bit numbers, the degrees of a, b and c
-//! are (at most) 15. Thus deg(a*b) <= 30, so deg(m) <= 14 and deg(q)
-//! <= 29. However, the fact that we're verifying the equality modulo
-//! 2^256 means that we can ignore terms of degree >= 16, since for
-//! them evaluating at β gives a factor of β^16 = 2^256 which is 0.
+//! are (at most) 15. Thus deg(a*b) <= 30 and deg(s) <= 29; however,
+//! as we're only verifying the lower half of A*B, we only need to
+//! know s(x) up to degree 14 (so that (x - β)*s(x) has degree 15). On
+//! the other hand, the coefficients of s(x) can be as large as
+//! 16*(β-2) or 20 bits.
 //!
-//! Hence, to verify the equality, we don't need m(x) at all, and we
-//! only need to know q(x) up to degree 14 (so that (β - x)*q(x) has
-//! degree 15). On the other hand, the coefficients of q(x) can be as
-//! large as 16*(β-2) or 20 bits.
+//! Note that, unlike for the general modular multiplication (see the
+//! file `modular.rs`), we don't need to check that output is reduced,
+//! since any value of output is less than β^16 and is hence reduced.
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -35,65 +62,41 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::{pol_mul_lo, pol_sub_assign};
+use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
+    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
+    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
 
-    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
+    const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
-    let mut aux_in_limbs = [0u64; N_LIMBS];
-    let mut output_limbs = [0u64; N_LIMBS];
+    let mut output_limbs = [0i64; N_LIMBS];
 
     // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
     // then do carry propagation to obtain C = c(β) = a(β)*b(β).
-    let mut cy = 0u64;
-    let mut unreduced_prod = pol_mul_lo(input0_limbs, input1_limbs);
+    let mut cy = 0i64;
+    let mut unreduced_prod = pol_mul_lo(input0, input1);
     for col in 0..N_LIMBS {
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
         output_limbs[col] = t & MASK;
     }
-
     // In principle, the last cy could be dropped because this is
     // multiplication modulo 2^256. However, we need it below for
-    // aux_in_limbs to handle the fact that unreduced_prod will
-    // inevitably contain a one digit's worth that is > 2^256.
+    // aux_limbs to handle the fact that unreduced_prod will
+    // inevitably contain one digit's worth that is > 2^256.
 
-    for (&c, output_limb) in MUL_OUTPUT.iter().zip(output_limbs) {
-        lv[c] = F::from_canonical_u64(output_limb);
-    }
+    lv[MUL_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
-    // unreduced_prod is the coefficients of the polynomial a(x)*b(x) - c(x).
-    // This must be zero when evaluated at x = β = 2^LIMB_BITS, hence it's
-    // divisible by (β - x). If we write unreduced_prod as
-    //
-    //   a(x)*b(x) - c(x) = \sum_{i=0}^n p_i x^i  + terms of degree > n
-    //                    = (β - x) \sum_{i=0}^{n-1} q_i x^i  + terms of degree > n
-    //
-    // then by comparing coefficients it is easy to see that
-    //
-    //   q_0 = p_0 / β  and  q_i = (p_i + q_{i-1}) / β
-    //
-    // for 0 < i < n-1 (and the divisions are exact). Because we're
-    // only calculating the result modulo 2^256, we can ignore the
-    // terms of degree > n = 15.
-    aux_in_limbs[0] = unreduced_prod[0] >> LIMB_BITS;
-    for deg in 1..N_LIMBS - 1 {
-        aux_in_limbs[deg] = (unreduced_prod[deg] + aux_in_limbs[deg - 1]) >> LIMB_BITS;
-    }
-    aux_in_limbs[N_LIMBS - 1] = cy;
+    let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
+    aux_limbs[N_LIMBS - 1] = -cy;
 
-    for deg in 0..N_LIMBS {
-        let c = MUL_AUX_INPUT[deg];
-        lv[c] = F::from_canonical_u64(aux_in_limbs[deg]);
-    }
+    lv[MUL_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -106,38 +109,35 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_AUX_INPUT, 20);
 
     let is_mul = lv[IS_MUL];
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
-    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
-    let aux_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
     // verified.
     //
-    // These two lines set constr_poly to the polynomial A(x)B(x) - C(x),
-    // where A, B and C are the polynomials
+    // These two lines set constr_poly to the polynomial a(x)b(x) - c(x),
+    // where a, b and c are the polynomials
     //
-    //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
-    //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
-    //   C(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
+    //   a(x) = \sum_i input0_limbs[i] * x^i
+    //   b(x) = \sum_i input1_limbs[i] * x^i
+    //   c(x) = \sum_i output_limbs[i] * x^i
     //
-    // This polynomial should equal (2^LIMB_BITS - x) * Q(x) where Q is
+    // This polynomial should equal (x - β)*s(x) where s is
     //
-    //   Q(x) = \sum_i aux_limbs[i] * 2^LIMB_BITS
+    //   s(x) = \sum_i aux_limbs[i] * x^i
     //
     let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
     pol_sub_assign(&mut constr_poly, &output_limbs);
 
-    // This subtracts (2^LIMB_BITS - x) * Q(x) from constr_poly.
+    // This subtracts (x - β) * s(x) from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-    constr_poly[0] -= base * aux_limbs[0];
-    for deg in 1..N_LIMBS {
-        constr_poly[deg] -= (base * aux_limbs[deg]) - aux_limbs[deg - 1];
-    }
+    pol_sub_assign(&mut constr_poly, &pol_adjoin_root(aux_limbs, base));
 
     // At this point constr_poly holds the coefficients of the
-    // polynomial A(x)B(x) - C(x) - (2^LIMB_BITS - x)*Q(x). The
+    // polynomial a(x)b(x) - c(x) - (x - β)*s(x). The
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
@@ -151,40 +151,17 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_mul = lv[IS_MUL];
-    let input0_limbs = MUL_INPUT_0.map(|c| lv[c]);
-    let input1_limbs = MUL_INPUT_1.map(|c| lv[c]);
-    let output_limbs = MUL_OUTPUT.map(|c| lv[c]);
-    let aux_in_limbs = MUL_AUX_INPUT.map(|c| lv[c]);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
 
-    let zero = builder.zero_extension();
-    let mut constr_poly = [zero; N_LIMBS]; // pointless init
+    let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
+    pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
 
-    // Invariant: i + j = deg
-    for col in 0..N_LIMBS {
-        let mut acc = zero;
-        for i in 0..=col {
-            let j = col - i;
-            acc = builder.mul_add_extension(input0_limbs[i], input1_limbs[j], acc);
-        }
-        constr_poly[col] = builder.sub_extension(acc, output_limbs[col]);
-    }
-
-    let base = F::from_canonical_u64(1 << LIMB_BITS);
-    let one = builder.one_extension();
-    // constr_poly[0] = constr_poly[0] - base * aux_in_limbs[0]
-    constr_poly[0] =
-        builder.arithmetic_extension(F::ONE, -base, constr_poly[0], one, aux_in_limbs[0]);
-    for deg in 1..N_LIMBS {
-        // constr_poly[deg] -= (base*aux_in_limbs[deg] - aux_in_limbs[deg-1])
-        let t = builder.arithmetic_extension(
-            base,
-            F::NEG_ONE,
-            aux_in_limbs[deg],
-            one,
-            aux_in_limbs[deg - 1],
-        );
-        constr_poly[deg] = builder.sub_extension(constr_poly[deg], t);
-    }
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
+    let rhs = pol_adjoin_root_ext_circuit(builder, aux_limbs, base);
+    pol_sub_assign_ext_circuit(builder, &mut constr_poly, &rhs);
 
     for &c in &constr_poly {
         let filter = builder.mul_extension(is_mul, c);
@@ -241,7 +218,7 @@ mod tests {
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values
-            for (&ai, bi) in MUL_INPUT_0.iter().zip(MUL_INPUT_1) {
+            for (ai, bi) in MUL_INPUT_0.zip(MUL_INPUT_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }

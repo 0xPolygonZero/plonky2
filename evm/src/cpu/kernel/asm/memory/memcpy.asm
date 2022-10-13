@@ -28,15 +28,15 @@ global memcpy:
 
     // Increment dst_addr.
     SWAP2
-    %add_const(1)
+    %increment
     SWAP2
     // Increment src_addr.
     SWAP5
-    %add_const(1)
+    %increment
     SWAP5
     // Decrement count.
     SWAP6
-    %sub_const(1)
+    %decrement
     SWAP6
 
     // Continue the loop.

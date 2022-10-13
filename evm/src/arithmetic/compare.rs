@@ -22,12 +22,13 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::add::{eval_ext_circuit_are_equal, eval_packed_generic_are_equal};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::sub::u256_sub_br;
+use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
-    let input0 = CMP_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1 = CMP_INPUT_1.map(|c| lv[c].to_canonical_u64());
+    let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
+    let input1 = read_value_u64_limbs(lv, CMP_INPUT_1);
 
     let (diff, br) = match op {
         // input0 - input1 == diff + br*2^256
@@ -39,9 +40,7 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize)
         _ => panic!("op code not a comparison"),
     };
 
-    for (&c, diff_limb) in CMP_AUX_INPUT.iter().zip(diff) {
-        lv[c] = F::from_canonical_u64(diff_limb);
-    }
+    lv[CMP_AUX_INPUT].copy_from_slice(&diff.map(|c| F::from_canonical_u64(c)));
     lv[CMP_OUTPUT] = F::from_canonical_u64(br);
 }
 
@@ -56,15 +55,17 @@ fn eval_packed_generic_check_is_one_bit<P: PackedField>(
 pub(crate) fn eval_packed_generic_lt<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     is_op: P,
-    input0: [P; N_LIMBS],
-    input1: [P; N_LIMBS],
-    aux: [P; N_LIMBS],
+    input0: &[P],
+    input1: &[P],
+    aux: &[P],
     output: P,
 ) {
+    debug_assert!(input0.len() == N_LIMBS && input1.len() == N_LIMBS && aux.len() == N_LIMBS);
+
     // Verify (input0 < input1) == output by providing aux such that
     // input0 - input1 == aux + output*2^256.
-    let lhs_limbs = input0.iter().zip(input1).map(|(&a, b)| a - b);
-    let cy = eval_packed_generic_are_equal(yield_constr, is_op, aux.into_iter(), lhs_limbs);
+    let lhs_limbs = input0.iter().zip(input1).map(|(&a, &b)| a - b);
+    let cy = eval_packed_generic_are_equal(yield_constr, is_op, aux.iter().copied(), lhs_limbs);
     // We don't need to check that cy is 0 or 1, since output has
     // already been checked to be 0 or 1.
     yield_constr.constraint(is_op * (cy - output));
@@ -81,9 +82,9 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let input0 = CMP_INPUT_0.map(|c| lv[c]);
-    let input1 = CMP_INPUT_1.map(|c| lv[c]);
-    let aux = CMP_AUX_INPUT.map(|c| lv[c]);
+    let input0 = &lv[CMP_INPUT_0];
+    let input1 = &lv[CMP_INPUT_1];
+    let aux = &lv[CMP_AUX_INPUT];
     let output = lv[CMP_OUTPUT];
 
     let is_cmp = is_lt + is_gt;
@@ -109,11 +110,13 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     is_op: ExtensionTarget<D>,
-    input0: [ExtensionTarget<D>; N_LIMBS],
-    input1: [ExtensionTarget<D>; N_LIMBS],
-    aux: [ExtensionTarget<D>; N_LIMBS],
+    input0: &[ExtensionTarget<D>],
+    input1: &[ExtensionTarget<D>],
+    aux: &[ExtensionTarget<D>],
     output: ExtensionTarget<D>,
 ) {
+    debug_assert!(input0.len() == N_LIMBS && input1.len() == N_LIMBS && aux.len() == N_LIMBS);
+
     // Since `map` is lazy and the closure passed to it borrows
     // `builder`, we can't then borrow builder again below in the call
     // to `eval_ext_circuit_are_equal`. The solution is to force
@@ -121,14 +124,14 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     let lhs_limbs = input0
         .iter()
         .zip(input1)
-        .map(|(&a, b)| builder.sub_extension(a, b))
+        .map(|(&a, &b)| builder.sub_extension(a, b))
         .collect::<Vec<ExtensionTarget<D>>>();
 
     let cy = eval_ext_circuit_are_equal(
         builder,
         yield_constr,
         is_op,
-        aux.into_iter(),
+        aux.iter().copied(),
         lhs_limbs.into_iter(),
     );
     let good_output = builder.sub_extension(cy, output);
@@ -144,9 +147,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let input0 = CMP_INPUT_0.map(|c| lv[c]);
-    let input1 = CMP_INPUT_1.map(|c| lv[c]);
-    let aux = CMP_AUX_INPUT.map(|c| lv[c]);
+    let input0 = &lv[CMP_INPUT_0];
+    let input1 = &lv[CMP_INPUT_1];
+    let aux = &lv[CMP_AUX_INPUT];
     let output = lv[CMP_OUTPUT];
 
     let is_cmp = builder.add_extension(is_lt, is_gt);
@@ -210,7 +213,7 @@ mod tests {
                 lv[other_op] = F::ZERO;
 
                 // set inputs to random values
-                for (&ai, bi) in CMP_INPUT_0.iter().zip(CMP_INPUT_1) {
+                for (ai, bi) in CMP_INPUT_0.zip(CMP_INPUT_1) {
                     lv[ai] = F::from_canonical_u16(rng.gen());
                     lv[bi] = F::from_canonical_u16(rng.gen());
                 }

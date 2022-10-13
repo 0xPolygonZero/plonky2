@@ -14,7 +14,7 @@ global encode_rlp_scalar:
     // stack: pos, scalar, pos, retdest
     %mstore_rlp
     // stack: pos, retdest
-    %add_const(1)
+    %increment
     // stack: pos', retdest
     SWAP1
     JUMP
@@ -76,7 +76,7 @@ encode_rlp_fixed:
     %mstore_rlp
     // stack: len, pos, string, retdest
     SWAP1
-    %add_const(1) // increment pos
+    %increment // increment pos
     // stack: pos, len, string, retdest
     %stack (pos, len, string) -> (pos, string, len, encode_rlp_fixed_finish)
     // stack: context, segment, pos, string, len, encode_rlp_fixed_finish, retdest
@@ -159,7 +159,7 @@ global encode_rlp_list_prefix:
     // stack: pos, prefix, pos, retdest
     %mstore_rlp
     // stack: pos, retdest
-    %add_const(1)
+    %increment
     SWAP1
     JUMP
 encode_rlp_list_prefix_large:
@@ -172,7 +172,7 @@ encode_rlp_list_prefix_large:
     DUP3 // pos
     %mstore_rlp
     // stack: len_of_len, pos, payload_len, retdest
-    SWAP1 %add_const(1)
+    SWAP1 %increment
     // stack: pos', len_of_len, payload_len, retdest
     %stack (pos, len_of_len, payload_len)
         -> (pos, payload_len, len_of_len,
@@ -231,7 +231,7 @@ prepend_rlp_list_prefix_big:
     SUB
     // stack: start_pos, len_of_len, payload_len, end_pos, retdest
     DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[start_pos] = 0xf7 + len_of_len
-    DUP1 %add_const(1) // start_len_pos = start_pos + 1
+    DUP1 %increment // start_len_pos = start_pos + 1
     %stack (start_len_pos, start_pos, len_of_len, payload_len, end_pos, retdest)
         -> (start_len_pos, payload_len, len_of_len,
             prepend_rlp_list_prefix_big_done_writing_len,
@@ -269,7 +269,7 @@ prepend_rlp_list_prefix_big_done_writing_len:
     // stack: scalar
     %num_bytes
     // stack: scalar_bytes
-    %add_const(1) // Account for the length prefix.
+    %increment // Account for the length prefix.
     // stack: rlp_len
 %%finish:
 %endmacro

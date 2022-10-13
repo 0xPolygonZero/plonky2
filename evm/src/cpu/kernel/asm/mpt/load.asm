@@ -9,9 +9,9 @@ global load_all_mpts:
     PUSH 1
     %set_trie_data_size
 
-    %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
-    %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
-    %load_mpt_and_return_root_ptr %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
+    %load_mpt %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    %load_mpt %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
+    %load_mpt %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
 
     PROVER_INPUT(mpt)
     // stack: num_storage_tries, retdest
@@ -30,7 +30,7 @@ storage_trie_loop:
     // stack: i, storage_trie_addr, i, num_storage_tries, retdest
     %mstore_kernel(@SEGMENT_STORAGE_TRIE_ADDRS)
     // stack: i, num_storage_tries, retdest
-    %load_mpt_and_return_root_ptr
+    %load_mpt
     // stack: root_ptr, i, num_storage_tries, retdest
     DUP2
     // stack: i, root_ptr, i, num_storage_tries, retdest
@@ -45,12 +45,10 @@ storage_trie_loop_end:
 
 // Load an MPT from prover inputs.
 // Pre stack: retdest
-// Post stack: (empty)
+// Post stack: node_ptr
 load_mpt:
     // stack: retdest
     PROVER_INPUT(mpt)
-    // stack: node_type, retdest
-    DUP1 %append_to_trie_data
     // stack: node_type, retdest
 
     DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(load_mpt_empty)
@@ -61,84 +59,108 @@ load_mpt:
     PANIC // Invalid node type
 
 load_mpt_empty:
-    // stack: node_type, retdest
-    POP
-    // stack: retdest
+    // TRIE_DATA[0] = 0, and an empty node has type 0, so we can simply return the null pointer.
+    %stack (node_type, retdest) -> (retdest, 0)
     JUMP
 
 load_mpt_branch:
     // stack: node_type, retdest
-    POP
-    // stack: retdest
+    %get_trie_data_size
+    // stack: node_ptr, node_type, retdest
+    SWAP1 %append_to_trie_data
+    // stack: node_ptr, retdest
     // Save the offset of our 16 child pointers so we can write them later.
     // Then advance out current trie pointer beyond them, so we can load the
     // value and have it placed after our child pointers.
     %get_trie_data_size
-    // stack: ptr_children, retdest
-    DUP1 %add_const(16)
-    // stack: ptr_leaf, ptr_children, retdest
+    // stack: children_ptr, node_ptr, retdest
+    DUP1 %add_const(17) // Skip over 16 children plus the value pointer
+    // stack: value_ptr, children_ptr, node_ptr, retdest
     %set_trie_data_size
-    // stack: ptr_children, retdest
-    %load_leaf_value
+    // stack: children_ptr, node_ptr, retdest
+    %load_value
+    // stack: children_ptr, value_ptr, node_ptr, retdest
+    SWAP1
 
     // Load the 16 children.
     %rep 16
-        %load_mpt_and_return_root_ptr
-        // stack: child_ptr, ptr_next_child, retdest
+        %load_mpt
+        // stack: child_ptr, next_child_ptr_ptr, value_ptr, node_ptr, retdest
         DUP2
-        // stack: ptr_next_child, child_ptr, ptr_next_child, retdest
+        // stack: next_child_ptr_ptr, child_ptr, next_child_ptr_ptr, value_ptr, node_ptr, retdest
         %mstore_trie_data
-        // stack: ptr_next_child, retdest
+        // stack: next_child_ptr_ptr, value_ptr, node_ptr, retdest
         %increment
-        // stack: ptr_next_child, retdest
+        // stack: next_child_ptr_ptr, value_ptr, node_ptr, retdest
     %endrep
 
-    // stack: ptr_next_child, retdest
-    POP
+    // stack: value_ptr_ptr, value_ptr, node_ptr, retdest
+    %mstore_trie_data
+    // stack: node_ptr, retdest
+    SWAP1
     JUMP
 
 load_mpt_extension:
     // stack: node_type, retdest
-    POP
-    // stack: retdest
+    %get_trie_data_size
+    // stack: node_ptr, node_type, retdest
+    SWAP1 %append_to_trie_data
+    // stack: node_ptr, retdest
     PROVER_INPUT(mpt) // read num_nibbles
     %append_to_trie_data
     PROVER_INPUT(mpt) // read packed_nibbles
     %append_to_trie_data
-    // stack: retdest
+    // stack: node_ptr, retdest
 
-    // Let i be the current trie data size. We still need to expand this node by
-    // one element, appending our child pointer. Thus our child node will start
-    // at i + 1. So we will set our child pointer to i + 1.
     %get_trie_data_size
-    %add_const(1)
-    %append_to_trie_data
-    // stack: retdest
+    // stack: child_ptr_ptr, node_ptr, retdest
+    // Increment trie_data_size, to leave room for child_ptr_ptr, before we load our child.
+    DUP1 %increment %set_trie_data_size
+    // stack: child_ptr_ptr, node_ptr, retdest
 
     %load_mpt
-    // stack: retdest
+    // stack: child_ptr, child_ptr_ptr, node_ptr, retdest
+    SWAP1
+    %mstore_trie_data
+    // stack: node_ptr, retdest
+    SWAP1
     JUMP
 
 load_mpt_leaf:
     // stack: node_type, retdest
-    POP
-    // stack: retdest
+    %get_trie_data_size
+    // stack: node_ptr, node_type, retdest
+    SWAP1 %append_to_trie_data
+    // stack: node_ptr, retdest
     PROVER_INPUT(mpt) // read num_nibbles
     %append_to_trie_data
     PROVER_INPUT(mpt) // read packed_nibbles
     %append_to_trie_data
-    // stack: retdest
-    %load_leaf_value
-    // stack: retdest
+    // stack: node_ptr, retdest
+    // We save value_ptr_ptr = get_trie_data_size, then increment trie_data_size
+    // to skip over the slot for value_ptr. We will write value_ptr after the
+    // load_value call.
+    %get_trie_data_size
+    // stack: value_ptr_ptr, node_ptr, retdest
+    DUP1 %increment %set_trie_data_size
+    // stack: value_ptr_ptr, node_ptr, retdest
+    %load_value
+    // stack: value_ptr, value_ptr_ptr, node_ptr, retdest
+    SWAP1 %mstore_trie_data
+    // stack: node_ptr, retdest
+    SWAP1
     JUMP
 
 load_mpt_digest:
     // stack: node_type, retdest
-    POP
-    // stack: retdest
+    %get_trie_data_size
+    // stack: node_ptr, node_type, retdest
+    SWAP1 %append_to_trie_data
+    // stack: node_ptr, retdest
     PROVER_INPUT(mpt) // read digest
     %append_to_trie_data
-    // stack: retdest
+    // stack: node_ptr, retdest
+    SWAP1
     JUMP
 
 // Convenience macro to call load_mpt and return where we left off.
@@ -148,34 +170,37 @@ load_mpt_digest:
 %%after:
 %endmacro
 
-%macro load_mpt_and_return_root_ptr
-    // stack: (empty)
-    %get_trie_data_size
-    // stack: ptr
-    %load_mpt
-    // stack: ptr
-%endmacro
-
-// Load a leaf from prover input, and append it to trie data.
-%macro load_leaf_value
+// Load a leaf from prover input, append it to trie data, and return a pointer to it.
+%macro load_value
     // stack: (empty)
     PROVER_INPUT(mpt)
-    // stack: leaf_len
+    // stack: value_len
+    DUP1 ISZERO
+    %jumpi(%%return_null)
+    // stack: value_len
+    %get_trie_data_size
+    SWAP1
+    // stack: value_len, value_ptr
     DUP1 %append_to_trie_data
-    // stack: leaf_len
+    // stack: value_len, value_ptr
 %%loop:
     DUP1 ISZERO
-    // stack: leaf_len == 0, leaf_len
-    %jumpi(%%finish)
-    // stack: leaf_len
+    // stack: value_len == 0, value_len, value_ptr
+    %jumpi(%%finish_loop)
+    // stack: value_len, value_ptr
     PROVER_INPUT(mpt)
-    // stack: leaf_part, leaf_len
+    // stack: leaf_part, value_len, value_ptr
     %append_to_trie_data
-    // stack: leaf_len
-    %sub_const(1)
-    // stack: leaf_len'
+    // stack: value_len, value_ptr
+    %decrement
+    // stack: value_len', value_ptr
     %jump(%%loop)
-%%finish:
+%%finish_loop:
+    // stack: value_len, value_ptr
     POP
-    // stack: (empty)
+    // stack: value_ptr
+    %jump(%%end)
+%%return_null:
+    %stack (value_len) -> (0)
+%%end:
 %endmacro

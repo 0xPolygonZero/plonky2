@@ -31,10 +31,14 @@ pub(crate) enum GlobalMetadata {
     StateTrieRootDigestAfter = 11,
     TransactionTrieRootDigestAfter = 12,
     ReceiptTrieRootDigestAfter = 13,
+
+    /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
+    /// next available offset in these buffers.
+    TrieEncodedChildSize = 14,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 14;
+    pub(crate) const COUNT: usize = 15;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -52,6 +56,7 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter,
             Self::TransactionTrieRootDigestAfter,
             Self::ReceiptTrieRootDigestAfter,
+            Self::TrieEncodedChildSize,
         ]
     }
 
@@ -80,6 +85,7 @@ impl GlobalMetadata {
             GlobalMetadata::ReceiptTrieRootDigestAfter => {
                 "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER"
             }
+            GlobalMetadata::TrieEncodedChildSize => "TRIE_ENCODED_CHILD_SIZE",
         }
     }
 }

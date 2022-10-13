@@ -39,7 +39,7 @@ global mpt_hash_receipt_trie:
 %%after:
 %endmacro
 
-encode_account:
+global encode_account:
     // stack: rlp_pos, value_ptr, retdest
     // First, we compute the length of the RLP data we're about to write.
     // The nonce and balance fields are variable-length, so we need to load them
@@ -48,7 +48,7 @@ encode_account:
     DUP2 %mload_trie_data // nonce = value[0]
     %rlp_scalar_len
     // stack: nonce_rlp_len, rlp_pos, value_ptr, retdest
-    DUP3 %add_const(1) %mload_trie_data // balance = value[1]
+    DUP3 %increment %mload_trie_data // balance = value[1]
     %rlp_scalar_len
     // stack: balance_rlp_len, nonce_rlp_len, rlp_pos, value_ptr, retdest
     PUSH 66 // storage_root and code_hash fields each take 1 + 32 bytes
@@ -68,7 +68,7 @@ encode_account:
     // stack: nonce, rlp_pos_3, value_ptr, retdest
     SWAP1 %encode_rlp_scalar
     // stack: rlp_pos_4, value_ptr, retdest
-    DUP2 %add_const(1) %mload_trie_data // balance = value[1]
+    DUP2 %increment %mload_trie_data // balance = value[1]
     // stack: balance, rlp_pos_4, value_ptr, retdest
     SWAP1 %encode_rlp_scalar
     // stack: rlp_pos_5, value_ptr, retdest

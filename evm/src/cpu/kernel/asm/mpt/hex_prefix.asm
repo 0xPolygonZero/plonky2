@@ -15,7 +15,7 @@ global hex_prefix_rlp:
 
     // Compute the length of the hex-prefix string, in bytes:
     // hp_len = num_nibbles / 2 + 1 = i + 1
-    DUP1 %add_const(1)
+    DUP1 %increment
     // stack: hp_len, i, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
 
     // Write the RLP header.
@@ -35,7 +35,7 @@ rlp_header_medium:
     %mstore_rlp
 
     // rlp_pos += 1
-    SWAP2 %add_const(1) SWAP2
+    SWAP2 %increment SWAP2
 
     %jump(start_loop)
 
@@ -49,7 +49,7 @@ rlp_header_large:
     %mstore_rlp
 
     DUP1 // value = hp_len
-    DUP4 %add_const(1) // offset = rlp_pos + 1
+    DUP4 %increment // offset = rlp_pos + 1
     %mstore_rlp
 
     // rlp_pos += 2
@@ -74,7 +74,7 @@ loop:
     %mstore_rlp
 
     // stack: i, hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
-    %sub_const(1)
+    %decrement
     SWAP4 %shr_const(8) SWAP4 // packed_nibbles >>= 8
     %jump(loop)
 

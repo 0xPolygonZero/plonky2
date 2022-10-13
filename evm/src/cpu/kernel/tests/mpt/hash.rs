@@ -1,7 +1,8 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
 
+use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::extension_to_leaf;
@@ -33,10 +34,7 @@ fn mpt_hash_leaf() -> Result<()> {
     let account_rlp = rlp::encode(&account);
 
     let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
+        nibbles: nibbles(0xABC),
         value: account_rlp.to_vec(),
     };
 
@@ -83,14 +81,17 @@ fn mpt_hash_branch_to_leaf() -> Result<()> {
     let account_rlp = rlp::encode(&account);
 
     let leaf = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
+        nibbles: nibbles(0xABC),
         value: account_rlp.to_vec(),
-    };
-    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0] = Box::new(leaf);
+    }
+    .into();
+    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    children[5] = PartialTrie::Branch {
+        children: children.clone(),
+        value: vec![],
+    }
+    .into();
+    children[3] = leaf;
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],

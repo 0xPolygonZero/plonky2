@@ -1,26 +1,19 @@
 use anyhow::Result;
-use ethereum_types::{BigEndianHash, H256, U256};
+use eth_trie_utils::partial_trie::PartialTrie;
+use ethereum_types::{BigEndianHash, U256};
 
-use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::extension_to_leaf;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
+use crate::cpu::kernel::{aggregator::KERNEL, tests::mpt::nibbles};
+use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
 #[test]
-fn load_all_mpts() -> Result<()> {
-    let account = AccountRlp {
-        nonce: U256::from(1111),
-        balance: U256::from(2222),
-        storage_root: H256::from_uint(&U256::from(3333)),
-        code_hash: H256::from_uint(&U256::from(4444)),
-    };
-    let account_rlp = rlp::encode(&account);
-
+fn load_all_mpts_empty() -> Result<()> {
     let trie_inputs = TrieInputs {
-        state_trie: extension_to_leaf(account_rlp.to_vec()),
+        state_trie: Default::default(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -28,13 +21,171 @@ fn load_all_mpts() -> Result<()> {
 
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
 
-    let initial_stack = vec![0xdeadbeefu32.into()];
+    let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
     interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    let type_empty = U256::from(PartialTrieType::Empty as u32);
+    assert_eq!(interpreter.get_trie_data(), vec![]);
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
+        trie_inputs.storage_tries.len().into()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn load_all_mpts_leaf() -> Result<()> {
+    let trie_inputs = TrieInputs {
+        state_trie: PartialTrie::Leaf {
+            nibbles: nibbles(0xABC),
+            value: test_account_1_rlp(),
+        },
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    let initial_stack = vec![0xDEADBEEFu32.into()];
+    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
+    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
+    let type_leaf = U256::from(PartialTrieType::Leaf as u32);
+    assert_eq!(
+        interpreter.get_trie_data(),
+        vec![
+            0.into(),
+            type_leaf,
+            3.into(),
+            0xABC.into(),
+            5.into(), // value ptr
+            4.into(), // value length
+            test_account_1().nonce,
+            test_account_1().balance,
+            test_account_1().storage_root.into_uint(),
+            test_account_1().code_hash.into_uint(),
+        ]
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
+        trie_inputs.storage_tries.len().into()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn load_all_mpts_empty_branch() -> Result<()> {
+    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let state_trie = PartialTrie::Branch {
+        children,
+        value: vec![],
+    };
+    let trie_inputs = TrieInputs {
+        state_trie,
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    let initial_stack = vec![0xDEADBEEFu32.into()];
+    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
+    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
+    let type_branch = U256::from(PartialTrieType::Branch as u32);
+    assert_eq!(
+        interpreter.get_trie_data(),
+        vec![
+            0.into(), // First address is unused, so that 0 can be treated as a null pointer.
+            type_branch,
+            0.into(), // child 0
+            0.into(), // ...
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(),
+            0.into(), // child 16
+            0.into(), // value_ptr
+        ]
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
+        trie_inputs.storage_tries.len().into()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn load_all_mpts_ext_to_leaf() -> Result<()> {
+    let trie_inputs = TrieInputs {
+        state_trie: extension_to_leaf(test_account_1_rlp()),
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    let initial_stack = vec![0xDEADBEEFu32.into()];
+    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
+    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
     let type_extension = U256::from(PartialTrieType::Extension as u32);
     let type_leaf = U256::from(PartialTrieType::Leaf as u32);
     assert_eq!(
@@ -48,13 +199,12 @@ fn load_all_mpts() -> Result<()> {
             type_leaf,
             3.into(),     // 3 nibbles
             0xDEF.into(), // key part
+            9.into(),     // value pointer
             4.into(),     // value length
-            account.nonce,
-            account.balance,
-            account.storage_root.into_uint(),
-            account.code_hash.into_uint(),
-            type_empty, // txn trie
-            type_empty, // receipt trie
+            test_account_1().nonce,
+            test_account_1().balance,
+            test_account_1().storage_root.into_uint(),
+            test_account_1().code_hash.into_uint(),
         ]
     );
 

@@ -13,6 +13,17 @@ pub(crate) struct AccountRlp {
     pub(crate) code_hash: H256,
 }
 
+impl AccountRlp {
+    pub(crate) fn to_vec(&self) -> Vec<U256> {
+        vec![
+            self.nonce,
+            self.balance,
+            self.storage_root.into_uint(),
+            self.code_hash.into_uint(),
+        ]
+    }
+}
+
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut inputs = all_mpt_prover_inputs(trie_inputs);
     inputs.reverse();
@@ -25,12 +36,7 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
 
     mpt_prover_inputs(&trie_inputs.state_trie, &mut prover_inputs, &|rlp| {
         let account: AccountRlp = rlp::decode(rlp).expect("Decoding failed");
-        vec![
-            account.nonce,
-            account.balance,
-            account.storage_root.into_uint(),
-            account.code_hash.into_uint(),
-        ]
+        account.to_vec()
     });
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
