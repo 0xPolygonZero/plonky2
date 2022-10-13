@@ -144,6 +144,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         targets.iter().for_each(|&t| self.register_public_input(t));
     }
 
+    pub fn num_public_inputs(&self) -> usize {
+        self.public_inputs.len()
+    }
+
     /// Adds a new "virtual" target. This is not an actual wire in the witness, but just a target
     /// that help facilitate witness generation. In particular, a generator can assign a values to a
     /// virtual target, which can then be copied to other (virtual or concrete) targets. When we
