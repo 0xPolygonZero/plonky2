@@ -202,8 +202,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         PolynomialCoeffsExtTarget(coeffs)
     }
 
-    // TODO: Unsafe
-    pub fn add_virtual_bool_target(&mut self) -> BoolTarget {
+    pub fn add_virtual_bool_target_unsafe(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.add_virtual_target())
     }
 

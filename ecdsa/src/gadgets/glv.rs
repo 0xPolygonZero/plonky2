@@ -55,8 +55,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGlv<F, D>
     ) {
         let k1 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
         let k2 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
-        let k1_neg = self.add_virtual_bool_target();
-        let k2_neg = self.add_virtual_bool_target();
+        let k1_neg = self.add_virtual_bool_target_unsafe();
+        let k2_neg = self.add_virtual_bool_target_unsafe();
 
         self.add_simple_generator(GLVDecompositionGenerator::<F, D> {
             k: k.clone(),
