@@ -1,4 +1,28 @@
-global mul_Fp6:
+macro mul_Fp6
+    // stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_
+    SWAP3
+    // stack: c1_, c0_, c1, c0, c2, c2_, d0, d0_, d1, d1_, d2, d2_
+    SWAP11
+    // stack: d2_, c0_, c1, c0, c2, c2_, d0, d0_, d1, d1_, d2, c1_
+    SWAP4
+    // stack: c2, c0_, c1, c0, d2_, c2_, d0, d0_, d1, d1_, d2, c1_
+    SWAP9
+    // stack: d1_, c0_, c1, c0, d2_, c2_, d0, d0_, d1, c2, d2, c1_
+    SWAP7
+    // stack: d0_, c0_, c1, c0, d2_, c2_, d0, d1_, d1, c2, d2, c1_
+    SWAP10
+    // stack: d2, c0_, c1, c0, d2_, c2_, d0, d1_, d1, c2, d0_, c1_
+    SWAP6
+    // stack: d0, c0_, c1, c0, d2_, c2_, d2, d1_, d1, c2, d0_, c1_
+    SWAP2
+    // stack: c1, c0_, d0, c0, d2_, c2_, d2, d1_, d1, c2, d0_, c1_
+    SWAP8
+    // stack: d1, c0_, d0, c0, d2_, c2_, d2, d1_, c1, c2, d0_, c1_
+    SWAP1
+    // stack: c0_, d1, d0, c0, d2_, c2_, d2, d1_, c1, c2, d0_, c1_
+    SWAP5
+    // stack: c2_, d1, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
+    SWAP1
     // stack: d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
     DUP6
     // stack: c0_, d1, c2_, d0, c0, d2_, c0_, d2, d1_, c1, c2, d0_, c1_
@@ -316,4 +340,4 @@ global mul_Fp6:
     // stack: d2c0_ + d2_c0 + d0c2_ + d1c1_ + d1_c1 + d0_c2, 9d1c2_ + d1_c2 + d2c1_ + d2_c1 + d1c2 + d2c1 - d2_c1_ + d1_c2_ + d0c0 - d0_c0_, c0d1 + c1d0 + 9c2d2_ + c2_d2 - c2d2 - c2_d2_ - c0_d1_ + c1_d0_, c0d1_ + c0_d1 + c1d0_ + c1_d0 + 9c2d2 - c2_d2_ + c2d2_ + c2_d2, c0d2 + c1d1 + c2d0 - c0_d2_ + c1_d1_ + c2_d0_, 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0
     SWAP5
     // stack: 9d1c2 + d2c1 - d2_c1_ + d1_c2_ - d1c2_ + d1_c2 + d2c1_ + d2_c1 + c0d0_ + c0_d0, 9d1c2_ + d1_c2 + d2c1_ + d2_c1 + d1c2 + d2c1 - d2_c1_ + d1_c2_ + d0c0 - d0_c0_, c0d1 + c1d0 + 9c2d2_ + c2_d2 - c2d2 - c2_d2_ - c0_d1_ + c1_d0_, c0d1_ + c0_d1 + c1d0_ + c1_d0 + 9c2d2 - c2_d2_ + c2d2_ + c2_d2, c0d2 + c1d1 + c2d0 - c0_d2_ + c1_d1_ + c2_d0_, d2c0_ + d2_c0 + d0c2_ + d1c1_ + d1_c1 + d0_c2
-    %jump(0xdeadbeef)
+%endmacro
