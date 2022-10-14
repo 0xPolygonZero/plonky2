@@ -1,7 +1,7 @@
+#![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
 
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
@@ -138,6 +138,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
         };
+
+        // Flag set to true for the base case of the cycle where we verify a dummy proof to bootstrap the cycle. Set to false otherwise.
         // Unsafe is ok since `base_case` is a public input and its booleaness should be checked in the verifier.
         let base_case = self.add_virtual_bool_target_unsafe();
         self.register_public_input(base_case.target);
@@ -167,6 +169,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect_hashes(*h0, *h1);
         }
 
+        // Verify the dummy proof if `base_case` is set to true, otherwise verify the "real" proof.
         self.conditionally_verify_proof(
             base_case,
             &dummy_proof,
@@ -176,15 +179,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &common_data,
         );
 
+        // Make sure we have enough gates to match `common_data`.
         while self.num_gates() < 1 << (common_data.degree_bits - 1) {
             self.add_gate(NoopGate, vec![]);
         }
+        // Make sure we have every gate to match `common_data`.
         for g in &common_data.gates {
             self.add_gate_to_gate_set(g.clone());
         }
 
         let data = self.build::<C>();
-        assert_eq!(&data.common, &common_data);
+        ensure!(data.common == common_data, "Common data does not match.");
 
         Ok((
             data,
@@ -199,7 +204,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-/// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
+/// Set the targets in a `CyclicRecursionTarget` to their corresponding values in a `CyclicRecursionData`.
 pub fn set_cyclic_recursion_data_target<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -228,23 +233,27 @@ where
     } else {
         let (dummy_proof, dummy_data) = dummy_proof(cyclic_recursion_data.common_data)?;
         pw.set_bool_target(cyclic_recursion_data_target.base_case, true);
-        let mut dummy_proof_real_vd = dummy_proof.clone();
-        let pis_len = dummy_proof_real_vd.public_inputs.len();
-        dummy_proof_real_vd.public_inputs[pis_len - 1] = F::ONE;
+        let mut proof = dummy_proof.clone();
+        let pis_len = proof.public_inputs.len();
+        // A base case must be following another base case.
+        proof.public_inputs[pis_len - 1] = F::ONE;
+        // The circuit checks that the verifier data is the same throughout the cycle, so
+        // we set the verifier data to the "real" verifier data even though it's unused in the base case.
         let num_cap = cyclic_recursion_data
             .common_data
             .config
             .fri_config
             .num_cap_elements();
         let s = pis_len - 5 - 4 * num_cap;
-        dummy_proof_real_vd.public_inputs[s..s + 4]
+        proof.public_inputs[s..s + 4]
             .copy_from_slice(&cyclic_recursion_data.verifier_data.circuit_digest.elements);
         for i in 0..num_cap {
-            dummy_proof_real_vd.public_inputs[s + 4 * (1 + i)..s + 4 * (2 + i)].copy_from_slice(
+            proof.public_inputs[s + 4 * (1 + i)..s + 4 * (2 + i)].copy_from_slice(
                 &cyclic_recursion_data.verifier_data.constants_sigmas_cap.0[i].elements,
             );
         }
-        pw.set_proof_with_pis_target(&cyclic_recursion_data_target.proof, &dummy_proof_real_vd);
+
+        pw.set_proof_with_pis_target(&cyclic_recursion_data_target.proof, &proof);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.verifier_data,
             cyclic_recursion_data.verifier_data,
@@ -259,6 +268,9 @@ where
     Ok(())
 }
 
+/// Additional checks to be performed on a cyclic recursive proof in addition to verifying the proof.
+/// Checks that the `base_case` flag is boolean and that the purported verifier data in the public inputs
+/// match the real verifier data.
 pub fn check_cyclic_proof_verifier_data<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -296,6 +308,7 @@ mod tests {
         check_cyclic_proof_verifier_data, set_cyclic_recursion_data_target, CyclicRecursionData,
     };
 
+    // Generates `CommonCircuitData` usable for recursion.
     fn common_data_for_recursion<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -306,10 +319,9 @@ mod tests {
         [(); C::Hasher::HASH_SIZE]:,
     {
         let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let builder = CircuitBuilder::<F, D>::new(config);
         let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
-        let mut pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data = VerifierCircuitTarget {
@@ -320,9 +332,6 @@ mod tests {
         let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-        let config = CircuitConfig::standard_recursion_config();
-        let pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data = VerifierCircuitTarget {
@@ -352,9 +361,10 @@ mod tests {
 
         let common_data = common_data_for_recursion::<F, C, D>();
 
+        // Add cyclic recursion gadget.
         let (cyclic_circuit_data, cyclic_data_target) = builder.cyclic_recursion(common_data)?;
         let cyclic_recursion_data = CyclicRecursionData {
-            proof: &None,
+            proof: &None, // Base case: We don't have a proof to put here yet.
             verifier_data: &cyclic_circuit_data.verifier_only,
             common_data: &cyclic_circuit_data.common,
         };
@@ -362,15 +372,16 @@ mod tests {
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
-            &cyclic_recursion_data.verifier_data,
+            cyclic_recursion_data.verifier_data,
             cyclic_recursion_data.common_data,
         )?;
         cyclic_circuit_data.verify(proof.clone())?;
 
+        // 1st recursive layer.
         let mut pw = PartialWitness::new();
         pw.set_target(t, F::rand());
         let cyclic_recursion_data = CyclicRecursionData {
-            proof: &Some(proof),
+            proof: &Some(proof), // Input previous proof.
             verifier_data: &cyclic_circuit_data.verifier_only,
             common_data: &cyclic_circuit_data.common,
         };
@@ -378,15 +389,16 @@ mod tests {
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
-            &cyclic_recursion_data.verifier_data,
+            cyclic_recursion_data.verifier_data,
             cyclic_recursion_data.common_data,
         )?;
         cyclic_circuit_data.verify(proof.clone())?;
 
+        // 2nd recursive layer.
         let mut pw = PartialWitness::new();
         pw.set_target(t, F::rand());
         let cyclic_recursion_data = CyclicRecursionData {
-            proof: &Some(proof),
+            proof: &Some(proof), // Input previous proof.
             verifier_data: &cyclic_circuit_data.verifier_only,
             common_data: &cyclic_circuit_data.common,
         };
@@ -394,11 +406,9 @@ mod tests {
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
-            &cyclic_recursion_data.verifier_data,
+            cyclic_recursion_data.verifier_data,
             cyclic_recursion_data.common_data,
         )?;
-        cyclic_circuit_data.verify(proof.clone())?;
-
-        Ok(())
+        cyclic_circuit_data.verify(proof)
     }
 }
