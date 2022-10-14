@@ -84,7 +84,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 pub struct CyclicPublicInputsTarget {
     pub circuit_digest: HashOutTarget,
     pub constants_sigmas_cap: MerkleCapTarget,
-    pub base_case: Target,
+    pub base_case: BoolTarget,
 }
 
 impl CyclicPublicInputsTarget {
@@ -95,7 +95,7 @@ impl CyclicPublicInputsTarget {
         let cap_len = common_data.config.fri_config.num_cap_elements();
         let len = slice.len();
         ensure!(len >= 4 + 4 * cap_len + 1, "Not enough public inputs");
-        let base_case = slice[len - 1];
+        let base_case = BoolTarget::new_unsafe(slice[len - 1]);
         let constants_sigmas_cap = MerkleCapTarget(
             (0..cap_len)
                 .map(|i| HashOutTarget {
@@ -151,6 +151,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let dummy_proof = self.add_virtual_proof_with_pis(&common_data);
 
         let pis = CyclicPublicInputsTarget::from_slice(&proof.public_inputs, &common_data)?;
+        // Check that the previous base case flag was boolean.
+        self.assert_bool(pis.base_case);
+        // Check that we cannot go from a non-base case to a base case by checking `previous_base_case - base_case \in {0,1}`.
+        let decrease = BoolTarget::new_unsafe(self.sub(pis.base_case.target, base_case.target));
+        self.assert_bool(decrease);
+        // Connect previous verifier data to current one. This guarantees that every proof in the cycle uses the same verifier data.
         self.connect_hashes(pis.circuit_digest, verifier_data.circuit_digest);
         for (h0, h1) in pis
             .constants_sigmas_cap
@@ -220,11 +226,11 @@ where
             cyclic_recursion_data.verifier_data,
         );
     } else {
-        dbg!("hi");
         let (dummy_proof, dummy_data) = dummy_proof(cyclic_recursion_data.common_data)?;
         pw.set_bool_target(cyclic_recursion_data_target.base_case, true);
         let mut dummy_proof_real_vd = dummy_proof.clone();
         let pis_len = dummy_proof_real_vd.public_inputs.len();
+        dummy_proof_real_vd.public_inputs[pis_len - 1] = F::ONE;
         let num_cap = cyclic_recursion_data
             .common_data
             .config
@@ -239,7 +245,6 @@ where
             );
         }
         pw.set_proof_with_pis_target(&cyclic_recursion_data_target.proof, &dummy_proof_real_vd);
-        dbg!(cyclic_recursion_data.verifier_data.circuit_digest);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.verifier_data,
             cyclic_recursion_data.verifier_data,
@@ -267,8 +272,6 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     let pis = CyclicPublicInputs::from_slice(&proof.public_inputs, common_data)?;
-    dbg!(pis.circuit_digest);
-    dbg!(verifier_data.circuit_digest);
     if !pis.base_case {
         ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
         ensure!(verifier_data.circuit_digest == pis.circuit_digest);
@@ -356,7 +359,6 @@ mod tests {
             common_data: &cyclic_circuit_data.common,
         };
         set_cyclic_recursion_data_target(&mut pw, &cyclic_data_target, &cyclic_recursion_data)?;
-        dbg!("yo");
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
@@ -373,7 +375,6 @@ mod tests {
             common_data: &cyclic_circuit_data.common,
         };
         set_cyclic_recursion_data_target(&mut pw, &cyclic_data_target, &cyclic_recursion_data)?;
-        dbg!("yo");
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
