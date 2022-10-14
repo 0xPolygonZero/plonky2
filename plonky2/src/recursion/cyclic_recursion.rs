@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         common_data.num_public_inputs = self.num_public_inputs();
         common_data.degree_bits = common_data.degree_bits.max(13);
-        dbg!(common_data.degree_bits);
+        common_data.fri_params.degree_bits = common_data.fri_params.degree_bits.max(13);
 
         let proof = self.add_virtual_proof_with_pis(&common_data);
         let dummy_proof = self.add_virtual_proof_with_pis(&common_data);
@@ -76,10 +76,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         while self.num_gates() < 1 << (common_data.degree_bits - 1) {
             self.add_gate(NoopGate, vec![]);
         }
+        for g in &common_data.gates {
+            self.add_gate_to_gate_set(g.clone());
+        }
 
         let data = self.build::<C>();
-        dbg!(&data.common.degree_bits, common_data.degree_bits);
         assert_eq!(&data.common, &common_data);
+
         Ok((
             data,
             CyclicRecursionTarget {
@@ -179,7 +182,6 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -210,7 +212,6 @@ mod tests {
         builder.register_public_inputs(&h.elements);
 
         let common_data = common_data_for_recursion::<F, C, D>();
-        dbg!(common_data.degree_bits);
 
         let (cyclic_circuit_data, cyclic_data_target) = builder.cyclic_recursion(common_data)?;
         let cyclic_recursion_data = CyclicRecursionData {
