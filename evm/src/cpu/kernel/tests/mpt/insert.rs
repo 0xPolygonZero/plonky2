@@ -157,7 +157,6 @@ fn test_state_trie(state_trie: PartialTrie, k: Nibbles, v: Vec<u8>) -> Result<()
     let value_ptr = trie_data.len();
     let account: AccountRlp = rlp::decode(&v).expect("Decoding failed");
     let account_data = account.to_vec();
-    trie_data.push(account_data.len().into());
     trie_data.extend(account_data);
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);

@@ -79,7 +79,6 @@ fn load_all_mpts_leaf() -> Result<()> {
             3.into(),
             0xABC.into(),
             5.into(), // value ptr
-            4.into(), // value length
             test_account_1().nonce,
             test_account_1().balance,
             test_account_1().storage_root.into_uint(),
@@ -200,7 +199,6 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
             3.into(),     // 3 nibbles
             0xDEF.into(), // key part
             9.into(),     // value pointer
-            4.into(),     // value length
             test_account_1().nonce,
             test_account_1().balance,
             test_account_1().storage_root.into_uint(),

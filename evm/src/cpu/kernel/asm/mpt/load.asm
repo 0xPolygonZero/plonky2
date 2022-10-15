@@ -70,7 +70,7 @@ load_mpt_branch:
     SWAP1 %append_to_trie_data
     // stack: node_ptr, retdest
     // Save the offset of our 16 child pointers so we can write them later.
-    // Then advance out current trie pointer beyond them, so we can load the
+    // Then advance our current trie pointer beyond them, so we can load the
     // value and have it placed after our child pointers.
     %get_trie_data_size
     // stack: children_ptr, node_ptr, retdest
@@ -79,8 +79,8 @@ load_mpt_branch:
     %set_trie_data_size
     // stack: children_ptr, node_ptr, retdest
     %load_value
-    // stack: children_ptr, value_ptr, node_ptr, retdest
     SWAP1
+    // stack: children_ptr, value_ptr, node_ptr, retdest
 
     // Load the 16 children.
     %rep 16
@@ -170,18 +170,20 @@ load_mpt_digest:
 %%after:
 %endmacro
 
-// Load a leaf from prover input, append it to trie data, and return a pointer to it.
+// Load a value from prover input, append it to trie data, and return a pointer to it.
+// Return null if the value is empty.
 %macro load_value
     // stack: (empty)
     PROVER_INPUT(mpt)
     // stack: value_len
-    DUP1 ISZERO
-    %jumpi(%%return_null)
+    DUP1 %jumpi(%%has_value)
+    %stack (value_len) -> (0)
+    %jump(%%end)
+%%has_value:
     // stack: value_len
     %get_trie_data_size
+    // stack: value_ptr, value_len
     SWAP1
-    // stack: value_len, value_ptr
-    DUP1 %append_to_trie_data
     // stack: value_len, value_ptr
 %%loop:
     DUP1 ISZERO
@@ -189,7 +191,7 @@ load_mpt_digest:
     %jumpi(%%finish_loop)
     // stack: value_len, value_ptr
     PROVER_INPUT(mpt)
-    // stack: leaf_part, value_len, value_ptr
+    // stack: value_part, value_len, value_ptr
     %append_to_trie_data
     // stack: value_len, value_ptr
     %decrement
@@ -199,8 +201,5 @@ load_mpt_digest:
     // stack: value_len, value_ptr
     POP
     // stack: value_ptr
-    %jump(%%end)
-%%return_null:
-    %stack (value_len) -> (0)
 %%end:
 %endmacro
