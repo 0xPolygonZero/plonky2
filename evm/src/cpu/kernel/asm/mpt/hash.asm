@@ -152,21 +152,17 @@ encode_node_branch:
     %add_const(16)
     // stack: value_ptr_ptr, rlp_pos', encode_value, retdest
     %mload_trie_data
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    DUP1 %mload_trie_data
-    // stack: value_len, value_len_ptr, rlp_pos', encode_value, retdest
-    %jumpi(encode_node_branch_with_value)
+    // stack: value_ptr, rlp_pos', encode_value, retdest
+    DUP1 %jumpi(encode_node_branch_with_value)
     // No value; append the empty string (0x80).
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    %stack (value_len_ptr, rlp_pos, encode_value) -> (rlp_pos, 0x80, rlp_pos)
+    // stack: value_ptr, rlp_pos', encode_value, retdest
+    %stack (value_ptr, rlp_pos, encode_value) -> (rlp_pos, 0x80, rlp_pos)
     %mstore_rlp
     // stack: rlp_pos', retdest
     %increment
     // stack: rlp_pos'', retdest
     %jump(encode_node_branch_prepend_prefix)
 encode_node_branch_with_value:
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    %increment
     // stack: value_ptr, rlp_pos', encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value)
         -> (encode_value, rlp_pos, value_ptr, encode_node_branch_prepend_prefix)
@@ -276,7 +272,6 @@ encode_node_leaf_after_hex_prefix:
     %add_const(2) // The value pointer starts at index 3, after num_nibbles and packed_nibbles.
     // stack: value_ptr_ptr, rlp_pos, encode_value, retdest
     %mload_trie_data
-    %increment // skip over length prefix
     // stack: value_ptr, rlp_pos, encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value, retdest)
         -> (encode_value, rlp_pos, value_ptr, encode_node_leaf_after_encode_value, retdest)
