@@ -132,7 +132,7 @@ pubkey_to_addr:
     // stack: PKx, PKy, retdest
     PUSH 0
     // stack: 0, PKx, PKy, retdest
-    MSTORE // TODO: switch to kernel memory (like `%mstore_current(@SEGMENT_KERNEL_GENERAL)`).
+    MSTORE // TODO: switch to kernel memory (like `%mstore_kernel(@SEGMENT_KERNEL_GENERAL)`).
     // stack: PKy, retdest
     PUSH 0x20
     // stack: 0x20, PKy, retdest
