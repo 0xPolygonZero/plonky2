@@ -48,6 +48,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/mpt/insert_leaf.asm"),
         include_str!("asm/mpt/insert_trie_specific.asm"),
         include_str!("asm/mpt/load.asm"),
+        include_str!("asm/mpt/load_trie_specific.asm"),
         include_str!("asm/mpt/read.asm"),
         include_str!("asm/mpt/storage_read.asm"),
         include_str!("asm/mpt/storage_write.asm"),
