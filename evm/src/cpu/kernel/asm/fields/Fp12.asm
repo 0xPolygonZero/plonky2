@@ -6,7 +6,12 @@
 /// h  = fg + sh(f'g')
 /// h' = (f+f')(g+g') - fg - f'g'
 ///
-/// Note: each symbol in the stack comments takes up six words
+/// Note: each symbol in the stack comments consists of six words
+
+global test_mul_Fp6:
+    %mul_fp6
+    %jump(0xdeadbeef)
+
 
 global test_mul_Fp12:
     // stack: f, f', g, g'
@@ -44,8 +49,8 @@ global mul_Fp12:
     %dup2_fp6
     // stack:          g , g', g , f'
     %add_fp6
-    %swap_fp6
     // stack:          g + g', g , f'
+    %jump(0xdeadbeef)
     %swap_fp6
     // stack:          g , g + g', f'
     %load_fp6(0)
