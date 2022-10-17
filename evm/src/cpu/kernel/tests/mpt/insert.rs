@@ -6,13 +6,13 @@ use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::{test_account_1_rlp, test_account_2_rlp};
+use crate::cpu::kernel::tests::mpt::{test_account_1_rlp, test_account_2};
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
 #[test]
 fn mpt_insert_empty() -> Result<()> {
-    test_state_trie(Default::default(), nibbles(0xABC), test_account_2_rlp())
+    test_state_trie(Default::default(), nibbles(0xABC), test_account_2())
 }
 
 #[test]
@@ -22,7 +22,7 @@ fn mpt_insert_leaf_identical_keys() -> Result<()> {
         nibbles: key,
         value: test_account_1_rlp(),
     };
-    test_state_trie(state_trie, key, test_account_2_rlp())
+    test_state_trie(state_trie, key, test_account_2())
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn mpt_insert_leaf_nonoverlapping_keys() -> Result<()> {
         nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    test_state_trie(state_trie, nibbles(0x123), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0x123), test_account_2())
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn mpt_insert_leaf_overlapping_keys() -> Result<()> {
         nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    test_state_trie(state_trie, nibbles(0xADE), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xADE), test_account_2())
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn mpt_insert_leaf_insert_key_extends_leaf_key() -> Result<()> {
         nibbles: nibbles(0xABC),
         value: test_account_1_rlp(),
     };
-    test_state_trie(state_trie, nibbles(0xABCDE), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xABCDE), test_account_2())
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn mpt_insert_leaf_leaf_key_extends_insert_key() -> Result<()> {
         nibbles: nibbles(0xABCDE),
         value: test_account_1_rlp(),
     };
-    test_state_trie(state_trie, nibbles(0xABC), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xABC), test_account_2())
 }
 
 #[test]
@@ -69,10 +69,13 @@ fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
         value: vec![],
     };
 
-    test_state_trie(state_trie, nibbles(0xABC), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xABC), test_account_2())
 }
 
 #[test]
+// TODO: Not a valid test because branches state trie cannot have branch values.
+// We should change it to use a different trie.
+#[ignore]
 fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
     // Existing keys are 0xABC, 0xABCDEF; inserted key is 0x12345.
     let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
@@ -89,10 +92,13 @@ fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
         }
         .into(),
     };
-    test_state_trie(state_trie, nibbles(0x12345), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0x12345), test_account_2())
 }
 
 #[test]
+// TODO: Not a valid test because branches state trie cannot have branch values.
+// We should change it to use a different trie.
+#[ignore]
 fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
     // Existing keys are 0xA, 0xABCD; inserted key is 0xABCDEF.
     let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
@@ -109,7 +115,7 @@ fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
         }
         .into(),
     };
-    test_state_trie(state_trie, nibbles(0xABCDEF), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xABCDEF), test_account_2())
 }
 
 #[test]
@@ -126,10 +132,14 @@ fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
         value: vec![],
     };
 
-    test_state_trie(state_trie, nibbles(0xABCD), test_account_2_rlp())
+    test_state_trie(state_trie, nibbles(0xABCD), test_account_2())
 }
 
-fn test_state_trie(state_trie: PartialTrie, k: Nibbles, v: Vec<u8>) -> Result<()> {
+/// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
+/// accompanying trie data. An empty trie's storage_root is used instead.
+fn test_state_trie(state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
+    account.storage_root = PartialTrie::Empty.calc_hash();
+
     let trie_inputs = TrieInputs {
         state_trie: state_trie.clone(),
         transactions_trie: Default::default(),
@@ -155,10 +165,13 @@ fn test_state_trie(state_trie: PartialTrie, k: Nibbles, v: Vec<u8>) -> Result<()
         trie_data.push(0.into());
     }
     let value_ptr = trie_data.len();
-    let account: AccountRlp = rlp::decode(&v).expect("Decoding failed");
-    let account_data = account.to_vec();
-    trie_data.push(account_data.len().into());
-    trie_data.extend(account_data);
+    trie_data.push(account.nonce);
+    trie_data.push(account.balance);
+    // In memory, storage_root gets interpreted as a pointer to a storage trie,
+    // so we have to ensure the pointer is valid. It's easiest to set it to 0,
+    // which works as an empty node, since trie_data[0] = 0 = MPT_TYPE_EMPTY.
+    trie_data.push(H256::zero().into_uint());
+    trie_data.push(account.code_hash.into_uint());
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
@@ -187,7 +200,7 @@ fn test_state_trie(state_trie: PartialTrie, k: Nibbles, v: Vec<u8>) -> Result<()
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = state_trie.insert(k, v);
+    let updated_trie = state_trie.insert(k, rlp::encode(&account).to_vec());
     let expected_state_trie_hash = updated_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 

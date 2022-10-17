@@ -14,7 +14,9 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CircuitData, CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::circuit_data::{
+    CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{
     OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
@@ -22,9 +24,17 @@ use crate::plonk::proof::{
 use crate::with_context;
 
 /// Generate a proof having a given `CommonCircuitData`.
-pub fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+#[allow(unused)] // TODO: should be used soon.
+pub(crate) fn dummy_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     common_data: &CommonCircuitData<F, C, D>,
-) -> Result<(ProofWithPublicInputs<F, C, D>, CircuitData<F, C, D>)>
+) -> Result<(
+    ProofWithPublicInputs<F, C, D>,
+    VerifierOnlyCircuitData<C, D>,
+)>
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
@@ -37,7 +47,7 @@ where
         !common_data.config.zero_knowledge,
         "Degree calculation can be off if zero-knowledge is on."
     );
-    let degree = 1 << common_data.degree_bits;
+    let degree = common_data.degree();
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
     let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
@@ -57,7 +67,7 @@ where
     assert_eq!(&data.common, common_data);
     let proof = data.prove(pw)?;
 
-    Ok((proof, data))
+    Ok((proof, data.verifier_only))
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -135,6 +145,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         self.verify_proof(selected_proof, &selected_verifier_data, inner_common_data);
+    }
+
+    /// Conditionally verify a proof with a new generated dummy proof.
+    pub fn conditionally_verify_proof_or_dummy<C: GenericConfig<D, F = F>>(
+        &mut self,
+        condition: BoolTarget,
+        proof_with_pis: &ProofWithPublicInputsTarget<D>,
+        inner_verifier_data: &VerifierCircuitTarget,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) -> (ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let dummy_proof = self.add_virtual_proof_with_pis(inner_common_data);
+        let dummy_verifier_data = VerifierCircuitTarget {
+            constants_sigmas_cap: self
+                .add_virtual_cap(inner_common_data.config.fri_config.cap_height),
+            circuit_digest: self.add_virtual_hash(),
+        };
+        self.conditionally_verify_proof(
+            condition,
+            proof_with_pis,
+            inner_verifier_data,
+            &dummy_proof,
+            &dummy_verifier_data,
+            inner_common_data,
+        );
+
+        (dummy_proof, dummy_verifier_data)
     }
 
     fn select_vec(&mut self, b: BoolTarget, v0: &[Target], v1: &[Target]) -> Vec<Target> {
@@ -380,7 +419,7 @@ mod tests {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only);
+        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof(
             b,

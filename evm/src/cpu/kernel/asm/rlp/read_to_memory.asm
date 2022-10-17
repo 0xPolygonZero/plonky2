@@ -23,7 +23,7 @@ read_rlp_to_memory_loop:
     // stack: byte, pos, len, retdest
     DUP2
     // stack: pos, byte, pos, len, retdest
-    %mstore_current(@SEGMENT_RLP_RAW)
+    %mstore_kernel(@SEGMENT_RLP_RAW)
     // stack: pos, len, retdest
     %increment
     // stack: pos', len, retdest

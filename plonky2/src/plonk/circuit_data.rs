@@ -296,8 +296,6 @@ pub struct CommonCircuitData<
 
     pub(crate) fri_params: FriParams,
 
-    pub degree_bits: usize,
-
     /// The types of gates used in this circuit, along with their prefixes.
     pub(crate) gates: Vec<GateRef<C::F, D>>,
 
@@ -325,16 +323,20 @@ pub struct CommonCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CommonCircuitData<F, C, D>
 {
+    pub const fn degree_bits(&self) -> usize {
+        self.fri_params.degree_bits
+    }
+
     pub fn degree(&self) -> usize {
-        1 << self.degree_bits
+        1 << self.degree_bits()
     }
 
     pub fn lde_size(&self) -> usize {
-        1 << (self.degree_bits + self.config.fri_config.rate_bits)
+        self.fri_params.lde_size()
     }
 
     pub fn lde_generator(&self) -> F {
-        F::primitive_root_of_unity(self.degree_bits + self.config.fri_config.rate_bits)
+        F::primitive_root_of_unity(self.degree_bits() + self.config.fri_config.rate_bits)
     }
 
     pub fn constraint_degree(&self) -> usize {
@@ -377,7 +379,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         };
 
         // The Z polynomials are also opened at g * zeta.
-        let g = F::Extension::primitive_root_of_unity(self.degree_bits);
+        let g = F::Extension::primitive_root_of_unity(self.degree_bits());
         let zeta_next = g * zeta;
         let zeta_next_batch = FriBatchInfo {
             point: zeta_next,
@@ -403,7 +405,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         };
 
         // The Z polynomials are also opened at g * zeta.
-        let g = F::primitive_root_of_unity(self.degree_bits);
+        let g = F::primitive_root_of_unity(self.degree_bits());
         let zeta_next = builder.mul_const_extension(g, zeta);
         let zeta_next_batch = FriBatchInfoTarget {
             point: zeta_next,

@@ -82,7 +82,7 @@ where
     let quotient_polys_zeta = &proof.openings.quotient_polys;
     let zeta_pow_deg = challenges
         .plonk_zeta
-        .exp_power_of_2(common_data.degree_bits);
+        .exp_power_of_2(common_data.degree_bits());
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
     // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`

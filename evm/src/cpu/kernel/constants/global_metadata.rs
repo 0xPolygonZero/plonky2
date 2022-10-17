@@ -18,9 +18,6 @@ pub(crate) enum GlobalMetadata {
     TransactionTrieRoot = 5,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
     ReceiptTrieRoot = 6,
-    /// The number of storage tries involved in these transactions. I.e. the number of values in
-    /// `StorageTrieAddresses`, `StorageTriePointers` and `StorageTrieCheckpointPointers`.
-    NumStorageTries = 7,
 
     // The root digests of each Merkle trie before these transactions.
     StateTrieRootDigestBefore = 8,
@@ -38,7 +35,7 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 15;
+    pub(crate) const COUNT: usize = 14;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -49,7 +46,6 @@ impl GlobalMetadata {
             Self::StateTrieRoot,
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
-            Self::NumStorageTries,
             Self::StateTrieRootDigestBefore,
             Self::TransactionTrieRootDigestBefore,
             Self::ReceiptTrieRootDigestBefore,
@@ -70,7 +66,6 @@ impl GlobalMetadata {
             GlobalMetadata::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
             GlobalMetadata::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             GlobalMetadata::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
-            GlobalMetadata::NumStorageTries => "GLOBAL_METADATA_NUM_STORAGE_TRIES",
             GlobalMetadata::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
             GlobalMetadata::TransactionTrieRootDigestBefore => {
                 "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE"
