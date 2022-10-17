@@ -8,12 +8,24 @@
 ///
 /// Note: each symbol in the stack comments takes up six words
 
+global test_mul_Fp12:
+    // stack: f, f', g, g'
+    %store_fp6(0)
+    %store_fp6(6)
+    %store_fp6(12)
+    %store_fp6(18)
+    PUSH return_on_stack
+    // stack: return_on_stack
+    %jump(mul_Fp12)
+return_on_stack:
+    // stack:
+    %load_fp6(24)
+    %load_fp6(30)
+    // stack: h, h'
+    %jump(0xdeadbeef)
+
+
 global mul_Fp12:
-
-pre_mul:
-
-
-calc:
     %load_fp6(6)
     %load_fp6(18)
     %dup2_fp6
@@ -48,7 +60,7 @@ calc:
     %mul_fp6
     // stack:            (f+f')(g+g')
     %load_fp6(42)
-    %bus_fp6(42)
+    %bus_fp6
     // stack: (f+f')(g+g') - f'g'
     %load_fp6(48)
     %swap_fp6
@@ -63,5 +75,4 @@ calc:
     %add_fp6
     // stack:                sh(f'g') + fg
     %store_fp6(24)
-    
-    %jump(0xdeadbeef)
+    JUMP

@@ -139,26 +139,26 @@
 %macro add_fp6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
-    ADD
+    ADDFP254
     SWAP6
     // stack: f0,     f2, f3, f4, f5, g0, h1, g2, g3, g4, g5 
     SWAP7
-    ADD
+    ADDFP254
     SWAP6
     // stack: f0,         f3, f4, f5, g0, h1, h2, g3, g4, g5 
     SWAP7
-    ADD
+    ADDFP254
     SWAP6
     // stack: f0,             f4, f5, g0, h1, h2, h3, g4, g5
     SWAP7
-    ADD
+    ADDFP254
     SWAP6
     // stack: f0,                 f5, g0, h1, h2, h3, h4, g5
     SWAP7
-    ADD
+    ADDFP254
     SWAP6
     // stack: f0,                     g0, h1, h2, h3, h4, h5
-    ADD
+    ADDFP254
     // stack:                         h0, h1, h2, h3, h4, h5
 %endmacro
 
@@ -166,26 +166,26 @@
 %macro bus_fp6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
-    SUB
+    SUBFP254
     SWAP6
     // stack: f0,     f2, f3, f4, f5, g0, h1, g2, g3, g4, g5 
     SWAP7
-    SUB
+    SUBFP254
     SWAP6
     // stack: f0,         f3, f4, f5, g0, h1, h2, g3, g4, g5 
     SWAP7
-    SUB
+    SUBFP254
     SWAP6
     // stack: f0,             f4, f5, g0, h1, h2, h3, g4, g5
     SWAP7
-    SUB
+    SUBFP254
     SWAP6
     // stack: f0,                 f5, g0, h1, h2, h3, h4, g5
     SWAP7
-    SUB
+    SUBFP254
     SWAP6
     // stack: f0,                     g0, h1, h2, h3, h4, h5
-    SUB
+    SUBFP254
     // stack:                         h0, h1, h2, h3, h4, h5
 %endmacro
 
@@ -196,11 +196,11 @@
     DUP2
     // stack:  a , b,  a , b
     %mul_const(9)
-    SUB
+    SUBFP254
     // stack: 9a - b,  a , b
     SWAP2 
     // stack:  b , a, 9a - b
     %mul_const(9)
-    ADD
+    ADDFP254
     // stack: 9b + a, 9a - b 
 %endmacro

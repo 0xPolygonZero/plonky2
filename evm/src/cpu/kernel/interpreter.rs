@@ -370,7 +370,7 @@ impl<'a> Interpreter<'a> {
         let y = self.pop();
         self.push(U256::try_from(x.full_mul(y) % 101).unwrap());
     }
-    
+
     fn run_sub(&mut self) {
         let x = self.pop();
         let y = self.pop();

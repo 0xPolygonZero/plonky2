@@ -1,4 +1,4 @@
-macro mul_Fp6
+%macro mul_fp6
     // stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_
     SWAP3
     // stack: c1_, c0_, c1, c0, c2, c2_, d0, d0_, d1, d1_, d2, d2_
