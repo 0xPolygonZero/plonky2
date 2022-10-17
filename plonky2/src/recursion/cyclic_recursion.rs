@@ -146,7 +146,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         common_data.num_public_inputs = self.num_public_inputs();
         // The `conditionally_verify_proof` gadget below takes 2^12 gates, so `degree_bits` cannot be smaller than 13.
-        common_data.degree_bits = common_data.degree_bits.max(13);
         common_data.fri_params.degree_bits = common_data.fri_params.degree_bits.max(13);
 
         let proof = self.add_virtual_proof_with_pis(&common_data);
@@ -180,7 +179,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Make sure we have enough gates to match `common_data`.
-        while self.num_gates() < 1 << (common_data.degree_bits - 1) {
+        while self.num_gates() < (common_data.degree() / 2) {
             self.add_gate(NoopGate, vec![]);
         }
         // Make sure we have every gate to match `common_data`.
@@ -261,7 +260,7 @@ where
         pw.set_proof_with_pis_target(&cyclic_recursion_data_target.dummy_proof, &dummy_proof);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.dummy_verifier_data,
-            &dummy_data.verifier_only,
+            &dummy_data,
         );
     }
 
