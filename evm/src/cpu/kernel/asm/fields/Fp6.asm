@@ -162,7 +162,7 @@
     // stack:                         h0, h1, h2, h3, h4, h5
 %endmacro
 
-// *backwards order subtraction* cost: 16
+// *backwards order subtraction* cost: 17
 %macro bus_fp6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
@@ -185,6 +185,7 @@
     SUBFP254
     SWAP6
     // stack: f0,                     g0, h1, h2, h3, h4, h5
+    SWAP1
     SUBFP254
     // stack:                         h0, h1, h2, h3, h4, h5
 %endmacro

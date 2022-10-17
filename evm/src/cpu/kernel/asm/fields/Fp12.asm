@@ -24,8 +24,8 @@ global test_mul_Fp12:
     %jump(mul_Fp12)
 return_on_stack:
     // stack:
-    %load_fp6(24)
     %load_fp6(30)
+    %load_fp6(24)
     // stack: h, h'
     %jump(0xdeadbeef)
 
@@ -38,7 +38,7 @@ global mul_Fp12:
     // stack:          g', f', g', f'
     %mul_fp6
     %dup1_fp6
-    // stack:      g'f', g'f', g', f'
+    // stack:      f'g', f'g', g', f'
     %store_fp6_sh(36)
     %store_fp6(42)
     // stack:                  g', f'
@@ -50,21 +50,21 @@ global mul_Fp12:
     // stack:          g , g', g , f'
     %add_fp6
     // stack:          g + g', g , f'
-    %jump(0xdeadbeef)
     %swap_fp6
     // stack:          g , g + g', f'
     %load_fp6(0)
-    // stack:       f, g , g'+ g , f'
+    // stack:       f, g , g + g', f'
     %mul_fp6
     %store_fp6(48)
-    // stack:              g'+ g , f'
+    // stack:              g + g', f'
     %swap_fp6
     %load_fp6(0)
     %add_fp6
-    // stack:           f'+ f, g'+ g
+    // stack:             f+f', g+g'
     %mul_fp6
     // stack:            (f+f')(g+g')
     %load_fp6(42)
+    // stack:      f'g', (f+f')(g+g')
     %bus_fp6
     // stack: (f+f')(g+g') - f'g'
     %load_fp6(48)
