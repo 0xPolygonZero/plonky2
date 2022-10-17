@@ -182,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn select_hash(
+    pub(crate) fn select_hash(
         &mut self,
         b: BoolTarget,
         h0: HashOutTarget,
