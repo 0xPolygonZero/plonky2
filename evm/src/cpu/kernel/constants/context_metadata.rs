@@ -21,7 +21,7 @@ pub(crate) enum ContextMetadata {
     /// prohibited.
     Static = 8,
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
-    /// we need to revert a context. See also `StorageTrieCheckpointPointers`.
+    /// we need to revert a context.
     StateTrieCheckpointPointer = 9,
 }
 

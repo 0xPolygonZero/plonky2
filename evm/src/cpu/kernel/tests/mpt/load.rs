@@ -1,6 +1,6 @@
 use anyhow::Result;
 use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{BigEndianHash, U256};
+use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
@@ -42,11 +42,6 @@ fn load_all_mpts_empty() -> Result<()> {
         0.into()
     );
 
-    assert_eq!(
-        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
-        trie_inputs.storage_tries.len().into()
-    );
-
     Ok(())
 }
 
@@ -81,8 +76,11 @@ fn load_all_mpts_leaf() -> Result<()> {
             5.into(), // value ptr
             test_account_1().nonce,
             test_account_1().balance,
-            test_account_1().storage_root.into_uint(),
+            9.into(), // pointer to storage trie root
             test_account_1().code_hash.into_uint(),
+            // These last two elements encode the storage trie, which is a hash node.
+            (PartialTrieType::Hash as u32).into(),
+            test_account_1().storage_root.into_uint(),
         ]
     );
 
@@ -95,9 +93,40 @@ fn load_all_mpts_leaf() -> Result<()> {
         0.into()
     );
 
+    Ok(())
+}
+
+#[test]
+fn load_all_mpts_hash() -> Result<()> {
+    let hash = H256::random();
+    let trie_inputs = TrieInputs {
+        state_trie: PartialTrie::Hash(hash),
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    let initial_stack = vec![0xDEADBEEFu32.into()];
+    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
+    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
+    let type_hash = U256::from(PartialTrieType::Hash as u32);
     assert_eq!(
-        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
-        trie_inputs.storage_tries.len().into()
+        interpreter.get_trie_data(),
+        vec![0.into(), type_hash, hash.into_uint(),]
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
     );
 
     Ok(())
@@ -160,11 +189,6 @@ fn load_all_mpts_empty_branch() -> Result<()> {
         0.into()
     );
 
-    assert_eq!(
-        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
-        trie_inputs.storage_tries.len().into()
-    );
-
     Ok(())
 }
 
@@ -201,14 +225,12 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
             9.into(),     // value pointer
             test_account_1().nonce,
             test_account_1().balance,
-            test_account_1().storage_root.into_uint(),
+            13.into(), // pointer to storage trie root
             test_account_1().code_hash.into_uint(),
+            // These last two elements encode the storage trie, which is a hash node.
+            (PartialTrieType::Hash as u32).into(),
+            test_account_1().storage_root.into_uint(),
         ]
-    );
-
-    assert_eq!(
-        interpreter.get_global_metadata_field(GlobalMetadata::NumStorageTries),
-        trie_inputs.storage_tries.len().into()
     );
 
     Ok(())
