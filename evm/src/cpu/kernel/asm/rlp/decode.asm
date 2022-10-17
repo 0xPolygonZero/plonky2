@@ -14,7 +14,7 @@
 global decode_rlp_string_len:
     // stack: pos, retdest
     DUP1
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: first_byte, pos, retdest
     DUP1
     %gt_const(0xb7)
@@ -36,7 +36,7 @@ decode_rlp_string_len_medium:
     %sub_const(0x80)
     // stack: len, pos, retdest
     SWAP1
-    %add_const(1)
+    %increment
     // stack: pos', len, retdest
     %stack (pos, len, retdest) -> (retdest, pos, len)
     JUMP
@@ -47,7 +47,7 @@ decode_rlp_string_len_large:
     %sub_const(0xb7)
     // stack: len_of_len, pos, retdest
     SWAP1
-    %add_const(1)
+    %increment
     // stack: pos', len_of_len, retdest
     %jump(decode_int_given_len)
 
@@ -89,10 +89,10 @@ global decode_rlp_scalar:
 global decode_rlp_list_len:
     // stack: pos, retdest
     DUP1
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: first_byte, pos, retdest
     SWAP1
-    %add_const(1) // increment pos
+    %increment // increment pos
     SWAP1
     // stack: first_byte, pos', retdest
     // If first_byte is >= 0xf8, it's a > 55 byte list, and
@@ -151,13 +151,13 @@ decode_int_given_len_loop:
     // stack: acc << 8, pos, end_pos, retdest
     DUP2
     // stack: pos, acc << 8, pos, end_pos, retdest
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: byte, acc << 8, pos, end_pos, retdest
     ADD
     // stack: acc', pos, end_pos, retdest
     // Increment pos.
     SWAP1
-    %add_const(1)
+    %increment
     SWAP1
     // stack: acc', pos', end_pos, retdest
     %jump(decode_int_given_len_loop)

@@ -62,7 +62,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
             commit_phase_merkle_caps,
             final_poly,
             pow_witness,
-            common_data.degree_bits,
+            common_data.degree_bits(),
             &config.fri_config,
         ),
     })
@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             &self.proof.openings.to_fri_openings(),
             *fri_alpha,
         );
-        let log_n = common_data.degree_bits + common_data.config.fri_config.rate_bits;
+        let log_n = common_data.degree_bits() + common_data.config.fri_config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
         for &(mut x_index) in fri_query_indices {

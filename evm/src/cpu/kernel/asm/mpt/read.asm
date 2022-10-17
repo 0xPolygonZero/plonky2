@@ -1,6 +1,6 @@
 // Given an address, return a pointer to the associated account data, which
 // consists of four words (nonce, balance, storage_root, code_hash), in the
-// state trie. Returns 0 if the address is not found.
+// state trie. Returns null if the address is not found.
 global mpt_read_state_trie:
     // stack: addr, retdest
     // The key is the hash of the address. Since KECCAK_GENERAL takes input from
@@ -24,14 +24,14 @@ mpt_read_state_trie_after_mstore:
 // - the key, as a U256
 // - the number of nibbles in the key (should start at 64)
 //
-// This function returns a pointer to the leaf, or 0 if the key is not found.
+// This function returns a pointer to the value, or 0 if the key is not found.
 global mpt_read:
     // stack: node_ptr, num_nibbles, key, retdest
     DUP1
     %mload_trie_data
     // stack: node_type, node_ptr, num_nibbles, key, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
-    SWAP1 %add_const(1) SWAP1
+    SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
 
     DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(mpt_read_empty)
@@ -39,7 +39,7 @@ global mpt_read:
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(mpt_read_extension)
     DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(mpt_read_leaf)
 
-    // There's still the MPT_NODE_HASH case, but if we hit a digest node,
+    // There's still the MPT_NODE_HASH case, but if we hit a hash node,
     // it means the prover failed to provide necessary Merkle data, so panic.
     PANIC
 
@@ -75,15 +75,8 @@ mpt_read_branch_end_of_key:
     %stack (node_payload_ptr, num_nibbles, key, retdest) -> (node_payload_ptr, retdest)
     // stack: node_payload_ptr, retdest
     %add_const(16) // skip over the 16 child nodes
-    // stack: value_len_ptr, retdest
-    DUP1 %mload_trie_data
-    // stack: value_len, value_len_ptr, retdest
-    %jumpi(mpt_read_branch_found_value)
-    // This branch node contains no value, so return null.
-    %stack (value_len_ptr, retdest) -> (retdest, 0)
-mpt_read_branch_found_value:
-    // stack: value_len_ptr, retdest
-    %increment
+    // stack: value_ptr_ptr, retdest
+    %mload_trie_data
     // stack: value_ptr, retdest
     SWAP1
     JUMP
@@ -103,7 +96,7 @@ mpt_read_extension:
     %mul_const(4) SHR // key_part = key >> (future_nibbles * 4)
     DUP1
     // stack: key_part, key_part, future_nibbles, key, node_payload_ptr, retdest
-    DUP5 %add_const(1) %mload_trie_data
+    DUP5 %increment %mload_trie_data
     // stack: node_key, key_part, key_part, future_nibbles, key, node_payload_ptr, retdest
     EQ // does the first part of our key match the node's key?
     %jumpi(mpt_read_extension_found)
@@ -131,7 +124,7 @@ mpt_read_leaf:
     // stack: node_payload_ptr, num_nibbles, key, retdest
     DUP1 %mload_trie_data
     // stack: node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
-    DUP2 %add_const(1) %mload_trie_data
+    DUP2 %increment %mload_trie_data
     // stack: node_key, node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
     SWAP3
     // stack: num_nibbles, node_num_nibbles, node_payload_ptr, node_key, key, retdest
@@ -147,7 +140,9 @@ mpt_read_leaf:
     JUMP
 mpt_read_leaf_found:
     // stack: node_payload_ptr, retdest
-    %add_const(3) // The value is located after num_nibbles, the key, and the value length.
+    %add_const(2) // The value pointer is located after num_nibbles and the key.
+    // stack: value_ptr_ptr, retdest
+    %mload_trie_data
     // stack: value_ptr, retdest
     SWAP1
     JUMP

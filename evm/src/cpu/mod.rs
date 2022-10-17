@@ -7,6 +7,7 @@ mod dup_swap;
 mod jumps;
 pub mod kernel;
 pub(crate) mod membus;
+mod modfp254;
 mod simple_logic;
 mod stack;
 mod stack_bounds;

@@ -6,6 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
@@ -94,15 +95,12 @@ where
 }
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
-    let input0_limbs = ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs = ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
+    let input0 = read_value_u64_limbs(lv, ADD_INPUT_0);
+    let input1 = read_value_u64_limbs(lv, ADD_INPUT_1);
 
     // Input and output have 16-bit limbs
-    let (output_limbs, _) = u256_add_cc(input0_limbs, input1_limbs);
-
-    for (&c, output_limb) in ADD_OUTPUT.iter().zip(output_limbs) {
-        lv[c] = F::from_canonical_u64(output_limb);
-    }
+    let (output_limbs, _) = u256_add_cc(input0, input1);
+    lv[ADD_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_u64(c)));
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -114,15 +112,20 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(ADD_OUTPUT, 16);
 
     let is_add = lv[IS_ADD];
-    let input0_limbs = ADD_INPUT_0.iter().map(|&c| lv[c]);
-    let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
-    let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
+    let input0_limbs = &lv[ADD_INPUT_0];
+    let input1_limbs = &lv[ADD_INPUT_1];
+    let output_limbs = &lv[ADD_OUTPUT];
 
     // This computed output is not yet reduced; i.e. some limbs may be
     // more than 16 bits.
-    let output_computed = input0_limbs.zip(input1_limbs).map(|(a, b)| a + b);
+    let output_computed = input0_limbs.iter().zip(input1_limbs).map(|(&a, &b)| a + b);
 
-    eval_packed_generic_are_equal(yield_constr, is_add, output_computed, output_limbs);
+    eval_packed_generic_are_equal(
+        yield_constr,
+        is_add,
+        output_computed,
+        output_limbs.iter().copied(),
+    );
 }
 
 #[allow(clippy::needless_collect)]
@@ -132,17 +135,18 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_add = lv[IS_ADD];
-    let input0_limbs = ADD_INPUT_0.iter().map(|&c| lv[c]);
-    let input1_limbs = ADD_INPUT_1.iter().map(|&c| lv[c]);
-    let output_limbs = ADD_OUTPUT.iter().map(|&c| lv[c]);
+    let input0_limbs = &lv[ADD_INPUT_0];
+    let input1_limbs = &lv[ADD_INPUT_1];
+    let output_limbs = &lv[ADD_OUTPUT];
 
     // Since `map` is lazy and the closure passed to it borrows
     // `builder`, we can't then borrow builder again below in the call
     // to `eval_ext_circuit_are_equal`. The solution is to force
     // evaluation with `collect`.
     let output_computed = input0_limbs
+        .iter()
         .zip(input1_limbs)
-        .map(|(a, b)| builder.add_extension(a, b))
+        .map(|(&a, &b)| builder.add_extension(a, b))
         .collect::<Vec<ExtensionTarget<D>>>();
 
     eval_ext_circuit_are_equal(
@@ -150,7 +154,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
         is_add,
         output_computed.into_iter(),
-        output_limbs,
+        output_limbs.iter().copied(),
     );
 }
 
@@ -203,7 +207,7 @@ mod tests {
 
         for _ in 0..N_RND_TESTS {
             // set inputs to random values
-            for (&ai, bi) in ADD_INPUT_0.iter().zip(ADD_INPUT_1) {
+            for (ai, bi) in ADD_INPUT_0.zip(ADD_INPUT_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }

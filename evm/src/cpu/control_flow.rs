@@ -9,7 +9,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
 // TODO: This list is incomplete.
-const NATIVE_INSTRUCTIONS: [usize; 25] = [
+const NATIVE_INSTRUCTIONS: [usize; 28] = [
     COL_MAP.op.add,
     COL_MAP.op.mul,
     COL_MAP.op.sub,
@@ -20,6 +20,9 @@ const NATIVE_INSTRUCTIONS: [usize; 25] = [
     COL_MAP.op.addmod,
     COL_MAP.op.mulmod,
     COL_MAP.op.signextend,
+    COL_MAP.op.addfp254,
+    COL_MAP.op.mulfp254,
+    COL_MAP.op.subfp254,
     COL_MAP.op.lt,
     COL_MAP.op.gt,
     COL_MAP.op.slt,

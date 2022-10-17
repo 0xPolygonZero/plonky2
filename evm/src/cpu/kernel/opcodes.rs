@@ -2,7 +2,7 @@
 pub(crate) fn get_push_opcode(n: u8) -> u8 {
     assert!(n > 0);
     assert!(n <= 32);
-    0x60 + (n as u8 - 1)
+    0x60 + n - 1
 }
 
 /// The opcode of a standard instruction (not a `PUSH`).
@@ -20,6 +20,9 @@ pub(crate) fn get_opcode(mnemonic: &str) -> u8 {
         "MULMOD" => 0x09,
         "EXP" => 0x0a,
         "SIGNEXTEND" => 0x0b,
+        "ADDFP254" => 0x0c,
+        "MULFP254" => 0x0d,
+        "SUBFP254" => 0x0e,
         "LT" => 0x10,
         "GT" => 0x11,
         "SLT" => 0x12,

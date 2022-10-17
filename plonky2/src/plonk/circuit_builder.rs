@@ -818,7 +818,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let common = CommonCircuitData {
             config: self.config,
             fri_params,
-            degree_bits,
             gates,
             selectors_info,
             quotient_degree_factor,

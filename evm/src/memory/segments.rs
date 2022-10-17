@@ -29,19 +29,14 @@ pub(crate) enum Segment {
     /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
     /// append-only buffer. It is owned by the kernel, so it only lives on context 0.
     TrieData = 12,
-    /// The account address associated with the `i`th storage trie. Only lives on context 0.
-    StorageTrieAddresses = 13,
-    /// A pointer to the `i`th storage trie within the `TrieData` buffer. Only lives on context 0.
-    StorageTriePointers = 14,
-    /// Like `StorageTriePointers`, except that these pointers correspond to the version of each
-    /// trie at the creation of a given context. This lets us easily revert a context by replacing
-    /// `StorageTriePointers` with `StorageTrieCheckpointPointers`.
-    /// See also `StateTrieCheckpointPointer`.
-    StorageTrieCheckpointPointers = 15,
+    /// A buffer used to store the encodings of a branch node's children.
+    TrieEncodedChild = 13,
+    /// A buffer used to store the lengths of the encodings of a branch node's children.
+    TrieEncodedChildLen = 14,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 16;
+    pub(crate) const COUNT: usize = 15;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -58,9 +53,8 @@ impl Segment {
             Self::TxnData,
             Self::RlpRaw,
             Self::TrieData,
-            Self::StorageTrieAddresses,
-            Self::StorageTriePointers,
-            Self::StorageTrieCheckpointPointers,
+            Self::TrieEncodedChild,
+            Self::TrieEncodedChildLen,
         ]
     }
 
@@ -80,9 +74,8 @@ impl Segment {
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
             Segment::TrieData => "SEGMENT_TRIE_DATA",
-            Segment::StorageTrieAddresses => "SEGMENT_STORAGE_TRIE_ADDRS",
-            Segment::StorageTriePointers => "SEGMENT_STORAGE_TRIE_PTRS",
-            Segment::StorageTrieCheckpointPointers => "SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS",
+            Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
+            Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
         }
     }
 
@@ -102,9 +95,8 @@ impl Segment {
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
-            Segment::StorageTrieAddresses => 160,
-            Segment::StorageTriePointers => 32,
-            Segment::StorageTrieCheckpointPointers => 32,
+            Segment::TrieEncodedChild => 256,
+            Segment::TrieEncodedChildLen => 6,
         }
     }
 }

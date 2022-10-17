@@ -1,11 +1,12 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
-use ethereum_types::{BigEndianHash, H256, U256};
+use eth_trie_utils::partial_trie::PartialTrie;
+use ethereum_types::{BigEndianHash, H256};
 
+use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::extension_to_leaf;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1_rlp, test_account_2_rlp};
+use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
 // TODO: Test with short leaf. Might need to be a storage trie.
@@ -23,74 +24,70 @@ fn mpt_hash_empty() -> Result<()> {
 }
 
 #[test]
-fn mpt_hash_leaf() -> Result<()> {
-    let account = AccountRlp {
-        nonce: U256::from(1111),
-        balance: U256::from(2222),
-        storage_root: H256::from_uint(&U256::from(3333)),
-        code_hash: H256::from_uint(&U256::from(4444)),
+fn mpt_hash_empty_branch() -> Result<()> {
+    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let state_trie = PartialTrie::Branch {
+        children,
+        value: vec![],
     };
-    let account_rlp = rlp::encode(&account);
-
-    let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        value: account_rlp.to_vec(),
-    };
-
     let trie_inputs = TrieInputs {
         state_trie,
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
     };
+    test_state_trie(trie_inputs)
+}
 
+#[test]
+fn mpt_hash_hash() -> Result<()> {
+    let hash = H256::random();
+    let trie_inputs = TrieInputs {
+        state_trie: PartialTrie::Hash(hash),
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
+
+    test_state_trie(trie_inputs)
+}
+
+#[test]
+fn mpt_hash_leaf() -> Result<()> {
+    let state_trie = PartialTrie::Leaf {
+        nibbles: nibbles(0xABC),
+        value: test_account_1_rlp(),
+    };
+    let trie_inputs = TrieInputs {
+        state_trie,
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+        storage_tries: vec![],
+    };
     test_state_trie(trie_inputs)
 }
 
 #[test]
 fn mpt_hash_extension_to_leaf() -> Result<()> {
-    let account = AccountRlp {
-        nonce: U256::from(1111),
-        balance: U256::from(2222),
-        storage_root: H256::from_uint(&U256::from(3333)),
-        code_hash: H256::from_uint(&U256::from(4444)),
-    };
-    let account_rlp = rlp::encode(&account);
-
-    let state_trie = extension_to_leaf(account_rlp.to_vec());
-
+    let state_trie = extension_to_leaf(test_account_1_rlp());
     let trie_inputs = TrieInputs {
         state_trie,
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
     };
-
     test_state_trie(trie_inputs)
 }
 
 #[test]
 fn mpt_hash_branch_to_leaf() -> Result<()> {
-    let account = AccountRlp {
-        nonce: U256::from(1111),
-        balance: U256::from(2222),
-        storage_root: H256::from_uint(&U256::from(3333)),
-        code_hash: H256::from_uint(&U256::from(4444)),
-    };
-    let account_rlp = rlp::encode(&account);
-
     let leaf = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 3,
-            packed: 0xABC.into(),
-        },
-        value: account_rlp.to_vec(),
-    };
-    let mut children = std::array::from_fn(|_| Box::new(PartialTrie::Empty));
-    children[0] = Box::new(leaf);
+        nibbles: nibbles(0xABC),
+        value: test_account_2_rlp(),
+    }
+    .into();
+    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    children[3] = leaf;
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],

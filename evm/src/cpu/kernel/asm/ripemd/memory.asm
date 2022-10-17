@@ -44,7 +44,7 @@ store_input_stack:
     // stack: offset, byte, rem, length, REM_INP
     %mstore_kernel_general
     // stack:               rem, length, REM_INP
-    %sub_const(1)
+    %decrement
     DUP1
     // stack:  rem - 1, rem - 1, length, REM_INP
     %jumpi(store_input_stack)
@@ -66,10 +66,10 @@ store_input:
     // stack: offset, byte, rem  , ADDR  , length 
     %mstore_kernel_general
     // stack:               rem  , ADDR  , length 
-    %sub_const(1)
+    %decrement
     // stack:               rem-1, ADDR  , length
     SWAP3
-    %add_const(1)
+    %increment
     SWAP3
     // stack:               rem-1, ADDR+1, length
     DUP1
@@ -90,12 +90,12 @@ global buffer_update:
     // stack: get, set, get  , set  , times  , retdest
     %mupdate_kernel_general
     // stack:           get  , set  , times  , retdest
-    %add_const(1)
+    %increment
     SWAP1 
-    %add_const(1)
+    %increment
     SWAP1
     SWAP2
-    %sub_const(1)
+    %decrement
     SWAP2
     // stack:           get+1, set+1, times-1, retdest
     DUP3
@@ -112,7 +112,7 @@ global buffer_update:
     // stack: offset = N-i, 0, i
     %mstore_kernel_general
     // stack: i
-    %sub_const(1)
+    %decrement
     DUP1
     // stack: i-1, i-1
     %jumpi($label)
