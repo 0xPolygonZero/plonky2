@@ -586,6 +586,7 @@ where
         VerifierCircuitTarget {
             constants_sigmas_cap: builder
                 .constant_merkle_cap(&verifier_data.verifier_only.constants_sigmas_cap),
+            circuit_digest: builder.add_virtual_hash(),
         }
     });
     RecursiveAllProofTargetWithData {

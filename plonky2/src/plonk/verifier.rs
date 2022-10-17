@@ -23,7 +23,11 @@ where
     validate_proof_with_pis_shape(&proof_with_pis, common_data)?;
 
     let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
-    let challenges = proof_with_pis.get_challenges(public_inputs_hash, common_data)?;
+    let challenges = proof_with_pis.get_challenges(
+        public_inputs_hash,
+        &verifier_data.circuit_digest,
+        common_data,
+    )?;
 
     verify_with_challenges(
         proof_with_pis.proof,

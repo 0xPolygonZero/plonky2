@@ -81,7 +81,7 @@ where
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
+    challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(&wires_commitment.merkle_tree.cap);

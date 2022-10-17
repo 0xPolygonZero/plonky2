@@ -1,19 +1,74 @@
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
+use plonky2_util::ceil_div_usize;
 
 use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
 };
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
+use crate::plonk::circuit_data::{
+    CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::proof::{
+    OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
+};
 use crate::with_context;
+
+/// Generate a proof having a given `CommonCircuitData`.
+#[allow(unused)] // TODO: should be used soon.
+pub(crate) fn dummy_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, C, D>,
+) -> Result<(
+    ProofWithPublicInputs<F, C, D>,
+    VerifierOnlyCircuitData<C, D>,
+)>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let config = common_data.config.clone();
+
+    let mut pw = PartialWitness::new();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+
+    ensure!(
+        !common_data.config.zero_knowledge,
+        "Degree calculation can be off if zero-knowledge is on."
+    );
+    let degree = common_data.degree();
+    // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
+    // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
+    let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
+
+    for _ in 0..num_noop_gate {
+        builder.add_gate(NoopGate, vec![]);
+    }
+    for gate in &common_data.gates {
+        builder.add_gate_to_gate_set(gate.clone());
+    }
+    for _ in 0..common_data.num_public_inputs {
+        let t = builder.add_virtual_public_input();
+        pw.set_target(t, F::ZERO);
+    }
+
+    let data = builder.build::<C>();
+    assert_eq!(&data.common, common_data);
+    let proof = data.prove(pw)?;
+
+    Ok((proof, data.verifier_only))
+}
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verify `proof0` if `condition` else verify `proof1`.
@@ -21,9 +76,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         condition: BoolTarget,
-        proof_with_pis0: ProofWithPublicInputsTarget<D>,
+        proof_with_pis0: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data0: &VerifierCircuitTarget,
-        proof_with_pis1: ProofWithPublicInputsTarget<D>,
+        proof_with_pis1: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data1: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
@@ -79,18 +134,52 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let selected_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.select_cap(
                 condition,
-                inner_verifier_data0.constants_sigmas_cap.clone(),
-                inner_verifier_data1.constants_sigmas_cap.clone(),
+                &inner_verifier_data0.constants_sigmas_cap,
+                &inner_verifier_data1.constants_sigmas_cap,
+            ),
+            circuit_digest: self.select_hash(
+                condition,
+                inner_verifier_data0.circuit_digest,
+                inner_verifier_data1.circuit_digest,
             ),
         };
 
         self.verify_proof(selected_proof, &selected_verifier_data, inner_common_data);
     }
 
-    fn select_vec(&mut self, b: BoolTarget, v0: Vec<Target>, v1: Vec<Target>) -> Vec<Target> {
-        v0.into_iter()
+    /// Conditionally verify a proof with a new generated dummy proof.
+    pub fn conditionally_verify_proof_or_dummy<C: GenericConfig<D, F = F>>(
+        &mut self,
+        condition: BoolTarget,
+        proof_with_pis: &ProofWithPublicInputsTarget<D>,
+        inner_verifier_data: &VerifierCircuitTarget,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) -> (ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let dummy_proof = self.add_virtual_proof_with_pis(inner_common_data);
+        let dummy_verifier_data = VerifierCircuitTarget {
+            constants_sigmas_cap: self
+                .add_virtual_cap(inner_common_data.config.fri_config.cap_height),
+            circuit_digest: self.add_virtual_hash(),
+        };
+        self.conditionally_verify_proof(
+            condition,
+            proof_with_pis,
+            inner_verifier_data,
+            &dummy_proof,
+            &dummy_verifier_data,
+            inner_common_data,
+        );
+
+        (dummy_proof, dummy_verifier_data)
+    }
+
+    fn select_vec(&mut self, b: BoolTarget, v0: &[Target], v1: &[Target]) -> Vec<Target> {
+        v0.iter()
             .zip_eq(v1)
-            .map(|(t0, t1)| self.select(b, t0, t1))
+            .map(|(t0, t1)| self.select(b, *t0, *t1))
             .collect()
     }
 
@@ -108,15 +197,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_cap(
         &mut self,
         b: BoolTarget,
-        cap0: MerkleCapTarget,
-        cap1: MerkleCapTarget,
+        cap0: &MerkleCapTarget,
+        cap1: &MerkleCapTarget,
     ) -> MerkleCapTarget {
         assert_eq!(cap0.0.len(), cap1.0.len());
         MerkleCapTarget(
             cap0.0
-                .into_iter()
-                .zip_eq(cap1.0)
-                .map(|(h0, h1)| self.select_hash(b, h0, h1))
+                .iter()
+                .zip_eq(&cap1.0)
+                .map(|(h0, h1)| self.select_hash(b, *h0, *h1))
                 .collect(),
         )
     }
@@ -124,10 +213,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_vec_cap(
         &mut self,
         b: BoolTarget,
-        v0: Vec<MerkleCapTarget>,
-        v1: Vec<MerkleCapTarget>,
+        v0: &[MerkleCapTarget],
+        v1: &[MerkleCapTarget],
     ) -> Vec<MerkleCapTarget> {
-        v0.into_iter()
+        v0.iter()
             .zip_eq(v1)
             .map(|(c0, c1)| self.select_cap(b, c0, c1))
             .collect()
@@ -136,53 +225,53 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_opening_set(
         &mut self,
         b: BoolTarget,
-        os0: OpeningSetTarget<D>,
-        os1: OpeningSetTarget<D>,
+        os0: &OpeningSetTarget<D>,
+        os1: &OpeningSetTarget<D>,
     ) -> OpeningSetTarget<D> {
         OpeningSetTarget {
-            constants: self.select_vec_ext(b, os0.constants, os1.constants),
-            plonk_sigmas: self.select_vec_ext(b, os0.plonk_sigmas, os1.plonk_sigmas),
-            wires: self.select_vec_ext(b, os0.wires, os1.wires),
-            plonk_zs: self.select_vec_ext(b, os0.plonk_zs, os1.plonk_zs),
-            plonk_zs_next: self.select_vec_ext(b, os0.plonk_zs_next, os1.plonk_zs_next),
-            partial_products: self.select_vec_ext(b, os0.partial_products, os1.partial_products),
-            quotient_polys: self.select_vec_ext(b, os0.quotient_polys, os1.quotient_polys),
+            constants: self.select_vec_ext(b, &os0.constants, &os1.constants),
+            plonk_sigmas: self.select_vec_ext(b, &os0.plonk_sigmas, &os1.plonk_sigmas),
+            wires: self.select_vec_ext(b, &os0.wires, &os1.wires),
+            plonk_zs: self.select_vec_ext(b, &os0.plonk_zs, &os1.plonk_zs),
+            plonk_zs_next: self.select_vec_ext(b, &os0.plonk_zs_next, &os1.plonk_zs_next),
+            partial_products: self.select_vec_ext(b, &os0.partial_products, &os1.partial_products),
+            quotient_polys: self.select_vec_ext(b, &os0.quotient_polys, &os1.quotient_polys),
         }
     }
 
     fn select_vec_ext(
         &mut self,
         b: BoolTarget,
-        v0: Vec<ExtensionTarget<D>>,
-        v1: Vec<ExtensionTarget<D>>,
+        v0: &[ExtensionTarget<D>],
+        v1: &[ExtensionTarget<D>],
     ) -> Vec<ExtensionTarget<D>> {
-        v0.into_iter()
+        v0.iter()
             .zip_eq(v1)
-            .map(|(e0, e1)| self.select_ext(b, e0, e1))
+            .map(|(e0, e1)| self.select_ext(b, *e0, *e1))
             .collect()
     }
 
     fn select_opening_proof(
         &mut self,
         b: BoolTarget,
-        proof0: FriProofTarget<D>,
-        proof1: FriProofTarget<D>,
+        proof0: &FriProofTarget<D>,
+        proof1: &FriProofTarget<D>,
     ) -> FriProofTarget<D> {
         FriProofTarget {
             commit_phase_merkle_caps: self.select_vec_cap(
                 b,
-                proof0.commit_phase_merkle_caps,
-                proof1.commit_phase_merkle_caps,
+                &proof0.commit_phase_merkle_caps,
+                &proof1.commit_phase_merkle_caps,
             ),
             query_round_proofs: self.select_vec_query_round(
                 b,
-                proof0.query_round_proofs,
-                proof1.query_round_proofs,
+                &proof0.query_round_proofs,
+                &proof1.query_round_proofs,
             ),
             final_poly: PolynomialCoeffsExtTarget(self.select_vec_ext(
                 b,
-                proof0.final_poly.0,
-                proof1.final_poly.0,
+                &proof0.final_poly.0,
+                &proof1.final_poly.0,
             )),
             pow_witness: self.select(b, proof0.pow_witness, proof1.pow_witness),
         }
@@ -191,26 +280,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_query_round(
         &mut self,
         b: BoolTarget,
-        qr0: FriQueryRoundTarget<D>,
-        qr1: FriQueryRoundTarget<D>,
+        qr0: &FriQueryRoundTarget<D>,
+        qr1: &FriQueryRoundTarget<D>,
     ) -> FriQueryRoundTarget<D> {
         FriQueryRoundTarget {
             initial_trees_proof: self.select_initial_tree_proof(
                 b,
-                qr0.initial_trees_proof,
-                qr1.initial_trees_proof,
+                &qr0.initial_trees_proof,
+                &qr1.initial_trees_proof,
             ),
-            steps: self.select_vec_query_step(b, qr0.steps, qr1.steps),
+            steps: self.select_vec_query_step(b, &qr0.steps, &qr1.steps),
         }
     }
 
     fn select_vec_query_round(
         &mut self,
         b: BoolTarget,
-        v0: Vec<FriQueryRoundTarget<D>>,
-        v1: Vec<FriQueryRoundTarget<D>>,
+        v0: &[FriQueryRoundTarget<D>],
+        v1: &[FriQueryRoundTarget<D>],
     ) -> Vec<FriQueryRoundTarget<D>> {
-        v0.into_iter()
+        v0.iter()
             .zip_eq(v1)
             .map(|(qr0, qr1)| self.select_query_round(b, qr0, qr1))
             .collect()
@@ -219,14 +308,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_initial_tree_proof(
         &mut self,
         b: BoolTarget,
-        proof0: FriInitialTreeProofTarget,
-        proof1: FriInitialTreeProofTarget,
+        proof0: &FriInitialTreeProofTarget,
+        proof1: &FriInitialTreeProofTarget,
     ) -> FriInitialTreeProofTarget {
         FriInitialTreeProofTarget {
             evals_proofs: proof0
                 .evals_proofs
-                .into_iter()
-                .zip_eq(proof1.evals_proofs)
+                .iter()
+                .zip_eq(&proof1.evals_proofs)
                 .map(|((v0, p0), (v1, p1))| {
                     (
                         self.select_vec(b, v0, v1),
@@ -240,15 +329,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_merkle_proof(
         &mut self,
         b: BoolTarget,
-        proof0: MerkleProofTarget,
-        proof1: MerkleProofTarget,
+        proof0: &MerkleProofTarget,
+        proof1: &MerkleProofTarget,
     ) -> MerkleProofTarget {
         MerkleProofTarget {
             siblings: proof0
                 .siblings
-                .into_iter()
-                .zip_eq(proof1.siblings)
-                .map(|(h0, h1)| self.select_hash(b, h0, h1))
+                .iter()
+                .zip_eq(&proof1.siblings)
+                .map(|(h0, h1)| self.select_hash(b, *h0, *h1))
                 .collect(),
         }
     }
@@ -256,22 +345,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn select_query_step(
         &mut self,
         b: BoolTarget,
-        qs0: FriQueryStepTarget<D>,
-        qs1: FriQueryStepTarget<D>,
+        qs0: &FriQueryStepTarget<D>,
+        qs1: &FriQueryStepTarget<D>,
     ) -> FriQueryStepTarget<D> {
         FriQueryStepTarget {
-            evals: self.select_vec_ext(b, qs0.evals, qs1.evals),
-            merkle_proof: self.select_merkle_proof(b, qs0.merkle_proof, qs1.merkle_proof),
+            evals: self.select_vec_ext(b, &qs0.evals, &qs1.evals),
+            merkle_proof: self.select_merkle_proof(b, &qs0.merkle_proof, &qs1.merkle_proof),
         }
     }
 
     fn select_vec_query_step(
         &mut self,
         b: BoolTarget,
-        v0: Vec<FriQueryStepTarget<D>>,
-        v1: Vec<FriQueryStepTarget<D>>,
+        v0: &[FriQueryStepTarget<D>],
+        v1: &[FriQueryStepTarget<D>],
     ) -> Vec<FriQueryStepTarget<D>> {
-        v0.into_iter()
+        v0.iter()
             .zip_eq(v1)
             .map(|(qs0, qs1)| self.select_query_step(b, qs0, qs1))
             .collect()
@@ -297,6 +386,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
+        // Generate proof.
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let t = builder.add_virtual_target();
@@ -310,33 +400,32 @@ mod tests {
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
 
+        // Generate dummy proof with the same `CommonCircuitData`.
+        let (dummy_proof, dummy_data) = dummy_proof(&data.common)?;
+
+        // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target(&dummy_pt, &proof);
-
+        pw.set_proof_with_pis_target(&dummy_pt, &dummy_proof);
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&inner_data, &data.verifier_only);
         let dummy_inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
+            circuit_digest: builder.add_virtual_hash(),
         };
-        pw.set_cap_target(
-            &dummy_inner_data.constants_sigmas_cap,
-            &data.verifier_only.constants_sigmas_cap,
-        );
+        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof(
             b,
-            pt,
+            &pt,
             &inner_data,
-            dummy_pt,
+            &dummy_pt,
             &dummy_inner_data,
             &data.common,
         );
