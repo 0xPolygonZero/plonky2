@@ -47,7 +47,7 @@ where
         !common_data.config.zero_knowledge,
         "Degree calculation can be off if zero-knowledge is on."
     );
-    let degree = 1 << common_data.degree_bits;
+    let degree = common_data.degree();
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
     let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
