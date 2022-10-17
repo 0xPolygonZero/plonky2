@@ -95,4 +95,4 @@ encode_receipt:
     PANIC // TODO
 
 encode_storage_value:
-    PANIC // TODO
+    PANIC // TODO: RLP encode as variable-len scalar?
