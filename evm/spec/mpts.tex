@@ -1,0 +1,26 @@
+\section{Merkle Patricia tries}
+\label{tries}
+
+\subsection{Internal memory format}
+
+Withour our zkEVM's kernel memory,
+\begin{enumerate}
+  \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
+  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, c_1, \dots, c_{16}, v)$, where each $c_i$ is a pointer to a child node, and $v$ is a pointer to a value. If a branch node has no associated value, then $v = 0$, i.e. the null pointer.
+  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ represents the part of the key associated with this extension, and is encoded as a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$. $c$ is a pointer to a child node.
+  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, v)$, where $k$ is a 2-tuple as above, and $v$ is a pointer to a value.
+  \item A digest node is encoded as $(\texttt{MPT\_NODE\_HASH}, d)$, where $d$ is a Keccak256 digest.
+\end{enumerate}
+
+
+\subsection{Prover input format}
+
+The initial state of each trie is given by the prover as a nondeterministic input tape. This tape has a slightly different format:
+\begin{enumerate}
+  \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
+  \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, v_?, c_1, \dots, c_{16})$. Here $v_?$ consists of a flag indicating whether a value is present,\todo{In the current implementation, we use a length prefix rather than a is-present prefix, but we plan to change that.} followed by the actual value payload if one is present. Each $c_i$ is the encoding of a child node.
+  \item An extension node is encoded as $(\texttt{MPT\_NODE\_EXTENSION}, k, c)$, $k$ represents the part of the key associated with this extension, and is encoded as a 2-tuple $(\texttt{packed\_nibbles}, \texttt{num\_nibbles})$. $c$ is a pointer to a child node.
+  \item A leaf node is encoded as $(\texttt{MPT\_NODE\_LEAF}, k, v)$, where $k$ is a 2-tuple as above, and $v$ is a value payload.
+  \item A digest node is encoded as $(\texttt{MPT\_NODE\_HASH}, d)$, where $d$ is a Keccak256 digest.
+\end{enumerate}
+Nodes are thus given in depth-first order, enabling natural recursive methods for encoding and decoding this format.

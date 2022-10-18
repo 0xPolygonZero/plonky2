@@ -29,6 +29,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
+    circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> anyhow::Result<ProofChallenges<F, D>> {
     let config = &common_data.config;
@@ -37,7 +38,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
+    challenger.observe_hash::<C::Hasher>(*circuit_digest);
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(wires_cap);
@@ -61,7 +62,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
             commit_phase_merkle_caps,
             final_poly,
             pow_witness,
-            common_data.degree_bits,
+            common_data.degree_bits(),
             &config.fri_config,
         ),
     })
@@ -72,10 +73,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub(crate) fn fri_query_indices(
         &self,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Vec<usize>> {
         Ok(self
-            .get_challenges(self.get_public_inputs_hash(), common_data)?
+            .get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?
             .fri_challenges
             .fri_query_indices)
     }
@@ -84,6 +86,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_challenges(
         &self,
         public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let Proof {
@@ -109,6 +112,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
+            circuit_digest,
             common_data,
         )
     }
@@ -121,6 +125,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_challenges(
         &self,
         public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let CompressedProof {
@@ -146,6 +151,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
+            circuit_digest,
             common_data,
         )
     }
@@ -175,7 +181,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             &self.proof.openings.to_fri_openings(),
             *fri_alpha,
         );
-        let log_n = common_data.degree_bits + common_data.config.fri_config.rate_bits;
+        let log_n = common_data.degree_bits() + common_data.config.fri_config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
         for &(mut x_index) in fri_query_indices {
@@ -237,6 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
         pow_witness: Target,
+        inner_circuit_digest: HashOutTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) -> ProofChallengesTarget<D>
     where
@@ -248,9 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
 
         // Observe the instance.
-        let digest =
-            HashOutTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
-        challenger.observe_hash(&digest);
+        challenger.observe_hash(&inner_circuit_digest);
         challenger.observe_hash(&public_inputs_hash);
 
         challenger.observe_cap(wires_cap);
@@ -286,6 +291,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         public_inputs_hash: HashOutTarget,
+        inner_circuit_digest: HashOutTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) -> ProofChallengesTarget<D>
     where
@@ -314,6 +320,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
+            inner_circuit_digest,
             inner_common_data,
         )
     }

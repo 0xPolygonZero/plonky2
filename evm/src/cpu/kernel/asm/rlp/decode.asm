@@ -14,7 +14,7 @@
 global decode_rlp_string_len:
     // stack: pos, retdest
     DUP1
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: first_byte, pos, retdest
     DUP1
     %gt_const(0xb7)
@@ -89,7 +89,7 @@ global decode_rlp_scalar:
 global decode_rlp_list_len:
     // stack: pos, retdest
     DUP1
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: first_byte, pos, retdest
     SWAP1
     %increment // increment pos
@@ -151,7 +151,7 @@ decode_int_given_len_loop:
     // stack: acc << 8, pos, end_pos, retdest
     DUP2
     // stack: pos, acc << 8, pos, end_pos, retdest
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     // stack: byte, acc << 8, pos, end_pos, retdest
     ADD
     // stack: acc', pos, end_pos, retdest

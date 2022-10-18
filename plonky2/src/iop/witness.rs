@@ -13,6 +13,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::plonk::circuit_data::{VerifierCircuitTarget, VerifierOnlyCircuitData};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
@@ -195,6 +196,18 @@ pub trait Witness<F: Field> {
         {
             self.set_extension_targets(&batch_target.values, &batch.values);
         }
+    }
+
+    fn set_verifier_data_target<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        vdt: &VerifierCircuitTarget,
+        vd: &VerifierOnlyCircuitData<C, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap);
+        self.set_hash_target(vdt.circuit_digest, vd.circuit_digest);
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

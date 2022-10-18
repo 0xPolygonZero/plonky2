@@ -47,7 +47,29 @@ mpt_hash_hash_rlp_after_unpacking:
 // Pre stack: node_ptr, encode_value, retdest
 // Post stack: result, result_len
 global encode_or_hash_node:
-    %stack (node_ptr, encode_value) -> (node_ptr, encode_value, maybe_hash_node)
+    // stack: node_ptr, encode_value, retdest
+    DUP1 %mload_trie_data
+
+    // Check if we're dealing with a concrete node, i.e. not a hash node.
+    // stack: node_type, node_ptr, encode_value, retdest
+    DUP1
+    PUSH @MPT_NODE_HASH
+    SUB
+    %jumpi(encode_or_hash_concrete_node)
+
+    // If we got here, node_type == @MPT_NODE_HASH.
+    // Load the hash and return (hash, 32).
+    // stack: node_type, node_ptr, encode_value, retdest
+    POP
+    // stack: node_ptr, encode_value, retdest
+    %increment // Skip over node type prefix
+    // stack: hash_ptr, encode_value, retdest
+    %mload_trie_data
+    // stack: hash, encode_value, retdest
+    %stack (hash, encode_value, retdest) -> (retdest, hash, 32)
+    JUMP
+encode_or_hash_concrete_node:
+    %stack (node_type, node_ptr, encode_value) -> (node_type, node_ptr, encode_value, maybe_hash_node)
     %jump(encode_node)
 maybe_hash_node:
     // stack: result_ptr, result_len, retdest
@@ -75,22 +97,22 @@ after_packed_small_rlp:
 // RLP encode the given trie node, and return an (pointer, length) pair
 // indicating where the data lives within @SEGMENT_RLP_RAW.
 //
-// Pre stack: node_ptr, encode_value, retdest
+// Pre stack: node_type, node_ptr, encode_value, retdest
 // Post stack: result_ptr, result_len
-global encode_node:
-    // stack: node_ptr, encode_value, retdest
-    DUP1 %mload_trie_data
+encode_node:
     // stack: node_type, node_ptr, encode_value, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
     SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, encode_value, retdest
 
     DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(encode_node_empty)
-    DUP1 %eq_const(@MPT_NODE_HASH)      %jumpi(encode_node_hash)
     DUP1 %eq_const(@MPT_NODE_BRANCH)    %jumpi(encode_node_branch)
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(encode_node_extension)
     DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(encode_node_leaf)
-    PANIC // Invalid node type? Shouldn't get here.
+
+    // If we got here, node_type is either @MPT_NODE_HASH, which should have
+    // been handled earlier in encode_or_hash_node, or something invalid.
+    PANIC
 
 global encode_node_empty:
     // stack: node_type, node_payload_ptr, encode_value, retdest
@@ -103,14 +125,6 @@ global encode_node_empty:
     PUSH 0
     %mstore_rlp
     %stack (retdest) -> (retdest, 0, 1)
-    JUMP
-
-global encode_node_hash:
-    // stack: node_type, node_payload_ptr, encode_value, retdest
-    POP
-    // stack: node_payload_ptr, encode_value, retdest
-    %mload_trie_data
-    %stack (hash, encode_value, retdest) -> (retdest, hash, 32)
     JUMP
 
 encode_node_branch:
@@ -152,21 +166,17 @@ encode_node_branch:
     %add_const(16)
     // stack: value_ptr_ptr, rlp_pos', encode_value, retdest
     %mload_trie_data
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    DUP1 %mload_trie_data
-    // stack: value_len, value_len_ptr, rlp_pos', encode_value, retdest
-    %jumpi(encode_node_branch_with_value)
+    // stack: value_ptr, rlp_pos', encode_value, retdest
+    DUP1 %jumpi(encode_node_branch_with_value)
     // No value; append the empty string (0x80).
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    %stack (value_len_ptr, rlp_pos, encode_value) -> (rlp_pos, 0x80, rlp_pos)
+    // stack: value_ptr, rlp_pos', encode_value, retdest
+    %stack (value_ptr, rlp_pos, encode_value) -> (rlp_pos, 0x80, rlp_pos)
     %mstore_rlp
     // stack: rlp_pos', retdest
     %increment
     // stack: rlp_pos'', retdest
     %jump(encode_node_branch_prepend_prefix)
 encode_node_branch_with_value:
-    // stack: value_len_ptr, rlp_pos', encode_value, retdest
-    %increment
     // stack: value_ptr, rlp_pos', encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value)
         -> (encode_value, rlp_pos, value_ptr, encode_node_branch_prepend_prefix)
@@ -276,7 +286,6 @@ encode_node_leaf_after_hex_prefix:
     %add_const(2) // The value pointer starts at index 3, after num_nibbles and packed_nibbles.
     // stack: value_ptr_ptr, rlp_pos, encode_value, retdest
     %mload_trie_data
-    %increment // skip over length prefix
     // stack: value_ptr, rlp_pos, encode_value, retdest
     %stack (value_ptr, rlp_pos, encode_value, retdest)
         -> (encode_value, rlp_pos, value_ptr, encode_node_leaf_after_encode_value, retdest)

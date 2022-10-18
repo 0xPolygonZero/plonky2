@@ -81,7 +81,7 @@ where
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
+    challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(&wires_commitment.merkle_tree.cap);
@@ -172,9 +172,9 @@ where
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
     // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    let g = F::Extension::primitive_root_of_unity(common_data.degree_bits);
+    let g = F::Extension::primitive_root_of_unity(common_data.degree_bits());
     ensure!(
-        zeta.exp_power_of_2(common_data.degree_bits) != F::Extension::ONE,
+        zeta.exp_power_of_2(common_data.degree_bits()) != F::Extension::ONE,
         "Opening point is in the subgroup."
     );
 
@@ -342,10 +342,10 @@ fn compute_quotient_polys<
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
     let next_step = 1 << quotient_degree_bits;
 
-    let points = F::two_adic_subgroup(common_data.degree_bits + quotient_degree_bits);
+    let points = F::two_adic_subgroup(common_data.degree_bits() + quotient_degree_bits);
     let lde_size = points.len();
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, quotient_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits(), quotient_degree_bits);
 
     let points_batches = points.par_chunks(BATCH_SIZE);
     let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);

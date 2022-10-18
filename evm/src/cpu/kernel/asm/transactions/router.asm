@@ -18,14 +18,14 @@ read_txn_from_memory:
     // first byte >= 0xc0, so there is no overlap.
 
     PUSH 0
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     %eq_const(1)
     // stack: first_byte == 1, retdest
     %jumpi(process_type_1_txn)
     // stack: retdest
 
     PUSH 0
-    %mload_current(@SEGMENT_RLP_RAW)
+    %mload_kernel(@SEGMENT_RLP_RAW)
     %eq_const(2)
     // stack: first_byte == 2, retdest
     %jumpi(process_type_2_txn)

@@ -81,9 +81,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn compress(
         self,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
-        let indices = self.fri_query_indices(common_data)?;
+        let indices = self.fri_query_indices(circuit_digest, common_data)?;
         let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
         Ok(CompressedProofWithPublicInputs {
             public_inputs: self.public_inputs,
@@ -176,12 +177,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn decompress(
         self,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
         [(); C::Hasher::HASH_SIZE]:,
     {
-        let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
+        let challenges =
+            self.get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
@@ -205,7 +208,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             "Number of public inputs doesn't match circuit data."
         );
         let public_inputs_hash = self.get_public_inputs_hash();
-        let challenges = self.get_challenges(public_inputs_hash, common_data)?;
+        let challenges = self.get_challenges(
+            public_inputs_hash,
+            &verifier_data.circuit_digest,
+            common_data,
+        )?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
@@ -418,8 +425,8 @@ mod tests {
         verify(proof.clone(), &data.verifier_only, &data.common)?;
 
         // Verify that `decompress ∘ compress = identity`.
-        let compressed_proof = proof.clone().compress(&data.common)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
+        let compressed_proof = data.compress(proof.clone())?;
+        let decompressed_compressed_proof = data.decompress(compressed_proof.clone())?;
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;
