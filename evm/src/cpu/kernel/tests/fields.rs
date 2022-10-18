@@ -97,13 +97,6 @@ fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] 
     [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
 }
 
-fn as_stack(xs: Vec<u32>) -> Vec<U256> {
-    xs.iter()
-        .map(|&x| U256::from(x as u32) % P254)
-        .rev()
-        .collect()
-}
-
 fn gen_fp6() -> [[u32; 2]; 3] {
     let mut rng = thread_rng();
     [
@@ -113,24 +106,11 @@ fn gen_fp6() -> [[u32; 2]; 3] {
     ]
 }
 
-#[test]
-fn test_fp6() -> Result<()> {
-    let c = gen_fp6();
-    let d = gen_fp6();
-    let input: Vec<u32> = [c, d].into_iter().flatten().flatten().collect();
-    let output: Vec<u32> = mul_fp6(c, d).into_iter().flatten().collect();
-
-    let kernel = combined_kernel();
-    let initial_offset = kernel.global_labels["test_mul_Fp6"];
-    let initial_stack: Vec<U256> = as_stack(input);
-    let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
-
-    let expected = as_stack(output);
-    assert_eq!(final_stack, expected);
-
-    Ok(())
+fn as_stack(xs: Vec<u32>) -> Vec<U256> {
+    xs.iter()
+        .map(|&x| U256::from(x as u32) % P254)
+        .rev()
+        .collect()
 }
 
 #[test]
