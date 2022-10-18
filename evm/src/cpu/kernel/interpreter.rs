@@ -328,6 +328,8 @@ impl<'a> Interpreter<'a> {
 
         if self.debug_offsets.contains(&self.offset) {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
+        } else if let Some(label) = self.offset_label() {
+            println!("At {}", label);
         }
 
         Ok(())
@@ -335,12 +337,16 @@ impl<'a> Interpreter<'a> {
 
     /// Get a string representation of the current offset for debugging purposes.
     fn offset_name(&self) -> String {
+        self.offset_label()
+            .unwrap_or_else(|| self.offset.to_string())
+    }
+
+    fn offset_label(&self) -> Option<String> {
         // TODO: Not sure we should use KERNEL? Interpreter is more general in other places.
-        let label = KERNEL
+        KERNEL
             .global_labels
             .iter()
-            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()));
-        label.unwrap_or_else(|| self.offset.to_string())
+            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()))
     }
 
     fn run_stop(&mut self) {
