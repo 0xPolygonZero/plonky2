@@ -8,10 +8,6 @@
 ///
 /// Note: each symbol in the stack comments consists of six words
 
-global test_mul_Fp6:
-    %mul_fp6
-    %jump(0xdeadbeef)
-
 
 global test_mul_Fp12:
     // stack: f, f', g, g'
