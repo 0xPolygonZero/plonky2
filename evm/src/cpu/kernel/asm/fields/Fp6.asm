@@ -54,7 +54,7 @@
     // stack:
 %endmacro
 
-// cost: 49
+// cost: store (40) + i9 (9) = 49
 %macro store_fp6_sh(offset)
     // stack: x0, x1, x2, x3, x4, x5
     PUSH $offset

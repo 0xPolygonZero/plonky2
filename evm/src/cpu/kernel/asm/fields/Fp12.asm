@@ -1,14 +1,3 @@
-/// F = f + f'z
-/// G = g + g'z
-///
-/// h + h'z = FG 
-///
-/// h  = fg + sh(f'g')
-/// h' = (f+f')(g+g') - fg - f'g'
-///
-/// Note: each symbol in the stack comments consists of six words
-
-
 global test_mul_Fp12:
     // stack: f, f', g, g'
     %store_fp6(0)
@@ -25,6 +14,31 @@ return_on_stack:
     // stack: h, h'
     %jump(0xdeadbeef)
 
+
+///  macro | num | ops | cost
+///  -------------------------
+///  load  | 8   |  40 |  320
+///  store | 5   |  40 |  200
+///  dup   | 5   |   6 |   30
+///  swap  | 4   |  16 |   64
+///  add   | 3   |  16 |   48
+///  sub   | 2   |  17 |   34
+///  mul   | 3   | 156 |  468
+///  i9    | 1   |   9 |    9
+///  jump  | 1   |   1 |    1
+///
+/// TOTAL: 1174
+
+
+/// F = f + f'z
+/// G = g + g'z
+///
+/// H = h + h'z = FG 
+///
+/// h  = fg + sh(f'g')
+/// h' = (f+f')(g+g') - fg - f'g'
+///
+/// Note: each symbol in the stack comments consists of six words
 
 global mul_Fp12:
     %load_fp6(6)
