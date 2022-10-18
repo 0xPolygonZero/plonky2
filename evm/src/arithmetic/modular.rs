@@ -83,7 +83,7 @@
 //!    - if modulus is 0, then the test output < modulus, checking that
 //!      the output is reduced, will fail, because output is non-negative.
 
-use num::{BigUint, Zero};
+use num::{bigint::Sign, BigInt, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -98,54 +98,64 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::range_check_error;
 
-/// Convert the base-2^16 representation of a number into a BigUint.
+/// Convert the base-2^16 representation of a number into a BigInt.
 ///
-/// Given `N` unsigned 16-bit values in `limbs`, return the BigUint
+/// Given `N` signed (16 + ε)-bit values in `limbs`, return the BigInt
 ///
 ///   \sum_{i=0}^{N-1} limbs[i] * β^i.
 ///
-fn columns_to_biguint<const N: usize>(limbs: &[i64; N]) -> BigUint {
+/// This is basically "evaluate the given polynomial at β". Although
+/// the input type is i64, the values must always be in (-2^16 - ε,
+/// 2^16 + ε) because of the caller's range check on the inputs (the ε
+/// allows us to convert calculated output, which can be bigger than
+/// 2^16).
+fn columns_to_bigint<const N: usize>(limbs: &[i64; N]) -> BigInt {
     const BASE: i64 = 1i64 << LIMB_BITS;
 
-    // Although the input type is i64, the values must always be in
-    // [0, 2^16 + ε) because of the caller's range check on the inputs
-    // (the ε allows us to convert calculated output, which can be
-    // bigger than 2^16).
-    debug_assert!(limbs.iter().all(|&x| x >= 0));
-
-    let mut limbs_u32 = Vec::with_capacity(N / 2 + 1);
+    let mut pos_limbs_u32 = Vec::with_capacity(N / 2 + 1);
+    let mut neg_limbs_u32 = Vec::with_capacity(N / 2 + 1);
     let mut cy = 0i64; // cy is necessary to handle ε > 0
     for i in 0..(N / 2) {
         let t = cy + limbs[2 * i] + BASE * limbs[2 * i + 1];
-        limbs_u32.push(t as u32);
-        cy = t >> 32;
+        pos_limbs_u32.push(if t > 0 { t as u32 } else { 0u32 });
+        neg_limbs_u32.push(if t < 0 { -t as u32 } else { 0u32 });
+        cy = t / (1i64 << 32);
     }
     if N & 1 != 0 {
         // If N is odd we need to add the last limb on its own
         let t = cy + limbs[N - 1];
-        limbs_u32.push(t as u32);
-        cy = t >> 32;
+        pos_limbs_u32.push(if t > 0 { t as u32 } else { 0u32 });
+        neg_limbs_u32.push(if t < 0 { -t as u32 } else { 0u32 });
+        cy = t / (1i64 << 32);
     }
-    limbs_u32.push(cy as u32);
+    pos_limbs_u32.push(if cy > 0 { cy as u32 } else { 0u32 });
+    neg_limbs_u32.push(if cy < 0 { -cy as u32 } else { 0u32 });
 
-    BigUint::from_slice(&limbs_u32)
+    let pos = BigInt::from_slice(Sign::Plus, &pos_limbs_u32);
+    let neg = BigInt::from_slice(Sign::Plus, &neg_limbs_u32);
+    pos - neg
 }
 
-/// Convert a BigUint into a base-2^16 representation.
+/// Convert a BigInt into a base-2^16 representation.
 ///
-/// Given a BigUint `num`, return an array of `N` unsigned 16-bit
+/// Given a BigInt `num`, return an array of `N` signed 16-bit
 /// values, say `limbs`, such that
 ///
 ///   num = \sum_{i=0}^{N-1} limbs[i] * β^i.
 ///
 /// Note that `N` must be at least ceil(log2(num)/16) in order to be
 /// big enough to hold `num`.
-fn biguint_to_columns<const N: usize>(num: &BigUint) -> [i64; N] {
+fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
     assert!(num.bits() <= 16 * N as u64);
     let mut output = [0i64; N];
     for (i, limb) in num.iter_u32_digits().enumerate() {
         output[2 * i] = limb as u16 as i64;
         output[2 * i + 1] = (limb >> LIMB_BITS) as i64;
+    }
+    if num.sign() == Sign::Minus {
+        for c in output.iter_mut() {
+            *c = -*c;
+        }
     }
     output
 }
@@ -164,12 +174,12 @@ fn generate_modular_op<F: RichField>(
     let input1_limbs = read_value_i64_limbs(lv, MODULAR_INPUT_1);
     let mut modulus_limbs = read_value_i64_limbs(lv, MODULAR_MODULUS);
 
-    // The use of BigUints is just to avoid having to implement
-    // modular reduction.
-    let mut modulus = columns_to_biguint(&modulus_limbs);
+    // BigInts are just used to avoid having to implement modular
+    // reduction.
+    let mut modulus = columns_to_bigint(&modulus_limbs);
 
     // constr_poly is initialised to the calculated input, and is
-    // used as such for the BigUint reduction; later, other values are
+    // used as such for the BigInt reduction; later, other values are
     // added/subtracted, which is where its meaning as the "constraint
     // polynomial" comes in.
     let mut constr_poly = [0i64; 2 * N_LIMBS];
@@ -182,20 +192,25 @@ fn generate_modular_op<F: RichField>(
         mod_is_zero = F::ONE;
     }
 
-    let input = columns_to_biguint(&constr_poly);
+    let input = columns_to_bigint(&constr_poly);
 
     // modulus != 0 here, because, if the given modulus was zero, then
     // we added 1 to it above.
-    let output = &input % &modulus;
-    let output_limbs = biguint_to_columns::<N_LIMBS>(&output);
-    let quot = (&input - &output) / &modulus; // exact division
-    let quot_limbs = biguint_to_columns::<{ 2 * N_LIMBS }>(&quot);
+    let mut output = &input % &modulus;
+    // output will be -ve (but > -modulus) if input was -ve, so we can
+    // add modulus to obtain a "canonical" +ve output.
+    if output.sign() == Sign::Minus {
+        output += &modulus;
+    }
+    let output_limbs = bigint_to_columns::<N_LIMBS>(&output);
+    let quot = (&input - &output) / &modulus; // exact division; can be -ve
+    let quot_limbs = bigint_to_columns::<{ 2 * N_LIMBS }>(&quot);
 
     // two_exp_256 == 2^256
-    let mut two_exp_256 = BigUint::zero();
+    let mut two_exp_256 = BigInt::zero();
     two_exp_256.set_bit(256, true);
     // output < modulus here, so the proof requires (output - modulus) % 2^256:
-    let out_aux_red = biguint_to_columns::<N_LIMBS>(&(two_exp_256 + output - modulus));
+    let out_aux_red = bigint_to_columns::<N_LIMBS>(&(two_exp_256 + output - modulus));
 
     // constr_poly is the array of coefficients of the polynomial
     //
@@ -215,7 +230,7 @@ fn generate_modular_op<F: RichField>(
 
     lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     lv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
-    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
     lv[MODULAR_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
     lv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
 }
@@ -226,6 +241,7 @@ fn generate_modular_op<F: RichField>(
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], filter: usize) {
     match filter {
         columns::IS_ADDMOD => generate_modular_op(lv, pol_add),
+        columns::IS_SUBMOD => generate_modular_op(lv, pol_sub),
         columns::IS_MULMOD => generate_modular_op(lv, pol_mul_wide),
         columns::IS_MOD => generate_modular_op(lv, |a, _| pol_extend(a)),
         _ => panic!("generate modular operation called with unknown opcode"),
@@ -310,7 +326,10 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
 ) {
     // NB: The CTL code guarantees that filter is 0 or 1, i.e. that
     // only one of the operations below is "live".
-    let filter = lv[columns::IS_ADDMOD] + lv[columns::IS_MULMOD] + lv[columns::IS_MOD];
+    let filter = lv[columns::IS_ADDMOD]
+        + lv[columns::IS_MULMOD]
+        + lv[columns::IS_MOD]
+        + lv[columns::IS_SUBMOD];
 
     // constr_poly has 2*N_LIMBS limbs
     let constr_poly = modular_constr_poly(lv, yield_constr, filter);
@@ -319,11 +338,13 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add(input0, input1);
+    let sub_input = pol_sub(input0, input1);
     let mul_input = pol_mul_wide(input0, input1);
     let mod_input = pol_extend(input0);
 
     for (input, &filter) in [
         (&add_input, &lv[columns::IS_ADDMOD]),
+        (&sub_input, &lv[columns::IS_SUBMOD]),
         (&mul_input, &lv[columns::IS_MULMOD]),
         (&mod_input, &lv[columns::IS_MOD]),
     ] {
@@ -458,6 +479,7 @@ mod tests {
         // if `IS_ADDMOD == 0`, then the constraints should be met even
         // if all values are garbage.
         lv[IS_ADDMOD] = F::ZERO;
+        lv[IS_SUBMOD] = F::ZERO;
         lv[IS_MULMOD] = F::ZERO;
         lv[IS_MOD] = F::ZERO;
 
@@ -480,9 +502,10 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        for op_filter in [IS_ADDMOD, IS_MOD, IS_MULMOD] {
+        for op_filter in [IS_ADDMOD, IS_SUBMOD, IS_MOD, IS_MULMOD] {
             // Reset operation columns, then select one
             lv[IS_ADDMOD] = F::ZERO;
+            lv[IS_SUBMOD] = F::ZERO;
             lv[IS_MULMOD] = F::ZERO;
             lv[IS_MOD] = F::ZERO;
             lv[op_filter] = F::ONE;
@@ -529,9 +552,10 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        for op_filter in [IS_ADDMOD, IS_MOD, IS_MULMOD] {
+        for op_filter in [IS_ADDMOD, IS_SUBMOD, IS_MOD, IS_MULMOD] {
             // Reset operation columns, then select one
             lv[IS_ADDMOD] = F::ZERO;
+            lv[IS_SUBMOD] = F::ZERO;
             lv[IS_MULMOD] = F::ZERO;
             lv[IS_MOD] = F::ZERO;
             lv[op_filter] = F::ONE;
