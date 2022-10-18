@@ -368,8 +368,9 @@ impl<'a> Interpreter<'a> {
     fn run_addfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from((x + y) % 101).unwrap());
+        self.push((x + y) % 101);
     }
+
     fn run_mulfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
@@ -379,7 +380,7 @@ impl<'a> Interpreter<'a> {
     fn run_subfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from((U256::from(101) + x - y) % 101).unwrap());
+        self.push((U256::from(101) + x - y) % 101);
     }
 
     fn run_div(&mut self) {
