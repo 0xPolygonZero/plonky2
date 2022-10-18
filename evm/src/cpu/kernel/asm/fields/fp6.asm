@@ -86,26 +86,26 @@
 
 // cost: 6
 %macro dup1_fp6
-    // stack:       F: 6
+    // stack:       f: 6
     DUP6
     DUP6
     DUP6
     DUP6
     DUP6
     DUP6
-    // stack: F: 6, F: 6
+    // stack: f: 6, g: 6
 %endmacro 
 
 // cost: 6
 %macro dup2_fp6
-    // stack:       F: 6, G: 6
+    // stack:       f: 6, g: 6
     DUP12
     DUP12
     DUP12
     DUP12
     DUP12
     DUP12
-    // stack: G: 6, F: 6, G: 6
+    // stack: g: 6, f: 6, g: 6
 %endmacro
 
 // cost: 16
@@ -293,12 +293,12 @@
     // stack: 9CDX - CDX_ + C0D0 , CDX , C0D0_, CDX_
     SWAP15
     SWAP3
-    // stack:           CDX_ , CDX , C0D0_
+    // stack:               CDX_ , CDX , C0D0_
     PUSH 9
     MULFP254
     ADDFP254
     ADDFP254
-    // stack:           9CDX_ + CDX + C0D0_
+    // stack:              9CDX_ + CDX + C0D0_
     SWAP9
     
     /// E1 = C0D1 + C1D0 + i9(C2D2)
@@ -379,6 +379,7 @@
     ADDFP254
     ADDFP254
     SWAP13
+    
     /// E2 = C0D2 + C1D1 + C2D0
     ///
     /// C0D2 = (c0d2 - c0_d2_) + (c0d2_ + c0_d2)i
@@ -387,6 +388,7 @@
     ///
     /// E2  = c0d2  + c1d1  + c2d0  - (c0_d2_ + c1_d1_ + c2_d0_)
     /// E2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
+
     // c0_d2_ + c1_d1_ + c2_d0_
     DUP3
     DUP11
