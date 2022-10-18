@@ -37,7 +37,7 @@ fn mul_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
 
 fn i9(a: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
-    [(9 * a - a_) % P254, (a + 9 * a_) % P254]
+    [(P254 + 9 * a - a_) % P254, (a + 9 * a_) % P254]
 }
 
 fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
@@ -97,7 +97,7 @@ fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] 
     [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
 }
 
-fn make_stack(xs: Vec<u32>) -> Vec<U256> {
+fn as_stack(xs: Vec<u32>) -> Vec<U256> {
     xs.iter()
         .map(|&x| U256::from(x as u32) % P254)
         .rev()
@@ -122,30 +122,33 @@ fn test_fp6() -> Result<()> {
 
     let kernel = combined_kernel();
     let initial_offset = kernel.global_labels["test_mul_Fp6"];
-    let initial_stack: Vec<U256> = make_stack(input);
+    let initial_stack: Vec<U256> = as_stack(input);
     let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
         .stack()
         .to_vec();
 
-    let expected = make_stack(output);
+    let expected = as_stack(output);
     assert_eq!(final_stack, expected);
 
     Ok(())
 }
 
-// #[test]
-// fn test_fp12() -> Result<()> {
-//     let kernel = combined_kernel();
-//     let initial_offset = kernel.global_labels["test_mul_Fp12"];
-//     let initial_stack: Vec<U256> = make_stack(&[
-//         1, 1, 0, 0, 1, 0, 3, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0,
-//     ]);
-//     let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
-//         .stack()
-//         .to_vec();
-//     let expected: Vec<U256> = make_stack(&[5, 5, 9, 0, 5, 3, 17, 12, 100, 1, 3, 0]);
+#[test]
+fn test_fp12() -> Result<()> {
+    let f = [gen_fp6(), gen_fp6()];
+    let g = [gen_fp6(), gen_fp6()];
+    let input: Vec<u32> = [f, g].into_iter().flatten().flatten().flatten().collect();
+    let output: Vec<u32> = mul_fp12(f, g).into_iter().flatten().flatten().collect();
 
-//     assert_eq!(final_stack, expected);
+    let kernel = combined_kernel();
+    let initial_offset = kernel.global_labels["test_mul_Fp12"];
+    let initial_stack: Vec<U256> = as_stack(input);
+    let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
+        .stack()
+        .to_vec();
 
-//     Ok(())
-// }
+    let expected = as_stack(output);
+    assert_eq!(final_stack, expected);
+
+    Ok(())
+}
