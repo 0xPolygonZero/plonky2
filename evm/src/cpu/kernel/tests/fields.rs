@@ -7,37 +7,53 @@ use crate::cpu::kernel::interpreter::run_with_kernel;
 
 const P254: u32 = 101;
 
+fn add_fp(x: u32, y: u32) -> u32 {
+    (x + y) % P254
+}
+
+fn add3_fp(x: u32, y: u32, z: u32) -> u32 {
+    (x + y + z) % P254
+}
+
+fn mul_fp(x: u32, y: u32) -> u32 {
+    (x * y) % P254
+}
+
+fn sub_fp(x: u32, y: u32) -> u32 {
+    (P254 + x - y) % P254
+}
+
 fn add_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
-    [(a + b) % P254, (a_ + b_) % P254]
+    [add_fp(a, b), add_fp(a_, b_)]
 }
 
 fn add3_fp2(a: [u32; 2], b: [u32; 2], c: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     let [c, c_] = c;
-    [(a + b + c) % P254, (a_ + b_ + c_) % P254]
+    [add3_fp(a, b, c), add3_fp(a_, b_, c_)]
 }
 
 fn sub_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
-    [(P254 + a - b) % P254, (P254 + a_ - b_) % P254]
+    [sub_fp(a, b), sub_fp(a_, b_)]
 }
 
 fn mul_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     [
-        (P254 + (a * b) % P254 - (a_ * b_) % P254) % P254,
-        ((a * b_) % P254 + (a_ * b) % P254) % P254,
+        sub_fp(mul_fp(a, b), mul_fp(a_, b_)),
+        add_fp(mul_fp(a, b_), mul_fp(a_, b)),
     ]
 }
 
 fn i9(a: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
-    [(P254 + 9 * a - a_) % P254, (a + 9 * a_) % P254]
+    [sub_fp(mul_fp(9, a), a_), add_fp(a, mul_fp(9, a_))]
 }
 
 fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
