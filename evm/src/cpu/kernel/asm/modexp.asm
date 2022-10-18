@@ -2,22 +2,72 @@
 
 // Return x >= p, where x and p are unbounded integers represented with one-byte limbs.
 global ge_unbounded:
-    // stack: x_len, x_0_loc, p_len, p_0_loc
+    // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
+    %stack: (lens: 2) -> (lens, lens)
+    GT
+    %jumpi(greater)
+    %stack: (lens: 2) -> (lens, lens)
+    LT
+    %jumpi(less)
+eq_loop:
+    // stack: x_len-i, p_len-i, x_i_loc, p_i_loc, retdest
+    %decrement
+    SWAP1
+    %decrement
+    SWAP1
+    // stack: x_len-i-1, p_len-i-1, x_i_loc, p_i_loc, retdest
+    %stack (lens: 2, locs: 2) -> (locs, lens)
+    // stack: x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %stack: (locs: 2) -> (locs, locs)
+    // stack: x_i_loc, p_i_loc, x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %mload_kernel_general
+    SWAP1
+    %mload_kernel_general
+    SWAP1
+    // stack: x[i], p[i], x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %stack: (vals: 2) -> (vals, vals)
+    GT
+    %jumpi(greater)
+    // stack: x[i], p[i], x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %stack: (vals: 2) -> (vals, vals)
+    LT
+    %jumpi(less)
+    // stack: x[i], p[i], x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %stack: (vals: 2) -> ()
+    // stack: x_i_loc, p_i_loc, x_len-i-1, p_len-i-1, retdest
+    %increment
+    SWAP1
+    %increment
+    SWAP1
+    // stack: x_i_loc+1, p_i_loc_1, x_len-i-1, p_len-i-1, retdest
+    %jump(eq_loop)
+greater:
+    // stack: x_len, x_0_loc, p_len, p_0_loc, retdest
+    %stack (all: 4) -> (1)
+    // stack: 1, retdest
+    SWAP1
+    JUMP
+less:
+    // stack: x_len, x_0_loc, p_len, p_0_loc, retdest
+    %stack (all: 4) -> (0)
+    // stack: 0, retdest
+    SWAP1
+    JUMP
 
-    // load x_len, p_len
-    // compare
-    // if same, loop:
-    //    load next limb of each
-    //    3-way compare
-    //    if equal, back to loop
-    
 
 // Return x - p, where x and p are unbounded integers represented with one-byte limbs.
 // Assumes x >= p.
 global sub_unbounded:
-    // stack: x_len, x_0_loc, p_len, p_0_loc
+    // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
+    // Leave the first (x_len - p_len - 1) limbs of x alone, because subtracting p from x doesn't affect them.
+    %stack: (xp: 2) -> (xp, xp)
+    SUB
+    %decrement
+    // stack: x_len - p_len - 1, x_len, p_len, x_0_loc, p_0_loc, retdest
+    DUP1
+    // stack: x_len - p_len - 1, x_len, p_len, x_0_loc, p_0_loc, retdest
     
-    // restict to lowest p_len limbs of x???
+    // restict to lowest p_len limbs of x!
     // loop for each limb:
     //      if ge, subtract
     //      if smaller
@@ -29,7 +79,9 @@ global sub_unbounded:
 
 // Return x % p, where x and p are unbounded integers represented with one-byte limbs.
 global mod_unbounded:
-    // stack: x_len, x[0], ..., x[x_len], p_len, p[0], ..., p[p_len]
+    // stack: x_len, p_len, x[0], ..., x[x_len], p[0], ..., p[p_len]
+    // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
+
     
     // save both to memory
 global mod_unbounded_inner:
