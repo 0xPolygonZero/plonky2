@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run_with_kernel;
 
-const P254: u32 = 101;
+const P254: u32 = 107;
 
 fn add_fp(x: u32, y: u32) -> u32 {
     (x + y) % P254
