@@ -39,6 +39,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/memory/metadata.asm"),
         include_str!("asm/memory/packing.asm"),
         include_str!("asm/memory/txn_fields.asm"),
+        include_str!("asm/mpt/accounts.asm"),
         include_str!("asm/mpt/delete/delete.asm"),
         include_str!("asm/mpt/hash/hash.asm"),
         include_str!("asm/mpt/hash/hash_trie_specific.asm"),
@@ -50,8 +51,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/mpt/load/load.asm"),
         include_str!("asm/mpt/load/load_trie_specific.asm"),
         include_str!("asm/mpt/read.asm"),
-        include_str!("asm/mpt/storage_read.asm"),
-        include_str!("asm/mpt/storage_write.asm"),
+        include_str!("asm/mpt/storage/storage_read.asm"),
+        include_str!("asm/mpt/storage/storage_write.asm"),
         include_str!("asm/mpt/util.asm"),
         include_str!("asm/ripemd/box.asm"),
         include_str!("asm/ripemd/compression.asm"),
@@ -77,6 +78,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/transactions/type_2.asm"),
         include_str!("asm/util/assertions.asm"),
         include_str!("asm/util/basic_macros.asm"),
+        include_str!("asm/util/keccak.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
