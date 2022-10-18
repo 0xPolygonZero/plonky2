@@ -84,6 +84,24 @@
     // stack:
 %endmacro
 
+// cost: 9; note this returns y, x for x + yi
+%macro i9
+    // stack:          a , b
+    DUP2
+    DUP2
+    // stack:  a , b,  a , b
+    PUSH 9
+    MULFP254
+    SUBFP254
+    // stack: 9a - b,  a , b
+    SWAP2 
+    // stack:  b , a, 9a - b
+    PUSH 9
+    MULFP254
+    ADDFP254
+    // stack: 9b + a, 9a - b 
+%endmacro
+
 // cost: 6
 %macro dup1_fp6
     // stack:       f: 6
@@ -188,22 +206,6 @@
     SWAP1
     SUBFP254
     // stack:                         h0, h1, h2, h3, h4, h5
-%endmacro
-
-// cost: 9; note this returns y, x for x + yi
-%macro i9
-    // stack:          a , b
-    DUP2
-    DUP2
-    // stack:  a , b,  a , b
-    %mul_const(9)
-    SUBFP254
-    // stack: 9a - b,  a , b
-    SWAP2 
-    // stack:  b , a, 9a - b
-    %mul_const(9)
-    ADDFP254
-    // stack: 9b + a, 9a - b 
 %endmacro
 
 // cost: 156
@@ -379,7 +381,7 @@
     ADDFP254
     ADDFP254
     SWAP13
-    
+
     /// E2 = C0D2 + C1D1 + C2D0
     ///
     /// C0D2 = (c0d2 - c0_d2_) + (c0d2_ + c0_d2)i
