@@ -124,7 +124,7 @@ fn gen_fp6() -> [[u32; 2]; 3] {
 
 fn as_stack(xs: Vec<u32>) -> Vec<U256> {
     xs.iter()
-        .map(|&x| U256::from(x as u32) % P254)
+        .map(|&x| U256::from(x) % P254)
         .rev()
         .collect()
 }
