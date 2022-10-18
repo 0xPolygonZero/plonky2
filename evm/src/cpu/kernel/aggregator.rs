@@ -34,7 +34,6 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/exp.asm"),
         include_str!("asm/halt.asm"),
         include_str!("asm/fields/fp6.asm"),
-        include_str!("asm/fields/fp6mul.asm"),
         include_str!("asm/fields/fp12.asm"),
         include_str!("asm/main.asm"),
         include_str!("asm/memory/core.asm"),
