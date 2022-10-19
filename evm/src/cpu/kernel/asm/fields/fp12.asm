@@ -42,33 +42,41 @@ return_on_stack:
 
 global mul_Fp12:
     %load_fp6(6)
+    // stack:                     f'
     %load_fp6(18)
+    // stack:                 g', f'
     %dup2_fp6
+    // stack:             f', g', f'
     %dup2_fp6
-    // stack:          g', f', g', f'
+    // stack:         g', f', g', f'
     %mul_fp6
+    // stack:           f'g', g', f'
     %dup1_fp6
-    // stack:      f'g', f'g', g', f'
+    // stack:     f'g', f'g', g', f'
     %store_fp6_sh(36)
+    // stack:           f'g', g', f'
     %store_fp6(42)
-    // stack:                  g', f'
+    // stack:                 g', f'
     %load_fp6(12)
-    // stack:              g , g', f'
+    // stack:             g , g', f'
     %swap_fp6
-    // stack:              g', g , f'
+    // stack:             g', g , f'
     %dup2_fp6
-    // stack:          g , g', g , f'
+    // stack:          g, g', g , f'
     %add_fp6
-    // stack:          g + g', g , f'
+    // stack:           g+g', g , f'
     %swap_fp6
-    // stack:          g , g + g', f'
+    // stack:            g, g+g', f'
     %load_fp6(0)
-    // stack:       f, g , g + g', f'
+    // stack:        f, g , g+g', f'
     %mul_fp6
+    // stack:          fg , g+g', f'
     %store_fp6(48)
-    // stack:              g + g', f'
+    // stack:               g+g', f'
     %swap_fp6
+    // stack:               f', g+g'
     %load_fp6(0)
+    // stack:             f,f', g+g'
     %add_fp6
     // stack:             f+f', g+g'
     %mul_fp6
@@ -76,11 +84,13 @@ global mul_Fp12:
     %load_fp6(42)
     // stack:      f'g', (f+f')(g+g')
     %bus_fp6
-    // stack: (f+f')(g+g') - f'g'
+    // stack:      (f+f')(g+g') - f'g'
     %load_fp6(48)
+    // stack:  fg, (f+f')(g+g') - f'g'
     %swap_fp6
-    // stack: (f+f')(g+g') - f'g'     , fg
+    // stack:      (f+f')(g+g') - f'g', fg
     %dup2_fp6
+    // stack:  fg, (f+f')(g+g') - f'g', fg
     %bus_fp6
     // stack: (f+f')(g+g') - f'g' - fg, fg
     %store_fp6(30)
