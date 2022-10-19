@@ -118,6 +118,32 @@ pub(crate) fn pol_add_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     sum
 }
 
+/// Return a(x) - b(x); returned array is bigger than necessary to
+/// make the interface consistent with `pol_mul_wide`.
+pub(crate) fn pol_sub<T>(a: [T; N_LIMBS], b: [T; N_LIMBS]) -> [T; 2 * N_LIMBS - 1]
+where
+    T: Sub<Output = T> + Copy + Default,
+{
+    let mut diff = pol_zero();
+    for i in 0..N_LIMBS {
+        diff[i] = a[i] - b[i];
+    }
+    diff
+}
+
+pub(crate) fn pol_sub_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: [ExtensionTarget<D>; N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
+    let zero = builder.zero_extension();
+    let mut sum = [zero; 2 * N_LIMBS - 1];
+    for i in 0..N_LIMBS {
+        sum[i] = builder.sub_extension(a[i], b[i]);
+    }
+    sum
+}
+
 /// a(x) -= b(x), but must have deg(a) >= deg(b).
 pub(crate) fn pol_sub_assign<T>(a: &mut [T], b: &[T])
 where
