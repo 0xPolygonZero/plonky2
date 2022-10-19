@@ -55,17 +55,88 @@ less:
     JUMP
 
 
-// Return x - p, where x and p are unbounded integers represented with one-byte limbs.
+// Replaces x with x - p, where x and p are unbounded integers represented with one-byte limbs.
+// Leave p unchanged.
 // Assumes x >= p.
 global sub_unbounded:
     // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
+
     // Leave the first (x_len - p_len - 1) limbs of x alone, because subtracting p from x doesn't affect them.
     %stack: (xp: 2) -> (xp, xp)
     SUB
     %decrement
     // stack: x_len - p_len - 1, x_len, p_len, x_0_loc, p_0_loc, retdest
+    %stack: (diff, xl, pl, xloc) -> (xloc, diff, pl)
+    // stack: x_0_loc, x_len - p_len - 1, p_len, p_0_loc, retdest
+    ADD
+    // stack: x_0_loc', p_len, p_0_loc, retdest
+    SWAP1
+    // stack: len, x_0_loc', p_0_loc, retdest
+sub_loop:
+    // stack: cur_len, x_i_loc, p_i_loc, retdest
+    %stack: (len, x, p) -> (x, p, len, x, p)
+    // stack: x_i_loc, p_i_loc, cur_len, x_i_loc, p_i_loc, retdest
+    %mload_kernel_general
+    SWAP1
+    %mload_kernel_general
+    SWAP1
+    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
+    DUP2
+    DUP2
+    LT
+    %jumpi(sub_loop_less)
+sub_loop_ge:
+    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
+    SUB
+    // stack: x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
+    DUP3
+    // stack: x_i_loc, x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
+    %mstore_kernel_general
+    %jump(sub_loop_end)
+sub_loop_less:
+    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
+    PUSH 256
+    ADD
+    SUB
+    // stack: 1 << 8 + x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
+    DUP3
+    // stack: x_i_loc, 1 << 8 + x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
+    %mstore_kernel_general
+    // stack: cur_len, x_i_loc, p_i_loc, retdest
+    DUP2
+    // stack: x_i_loc, cur_len, x_i_loc, p_i_loc, retdest
+    %decrement
+    // stack: x_i_loc - 1, cur_len, x_i_loc, p_i_loc, retdest
     DUP1
-    // stack: x_len - p_len - 1, x_len, p_len, x_0_loc, p_0_loc, retdest
+    %mload_kernel_general
+    // stack: x[i-1], x_i_loc - 1, cur_len, x_i_loc, p_i_loc, retdest
+decrement_carry_loop:
+    DUP1
+    ISZERO
+    NOT
+    %jumpi(decrement_carry_end)
+    // stack: x[i-k], x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    POP
+    // stack: x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    %decrement
+    // stack: x_i_loc - k - 1, cur_len, x_i_loc, p_i_loc, retdest
+    DUP1
+    %mload_kernel_general
+    // stack: x[i-k-1], x_i_loc - k - 1, cur_len, x_i_loc, p_i_loc, retdest
+    %jump(decrement_carry_loop)
+decrement_carry_end:
+    // stack: x[i-k], x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    %decrement
+    // stack: x[i-k] - 1, x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    SWAP1
+    // stack: x_i_loc - k, x[i-k] - 1, cur_len, x_i_loc, p_i_loc, retdest
+    %mstore_kernel_general
+    %jump(sub_loop_end)
+sub_loop_end:
+    // 
+sub_end:
+
+
     
     // restict to lowest p_len limbs of x!
     // loop for each limb:
