@@ -427,6 +427,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let filter = builder.add_many_extension([
         lv[columns::IS_ADDMOD],
+        lv[columns::IS_SUBMOD],
         lv[columns::IS_MULMOD],
         lv[columns::IS_MOD],
     ]);
@@ -437,11 +438,13 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add_ext_circuit(builder, input0, input1);
+    let sub_input = pol_sub_ext_circuit(builder, input0, input1);
     let mul_input = pol_mul_wide_ext_circuit(builder, input0, input1);
     let mod_input = pol_extend_ext_circuit(builder, input0);
 
     for (input, &filter) in [
         (&add_input, &lv[columns::IS_ADDMOD]),
+        (&sub_input, &lv[columns::IS_SUBMOD]),
         (&mul_input, &lv[columns::IS_MULMOD]),
         (&mod_input, &lv[columns::IS_MOD]),
     ] {
