@@ -6,6 +6,7 @@ use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2_util::ceil_div_usize;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
@@ -582,7 +583,7 @@ impl<'a> Interpreter<'a> {
             [Segment::MainMemory as usize]
             .content
             .len();
-        self.push(U256::from(num_bytes));
+        self.push(U256::from(ceil_div_usize(num_bytes, 32) * 32));
     }
 
     fn run_jumpdest(&mut self) {
