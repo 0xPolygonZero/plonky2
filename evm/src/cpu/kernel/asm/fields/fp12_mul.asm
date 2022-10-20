@@ -1,11 +1,13 @@
 global test_mul_Fp12:
-    // stack: f, f', g, g'
+    // stack: f, f', g, g', in2, out, in1
     %store_fp6(0)
     %store_fp6(6)
     %store_fp6(12)
     %store_fp6(18)
+    // stack:               in2, out, in1
     PUSH return_on_stack
-    // stack: return_on_stack
+    SWAP3
+    // stack:               in1, in2, out, return_on_stack
     %jump(mul_Fp12)
 return_on_stack:
     // stack:
@@ -14,7 +16,7 @@ return_on_stack:
     // stack: h, h'
     %jump(0xdeadbeef)
 
-
+/// fp6 macros:
 ///  macro | num | ops | cost
 ///  -------------------------
 ///  load  |   8 |  40 |  320
@@ -25,9 +27,18 @@ return_on_stack:
 ///  sub   |   2 |  17 |   34
 ///  mul   |   3 | 156 |  468
 ///  i9    |   1 |   9 |    9
-///  jump  |   1 |   1 |    1
 ///
-/// TOTAL: 1174
+/// lone stack operations:
+///  op    | num 
+///  ------------
+///  ADD   |   3
+///  SWAP  |   2
+///  DUP   |   6
+///  PUSH  |   6
+///  POP   |   2
+///  JUMP  |   1
+///
+/// TOTAL: 1194
 
 
 /// F = f + f'z
