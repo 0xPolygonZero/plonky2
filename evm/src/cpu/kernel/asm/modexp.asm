@@ -1,8 +1,8 @@
 // use locations in kernel genoral memory
 
-// Return x >= p, where x and p are unbounded integers represented with one-byte limbs.
-global ge_unbounded:
-    // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
+// Return x >= p, where x and p are unbounded big-endian integers represented with one-byte limbs.
+global ge_bignum:
+    // stack: x_len, p_len, x_start_loc, p_start_loc, retdest
     %stack: (lens: 2) -> (lens, lens)
     GT
     %jumpi(greater)
@@ -54,87 +54,91 @@ less:
     SWAP1
     JUMP
 
-
-// Replaces x with x - p, where x and p are unbounded integers represented with one-byte limbs.
-// Leave p unchanged.
-// Assumes x >= p.
-global sub_unbounded:
-    // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
-
-    // Leave the first (x_len - p_len - 1) limbs of x alone, because subtracting p from x doesn't affect them.
-    %stack: (xp: 2) -> (xp, xp)
-    SUB
-    %decrement
-    // stack: x_len - p_len - 1, x_len, p_len, x_0_loc, p_0_loc, retdest
-    %stack: (diff, xl, pl, xloc) -> (xloc, diff, pl)
-    // stack: x_0_loc, x_len - p_len - 1, p_len, p_0_loc, retdest
-    ADD
-    // stack: x_0_loc', p_len, p_0_loc, retdest
-    SWAP1
-    // stack: len, x_0_loc', p_0_loc, retdest
-sub_loop:
-    // stack: cur_len, x_i_loc, p_i_loc, retdest
-    %stack: (len, x, p) -> (x, p, len, x, p)
-    // stack: x_i_loc, p_i_loc, cur_len, x_i_loc, p_i_loc, retdest
-    %mload_kernel_general
-    SWAP1
-    %mload_kernel_general
-    SWAP1
-    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
-    DUP2
-    DUP2
-    LT
-    %jumpi(sub_loop_less)
-sub_loop_ge:
-    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
-    SUB
-    // stack: x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
+%macro subtract_limb
+    // stack: a_i, b_i, borrow
     DUP3
-    // stack: x_i_loc, x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
-    %mstore_kernel_general
-    %jump(sub_loop_end)
-sub_loop_less:
-    // stack: x[i], p[i], cur_len, x_i_loc, p_i_loc, retdest
+    DUP2
+    SUB
+    // stack: a_i - borrow, a_i, b_i, borrow
+    DUP3
+    // stack: b_i, a_i - borrow, a_i, b_i, borrow
+    GT
+    // stack: borrow_new, a_i, b_i, borrow
+    DUP1
     PUSH 256
+    MUL
+    // stack: to_add, borrow_new, a_i, b_i, borrow
+    %stack (t, bn, other: 3) -> (t, other, bn)
+    // stack: to_add, a_i, b_i, borrow, borrow_new
     ADD
     SUB
-    // stack: 1 << 8 + x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
-    DUP3
-    // stack: x_i_loc, 1 << 8 + x[i] - p[i], cur_len, x_i_loc, p_i_loc, retdest
-    %mstore_kernel_general
-    // stack: cur_len, x_i_loc, p_i_loc, retdest
-    DUP2
-    // stack: x_i_loc, cur_len, x_i_loc, p_i_loc, retdest
+    SUB
+    // stack: c_i, borrow_new
+%endmacro
+
+// Replaces a with a - b, where a and b are unbounded big-endian integers represented with one-byte limbs.
+// Leave b unchanged.
+// Assumes a >= b.
+global sub_bignum:
+    // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
+    %stack (al, bl, a, b) -> (al, a, bl, b, bl)
+    // stack: a_len, a_start_loc, b_len, b_start_loc, b_len, retdest
+    ADD
     %decrement
-    // stack: x_i_loc - 1, cur_len, x_i_loc, p_i_loc, retdest
-    DUP1
-    %mload_kernel_general
-    // stack: x[i-1], x_i_loc - 1, cur_len, x_i_loc, p_i_loc, retdest
-decrement_carry_loop:
-    DUP1
-    ISZERO
-    NOT
-    %jumpi(decrement_carry_end)
-    // stack: x[i-k], x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
-    POP
-    // stack: x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    // stack: a_end_loc, b_len, b_start_loc, b_len, retdest
+    %stack (a, bl, b, bl) -> (bl, b, bl, a)
+    // stack: b_len, b_start_loc, b_len, a_end_loc, retdest
+    ADD
     %decrement
-    // stack: x_i_loc - k - 1, cur_len, x_i_loc, p_i_loc, retdest
-    DUP1
-    %mload_kernel_general
-    // stack: x[i-k-1], x_i_loc - k - 1, cur_len, x_i_loc, p_i_loc, retdest
-    %jump(decrement_carry_loop)
-decrement_carry_end:
-    // stack: x[i-k], x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
-    %decrement
-    // stack: x[i-k] - 1, x_i_loc - k, cur_len, x_i_loc, p_i_loc, retdest
+    // stack: b_end_loc, b_len, a_end_loc, retdest
     SWAP1
-    // stack: x_i_loc - k, x[i-k] - 1, cur_len, x_i_loc, p_i_loc, retdest
+    // stack: b_len, b_end_loc, a_end_loc, retdest
+    %increment
+    // stack: n, b_end_loc, a_end_loc, retdest
+    SWAP2
+    // stack: a_end_loc, b_end_loc, n, retdest
+    %stack () -> (0, 0)
+    // stack: borrow=0, i=0, a_end_loc, b_end_loc, n, retdest
+sub_loob:
+    // stack: borrow, i, a_i_loc, b_i_loc, n, retdest
+    DUP4
+    DUP4
+    // stack: a_i_loc, b_i_loc, borrow, i, a_i_loc, b_i_loc, n, retdest
+    %mload_kernel_general
+    SWAP1
+    %mload_kernel_general
+    SWAP1
+    // stack: a[i], b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
+    %subtract_limb
+    // stack: c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
+    DUP3
+    // stack: a_i_loc, c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
     %mstore_kernel_general
-    %jump(sub_loop_end)
-sub_loop_end:
-    // 
+    // stack: borrow_new, i, a_i_loc, b_i_loc, n, retdest
+    %stack (bn, i, a, b) -> (a, b, bn, i)
+    // stack: a_i_loc, b_i_loc, borrow_new, i, n, retdest
+    %decrement
+    SWAP1
+    %decrement
+    SWAP1
+    %stack (a, b, bn, i) -> (bn, i, a, b)
+    // stack: borrow_new, i, a_i_loc - 1, b_i_loc - 1, n, retdest
+    SWAP1
+    %increment
+    SWAP1
+    // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    DUP5
+    DUP3
+    // stack: i + 1, n, borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    LE
+    %jumpi(sub_loop)
 sub_end:
+    // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+
+decrement_loop:
+
+decrement_end:
+    // subtract 
 
 
     
@@ -149,7 +153,7 @@ sub_end:
 
 
 // Return x % p, where x and p are unbounded integers represented with one-byte limbs.
-global mod_unbounded:
+global mod_bignum:
     // stack: x_len, p_len, x[0], ..., x[x_len], p[0], ..., p[p_len]
     // stack: x_len, p_len, x_0_loc, p_0_loc, retdest
 
