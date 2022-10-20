@@ -418,18 +418,25 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
-    let output = &lv[MODULAR_OUTPUT];
+    let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
+    output[0] = builder.mul_add_extension(mod_is_zero, lv[IS_DIV], output[0]);
+
     let out_aux_red = &lv[MODULAR_OUT_AUX_RED];
-    let is_less_than = builder.one_extension();
+    let one = builder.one_extension();
+    let is_less_than =
+        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
+
     eval_ext_circuit_lt(
         builder,
         yield_constr,
         filter,
-        output,
+        &output,
         &modulus,
         out_aux_red,
         is_less_than,
     );
+    output[0] =
+        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], output[0]);
 
     let quot = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
@@ -439,7 +446,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     }
 
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
-    pol_add_assign_ext_circuit(builder, &mut constr_poly, output);
+    pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
     let mut aux = read_value::<{ 2 * N_LIMBS }, _>(lv, MODULAR_AUX_INPUT);
     aux[2 * N_LIMBS - 1] = builder.zero_extension();
