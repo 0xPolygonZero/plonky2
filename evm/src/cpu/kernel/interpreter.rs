@@ -47,7 +47,7 @@ impl InterpreterMemory {
         mem
     }
 
-    fn mload_general(&mut self, context: usize, segment: Segment, offset: usize) -> U256 {
+    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
             value.bits() <= segment.bit_range(),
