@@ -152,7 +152,7 @@
     // stack:
 %endmacro
 
-// cost: 9; note this returns y, x for x + yi
+// cost: 9; note this returns y, x for the output x + yi
 %macro i9
     // stack:          a , b
     DUP2
