@@ -171,7 +171,7 @@
 %endmacro
 
 // cost: 6
-%macro dup1_fp6
+%macro dup_fp6_0
     // stack:       f: 6
     DUP6
     DUP6
@@ -183,7 +183,7 @@
 %endmacro 
 
 // cost: 6
-%macro dup2_fp6
+%macro dup_fp6_6
     // stack:       f: 6, g: 6
     DUP12
     DUP12
@@ -191,6 +191,18 @@
     DUP12
     DUP12
     DUP12
+    // stack: g: 6, f: 6, g: 6
+%endmacro
+
+// cost: 6
+%macro dup_fp6_7
+    // stack:       f: 6, g: 6
+    DUP13
+    DUP13
+    DUP13
+    DUP13
+    DUP13
+    DUP13
     // stack: g: 6, f: 6, g: 6
 %endmacro
 
@@ -219,6 +231,33 @@
     SWAP11
     SWAP5
     // stack: g0, g1, g2, g3, g4, g5, f0, f1, f2, f3, f4, f5
+%endmacro
+
+// cost: 16
+%macro swap_fp6_hole
+    // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
+    SWAP7
+    // stack: g0, f1, f2, f3, f4, f5, X, f0, g1, g2, g3, g4, g5
+    SWAP1
+    SWAP8
+    SWAP1
+    // stack: g0, g1, f2, f3, f4, f5, X, f0, f1, g2, g3, g4, g5
+    SWAP2
+    SWAP9
+    SWAP2
+    // stack: g0, g1, g2, f3, f4, f5, X, f0, f1, f2, g3, g4, g5
+    SWAP3
+    SWAP10
+    SWAP3    
+    // stack: g0, g1, g2, g3, f4, f5, X, f0, f1, f2, f3, g4, g5
+    SWAP4
+    SWAP11
+    SWAP4
+    // stack: g0, g1, g2, g3, g4, f5, X, f0, f1, f2, f3, f4, g5
+    SWAP5
+    SWAP12
+    SWAP5
+    // stack: g0, g1, g2, g3, g4, g5, X, f0, f1, f2, f3, f4, f5
 %endmacro
 
 // cost: 16

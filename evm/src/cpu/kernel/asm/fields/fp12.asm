@@ -41,20 +41,24 @@ return_on_stack:
 /// Note: f, f', g, g' consist of six terms on the stack
 
 global mul_Fp12:
-    // stack:                            in1, in2, out
-    DUP1  %add_const(6)  %load_fp6
-    // stack:                        f', in1, in2, out
-    DUP7  %add_const(6)  %load_fp6
-    // stack:                    g', f', in1, in2, out
+    // stack:                             in1, in2, out
+    DUP1  
+    %add_const(6)  
+    %load_fp6
+    // stack:                         f', in1, in2, out
+    DUP7  
+    %add_const(6)  
+    %load_fp6
+    // stack:                     g', f', in1, in2, out
     PUSH post_mul_1
-    DUP13  DUP13  DUP13  DUP13  DUP13  DUP13
+    %dup_fp6_7
     // stack:     f', post_mul_1, g', f', in1, in2, out
-    DUP13  DUP13  DUP13  DUP13  DUP13  DUP13 
+    %dup_fp6_7
     // stack: g', f', post_mul_1, g', f', in1, in2, out
     %jump(mul_fp6)
 post_mul_1:
     // stack:             f'g', g'  , f', in1, in2, out
-    %dup1_fp6
+    %dup_fp6_0
     // stack:       f'g', f'g', g'  , f', in1, in2, out
     %store_fp6_sh(36)
     // stack:             f'g', g'  , f', in1, in2, out
@@ -62,11 +66,12 @@ post_mul_1:
     // stack:                   g'  , f', in1, in2, out
     DUP13
     // stack:              in1, g'  , f', in1, in2, out
-    DUP15  %load_fp6
+    DUP15  
+    %load_fp6
     // stack:          g , in1, g'  , f', in1, in2, out
     %swap_fp6_hole
     // stack:          g', in1, g   , f', in1, in2, out
-    DUP13  DUP13  DUP13  DUP13  DUP13  DUP13
+    dup_fp6_7
     // stack:        g,g', in1, g   , f', in1, in2, out
     %add_fp6
     // stack:        g+g', in1, g   , f', in1, in2, out
@@ -78,16 +83,17 @@ post_mul_1:
     // stack: f, g, post_mul_2, g+g', f', in1, in2, out
     %jump(mul_fp6)
 post_mul_2:    
-    // stack:  fg, g+g', f', in1, in2, out
+    // stack:      fg, g+g', f', in1, in2, out
     %store_fp6(48)
-    // stack:      g+g', f', in1, in2, out
+    // stack:          g+g', f', in1, in2, out
     %swap_fp6
-    // stack:      f', g+g', in1, in2, out
+    // stack:          f', g+g', in1, in2, out
     PUSH post_mul_3
-    SWAP13  %load_fp6
-    // stack:             f,f', g+g', post_mul_3, in2, out
+    SWAP13  
+    %load_fp6
+    // stack: f,f', g+g', post_mul_3, in2, out
     %add_fp6
-    // stack:             f+f', g+g', post_mul_3, in2, out
+    // stack: f+f', g+g', post_mul_3, in2, out
     %jump(mul_fp6)
 post_mul_3:
     // stack:             (f+f')(g+g'), in2, out
@@ -99,16 +105,20 @@ post_mul_3:
     // stack:  fg, (f+f')(g+g') - f'g', in2, out
     %swap_fp6
     // stack:      (f+f')(g+g') - f'g', fg, in2, out
-    %dup2_fp6
+    %dup_fp6_6
     // stack:  fg, (f+f')(g+g') - f'g', fg, in2, out
     %subr_fp6
     // stack: (f+f')(g+g') - f'g' - fg, fg, in2, out
-    DUP14  add_const(6)  %store_fp6
+    DUP14  
+    add_const(6)  
+    %store_fp6
     // stack:                           fg, in2, out
     %load_fp6(36)
     // stack:                sh(f'g') , fg, in2, out
     %add_fp6
     // stack:                sh(f'g') + fg, in2, out
-    DUP8  %store_fp6
+    DUP8  
+    %store_fp6
     // stack:                               in2, out
-    %pop2  JUMP
+    %pop2  
+    JUMP
