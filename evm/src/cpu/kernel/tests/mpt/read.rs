@@ -31,7 +31,8 @@ fn mpt_read() -> Result<()> {
     interpreter.push(0xdeadbeefu32.into());
     interpreter.push(0xABCDEFu64.into());
     interpreter.push(6.into());
-    interpreter.push(interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot));
+    let state_trie_root = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
+    interpreter.push(state_trie_root);
     interpreter.run()?;
 
     assert_eq!(interpreter.stack().len(), 1);

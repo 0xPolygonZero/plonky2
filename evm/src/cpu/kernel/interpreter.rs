@@ -49,7 +49,7 @@ impl InterpreterMemory {
 }
 
 impl InterpreterMemory {
-    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+    fn mload_general(&mut self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
             value.bits() <= segment.bit_range(),
@@ -145,18 +145,19 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn code(&self) -> &MemorySegmentState {
-        &self.memory.context_memory[self.context].segments[Segment::Code as usize]
+    fn code(&mut self) -> &mut MemorySegmentState {
+        &mut self.memory.context_memory[self.context].segments[Segment::Code as usize]
     }
 
-    fn code_slice(&self, n: usize) -> Vec<u8> {
-        self.code().content[self.offset..self.offset + n]
+    fn code_slice(&mut self, n: usize) -> Vec<u8> {
+        let offset = self.offset;
+        self.code().content[offset..offset + n]
             .iter()
             .map(|u256| u256.byte(0))
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
+    pub(crate) fn get_txn_field(&mut self, field: NormalizedTxnField) -> U256 {
         self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
     }
 
@@ -169,7 +170,7 @@ impl<'a> Interpreter<'a> {
         &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
     }
 
-    pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
+    pub(crate) fn get_global_metadata_field(&mut self, field: GlobalMetadata) -> U256 {
         self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
     }
 
@@ -224,7 +225,8 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
-        let opcode = self.code().get(self.offset).byte(0);
+        let offset = self.offset;
+        let opcode = self.code().get(offset).byte(0);
         self.incr(1);
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
@@ -579,11 +581,9 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_msize(&mut self) {
-        let num_bytes = self.memory.context_memory[self.context].segments
-            [Segment::MainMemory as usize]
-            .content
-            .len();
-        self.push(U256::from(ceil_div_usize(num_bytes, 32) * 32));
+        self.push(U256::from(
+            self.memory.context_memory[self.context].segments[Segment::MainMemory as usize].msize,
+        ))
     }
 
     fn run_jumpdest(&mut self) {
@@ -709,7 +709,7 @@ mod tests {
             0x53,
         ];
         let pis = HashMap::new();
-        let run = run(&code, 0, vec![], &pis)?;
+        let mut run = run(&code, 0, vec![], &pis)?;
         assert_eq!(run.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
             run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
