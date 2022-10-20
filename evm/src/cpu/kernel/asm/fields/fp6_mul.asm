@@ -84,7 +84,7 @@ global mul_fp6:
     SUBFP254
     ADDFP254
     // stack: E0 = 9CDX - CDX_ + C0D0 , CDX , C0D0_, CDX_
-    SWAP15
+    SWAP10
     SWAP3
     // stack:                    CDX_ , CDX , C0D0_
     PUSH 9
@@ -234,3 +234,5 @@ global mul_fp6:
     ADDFP254
     // stack: E2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
     SWAP5
+    // stack: jumpdest, E0, E0_, E1, E1_, E2, E2_
+    JUMP

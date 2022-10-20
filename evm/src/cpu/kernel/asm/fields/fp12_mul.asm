@@ -1,3 +1,5 @@
+/// Note: uncomment this to test
+
 global test_mul_Fp12:
     // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
     %store_fp6
@@ -19,6 +21,7 @@ return_on_stack:
     // stack: h, h'
     %jump(0xdeadbeef)
 
+
 /// fp6 macros:
 ///  macro | num | ops | cost
 ///  -------------------------
@@ -27,7 +30,7 @@ return_on_stack:
 ///  dup   |   5 |   6 |   30
 ///  swap  |   4 |  16 |   64
 ///  add   |   4 |  16 |   64
-///  sub   |   1 |  17 |   17
+///  subr  |   1 |  17 |   17
 ///  mul   |   3 | 156 |  468
 ///  i9    |   1 |   9 |    9
 ///
