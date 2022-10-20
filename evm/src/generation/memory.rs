@@ -23,34 +23,19 @@ impl Default for MemoryState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct MemoryContextState {
     /// The content of each memory segment.
     pub segments: [MemorySegmentState; Segment::COUNT],
 }
 
-impl Default for MemoryContextState {
-    fn default() -> Self {
-        Self {
-            segments: Segment::all().map(|segment| MemorySegmentState {
-                content: vec![],
-                segment,
-                msize: 0,
-            }),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct MemorySegmentState {
     pub content: Vec<U256>,
-    pub segment: Segment,
-    pub msize: usize,
 }
 
 impl MemorySegmentState {
-    pub(crate) fn get(&mut self, virtual_addr: usize) -> U256 {
-        self.update_msize(virtual_addr);
+    pub(crate) fn get(&self, virtual_addr: usize) -> U256 {
         self.content
             .get(virtual_addr)
             .copied()
@@ -58,17 +43,9 @@ impl MemorySegmentState {
     }
 
     pub(crate) fn set(&mut self, virtual_addr: usize, value: U256) {
-        assert_eq!(value >> self.segment.bit_range(), U256::zero());
-        self.update_msize(virtual_addr);
         if virtual_addr >= self.content.len() {
             self.content.resize(virtual_addr + 1, U256::zero());
         }
         self.content[virtual_addr] = value;
-    }
-
-    fn update_msize(&mut self, virtual_addr: usize) {
-        let word_size = 256 / self.segment.bit_range();
-        let new_msize = ceil_div_usize(virtual_addr + 1, word_size) * 32;
-        self.msize = self.msize.max(new_msize);
     }
 }

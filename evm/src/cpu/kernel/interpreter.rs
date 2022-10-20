@@ -10,6 +10,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
@@ -46,9 +47,7 @@ impl InterpreterMemory {
 
         mem
     }
-}
 
-impl InterpreterMemory {
     fn mload_general(&mut self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
@@ -66,6 +65,16 @@ impl InterpreterMemory {
             segment
         );
         self.context_memory[context].segments[segment as usize].set(offset, value)
+    }
+
+    fn update_msize(&mut self, context: usize, offset: usize) {
+        let current_msize = self.context_memory[context].segments
+            [Segment::ContextMetadata as usize]
+            .get(ContextMetadata::MSize as usize);
+        let msize = ceil_div_usize(offset + 1, 32) * 32;
+        let new_msize = current_msize.max(msize.into());
+        self.context_memory[context].segments[Segment::ContextMetadata as usize]
+            .set(ContextMetadata::MSize as usize, new_msize)
     }
 }
 
@@ -502,6 +511,8 @@ impl<'a> Interpreter<'a> {
     fn run_keccak_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
+        // Not strictly needed but here to avoid surprises with MSIZE.
+        assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         let bytes = (offset..offset + size)
@@ -582,7 +593,8 @@ impl<'a> Interpreter<'a> {
 
     fn run_msize(&mut self) {
         self.push(U256::from(
-            self.memory.context_memory[self.context].segments[Segment::MainMemory as usize].msize,
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::MSize as usize),
         ))
     }
 

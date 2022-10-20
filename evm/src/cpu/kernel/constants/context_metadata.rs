@@ -23,7 +23,7 @@ pub(crate) enum ContextMetadata {
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
     /// we need to revert a context.
     StateTrieCheckpointPointer = 9,
-    /// Size of active memory.
+    /// Size of the active main memory.
     MSize = 10,
 }
 
