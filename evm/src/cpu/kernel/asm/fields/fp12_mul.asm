@@ -26,8 +26,8 @@ return_on_stack:
 ///  store |   5 |  40 |  200
 ///  dup   |   5 |   6 |   30
 ///  swap  |   4 |  16 |   64
-///  add   |   3 |  16 |   48
-///  sub   |   2 |  17 |   34
+///  add   |   4 |  16 |   64
+///  sub   |   1 |  17 |   17
 ///  mul   |   3 | 156 |  468
 ///  i9    |   1 |   9 |    9
 ///
@@ -41,7 +41,7 @@ return_on_stack:
 ///  POP   |   2
 ///  JUMP  |   1
 ///
-/// TOTAL: 1194
+/// TOTAL: 1193
 
 
 /// F = f + f'z
@@ -56,83 +56,90 @@ return_on_stack:
 
 global mul_Fp12:
     // stack:                             in0, in1, out
-    DUP1  
-    %add_const(6)  
+    DUP1  %add_const(6) 
+    // stack:                       in0', in0, in1, out  
     %load_fp6
     // stack:                         f', in0, in1, out
-    DUP7  
-    %add_const(6)  
+    DUP7  %add_const(6)
+    // stack:                   in1', f', in0, in1, out
     %load_fp6
     // stack:                     g', f', in0, in1, out
     PUSH post_mul_1
+    // stack:         post_mul_1, g', f', in0, in1, out
     %dup_fp6_7
     // stack:     f', post_mul_1, g', f', in0, in1, out
     %dup_fp6_7
     // stack: g', f', post_mul_1, g', f', in0, in1, out
     %jump(mul_fp6)
 post_mul_1:
-    // stack:             f'g', g'  , f', in0, in1, out
+    // stack:               f'g', g'  , f', in0, in1, out
     %dup_fp6_0
-    // stack:       f'g', f'g', g'  , f', in0, in1, out
+    // stack:         f'g', f'g', g'  , f', in0, in1, out
     %store_fp6_sh(36)                                    
-    // stack:             f'g', g'  , f', in0, in1, out  {36: sh(f'g')}
+    // stack:               f'g', g'  , f', in0, in1, out  {36: sh(f'g')}
     %store_fp6(42)
-    // stack:                   g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:                     g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     DUP13
-    // stack:              in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:                in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     DUP15  
+    // stack:           in1, in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %load_fp6
-    // stack:          g , in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:            g , in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %swap_fp6_hole
-    // stack:          g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:            g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     dup_fp6_7
-    // stack:        g,g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:          g,g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %add_fp6
-    // stack:        g+g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:          g+g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %swap_fp6_hole
-    // stack:           g, in0, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:             g, in0, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     PUSH post_mul_2
+    // stack: post_mul_2, g, in0, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     SWAP7
+    // stack: in0, g, post_mul_2, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %load_fp6
-    // stack: f, g, post_mul_2, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:   f, g, post_mul_2, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %jump(mul_fp6)
 post_mul_2:    
-    // stack:      fg, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
+    // stack:         fg, g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %store_fp6(48)
-    // stack:          g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:             g+g', f', in0, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %swap_fp6
-    // stack:          f', g+g', in0, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:             f', g+g', in0, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     PUSH post_mul_3
-    SWAP13  
+    // stack: post_mul_3, f', g+g', in0, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    SWAP13
+    // stack: in0, f', g+g', post_mul_3, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %load_fp6
-    // stack: f,f', g+g', post_mul_3, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:    f,f', g+g', post_mul_3, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %add_fp6
-    // stack: f+f', g+g', post_mul_3, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:    f+f', g+g', post_mul_3, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %jump(mul_fp6)
 post_mul_3:
-    // stack:                 (f+f')(g+g'), in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                       (f+f')(g+g'), in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %load_fp6(48)
-    // stack:             fg, (f+f')(g+g'), in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                   fg, (f+f')(g+g'), in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %swap_fp6
-    // stack:             (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                   (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %dup_fp6_6
-    // stack:         fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:               fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %load_fp6(42)
-    // stack:    f'g',fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:          f'g',fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %add_fp6
-    // stack:    f'g'+fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:          f'g'+fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %subr_fp6
-    // stack: (f+f')(g+g') - (f'g'+fg), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}   
-    DUP14  
-    add_const(6)  
+    // stack:       (f+f')(g+g') - (f'g'+fg), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}   
+    DUP14  add_const(6) 
+    // stack: out', (f+f')(g+g') - (f'g'+fg), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}   
     %store_fp6
-    // stack:                           fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                                 fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %load_fp6(36)
-    // stack:                sh(f'g') , fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                      sh(f'g') , fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %add_fp6
-    // stack:                sh(f'g') + fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
-    DUP8  
+    // stack:                      sh(f'g') + fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    DUP8
+    // stack:                 out, sh(f'g') + fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %store_fp6
-    // stack:                               in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
+    // stack:                                     in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %pop2  
     JUMP
