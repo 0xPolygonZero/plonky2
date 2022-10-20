@@ -6,7 +6,6 @@ use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2_util::ceil_div_usize;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
@@ -65,16 +64,6 @@ impl InterpreterMemory {
             segment
         );
         self.context_memory[context].segments[segment as usize].set(offset, value)
-    }
-
-    fn update_msize(&mut self, context: usize, offset: usize) {
-        let current_msize = self.context_memory[context].segments
-            [Segment::ContextMetadata as usize]
-            .get(ContextMetadata::MSize as usize);
-        let msize = ceil_div_usize(offset + 1, 32) * 32;
-        let new_msize = current_msize.max(msize.into());
-        self.context_memory[context].segments[Segment::ContextMetadata as usize]
-            .set(ContextMetadata::MSize as usize, new_msize)
     }
 }
 
@@ -154,19 +143,18 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn code(&mut self) -> &mut MemorySegmentState {
-        &mut self.memory.context_memory[self.context].segments[Segment::Code as usize]
+    fn code(&self) -> &MemorySegmentState {
+        &self.memory.context_memory[self.context].segments[Segment::Code as usize]
     }
 
-    fn code_slice(&mut self, n: usize) -> Vec<u8> {
-        let offset = self.offset;
-        self.code().content[offset..offset + n]
+    fn code_slice(&self, n: usize) -> Vec<u8> {
+        self.code().content[self.offset..self.offset + n]
             .iter()
             .map(|u256| u256.byte(0))
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn get_txn_field(&mut self, field: NormalizedTxnField) -> U256 {
+    pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
         self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
     }
 
@@ -179,7 +167,7 @@ impl<'a> Interpreter<'a> {
         &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
     }
 
-    pub(crate) fn get_global_metadata_field(&mut self, field: GlobalMetadata) -> U256 {
+    pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
         self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
     }
 
@@ -234,8 +222,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
-        let offset = self.offset;
-        let opcode = self.code().get(offset).byte(0);
+        let opcode = self.code().get(self.offset).byte(0);
         self.incr(1);
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
@@ -592,10 +579,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_msize(&mut self) {
-        self.push(U256::from(
+        self.push(
             self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
                 .get(ContextMetadata::MSize as usize),
-        ))
+        )
     }
 
     fn run_jumpdest(&mut self) {
@@ -721,7 +708,7 @@ mod tests {
             0x53,
         ];
         let pis = HashMap::new();
-        let mut run = run(&code, 0, vec![], &pis)?;
+        let run = run(&code, 0, vec![], &pis)?;
         assert_eq!(run.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
             run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),

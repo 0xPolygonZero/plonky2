@@ -1,5 +1,4 @@
 use ethereum_types::U256;
-use plonky2_util::ceil_div_usize;
 
 use crate::memory::memory_stark::MemoryOp;
 use crate::memory::segments::Segment;
