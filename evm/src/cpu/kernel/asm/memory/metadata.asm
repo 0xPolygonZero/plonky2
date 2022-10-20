@@ -57,7 +57,7 @@
     %div_const(32)
     // stack: (offset+32)/32 = ceil_div_usize(offset+1, 32)
     %mul_const(32)
-    // stack: ceil_div_usize(offset+1, 32)*32
+    // stack: ceil_div_usize(offset+1, 32) * 32
     %msize
     // stack: current_msize, ceil_div_usize(offset+1, 32) * 32
     %max
