@@ -181,7 +181,7 @@
 %endmacro
 
 // *reversed argument subtraction* cost: 17
-%macro bus_fp6
+%macro subr_fp6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
     SUBFP254

@@ -83,7 +83,7 @@ global mul_Fp12:
     // stack:            (f+f')(g+g')
     %load_fp6(42)
     // stack:      f'g', (f+f')(g+g')
-    %bus_fp6
+    %subr_fp6
     // stack:      (f+f')(g+g') - f'g'
     %load_fp6(48)
     // stack:  fg, (f+f')(g+g') - f'g'
@@ -91,7 +91,7 @@ global mul_Fp12:
     // stack:      (f+f')(g+g') - f'g', fg
     %dup2_fp6
     // stack:  fg, (f+f')(g+g') - f'g', fg
-    %bus_fp6
+    %subr_fp6
     // stack: (f+f')(g+g') - f'g' - fg, fg
     %store_fp6(30)
     // stack:                           fg
