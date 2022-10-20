@@ -85,11 +85,11 @@ pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_2;
 
-#[allow(unused_variables)]  // TODO: Will be used when hooking into the CPU
+#[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_NUMERATOR: Range<usize> = MODULAR_INPUT_0;
-#[allow(unused_variables)]  // TODO: Will be used when hooking into the CPU
+#[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_DENOMINATOR: Range<usize> = MODULAR_MODULUS;
-#[allow(unused_variables)]  // TODO: Will be used when hooking into the CPU
-pub(crate) const DIV_OUTPUT: Range<usize> = MODULAR_QUO_INPUT.start .. MODULAR_QUO_INPUT.start + 16;
+#[allow(unused)] // TODO: Will be used when hooking into the CPU
+pub(crate) const DIV_OUTPUT: Range<usize> = MODULAR_QUO_INPUT.start..MODULAR_QUO_INPUT.start + 16;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

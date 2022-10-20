@@ -1,4 +1,5 @@
-//! Support for the EVM modular instructions ADDMOD, MULMOD and MOD.
+//! Support for the EVM modular instructions ADDMOD, MULMOD and MOD,
+//! as well as DIV.
 //!
 //! This crate verifies an EVM modular instruction, which takes three
 //! 256-bit inputs A, B and M, and produces a 256-bit output C satisfying
@@ -82,6 +83,9 @@
 //!    - if modulus is non-zero, correct output is obtained
 //!    - if modulus is 0, then the test output < modulus, checking that
 //!      the output is reduced, will fail, because output is non-negative.
+//!
+//! In the case of DIV, we do something similar, except that we "replace"
+//! the modulus with "2^256" to force the quotient to be zero.
 
 use num::{bigint::Sign, BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
@@ -255,8 +259,7 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], filter: us
         columns::IS_ADDMOD => generate_modular_op(lv, filter, pol_add),
         columns::IS_SUBMOD => generate_modular_op(lv, filter, pol_sub),
         columns::IS_MULMOD => generate_modular_op(lv, filter, pol_mul_wide),
-        columns::IS_MOD | columns::IS_DIV
-            => generate_modular_op(lv, filter, |a, _| pol_extend(a)),
+        columns::IS_MOD | columns::IS_DIV => generate_modular_op(lv, filter, |a, _| pol_extend(a)),
         _ => panic!("generate modular operation called with unknown opcode"),
     }
 }
