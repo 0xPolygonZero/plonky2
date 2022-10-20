@@ -109,6 +109,6 @@ post_mul_3:
     // stack:                sh(f'g') , fg, in2, out
     %add_fp6
     // stack:                sh(f'g') + fg, in2, out
-    DUP8  %store_fp6(24)
+    DUP8  %store_fp6
     // stack:                               in2, out
     %pop2  JUMP

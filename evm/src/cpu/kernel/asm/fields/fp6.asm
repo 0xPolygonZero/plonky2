@@ -1,4 +1,38 @@
-// cost: 6 loads + 6 offsets + 5 adds = 6*4 + 6*1 + 5*2 = 40
+// cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
+%macro load_fp6
+    // stack: offset
+    DUP1
+    %add_const(4)
+    // stack:                   ind4, offset
+    %mload_kernel_general
+    // stack:                     x4, offset
+    DUP2
+    %add_const(3)
+    // stack:               ind3, x4, offset
+    %mload_kernel_general
+    // stack:                 x3, x4, offset
+    DUP3
+    %add_const(2)
+    // stack:           ind2, x3, x4, offset
+    %mload_kernel_general
+    // stack:             x2, x3, x4, offset
+    DUP4
+    %add_const(1)
+    // stack:       ind1, x2, x3, x4, offset
+    %mload_kernel_general
+    // stack:         x1, x2, x3, x4, offset
+    DUP5
+    %add_const(5)
+    // stack:   ind5, x1, x2, x3, x4, offset
+    %mload_kernel_general
+    // stack:     x5, x1, x2, x3, x4, offset
+    SWAP5
+    // stack:   ind0, x1, x2, x3, x4, x5
+    %mload_kernel_general
+    // stack:     x0, x1, x2, x3, x4, x5
+%endmacro
+
+// cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp6(offset)
     // stack:
     PUSH $offset
@@ -26,7 +60,41 @@
     // stack: x0, x1, x2, x3, x4, x5
 %endmacro
 
-// cost: 40
+// cost: 6 stores + 6 swaps/dups + 5 adds = 6*4 + 6*1 + 5*2 = 40
+%macro store_fp6
+    // stack:   offset, x0, x1, x2, x3, x4, x5
+    SWAP5
+    DUP6
+    %add_const(4)
+    // stack: ind4, x4, x0, x1, x2, x3, offset, x5
+    %mstore_kernel_general
+    // stack:           x0, x1, x2, x3, offset, x5
+    DUP5
+    // stack:     ind0, x0, x1, x2, x3, offset, x5
+    %mstore_kernel_general
+    // stack:               x1, x2, x3, offset, x5
+    DUP4
+    %add_const(1)
+    // stack:         ind1, x1, x2, x3, offset, x5
+    %mstore_kernel_general
+    // stack:                   x2, x3, offset, x5
+    DUP3
+    %add_const(2)
+    // stack:             ind2, x2, x3, offset, x5
+    %mstore_kernel_general
+    // stack:                       x3, offset, x5
+    DUP2
+    %add_const(3)
+    // stack:                 ind3, x3, offset, x5
+    %mstore_kernel_general
+    // stack:                           offset, x5
+    %add_const(5)
+    // stack:                             ind5, x5
+    %mstore_kernel_general
+    // stack:
+%endmacro
+
+// cost: 6 stores + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp6(offset)
     // stack: x0, x1, x2, x3, x4, x5
     PUSH $offset
