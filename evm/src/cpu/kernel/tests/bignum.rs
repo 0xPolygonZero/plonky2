@@ -17,11 +17,21 @@ fn to_be_limbs(x: U256) -> Vec<u8> {
     limbs
 }
 
+fn gen_range_u256(max: U256) -> U256 {
+    let mut rng = rand::thread_rng();
+
+    let mut x: U256 = U256(rng.gen::<[u64; 4]>());
+    while x > max {
+        x = U256(rng.gen::<[u64; 4]>());
+    }
+    x
+}
+
 #[test]
 fn test_add_bignum() -> Result<()> {
-    let mut rng = rand::thread_rng();
-    let a: U256 = U256(rng.gen::<[u64; 4]>());
-    let b: U256 = U256(rng.gen::<[u64; 4]>());
+    let max = U256([0, 0, 0, 1u64 << 63]);
+    let a: U256 = gen_range_u256(max);
+    let b: U256 = gen_range_u256(max);
     let sum = a + b;
 
     let a_limbs = to_be_limbs(a);

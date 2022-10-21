@@ -26,7 +26,7 @@ stack = { ^"%stack" ~ stack_placeholders ~ "->" ~ stack_replacements }
 stack_placeholders = { "(" ~ (stack_placeholder ~ ("," ~ stack_placeholder)*)? ~ ")" }
 stack_placeholder = { stack_block | identifier }
 stack_block = { identifier ~ ":" ~ literal_decimal }
-stack_replacements = { "(" ~ stack_replacement ~ ("," ~ stack_replacement)* ~ ")" }
+stack_replacements = { "(" ~ (stack_replacement ~ ("," ~ stack_replacement)*)? ~ ")" }
 stack_replacement = { literal | identifier | constant | macro_label | variable }
 
 global_label_decl = ${ ^"GLOBAL " ~ identifier ~ ":" }
