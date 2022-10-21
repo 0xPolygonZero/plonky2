@@ -1,4 +1,4 @@
-%extcodehash
+%macro extcodehash
     // stack: address
     %mpt_read_state_trie
     // stack: account_ptr
@@ -8,16 +8,22 @@
     // stack: codehash
 %endmacro
 
-%extcodesize
-    // stack: address
-    %stack (address) -> (address, %after)
+%macro extcodesize
+    %stack (address) -> (address, %%after)
     %jump(load_code)
 %%after:
 %endmacro
 
-%codesize
+%macro codesize
     ADDRESS
     %extcodesize
+%endmacro
+
+%macro codecopy
+    // stack: dest_offset, offset, size, retdest
+    ADDRESS
+    // stack: address, dest_offset, offset, size, retdest
+    %jump(extcodecopy)
 %endmacro
 
 global extcodecopy:
@@ -34,22 +40,38 @@ extcodecopy_loop:
     DUP2 DUP2 EQ
     // stack: i == size, i, size, code_length, offset, dest_offset, retdest
     %jumpi(extcodecopy_end)
-    %stack: (i, size, code_length, offset, dest_offset, retdest) -> (offset, code_length, offset, code_length, dest_offset, i, size, retdest)
+    %stack (i, size, code_length, offset, dest_offset, retdest) -> (offset, code_length, offset, code_length, dest_offset, i, size, retdest)
     LT
     // stack: offset < code_length, offset, code_length, dest_offset, i, size, retdest
     DUP2
     // stack: offset, offset < code_length, offset, code_length, dest_offset, i, size, retdest
     %mload_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
     // stack: opcode, offset < code_length, offset, code_length, dest_offset, i, size, retdest
-    &stack (opcode, offset < code_length, offset, code_length, dest_offset, i, size, retdest) -> (offset < code_length, 0, opcode, offset, code_length, dest_offset, i, size, retdest)
+    %stack (opcode, offset_lt_code_length, offset, code_length, dest_offset, i, size, retdest) -> (offset_lt_code_length, 0, opcode, offset, code_length, dest_offset, i, size, retdest)
     %select_bool
     // stack: opcode, offset, code_length, dest_offset, i, size, retdest
     DUP4
     // stack: dest_offset, opcode, offset, code_length, dest_offset, i, size, retdest
+    %mstore_main
+    // stack: offset, code_length, dest_offset, i, size, retdest
+    %increment
+    // stack: offset+1, code_length, dest_offset, i, size, retdest
+    SWAP2
+    // stack: dest_offset, code_length, offset+1, i, size, retdest
+    %increment
+    // stack: dest_offset+1, code_length, offset+1, i, size, retdest
+    SWAP3
+    // stack: i, code_length, offset+1, dest_offset+1, size, retdest
+    %increment
+    // stack: i+1, code_length, offset+1, dest_offset+1, size, retdest
+    %stack (i, code_length, offset, dest_offset, size, retdest) -> (i, size, code_length, offset, dest_offset, retdest)
+    %jump(extcodecopy_loop)
+
+
 
 
 extcodecopy_end:
-    %stack: (i, size, code_length, offset, dest_offset, size, retdest) -> (retdest)
+    %stack (i, size, code_length, offset, dest_offset, size, retdest) -> (retdest)
     JUMP
 
 
@@ -90,4 +112,3 @@ load_code_check:
     // stack: shouldbecodehash, codehash, retdest, code_length
     %assert_eq
     JUMP
-
