@@ -260,8 +260,15 @@ decrement_loop:
     // stack: cur_loc - 1, val-1, retdest
     SWAP1
     // stack: val-1, cur_loc - 1, retdest
-    %eq_const(256)
-    %jumpi(decrement_loop)
+    %eq_const(-1)
+    NOT
+    %jumpi(decrement_end)
+    // stack: cur_loc - 1, retdest
+    PUSH 255
+    DUP2
+    // stack: cur_loc - 1, 255, cur_loc - 1, retdest
+    %mstore_kernel_general
+    %jump(decrement_loop)
 decrement_end:
     // cur_loc, retdest
     POP
