@@ -142,7 +142,14 @@ increment_loop:
     SWAP1
     // stack: val+1, cur_loc - 1, retdest
     %eq_const(256)
-    %jumpi(increment_loop)
+    NOT
+    %jumpi(increment_end)
+    // stack: cur_loc - 1, retdest
+    PUSH 0
+    DUP2
+    // stack: cur_loc - 1, 0, cur_loc - 1, retdest
+    %mstore_kernel_general
+    %jump(increment_loop)
 increment_end:
     // cur_loc, retdest
     POP
@@ -230,14 +237,36 @@ sub_loop:
     %jumpi(sub_loop)
 sub_end:
     // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    %stack (bn, i, a, b, n) -> (bn, a)
+    // stack: borrow_new, a_i_loc - 1, retdest
     // If borrow = 0, no need to decrement.
     ISZERO
     %jumpi(decrement_end)
 decrement_loop:
     // If borrow = 1, we need to subtract 1 from the prior limb of a.
-
+    // stack: cur_loc, retdest
+    DUP1
+    STOP
+    %mload_kernel_general
+    // stack: val, cur_loc, retdest
+    %decrement
+    // stack: val-1, cur_loc, retdest
+    %stack (v, l) -> (l, v, l, v)
+    DUP2
+    // stack: cur_loc, val-1, cur_loc, val-1, retdest
+    %mstore_kernel_general
+    // stack: cur_loc, val-1, retdest
+    %decrement
+    // stack: cur_loc - 1, val-1, retdest
+    SWAP1
+    // stack: val-1, cur_loc - 1, retdest
+    %eq_const(256)
+    %jumpi(decrement_loop)
 decrement_end:
-    // subtract 
+    // cur_loc, retdest
+    POP
+    // retdest
+    JUMP
 
 
     
