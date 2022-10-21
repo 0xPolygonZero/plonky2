@@ -186,24 +186,24 @@
     // stack: (pred != 0) * nz + (pred == 0) * z
 %endmacro
 
-// If pred, yields z; otherwise, yields nz
+// If pred, yields x; otherwise, yields y
 // Assumes pred is boolean (either 0 or 1).
 %macro select_bool
-    // stack: pred, nz, z
+    // stack: pred, y, x
     DUP1
-    // stack: pred, pred, nz, z
+    // stack: pred, pred, y, x
     ISZERO
-    // stack: notpred, pred, nz, z
+    // stack: notpred, pred, y, x
     SWAP3
-    // stack: z, pred, nz, notpred
+    // stack: x, pred, y, notpred
     MUL
-    // stack: pred * z, nz, notpred
+    // stack: pred * x, y, notpred
     SWAP2
-    // stack: notpred, nz, pred * z
+    // stack: notpred, y, pred * x
     MUL
-    // stack: notpred * nz, pred * z
+    // stack: notpred * y, pred * x
     ADD
-    // stack: notpred * nz + pred * z
+    // stack: notpred * y + pred * x
 %endmacro
 
 %macro square
