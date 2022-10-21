@@ -115,7 +115,7 @@ add_loop:
     DUP3
     // stack: i + 1, n, carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
     GT
-    NOT
+    %not_bool
     %jumpi(add_loop)
 add_end:
     // stack: carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
@@ -127,6 +127,7 @@ add_end:
 increment_loop:
     // stack: cur_loc, retdest
     DUP1
+    STOP
     %mload_kernel_general
     // stack: val, cur_loc, retdest
     %increment

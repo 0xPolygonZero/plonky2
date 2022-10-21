@@ -55,6 +55,8 @@ fn test_add_bignum() -> Result<()> {
 
     interpreter.run()?;
 
+    dbg!(interpreter.stack());
+
     let new_memory = interpreter.get_kernel_general_memory();
     let actual_sum: Vec<u8> = new_memory[..expected_sum.len()].into();
     assert_eq!(actual_sum, expected_sum);
