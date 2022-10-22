@@ -18,13 +18,13 @@ global mul_fp6:
     /// C1D2 = (c1d2 - c1_d2_) + (c1d2_ + c1_d2)i
     /// C2D1 = (c2d1 - c2_d1_) + (c2d1_ + c2_d1)i
     ///
-    /// CDX  = C1D2 + C2D1
+    /// CD12 = C1D2 + C2D1
     ///      = (c1d2 + c2d1 - c1_d2_ - c2_d1_) + (c1d2_ + c1_d2 + c2d1_ + c2_d1)i
     ///
-    /// i9(CDX) = (9CDX - CDX_) + (CDX + 9CDX_)i
+    /// i9(CD12) = (9CD12 - CD12_) + (CD12 + 9CD12_)i
     ///
-    /// E0  = 9CDX  - CDX_ + C0D0
-    /// E0_ = 9CDX_ + CDX  + C0D0_
+    /// E0  = 9CD12  - CD12_ + C0D0
+    /// E0_ = 9CD12_ + CD12  + C0D0_
     ///
     /// E1 = C0D1 + C1D0 + i9(C2D2)
     ///
@@ -79,7 +79,7 @@ global mul_fp6:
     SWAP12
 
     // E0, E0_
-    // make CDX_ = c1d2_ + c1_d2 + c2d1_ + c2_d1
+    // make CD12_ = c1d2_ + c1_d2 + c2d1_ + c2_d1
     DUP1
     DUP5
     MULFP254
@@ -103,7 +103,7 @@ global mul_fp6:
     DUP6
     MULFP254
     ADDFP254
-    // make CDX = c1d2 + c2d1 - c1_d2_ - c2_d1_
+    // make CD12 = c1d2 + c2d1 - c1_d2_ - c2_d1_
     DUP13
     DUP10
     MULFP254
@@ -127,23 +127,23 @@ global mul_fp6:
     DUP7
     MULFP254
     SUBFP254
-    // stack:               C0D0 , CDX , C0D0_, CDX_
+    // stack:                 C0D0 , CD12 , C0D0_, CD12_
     DUP4
     DUP3
-    // stack:  CDX , CDX_ , C0D0 , CDX , C0D0_, CDX_
+    // stack:  CD12 , CD12_ , C0D0 , CD12 , C0D0_, CD12_
     PUSH 9
     MULFP254
     SUBFP254
     ADDFP254
-    // stack: 9CDX - CDX_ + C0D0 , CDX , C0D0_, CDX_
+    // stack: 9CD12 - CD12_ + C0D0 , CD12 , C0D0_, CD12_
     SWAP12
     SWAP3
-    // stack:               CDX_ , CDX , C0D0_
+    // stack:                CD12_ , CD12 , C0D0_
     PUSH 9
     MULFP254
     ADDFP254
     ADDFP254
-    // stack:              9CDX_ + CDX + C0D0_
+    // stack:               9CD12_ + CD12 + C0D0_
     SWAP11
 
     // E1, E1_
@@ -194,7 +194,7 @@ global mul_fp6:
     PUSH 9
     MULFP254
     ADDFP254
-    // stack:               9C2D2_ + C2D2
+    // stack:                   9C2D2_ + C2D2
     // make CD01_ = c0d1_ + c0_d1 +  c1d0_  + c1_d0
     DUP12
     DUP10
@@ -215,6 +215,7 @@ global mul_fp6:
     ADDFP254
     // stack: E1_ = CD01_ + 9C2D2_ + C2D2
     SWAP15
+    
     // E2_
     // stack: d2, d1_, d1, d0_, d2_, c0, c0_, c1, c1_, c2, c2_, d0
     SWAP7
