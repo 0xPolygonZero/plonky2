@@ -25,75 +25,7 @@ global mul_fp6:
     ///
     /// E0  = 9CDX  - CDX_ + C0D0
     /// E0_ = 9CDX_ + CDX  + C0D0_
-
-    // make CDX_ = c1d2_ + c1_d2 + c2d1_ + c2_d1
-    DUP12
-    DUP4
-    MULFP254
-    DUP12
-    DUP6
-    MULFP254
-    ADDFP254
-    DUP11
-    DUP7
-    MULFP254
-    ADDFP254
-    DUP10
-    DUP8
-    MULFP254
-    ADDFP254
-    // make C0D0_ = c0d0_ + c0_d0
-    DUP9
-    DUP3
-    MULFP254
-    DUP9
-    DUP5
-    MULFP254
-    ADDFP254
-    // make CDX = c1d2 + c2d1 - c1_d2_ - c2_d1_
-    DUP12
-    DUP9
-    MULFP254
-    DUP15
-    DUP8
-    MULFP254
-    ADDFP254
-    DUP14
-    DUP7
-    MULFP254
-    DUP13
-    DUP10
-    MULFP254
-    ADDFP254
-    SUBFP254
-    // make C0D0 = c0d0 - c0_d0_
-    DUP11
-    DUP6
-    MULFP254
-    DUP11
-    DUP6
-    MULFP254
-    SUBFP254
-
-    // stack:                    C0D0 , CDX , C0D0_, CDX_
-    DUP4
-    DUP3
-    // stack:       CDX , CDX_ , C0D0 , CDX , C0D0_, CDX_
-    PUSH 9
-    MULFP254
-    SUBFP254
-    ADDFP254
-    // stack: E0 = 9CDX - CDX_ + C0D0 , CDX , C0D0_, CDX_
-    SWAP10
-    SWAP3
-    // stack:                    CDX_ , CDX , C0D0_
-    PUSH 9
-    MULFP254
-    ADDFP254
-    ADDFP254
-    // stack:             E0_ = 9CDX_ + CDX + C0D0_
-    SWAP9
-    
+    ///
     /// E1 = C0D1 + C1D0 + i9(C2D2)
     ///
     /// C0D1 = (c0d1 - c0_d1_) + (c0d1_ + c0_d1)i
@@ -107,76 +39,7 @@ global mul_fp6:
     ///
     /// E1  = 9C2D2 -  C2D2_ + CD01
     /// E1_ =  C2D2 + 9C2D2_ + CD01_
-
-    // make C2D2_ = c2d2_ + c2_d2
-    DUP13
-    DUP9
-    MULFP254
-    DUP3
-    DUP9
-    MULFP254
-    ADDFP254
-    // make C2D2  = c2d2  - c2_d2_
-    DUP3
-    DUP10
-    MULFP254
-    DUP15
-    DUP10
-    MULFP254
-    SUBFP254
-    // make C0D0 = c0d1 + c1d0 - (c0_d1_ + c1_d0_)
-    DUP3
-    DUP9
-    MULFP254
-    DUP15
-    DUP8
-    MULFP254
-    ADDFP254
-    DUP12
-    DUP9
-    MULFP254
-    DUP15
-    DUP8
-    MULFP254
-    ADDFP254
-    SUBFP254
-    // stack:                      C0D0, C2D2, C2D2_
-    DUP3
-    DUP3
-    // stack:       C2D2 , C2D2_ , C0D0, C2D2, C2D2_
-    PUSH 9
-    MULFP254
-    SUBFP254
-    ADDFP254
-    // stack: E1 = 9C2D2 - C2D2_ + C0D0, C2D2, C2D2_
-    SWAP13
-    SWAP2
-    // stack:                     C2D2_, C2D2
-    PUSH 9
-    MULFP254
-    ADDFP254
-    // stack: 9C2D2_ + C2D2
-    // make CD01_ = c0d1_ + c0_d1 +  c1d0_  + c1_d0
-    DUP11
-    DUP9
-    MULFP254
-    DUP4
-    DUP9
-    MULFP254
-    ADDFP254
-    DUP3
-    DUP8
-    MULFP254
-    ADDFP254
-    DUP15
-    DUP7
-    MULFP254
-    ADDFP254
-    // stack:       CD01_ , 9C2D2_ + C2D2
-    ADDFP254
-    // stack: E1_ = CD01_ + 9C2D2_ + C2D2
-    SWAP13
-
+    ///
     /// E2 = C0D2 + C1D1 + C2D0
     ///
     /// C0D2 = (c0d2 - c0_d2_) + (c0d2_ + c0_d2)i
@@ -186,53 +49,195 @@ global mul_fp6:
     /// E2  = c0d2  + c1d1  + c2d0  - (c0_d2_ + c1_d1_ + c2_d0_)
     /// E2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
 
+    // E2
     // make c0_d2_ + c1_d1_ + c2_d0_
-    DUP3
-    DUP11
+    DUP8
+    DUP7
     MULFP254
-    DUP2
-    DUP10
+    DUP11
+    DUP6
     MULFP254
     ADDFP254
-    DUP5
+    DUP13
+    DUP4
+    MULFP254
+    ADDFP254
+    // make c0d2 + c1d1 + c2d0
+    DUP12
+    DUP3
+    MULFP254
+    DUP11
+    DUP6
+    MULFP254
+    ADDFP254
+    DUP9
     DUP8
     MULFP254
     ADDFP254
-    // make c0d2  + c1d1  + c2d0
-    DUP16
+    // stack: c0d2  + c1d1  + c2d0, c0_d2_ + c1_d1_ + c2_d0_
+    SUBFP254
+    SWAP12
+    // E0, E0_
+    // make CDX_ = c1d2_ + c1_d2 + c2d1_ + c2_d1
+    DUP1
+    DUP5
+    MULFP254
+    DUP13
     DUP7
+    MULFP254
+    ADDFP254
+    DUP12
+    DUP8
+    MULFP254
+    ADDFP254
+    DUP11
+    DUP9
+    MULFP254
+    ADDFP254
+    // make C0D0_ = c0d0_ + c0_d0
+    DUP10
+    DUP4
+    MULFP254
+    DUP10
+    DUP6
+    MULFP254
+    ADDFP254
+    // make CDX = c1d2 + c2d1 - c1_d2_ - c2_d1_
+    DUP13
+    DUP10
+    MULFP254
+    DUP4
+    DUP9
+    MULFP254
+    ADDFP254
+    DUP15
+    DUP8
+    MULFP254
+    DUP14
+    DUP11
+    MULFP254
+    ADDFP254
+    SUBFP254
+    // make C0D0 = c0d0 - c0_d0_
+    DUP12
+    DUP7
+    MULFP254
+    DUP12
+    DUP7
+    MULFP254
+    SUBFP254
+    // stack:               C0D0 , CDX , C0D0_, CDX_
+    DUP4
+    DUP3
+    // stack:  CDX , CDX_ , C0D0 , CDX , C0D0_, CDX_
+    PUSH 9
+    MULFP254
+    SUBFP254
+    ADDFP254
+    // stack: 9CDX - CDX_ + C0D0 , CDX , C0D0_, CDX_
+    SWAP12
+    SWAP3
+    // stack:               CDX_ , CDX , C0D0_
+    PUSH 9
+    MULFP254
+    ADDFP254
+    ADDFP254
+    // stack:              9CDX_ + CDX + C0D0_
+    SWAP11
+    // E1, E1_
+    // make C2D2_ = c2d2_ + c2_d2
+    DUP14
+    DUP10
     MULFP254
     DUP4
     DUP10
     MULFP254
     ADDFP254
-    DUP13
-    DUP12
+    // make C2D2  = c2d2  - c2_d2_
+    DUP4
+    DUP11
     MULFP254
-    ADDFP254
-    // stack:      c0d2  + c1d1  + c2d0 ,  c0_d2_ + c1_d1_ + c2_d0_
+    DUP16
+    DUP11
+    MULFP254
     SUBFP254
-    // stack: E2 = c0d2  + c1d1  + c2d0 - (c0_d2_ + c1_d1_ + c2_d0_)
+    // make CD01 = c0d1 + c1d0 - (c0_d1_ + c1_d0_)
+    DUP4
+    DUP10
+    MULFP254
+    DUP16
+    DUP9
+    MULFP254
+    ADDFP254
+    DUP13
+    DUP10
+    MULFP254
+    DUP5
+    DUP9
+    MULFP254
+    ADDFP254
+    SUBFP254
+    // stack:                      CD01, C2D2, C2D2_
+    DUP3
+    DUP3
+    // stack:       C2D2 , C2D2_ , CD01, C2D2, C2D2_
+    PUSH 9
+    MULFP254
+    SUBFP254
+    ADDFP254
+    // stack: E1 = 9C2D2 - C2D2_ + CD01, C2D2, C2D2_
     SWAP15
-    // make c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
+    SWAP2
+    // stack:                    C2D2_ , C2D2
+    PUSH 9
+    MULFP254
+    ADDFP254
+    // stack:               9C2D2_ + C2D2
+    // make CD01_ = c0d1_ + c0_d1 +  c1d0_  + c1_d0
+    DUP12
+    DUP10
+    MULFP254
+    DUP5
+    DUP10
+    MULFP254
+    ADDFP254
+    DUP4
+    DUP9
+    MULFP254
+    ADDFP254
+    DUP3
+    DUP8
+    MULFP254
+    ADDFP254
+    // stack:       CD01_ , 9C2D2_ + C2D2
+    ADDFP254
+    // stack: E1_ = CD01_ + 9C2D2_ + C2D2
+    SWAP15
+    // E2_
+    // stack: d2, d1_, d1, d0_, d2_, c0, c0_, c1, c1_, c2, c2_, d0
     SWAP7
     MULFP254
+    // stack: c1d1_, d1, d0_, d2_, c0, c0_, d2, c1_, c2, c2_, d0
     SWAP7
     MULFP254
+    // stack: c1_d1, d0_, d2_, c0, c0_, d2, c1d1_, c2, c2_, d0
     SWAP7
     MULFP254
+    // stack: c2d0_, d2_, c0, c0_, d2, c1d1_, c1_d1, c2_, d0
+    SWAP2
+    MULFP254
+    // stack: c0d2_, c2d0_, c0_, d2, c1d1_, c1_d1, c2_, d0
+    ADDFP254
+    // stack: c0d2_ + c2d0_, c0_, d2, c1d1_, c1_d1, c2_, d0
+    SWAP2
+    MULFP254
+    // stack: c0_d2, c0d2_ + c2d0_, c1d1_, c1_d1, c2_, d0
+    ADDFP254
+    ADDFP254
+    ADDFP254
+    // stack: c0_d2 + c0d2_ + c2d0_ + c1d1_ + c1_d1, c2_, d0
     SWAP2
     MULFP254
     ADDFP254
-    SWAP2
-    MULFP254
-    ADDFP254
-    ADDFP254
-    ADDFP254
-    SWAP2
-    MULFP254
-    ADDFP254
-    // stack: E2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
-    SWAP5
-    // stack: jumpdest, E0, E0_, E1, E1_, E2, E2_
+    SWAP6
     JUMP
