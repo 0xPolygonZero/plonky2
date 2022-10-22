@@ -1,4 +1,4 @@
-// cost: 156
+// cost: 157
 global mul_fp6:
     /// initial stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_, retdest
     /// final   stack: e0, e0_, e1, e1_, e2, e2_

@@ -12,13 +12,16 @@ global test_mul_Fp12:
     // stack:               in0, in1, out, return_on_stack, out
     %jump(mul_Fp12)
 return_on_stack:
-    // stack:       out
+    // stack:          out
     DUP1
     %add_const(6)
-    // stack: out', out
+    // stack:    out', out
     %load_fp6
+    // stack:      h', out
+    DUP7
+    // stack: out, h', out
     %load_fp6
-    // stack:    h, h'
+    // stack:   h, h', out
     %jump(0xdeadbeef)
 
 
@@ -63,7 +66,7 @@ global mul_Fp12:
     // stack:                  in0', in0, in1, out 
     %load_fp6
     // stack:                    f', in0, in1, out 
-    DUP7  %add_const(6)
+    DUP8  %add_const(6)
     // stack:              in1', f', in0, in1, out 
     %load_fp6
     // stack:                g', f', in0, in1, out 

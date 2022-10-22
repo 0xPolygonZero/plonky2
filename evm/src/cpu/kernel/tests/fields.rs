@@ -1,7 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
-use std::str::FromStr;
 
 use crate::cpu::kernel::aggregator::combined_kernel;
 use crate::cpu::kernel::interpreter::run_with_kernel;
@@ -127,18 +126,25 @@ fn as_stack(xs: Vec<u32>) -> Vec<U256> {
     xs.iter().map(|&x| U256::from(x)).rev().collect()
 }
 
-// fn make_initial_stack(f0: [[u32; 2]; 3], f1: [[u32; 2]; 3], g0: [[u32; 2]; 3], g1: [[u32; 2]; 3]) -> Vec<U256> {
-//     let f0: Vec<u32> = f0.into_iter().flatten().collect();
-//     let f1: Vec<u32> = f1.into_iter().flatten().collect();
-//     let g0: Vec<u32> = g0.into_iter().flatten().collect();
-//     let g1: Vec<u32> = g1.into_iter().flatten().collect();
+fn make_initial_stack(f0: [[u32; 2]; 3], f1: [[u32; 2]; 3], g0: [[u32; 2]; 3], g1: [[u32; 2]; 3]) -> Vec<U256> {
+    // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
+    let f0: Vec<u32> = f0.into_iter().flatten().collect();
+    let f1: Vec<u32> = f1.into_iter().flatten().collect();
+    let g0: Vec<u32> = g0.into_iter().flatten().collect();
+    let g1: Vec<u32> = g1.into_iter().flatten().collect();
 
-//     // let mut input: Vec<u32> = vec![0];
-    
-//     // vec![vec![0], f0, vec![6], f1, vec![12], g0, vec![18], g1, vec![12,24,0,24]]
-//     // let input: Vec<u32> = [vec![[0]], f0, [[6]], f1, [[12]], g0, [[18]], g1, [[12, 24, 0, 24]]].into_iter().flatten().flatten().flatten().collect();
-//     as_stack(input)
-// }
+    let mut input = vec![0];
+    input.extend(f0);
+    input.extend(vec![6]);
+    input.extend(f1);
+    input.extend(vec![12]);
+    input.extend(g0);
+    input.extend(vec![18]);
+    input.extend(g1);
+    input.extend(vec![12,24,0,24]);
+
+    as_stack(input)
+}
 
 #[test]
 fn test_fp6() -> Result<()> {
@@ -162,23 +168,28 @@ fn test_fp6() -> Result<()> {
 
     Ok(())
 }
-// fn test_fp12() -> Result<()> {
-//     let f0 = gen_fp6();
-//     let f1 = gen_fp6();
-//     let g0 = gen_fp6();
-//     let g1 = gen_fp6();
 
-//     let output: Vec<u32> = mul_fp12([f0, f1], [g0, g1]).into_iter().flatten().flatten().collect();
+#[test]
+fn test_fp12() -> Result<()> {
+    let f0 = gen_fp6();
+    let f1 = gen_fp6();
+    let g0 = gen_fp6();
+    let g1 = gen_fp6();
 
-//     let kernel = combined_kernel();
-//     let initial_offset = kernel.global_labels["test_mul_Fp12"];
-//     let initial_stack: Vec<U256> = make_initial_stack(f0,f1,g0,g1);
-//     let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
-//         .stack()
-//         .to_vec();
+    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1]).into_iter().flatten().flatten().collect();
+    output.extend(vec![24]);
 
-//     let expected = as_stack(output);
-//     assert_eq!(final_stack, expected);
+    let kernel = combined_kernel();
+    let initial_offset = kernel.global_labels["test_mul_Fp12"];
+    let initial_stack: Vec<U256> = make_initial_stack(f0, f1, g0, g1);
 
-//     Ok(())
-// }
+    let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
+        .stack()
+        .to_vec();
+
+    let expected = as_stack(output);
+
+    assert_eq!(final_stack, expected);
+
+    Ok(())
+}
