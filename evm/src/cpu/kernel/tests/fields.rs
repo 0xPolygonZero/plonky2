@@ -126,7 +126,12 @@ fn as_stack(xs: Vec<u32>) -> Vec<U256> {
     xs.iter().map(|&x| U256::from(x)).rev().collect()
 }
 
-fn make_initial_stack(f0: [[u32; 2]; 3], f1: [[u32; 2]; 3], g0: [[u32; 2]; 3], g1: [[u32; 2]; 3]) -> Vec<U256> {
+fn make_initial_stack(
+    f0: [[u32; 2]; 3],
+    f1: [[u32; 2]; 3],
+    g0: [[u32; 2]; 3],
+    g1: [[u32; 2]; 3],
+) -> Vec<U256> {
     // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
     let f0: Vec<u32> = f0.into_iter().flatten().collect();
     let f1: Vec<u32> = f1.into_iter().flatten().collect();
@@ -141,7 +146,7 @@ fn make_initial_stack(f0: [[u32; 2]; 3], f1: [[u32; 2]; 3], g0: [[u32; 2]; 3], g
     input.extend(g0);
     input.extend(vec![18]);
     input.extend(g1);
-    input.extend(vec![12,24,0,24]);
+    input.extend(vec![12, 24, 0, 24]);
 
     as_stack(input)
 }
@@ -150,7 +155,7 @@ fn make_initial_stack(f0: [[u32; 2]; 3], f1: [[u32; 2]; 3], g0: [[u32; 2]; 3], g
 fn test_fp6() -> Result<()> {
     let c = gen_fp6();
     let d = gen_fp6();
-    
+
     let mut input: Vec<u32> = [c, d].into_iter().flatten().flatten().collect();
     input.push(0xdeadbeef);
 
@@ -163,7 +168,7 @@ fn test_fp6() -> Result<()> {
 
     let output: Vec<u32> = mul_fp6(c, d).into_iter().flatten().collect();
     let expected = as_stack(output);
-    
+
     assert_eq!(final_stack, expected);
 
     Ok(())
@@ -183,7 +188,11 @@ fn test_fp12() -> Result<()> {
         .stack()
         .to_vec();
 
-    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1]).into_iter().flatten().flatten().collect();
+    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1])
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
     output.extend(vec![24]);
     let expected = as_stack(output);
 
