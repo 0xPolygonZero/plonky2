@@ -176,17 +176,15 @@ fn test_fp12() -> Result<()> {
     let g0 = gen_fp6();
     let g1 = gen_fp6();
 
-    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1]).into_iter().flatten().flatten().collect();
-    output.extend(vec![24]);
-
     let kernel = combined_kernel();
     let initial_offset = kernel.global_labels["test_mul_Fp12"];
     let initial_stack: Vec<U256> = make_initial_stack(f0, f1, g0, g1);
-
     let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
         .stack()
         .to_vec();
 
+    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1]).into_iter().flatten().flatten().collect();
+    output.extend(vec![24]);
     let expected = as_stack(output);
 
     assert_eq!(final_stack, expected);
