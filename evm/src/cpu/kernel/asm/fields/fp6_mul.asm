@@ -1,5 +1,8 @@
 // cost: 156
 global mul_fp6:
+    /// initial stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_, retdest
+    /// final   stack: e0, e0_, e1, e1_, e2, e2_
+
     /// C = C0 + C1t + C2t^2 
     ///   = (c0 + c0_i) + (c1 + c1_i)t + (c2 + c2_i)t^2
     ///
@@ -7,10 +10,7 @@ global mul_fp6:
     ///   = (d0 + d0_i) + (d1 + d1_i)t + (d2 + d2_i)t^2
     ///
     /// E = E0 + E1t + E2t^2 = CD
-    ///
-    /// initial stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_
-    /// final   stack: e0, e0_, e1, e1_, e2, e2_
-
+    
     /// E0 = C0D0 + i9(C1D2 + C2D1)
     ///
     /// C0D0 = (c0d0 - c0_d0_) + (c0d0_ + c0_d0)i
@@ -77,6 +77,7 @@ global mul_fp6:
     // stack: c0d2  + c1d1  + c2d0, c0_d2_ + c1_d1_ + c2_d0_
     SUBFP254
     SWAP12
+
     // E0, E0_
     // make CDX_ = c1d2_ + c1_d2 + c2d1_ + c2_d1
     DUP1
@@ -144,6 +145,7 @@ global mul_fp6:
     ADDFP254
     // stack:              9CDX_ + CDX + C0D0_
     SWAP11
+
     // E1, E1_
     // make C2D2_ = c2d2_ + c2_d2
     DUP14

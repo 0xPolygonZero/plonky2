@@ -90,7 +90,7 @@ post_mul_1:
     // stack:            g , in0, g'  , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %swap_fp6_hole
     // stack:            g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
-    dup_fp6_7
+    %dup_fp6_7
     // stack:          g,g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
     %add_fp6
     // stack:          g+g', in0, g   , f', in0, in1, out  {36: sh(f'g'), 42: f'g'}
@@ -132,7 +132,7 @@ post_mul_3:
     // stack:          f'g'+fg, (f+f')(g+g'), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
     %subr_fp6
     // stack:       (f+f')(g+g') - (f'g'+fg), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}   
-    DUP14  add_const(6) 
+    DUP14  %add_const(6) 
     // stack: out', (f+f')(g+g') - (f'g'+fg), fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}   
     %store_fp6
     // stack:                                 fg, in1, out  {36: sh(f'g'), 42: f'g', 48: fg}
