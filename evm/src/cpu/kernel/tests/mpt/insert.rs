@@ -142,7 +142,7 @@ fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
 
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
 /// accompanying trie data. An empty trie's storage_root is used instead.
-fn test_state_trie(state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
+fn test_state_trie(mut state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
     assert_eq!(k.count, 64);
 
     // Ignore any storage_root; see documentation note.
@@ -207,8 +207,8 @@ fn test_state_trie(state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp)
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = state_trie.insert(k, rlp::encode(&account).to_vec());
-    let expected_state_trie_hash = updated_trie.calc_hash();
+    state_trie.insert(k, rlp::encode(&account).to_vec());
+    let expected_state_trie_hash = state_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())
