@@ -1,3 +1,4 @@
+mod account_code;
 mod core;
 mod curve_ops;
 mod ecrecover;
