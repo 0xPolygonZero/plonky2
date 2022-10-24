@@ -152,8 +152,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.register_public_input(base_case.target);
 
         common_data.num_public_inputs = self.num_public_inputs();
-        // The `conditionally_verify_proof` gadget below takes 2^12 gates, so `degree_bits` cannot be smaller than 13.
-        common_data.fri_params.degree_bits = common_data.fri_params.degree_bits.max(13);
 
         let proof = self.add_virtual_proof_with_pis(&common_data);
         let dummy_proof = self.add_virtual_proof_with_pis(&common_data);
@@ -203,7 +201,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let data = self.build::<C>();
-        ensure!(data.common == common_data, "Common data does not match.");
+        ensure!(
+            data.common == common_data,
+            "Common data does not match. Final circuit has common data {:?} instead of {:?}.",
+            data.common,
+            common_data
+        );
 
         Ok((
             data,
@@ -317,6 +320,7 @@ mod tests {
     use plonky2_field::types::PrimeField64;
 
     use crate::field::types::Field;
+    use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::RichField;
     use crate::hash::hashing::hash_n_to_hash_no_pad;
     use crate::hash::poseidon::{PoseidonHash, PoseidonPermutation};
@@ -360,6 +364,9 @@ mod tests {
             circuit_digest: builder.add_virtual_hash(),
         };
         builder.verify_proof(proof, &verifier_data, &data.common);
+        while builder.num_gates() < 1 << 12 {
+            builder.add_gate(NoopGate, vec![]);
+        }
         builder.build::<C>().common
     }
 
