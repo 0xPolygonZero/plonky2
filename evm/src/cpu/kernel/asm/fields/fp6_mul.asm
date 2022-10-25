@@ -230,19 +230,19 @@ global mul_fp6:
     // stack:     c1_d1, d0_, d2_, c0, c0_, d2, c1d1_, c2, c2_, d0
     SWAP7
     MULFP254
-    // stack:       c2d0_, d2_, c0, c0_, d2, c1d1_, c1_d1, c2_, d0
+    // stack:      c2d0_, d2_, c0, c0_, d2, c1d1_, c1_d1 , c2_, d0
     SWAP2
     MULFP254
-    // stack:        c0d2_ , c2d0_, c0_, d2, c1d1_, c1_d1, c2_, d0
+    // stack:       c0d2_ , c2d0_, c0_, d2, c1d1_, c1_d1 , c2_, d0
     ADDFP254
-    // stack:        c0d2_ + c2d0_, c0_, d2, c1d1_, c1_d1, c2_, d0
+    // stack:       c0d2_ + c2d0_, c0_, d2, c1d1_, c1_d1 , c2_, d0
     SWAP2
     MULFP254
     // stack:      c0_d2 , c0d2_ + c2d0_ , c1d1_ , c1_d1 , c2_, d0
     ADDFP254
     ADDFP254
     ADDFP254
-    // stack:       c0_d2 + c0d2_ + c2d0_ + c1d1_ + c1_d1, c2_, d0
+    // stack:      c0_d2 + c0d2_ + c2d0_ + c1d1_ + c1_d1 , c2_, d0
     SWAP2
     MULFP254
     ADDFP254
