@@ -1,13 +1,20 @@
-/// C = C0 + C1t + C2t^2 
-///   = (c0 + c0_i) + (c1 + c1_i)t + (c2 + c2_i)t^2
+/// inputs:
+///     C = C0 + C1t + C2t^2 
+///       = (c0 + c0_i) + (c1 + c1_i)t + (c2 + c2_i)t^2
 ///
-/// D = D0 + D1t + D2t^2
-///   = (d0 + d0_i) + (d1 + d1_i)t + (d2 + d2_i)t^2
+///     D = D0 + D1t + D2t^2
+///       = (d0 + d0_i) + (d1 + d1_i)t + (d2 + d2_i)t^2
 ///
-/// E = e0 + e1t + e2t^2 = CD
+/// output:
+///     E = E0 + E1t + E2t^2 = CD
+///       = (e0 + e0_i) + (e1 + e1_i)t + (e2 + e2_i)t^2
 ///
+/// initial stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_, retdest
+/// final   stack: e0, e0_, e1, e1_, e2, e2_
+
+/// computations:
 ///
-/// e0 = C0D0 + i9(C1D2 + C2D1)
+/// E0 = C0D0 + i9(C1D2 + C2D1)
 ///
 /// C0D0 = (c0d0 - c0_d0_) + (c0d0_ + c0_d0)i
 ///
@@ -23,7 +30,7 @@
 /// e0_ = 9CD12_ + CD12  + C0D0_
 ///
 ///
-/// e1 = C0D1 + C1D0 + i9(C2D2)
+/// E1 = C0D1 + C1D0 + i9(C2D2)
 ///
 /// C0D1 = (c0d1 - c0_d1_) + (c0d1_ + c0_d1)i
 /// C1D0 = (c1d0 - c1_d0_) + (c1d0_ + c1_d0)i
@@ -38,7 +45,7 @@
 /// e1_ =  C2D2 + 9C2D2_ + CD01_
 ///
 ///
-/// e2 = C0D2 + C1D1 + C2D0
+/// E2 = C0D2 + C1D1 + C2D0
 ///
 /// C0D2 = (c0d2 - c0_d2_) + (c0d2_ + c0_d2)i
 /// C1D1 = (c1d1 - c1_d1_) + (c1d1_ + c1_d1)i
@@ -47,8 +54,6 @@
 /// e2  = c0d2  + c1d1  + c2d0  - (c0_d2_ + c1_d1_ + c2_d0_)
 /// e2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
 
-/// initial stack: c0, c0_, c1, c1_, c2, c2_, d0, d0_, d1, d1_, d2, d2_, retdest
-/// final   stack: e0, e0_, e1, e1_, e2, e2_
 
 // cost: 157
 global mul_fp6:
