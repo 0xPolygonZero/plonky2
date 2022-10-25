@@ -53,10 +53,14 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             compare::generate(local_values, columns::IS_GT);
         } else if local_values[columns::IS_ADDMOD].is_one() {
             modular::generate(local_values, columns::IS_ADDMOD);
+        } else if local_values[columns::IS_SUBMOD].is_one() {
+            modular::generate(local_values, columns::IS_SUBMOD);
         } else if local_values[columns::IS_MULMOD].is_one() {
             modular::generate(local_values, columns::IS_MULMOD);
         } else if local_values[columns::IS_MOD].is_one() {
             modular::generate(local_values, columns::IS_MOD);
+        } else if local_values[columns::IS_DIV].is_one() {
+            modular::generate(local_values, columns::IS_DIV);
         } else {
             todo!("the requested operation has not yet been implemented");
         }

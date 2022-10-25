@@ -13,11 +13,20 @@ mod read;
 /// Note that this preserves all nibbles (eg. `0x123` is not interpreted as `0x0123`).
 pub(crate) fn nibbles<T: Into<U256>>(v: T) -> Nibbles {
     let packed = v.into();
-
     Nibbles {
         count: Nibbles::get_num_nibbles_in_key(&packed),
         packed,
     }
+}
+
+pub(crate) fn nibbles_64<T: Into<U256>>(v: T) -> Nibbles {
+    let packed = v.into();
+    Nibbles { count: 64, packed }
+}
+
+pub(crate) fn nibbles_count<T: Into<U256>>(v: T, count: usize) -> Nibbles {
+    let packed = v.into();
+    Nibbles { count, packed }
 }
 
 pub(crate) fn test_account_1() -> AccountRlp {

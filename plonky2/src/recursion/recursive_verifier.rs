@@ -19,7 +19,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_common_data: &CommonCircuitData<F, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -29,14 +29,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges(
+        let challenges = proof_with_pis.get_challenges::<F, C>(
             self,
             public_inputs_hash,
             inner_verifier_data.circuit_digest,
             inner_common_data,
         );
 
-        self.verify_proof_with_challenges(
+        self.verify_proof_with_challenges::<C>(
             proof_with_pis.proof,
             public_inputs_hash,
             challenges,
@@ -52,7 +52,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         public_inputs_hash: HashOutTarget,
         challenges: ProofChallengesTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_common_data: &CommonCircuitData<F, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -75,7 +75,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
-            eval_vanishing_poly_circuit(
+            eval_vanishing_poly_circuit::<F, C, D>(
                 self,
                 inner_common_data,
                 challenges.plonk_zeta,
@@ -129,9 +129,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn add_virtual_proof_with_pis<InnerC: GenericConfig<D, F = F>>(
         &mut self,
-        common_data: &CommonCircuitData<F, InnerC, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {
-        let proof = self.add_virtual_proof(common_data);
+        let proof = self.add_virtual_proof::<InnerC>(common_data);
         let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
         ProofWithPublicInputsTarget {
             proof,
@@ -141,7 +141,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
         &mut self,
-        common_data: &CommonCircuitData<F, InnerC, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> ProofTarget<D> {
         let config = &common_data.config;
         let fri_params = &common_data.fri_params;
@@ -159,14 +159,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
             quotient_polys_cap: self.add_virtual_cap(cap_height),
-            openings: self.add_opening_set(common_data),
+            openings: self.add_opening_set::<InnerC>(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
         }
     }
 
     fn add_opening_set<InnerC: GenericConfig<D, F = F>>(
         &mut self,
-        common_data: &CommonCircuitData<F, InnerC, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> OpeningSetTarget<D> {
         let config = &common_data.config;
         let num_challenges = config.num_challenges;
@@ -330,7 +330,7 @@ mod tests {
     ) -> Result<(
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, C, D>,
+        CommonCircuitData<F, D>,
     )>
     where
         [(); C::Hasher::HASH_SIZE]:,
@@ -356,7 +356,7 @@ mod tests {
     >(
         inner_proof: ProofWithPublicInputs<F, InnerC, D>,
         inner_vd: VerifierOnlyCircuitData<InnerC, D>,
-        inner_cd: CommonCircuitData<F, InnerC, D>,
+        inner_cd: CommonCircuitData<F, D>,
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
@@ -364,7 +364,7 @@ mod tests {
     ) -> Result<(
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, C, D>,
+        CommonCircuitData<F, D>,
     )>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
@@ -372,7 +372,7 @@ mod tests {
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
-        let pt = builder.add_virtual_proof_with_pis(&inner_cd);
+        let pt = builder.add_virtual_proof_with_pis::<InnerC>(&inner_cd);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
 
         let inner_data = VerifierCircuitTarget {
@@ -385,7 +385,7 @@ mod tests {
         );
         pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
 
-        builder.verify_proof(pt, &inner_data, &inner_cd);
+        builder.verify_proof::<InnerC>(pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
@@ -422,7 +422,7 @@ mod tests {
     >(
         proof: &ProofWithPublicInputs<F, C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
-        cd: &CommonCircuitData<F, C, D>,
+        cd: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
         [(); C::Hasher::HASH_SIZE]:,

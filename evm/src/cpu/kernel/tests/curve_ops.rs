@@ -150,7 +150,7 @@ mod bn {
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Multiple calls
-        let ec_mul_hex = format!("0x{:x}", ec_mul);
+        let ec_mul_hex = format!("0x{ec_mul:x}");
         let initial_stack = u256ify([
             "0xdeadbeef",
             s,
@@ -288,7 +288,7 @@ mod secp {
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
         // Multiple calls
-        let ec_mul_hex = format!("0x{:x}", ec_mul);
+        let ec_mul_hex = format!("0x{ec_mul:x}");
         let initial_stack = u256ify([
             "0xdeadbeef",
             s,

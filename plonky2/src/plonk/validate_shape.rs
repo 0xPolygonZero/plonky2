@@ -8,7 +8,7 @@ use crate::plonk::proof::{OpeningSet, Proof, ProofWithPublicInputs};
 
 pub(crate) fn validate_proof_with_pis_shape<F, C, const D: usize>(
     proof_with_pis: &ProofWithPublicInputs<F, C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
@@ -32,7 +32,7 @@ where
 
 fn validate_proof_shape<F, C, const D: usize>(
     proof: &Proof<F, C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,

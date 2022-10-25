@@ -3,26 +3,26 @@
 // state trie. Returns null if the address is not found.
 global mpt_read_state_trie:
     // stack: addr, retdest
-    // The key is the hash of the address. Since KECCAK_GENERAL takes input from
-    // memory, we will write addr bytes to SEGMENT_KERNEL_GENERAL[0..20] first.
-    %stack (addr) -> (0, @SEGMENT_KERNEL_GENERAL, 0, addr, 20, mpt_read_state_trie_after_mstore)
-    %jump(mstore_unpacking)
-mpt_read_state_trie_after_mstore:
-    // stack: retdest
-    %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, 20) // context, segment, offset, len
-    KECCAK_GENERAL
+    %addr_to_state_key
     // stack: key, retdest
     PUSH 64 // num_nibbles
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT) // node_ptr
     // stack: node_ptr, num_nibbles, key, retdest
     %jump(mpt_read)
 
+// Convenience macro to call mpt_read_state_trie and return where we left off.
+%macro mpt_read_state_trie
+    %stack (addr) -> (addr, %%after)
+    %jump(mpt_read_state_trie)
+%%after:
+%endmacro
+
 // Read a value from a MPT.
 //
 // Arguments:
 // - the virtual address of the trie to search in
-// - the key, as a U256
 // - the number of nibbles in the key (should start at 64)
+// - the key, as a U256
 //
 // This function returns a pointer to the value, or 0 if the key is not found.
 global mpt_read:

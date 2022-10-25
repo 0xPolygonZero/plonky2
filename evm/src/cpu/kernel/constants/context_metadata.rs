@@ -23,10 +23,12 @@ pub(crate) enum ContextMetadata {
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
     /// we need to revert a context.
     StateTrieCheckpointPointer = 9,
+    /// Size of the active main memory.
+    MSize = 10,
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 10;
+    pub(crate) const COUNT: usize = 11;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -40,6 +42,7 @@ impl ContextMetadata {
             Self::CallValue,
             Self::Static,
             Self::StateTrieCheckpointPointer,
+            Self::MSize,
         ]
     }
 
@@ -56,6 +59,7 @@ impl ContextMetadata {
             ContextMetadata::CallValue => "CTX_METADATA_CALL_VALUE",
             ContextMetadata::Static => "CTX_METADATA_STATIC",
             ContextMetadata::StateTrieCheckpointPointer => "CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR",
+            ContextMetadata::MSize => "CTX_METADATA_MSIZE",
         }
     }
 }

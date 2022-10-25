@@ -45,3 +45,23 @@
 %macro callvalue
     %mload_context_metadata(@CTX_METADATA_CALL_VALUE)
 %endmacro
+
+%macro msize
+    %mload_context_metadata(@CTX_METADATA_MSIZE)
+%endmacro
+
+%macro update_msize
+    // stack: offset
+    %add_const(32)
+    // stack: 32 + offset
+    %div_const(32)
+    // stack: (offset+32)/32 = ceil_div_usize(offset+1, 32)
+    %mul_const(32)
+    // stack: ceil_div_usize(offset+1, 32) * 32
+    %msize
+    // stack: current_msize, ceil_div_usize(offset+1, 32) * 32
+    %max
+    // stack: new_msize
+    %mstore_context_metadata(@CTX_METADATA_MSIZE)
+%endmacro
+
