@@ -72,6 +72,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/sha2/store_pad.asm"),
         include_str!("asm/sha2/temp_words.asm"),
         include_str!("asm/sha2/write_length.asm"),
+        include_str!("asm/shift.asm"),
         include_str!("asm/transactions/router.asm"),
         include_str!("asm/transactions/type_0.asm"),
         include_str!("asm/transactions/type_1.asm"),

@@ -11,7 +11,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, modfp254, simple_logic, stack,
+    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, modfp254, shift, simple_logic, stack,
     stack_bounds, syscalls,
 };
 use crate::cross_table_lookup::Column;
@@ -126,6 +126,7 @@ impl<F: RichField, const D: usize> CpuStark<F, D> {
         let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
         decode::generate(local_values);
         membus::generate(local_values);
+        shift::generate(local_values);
         simple_logic::generate(local_values);
         stack_bounds::generate(local_values); // Must come after `decode`.
     }
@@ -151,6 +152,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
+        shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
         stack::eval_packed(local_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
@@ -172,6 +174,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
+        shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
         stack::eval_ext_circuit(builder, local_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
