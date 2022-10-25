@@ -21,7 +21,7 @@ pub(crate) fn main() {
     // Print the constants in the format we prefer in our code.
     for chunk in constants.chunks(4) {
         for (i, c) in chunk.iter().enumerate() {
-            print!("{:#018x},", c);
+            print!("{c:#018x},");
             if i != chunk.len() - 1 {
                 print!(" ");
             }

@@ -328,7 +328,7 @@ impl<'a> Interpreter<'a> {
         if self.debug_offsets.contains(&self.offset) {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {}", label);
+            println!("At {label}");
         }
 
         Ok(())

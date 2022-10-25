@@ -15,7 +15,7 @@ use crate::plonk::vars::EvaluationVars;
 pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof_with_pis: ProofWithPublicInputs<F, C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
     [(); C::Hasher::HASH_SIZE]:,
@@ -47,7 +47,7 @@ pub(crate) fn verify_with_challenges<
     public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     challenges: ProofChallenges<F, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
     [(); C::Hasher::HASH_SIZE]:,
@@ -65,7 +65,7 @@ where
     let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
-    let vanishing_polys_zeta = eval_vanishing_poly(
+    let vanishing_polys_zeta = eval_vanishing_poly::<F, C, D>(
         common_data,
         challenges.plonk_zeta,
         vars,

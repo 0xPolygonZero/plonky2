@@ -176,7 +176,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 level,
-                &format!("verify one (of {}) query rounds", num_queries),
+                &format!("verify one (of {num_queries}) query rounds"),
                 self.fri_verifier_query_round::<C>(
                     instance,
                     challenges,
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             with_context!(
                 self,
-                &format!("verify {}'th initial Merkle proof", i),
+                &format!("verify {i}'th initial Merkle proof"),
                 self.verify_merkle_proof_to_cap_with_cap_index::<H>(
                     evals.clone(),
                     x_index_bits,
