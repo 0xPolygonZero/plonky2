@@ -98,7 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
     fn id(&self) -> String {
-        format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
+        format!("{self:?}<WIDTH={SPONGE_WIDTH}>")
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

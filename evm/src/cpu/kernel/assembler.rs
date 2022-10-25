@@ -83,7 +83,7 @@ impl Macro {
         self.params
             .iter()
             .position(|p| p == param)
-            .unwrap_or_else(|| panic!("No such param: {} {:?}", param, &self.params))
+            .unwrap_or_else(|| panic!("No such param: {param} {:?}", &self.params))
     }
 }
 
@@ -140,7 +140,7 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
                     items: items.clone(),
                 };
                 let old = macros.insert(signature.clone(), macro_);
-                assert!(old.is_none(), "Duplicate macro signature: {:?}", signature);
+                assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
             }
         }
     }
@@ -186,9 +186,9 @@ fn expand_macro_call(
     };
     let macro_ = macros
         .get(&signature)
-        .unwrap_or_else(|| panic!("No such macro: {:?}", signature));
+        .unwrap_or_else(|| panic!("No such macro: {signature:?}"));
 
-    let get_actual_label = |macro_label| format!("@{}.{}", macro_counter, macro_label);
+    let get_actual_label = |macro_label| format!("@{macro_counter}.{macro_label}");
 
     let get_arg = |var| {
         let param_index = macro_.get_param_index(var);
@@ -242,7 +242,7 @@ fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<I
     let resolve_const = |c| {
         *constants
             .get(&c)
-            .unwrap_or_else(|| panic!("No such constant: {}", c))
+            .unwrap_or_else(|| panic!("No such constant: {c}"))
     };
 
     body.into_iter()
@@ -283,15 +283,15 @@ fn find_labels(
             | Item::Repeat(_, _)
             | Item::StackManipulation(_, _)
             | Item::MacroLabelDeclaration(_) => {
-                panic!("Item should have been expanded already: {:?}", item);
+                panic!("Item should have been expanded already: {item:?}");
             }
             Item::GlobalLabelDeclaration(label) => {
                 let old = global_labels.insert(label.clone(), *offset);
-                assert!(old.is_none(), "Duplicate global label: {}", label);
+                assert!(old.is_none(), "Duplicate global label: {label}");
             }
             Item::LocalLabelDeclaration(label) => {
                 let old = local_labels.insert(label.clone(), *offset);
-                assert!(old.is_none(), "Duplicate local label: {}", label);
+                assert!(old.is_none(), "Duplicate local label: {label}");
             }
             Item::Push(target) => *offset += 1 + push_target_size(target) as usize,
             Item::ProverInput(prover_input_fn) => {
@@ -319,7 +319,7 @@ fn assemble_file(
             | Item::Repeat(_, _)
             | Item::StackManipulation(_, _)
             | Item::MacroLabelDeclaration(_) => {
-                panic!("Item should have been expanded already: {:?}", item);
+                panic!("Item should have been expanded already: {item:?}");
             }
             Item::GlobalLabelDeclaration(_) | Item::LocalLabelDeclaration(_) => {
                 // Nothing to do; we processed labels in the prior phase.
@@ -331,7 +331,7 @@ fn assemble_file(
                         let offset = local_labels
                             .get(&label)
                             .or_else(|| global_labels.get(&label))
-                            .unwrap_or_else(|| panic!("No such label: {}", label));
+                            .unwrap_or_else(|| panic!("No such label: {label}"));
                         // We want the BYTES_PER_OFFSET least significant bytes in BE order.
                         // It's easiest to rev the first BYTES_PER_OFFSET bytes of the LE encoding.
                         (0..BYTES_PER_OFFSET)
@@ -339,9 +339,9 @@ fn assemble_file(
                             .map(|i| offset.to_le_bytes()[i as usize])
                             .collect()
                     }
-                    PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {}", v),
-                    PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
-                    PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
+                    PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {v}"),
+                    PushTarget::MacroVar(v) => panic!("Variable not in a macro: {v}"),
+                    PushTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
                 };
                 code.push(get_push_opcode(target_bytes.len() as u8));
                 code.extend(target_bytes);
@@ -362,9 +362,9 @@ fn push_target_size(target: &PushTarget) -> u8 {
     match target {
         PushTarget::Literal(n) => u256_to_trimmed_be_bytes(n).len() as u8,
         PushTarget::Label(_) => BYTES_PER_OFFSET,
-        PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {}", v),
-        PushTarget::MacroVar(v) => panic!("Variable not in a macro: {}", v),
-        PushTarget::Constant(c) => panic!("Constant wasn't inlined: {}", c),
+        PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {v}"),
+        PushTarget::MacroVar(v) => panic!("Variable not in a macro: {v}"),
+        PushTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
     }
 }
 

@@ -21,7 +21,7 @@ fn cost_estimate_item(item: &Item) -> u32 {
         Push(Label(_)) => cost_estimate_push(BYTES_PER_OFFSET as usize),
         ProverInput(_) => 1,
         StandardOp(op) => cost_estimate_standard_op(op.as_str()),
-        _ => panic!("Unexpected item: {:?}", item),
+        _ => panic!("Unexpected item: {item:?}"),
     }
 }
 
