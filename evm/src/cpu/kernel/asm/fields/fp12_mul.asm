@@ -1,17 +1,29 @@
 /// Note: uncomment this to test
 
 global test_mul_Fp12:
-    // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
+    // stack:      f, in0 , f', g, in1 , g', in1, out, in0,       out
+    DUP7
+    // stack: in0, f, in0 , f', g, in1 , g', in1, out, in0,       out
     %store_fp6
+    // stack:         in0 , f', g, in1 , g', in1, out, in0,       out
+    %add_const(6)
+    // stack:         in0', f', g, in1 , g', in1, out, in0,       out
     %store_fp6
+    // stack:                   g, in1 , g', in1, out, in0,       out
+    DUP7
+    // stack:              in1, g, in1 , g', in1, out, in0,       out
     %store_fp6
+    // stack:                      in1 , g', in1, out, in0,       out
+    %add_const(6)
+    // stack:                      in1', g', in1, out, in0,       out
     %store_fp6
-    // stack:               in1, out, in0,                  out
-    PUSH return_on_stack
+    // stack:                                in1, out, in0,       out
+    PUSH ret_stack
+    // stack:                     ret_stack, in1, out, in0,       out
     SWAP3
-    // stack:               in0, in1, out, return_on_stack, out
+    // stack:                           in0, in1, out, ret_stack, out
     %jump(mul_Fp12)
-return_on_stack:
+ret_stack:
     // stack:          out
     DUP1
     %add_const(6)
