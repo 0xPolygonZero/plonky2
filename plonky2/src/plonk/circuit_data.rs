@@ -106,7 +106,7 @@ impl CircuitConfig {
 pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub prover_only: ProverOnlyCircuitData<F, C, D>,
     pub verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub common: CommonCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -196,7 +196,7 @@ pub struct ProverCircuitData<
     const D: usize,
 > {
     pub prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub common: CommonCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -223,7 +223,7 @@ pub struct VerifierCircuitData<
     const D: usize,
 > {
     pub verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub common: CommonCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -287,17 +287,13 @@ pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
 
 /// Circuit data required by both the prover and the verifier.
 #[derive(Debug, Eq, PartialEq)]
-pub struct CommonCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
     pub(crate) fri_params: FriParams,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub(crate) gates: Vec<GateRef<C::F, D>>,
+    pub(crate) gates: Vec<GateRef<F, D>>,
 
     /// Information on the circuit's selector polynomials.
     pub(crate) selectors_info: SelectorsInfo,
@@ -314,15 +310,13 @@ pub struct CommonCircuitData<
     pub(crate) num_public_inputs: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
-    pub(crate) k_is: Vec<C::F>,
+    pub(crate) k_is: Vec<F>,
 
     /// The number of partial products needed to compute the `Z` polynomials.
     pub(crate) num_partial_products: usize,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CommonCircuitData<F, C, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub const fn degree_bits(&self) -> usize {
         self.fri_params.degree_bits
     }

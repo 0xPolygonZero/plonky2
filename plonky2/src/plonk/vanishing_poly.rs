@@ -25,7 +25,7 @@ pub(crate) fn eval_vanishing_poly<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
     local_zs: &[F::Extension],
@@ -39,7 +39,7 @@ pub(crate) fn eval_vanishing_poly<
     let max_degree = common_data.quotient_degree_factor;
     let num_prods = common_data.num_partial_products;
 
-    let constraint_terms = evaluate_gate_constraints(common_data, vars);
+    let constraint_terms = evaluate_gate_constraints::<F, C, D>(common_data, vars);
 
     // The L_0(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
@@ -100,7 +100,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     indices_batch: &[usize],
     xs_batch: &[F],
     vars_batch: EvaluationVarsBaseBatch<F>,
@@ -126,7 +126,8 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
-    let constraint_terms_batch = evaluate_gate_constraints_base_batch(common_data, vars_batch);
+    let constraint_terms_batch =
+        evaluate_gate_constraints_base_batch::<F, C, D>(common_data, vars_batch);
     debug_assert!(constraint_terms_batch.len() == n * num_gate_constraints);
 
     let num_challenges = common_data.config.num_challenges;
@@ -210,7 +211,7 @@ pub fn evaluate_gate_constraints<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     vars: EvaluationVars<F, D>,
 ) -> Vec<F::Extension> {
     let mut constraints = vec![F::Extension::ZERO; common_data.num_gate_constraints];
@@ -244,7 +245,7 @@ pub fn evaluate_gate_constraints_base_batch<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     vars_batch: EvaluationVarsBaseBatch<F>,
 ) -> Vec<F> {
     let mut constraints_batch = vec![F::ZERO; common_data.num_gate_constraints * vars_batch.len()];
@@ -276,7 +277,7 @@ pub fn evaluate_gate_constraints_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     vars: EvaluationTargets<D>,
 ) -> Vec<ExtensionTarget<D>> {
     let mut all_gate_constraints = vec![builder.zero_extension(); common_data.num_gate_constraints];
@@ -311,7 +312,7 @@ pub(crate) fn eval_vanishing_poly_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
     x: ExtensionTarget<D>,
     x_pow_deg: ExtensionTarget<D>,
     vars: EvaluationTargets<D>,
@@ -329,7 +330,7 @@ pub(crate) fn eval_vanishing_poly_circuit<
     let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
-        evaluate_gate_constraints_circuit(builder, common_data, vars,)
+        evaluate_gate_constraints_circuit::<F, C, D>(builder, common_data, vars,)
     );
 
     // The L_0(x) (Z(x) - 1) vanishing terms.
