@@ -25,7 +25,7 @@ pub struct CyclicRecursionData<
 > {
     proof: &'a Option<ProofWithPublicInputs<F, C, D>>,
     verifier_data: &'a VerifierOnlyCircuitData<C, D>,
-    common_data: &'a CommonCircuitData<F, C, D>,
+    common_data: &'a CommonCircuitData<F, D>,
 }
 
 pub struct CyclicRecursionTarget<const D: usize> {
@@ -49,7 +49,7 @@ pub struct CyclicPublicInputs<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CyclicPublicInputs<F, C, D>
 {
-    fn from_slice(slice: &[F], common_data: &CommonCircuitData<F, C, D>) -> Result<Self>
+    fn from_slice(slice: &[F], common_data: &CommonCircuitData<F, D>) -> Result<Self>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -90,7 +90,7 @@ pub struct CyclicPublicInputsTarget {
 impl CyclicPublicInputsTarget {
     fn from_slice<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         slice: &[Target],
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self> {
         let cap_len = common_data.config.fri_config.num_cap_elements();
         let len = slice.len();
@@ -120,7 +120,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut self,
         previous_virtual_public_inputs: &[Target],
         previous_base_case: Target,
-        mut common_data: CommonCircuitData<F, C, D>,
+        mut common_data: CommonCircuitData<F, D>,
     ) -> Result<(CircuitData<F, C, D>, CyclicRecursionTarget<D>)>
     where
         C::Hasher: AlgebraicHasher<F>,
@@ -153,10 +153,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         common_data.num_public_inputs = self.num_public_inputs();
 
-        let proof = self.add_virtual_proof_with_pis(&common_data);
-        let dummy_proof = self.add_virtual_proof_with_pis(&common_data);
+        let proof = self.add_virtual_proof_with_pis::<C>(&common_data);
+        let dummy_proof = self.add_virtual_proof_with_pis::<C>(&common_data);
 
-        let pis = CyclicPublicInputsTarget::from_slice(&proof.public_inputs, &common_data)?;
+        let pis =
+            CyclicPublicInputsTarget::from_slice::<F, C, D>(&proof.public_inputs, &common_data)?;
         // Check that the previous base case flag was boolean.
         self.assert_bool(pis.base_case);
         // Check that we cannot go from a non-base case to a base case by checking `previous_base_case - base_case \in {0,1}`.
@@ -182,7 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         // Verify the dummy proof if `base_case` is set to true, otherwise verify the "real" proof.
-        self.conditionally_verify_proof(
+        self.conditionally_verify_proof::<C>(
             base_case,
             &dummy_proof,
             &dummy_verifier_data,
@@ -250,7 +251,7 @@ where
             cyclic_recursion_data.verifier_data,
         );
     } else {
-        let (dummy_proof, dummy_data) = dummy_proof(cyclic_recursion_data.common_data)?;
+        let (dummy_proof, dummy_data) = dummy_proof::<F, C, D>(cyclic_recursion_data.common_data)?;
         pw.set_bool_target(cyclic_recursion_data_target.base_case, true);
         let mut proof = dummy_proof.clone();
         proof.public_inputs[0..public_inputs.len()].copy_from_slice(public_inputs);
@@ -298,12 +299,12 @@ pub fn check_cyclic_proof_verifier_data<
 >(
     proof: &ProofWithPublicInputs<F, C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
     C::Hasher: AlgebraicHasher<F>,
 {
-    let pis = CyclicPublicInputs::from_slice(&proof.public_inputs, common_data)?;
+    let pis = CyclicPublicInputs::<F, C, D>::from_slice(&proof.public_inputs, common_data)?;
     if !pis.base_case {
         ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
         ensure!(verifier_data.circuit_digest == pis.circuit_digest);
@@ -338,7 +339,7 @@ mod tests {
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
-    >() -> CommonCircuitData<F, C, D>
+    >() -> CommonCircuitData<F, D>
     where
         C::Hasher: AlgebraicHasher<F>,
         [(); C::Hasher::HASH_SIZE]:,
@@ -348,22 +349,22 @@ mod tests {
         let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis(&data.common);
+        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
         };
-        builder.verify_proof(proof, &verifier_data, &data.common);
+        builder.verify_proof::<C>(proof, &verifier_data, &data.common);
         let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis(&data.common);
+        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
         };
-        builder.verify_proof(proof, &verifier_data, &data.common);
+        builder.verify_proof::<C>(proof, &verifier_data, &data.common);
         while builder.num_gates() < 1 << 12 {
             builder.add_gate(NoopGate, vec![]);
         }
@@ -414,7 +415,7 @@ mod tests {
 
         // Add cyclic recursion gadget.
         let (cyclic_circuit_data, cyclic_data_target) =
-            builder.cyclic_recursion(&old_pis, old_base_case, common_data)?;
+            builder.cyclic_recursion::<C>(&old_pis, old_base_case, common_data)?;
 
         let cyclic_recursion_data = CyclicRecursionData {
             proof: &None, // Base case: We don't have a proof to put here yet.
