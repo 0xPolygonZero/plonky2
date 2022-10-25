@@ -83,6 +83,11 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
+
+    /// Optional common data. When it is `Some(goal_data)`, the `build` function panics if the resulting
+    /// common data doesn't equal `goal_data`.
+    /// This is used in cyclic recursion.
+    pub(crate) goal_common_data: Option<CommonCircuitData<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -102,6 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             arithmetic_results: HashMap::new(),
             current_slots: HashMap::new(),
             constant_generators: Vec::new(),
+            goal_common_data: None,
         };
         builder.check_config();
         builder
@@ -830,6 +836,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             k_is,
             num_partial_products,
         };
+        if let Some(goal_data) = self.goal_common_data {
+            assert_eq!(goal_data, common);
+        }
 
         let prover_only = ProverOnlyCircuitData {
             generators: self.generators,
