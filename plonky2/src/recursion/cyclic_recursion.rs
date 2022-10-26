@@ -36,21 +36,10 @@ pub struct CyclicRecursionTarget<const D: usize> {
     pub base_case: BoolTarget,
 }
 
-pub struct CyclicPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    pub circuit_digest: HashOut<F>,
-    pub constants_sigmas_cap: MerkleCap<F, C::Hasher>,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CyclicPublicInputs<F, C, D>
-{
-    fn from_slice(slice: &[F], common_data: &CommonCircuitData<F, D>) -> Result<Self>
+impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
+    fn from_slice(slice: &[C::F], common_data: &CommonCircuitData<C::F, D>) -> Result<Self>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<C::F>,
     {
         // The structure of the public inputs is `[..., circuit_digest, constants_sigmas_cap]`.
         let cap_len = common_data.config.fri_config.num_cap_elements();
@@ -73,12 +62,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub struct CyclicPublicInputsTarget {
-    pub circuit_digest: HashOutTarget,
-    pub constants_sigmas_cap: MerkleCapTarget,
-}
-
-impl CyclicPublicInputsTarget {
+impl VerifierCircuitTarget {
     fn from_slice<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,
@@ -142,8 +126,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let proof = self.add_virtual_proof_with_pis::<C>(common_data);
         let dummy_proof = self.add_virtual_proof_with_pis::<C>(common_data);
 
-        let pis =
-            CyclicPublicInputsTarget::from_slice::<F, C, D>(&proof.public_inputs, common_data)?;
+        let pis = VerifierCircuitTarget::from_slice::<F, C, D>(&proof.public_inputs, common_data)?;
         // Connect previous verifier data to current one. This guarantees that every proof in the cycle uses the same verifier data.
         self.connect_hashes(pis.circuit_digest, verifier_data.circuit_digest);
         for (h0, h1) in pis
@@ -271,7 +254,7 @@ pub fn check_cyclic_proof_verifier_data<
 where
     C::Hasher: AlgebraicHasher<F>,
 {
-    let pis = CyclicPublicInputs::<F, C, D>::from_slice(&proof.public_inputs, common_data)?;
+    let pis = VerifierOnlyCircuitData::<C, D>::from_slice(&proof.public_inputs, common_data)?;
     ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
     ensure!(verifier_data.circuit_digest == pis.circuit_digest);
 
