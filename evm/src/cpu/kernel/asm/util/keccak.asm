@@ -8,7 +8,7 @@
     %stack (word) -> (0, @SEGMENT_KERNEL_GENERAL, 0, word, $num_bytes, %%after_mstore)
     %jump(mstore_unpacking)
 %%after_mstore:
-    // stack: (empty)
-    %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, $num_bytes) // context, segment, offset, len
+    // stack: offset
+    %stack (offset) -> (0, @SEGMENT_KERNEL_GENERAL, 0, $num_bytes) // context, segment, offset, len
     KECCAK_GENERAL
 %endmacro
