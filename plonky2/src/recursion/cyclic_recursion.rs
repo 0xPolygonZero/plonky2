@@ -89,20 +89,15 @@ impl VerifierCircuitTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn cyclic_recursion<C: GenericConfig<D, F = F>>(
+    /// Add verifier data and register it as public inputs.
+    /// WARNING: Do not register any public input after calling this!
+    pub fn verifier_data_for_cyclic_recursion<C: GenericConfig<D, F = F>>(
         &mut self,
-        previous_virtual_public_inputs: &[Target],
-        common_data: &mut CommonCircuitData<F, D>,
-    ) -> Result<CyclicRecursionTarget<D>>
+    ) -> VerifierCircuitTarget
     where
         C::Hasher: AlgebraicHasher<F>,
         [(); C::Hasher::HASH_SIZE]:,
     {
-        ensure!(
-            previous_virtual_public_inputs.len() == self.num_public_inputs(),
-            "Incorrect number of public inputs."
-        );
-
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
@@ -113,6 +108,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
         }
 
+        verifier_data
+    }
+
+    /// Cyclic recursion gadget.
+    /// WARNING: Do not register any public input after calling this!
+    pub fn cyclic_recursion<C: GenericConfig<D, F = F>>(
+        &mut self,
+        previous_virtual_public_inputs: &[Target],
+        verifier_data: &VerifierCircuitTarget, // should be registered as public inputs already
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<CyclicRecursionTarget<D>>
+    where
+        C::Hasher: AlgebraicHasher<F>,
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let dummy_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
@@ -120,8 +130,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Flag set to true for the base case of the cycle where we verify a dummy proof to bootstrap the cycle. Set to false otherwise.
         let base_case = self.add_virtual_bool_target_safe();
-
-        common_data.num_public_inputs = self.num_public_inputs();
 
         let proof = self.add_virtual_proof_with_pis::<C>(common_data);
         let dummy_proof = self.add_virtual_proof_with_pis::<C>(common_data);
@@ -151,7 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &dummy_proof,
             &dummy_verifier_data,
             &proof,
-            &verifier_data,
+            verifier_data,
             common_data,
         );
 
@@ -166,7 +174,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         Ok(CyclicRecursionTarget {
             proof,
-            verifier_data,
+            verifier_data: verifier_data.clone(),
             dummy_proof,
             dummy_verifier_data,
             base_case,
@@ -351,8 +359,12 @@ mod tests {
 
         let mut common_data = common_data_for_recursion::<F, C, D>();
 
+        let verifier_data = builder.verifier_data_for_cyclic_recursion::<C>();
+        common_data.num_public_inputs = builder.num_public_inputs();
+
         // Add cyclic recursion gadget.
-        let cyclic_data_target = builder.cyclic_recursion::<C>(&old_pis, &mut common_data)?;
+        let cyclic_data_target =
+            builder.cyclic_recursion::<C>(&old_pis, &verifier_data, &common_data)?;
         let input_hash_bis =
             builder.select_hash(cyclic_data_target.base_case, initial_hash, old_hash);
         builder.connect_hashes(input_hash, input_hash_bis);
@@ -428,7 +440,6 @@ mod tests {
         let initial_hash = &proof.public_inputs[..4];
         let hash = &proof.public_inputs[4..8];
         let counter = proof.public_inputs[8];
-        dbg!(counter);
         let mut h: [F; 4] = initial_hash.try_into().unwrap();
         assert_eq!(
             hash,
