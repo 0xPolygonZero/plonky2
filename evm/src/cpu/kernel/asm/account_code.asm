@@ -81,7 +81,6 @@ extcodecopy_end:
 load_code:
     // stack: address, retdest
     %extcodehash
-    STOP
     // stack: codehash, retdest
     PROVER_INPUT(account_code::length)
     // stack: code_length, codehash, retdest
