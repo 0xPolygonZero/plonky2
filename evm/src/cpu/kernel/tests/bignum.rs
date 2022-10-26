@@ -119,31 +119,3 @@ fn test_sub_bignum() -> Result<()> {
 
     Ok(())
 }
-
-// #[test]
-// fn test_ge_unbounded(x: U256, p: U256) -> Result<()> {
-//     let mut initial_stack = vec![U256::from(message.len())];
-
-//     let bytes: Vec<U256> = message.iter().map(|&x| U256::from(x as u32)).collect();
-//     initial_stack.extend(bytes);
-//     initial_stack.push(U256::from_str("0xdeadbeef").unwrap());
-//     initial_stack.reverse();
-
-//     // Make the kernel.
-//     let kernel = combined_kernel();
-//     let kernel_function = kernel.global_labels["ge_unbounded"];
-
-//     // Run the kernel code.
-//     let result_random = run_with_kernel(&kernel, kernel_function, initial_stack_random)?;
-//     let result_custom = run_with_kernel(&kernel, kernel_function, initial_stack_custom)?;
-
-//     // Extract the final output.
-//     let actual_random = result_random.stack()[0];
-//     let actual_custom = result_custom.stack()[0];
-
-//     // Check that the result is correct.
-//     assert_eq!(expected_random, actual_random);
-//     assert_eq!(expected_custom, actual_custom);
-
-//     Ok(())
-// }
