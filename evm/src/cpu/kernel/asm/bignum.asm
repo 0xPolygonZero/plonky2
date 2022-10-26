@@ -66,12 +66,8 @@ global add_bignum:
     ADD
     %decrement
     // stack: b_end_loc, b_len, a_end_loc, retdest
-    SWAP1
-    // stack: n=b_len, b_end_loc, a_end_loc, retdest
-    SWAP2
-    // stack: a_end_loc, b_end_loc, n, retdest
-    %stack () -> (0, 0)
-    // stack: carry=0, i=0, a_end_loc, b_end_loc, n, retdest
+    %stack (be, bl, ae) -> (0, 0, ae, be, bl)
+    // stack: carry=0, i=0, a_end_loc, b_end_loc, n=b_len, retdest
 add_loop:
     // stack: carry, i, a_i_loc, b_i_loc, n, retdest
     DUP4
@@ -191,12 +187,8 @@ global sub_bignum:
     ADD
     %decrement
     // stack: b_end_loc, b_len, a_end_loc, retdest
-    SWAP1
-    // stack: n=b_len, b_end_loc, a_end_loc, retdest
-    SWAP2
-    // stack: a_end_loc, b_end_loc, n, retdest
-    %stack () -> (0, 0)
-    // stack: borrow=0, i=0, a_end_loc, b_end_loc, n, retdest
+    %stack (be, bl, ae) -> (0, 0, ae, be, bl)
+    // stack: borrow=0, i=0, a_end_loc, b_end_loc, n=b_len, retdest
 sub_loop:
     // stack: borrow, i, a_i_loc, b_i_loc, n, retdest
     DUP4
@@ -209,7 +201,7 @@ sub_loop:
     // stack: a[i], b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
     %subtract_limb
     // stack: c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
-    DUP3
+    DUP4
     // stack: a_i_loc, c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
     %mstore_kernel_general
     // stack: borrow_new, i, a_i_loc, b_i_loc, n, retdest
@@ -229,7 +221,7 @@ sub_loop:
     DUP3
     // stack: i + 1, n, borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
     EQ
-    NOT
+    %not_bool
     %jumpi(sub_loop)
 sub_end:
     // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest

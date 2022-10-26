@@ -54,7 +54,7 @@ fn gen_range_u256(max: U256) -> U256 {
 fn test_add_bignum() -> Result<()> {
     let max = U256([0, 0, 0, 1u64 << 6]);
     let a: U256 = gen_range_u256(max);
-    let b: U256 = gen_range_u256(a - 1);
+    let b: U256 = gen_range_u256(max);
     let sum = a + b;
 
     let a_limbs = to_be_limbs(a);
@@ -81,6 +81,41 @@ fn test_add_bignum() -> Result<()> {
     let new_memory = interpreter.get_kernel_general_memory();
     let actual_sum: Vec<u8> = new_memory[..expected_sum.len()].into();
     assert_eq!(actual_sum, expected_sum);
+
+    Ok(())
+}
+
+#[test]
+fn test_sub_bignum() -> Result<()> {
+    let max = U256([0, 0, 0, 1u64 << 6]);
+    let a: U256 = gen_range_u256(max);
+    let b: U256 = gen_range_u256(a - 1);
+    let diff = a - b;
+
+    let a_limbs = to_be_limbs(a);
+    let b_limbs = to_be_limbs(b);
+
+    let expected_diff = to_be_limbs(diff);
+
+    let a_len = a_limbs.len().into();
+    let b_len = b_limbs.len().into();
+    let a_start_loc = 0.into();
+    let b_start_loc = a_limbs.len().into();
+    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat().into();
+
+    let retdest = 0xDEADBEEFu32.into();
+    let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc, b_start_loc, retdest];
+    initial_stack.reverse();
+
+    let sub_bignum = KERNEL.global_labels["sub_bignum"];
+    let mut interpreter = Interpreter::new_with_kernel(sub_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
+
+    interpreter.run()?;
+
+    let new_memory = interpreter.get_kernel_general_memory();
+    let actual_diff: Vec<u8> = new_memory[..expected_diff.len()].into();
+    assert_eq!(actual_diff, expected_diff);
 
     Ok(())
 }
