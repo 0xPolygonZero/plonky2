@@ -5,16 +5,9 @@ use rand::Rng;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 
-fn to_be_limbs(x: U256) -> Vec<u8> {
-    let mut cur = x;
-
-    let mut limbs: Vec<u8> = Vec::new();
-    while cur > U256::zero() {
-        limbs.push((cur % 256).try_into().unwrap());
-        cur /= 256;
-    }
-
-    limbs.reverse();
+fn u256_to_be_limbs(x: U256) -> Vec<u8> {
+    let mut limbs = vec![0; 32];
+    x.to_big_endian(&mut limbs);
     limbs
 }
 
@@ -57,10 +50,9 @@ fn test_add_bignum() -> Result<()> {
     let b: U256 = gen_range_u256(max);
     let sum = a + b;
 
-    let a_limbs = to_be_limbs(a);
-    let b_limbs = to_be_limbs(b);
-
-    let expected_sum = to_be_limbs(sum);
+    let a_limbs = u256_to_be_limbs(a);
+    let b_limbs = u256_to_be_limbs(b);
+    let expected_sum = u256_to_be_limbs(sum);
 
     let a_len = a_limbs.len().into();
     let b_len = b_limbs.len().into();
@@ -92,10 +84,9 @@ fn test_sub_bignum() -> Result<()> {
     let b: U256 = gen_range_u256(a - 1);
     let diff = a - b;
 
-    let a_limbs = to_be_limbs(a);
-    let b_limbs = to_be_limbs(b);
-
-    let expected_diff = to_be_limbs(diff);
+    let a_limbs = u256_to_be_limbs(a);
+    let b_limbs = u256_to_be_limbs(b);
+    let expected_diff = u256_to_be_limbs(diff);
 
     let a_len = a_limbs.len().into();
     let b_len = b_limbs.len().into();
