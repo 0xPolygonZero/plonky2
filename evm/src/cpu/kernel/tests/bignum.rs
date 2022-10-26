@@ -11,7 +11,7 @@ fn to_be_limbs(x: U256) -> Vec<u8> {
     let mut limbs: Vec<u8> = Vec::new();
     while cur > U256::zero() {
         limbs.push((cur % 256).try_into().unwrap());
-        cur = cur / 256;
+        cur /= 256;
     }
 
     limbs.reverse();
@@ -66,7 +66,7 @@ fn test_add_bignum() -> Result<()> {
     let b_len = b_limbs.len().into();
     let a_start_loc = 0.into();
     let b_start_loc = a_limbs.len().into();
-    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat().into();
+    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat();
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc, b_start_loc, retdest];
@@ -101,7 +101,7 @@ fn test_sub_bignum() -> Result<()> {
     let b_len = b_limbs.len().into();
     let a_start_loc = 0.into();
     let b_start_loc = a_limbs.len().into();
-    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat().into();
+    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat();
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc, b_start_loc, retdest];
