@@ -27,7 +27,13 @@ fn test_ge_bignum() -> Result<()> {
     let ge_bignum = KERNEL.global_labels["ge_bignum"];
 
     // Test with a > b.
-    let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc_greater, b_start_loc_greater, retdest];
+    let mut initial_stack: Vec<U256> = vec![
+        a_len,
+        b_len,
+        a_start_loc_greater,
+        b_start_loc_greater,
+        retdest,
+    ];
     initial_stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory.clone());
@@ -36,7 +42,8 @@ fn test_ge_bignum() -> Result<()> {
     assert_eq!(result, U256::one());
 
     // Test with b < a.
-    let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc_less, b_start_loc_less, retdest];
+    let mut initial_stack: Vec<U256> =
+        vec![a_len, b_len, a_start_loc_less, b_start_loc_less, retdest];
     initial_stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory);
