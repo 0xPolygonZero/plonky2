@@ -5,6 +5,48 @@ use rand::Rng;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 
+#[test]
+fn test_ge_bignum() -> Result<()> {
+    let max = U256([0, 0, 0, 1u64 << 6]);
+    let a: U256 = gen_range_u256(max);
+    let b: U256 = gen_range_u256(a - 1);
+
+    let a_limbs = u256_to_be_limbs(a);
+    let b_limbs = u256_to_be_limbs(b);
+
+    let a_len = a_limbs.len().into();
+    let b_len = b_limbs.len().into();
+
+    let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat();
+    let a_start_loc_greater = 0.into();
+    let b_start_loc_greater = a_limbs.len().into();
+    let a_start_loc_less = a_limbs.len().into();
+    let b_start_loc_less = 0.into();
+
+    let retdest = 0xDEADBEEFu32.into();
+    let ge_bignum = KERNEL.global_labels["ge_bignum"];
+
+    // Test with a > b.
+    let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc_greater, b_start_loc_greater, retdest];
+    initial_stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.run()?;
+    let result = interpreter.stack()[0];
+    assert_eq!(result, U256::one());
+
+    // Test with b < a.
+    let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc_less, b_start_loc_less, retdest];
+    initial_stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
+    interpreter.run()?;
+    let result = interpreter.stack()[0];
+    assert_eq!(result, U256::zero());
+
+    Ok(())
+}
+
 fn u256_to_be_limbs(x: U256) -> Vec<u8> {
     let mut limbs = vec![0; 32];
     x.to_big_endian(&mut limbs);

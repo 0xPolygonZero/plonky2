@@ -37,18 +37,50 @@ eq_loop:
     SWAP1
     %increment
     SWAP1
-    // stack: a_i_loc+1, b_i_loc_1, a_len-i-1, b_len-i-1, retdest
+    // stack: a_i_loc+1, b_i_loc+1, a_len-i-1, b_len-i-1, retdest
+    %stack (locs: 2, lens: 2) -> (lens, lens, locs)
+    // stack: a_len-i-1, b_len-i-1, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    ISZERO
+    SWAP1
+    ISZERO
+    SWAP1
+    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    DUP2
+    DUP2
+    AND
+    %jumpi(equal)
+    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    %jumpi(less_at_end)
+    %jumpi(greater_at_end)
     %jump(eq_loop)
 greater:
-    // stack: a_len, a_0_loc, b_len, b_0_loc, retdest
-    %stack (all: 4) -> (1)
+    // stack: a[i], b[i], a_len, a_0_loc, b_len, b_0_loc, retdest
+    %stack (all: 6) -> (1)
     // stack: 1, retdest
     SWAP1
     JUMP
 less:
-    // stack: a_len, a_0_loc, b_len, b_0_loc, retdest
-    %stack (all: 4) -> (0)
+    // stack: a[i], b[i], a_len, a_0_loc, b_len, b_0_loc, retdest
+    %stack (all: 6) -> (0)
     // stack: 0, retdest
+    SWAP1
+    JUMP
+greater_at_end:
+    // stack: a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    %stack (all: 4) -> (1)
+    // stack: 1, retdest
+    SWAP1
+    JUMP
+less_at_end:
+    // stack: b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    %stack (all: 5) -> (0)
+    // stack: 0, retdest
+    SWAP1
+    JUMP
+equal:
+    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    %stack (all: 6) -> (1)
+    // stack: 1, retdest
     SWAP1
     JUMP
 
