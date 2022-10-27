@@ -1,19 +1,16 @@
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use anyhow::Result;
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
-use hex_literal::hex;
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
 
-use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::{extension_to_leaf, nibbles_64};
+use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
-use crate::generation::TrieInputs;
 
 fn test_account(code: &[u8]) -> AccountRlp {
     AccountRlp {
@@ -28,10 +25,6 @@ fn random_code() -> Vec<u8> {
     let mut rng = thread_rng();
     let num_bytes = rng.gen_range(0..10000);
     (0..num_bytes).map(|_| rng.gen()).collect()
-}
-
-fn test_account_rlp(code: &[u8]) -> Vec<u8> {
-    rlp::encode(&test_account(code)).to_vec()
 }
 
 // Stolen from `tests/mpt/insert.rs`
