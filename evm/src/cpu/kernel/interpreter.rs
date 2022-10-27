@@ -71,7 +71,7 @@ pub struct Interpreter<'a> {
     kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) offset: usize,
-    context: usize,
+    pub(crate) context: usize,
     pub(crate) memory: InterpreterMemory,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,

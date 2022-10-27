@@ -11,6 +11,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::memory::segments::Segment;
 
 fn test_account(code: &[u8]) -> AccountRlp {
     AccountRlp {
@@ -23,11 +24,12 @@ fn test_account(code: &[u8]) -> AccountRlp {
 
 fn random_code() -> Vec<u8> {
     let mut rng = thread_rng();
-    let num_bytes = rng.gen_range(0..10000);
+    let num_bytes = rng.gen_range(0..1000);
     (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
 // Stolen from `tests/mpt/insert.rs`
+// Prepare the interpreter by inserting the account in the state trie.
 fn prepare_interpreter(
     interpreter: &mut Interpreter,
     address: Address,
@@ -100,25 +102,80 @@ fn prepare_interpreter(
 }
 
 #[test]
+fn test_extcodesize() -> Result<()> {
+    let code = random_code();
+    let account = test_account(&code);
+
+    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+    let address: Address = thread_rng().gen();
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter(&mut interpreter, address, &account)?;
+
+    let extcodesize = KERNEL.global_labels["extcodesize"];
+
+    // Test `extcodesize`
+    interpreter.offset = extcodesize;
+    interpreter.pop();
+    assert!(interpreter.stack().is_empty());
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(U256::from_big_endian(address.as_bytes()));
+    interpreter.generation_state.inputs.contract_code =
+        HashMap::from([(keccak(&code), code.clone())]);
+    interpreter.run()?;
+
+    assert_eq!(interpreter.stack(), vec![code.len().into()]);
+
+    Ok(())
+}
+
+#[test]
 fn test_extcodecopy() -> Result<()> {
     let code = random_code();
     let account = test_account(&code);
 
     let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
     let address: Address = thread_rng().gen();
+    // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
 
     let extcodecopy = KERNEL.global_labels["extcodecopy"];
-    let extcodesize = KERNEL.global_labels["extcodesize"];
 
+    // Put random data in main memory.
+    let mut rng = thread_rng();
+    for i in 0..2000 {
+        interpreter.memory.context_memory[interpreter.context].segments
+            [Segment::MainMemory as usize]
+            .set(i, U256::from(rng.gen::<u8>()));
+    }
+
+    let dest_offset = rng.gen_range(0..3000);
+    let offset = rng.gen_range(0..1500);
+    let size = rng.gen_range(0..1500);
+
+    // Test `extcodecopy`
+    interpreter.offset = extcodecopy;
     interpreter.pop();
+    assert!(interpreter.stack().is_empty());
     interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(size.into());
+    interpreter.push(offset.into());
+    interpreter.push(dest_offset.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.offset = extcodesize;
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![code.len().into()]);
+
+    assert!(interpreter.stack().is_empty());
+    // Check that the code was correctly copied to memory.
+    for i in 0..size {
+        let memory = interpreter.memory.context_memory[interpreter.context].segments
+            [Segment::MainMemory as usize]
+            .get(dest_offset + i);
+        assert_eq!(
+            memory,
+            code.get(offset + i).copied().unwrap_or_default().into()
+        );
+    }
 
     Ok(())
 }

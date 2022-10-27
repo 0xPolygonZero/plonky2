@@ -8,6 +8,12 @@
     // stack: codehash
 %endmacro
 
+
+%macro codesize
+    ADDRESS
+    %extcodesize
+%endmacro
+
 %macro extcodesize
     %stack (address) -> (address, %%after)
     %jump(load_code)
@@ -20,10 +26,6 @@ global extcodesize:
     // stack: extcodesize(address), retdest
     SWAP1 JUMP
 
-%macro codesize
-    ADDRESS
-    %extcodesize
-%endmacro
 
 %macro codecopy
     // stack: dest_offset, offset, size, retdest
@@ -73,14 +75,15 @@ extcodecopy_loop:
     %stack (i, code_length, offset, dest_offset, size, retdest) -> (i, size, code_length, offset, dest_offset, retdest)
     %jump(extcodecopy_loop)
 
-
-
-
 extcodecopy_end:
-    %stack (i, size, code_length, offset, dest_offset, size, retdest) -> (retdest)
+    %stack (i, size, code_length, offset, dest_offset, retdest) -> (retdest)
     JUMP
 
 
+// Loads the code at `address` in the `SEGMENT_KERNEL_ACCOUNT_CODE` at the current context and starting at offset 0.
+// Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
+// Pre stack: address, retdest
+// Post stack: extcodesize(address)
 load_code:
     // stack: address, retdest
     %extcodehash
