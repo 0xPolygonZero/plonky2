@@ -3,7 +3,10 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
+use hex_literal::hex;
+use keccak_hash::keccak;
+use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -12,43 +15,47 @@ use crate::cpu::kernel::tests::mpt::{extension_to_leaf, nibbles_64};
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 
-fn test_account_1() -> AccountRlp {
+fn test_account(code: &[u8]) -> AccountRlp {
     AccountRlp {
         nonce: U256::from(1111),
         balance: U256::from(2222),
         storage_root: PartialTrie::Empty.calc_hash(),
-        code_hash: H256::from_str(
-            "2636a8beb2c41b8ccafa9a55a5a5e333892a83b491df3a67d2768946a9f9c6dc",
-        )
-        .unwrap(),
+        code_hash: keccak(code),
     }
 }
 
-pub(crate) fn test_account_1_rlp() -> Vec<u8> {
-    rlp::encode(&test_account_1()).to_vec()
+fn random_code() -> Vec<u8> {
+    let mut rng = thread_rng();
+    let num_bytes = rng.gen_range(0..10000);
+    (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
-#[test]
-fn test_extcodecopy() -> Result<()> {
-    let state_trie: PartialTrie = Default::default();
-    let trie_inputs = Default::default();
-    let account = test_account_1();
+fn test_account_rlp(code: &[u8]) -> Vec<u8> {
+    rlp::encode(&test_account(code)).to_vec()
+}
 
+// Stolen from `tests/mpt/insert.rs`
+fn prepare_interpreter(
+    interpreter: &mut Interpreter,
+    address: Address,
+    account: &AccountRlp,
+) -> Result<()> {
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
-    // let extcodecopy = KERNEL.global_labels["extcodecopy"];
-    let extcodesize = KERNEL.global_labels["extcodesize"];
+    let state_trie: PartialTrie = Default::default();
+    let trie_inputs = Default::default();
 
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
+    interpreter.offset = load_all_mpts;
+    interpreter.push(0xDEADBEEFu32.into());
+
     interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    let k = nibbles_64(U256::from_str(
-        "5380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312a",
-    )?);
+    let k = nibbles_64(U256::from_big_endian(
+        keccak(address.to_fixed_bytes()).as_bytes(),
+    ));
     // Next, execute mpt_insert_state_trie.
     interpreter.offset = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
@@ -71,7 +78,6 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.push(value_ptr.into()); // value_ptr
     interpreter.push(k.packed); // key
 
-    dbg!(interpreter.stack());
     interpreter.run()?;
     assert_eq!(
         interpreter.stack().len(),
@@ -93,21 +99,33 @@ fn test_extcodecopy() -> Result<()> {
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = state_trie.insert(k, rlp::encode(&account).to_vec());
+    let updated_trie = state_trie.insert(k, rlp::encode(account).to_vec());
     let expected_state_trie_hash = updated_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
-    // let initial_stack = vec![0.into()];
+    Ok(())
+}
+
+#[test]
+fn test_extcodecopy() -> Result<()> {
+    let code = random_code();
+    let account = test_account(&code);
+
+    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+    let address: Address = thread_rng().gen();
+    prepare_interpreter(&mut interpreter, address, &account)?;
+
+    let extcodecopy = KERNEL.global_labels["extcodecopy"];
+    let extcodesize = KERNEL.global_labels["extcodesize"];
+
     interpreter.pop();
-    interpreter.push(0xDEADBEEFu64.into());
-    interpreter.push(U256::zero());
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(U256::from_big_endian(address.as_bytes()));
     interpreter.offset = extcodesize;
-    interpreter.generation_state.inputs.contract_code = HashMap::from([(
-        H256::from_str("2636a8beb2c41b8ccafa9a55a5a5e333892a83b491df3a67d2768946a9f9c6dc")?,
-        vec![0x13, 0x37],
-    )]);
+    interpreter.generation_state.inputs.contract_code =
+        HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![2.into()]);
+    assert_eq!(interpreter.stack(), vec![code.len().into()]);
 
     Ok(())
 }
