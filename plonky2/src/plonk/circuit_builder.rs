@@ -34,7 +34,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
-    VerifierCircuitData, VerifierOnlyCircuitData,
+    VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
@@ -88,6 +88,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// common data doesn't equal `goal_data`.
     /// This is used in cyclic recursion.
     pub(crate) goal_common_data: Option<CommonCircuitData<F, D>>,
+
+    /// Optional verifier data that is registered as public inputs.
+    /// This is used in cyclic recursion to hold the circuit's own verifier key.
+    pub(crate) verifier_data_public_input: Option<VerifierCircuitTarget>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -108,6 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             current_slots: HashMap::new(),
             constant_generators: Vec::new(),
             goal_common_data: None,
+            verifier_data_public_input: None,
         };
         builder.check_config();
         builder
@@ -223,6 +228,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let t = self.add_virtual_target();
         self.register_public_input(t);
         t
+    }
+    /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
+    /// WARNING: Do not register any public input after calling this! TODO: relax this
+    pub(crate) fn add_verifier_data_public_input(&mut self) {
+        let verifier_data = VerifierCircuitTarget {
+            constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
+            circuit_digest: self.add_virtual_hash(),
+        };
+        // The verifier data are public inputs.
+        self.register_public_inputs(&verifier_data.circuit_digest.elements);
+        for i in 0..self.config.fri_config.num_cap_elements() {
+            self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
+        }
+
+        self.verifier_data_public_input = Some(verifier_data);
     }
 
     /// Adds a gate to the circuit, and returns its index.

@@ -89,47 +89,30 @@ impl VerifierCircuitTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Add verifier data and register it as public inputs.
-    /// WARNING: Do not register any public input after calling this!
-    pub fn verifier_data_for_cyclic_recursion<C: GenericConfig<D, F = F>>(
-        &mut self,
-    ) -> VerifierCircuitTarget
-    where
-        C::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
-    {
-        let verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
-            circuit_digest: self.add_virtual_hash(),
-        };
-        // The verifier data are public inputs.
-        self.register_public_inputs(&verifier_data.circuit_digest.elements);
-        for i in 0..self.config.fri_config.num_cap_elements() {
-            self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
-        }
-
-        verifier_data
-    }
-
     /// Cyclic recursion gadget.
-    /// WARNING: Do not register any public input after calling this!
+    /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn cyclic_recursion<C: GenericConfig<D, F = F>>(
         &mut self,
+        // Flag set to true for the base case of the cycle where we verify a dummy proof to bootstrap the cycle. Set to false otherwise.
+        base_case: BoolTarget,
         previous_virtual_public_inputs: &[Target],
-        verifier_data: &VerifierCircuitTarget, // should be registered as public inputs already
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &mut CommonCircuitData<F, D>,
     ) -> Result<CyclicRecursionTarget<D>>
     where
         C::Hasher: AlgebraicHasher<F>,
         [(); C::Hasher::HASH_SIZE]:,
     {
+        if self.verifier_data_public_input.is_none() {
+            self.add_verifier_data_public_input();
+        }
+        let verifier_data = self.verifier_data_public_input.clone().unwrap();
+        common_data.num_public_inputs = self.num_public_inputs();
+        self.goal_common_data = Some(common_data.clone());
+
         let dummy_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
         };
-
-        // Flag set to true for the base case of the cycle where we verify a dummy proof to bootstrap the cycle. Set to false otherwise.
-        let base_case = self.add_virtual_bool_target_safe();
 
         let proof = self.add_virtual_proof_with_pis::<C>(common_data);
         let dummy_proof = self.add_virtual_proof_with_pis::<C>(common_data);
@@ -159,7 +142,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &dummy_proof,
             &dummy_verifier_data,
             &proof,
-            verifier_data,
+            &verifier_data,
             common_data,
         );
 
@@ -359,12 +342,10 @@ mod tests {
 
         let mut common_data = common_data_for_recursion::<F, C, D>();
 
-        let verifier_data = builder.verifier_data_for_cyclic_recursion::<C>();
-        common_data.num_public_inputs = builder.num_public_inputs();
-
+        let base_case = builder.add_virtual_bool_target_safe();
         // Add cyclic recursion gadget.
         let cyclic_data_target =
-            builder.cyclic_recursion::<C>(&old_pis, &verifier_data, &common_data)?;
+            builder.cyclic_recursion::<C>(base_case, &old_pis, &mut common_data)?;
         let input_hash_bis =
             builder.select_hash(cyclic_data_target.base_case, initial_hash, old_hash);
         builder.connect_hashes(input_hash, input_hash_bis);
