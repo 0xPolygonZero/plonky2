@@ -33,7 +33,7 @@ impl ConstantGate {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
-        format!("{:?}", self)
+        format!("{self:?}")
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

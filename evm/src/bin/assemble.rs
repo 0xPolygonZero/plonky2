@@ -9,5 +9,5 @@ fn main() {
     args.next();
     let file_contents: Vec<_> = args.map(|path| fs::read_to_string(path).unwrap()).collect();
     let assembled = assemble_to_bytes(&file_contents[..]);
-    println!("{}", encode(&assembled));
+    println!("{}", encode(assembled));
 }

@@ -32,7 +32,7 @@ use structopt::StructOpt;
 type ProofTuple<F, C, const D: usize> = (
     ProofWithPublicInputs<F, C, D>,
     VerifierOnlyCircuitData<C, D>,
-    CommonCircuitData<F, C, D>,
+    CommonCircuitData<F, D>,
 );
 
 #[derive(Clone, StructOpt, Debug)]
@@ -112,7 +112,7 @@ where
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
     let mut pw = PartialWitness::new();
-    let pt = builder.add_virtual_proof_with_pis(inner_cd);
+    let pt = builder.add_virtual_proof_with_pis::<InnerC>(inner_cd);
     pw.set_proof_with_pis_target(&pt, inner_proof);
 
     let inner_data = VerifierCircuitTarget {
@@ -121,7 +121,7 @@ where
     };
     pw.set_verifier_data_target(&inner_data, inner_vd);
 
-    builder.verify_proof(pt, &inner_data, inner_cd);
+    builder.verify_proof::<InnerC>(pt, &inner_data, inner_cd);
     builder.print_gate_counts(0);
 
     if let Some(min_degree_bits) = min_degree_bits {
@@ -150,7 +150,7 @@ where
 fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof: &ProofWithPublicInputs<F, C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
-    cd: &CommonCircuitData<F, C, D>,
+    cd: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
     [(); C::Hasher::HASH_SIZE]:,

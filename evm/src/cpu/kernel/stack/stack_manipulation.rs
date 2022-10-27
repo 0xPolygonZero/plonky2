@@ -35,7 +35,7 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
             stack_blocks.insert(name.clone(), n);
             (0..n)
                 .map(|i| {
-                    let literal_name = format!("@{}.{}", name, i);
+                    let literal_name = format!("@{name}.{i}");
                     StackItem::NamedItem(literal_name)
                 })
                 .collect_vec()
@@ -52,7 +52,7 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
                     let n = *stack_blocks.get(&name).unwrap();
                     (0..n)
                         .map(|i| {
-                            let literal_name = format!("@{}.{}", name, i);
+                            let literal_name = format!("@{name}.{i}");
                             StackItem::NamedItem(literal_name)
                         })
                         .collect_vec()
@@ -64,7 +64,7 @@ fn expand(names: Vec<StackPlaceholder>, replacements: Vec<StackReplacement>) -> 
             StackReplacement::MacroLabel(_)
             | StackReplacement::MacroVar(_)
             | StackReplacement::Constant(_) => {
-                panic!("Should have been expanded already: {:?}", item)
+                panic!("Should have been expanded already: {item:?}")
             }
         })
         .collect_vec();
@@ -157,7 +157,7 @@ fn shortest_path(
         }
     }
 
-    panic!("No path found from {:?} to {:?}", src, dst)
+    panic!("No path found from {src:?} to {dst:?}")
 }
 
 /// A node in the priority queue used by Dijkstra's algorithm.
@@ -279,7 +279,7 @@ impl StackOp {
                     PushTarget::MacroLabel(_)
                     | PushTarget::MacroVar(_)
                     | PushTarget::Constant(_) => {
-                        panic!("Target should have been expanded already: {:?}", target)
+                        panic!("Target should have been expanded already: {target:?}")
                     }
                 };
                 // This is just a rough estimate; we can update it after implementing PUSH.
@@ -326,8 +326,8 @@ impl StackOp {
         match self {
             StackOp::Push(target) => Item::Push(target),
             Pop => Item::StandardOp("POP".into()),
-            StackOp::Dup(n) => Item::StandardOp(format!("DUP{}", n)),
-            StackOp::Swap(n) => Item::StandardOp(format!("SWAP{}", n)),
+            StackOp::Dup(n) => Item::StandardOp(format!("DUP{n}")),
+            StackOp::Swap(n) => Item::StandardOp(format!("SWAP{n}")),
         }
     }
 }

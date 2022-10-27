@@ -49,7 +49,7 @@ impl<const B: usize> BaseSumGate<B> {
 
 impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
-        format!("{:?} + Base: {}", self, B)
+        format!("{self:?} + Base: {B}")
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

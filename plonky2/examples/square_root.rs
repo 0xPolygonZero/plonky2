@@ -31,7 +31,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let x_squared = witness.get_target(self.x_squared);
         let x = x_squared.sqrt().unwrap();
 
-        println!("Square root: {}", x);
+        println!("Square root: {x}");
 
         out_buffer.set_target(self.x, x);
     }
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
     let proof = data.prove(pw.clone())?;
 
     let x_squared_actual = proof.public_inputs[0];
-    println!("Field element (square): {}", x_squared_actual);
+    println!("Field element (square): {x_squared_actual}");
 
     data.verify(proof)
 }
