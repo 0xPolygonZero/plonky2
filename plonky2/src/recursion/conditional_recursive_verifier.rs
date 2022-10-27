@@ -24,7 +24,6 @@ use crate::plonk::proof::{
 use crate::with_context;
 
 /// Generate a proof having a given `CommonCircuitData`.
-#[allow(unused)] // TODO: should be used soon.
 pub(crate) fn dummy_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -183,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn select_hash(
+    pub(crate) fn select_hash(
         &mut self,
         b: BoolTarget,
         h0: HashOutTarget,
