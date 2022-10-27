@@ -65,23 +65,26 @@ impl<F: Field> GenerationState<F> {
             .unwrap_or_else(|| panic!("Out of RLP data"))
     }
 
-    /// Account code
+    /// Account code.
     fn run_account_code(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[1].as_str() {
             "length" => {
+                // Return length of code.
+                // stack: codehash
                 let codehash = stack.last().expect("Empty stack");
                 self.inputs.contract_code[&H256::from_uint(codehash)]
                     .len()
                     .into()
             }
             "get" => {
+                // Return `code[i]`.
+                // stack: i, code_length, codehash
                 let stacklen = stack.len();
-                // Stack looks like: i, code_length, codehash
                 let i = stack[stacklen - 1].as_usize();
                 let codehash = stack[stacklen - 3];
                 self.inputs.contract_code[&H256::from_uint(&codehash)][i].into()
             }
-            _ => panic!("sup?"),
+            _ => panic!("Invalid prover input function."),
         }
     }
 }

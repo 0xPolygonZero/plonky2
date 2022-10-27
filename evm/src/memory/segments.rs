@@ -95,7 +95,7 @@ impl Segment {
             Segment::ContextMetadata => 256,
             Segment::KernelGeneral => 256,
             Segment::KernelGeneral2 => 256,
-            Segment::KernelAccountCode => 256,
+            Segment::KernelAccountCode => 8,
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,

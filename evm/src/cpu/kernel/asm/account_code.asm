@@ -10,6 +10,7 @@
 
 
 %macro codesize
+    // stack: (empty)
     ADDRESS
     %extcodesize
 %endmacro
@@ -34,15 +35,21 @@ global extcodesize:
     %jump(extcodecopy)
 %endmacro
 
+// Pre stack: address, dest_offset, offset, size, retdest
+// Post stack: (empty)
 global extcodecopy:
     // stack: address, dest_offset, offset, size, retdest
     %stack (address, dest_offset, offset, size, retdest) -> (address, extcodecopy_contd, size, offset, dest_offset, retdest)
     %jump(load_code)
+
 extcodecopy_contd:
     // stack: code_length, size, offset, dest_offset, retdest
     SWAP1
     // stack: size, code_length, offset, dest_offset, retdest
     PUSH 0
+
+// Loop copying the `code[offset]` to `memory[dest_offset]` until `i==size`.
+// Each iteration increments `offset, dest_offset, i`.
 extcodecopy_loop:
     // stack: i, size, code_length, offset, dest_offset, retdest
     DUP2 DUP2 EQ
@@ -56,6 +63,7 @@ extcodecopy_loop:
     %mload_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
     // stack: opcode, offset < code_length, offset, code_length, dest_offset, i, size, retdest
     %stack (opcode, offset_lt_code_length, offset, code_length, dest_offset, i, size, retdest) -> (offset_lt_code_length, 0, opcode, offset, code_length, dest_offset, i, size, retdest)
+    // If `offset >= code_length`, use `opcode=0`. Necessary since `SEGMENT_KERNEL_ACCOUNT_CODE` might be clobbered from previous calls.
     %select_bool
     // stack: opcode, offset, code_length, dest_offset, i, size, retdest
     DUP4
@@ -91,6 +99,8 @@ load_code:
     PROVER_INPUT(account_code::length)
     // stack: code_length, codehash, retdest
     PUSH 0
+
+// Loop non-deterministically querying `code[i]` and storing it in `SEGMENT_KERNEL_ACCOUNT_CODE` at offset `i`, until `i==code_length`.
 load_code_loop:
     // stack: i, code_length, codehash, retdest
     DUP2 DUP2 EQ
@@ -106,15 +116,12 @@ load_code_loop:
     // stack: i+1, code_length, codehash, retdest
     %jump(load_code_loop)
 
+// Check that the hash of the loaded code equals `codehash`.
 load_code_check:
     // stack: i, code_length, codehash, retdest
     POP
     // stack: code_length, codehash, retdest
-    %stack (code_length, codehash, retdest) -> (code_length, codehash, retdest, code_length)
-    PUSH 0
-    // stack: 0, code_length, codehash, retdest, code_length
-    PUSH @SEGMENT_KERNEL_ACCOUNT_CODE
-    // stack: segment, 0, code_length, codehash, retdest, code_length
+    %stack (code_length, codehash, retdest) -> (@SEGMENT_KERNEL_ACCOUNT_CODE, 0, code_length, codehash, retdest, code_length)
     GET_CONTEXT
     // stack: context, segment, 0, code_length, codehash, retdest, code_length
     KECCAK_GENERAL

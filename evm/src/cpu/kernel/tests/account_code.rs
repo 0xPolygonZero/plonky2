@@ -13,6 +13,7 @@ use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::memory::segments::Segment;
 
+// Test account with a given code hash.
 fn test_account(code: &[u8]) -> AccountRlp {
     AccountRlp {
         nonce: U256::from(1111),
@@ -140,14 +141,18 @@ fn test_extcodecopy() -> Result<()> {
 
     let extcodecopy = KERNEL.global_labels["extcodecopy"];
 
-    // Put random data in main memory.
+    // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
         interpreter.memory.context_memory[interpreter.context].segments
             [Segment::MainMemory as usize]
             .set(i, U256::from(rng.gen::<u8>()));
+        interpreter.memory.context_memory[interpreter.context].segments
+            [Segment::KernelAccountCode as usize]
+            .set(i, U256::from(rng.gen::<u8>()));
     }
 
+    // Random inputs
     let dest_offset = rng.gen_range(0..3000);
     let offset = rng.gen_range(0..1500);
     let size = rng.gen_range(0..1500);
