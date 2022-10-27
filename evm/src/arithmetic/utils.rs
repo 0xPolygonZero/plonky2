@@ -12,20 +12,20 @@ use crate::arithmetic::columns::{NUM_ARITH_COLUMNS, N_LIMBS};
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
 /// cols[0] + cols.len() - 1]`.
 pub(crate) fn _range_check_error<const RC_BITS: u32>(
-    file: &str,
-    line: u32,
-    cols: Range<usize>,
-    signedness: &str,
+    _file: &str,
+    _line: u32,
+    _cols: Range<usize>,
+    _signedness: &str,
 ) {
-    error!(
-        "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
-        line,
-        file,
-        RC_BITS,
-        signedness,
-        cols.start,
-        cols.end - 1,
-    );
+    // error!(
+    //     "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
+    //     line,
+    //     file,
+    //     RC_BITS,
+    //     signedness,
+    //     cols.start,
+    //     cols.end - 1,
+    // );
 }
 
 #[macro_export]
