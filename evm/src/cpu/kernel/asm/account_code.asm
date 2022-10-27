@@ -15,7 +15,10 @@
 %endmacro
 
 global extcodesize:
+    // stack: address, retdest
     %extcodesize
+    // stack: extcodesize(address), retdest
+    SWAP1 JUMP
 
 %macro codesize
     ADDRESS

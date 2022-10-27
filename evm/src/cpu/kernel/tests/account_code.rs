@@ -37,7 +37,7 @@ fn test_extcodecopy() -> Result<()> {
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
-    let extcodecopy = KERNEL.global_labels["extcodecopy"];
+    // let extcodecopy = KERNEL.global_labels["extcodecopy"];
     let extcodesize = KERNEL.global_labels["extcodesize"];
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
@@ -99,11 +99,9 @@ fn test_extcodecopy() -> Result<()> {
 
     // let initial_stack = vec![0.into()];
     interpreter.pop();
+    interpreter.push(0xDEADBEEFu64.into());
     interpreter.push(U256::zero());
-    dbg!(interpreter.stack());
     interpreter.offset = extcodesize;
-    // let mut interpreter = Interpreter::new_with_kernel(extcodesize, initial_stack);
-    // interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
     interpreter.generation_state.inputs.contract_code = HashMap::from([(
         H256::from_str("2636a8beb2c41b8ccafa9a55a5a5e333892a83b491df3a67d2768946a9f9c6dc")?,
         vec![0x13, 0x37],
