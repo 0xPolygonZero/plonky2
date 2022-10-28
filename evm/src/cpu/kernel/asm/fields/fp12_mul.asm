@@ -71,7 +71,7 @@ ret_stack:
 ///     h  = fg + sh(f'g')
 ///     h' = (f+f')(g+g') - fg - f'g'
 ///
-/// memory offsets [ind' = ind+6]
+/// memory pointers [ind' = ind+6]
 ///     {in0: f, in0: f', in1: g, in1':g', out: h, out': h'}
 ///
 /// f, f', g, g' consist of six elements on the stack

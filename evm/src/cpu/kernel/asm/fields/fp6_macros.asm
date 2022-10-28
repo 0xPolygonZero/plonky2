@@ -1,31 +1,26 @@
 // cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp6
-    // stack: offset
-    DUP1
-    %add_const(4)
-    // stack:                   ind4, offset
+    // stack: ptr
+    DUP1  %add_const(4)
+    // stack:                   ind4, ptr
     %mload_kernel_general
-    // stack:                     x4, offset
-    DUP2
-    %add_const(3)
-    // stack:               ind3, x4, offset
+    // stack:                     x4, ptr
+    DUP2  %add_const(3)
+    // stack:               ind3, x4, ptr
     %mload_kernel_general
-    // stack:                 x3, x4, offset
-    DUP3
-    %add_const(2)
-    // stack:           ind2, x3, x4, offset
+    // stack:                 x3, x4, ptr
+    DUP3  %add_const(2)
+    // stack:           ind2, x3, x4, ptr
     %mload_kernel_general
-    // stack:             x2, x3, x4, offset
-    DUP4
-    %add_const(1)
-    // stack:       ind1, x2, x3, x4, offset
+    // stack:             x2, x3, x4, ptr
+    DUP4  %add_const(1)
+    // stack:       ind1, x2, x3, x4, ptr
     %mload_kernel_general
-    // stack:         x1, x2, x3, x4, offset
-    DUP5
-    %add_const(5)
-    // stack:   ind5, x1, x2, x3, x4, offset
+    // stack:         x1, x2, x3, x4, ptr
+    DUP5  %add_const(5)
+    // stack:   ind5, x1, x2, x3, x4, ptr
     %mload_kernel_general
-    // stack:     x5, x1, x2, x3, x4, offset
+    // stack:     x5, x1, x2, x3, x4, ptr
     SWAP5
     // stack:   ind0, x1, x2, x3, x4, x5
     %mload_kernel_general
@@ -33,121 +28,121 @@
 %endmacro
 
 // cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro load_fp6(offset)
+%macro load_fp6(ptr)
     // stack:
-    PUSH $offset
-    %add_const(5)
+    PUSH $ptr  %add_const(5)
+    // stack:                   ind5
     %mload_kernel_general
-    // stack:                     x5
-    PUSH $offset
-    %add_const(4)
+    // stack:                       x5
+    PUSH $ptr  %add_const(4)
+    // stack:                 ind4, x5
     %mload_kernel_general
-    // stack:                 x4, x5
-    PUSH $offset
-    %add_const(3)
+    // stack:                   x4, x5
+    PUSH $ptr  %add_const(3)
+    // stack:             ind3, x4, x5
     %mload_kernel_general
-    // stack:             x3, x4, x5
-    PUSH $offset
-    %add_const(2)
+    // stack:               x3, x4, x5
+    PUSH $ptr  %add_const(2)
+    // stack:         ind2, x3, x4, x5
     %mload_kernel_general
-    // stack:         x2, x3, x4, x5
-    PUSH $offset
-    %add_const(1)
+    // stack:           x2, x3, x4, x5
+    PUSH $ptr  %add_const(1)
+    // stack:     ind1, x2, x3, x4, x5
     %mload_kernel_general
-    // stack:     x1, x2, x3, x4, x5
-    PUSH $offset
+    // stack:       x1, x2, x3, x4, x5
+    PUSH $ptr
+    // stack: ind0, x1, x2, x3, x4, x5
     %mload_kernel_general
-    // stack: x0, x1, x2, x3, x4, x5
+    // stack:   x0, x1, x2, x3, x4, x5
 %endmacro
 
 // cost: 6 stores + 6 swaps/dups + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp6
-    // stack:   offset, x0, x1, x2, x3, x4, x5
+    // stack:      ptr, x0, x1, x2, x3, x4 , x5
     SWAP5
-    DUP6
-    %add_const(4)
-    // stack: ind4, x4, x0, x1, x2, x3, offset, x5
+    // stack:       x4, x0, x1, x2, x3, ptr, x5
+    DUP6  %add_const(4)
+    // stack: ind4, x4, x0, x1, x2, x3, ptr, x5
     %mstore_kernel_general
-    // stack:           x0, x1, x2, x3, offset, x5
+    // stack:           x0, x1, x2, x3, ptr, x5
     DUP5
-    // stack:     ind0, x0, x1, x2, x3, offset, x5
+    // stack:     ind0, x0, x1, x2, x3, ptr, x5
     %mstore_kernel_general
-    // stack:               x1, x2, x3, offset, x5
-    DUP4
-    %add_const(1)
-    // stack:         ind1, x1, x2, x3, offset, x5
+    // stack:               x1, x2, x3, ptr, x5
+    DUP4  %add_const(1)
+    // stack:         ind1, x1, x2, x3, ptr, x5
     %mstore_kernel_general
-    // stack:                   x2, x3, offset, x5
-    DUP3
-    %add_const(2)
-    // stack:             ind2, x2, x3, offset, x5
+    // stack:                   x2, x3, ptr, x5
+    DUP3  %add_const(2)
+    // stack:             ind2, x2, x3, ptr, x5
     %mstore_kernel_general
-    // stack:                       x3, offset, x5
-    DUP2
-    %add_const(3)
-    // stack:                 ind3, x3, offset, x5
+    // stack:                       x3, ptr, x5
+    DUP2  %add_const(3)
+    // stack:                 ind3, x3, ptr, x5
     %mstore_kernel_general
-    // stack:                           offset, x5
+    // stack:                           ptr, x5
     %add_const(5)
-    // stack:                             ind5, x5
+    // stack:                          ind5, x5
     %mstore_kernel_general
     // stack:
 %endmacro
 
 // cost: 6 stores + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro store_fp6(offset)
-    // stack: x0, x1, x2, x3, x4, x5
-    PUSH $offset
+%macro store_fp6(ptr)
+    // stack:       x0, x1, x2, x3, x4, x5
+    PUSH $ptr
+    // stack: ind0, x0, x1, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:     x1, x2, x3, x4, x5
-    PUSH $offset
-    %add_const(1)
+    // stack:           x1, x2, x3, x4, x5
+    PUSH $ptr  %add_const(1)
+    // stack:     ind1, x1, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:         x2, x3, x4, x5
-    PUSH $offset
-    %add_const(2)
+    // stack:               x2, x3, x4, x5
+    PUSH $ptr  %add_const(2)
+    // stack:         ind2, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:             x3, x4, x5
-    PUSH $offset
-    %add_const(3)
+    // stack:                   x3, x4, x5
+    PUSH $ptr  %add_const(3)
+    // stack:             ind3, x3, x4, x5
     %mstore_kernel_general
-    // stack:                 x4, x5
-    PUSH $offset
-    %add_const(4)
+    // stack:                       x4, x5
+    PUSH $ptr  %add_const(4)
+    // stack:                 ind4, x4, x5
     %mstore_kernel_general
-    // stack:                     x5
-    PUSH $offset
-    %add_const(5)
+    // stack:                           x5
+    PUSH $ptr  %add_const(5)
+    // stack:                     ind5, x5
     %mstore_kernel_general
     // stack:
 %endmacro
 
 // cost: store (40) + i9 (9) = 49
-%macro store_fp6_sh(offset)
-    // stack: x0, x1, x2, x3, x4, x5
-    PUSH $offset
-    %add_const(2)
+%macro store_fp6_sh(ptr)
+    // stack:       x0, x1, x2, x3, x4, x5
+    PUSH $ptr  %add_const(2)
+    // stack: ind2, x0, x1, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:     x1, x2, x3, x4, x5
-    PUSH $offset
-    %add_const(3)
+    // stack:           x1, x2, x3, x4, x5
+    PUSH $ptr  %add_const(3)
+    // stack:     ind3, x1, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:         x2, x3, x4, x5
-    PUSH $offset
-    %add_const(4)
+    // stack:               x2, x3, x4, x5
+    PUSH $ptr  %add_const(4)
+    // stack:         ind4, x2, x3, x4, x5
     %mstore_kernel_general
-    // stack:             x3, x4, x5
-    PUSH $offset
-    %add_const(5)
+    // stack:                   x3, x4, x5
+    PUSH $ptr  %add_const(5)
+    // stack:             ind5, x3, x4, x5
     %mstore_kernel_general
-    // stack:                 x4, x5
+    // stack:                       x4, x5
     %i9
-    // stack:                 y5, y4
-    PUSH $offset
-    %add_const(1)
+    // stack:                       y5, y4
+    PUSH $ptr  %add_const(1)
+    // stack:                 ind1, y5, y4
     %mstore_kernel_general
-    // stack:                     y4
-    PUSH $offset
+    // stack:                           y4
+    PUSH $ptr
+    // stack:                     ind0, y4
     %mstore_kernel_general
     // stack:
 %endmacro
@@ -156,16 +151,17 @@
 %macro i9
     // stack:          a , b
     DUP2
+    // stack:      b,  a,  b
     DUP2
     // stack:  a , b,  a , b
-    PUSH 9
-    MULFP254
+    PUSH 9  MULFP254
+    // stack: 9a , b,  a , b
     SUBFP254
     // stack: 9a - b,  a , b
     SWAP2 
     // stack:  b , a, 9a - b
-    PUSH 9
-    MULFP254
+    PUSH 9  MULFP254
+    // stack  9b , a, 9a - b
     ADDFP254
     // stack: 9b + a, 9a - b 
 %endmacro
@@ -234,6 +230,8 @@
 %endmacro
 
 // cost: 16
+// swap two fp6 elements with a stack term separating them
+//    (f: 6, x, g: 6) -> (g: 6, x, f: 6)
 %macro swap_fp6_hole
     // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
     SWAP7
