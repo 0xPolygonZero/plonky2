@@ -1,40 +1,40 @@
 /// Note: uncomment this to test
 
-global test_mul_Fp12:
-    // stack:      f, in0 , f', g, in1 , g', in1, out, in0,       out
-    DUP7
-    // stack: in0, f, in0 , f', g, in1 , g', in1, out, in0,       out
-    %store_fp6
-    // stack:         in0 , f', g, in1 , g', in1, out, in0,       out
-    %add_const(6)
-    // stack:         in0', f', g, in1 , g', in1, out, in0,       out
-    %store_fp6
-    // stack:                   g, in1 , g', in1, out, in0,       out
-    DUP7
-    // stack:              in1, g, in1 , g', in1, out, in0,       out
-    %store_fp6
-    // stack:                      in1 , g', in1, out, in0,       out
-    %add_const(6)
-    // stack:                      in1', g', in1, out, in0,       out
-    %store_fp6
-    // stack:                                in1, out, in0,       out
-    PUSH ret_stack
-    // stack:                     ret_stack, in1, out, in0,       out
-    SWAP3
-    // stack:                           in0, in1, out, ret_stack, out
-    %jump(mul_Fp12)
-ret_stack:
-    // stack:          out
-    DUP1
-    %add_const(6)
-    // stack:    out', out
-    %load_fp6
-    // stack:      h', out
-    DUP7
-    // stack: out, h', out
-    %load_fp6
-    // stack:   h, h', out
-    %jump(0xdeadbeef)
+/// global test_mul_Fp12:
+///     // stack:      f, in0 , f', g, in1 , g', in1, out, in0,       out
+///     DUP7
+///     // stack: in0, f, in0 , f', g, in1 , g', in1, out, in0,       out
+///     %store_fp6
+///     // stack:         in0 , f', g, in1 , g', in1, out, in0,       out
+///     %add_const(6)
+///     // stack:         in0', f', g, in1 , g', in1, out, in0,       out
+///     %store_fp6
+///     // stack:                   g, in1 , g', in1, out, in0,       out
+///     DUP7
+///     // stack:              in1, g, in1 , g', in1, out, in0,       out
+///     %store_fp6
+///     // stack:                      in1 , g', in1, out, in0,       out
+///     %add_const(6)
+///     // stack:                      in1', g', in1, out, in0,       out
+///     %store_fp6
+///     // stack:                                in1, out, in0,       out
+///     PUSH ret_stack
+///     // stack:                     ret_stack, in1, out, in0,       out
+///     SWAP3
+///     // stack:                           in0, in1, out, ret_stack, out
+///     %jump(mul_Fp12)
+/// ret_stack:
+///     // stack:          out
+///     DUP1
+///     %add_const(6)
+///     // stack:    out', out
+///     %load_fp6
+///     // stack:      h', out
+///     DUP7
+///     // stack: out, h', out
+///     %load_fp6
+///     // stack:   h, h', out
+///     %jump(0xdeadbeef)
 
 
 /// fp6 functions:
