@@ -79,6 +79,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/util/assertions.asm"),
         include_str!("asm/util/basic_macros.asm"),
         include_str!("asm/util/keccak.asm"),
+        include_str!("asm/balance.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
