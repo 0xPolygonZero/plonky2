@@ -80,7 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> LowDegreeInterpolationGate<F,
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInterpolationGate<F, D> {
     fn id(&self) -> String {
-        format!("{:?}<D={}>", self, D)
+        format!("{self:?}<D={D}>")
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

@@ -68,11 +68,10 @@ pub(crate) fn mpt_prover_inputs<F>(
         PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
         PartialTrie::Branch { children, value } => {
             if value.is_empty() {
-                // There's no value, so value_len = 0.
-                prover_inputs.push(U256::zero());
+                prover_inputs.push(U256::zero()); // value_present = 0
             } else {
                 let parsed_value = parse_value(value);
-                prover_inputs.push(parsed_value.len().into());
+                prover_inputs.push(U256::one()); // value_present = 1
                 prover_inputs.extend(parsed_value);
             }
             for child in children {
@@ -107,8 +106,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
         PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
         PartialTrie::Branch { children, value } => {
             assert!(value.is_empty(), "State trie should not have branch values");
-            // There's no value, so value_len = 0.
-            prover_inputs.push(U256::zero());
+            prover_inputs.push(U256::zero()); // value_present = 0
 
             for (i, child) in children.iter().enumerate() {
                 let extended_key = key.merge(&Nibbles {

@@ -165,3 +165,14 @@
     SWAP4 %div_const(4) SWAP4 // bits_2 -> len_2 (in nibbles)
     // stack: len_common, key_common, len_1, key_1, len_2, key_2
 %endmacro
+
+// Computes state_key = Keccak256(addr). Clobbers @SEGMENT_KERNEL_GENERAL.
+%macro addr_to_state_key
+    %keccak256_word(20)
+%endmacro
+
+// Given a storage slot (a 256-bit integer), computes storage_key = Keccak256(slot).
+// Clobbers @SEGMENT_KERNEL_GENERAL.
+%macro slot_to_storage_key
+    %keccak256_word(32)
+%endmacro

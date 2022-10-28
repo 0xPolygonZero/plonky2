@@ -18,4 +18,5 @@ pub mod gates;
 pub mod hash;
 pub mod iop;
 pub mod plonk;
+pub mod recursion;
 pub mod util;

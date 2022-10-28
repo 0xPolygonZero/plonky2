@@ -22,7 +22,7 @@ pub(crate) fn generate_partial_witness<
 >(
     inputs: PartialWitness<F>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
-    common_data: &'a CommonCircuitData<F, C, D>,
+    common_data: &'a CommonCircuitData<F, D>,
 ) -> PartitionWitness<'a, F> {
     let config = &common_data.config;
     let generators = &prover_data.generators;

@@ -24,7 +24,7 @@ pub(crate) fn bench_keccak<F: RichField>(c: &mut Criterion) {
 
 pub(crate) fn bench_poseidon<F: Poseidon>(c: &mut Criterion) {
     c.bench_function(
-        &format!("poseidon<{}, {}>", type_name::<F>(), SPONGE_WIDTH),
+        &format!("poseidon<{}, {SPONGE_WIDTH}>", type_name::<F>()),
         |b| {
             b.iter_batched(
                 || F::rand_arr::<SPONGE_WIDTH>(),

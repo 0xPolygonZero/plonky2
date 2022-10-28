@@ -235,7 +235,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .zip(verifier_data_target)
             .enumerate()
         {
-            builder.verify_proof(
+            builder.verify_proof::<C>(
                 recursive_proof,
                 &verifier_data_target,
                 &verifier_data[i].common,
@@ -579,7 +579,7 @@ where
 {
     let recursive_proofs = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];
-        builder.add_virtual_proof_with_pis(&verifier_data.common)
+        builder.add_virtual_proof_with_pis::<C>(&verifier_data.common)
     });
     let verifier_data = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];

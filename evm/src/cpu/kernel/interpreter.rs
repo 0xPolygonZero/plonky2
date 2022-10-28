@@ -9,6 +9,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
@@ -45,9 +46,7 @@ impl InterpreterMemory {
 
         mem
     }
-}
 
-impl InterpreterMemory {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
@@ -328,6 +327,8 @@ impl<'a> Interpreter<'a> {
 
         if self.debug_offsets.contains(&self.offset) {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
+        } else if let Some(label) = self.offset_label() {
+            println!("At {label}");
         }
 
         Ok(())
@@ -335,12 +336,16 @@ impl<'a> Interpreter<'a> {
 
     /// Get a string representation of the current offset for debugging purposes.
     fn offset_name(&self) -> String {
+        self.offset_label()
+            .unwrap_or_else(|| self.offset.to_string())
+    }
+
+    fn offset_label(&self) -> Option<String> {
         // TODO: Not sure we should use KERNEL? Interpreter is more general in other places.
-        let label = KERNEL
+        KERNEL
             .global_labels
             .iter()
-            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()));
-        label.unwrap_or_else(|| self.offset.to_string())
+            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()))
     }
 
     fn run_stop(&mut self) {
@@ -511,6 +516,8 @@ impl<'a> Interpreter<'a> {
     fn run_keccak_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
+        // Not strictly needed but here to avoid surprises with MSIZE.
+        assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         let bytes = (offset..offset + size)
@@ -590,11 +597,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_msize(&mut self) {
-        let num_bytes = self.memory.context_memory[self.context].segments
-            [Segment::MainMemory as usize]
-            .content
-            .len();
-        self.push(U256::from(num_bytes));
+        self.push(
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::MSize as usize),
+        )
     }
 
     fn run_jumpdest(&mut self) {
