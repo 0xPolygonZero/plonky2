@@ -2,6 +2,7 @@ mod core;
 mod curve_ops;
 mod ecrecover;
 mod exp;
+mod fields;
 mod hash;
 mod mpt;
 mod packing;

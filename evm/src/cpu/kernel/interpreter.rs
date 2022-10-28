@@ -237,9 +237,9 @@ impl<'a> Interpreter<'a> {
             0x09 => self.run_mulmod(),                                  // "MULMOD",
             0x0a => self.run_exp(),                                     // "EXP",
             0x0b => todo!(),                                            // "SIGNEXTEND",
-            0x0c => todo!(),                                            // "ADDFP254",
-            0x0d => todo!(),                                            // "MULFP254",
-            0x0e => todo!(),                                            // "SUBFP254",
+            0x0c => self.run_addfp254(),                                // "ADDFP254",
+            0x0d => self.run_mulfp254(),                                // "MULFP254",
+            0x0e => self.run_subfp254(),                                // "SUBFP254",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
             0x12 => todo!(),                                            // "SLT",
@@ -368,6 +368,27 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_sub(y).0);
+    }
+
+    // TODO: 107 is hardcoded as a dummy prime for testing
+    // should be changed to the proper implementation prime
+
+    fn run_addfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push((x + y) % 107);
+    }
+
+    fn run_mulfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(U256::try_from(x.full_mul(y) % 107).unwrap());
+    }
+
+    fn run_subfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push((U256::from(107) + x - y) % 107);
     }
 
     fn run_div(&mut self) {
