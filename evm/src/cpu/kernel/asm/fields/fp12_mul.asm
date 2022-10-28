@@ -25,8 +25,7 @@
 ///     %jump(mul_Fp12)
 /// ret_stack:
 ///     // stack:          out
-///     DUP1
-///     %add_const(6)
+///     DUP1  %add_const(6)
 ///     // stack:    out', out
 ///     %load_fp6
 ///     // stack:      h', out
