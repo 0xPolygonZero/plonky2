@@ -370,8 +370,8 @@ impl<'a> Interpreter<'a> {
         self.push(x.overflowing_sub(y).0);
     }
 
-// TODO: 107 is hardcoded as a dummy prime for testing
-// should be changed to the proper implementation prime
+    // TODO: 107 is hardcoded as a dummy prime for testing
+    // should be changed to the proper implementation prime
 
     fn run_addfp254(&mut self) {
         let x = self.pop();
