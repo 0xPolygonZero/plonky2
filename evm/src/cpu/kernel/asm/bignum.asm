@@ -1,4 +1,6 @@
-// Return a >= b, where a and b are unbounded big-endian integers represented with one-byte limbs.
+// Arithmetic on little-endian integers represented with one-byte limbs.
+
+// Return a >= b.
 global ge_bignum:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
     %stack (lens: 2) -> (lens, lens)
@@ -7,6 +9,23 @@ global ge_bignum:
     %stack (lens: 2) -> (lens, lens)
     LT
     %jumpi(less)
+    // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
+    %stack (lens: 2, locs: 2) -> (locs, lens)
+    // stack: a_start_loc, b_start_loc, a_len, b_len, retdest
+    DUP3
+    // stack: a_len, a_start_loc, b_start_loc, a_len, b_len, retdest
+    ADD
+    %decrement
+    // stack: a_end_loc, b_start_loc, a_len, b_len, retdest
+    SWAP1
+    // stack: b_start_loc, a_end_loc, a_len, b_len, retdest
+    DUP4
+    // stack: b_len, b_start_loc, a_end_loc, a_len, b_len, retdest
+    ADD
+    %decrement
+    // stack: b_end_loc, a_end_loc, a_len, b_len, retdest
+    %stack (be, ae, a, b) -> (a, b, ae, be)
+    // stack: a_len, b_len, a_end_loc, b_end_loc, retdest
 eq_loop:
     // stack: a_len-i, b_len-i, a_i_loc, b_i_loc, retdest
     %decrement
@@ -33,23 +52,23 @@ eq_loop:
     // stack: a[i], b[i], a_i_loc, b_i_loc, a_len-i-1, b_len-i-1, retdest
     %stack (vals: 2) -> ()
     // stack: a_i_loc, b_i_loc, a_len-i-1, b_len-i-1, retdest
-    %increment
+    %decrement
     SWAP1
-    %increment
+    %decrement
     SWAP1
-    // stack: a_i_loc+1, b_i_loc+1, a_len-i-1, b_len-i-1, retdest
+    // stack: a_i_loc-1, b_i_loc-1, a_len-i-1, b_len-i-1, retdest
     %stack (locs: 2, lens: 2) -> (lens, lens, locs)
-    // stack: a_len-i-1, b_len-i-1, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    // stack: a_len-i-1, b_len-i-1, a_len-i-1, b_len-i-1, a_i_loc-1, b_i_loc-1, retdest
     ISZERO
     SWAP1
     ISZERO
     SWAP1
-    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc-1, b_i_loc-1, retdest
     DUP2
     DUP2
     AND
     %jumpi(equal)
-    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc+1, b_i_loc+1, retdest
+    // stack: a_len-i-1 == 0, b_len-i-1 == 0, a_len-i-1, b_len-i-1, a_i_loc-1, b_i_loc-1, retdest
     %jumpi(less_at_end)
     %jumpi(greater_at_end)
     %jump(eq_loop)
@@ -84,8 +103,7 @@ equal:
     SWAP1
     JUMP
 
-// Replaces a with a + b, where a and b are unbounded big-endian integers represented with one-byte limbs.
-// Leave b unchanged.
+// Replaces a with a + b, leaving b unchanged.
 global add_bignum:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
     %stack (al, bl, a, b) -> (al, a, bl, b, bl)
