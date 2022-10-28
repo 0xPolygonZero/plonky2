@@ -31,7 +31,7 @@
 %macro load_fp6(ptr)
     // stack:
     PUSH $ptr  %add_const(5)
-    // stack:                   ind5
+    // stack:                     ind5
     %mload_kernel_general
     // stack:                       x5
     PUSH $ptr  %add_const(4)
