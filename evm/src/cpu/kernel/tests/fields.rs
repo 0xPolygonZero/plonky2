@@ -39,11 +39,11 @@ fn add3_fp2(a: [u32; 2], b: [u32; 2], c: [u32; 2]) -> [u32; 2] {
     [add3_fp(a, b, c), add3_fp(a_, b_, c_)]
 }
 
-fn sub_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
-    let [a, a_] = a;
-    let [b, b_] = b;
-    [sub_fp(a, b), sub_fp(a_, b_)]
-}
+// fn sub_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
+//     let [a, a_] = a;
+//     let [b, b_] = b;
+//     [sub_fp(a, b), sub_fp(a_, b_)]
+// }
 
 fn mul_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
     let [a, a_] = a;
@@ -59,25 +59,25 @@ fn i9(a: [u32; 2]) -> [u32; 2] {
     [sub_fp(mul_fp(9, a), a_), add_fp(a, mul_fp(9, a_))]
 }
 
-fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
-    let [c0, c1, c2] = c;
-    let [d0, d1, d2] = d;
+// fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+//     let [c0, c1, c2] = c;
+//     let [d0, d1, d2] = d;
 
-    let e0 = add_fp2(c0, d0);
-    let e1 = add_fp2(c1, d1);
-    let e2 = add_fp2(c2, d2);
-    [e0, e1, e2]
-}
+//     let e0 = add_fp2(c0, d0);
+//     let e1 = add_fp2(c1, d1);
+//     let e2 = add_fp2(c2, d2);
+//     [e0, e1, e2]
+// }
 
-fn sub_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
-    let [c0, c1, c2] = c;
-    let [d0, d1, d2] = d;
+// fn sub_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+//     let [c0, c1, c2] = c;
+//     let [d0, d1, d2] = d;
 
-    let e0 = sub_fp2(c0, d0);
-    let e1 = sub_fp2(c1, d1);
-    let e2 = sub_fp2(c2, d2);
-    [e0, e1, e2]
-}
+//     let e0 = sub_fp2(c0, d0);
+//     let e1 = sub_fp2(c1, d1);
+//     let e2 = sub_fp2(c2, d2);
+//     [e0, e1, e2]
+// }
 
 fn mul_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     let [c0, c1, c2] = c;
@@ -101,20 +101,20 @@ fn mul_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     ]
 }
 
-fn sh(c: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
-    let [c0, c1, c2] = c;
-    [i9(c2), c0, c1]
-}
+// fn sh(c: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+//     let [c0, c1, c2] = c;
+//     [i9(c2), c0, c1]
+// }
 
-fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] {
-    let [f0, f1] = f;
-    let [g0, g1] = g;
+// fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] {
+//     let [f0, f1] = f;
+//     let [g0, g1] = g;
 
-    let h0 = mul_fp6(f0, g0);
-    let h1 = mul_fp6(f1, g1);
-    let h01 = mul_fp6(add_fp6(f0, f1), add_fp6(g0, g1));
-    [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
-}
+//     let h0 = mul_fp6(f0, g0);
+//     let h1 = mul_fp6(f1, g1);
+//     let h01 = mul_fp6(add_fp6(f0, f1), add_fp6(g0, g1));
+//     [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
+// }
 
 fn gen_fp6() -> [[u32; 2]; 3] {
     let mut rng = thread_rng();
