@@ -216,18 +216,8 @@ increment_end:
 // Assumes a >= b.
 global sub_bignum:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
-    %stack (al, bl, a, b) -> (al, a, bl, b, bl)
-    // stack: a_len, a_start_loc, b_len, b_start_loc, b_len, retdest
-    ADD
-    %decrement
-    // stack: a_end_loc, b_len, b_start_loc, b_len, retdest
-    %stack (a, bl, b, bl) -> (bl, b, bl, a)
-    // stack: b_len, b_start_loc, b_len, a_end_loc, retdest
-    ADD
-    %decrement
-    // stack: b_end_loc, b_len, a_end_loc, retdest
-    %stack (be, bl, ae) -> (0, 0, ae, be, bl)
-    // stack: borrow=0, i=0, a_end_loc, b_end_loc, n=b_len, retdest
+    %stack (al, bl, a, b) -> (0, 0, a, b, bl)
+    // stack: borrow=0, i=0, a_start_loc, b_start_loc, n=b_len, retdest
 sub_loop:
     // stack: borrow, i, a_i_loc, b_i_loc, n, retdest
     DUP4
@@ -246,26 +236,26 @@ sub_loop:
     // stack: borrow_new, i, a_i_loc, b_i_loc, n, retdest
     %stack (bn, i, a, b) -> (a, b, bn, i)
     // stack: a_i_loc, b_i_loc, borrow_new, i, n, retdest
-    %decrement
-    SWAP1
-    %decrement
-    SWAP1
-    %stack (a, b, bn, i) -> (bn, i, a, b)
-    // stack: borrow_new, i, a_i_loc - 1, b_i_loc - 1, n, retdest
+    %increment
     SWAP1
     %increment
     SWAP1
-    // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    %stack (a, b, bn, i) -> (bn, i, a, b)
+    // stack: borrow_new, i, a_i_loc + 1, b_i_loc + 1, n, retdest
+    SWAP1
+    %increment
+    SWAP1
+    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     DUP5
     DUP3
-    // stack: i + 1, n, borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    // stack: i + 1, n, borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     EQ
     %not_bool
     %jumpi(sub_loop)
 sub_end:
-    // stack: borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     %stack (bn, i, a, b, n) -> (bn, a)
-    // stack: borrow_new, a_i_loc - 1, retdest
+    // stack: borrow_new, a_i_loc + 1, retdest
     // If borrow = 0, no need to decrement.
     ISZERO
     %jumpi(decrement_end)
@@ -282,18 +272,18 @@ decrement_loop:
     // stack: cur_loc, val-1, cur_loc, val-1, retdest
     %mstore_kernel_general
     // stack: cur_loc, val-1, retdest
-    %decrement
-    // stack: cur_loc - 1, val-1, retdest
+    %increment
+    // stack: cur_loc + 1, val-1, retdest
     SWAP1
-    // stack: val-1, cur_loc - 1, retdest
+    // stack: val-1, cur_loc + 1, retdest
     %increment
     %eq_const(0)
     NOT
     %jumpi(decrement_end)
-    // stack: cur_loc - 1, retdest
+    // stack: cur_loc + 1, retdest
     PUSH 255
     DUP2
-    // stack: cur_loc - 1, 0, cur_loc - 1, retdest
+    // stack: cur_loc + 1, 0, cur_loc + 1, retdest
     %mstore_kernel_general
     %jump(decrement_loop)
 decrement_end:
