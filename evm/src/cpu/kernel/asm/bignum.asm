@@ -106,18 +106,8 @@ equal:
 // Replaces a with a + b, leaving b unchanged.
 global add_bignum:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
-    %stack (al, bl, a, b) -> (al, a, bl, b, bl)
-    // stack: a_len, a_start_loc, b_len, b_start_loc, b_len, retdest
-    ADD
-    %decrement
-    // stack: a_end_loc, b_len, b_start_loc, b_len, retdest
-    %stack (a, bl, b, bl) -> (bl, b, bl, a)
-    // stack: b_len, b_start_loc, b_len, a_end_loc, retdest
-    ADD
-    %decrement
-    // stack: b_end_loc, b_len, a_end_loc, retdest
-    %stack (be, bl, ae) -> (0, 0, ae, be, bl)
-    // stack: carry=0, i=0, a_end_loc, b_end_loc, n=b_len, retdest
+    %stack (al, bl, a, b) -> (0, 0, a, b, bl)
+    // stack: carry=0, i=0, a_start_loc, b_start_loc, n=b_len, retdest
 add_loop:
     // stack: carry, i, a_i_loc, b_i_loc, n, retdest
     DUP4
@@ -145,27 +135,27 @@ add_loop:
     // stack: carry_new, i, a_i_loc, b_i_loc, n, retdest
     %stack (c, i, a, b) -> (a, b, c, i)
     // stack: a_i_loc, b_i_loc, carry_new, i, n, retdest
-    %decrement
-    SWAP1
-    %decrement
-    SWAP1
-    %stack (a, b, c, i) -> (c, i, a, b)
-    // stack: carry_new, i, a_i_loc - 1, b_i_loc - 1, n, retdest
+    %increment
     SWAP1
     %increment
     SWAP1
-    // stack: carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    %stack (a, b, c, i) -> (c, i, a, b)
+    // stack: carry_new, i, a_i_loc + 1, b_i_loc + 1, n, retdest
+    SWAP1
+    %increment
+    SWAP1
+    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     DUP5
     DUP3
-    // stack: i + 1, n, carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    // stack: i + 1, n, carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     EQ
     %not_bool
     %jumpi(add_loop)
 add_end:
     STOP
-    // stack: carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
+    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     %stack (c, i, a, b, n) -> (c, a)
-    // stack: carry_new, a_i_loc - 1, retdest
+    // stack: carry_new, a_i_loc + 1, retdest
     // If carry = 0, no need to decrement.
     ISZERO
     %jumpi(increment_end)
@@ -181,17 +171,17 @@ increment_loop:
     // stack: cur_loc, val+1, cur_loc, val+1, retdest
     %mstore_kernel_general
     // stack: cur_loc, val+1, retdest
-    %decrement
-    // stack: cur_loc - 1, val+1, retdest
+    %increment
+    // stack: cur_loc + 1, val+1, retdest
     SWAP1
-    // stack: val+1, cur_loc - 1, retdest
+    // stack: val+1, cur_loc + 1, retdest
     %eq_const(256)
     NOT
     %jumpi(increment_end)
-    // stack: cur_loc - 1, retdest
+    // stack: cur_loc + 1, retdest
     PUSH 0
     DUP2
-    // stack: cur_loc - 1, 0, cur_loc - 1, retdest
+    // stack: cur_loc + 1, 0, cur_loc + 1, retdest
     %mstore_kernel_general
     %jump(increment_loop)
 increment_end:
@@ -222,8 +212,7 @@ increment_end:
     // stack: c_i, borrow_new
 %endmacro
 
-// Replaces a with a - b, where a and b are unbounded big-endian integers represented with one-byte limbs.
-// Leave b unchanged.
+// Replaces a with a - b, leaving b unchanged.
 // Assumes a >= b.
 global sub_bignum:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
