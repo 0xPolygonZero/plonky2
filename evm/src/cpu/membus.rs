@@ -35,14 +35,16 @@ pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 /// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
 pub fn generate<F: PrimeField64>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
-    if cycle_filter == F::ZERO {
-        return;
+    if cycle_filter != F::ZERO {
+        assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);
+
+        // Set `lv.code_context` to 0 if in kernel mode and to `lv.context` if in user mode.
+        lv.code_context = (F::ONE - lv.is_kernel_mode) * lv.context;
     }
 
-    assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);
-
-    // Set `lv.code_context` to 0 if in kernel mode and to `lv.context` if in user mode.
-    lv.code_context = (F::ONE - lv.is_kernel_mode) * lv.context;
+    for channel in lv.mem_channels {
+        assert!(channel.used.to_canonical_u64() <= 1);
+    }
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -54,6 +56,11 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(
         lv.is_cpu_cycle * (lv.code_context - (P::ONES - lv.is_kernel_mode) * lv.context),
     );
+
+    // Validate `channel.used`. It should be binary.
+    for channel in lv.mem_channels {
+        yield_constr.constraint(channel.used * (channel.used - P::ONES));
+    }
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -67,4 +74,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_sub_extension(lv.is_kernel_mode, lv.context, diff);
     let filtered_constr = builder.mul_extension(lv.is_cpu_cycle, constr);
     yield_constr.constraint(builder, filtered_constr);
+
+    // Validate `channel.used`. It should be binary.
+    for channel in lv.mem_channels {
+        let constr = builder.mul_sub_extension(channel.used, channel.used, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 }
