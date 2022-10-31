@@ -11,7 +11,7 @@
 
 %macro codesize
     // stack: (empty)
-    ADDRESS
+    %address
     %extcodesize
 %endmacro
 
@@ -30,7 +30,7 @@ global extcodesize:
 
 %macro codecopy
     // stack: dest_offset, offset, size, retdest
-    ADDRESS
+    %address
     // stack: address, dest_offset, offset, size, retdest
     %jump(extcodecopy)
 %endmacro
