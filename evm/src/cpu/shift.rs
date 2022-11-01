@@ -5,7 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
 use crate::memory::segments::Segment;
 
 fn generate_shl<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -17,6 +17,8 @@ fn generate_shl<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let _val = lv.mem_channels[0].value;
     let shift = lv.mem_channels[1].value;
     let shift_limb0 = shift[0].to_canonical_u64();
+    // lv.mem_channels[2] will be set to the location of 2^shift in the shift table.
+
     let output = &mut lv.mem_channels[3].value;
 
     // NB: It is not strictly necessary to check that the shift amount
@@ -25,12 +27,12 @@ fn generate_shl<F: RichField>(lv: &mut CpuColumnsView<F>) {
     // between 256 and 2^32-1, the result will be zero. We make the
     // check explicit here to clarify intent and because it's easy.
 
-    let mut two_exp = [F::ZERO; 8]; // FIXME
-    //let tail_limbs_sum: F = shift[1..].iter().sum(); // TODO: Why doesn't this work?
-    let tail_limbs_sum: u64 = shift[1..].iter().map(|&c| c.to_canonical_u64()).sum();
-    if shift_limb0 < 256 && tail_limbs_sum == 0 {
+    let tail_limbs_sum: F = shift[1..].iter().copied().sum();
+    if shift_limb0 < 256 && tail_limbs_sum == F::ZERO {
         // Shift amount was < 256...
         let table_val = &mut lv.mem_channels[2];
+
+        // FIXME: Do I need to set table_val.used or table_val.is_read?
 
         table_val.addr_context = F::ZERO; // kernel context
         table_val.addr_segment = F::from_canonical_u64(Segment::ShiftTable as u64);
@@ -43,7 +45,8 @@ fn generate_shl<F: RichField>(lv: &mut CpuColumnsView<F>) {
     //     Shift amount was >= 256, so the result is zero regardless of
     //     the input value. Hence we just keep two_exp = 0.
 
-    // FIXME: call arithmetic::mul::generate()
+    // FIXME: call arithmetic::mul::generate() with inputs `val` and
+    // `two_exp` and output in `output`.
 }
 
 fn generate_shr<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -76,13 +79,13 @@ fn eval_packed_shl<P: PackedField>(
 
     let shift_table_segment = P::Scalar::from_canonical_u64(Segment::ShiftTable as u64);
 
-    // Constrain two_exp mem_channel to be shift table lookup
+    // Constrain two_exp mem_channel to be be the entry corresponding
+    // to `shift` in the shift table lookup
     yield_constr.constraint(is_shl * two_exp.addr_context); // kernel mode only
     yield_constr.constraint(is_shl * (two_exp.addr_segment - shift_table_segment));
     yield_constr.constraint(is_shl * (two_exp.addr_virtual - shift.value[0]));
 
-    //let tail_limbs_sum: P = shift.value[1..].iter().sum(); // TODO: Why this no work?
-    let tail_limbs_sum: P = shift.value[1..].iter().map(|&x| x).sum();
+    let tail_limbs_sum: P = shift.value[1..].iter().copied().sum();
     // FIXME: We need to handle this being non-zero
     yield_constr.constraint(is_shl * tail_limbs_sum);
 
