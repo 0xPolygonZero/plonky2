@@ -40,73 +40,32 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
-    stop: None, // TODO
     add: BASIC_BINARY_OP,
     mul: BASIC_BINARY_OP,
     sub: BASIC_BINARY_OP,
     div: BASIC_BINARY_OP,
-    sdiv: BASIC_BINARY_OP,
     mod_: BASIC_BINARY_OP,
-    smod: BASIC_BINARY_OP,
     addmod: BASIC_TERNARY_OP,
     mulmod: BASIC_TERNARY_OP,
-    exp: None, // TODO
-    signextend: BASIC_BINARY_OP,
     addfp254: BASIC_BINARY_OP,
     mulfp254: BASIC_BINARY_OP,
     subfp254: BASIC_BINARY_OP,
     lt: BASIC_BINARY_OP,
     gt: BASIC_BINARY_OP,
-    slt: BASIC_BINARY_OP,
-    sgt: BASIC_BINARY_OP,
     eq: BASIC_BINARY_OP,
     iszero: BASIC_UNARY_OP,
     and: BASIC_BINARY_OP,
     or: BASIC_BINARY_OP,
     xor: BASIC_BINARY_OP,
     not: BASIC_TERNARY_OP,
-    byte: BASIC_BINARY_OP,
     shl: BASIC_BINARY_OP,
     shr: BASIC_BINARY_OP,
-    sar: BASIC_BINARY_OP,
-    keccak256: None,        // TODO
     keccak_general: None,   // TODO
-    address: None,          // TODO
-    balance: None,          // TODO
-    origin: None,           // TODO
-    caller: None,           // TODO
-    callvalue: None,        // TODO
-    calldataload: None,     // TODO
-    calldatasize: None,     // TODO
-    calldatacopy: None,     // TODO
-    codesize: None,         // TODO
-    codecopy: None,         // TODO
-    gasprice: None,         // TODO
-    extcodesize: None,      // TODO
-    extcodecopy: None,      // TODO
-    returndatasize: None,   // TODO
-    returndatacopy: None,   // TODO
-    extcodehash: None,      // TODO
-    blockhash: None,        // TODO
-    coinbase: None,         // TODO
-    timestamp: None,        // TODO
-    number: None,           // TODO
-    difficulty: None,       // TODO
-    gaslimit: None,         // TODO
-    chainid: None,          // TODO
-    selfbalance: None,      // TODO
-    basefee: None,          // TODO
     prover_input: None,     // TODO
     pop: None,              // TODO
-    mload: None,            // TODO
-    mstore: None,           // TODO
-    mstore8: None,          // TODO
-    sload: None,            // TODO
-    sstore: None,           // TODO
     jump: None,             // TODO
     jumpi: None,            // TODO
     pc: None,               // TODO
-    msize: None,            // TODO
     gas: None,              // TODO
     jumpdest: None,         // TODO
     get_state_root: None,   // TODO
@@ -116,27 +75,17 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     push: None,             // TODO
     dup: None,
     swap: None,
-    log0: None,           // TODO
-    log1: None,           // TODO
-    log2: None,           // TODO
-    log3: None,           // TODO
-    log4: None,           // TODO
-    create: None,         // TODO
-    call: None,           // TODO
-    callcode: None,       // TODO
-    return_: None,        // TODO
-    delegatecall: None,   // TODO
-    create2: None,        // TODO
     get_context: None,    // TODO
     set_context: None,    // TODO
     consume_gas: None,    // TODO
     exit_kernel: None,    // TODO
-    staticcall: None,     // TODO
     mload_general: None,  // TODO
     mstore_general: None, // TODO
-    revert: None,         // TODO
-    selfdestruct: None,   // TODO
-    invalid: None,        // TODO
+    syscall: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: false,
+    }),
 };
 
 fn eval_packed_one<P: PackedField>(

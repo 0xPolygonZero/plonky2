@@ -34,6 +34,8 @@ pub(crate) enum Item {
     StandardOp(String),
     /// Literal hex data; should contain an even number of hex chars.
     Bytes(Vec<u8>),
+    /// Creates a table of addresses from a list of labels.
+    Jumptable(Vec<String>),
 }
 
 /// The left hand side of a %stack stack-manipulation macro.

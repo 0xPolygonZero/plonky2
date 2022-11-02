@@ -15,7 +15,7 @@ literal = { literal_hex | literal_decimal }
 variable = ${ "$" ~ identifier }
 constant = ${ "@" ~ identifier }
 
-item = { macro_def | macro_call | repeat | stack | global_label_decl | local_label_decl | macro_label_decl | bytes_item | push_instruction | prover_input_instruction | nullary_instruction }
+item = { macro_def | macro_call | repeat | stack | global_label_decl | local_label_decl | macro_label_decl | bytes_item | jumptable_item | push_instruction | prover_input_instruction | nullary_instruction }
 macro_def = { ^"%macro" ~ identifier ~ paramlist? ~ item* ~ ^"%endmacro" }
 macro_call = ${ "%" ~ !((^"macro" | ^"endmacro" | ^"rep" | ^"endrep" | ^"stack") ~ !identifier_char) ~ identifier ~ macro_arglist? }
 repeat = { ^"%rep" ~ literal ~ item* ~ ^"%endrep" }
@@ -35,6 +35,7 @@ macro_label_decl = ${ "%%" ~ identifier ~ ":" }
 macro_label = ${ "%%" ~ identifier }
 
 bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
+jumptable_item = { ^"JUMPTABLE " ~ identifier ~ ("," ~ identifier)* }
 push_instruction = { ^"PUSH " ~ push_target }
 push_target = { literal | identifier | macro_label | variable | constant }
 prover_input_instruction = { ^"PROVER_INPUT" ~ "(" ~ prover_input_fn ~ ")" }
