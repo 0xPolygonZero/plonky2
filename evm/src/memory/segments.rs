@@ -41,7 +41,7 @@ pub(crate) enum Segment {
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 16;
+    pub(crate) const COUNT: usize = 17;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
