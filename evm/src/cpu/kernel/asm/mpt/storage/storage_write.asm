@@ -39,6 +39,6 @@ after_storage_insert:
     // stack: new_account_ptr, retdest
 
     // Save this updated account to the state trie.
-    ADDRESS %addr_to_state_key
+    %address %addr_to_state_key
     // stack: state_key, new_account_ptr, retdest
     %jump(mpt_insert_state_trie)

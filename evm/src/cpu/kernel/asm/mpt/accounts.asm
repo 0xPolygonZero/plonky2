@@ -1,6 +1,6 @@
 // Return a pointer to the current account's data in the state trie.
 %macro current_account_data
-    ADDRESS %mpt_read_state_trie
+    %address %mpt_read_state_trie
     // stack: account_ptr
     // account_ptr should be non-null as long as the prover provided the proper
     // Merkle data. But a bad prover may not have, and we don't want return a
