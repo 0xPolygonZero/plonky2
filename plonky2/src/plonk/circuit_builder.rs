@@ -42,6 +42,7 @@ use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
 use crate::timed;
 use crate::util::context_tree::ContextTree;
+use crate::util::from_targets::FromTargets;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{transpose, transpose_poly_values};
@@ -171,6 +172,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
+    }
+
+    pub fn add_virtual<'a, A: FromTargets<'a, F, D, Config = CircuitConfig>>(&mut self) -> A {
+        let len = A::len(&self.config);
+        let mut targets = self.add_virtual_targets(len).into_iter();
+        A::from_targets(&mut targets, &self.config)
     }
 
     pub fn add_virtual_target_arr<const N: usize>(&mut self) -> [Target; N] {

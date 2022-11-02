@@ -14,9 +14,11 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
+use crate::util::from_targets::FromTargets;
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -30,6 +32,27 @@ pub struct FriQueryStep<F: RichField + Extendable<D>, H: Hasher<F>, const D: usi
 pub struct FriQueryStepTarget<const D: usize> {
     pub evals: Vec<ExtensionTarget<D>>,
     pub merkle_proof: MerkleProofTarget,
+}
+
+impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
+    for FriQueryStepTarget<D>
+{
+    type Config = (&'a CommonCircuitData<F, D>, usize);
+
+    fn len(config: &Self::Config) -> usize {
+        D * config.0.fri_params.reduction_arity_bits[config.1]
+            + (config.0.degree_bits()
+                - config.0.fri_params.reduction_arity_bits[..=config.1]
+                    .iter()
+                    .sum::<usize>()
+                - 1)
+        // let evals = self.read_field_ext_vec::<F, D>(arity - usize::from(compressed))?;
+        // let merkle_proof = self.read_merkle_proof()?;
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        todo!()
+    }
 }
 
 /// Evaluations and Merkle proofs of the original set of polynomials,
@@ -54,6 +77,20 @@ impl<F: RichField, H: Hasher<F>> FriInitialTreeProof<F, H> {
 #[derive(Clone, Debug)]
 pub struct FriInitialTreeProofTarget {
     pub evals_proofs: Vec<(Vec<Target>, MerkleProofTarget)>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
+    for FriInitialTreeProofTarget
+{
+    type Config = CommonCircuitData<F, D>;
+
+    fn len(config: &Self::Config) -> usize {
+        todo!()
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        todo!()
+    }
 }
 
 impl FriInitialTreeProofTarget {
@@ -84,6 +121,23 @@ pub struct FriQueryRound<F: RichField + Extendable<D>, H: Hasher<F>, const D: us
 pub struct FriQueryRoundTarget<const D: usize> {
     pub initial_trees_proof: FriInitialTreeProofTarget,
     pub steps: Vec<FriQueryStepTarget<D>>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
+    for FriQueryRoundTarget<D>
+{
+    type Config = CommonCircuitData<F, D>;
+
+    fn len(config: &Self::Config) -> usize {
+        FriInitialTreeProofTarget::len(config)
+            + (0..config.fri_params.reduction_arity_bits.len())
+                .map(|i| FriQueryStepTarget::len(&(config, i)))
+                .sum::<usize>()
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        todo!()
+    }
 }
 
 /// Compressed proof of the FRI query rounds.
@@ -117,6 +171,17 @@ pub struct FriProofTarget<const D: usize> {
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
     pub final_poly: PolynomialCoeffsExtTarget<D>,
     pub pow_witness: Target,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for FriProofTarget<D> {
+    type Config = CommonCircuitData<F, D>;
+    fn len(config: &Self::Config) -> usize {
+        todo!()
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        todo!()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]

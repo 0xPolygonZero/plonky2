@@ -2,6 +2,7 @@ use plonky2_field::polynomial::PolynomialValues;
 use plonky2_field::types::Field;
 
 pub(crate) mod context_tree;
+pub mod from_targets;
 pub(crate) mod partial_products;
 pub mod reducing;
 pub mod serialization;

@@ -18,6 +18,7 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::verifier::verify_with_challenges;
+use crate::util::from_targets::FromTargets;
 use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -42,6 +43,34 @@ pub struct ProofTarget<const D: usize> {
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for ProofTarget<D> {
+    type Config = CommonCircuitData<F, D>;
+    fn len(config: &Self::Config) -> usize {
+        3 * <MerkleCapTarget as FromTargets<F, D>>::len(&config.config)
+            + OpeningSetTarget::len(config)
+            + FriProofTarget::len(config)
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        Self {
+            wires_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
+                targets,
+                &config.config,
+            ),
+            plonk_zs_partial_products_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
+                targets,
+                &config.config,
+            ),
+            quotient_polys_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
+                targets,
+                &config.config,
+            ),
+            openings: OpeningSetTarget::from_targets(targets, config),
+            opening_proof: FriProofTarget::from_targets(targets, config),
+        }
+    }
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
@@ -283,6 +312,22 @@ pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub public_inputs: Vec<Target>,
 }
 
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
+    for ProofWithPublicInputsTarget<D>
+{
+    type Config = CommonCircuitData<F, D>;
+    fn len(config: &Self::Config) -> usize {
+        ProofTarget::len(config) + config.num_public_inputs
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        Self {
+            proof: ProofTarget::from_targets(targets, config),
+            public_inputs: targets.collect(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
@@ -378,6 +423,46 @@ impl<const D: usize> OpeningSetTarget<D> {
         };
         FriOpeningsTarget {
             batches: vec![zeta_batch, zeta_next_batch],
+        }
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for OpeningSetTarget<D> {
+    type Config = CommonCircuitData<F, D>;
+    fn len(config: &Self::Config) -> usize {
+        let circonfig = &config.config;
+        D * (config.num_constants // constants
+            + circonfig.num_routed_wires // plonk_sigmas
+            + circonfig.num_wires // wires
+            + 2 * circonfig.num_challenges // plonk_zs(_next)
+            + (config.num_partial_products * circonfig.num_challenges) // partial_products
+            + (config.quotient_degree_factor * circonfig.num_challenges)) // quotient_polys
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        let circonfig = &config.config;
+        Self {
+            constants: (0..config.num_constants)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            plonk_sigmas: (0..circonfig.num_routed_wires)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            wires: (0..circonfig.num_wires)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            plonk_zs: (0..circonfig.num_challenges)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            plonk_zs_next: (0..circonfig.num_challenges)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            partial_products: (0..config.num_partial_products * circonfig.num_challenges)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+            quotient_polys: (0..config.quotient_degree_factor * circonfig.num_challenges)
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
         }
     }
 }

@@ -7,6 +7,7 @@ use plonky2_field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::from_targets::FromTargets;
 
 /// `Target`s representing an element of an extension field.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -63,6 +64,18 @@ impl<const D: usize> TryFrom<Vec<Target>> for ExtensionTarget<D> {
 
     fn try_from(value: Vec<Target>) -> Result<Self, Self::Error> {
         Ok(Self(value.try_into()?))
+    }
+}
+
+impl<F, const D: usize> FromTargets<'_, F, D> for ExtensionTarget<D> {
+    type Config = ();
+
+    fn len(_config: &Self::Config) -> usize {
+        D
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: &Self::Config) -> Self {
+        ExtensionTarget(std::array::from_fn(|_| targets.next().unwrap()))
     }
 }
 

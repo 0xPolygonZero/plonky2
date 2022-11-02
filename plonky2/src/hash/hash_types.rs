@@ -4,7 +4,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::hash::poseidon::Poseidon;
 use crate::iop::target::Target;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::GenericHashOut;
+use crate::util::from_targets::FromTargets;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
 pub trait RichField: PrimeField64 + Poseidon {}
@@ -92,6 +94,25 @@ pub struct HashOutTarget {
     pub elements: [Target; 4],
 }
 
+impl<F, const D: usize> FromTargets<'_, F, D> for HashOutTarget {
+    type Config = ();
+
+    fn len(_config: &Self::Config) -> usize {
+        4
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: &Self::Config) -> Self {
+        Self {
+            elements: [
+                targets.next().unwrap(),
+                targets.next().unwrap(),
+                targets.next().unwrap(),
+                targets.next().unwrap(),
+            ],
+        }
+    }
+}
+
 impl HashOutTarget {
     pub fn from_vec(elements: Vec<Target>) -> Self {
         debug_assert!(elements.len() == 4);
@@ -109,6 +130,23 @@ impl HashOutTarget {
 
 #[derive(Clone, Debug)]
 pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
+
+impl<F, const D: usize> FromTargets<'_, F, D> for MerkleCapTarget {
+    type Config = CircuitConfig;
+
+    fn len(config: &Self::Config) -> usize {
+        config.fri_config.num_cap_elements() * 4
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        let mut v = Vec::new();
+        for _ in 0..config.fri_config.num_cap_elements() {
+            let h = <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &());
+            v.push(h);
+        }
+        Self(v)
+    }
+}
 
 /// Hash consisting of a byte array.
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]

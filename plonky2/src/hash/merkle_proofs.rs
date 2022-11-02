@@ -9,6 +9,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, Hasher};
+use crate::util::from_targets::FromTargets;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -27,6 +28,22 @@ impl<F: RichField, H: Hasher<F>> MerkleProof<F, H> {
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashOutTarget>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for MerkleProofTarget {
+    type Config = usize;
+
+    fn len(config: &Self::Config) -> usize {
+        *config * 4
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        Self {
+            siblings: (0..*config)
+                .map(|_| <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &()))
+                .collect(),
+        }
+    }
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
