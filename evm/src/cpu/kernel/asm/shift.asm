@@ -1,7 +1,7 @@
 /// Initialise the lookup table of binary powers for doing left/right shifts
 ///
 /// Specifically, set SHIFT_TABLE_SEGMENT[i] = 2^i for i = 0..255.
-%macro shift_table_init:
+%macro shift_table_init
     push 1   // 2^0
     push 0   // initial offset is zero
     // stack: ost_0, $1
@@ -22,3 +22,4 @@
         // stack: ost_(i+1), 2^(i+1)
     %endrep
     %pop2
+%endmacro

@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
-use log::error;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
