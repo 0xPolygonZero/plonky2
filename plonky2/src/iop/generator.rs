@@ -1,5 +1,5 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use core::fmt::Debug;
+use core::marker::PhantomData;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::Field;

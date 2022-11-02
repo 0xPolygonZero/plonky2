@@ -1,5 +1,5 @@
-use std::iter;
-use std::mem::size_of;
+use core::iter;
+use core::mem::size_of;
 
 use itertools::Itertools;
 use keccak_hash::keccak;

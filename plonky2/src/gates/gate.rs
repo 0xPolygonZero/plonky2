@@ -1,7 +1,7 @@
+use core::fmt::{Debug, Error, Formatter};
+use core::hash::{Hash, Hasher};
+use core::ops::Range;
 use std::collections::HashMap;
-use std::fmt::{Debug, Error, Formatter};
-use std::hash::{Hash, Hasher};
-use std::ops::Range;
 use std::sync::Arc;
 
 use plonky2_field::batch_util::batch_multiply_inplace;

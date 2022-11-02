@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::packed::PackedField;

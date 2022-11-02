@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
 use plonky2_field::extension::{Extendable, FieldExtension};

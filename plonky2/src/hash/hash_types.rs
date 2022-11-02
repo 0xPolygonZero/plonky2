@@ -36,7 +36,7 @@ impl<F: Field> HashOut<F> {
         Self { elements }
     }
 
-    #[cfg(feature = "parallel")]
+    #[cfg(all(feature = "parallel", feature = "rand"))]
     pub fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
         Self {
             elements: [

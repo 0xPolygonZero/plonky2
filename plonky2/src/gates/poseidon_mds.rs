@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
-use std::ops::Range;
+use core::marker::PhantomData;
+use core::ops::Range;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
 use plonky2_field::extension::Extendable;

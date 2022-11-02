@@ -1,4 +1,4 @@
-use std::cmp::max;
+use core::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 

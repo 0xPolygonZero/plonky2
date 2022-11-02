@@ -1,5 +1,5 @@
-use std::convert::TryInto;
-use std::marker::PhantomData;
+use core::convert::TryInto;
+use core::marker::PhantomData;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 

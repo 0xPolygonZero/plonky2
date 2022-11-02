@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
@@ -376,7 +376,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use anyhow::Result;
     use plonky2_field::goldilocks_field::GoldilocksField;

@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;

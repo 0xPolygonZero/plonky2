@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use anyhow::Result;
 use plonky2::field::types::{Field, PrimeField};

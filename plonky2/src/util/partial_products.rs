@@ -1,4 +1,4 @@
-use std::iter;
+use core::iter;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;

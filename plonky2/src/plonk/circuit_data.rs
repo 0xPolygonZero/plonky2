@@ -1,5 +1,5 @@
+use core::ops::{Range, RangeFrom};
 use std::collections::BTreeMap;
-use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 use plonky2_field::extension::Extendable;

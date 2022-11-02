@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
-use std::mem::size_of;
-use std::ops::{Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use core::marker::PhantomData;
+use core::mem::size_of;
+use core::ops::{Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
 use plonky2_field::packed::PackedField;
 

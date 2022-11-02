@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
-use std::ops::Range;
+use core::marker::PhantomData;
+use core::ops::Range;
 
 use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
 use plonky2_field::extension::{Extendable, FieldExtension};
@@ -270,7 +270,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use anyhow::Result;
     use plonky2_field::goldilocks_field::GoldilocksField;

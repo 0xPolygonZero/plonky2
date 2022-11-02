@@ -1,5 +1,5 @@
-use std::mem::MaybeUninit;
-use std::slice;
+use core::mem::MaybeUninit;
+use core::slice;
 
 use maybe_rayon::*;
 use plonky2_util::log2_strict;

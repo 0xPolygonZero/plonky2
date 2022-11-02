@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;

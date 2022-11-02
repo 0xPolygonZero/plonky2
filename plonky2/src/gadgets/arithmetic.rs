@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field64;

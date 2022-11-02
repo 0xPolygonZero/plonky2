@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use plonky2_field::extension::quadratic::QuadraticExtension;
 use plonky2_field::extension::{Extendable, FieldExtension};

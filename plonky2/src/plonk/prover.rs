@@ -1,4 +1,4 @@
-use std::mem::swap;
+use core::mem::swap;
 
 use anyhow::ensure;
 use anyhow::Result;
@@ -351,7 +351,7 @@ fn compute_quotient_polys<
     let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
-        .map(|(batch_i, xs_batch)| {
+        .flat_map(|(batch_i, xs_batch)| {
             // Each batch must be the same size, except the last one, which may be smaller.
             debug_assert!(
                 xs_batch.len() == BATCH_SIZE
@@ -448,7 +448,6 @@ fn compute_quotient_polys<
             }
             quotient_values_batch
         })
-        .flatten()
         .collect();
 
     transpose(&quotient_values)
