@@ -39,7 +39,7 @@ fn prepare_interpreter(
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
-    let state_trie: PartialTrie = Default::default();
+    let mut state_trie: PartialTrie = Default::default();
     let trie_inputs = Default::default();
 
     interpreter.offset = load_all_mpts;
@@ -95,8 +95,8 @@ fn prepare_interpreter(
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = state_trie.insert(k, rlp::encode(account).to_vec());
-    let expected_state_trie_hash = updated_trie.calc_hash();
+    state_trie.insert(k, rlp::encode(account).to_vec());
+    let expected_state_trie_hash = state_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())
