@@ -86,10 +86,10 @@ global syscall_jumptable:
     JUMPTABLE sys_msize
     JUMPTABLE panic // gas is implemented natively
     JUMPTABLE panic // jumpdest is implemented natively
-    JUMPTABLE panic // 0x5c is an invlid opcode
-    JUMPTABLE panic // 0x5d is an invlid opcode
-    JUMPTABLE panic // 0x5e is an invlid opcode
-    JUMPTABLE panic // 0x5f is an invlid opcode
+    JUMPTABLE panic // 0x5c is an invalid opcode
+    JUMPTABLE panic // 0x5d is an invalid opcode
+    JUMPTABLE panic // 0x5e is an invalid opcode
+    JUMPTABLE panic // 0x5f is an invalid opcode
 
     // 0x60-0x6f
     %rep 16
