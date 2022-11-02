@@ -1,12 +1,16 @@
-%macro extcodehash
-    // stack: address
+retzero:
+    %stack (account_ptr, retdest) -> (retdest, 0)
+    JUMP
+
+global extcodehash:
+    // stack: address, retdest
     %mpt_read_state_trie
     // stack: account_ptr
+    DUP1 ISZERO %jumpi(retzero)
     %add_const(3)
     // stack: codehash_ptr
     %mload_trie_data
     // stack: codehash
-%endmacro
 
 
 %macro codesize
@@ -93,8 +97,9 @@ extcodecopy_end:
 // Pre stack: address, retdest
 // Post stack: extcodesize(address)
 load_code:
-    // stack: address, retdest
-    %extcodehash
+    %stack: (address, retdest) -> (extcodehash, address, load_code_ctd, retdest)
+    JUMP
+load_code_ctd:
     // stack: codehash, retdest
     PROVER_INPUT(account_code::length)
     // stack: code_length, codehash, retdest
