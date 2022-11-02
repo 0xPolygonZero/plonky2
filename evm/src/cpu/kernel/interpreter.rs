@@ -9,6 +9,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::Kernel;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::generation::memory::{MemoryContextState, MemorySegmentState};
@@ -45,9 +46,7 @@ impl InterpreterMemory {
 
         mem
     }
-}
 
-impl InterpreterMemory {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
@@ -72,7 +71,7 @@ pub struct Interpreter<'a> {
     kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) offset: usize,
-    context: usize,
+    pub(crate) context: usize,
     pub(crate) memory: InterpreterMemory,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
@@ -238,9 +237,9 @@ impl<'a> Interpreter<'a> {
             0x09 => self.run_mulmod(),                                  // "MULMOD",
             0x0a => self.run_exp(),                                     // "EXP",
             0x0b => todo!(),                                            // "SIGNEXTEND",
-            0x0c => todo!(),                                            // "ADDFP254",
-            0x0d => todo!(),                                            // "MULFP254",
-            0x0e => todo!(),                                            // "SUBFP254",
+            0x0c => self.run_addfp254(),                                // "ADDFP254",
+            0x0d => self.run_mulfp254(),                                // "MULFP254",
+            0x0e => self.run_subfp254(),                                // "SUBFP254",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
             0x12 => todo!(),                                            // "SLT",
@@ -329,7 +328,7 @@ impl<'a> Interpreter<'a> {
         if self.debug_offsets.contains(&self.offset) {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {}", label);
+            println!("At {label}");
         }
 
         Ok(())
@@ -369,6 +368,27 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_sub(y).0);
+    }
+
+    // TODO: 107 is hardcoded as a dummy prime for testing
+    // should be changed to the proper implementation prime
+
+    fn run_addfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push((x + y) % 107);
+    }
+
+    fn run_mulfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push(U256::try_from(x.full_mul(y) % 107).unwrap());
+    }
+
+    fn run_subfp254(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push((U256::from(107) + x - y) % 107);
     }
 
     fn run_div(&mut self) {
@@ -499,6 +519,8 @@ impl<'a> Interpreter<'a> {
     fn run_keccak_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
+        // Not strictly needed but here to avoid surprises with MSIZE.
+        assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         let bytes = (offset..offset + size)
@@ -578,11 +600,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_msize(&mut self) {
-        let num_bytes = self.memory.context_memory[self.context].segments
-            [Segment::MainMemory as usize]
-            .content
-            .len();
-        self.push(U256::from(num_bytes));
+        self.push(
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::MSize as usize),
+        )
     }
 
     fn run_jumpdest(&mut self) {

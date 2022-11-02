@@ -80,7 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32SubtractionGate<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32SubtractionGate<F, D> {
     fn id(&self) -> String {
-        format!("{:?}", self)
+        format!("{self:?}")
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {

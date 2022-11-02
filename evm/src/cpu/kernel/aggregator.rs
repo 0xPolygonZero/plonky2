@@ -32,6 +32,9 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/curve/secp256k1/lift_x.asm"),
         include_str!("asm/curve/secp256k1/moddiv.asm"),
         include_str!("asm/exp.asm"),
+        include_str!("asm/fields/fp6_macros.asm"),
+        include_str!("asm/fields/fp6_mul.asm"),
+        include_str!("asm/fields/fp12_mul.asm"),
         include_str!("asm/halt.asm"),
         include_str!("asm/main.asm"),
         include_str!("asm/memory/core.asm"),
@@ -80,6 +83,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/util/assertions.asm"),
         include_str!("asm/util/basic_macros.asm"),
         include_str!("asm/util/keccak.asm"),
+        include_str!("asm/account_code.asm"),
+        include_str!("asm/balance.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();

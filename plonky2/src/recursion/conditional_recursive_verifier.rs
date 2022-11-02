@@ -24,13 +24,12 @@ use crate::plonk::proof::{
 use crate::with_context;
 
 /// Generate a proof having a given `CommonCircuitData`.
-#[allow(unused)] // TODO: should be used soon.
 pub(crate) fn dummy_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common_data: &CommonCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<(
     ProofWithPublicInputs<F, C, D>,
     VerifierOnlyCircuitData<C, D>,
@@ -80,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data0: &VerifierCircuitTarget,
         proof_with_pis1: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data1: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_common_data: &CommonCircuitData<F, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -144,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ),
         };
 
-        self.verify_proof(selected_proof, &selected_verifier_data, inner_common_data);
+        self.verify_proof::<C>(selected_proof, &selected_verifier_data, inner_common_data);
     }
 
     /// Conditionally verify a proof with a new generated dummy proof.
@@ -153,18 +152,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         condition: BoolTarget,
         proof_with_pis: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_common_data: &CommonCircuitData<F, D>,
     ) -> (ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)
     where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let dummy_proof = self.add_virtual_proof_with_pis(inner_common_data);
+        let dummy_proof = self.add_virtual_proof_with_pis::<C>(inner_common_data);
         let dummy_verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self
                 .add_virtual_cap(inner_common_data.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
         };
-        self.conditionally_verify_proof(
+        self.conditionally_verify_proof::<C>(
             condition,
             proof_with_pis,
             inner_verifier_data,
@@ -183,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn select_hash(
+    pub(crate) fn select_hash(
         &mut self,
         b: BoolTarget,
         h0: HashOutTarget,
@@ -406,10 +405,10 @@ mod tests {
         // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
-        let pt = builder.add_virtual_proof_with_pis(&data.common);
+        let pt = builder.add_virtual_proof_with_pis::<C>(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
-        let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target(&dummy_pt, &dummy_proof);
+        let dummy_pt = builder.add_virtual_proof_with_pis::<C>(&data.common);
+        pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
@@ -421,7 +420,7 @@ mod tests {
         };
         pw.set_verifier_data_target(&dummy_inner_data, &dummy_data);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
-        builder.conditionally_verify_proof(
+        builder.conditionally_verify_proof::<C>(
             b,
             &pt,
             &inner_data,

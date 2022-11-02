@@ -345,7 +345,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn is_equal(&mut self, x: Target, y: Target) -> BoolTarget {
         let zero = self.zero();
 
-        let equal = self.add_virtual_bool_target();
+        let equal = self.add_virtual_bool_target_unsafe();
         let not_equal = self.not(equal);
         let inv = self.add_virtual_target();
         self.add_simple_generator(EqualityGenerator { x, y, equal, inv });

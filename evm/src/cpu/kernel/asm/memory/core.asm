@@ -393,3 +393,21 @@
     %mstore_kernel_general_2
     // stack: (empty)
 %endmacro
+
+%macro mload_main
+    // stack: offset
+    DUP1
+    // stack: offset, offset
+    %update_msize
+    // stack: offset
+    %mload_current(@SEGMENT_MAIN_MEMORY)
+%endmacro
+
+%macro mstore_main
+    // stack: offset, value
+    DUP1
+    // stack: offset, offset, value
+    %update_msize
+    // stack: offset, value
+    %mstore_current(@SEGMENT_MAIN_MEMORY)
+%endmacro

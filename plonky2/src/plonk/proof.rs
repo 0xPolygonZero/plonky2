@@ -82,7 +82,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn compress(
         self,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
         let indices = self.fri_query_indices(circuit_digest, common_data)?;
         let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
@@ -106,7 +106,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: Vec<u8>,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
         let proof = buffer.read_proof_with_public_inputs(common_data)?;
@@ -178,7 +178,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn decompress(
         self,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
         [(); C::Hasher::HASH_SIZE]:,
@@ -198,7 +198,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn verify(
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()>
     where
         [(); C::Hasher::HASH_SIZE]:,
@@ -240,7 +240,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: Vec<u8>,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
         let proof = buffer.read_compressed_proof_with_public_inputs(common_data)?;
@@ -303,7 +303,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         wires_commitment: &PolynomialBatch<F, C, D>,
         zs_partial_products_commitment: &PolynomialBatch<F, C, D>,
         quotient_polys_commitment: &PolynomialBatch<F, C, D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials

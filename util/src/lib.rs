@@ -31,7 +31,7 @@ pub fn log2_ceil(n: usize) -> usize {
 /// Computes `log_2(n)`, panicking if `n` is not a power of two.
 pub fn log2_strict(n: usize) -> usize {
     let res = n.trailing_zeros();
-    assert!(n.wrapping_shr(res) == 1, "Not a power of two: {}", n);
+    assert!(n.wrapping_shr(res) == 1, "Not a power of two: {n}");
     // Tell the optimizer about the semantics of `log2_strict`. i.e. it can replace `n` with
     // `1 << res` and vice versa.
     assume(n == 1 << res);
