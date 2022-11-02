@@ -57,13 +57,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
             - config.0.fri_params.config.cap_height
             + config.0.fri_params.config.rate_bits;
         Self {
-            evals: (0..1 << config.0.fri_params.reduction_arity_bits[config.1])
-                .map(|_| <ExtensionTarget<D> as FromTargets<'_, F, D>>::from_targets(targets, ()))
-                .collect(),
-            merkle_proof: <MerkleProofTarget as FromTargets<'_, F, D>>::from_targets(
+            evals: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
-                num_siblings,
+                ((), 1 << config.0.fri_params.reduction_arity_bits[config.1]),
             ),
+            merkle_proof: <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings),
         }
     }
 }
@@ -116,32 +114,36 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
             - config.fri_params.config.cap_height;
         let salt = salt_size(config.fri_params.hiding);
         let mut evals_proofs = Vec::with_capacity(4);
-        let constants_sigmas_v = (0..config.num_constants + circonfig.num_routed_wires)
-            .map(|_| targets.next().unwrap())
-            .collect();
-        let constants_sigmas_p =
-            <MerkleProofTarget as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
+        let constants_sigmas_v = <_ as FromTargets<F, D>>::from_targets(
+            targets,
+            ((), config.num_constants + circonfig.num_routed_wires),
+        );
+        let constants_sigmas_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
         evals_proofs.push((constants_sigmas_v, constants_sigmas_p));
 
-        let wires_v = (0..circonfig.num_wires + salt)
-            .map(|_| targets.next().unwrap())
-            .collect();
-        let wires_p =
-            <MerkleProofTarget as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
+        let wires_v =
+            <_ as FromTargets<F, D>>::from_targets(targets, ((), circonfig.num_wires + salt));
+        let wires_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
         evals_proofs.push((wires_v, wires_p));
 
-        let zs_partial_v = (0..circonfig.num_challenges * (1 + config.num_partial_products) + salt)
-            .map(|_| targets.next().unwrap())
-            .collect();
-        let zs_partial_p =
-            <MerkleProofTarget as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
+        let zs_partial_v = <_ as FromTargets<F, D>>::from_targets(
+            targets,
+            (
+                (),
+                circonfig.num_challenges * (1 + config.num_partial_products) + salt,
+            ),
+        );
+        let zs_partial_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
         evals_proofs.push((zs_partial_v, zs_partial_p));
 
-        let quotient_v = (0..circonfig.num_challenges * config.quotient_degree_factor + salt)
-            .map(|_| targets.next().unwrap())
-            .collect();
-        let quotient_p =
-            <MerkleProofTarget as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
+        let quotient_v = <_ as FromTargets<F, D>>::from_targets(
+            targets,
+            (
+                (),
+                circonfig.num_challenges * config.quotient_degree_factor + salt,
+            ),
+        );
+        let quotient_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
         evals_proofs.push((quotient_v, quotient_p));
 
         Self { evals_proofs }
@@ -192,9 +194,9 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
-            initial_trees_proof: FriInitialTreeProofTarget::from_targets(targets, config),
+            initial_trees_proof: <_>::from_targets(targets, config),
             steps: (0..config.fri_params.reduction_arity_bits.len())
-                .map(|i| FriQueryStepTarget::from_targets(targets, (config, i)))
+                .map(|i| <_>::from_targets(targets, (config, i)))
                 .collect(),
         }
     }
@@ -252,22 +254,22 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
-            commit_phase_merkle_caps: (0..config.fri_params.reduction_arity_bits.len())
-                .map(|_| {
-                    <MerkleCapTarget as FromTargets<'_, F, D>>::from_targets(
-                        targets,
-                        config.config.fri_config.cap_height,
-                    )
-                })
-                .collect(),
-            query_round_proofs: (0..config.fri_params.config.num_query_rounds)
-                .map(|_| FriQueryRoundTarget::from_targets(targets, config))
-                .collect(),
-            final_poly: <PolynomialCoeffsExtTarget<D> as FromTargets<'_, F, D>>::from_targets(
+            commit_phase_merkle_caps: <_ as FromTargets<'_, F, D>>::from_targets(
+                targets,
+                (
+                    config.config.fri_config.cap_height,
+                    config.fri_params.reduction_arity_bits.len(),
+                ),
+            ),
+            query_round_proofs: <_>::from_targets(
+                targets,
+                (config, config.fri_params.config.num_query_rounds),
+            ),
+            final_poly: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
                 config.fri_params.final_poly_len(),
             ),
-            pow_witness: targets.next().unwrap(),
+            pow_witness: <_ as FromTargets<'_, F, D>>::from_targets(targets, ()),
         }
     }
 }

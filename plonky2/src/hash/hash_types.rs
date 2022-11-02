@@ -102,12 +102,7 @@ impl<F, const D: usize> FromTargets<'_, F, D> for HashOutTarget {
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
         Self {
-            elements: [
-                targets.next().unwrap(),
-                targets.next().unwrap(),
-                targets.next().unwrap(),
-                targets.next().unwrap(),
-            ],
+            elements: <_ as FromTargets<F, D>>::from_targets(targets, ()),
         }
     }
 }
@@ -138,12 +133,10 @@ impl<F, const D: usize> FromTargets<'_, F, D> for MerkleCapTarget {
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
-        let mut v = Vec::new();
-        for _ in 0..1 << config {
-            let h = <HashOutTarget as FromTargets<F, D>>::from_targets(targets, ());
-            v.push(h);
-        }
-        Self(v)
+        Self(<_ as FromTargets<F, D>>::from_targets(
+            targets,
+            ((), 1 << config),
+        ))
     }
 }
 

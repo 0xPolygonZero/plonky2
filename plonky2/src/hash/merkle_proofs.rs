@@ -39,9 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for Mer
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
-            siblings: (0..config)
-                .map(|_| <HashOutTarget as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
+            siblings: <_ as FromTargets<F, D>>::from_targets(targets, ((), config)),
         }
     }
 }

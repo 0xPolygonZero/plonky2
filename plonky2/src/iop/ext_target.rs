@@ -75,7 +75,7 @@ impl<F, const D: usize> FromTargets<'_, F, D> for ExtensionTarget<D> {
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
-        ExtensionTarget(std::array::from_fn(|_| targets.next().unwrap()))
+        ExtensionTarget(<_ as FromTargets<F, D>>::from_targets(targets, ()))
     }
 }
 

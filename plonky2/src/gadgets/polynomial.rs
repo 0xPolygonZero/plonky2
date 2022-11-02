@@ -19,11 +19,10 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
-        Self(
-            (0..config)
-                .map(|_| <ExtensionTarget<D> as FromTargets<'_, F, D>>::from_targets(targets, ()))
-                .collect(),
-        )
+        Self(<_ as FromTargets<F, D>>::from_targets(
+            targets,
+            ((), config),
+        ))
     }
 }
 

@@ -446,27 +446,28 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         let circonfig = &config.config;
         Self {
-            constants: (0..config.num_constants)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            plonk_sigmas: (0..circonfig.num_routed_wires)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            wires: (0..circonfig.num_wires)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            plonk_zs: (0..circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            plonk_zs_next: (0..circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            partial_products: (0..config.num_partial_products * circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
-            quotient_polys: (0..config.quotient_degree_factor * circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
-                .collect(),
+            constants: <_ as FromTargets<F, D>>::from_targets(targets, ((), config.num_constants)),
+            plonk_sigmas: <_ as FromTargets<F, D>>::from_targets(
+                targets,
+                ((), circonfig.num_routed_wires),
+            ),
+            wires: <_ as FromTargets<F, D>>::from_targets(targets, ((), circonfig.num_wires)),
+            plonk_zs: <_ as FromTargets<F, D>>::from_targets(
+                targets,
+                ((), circonfig.num_challenges),
+            ),
+            plonk_zs_next: <_ as FromTargets<F, D>>::from_targets(
+                targets,
+                ((), circonfig.num_challenges),
+            ),
+            partial_products: <_ as FromTargets<F, D>>::from_targets(
+                targets,
+                ((), config.num_partial_products * circonfig.num_challenges),
+            ),
+            quotient_polys: <_ as FromTargets<F, D>>::from_targets(
+                targets,
+                ((), config.quotient_degree_factor * circonfig.num_challenges),
+            ),
         }
     }
 }
