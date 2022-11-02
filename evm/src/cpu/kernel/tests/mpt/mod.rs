@@ -9,16 +9,6 @@ mod insert;
 mod load;
 mod read;
 
-/// Helper function to reduce code duplication.
-/// Note that this preserves all nibbles (eg. `0x123` is not interpreted as `0x0123`).
-pub(crate) fn nibbles<T: Into<U256>>(v: T) -> Nibbles {
-    let packed = v.into();
-    Nibbles {
-        count: Nibbles::get_num_nibbles_in_key(&packed),
-        packed,
-    }
-}
-
 pub(crate) fn nibbles_64<T: Into<U256>>(v: T) -> Nibbles {
     let packed = v.into();
     Nibbles { count: 64, packed }
@@ -58,7 +48,7 @@ pub(crate) fn test_account_2_rlp() -> Vec<u8> {
 /// A `PartialTrie` where an extension node leads to a leaf node containing an account.
 pub(crate) fn extension_to_leaf(value: Vec<u8>) -> PartialTrie {
     PartialTrie::Extension {
-        nibbles: nibbles(0xABC),
+        nibbles: 0xABC_u64.into(),
         child: PartialTrie::Leaf {
             nibbles: Nibbles {
                 count: 3,

@@ -2,7 +2,6 @@ use anyhow::Result;
 use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 use ethereum_types::{BigEndianHash, H256};
 
-use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -49,7 +48,7 @@ fn mpt_insert_leaf_overlapping_keys() -> Result<()> {
 #[ignore] // TODO: Not valid for state trie, all keys have same len.
 fn mpt_insert_leaf_insert_key_extends_leaf_key() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: nibbles(0xABC),
+        nibbles: 0xABC_u64.into(),
         value: test_account_1_rlp(),
     };
     test_state_trie(state_trie, nibbles_64(0xABCDE), test_account_2())
@@ -59,7 +58,7 @@ fn mpt_insert_leaf_insert_key_extends_leaf_key() -> Result<()> {
 #[ignore] // TODO: Not valid for state trie, all keys have same len.
 fn mpt_insert_leaf_leaf_key_extends_insert_key() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: nibbles(0xABCDE),
+        nibbles: 0xABCDE_u64.into(),
         value: test_account_1_rlp(),
     };
     test_state_trie(state_trie, nibbles_64(0xABC), test_account_2())
@@ -84,12 +83,12 @@ fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
     // Existing keys are 0xABC, 0xABCDEF; inserted key is 0x12345.
     let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
     children[0xD] = PartialTrie::Leaf {
-        nibbles: nibbles(0xEF),
+        nibbles: 0xEF_u64.into(),
         value: test_account_1_rlp(),
     }
     .into();
     let state_trie = PartialTrie::Extension {
-        nibbles: nibbles(0xABC),
+        nibbles: 0xABC_u64.into(),
         child: PartialTrie::Branch {
             children,
             value: test_account_1_rlp(),
@@ -107,12 +106,12 @@ fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
     // Existing keys are 0xA, 0xABCD; inserted key is 0xABCDEF.
     let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
     children[0xB] = PartialTrie::Leaf {
-        nibbles: nibbles(0xCD),
+        nibbles: 0xCD_u64.into(),
         value: test_account_1_rlp(),
     }
     .into();
     let state_trie = PartialTrie::Extension {
-        nibbles: nibbles(0xA),
+        nibbles: 0xA_u64.into(),
         child: PartialTrie::Branch {
             children,
             value: test_account_1_rlp(),
@@ -142,7 +141,7 @@ fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
 
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
 /// accompanying trie data. An empty trie's storage_root is used instead.
-fn test_state_trie(state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
+fn test_state_trie(mut state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
     assert_eq!(k.count, 64);
 
     // Ignore any storage_root; see documentation note.
@@ -207,8 +206,8 @@ fn test_state_trie(state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp)
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
-    let updated_trie = state_trie.insert(k, rlp::encode(&account).to_vec());
-    let expected_state_trie_hash = updated_trie.calc_hash();
+    state_trie.insert(k, rlp::encode(&account).to_vec());
+    let expected_state_trie_hash = state_trie.calc_hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())

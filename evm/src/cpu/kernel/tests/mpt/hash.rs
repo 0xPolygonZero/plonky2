@@ -2,7 +2,6 @@ use anyhow::Result;
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256};
 
-use super::nibbles;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1_rlp, test_account_2_rlp};
@@ -55,7 +54,7 @@ fn mpt_hash_hash() -> Result<()> {
 #[test]
 fn mpt_hash_leaf() -> Result<()> {
     let state_trie = PartialTrie::Leaf {
-        nibbles: nibbles(0xABC),
+        nibbles: 0xABC_u64.into(),
         value: test_account_1_rlp(),
     };
     let trie_inputs = TrieInputs {
@@ -82,7 +81,7 @@ fn mpt_hash_extension_to_leaf() -> Result<()> {
 #[test]
 fn mpt_hash_branch_to_leaf() -> Result<()> {
     let leaf = PartialTrie::Leaf {
-        nibbles: nibbles(0xABC),
+        nibbles: 0xABC_u64.into(),
         value: test_account_2_rlp(),
     }
     .into();
