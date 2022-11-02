@@ -5,12 +5,13 @@ retzero:
 global extcodehash:
     // stack: address, retdest
     %mpt_read_state_trie
-    // stack: account_ptr
+    // stack: account_ptr, retdest
     DUP1 ISZERO %jumpi(retzero)
     %add_const(3)
-    // stack: codehash_ptr
+    // stack: codehash_ptr, retdest
     %mload_trie_data
-    // stack: codehash
+    // stack: codehash, retdest
+    SWAP1 JUMP
 
 
 %macro codesize
@@ -97,7 +98,7 @@ extcodecopy_end:
 // Pre stack: address, retdest
 // Post stack: extcodesize(address)
 load_code:
-    %stack: (address, retdest) -> (extcodehash, address, load_code_ctd, retdest)
+    %stack (address, retdest) -> (extcodehash, address, load_code_ctd, retdest)
     JUMP
 load_code_ctd:
     // stack: codehash, retdest
@@ -126,9 +127,7 @@ load_code_check:
     // stack: i, code_length, codehash, retdest
     POP
     // stack: code_length, codehash, retdest
-    %stack (code_length, codehash, retdest) -> (@SEGMENT_KERNEL_ACCOUNT_CODE, 0, code_length, codehash, retdest, code_length)
-    GET_CONTEXT
-    // stack: context, segment, 0, code_length, codehash, retdest, code_length
+    %stack (code_length, codehash, retdest) -> (0, @SEGMENT_KERNEL_ACCOUNT_CODE, 0, code_length, codehash, retdest, code_length)
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_length
     %assert_eq
