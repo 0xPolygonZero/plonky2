@@ -33,14 +33,14 @@ pub struct MerkleProofTarget {
 impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for MerkleProofTarget {
     type Config = usize;
 
-    fn len(config: &Self::Config) -> usize {
-        *config * 4
+    fn len(config: Self::Config) -> usize {
+        config * 4
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
-            siblings: (0..*config)
-                .map(|_| <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &()))
+            siblings: (0..config)
+                .map(|_| <HashOutTarget as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
         }
     }

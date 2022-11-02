@@ -501,17 +501,17 @@ pub struct VerifierCircuitTarget {
 impl<'a, F, const D: usize> FromTargets<'a, F, D> for VerifierCircuitTarget {
     type Config = usize; // Cap height
 
-    fn len(config: &Self::Config) -> usize {
+    fn len(config: Self::Config) -> usize {
         <MerkleCapTarget as FromTargets<F, D>>::len(config)
-            + <HashOutTarget as FromTargets<F, D>>::len(&())
+            + <HashOutTarget as FromTargets<F, D>>::len(())
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
             constants_sigmas_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets, config,
             ),
-            circuit_digest: <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &()),
+            circuit_digest: <HashOutTarget as FromTargets<F, D>>::from_targets(targets, ()),
         }
     }
 }

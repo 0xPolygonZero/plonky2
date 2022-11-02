@@ -45,27 +45,27 @@ pub struct ProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for ProofTarget<D> {
-    type Config = CommonCircuitData<F, D>;
-    fn len(config: &Self::Config) -> usize {
-        3 * <MerkleCapTarget as FromTargets<F, D>>::len(&config.config.fri_config.cap_height)
+impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for ProofTarget<D> {
+    type Config = &'a CommonCircuitData<F, D>;
+    fn len(config: Self::Config) -> usize {
+        3 * <MerkleCapTarget as FromTargets<F, D>>::len(config.config.fri_config.cap_height)
             + OpeningSetTarget::len(config)
             + FriProofTarget::len(config)
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
             wires_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config.fri_config.cap_height,
+                config.config.fri_config.cap_height,
             ),
             plonk_zs_partial_products_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config.fri_config.cap_height,
+                config.config.fri_config.cap_height,
             ),
             quotient_polys_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config.fri_config.cap_height,
+                config.config.fri_config.cap_height,
             ),
             openings: OpeningSetTarget::from_targets(targets, config),
             opening_proof: FriProofTarget::from_targets(targets, config),
@@ -312,15 +312,16 @@ pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub public_inputs: Vec<Target>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
+impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     for ProofWithPublicInputsTarget<D>
 {
-    type Config = CommonCircuitData<F, D>;
-    fn len(config: &Self::Config) -> usize {
+    type Config = &'a CommonCircuitData<F, D>;
+
+    fn len(config: Self::Config) -> usize {
         ProofTarget::len(config) + config.num_public_inputs
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
             proof: ProofTarget::from_targets(targets, config),
             public_inputs: targets.collect(),
@@ -427,9 +428,12 @@ impl<const D: usize> OpeningSetTarget<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for OpeningSetTarget<D> {
-    type Config = CommonCircuitData<F, D>;
-    fn len(config: &Self::Config) -> usize {
+impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
+    for OpeningSetTarget<D>
+{
+    type Config = &'a CommonCircuitData<F, D>;
+
+    fn len(config: Self::Config) -> usize {
         let circonfig = &config.config;
         D * (config.num_constants // constants
             + circonfig.num_routed_wires // plonk_sigmas
@@ -439,29 +443,29 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for Ope
             + (config.quotient_degree_factor * circonfig.num_challenges)) // quotient_polys
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         let circonfig = &config.config;
         Self {
             constants: (0..config.num_constants)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             plonk_sigmas: (0..circonfig.num_routed_wires)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             wires: (0..circonfig.num_wires)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             plonk_zs: (0..circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             plonk_zs_next: (0..circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             partial_products: (0..config.num_partial_products * circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
             quotient_polys: (0..config.quotient_degree_factor * circonfig.num_challenges)
-                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, &()))
+                .map(|_| <ExtensionTarget<D> as FromTargets<F, D>>::from_targets(targets, ()))
                 .collect(),
         }
     }

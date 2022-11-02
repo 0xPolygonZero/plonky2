@@ -174,9 +174,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
-    pub fn add_virtual<'a, Config, A: FromTargets<'a, F, D, Config = Config>>(
+    pub fn add_virtual<'a, Config: Copy, A: FromTargets<'a, F, D, Config = Config>>(
         &mut self,
-        c: &Config,
+        c: Config,
     ) -> A {
         let len = A::len(c);
         let mut targets = self.add_virtual_targets(len).into_iter();

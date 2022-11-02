@@ -1,12 +1,10 @@
 use crate::iop::target::Target;
 
 pub trait FromTargets<'a, F, const D: usize> {
-    type Config;
+    type Config: Copy;
 
-    fn len(config: &Self::Config) -> usize;
+    fn len(config: Self::Config) -> usize;
 
-    fn from_targets<I: Iterator<Item = Target>>(
-        targets: &mut I,
-        common_data: &Self::Config,
-    ) -> Self;
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, common_data: Self::Config)
+        -> Self;
 }

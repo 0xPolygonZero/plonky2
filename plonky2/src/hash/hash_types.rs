@@ -96,11 +96,11 @@ pub struct HashOutTarget {
 impl<F, const D: usize> FromTargets<'_, F, D> for HashOutTarget {
     type Config = ();
 
-    fn len(_config: &Self::Config) -> usize {
+    fn len(_config: Self::Config) -> usize {
         4
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
         Self {
             elements: [
                 targets.next().unwrap(),
@@ -133,14 +133,14 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 impl<F, const D: usize> FromTargets<'_, F, D> for MerkleCapTarget {
     type Config = usize; // Cap height
 
-    fn len(config: &Self::Config) -> usize {
-        4 << *config
+    fn len(config: Self::Config) -> usize {
+        4 << config
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         let mut v = Vec::new();
-        for _ in 0..1 << *config {
-            let h = <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &());
+        for _ in 0..1 << config {
+            let h = <HashOutTarget as FromTargets<F, D>>::from_targets(targets, ());
             v.push(h);
         }
         Self(v)

@@ -70,11 +70,11 @@ impl<const D: usize> TryFrom<Vec<Target>> for ExtensionTarget<D> {
 impl<F, const D: usize> FromTargets<'_, F, D> for ExtensionTarget<D> {
     type Config = ();
 
-    fn len(_config: &Self::Config) -> usize {
+    fn len(_config: Self::Config) -> usize {
         D
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
         ExtensionTarget(std::array::from_fn(|_| targets.next().unwrap()))
     }
 }

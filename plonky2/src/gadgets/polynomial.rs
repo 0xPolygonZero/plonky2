@@ -14,14 +14,14 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
     for PolynomialCoeffsExtTarget<D>
 {
     type Config = usize;
-    fn len(config: &Self::Config) -> usize {
-        D * *config
+    fn len(config: Self::Config) -> usize {
+        D * config
     }
 
-    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self(
-            (0..*config)
-                .map(|_| <ExtensionTarget<D> as FromTargets<'_, F, D>>::from_targets(targets, &()))
+            (0..config)
+                .map(|_| <ExtensionTarget<D> as FromTargets<'_, F, D>>::from_targets(targets, ()))
                 .collect(),
         )
     }
