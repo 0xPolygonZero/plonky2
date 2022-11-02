@@ -4,10 +4,28 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::from_targets::FromTargets;
 use crate::util::reducing::ReducingFactorTarget;
 
 #[derive(Debug)]
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
+
+impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D>
+    for PolynomialCoeffsExtTarget<D>
+{
+    type Config = usize;
+    fn len(config: &Self::Config) -> usize {
+        D * *config
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        Self(
+            (0..*config)
+                .map(|_| <ExtensionTarget<D> as FromTargets<'_, F, D>>::from_targets(targets, &()))
+                .collect(),
+        )
+    }
+}
 
 impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     pub fn len(&self) -> usize {
