@@ -112,7 +112,7 @@ where
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
     let mut pw = PartialWitness::new();
-    let pt = builder.add_virtual_proof_with_pis::<InnerC>(inner_cd);
+    let pt = builder.add_virtual(inner_cd);
     pw.set_proof_with_pis_target(&pt, inner_proof);
 
     let inner_data = VerifierCircuitTarget {

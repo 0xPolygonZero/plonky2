@@ -237,7 +237,11 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for Fri
     type Config = CommonCircuitData<F, D>;
     fn len(config: &Self::Config) -> usize {
         (0..config.fri_params.reduction_arity_bits.len())
-            .map(|_| <MerkleCapTarget as FromTargets<'_, F, D>>::len(&config.config))
+            .map(|_| {
+                <MerkleCapTarget as FromTargets<'_, F, D>>::len(
+                    &config.config.fri_config.cap_height,
+                )
+            })
             .sum::<usize>()
             + (0..config.fri_params.config.num_query_rounds)
                 .map(|_| FriQueryRoundTarget::len(config))
@@ -254,7 +258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for Fri
                 .map(|_| {
                     <MerkleCapTarget as FromTargets<'_, F, D>>::from_targets(
                         targets,
-                        &config.config,
+                        &config.config.fri_config.cap_height,
                     )
                 })
                 .collect(),

@@ -4,7 +4,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::hash::poseidon::Poseidon;
 use crate::iop::target::Target;
-use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::GenericHashOut;
 use crate::util::from_targets::FromTargets;
 
@@ -132,15 +131,15 @@ impl HashOutTarget {
 pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 
 impl<F, const D: usize> FromTargets<'_, F, D> for MerkleCapTarget {
-    type Config = CircuitConfig;
+    type Config = usize; // Cap height
 
     fn len(config: &Self::Config) -> usize {
-        config.fri_config.num_cap_elements() * 4
+        4 << *config
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
         let mut v = Vec::new();
-        for _ in 0..config.fri_config.num_cap_elements() {
+        for _ in 0..1 << *config {
             let h = <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &());
             v.push(h);
         }

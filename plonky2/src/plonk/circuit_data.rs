@@ -27,6 +27,7 @@ use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
+use crate::util::from_targets::FromTargets;
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -495,4 +496,22 @@ pub struct VerifierCircuitTarget {
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
     pub circuit_digest: HashOutTarget,
+}
+
+impl<'a, F, const D: usize> FromTargets<'a, F, D> for VerifierCircuitTarget {
+    type Config = usize; // Cap height
+
+    fn len(config: &Self::Config) -> usize {
+        <MerkleCapTarget as FromTargets<F, D>>::len(config)
+            + <HashOutTarget as FromTargets<F, D>>::len(&())
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: &Self::Config) -> Self {
+        Self {
+            constants_sigmas_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
+                targets, config,
+            ),
+            circuit_digest: <HashOutTarget as FromTargets<F, D>>::from_targets(targets, &()),
+        }
+    }
 }

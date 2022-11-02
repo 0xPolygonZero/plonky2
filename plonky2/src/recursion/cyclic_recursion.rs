@@ -109,13 +109,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data.num_public_inputs = self.num_public_inputs();
         self.goal_common_data = Some(common_data.clone());
 
-        let dummy_verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
-            circuit_digest: self.add_virtual_hash(),
-        };
+        let cap_height = self.config.fri_config.cap_height;
+        let dummy_verifier_data = self.add_virtual(&cap_height);
 
-        let proof = self.add_virtual_proof_with_pis::<C>(common_data);
-        let dummy_proof = self.add_virtual_proof_with_pis::<C>(common_data);
+        let proof: ProofWithPublicInputsTarget<D> = self.add_virtual(common_data);
+        let dummy_proof = self.add_virtual(common_data);
 
         let pis = VerifierCircuitTarget::from_slice::<F, C, D>(&proof.public_inputs, common_data)?;
         // Connect previous verifier data to current one. This guarantees that every proof in the cycle uses the same verifier data.
@@ -266,7 +264,7 @@ mod tests {
     use crate::hash::poseidon::{PoseidonHash, PoseidonPermutation};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
+    use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
     use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
     use crate::recursion::cyclic_recursion::{
         check_cyclic_proof_verifier_data, set_cyclic_recursion_data_target, CyclicRecursionData,
@@ -287,21 +285,15 @@ mod tests {
         let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
-        let verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let proof = builder.add_virtual(&data.common);
+        let verifier_data = builder.add_virtual(&data.common.config.fri_config.cap_height);
         builder.verify_proof::<C>(proof, &verifier_data, &data.common);
         let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
-        let verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let proof = builder.add_virtual(&data.common);
+        let verifier_data = builder.add_virtual(&data.common.config.fri_config.cap_height);
         builder.verify_proof::<C>(proof, &verifier_data, &data.common);
         while builder.num_gates() < 1 << 12 {
             builder.add_gate(NoopGate, vec![]);

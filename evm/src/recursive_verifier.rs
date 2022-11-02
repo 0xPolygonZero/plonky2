@@ -579,7 +579,7 @@ where
 {
     let recursive_proofs = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];
-        builder.add_virtual_proof_with_pis::<C>(&verifier_data.common)
+        builder.add_virtual(&verifier_data.common)
     });
     let verifier_data = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];

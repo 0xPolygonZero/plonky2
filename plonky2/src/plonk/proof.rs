@@ -48,7 +48,7 @@ pub struct ProofTarget<const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for ProofTarget<D> {
     type Config = CommonCircuitData<F, D>;
     fn len(config: &Self::Config) -> usize {
-        3 * <MerkleCapTarget as FromTargets<F, D>>::len(&config.config)
+        3 * <MerkleCapTarget as FromTargets<F, D>>::len(&config.config.fri_config.cap_height)
             + OpeningSetTarget::len(config)
             + FriProofTarget::len(config)
     }
@@ -57,15 +57,15 @@ impl<F: RichField + Extendable<D>, const D: usize> FromTargets<'_, F, D> for Pro
         Self {
             wires_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config,
+                &config.config.fri_config.cap_height,
             ),
             plonk_zs_partial_products_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config,
+                &config.config.fri_config.cap_height,
             ),
             quotient_polys_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
-                &config.config,
+                &config.config.fri_config.cap_height,
             ),
             openings: OpeningSetTarget::from_targets(targets, config),
             opening_proof: FriProofTarget::from_targets(targets, config),

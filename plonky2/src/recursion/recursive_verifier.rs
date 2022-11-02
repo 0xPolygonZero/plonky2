@@ -4,10 +4,7 @@ use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::plonk_common::salt_size;
-use crate::plonk::proof::{
-    OpeningSetTarget, ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget,
-};
+use crate::plonk::proof::{ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
@@ -125,61 +122,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &inner_common_data.fri_params,
             )
         );
-    }
-
-    pub fn add_virtual_proof_with_pis<InnerC: GenericConfig<D, F = F>>(
-        &mut self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = self.add_virtual_proof::<InnerC>(common_data);
-        let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
-        ProofWithPublicInputsTarget {
-            proof,
-            public_inputs,
-        }
-    }
-
-    fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
-        &mut self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> ProofTarget<D> {
-        let config = &common_data.config;
-        let fri_params = &common_data.fri_params;
-        let cap_height = fri_params.config.cap_height;
-
-        let salt = salt_size(common_data.fri_params.hiding);
-        let num_leaves_per_oracle = &[
-            common_data.num_preprocessed_polys(),
-            config.num_wires + salt,
-            common_data.num_zs_partial_products_polys() + salt,
-            common_data.num_quotient_polys() + salt,
-        ];
-
-        ProofTarget {
-            wires_cap: self.add_virtual_cap(cap_height),
-            plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
-            quotient_polys_cap: self.add_virtual_cap(cap_height),
-            openings: self.add_opening_set::<InnerC>(common_data),
-            opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
-        }
-    }
-
-    fn add_opening_set<InnerC: GenericConfig<D, F = F>>(
-        &mut self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> OpeningSetTarget<D> {
-        let config = &common_data.config;
-        let num_challenges = config.num_challenges;
-        let total_partial_products = num_challenges * common_data.num_partial_products;
-        OpeningSetTarget {
-            constants: self.add_virtual_extension_targets(common_data.num_constants),
-            plonk_sigmas: self.add_virtual_extension_targets(config.num_routed_wires),
-            wires: self.add_virtual_extension_targets(config.num_wires),
-            plonk_zs: self.add_virtual_extension_targets(num_challenges),
-            plonk_zs_next: self.add_virtual_extension_targets(num_challenges),
-            partial_products: self.add_virtual_extension_targets(total_partial_products),
-            quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
-        }
     }
 }
 
