@@ -107,7 +107,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, t);
 
     let high_limbs_sum = builder.add_many_extension(&displacement.value[1..]);
-    let t = builder.mul_many_extension(&[is_shift, high_limbs_sum, high_limbs_are_zero]);
+    let t = builder.mul_many_extension([is_shift, high_limbs_sum, high_limbs_are_zero]);
     yield_constr.constraint(builder, t);
 
     let small_disp_filter = builder.mul_extension(is_shift, high_limbs_are_zero);
