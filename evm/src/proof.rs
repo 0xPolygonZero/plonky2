@@ -13,6 +13,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2::util::from_targets::FromTargets;
 use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
@@ -83,10 +84,43 @@ pub struct PublicValuesTarget {
     pub block_metadata: BlockMetadataTarget,
 }
 
+impl<'a, F, const D: usize> FromTargets<'a, F, D> for PublicValuesTarget {
+    type Config = ();
+
+    fn len(_config: Self::Config) -> usize {
+        2 * <TrieRootsTarget as FromTargets<F, D>>::len(())
+            + <BlockMetadataTarget as FromTargets<F, D>>::len(())
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
+        Self {
+            trie_roots_before: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            trie_roots_after: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_metadata: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+        }
+    }
+}
+
 pub struct TrieRootsTarget {
     pub state_root: [Target; 8],
     pub transactions_root: [Target; 8],
     pub receipts_root: [Target; 8],
+}
+
+impl<'a, F, const D: usize> FromTargets<'a, F, D> for TrieRootsTarget {
+    type Config = ();
+
+    fn len(_config: Self::Config) -> usize {
+        24
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
+        Self {
+            state_root: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            transactions_root: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            receipts_root: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+        }
+    }
 }
 
 pub struct BlockMetadataTarget {
@@ -97,6 +131,26 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: Target,
+}
+
+impl<'a, F, const D: usize> FromTargets<'a, F, D> for BlockMetadataTarget {
+    type Config = ();
+
+    fn len(_config: Self::Config) -> usize {
+        11
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
+        Self {
+            block_beneficiary: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_timestamp: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_number: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_difficulty: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_gaslimit: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_chain_id: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+            block_base_fee: <_ as FromTargets<F, D>>::from_targets(targets, ()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

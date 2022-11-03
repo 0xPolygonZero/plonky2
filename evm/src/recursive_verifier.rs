@@ -560,7 +560,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
         ),
     ];
 
-    let public_values = add_virtual_public_values(builder);
+    let public_values = builder.add_virtual(());
     AllProofTarget {
         stark_proofs,
         public_values,
@@ -583,6 +583,7 @@ where
     });
     let verifier_data = std::array::from_fn(|i| {
         let verifier_data = &verifier_data[i];
+
         VerifierCircuitTarget {
             constants_sigmas_cap: builder
                 .constant_merkle_cap(&verifier_data.verifier_only.constants_sigmas_cap),
@@ -592,53 +593,6 @@ where
     RecursiveAllProofTargetWithData {
         recursive_proofs,
         verifier_data,
-    }
-}
-
-pub fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> PublicValuesTarget {
-    let trie_roots_before = add_virtual_trie_roots(builder);
-    let trie_roots_after = add_virtual_trie_roots(builder);
-    let block_metadata = add_virtual_block_metadata(builder);
-    PublicValuesTarget {
-        trie_roots_before,
-        trie_roots_after,
-        block_metadata,
-    }
-}
-
-pub fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> TrieRootsTarget {
-    let state_root = builder.add_virtual(());
-    let transactions_root = builder.add_virtual(());
-    let receipts_root = builder.add_virtual(());
-    TrieRootsTarget {
-        state_root,
-        transactions_root,
-        receipts_root,
-    }
-}
-
-pub fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> BlockMetadataTarget {
-    let block_beneficiary = builder.add_virtual(());
-    let block_timestamp = builder.add_virtual(());
-    let block_number = builder.add_virtual(());
-    let block_difficulty = builder.add_virtual(());
-    let block_gaslimit = builder.add_virtual(());
-    let block_chain_id = builder.add_virtual(());
-    let block_base_fee = builder.add_virtual(());
-    BlockMetadataTarget {
-        block_beneficiary,
-        block_timestamp,
-        block_number,
-        block_difficulty,
-        block_gaslimit,
-        block_chain_id,
-        block_base_fee,
     }
 }
 
