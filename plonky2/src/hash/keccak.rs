@@ -9,7 +9,7 @@ use keccak_hash::keccak;
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::plonk::config::Hasher;
-use crate::util::serialization::Buffer;
+use crate::util::serialization::Write;
 
 /// Keccak-256 pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
@@ -53,16 +53,17 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
+
 impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
     type Permutation = KeccakPermutation;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        let mut buffer = Buffer::new(Vec::new());
+        let mut buffer = Vec::new();
         buffer.write_field_vec(input).unwrap();
         let mut arr = [0; N];
-        let hash_bytes = keccak(buffer.bytes()).0;
+        let hash_bytes = keccak(buffer).0;
         arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use std::collections::HashMap;
 
+use hashbrown::HashMap;
 use maybe_rayon::*;
 use plonky2_field::polynomial::PolynomialValues;
 use plonky2_field::types::Field;

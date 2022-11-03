@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use std::collections::HashSet;
 
+use hashbrown::HashSet;
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 

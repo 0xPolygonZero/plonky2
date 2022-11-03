@@ -11,27 +11,17 @@ edition = "2021"
 default-run = "generate_constants"
 
 [features]
-default = [
-    "gate_testing",
-    "parallel",
-    "rand",
-    "rand_chacha",
-    "std",
-    "timing",
-]
-rand = [
-    "dep:rand",
-    "num/rand",
-    "plonky2_field/rand"
-]
+default = ["gate_testing", "parallel", "rand", "rand_chacha", "std", "timing"]
+rand = ["dep:rand", "num/rand", "plonky2_field/rand"]
 gate_testing = ["rand"]
-parallel = ["maybe_rayon/parallel"]
-std = ["anyhow/std"]
+parallel = ["hashbrown/rayon", "maybe_rayon/parallel"]
+std = ["anyhow/std", "rand/std"]
 timing = []
 
 [dependencies]
 anyhow = { version = "1.0.40", default-features = false }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
+hashbrown = { version = "0.12.3", default-features = false, features = ["ahash", "serde"] }
 itertools = { version = "0.10.0", default-features = false }
 keccak-hash = { version = "0.8.0", default-features = false }
 log = { version = "0.4.14", default-features = false }

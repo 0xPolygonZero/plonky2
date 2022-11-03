@@ -6,12 +6,11 @@ use plonky2_field::types::Field;
 
 pub(crate) mod context_tree;
 pub(crate) mod partial_products;
+
 pub mod reducing;
+pub mod serialization;
 pub mod strided_view;
 pub mod timing;
-
-#[cfg(feature = "std")]
-pub mod serialization;
 
 pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -> Vec<Vec<F>> {
     let poly_values = polys.into_iter().map(|p| p.values).collect::<Vec<_>>();

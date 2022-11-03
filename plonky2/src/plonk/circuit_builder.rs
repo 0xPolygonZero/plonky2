@@ -3,9 +3,10 @@ use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::max;
-use std::collections::{HashMap, HashSet};
+#[cfg(feature = "std")]
 use std::time::Instant;
 
+use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
 use plonky2_field::cosets::get_unique_coset_shifts;
@@ -692,6 +693,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
+        #[cfg(feature = "std")]
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
         let cap_height = self.config.fri_config.cap_height;
@@ -879,6 +881,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         timing.print();
+        #[cfg(feature = "std")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         CircuitData {
             prover_only,

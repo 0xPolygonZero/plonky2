@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use std::collections::HashMap;
 
+use hashbrown::HashMap;
 use num::Integer;
 
 use crate::hash::hash_types::RichField;

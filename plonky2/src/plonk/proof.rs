@@ -21,7 +21,9 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::verifier::verify_with_challenges;
-use crate::util::serialization::Buffer;
+use crate::util::serialization::Write;
+#[cfg(feature = "std")]
+use crate::util::serialization::{Buffer, Read};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -101,12 +103,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let mut buffer = Buffer::new(Vec::new());
-        buffer.write_proof_with_public_inputs(self)?;
-        Ok(buffer.bytes())
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        let _ = buffer.write_proof_with_public_inputs(self);
+        buffer
     }
 
+    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
@@ -226,11 +229,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
-    #[cfg(feature = "std")]
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let mut buffer = Buffer::new(Vec::new());
-        buffer.write_compressed_proof_with_public_inputs(self)?;
-        Ok(buffer.bytes())
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        let _ = buffer.write_compressed_proof_with_public_inputs(self);
+        buffer
     }
 
     #[cfg(feature = "std")]

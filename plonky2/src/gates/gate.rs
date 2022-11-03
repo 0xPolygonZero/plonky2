@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 use core::fmt::{Debug, Error, Formatter};
 use core::hash::{Hash, Hasher};
 use core::ops::Range;
-use std::collections::HashMap;
 
+use hashbrown::HashMap;
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::Field;

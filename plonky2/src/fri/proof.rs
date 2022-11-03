@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use std::collections::HashMap;
 
+use hashbrown::HashMap;
 use itertools::izip;
 use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::PolynomialCoeffs;
