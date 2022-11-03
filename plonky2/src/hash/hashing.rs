@@ -2,8 +2,7 @@
 
 use plonky2_field::extension::Extendable;
 
-use crate::hash::hash_types::RichField;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;

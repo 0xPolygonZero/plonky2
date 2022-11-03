@@ -85,6 +85,10 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         self.batch_size
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn view(&self, index: usize) -> EvaluationVarsBase<'a, F> {
         // We cannot implement `Index` as `EvaluationVarsBase` is a struct, not a reference.
         assert!(index < self.len());

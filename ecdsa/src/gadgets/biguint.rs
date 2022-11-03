@@ -346,11 +346,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::{
-        iop::witness::PartialWitness,
-        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig},
-    };
     use rand::Rng;
 
     use crate::gadgets::biguint::{CircuitBuilderBiguint, WitnessBigUint};

@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::plonk::config::GenericHashOut;
-use crate::plonk::config::Hasher;
+use crate::plonk::config::{GenericHashOut, Hasher};
 
 /// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
@@ -19,6 +18,10 @@ pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
 impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn height(&self) -> usize {
@@ -64,10 +67,7 @@ fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
 fn fill_subtree<F: RichField, H: Hasher<F>>(
     digests_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
-) -> H::Hash
-where
-    [(); H::HASH_SIZE]:,
-{
+) -> H::Hash {
     assert_eq!(leaves.len(), digests_buf.len() / 2 + 1);
     if digests_buf.is_empty() {
         H::hash_or_noop(&leaves[0])
@@ -98,9 +98,7 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     cap_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
     cap_height: usize,
-) where
-    [(); H::HASH_SIZE]:,
-{
+) {
     // Special case of a tree that's all cap. The usual case will panic because we'll try to split
     // an empty slice into chunks of `0`. (We would not need this if there was a way to split into
     // `blah` chunks as opposed to chunks _of_ `blah`.)
@@ -132,10 +130,7 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
 }
 
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
-    pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self
-    where
-        [(); H::HASH_SIZE]:,
-    {
+    pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(
             cap_height <= log2_leaves_len,
@@ -222,13 +217,14 @@ mod tests {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn verify_all_leaves<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+    >(
         leaves: Vec<Vec<F>>,
         cap_height: usize,
-    ) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<()> {
         let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);

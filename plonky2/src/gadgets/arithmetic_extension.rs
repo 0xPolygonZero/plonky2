@@ -1,7 +1,6 @@
 use core::borrow::Borrow;
 
-use plonky2_field::extension::FieldExtension;
-use plonky2_field::extension::{Extendable, OEF};
+use plonky2_field::extension::{Extendable, FieldExtension, OEF};
 use plonky2_field::types::{Field, Field64};
 use plonky2_util::bits_u64;
 

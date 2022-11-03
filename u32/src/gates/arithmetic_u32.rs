@@ -416,8 +416,7 @@ mod tests {
     use anyhow::Result;
     use plonky2::gates::gate::Gate;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use plonky2::hash::hash_types::HashOut;
-    use plonky2::hash::hash_types::RichField;
+    use plonky2::hash::hash_types::{HashOut, RichField};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::Extendable;

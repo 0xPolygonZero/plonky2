@@ -3,10 +3,10 @@ use core::fmt::Debug;
 use plonky2_field::extension::quadratic::QuadraticExtension;
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::goldilocks_field::GoldilocksField;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-use crate::hash::hash_types::HashOut;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{HashOut, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::hash::keccak::KeccakHash;
 use crate::hash::poseidon::PoseidonHash;
@@ -26,6 +26,8 @@ pub trait GenericHashOut<F: RichField>:
 pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
+
+    /// Hash Output
     type Hash: GenericHashOut<F>;
 
     /// Permutation used in the sponge construction.
@@ -48,12 +50,9 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
 
     /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
     /// no-op.
-    fn hash_or_noop(inputs: &[F]) -> Self::Hash
-    where
-        [(); Self::HASH_SIZE]:,
-    {
+    fn hash_or_noop(inputs: &[F]) -> Self::Hash {
         if inputs.len() <= 4 {
-            let mut inputs_bytes = [0u8; Self::HASH_SIZE];
+            let mut inputs_bytes = vec![0u8; Self::HASH_SIZE];
             for i in 0..inputs.len() {
                 inputs_bytes[i * 8..(i + 1) * 8]
                     .copy_from_slice(&inputs[i].to_canonical_u64().to_le_bytes());

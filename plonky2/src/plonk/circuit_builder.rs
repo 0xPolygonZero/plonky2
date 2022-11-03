@@ -686,10 +686,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
@@ -887,20 +884,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.verifier_data()

@@ -87,7 +87,8 @@
 //! In the case of DIV, we do something similar, except that we "replace"
 //! the modulus with "2^256" to force the quotient to be zero.
 
-use num::{bigint::Sign, BigInt, One, Zero};
+use num::bigint::Sign;
+use num::{BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;

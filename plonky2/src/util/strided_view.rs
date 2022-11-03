@@ -123,6 +123,11 @@ impl<'a, P: PackedField> PackedStridedView<'a, P> {
     pub fn len(&self) -> usize {
         self.length
     }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<'a, P: PackedField> Index<usize> for PackedStridedView<'a, P> {

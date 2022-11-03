@@ -323,18 +323,17 @@ mod tests {
         Ok(())
     }
 
+    type Proof<F, C, const D: usize> = (
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, D>,
+    );
+
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
     fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<(
-        ProofWithPublicInputs<F, C, D>,
-        VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
-    )>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<Proof<F, C, D>> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
@@ -361,14 +360,9 @@ mod tests {
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
-    ) -> Result<(
-        ProofWithPublicInputs<F, C, D>,
-        VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
-    )>
+    ) -> Result<Proof<F, C, D>>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -423,10 +417,7 @@ mod tests {
         proof: &ProofWithPublicInputs<F, C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, D>,
-    ) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<()> {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;

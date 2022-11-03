@@ -12,8 +12,7 @@ use plonky2_util::ceil_div_usize;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationPair;
-use crate::vars::StarkEvaluationTargets;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {

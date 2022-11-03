@@ -3,8 +3,7 @@ use core::marker::PhantomData;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 
-use crate::hash::hash_types::RichField;
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -170,6 +169,7 @@ pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<
     sponge_state: [Target; SPONGE_WIDTH],
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
+    __: PhantomData<(F, H)>,
 }
 
 impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
@@ -177,18 +177,20 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 {
     pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
-        RecursiveChallenger {
+        Self {
             sponge_state: [zero; SPONGE_WIDTH],
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
+            __: PhantomData,
         }
     }
 
     pub fn from_state(sponge_state: [Target; SPONGE_WIDTH]) -> Self {
-        RecursiveChallenger {
+        Self {
             sponge_state,
             input_buffer: vec![],
             output_buffer: vec![],
+            __: PhantomData,
         }
     }
 

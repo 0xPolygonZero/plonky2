@@ -5,8 +5,7 @@ use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::poseidon::{Poseidon, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use starky::vars::StarkEvaluationTargets;
-use starky::vars::StarkEvaluationVars;
+use starky::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 use crate::registers::permutation::*;

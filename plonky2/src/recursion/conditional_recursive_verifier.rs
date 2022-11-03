@@ -17,7 +17,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
     CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{
     OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
@@ -33,10 +33,7 @@ pub(crate) fn dummy_proof<
 ) -> Result<(
     ProofWithPublicInputs<F, C, D>,
     VerifierOnlyCircuitData<C, D>,
-)>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
+)> {
     let config = common_data.config.clone();
 
     let mut pw = PartialWitness::new();

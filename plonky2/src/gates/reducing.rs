@@ -1,7 +1,6 @@
 use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::extension::FieldExtension;
+use plonky2_field::extension::{Extendable, FieldExtension};
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;

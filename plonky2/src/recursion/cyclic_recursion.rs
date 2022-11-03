@@ -12,7 +12,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
     CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::Hasher;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use crate::recursion::conditional_recursive_verifier::dummy_proof;
@@ -100,7 +99,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> Result<CyclicRecursionTarget<D>>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         if self.verifier_data_public_input.is_none() {
             self.add_verifier_data_public_input();
@@ -179,7 +177,6 @@ pub fn set_cyclic_recursion_data_target<
 ) -> Result<()>
 where
     C::Hasher: AlgebraicHasher<F>,
-    [(); C::Hasher::HASH_SIZE]:,
 {
     if let Some(proof) = cyclic_recursion_data.proof {
         pw.set_bool_target(cyclic_recursion_data_target.base_case, false);
@@ -280,7 +277,6 @@ mod tests {
     >() -> CommonCircuitData<F, D>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         let config = CircuitConfig::standard_recursion_config();
         let builder = CircuitBuilder::<F, D>::new(config);

@@ -20,9 +20,9 @@ use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
+    PermutationCheckVars,
 };
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;

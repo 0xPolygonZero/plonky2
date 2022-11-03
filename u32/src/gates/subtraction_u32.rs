@@ -339,8 +339,7 @@ mod tests {
     use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::quartic::QuarticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
-    use plonky2_field::types::PrimeField64;
+    use plonky2_field::types::{Field, PrimeField64};
     use rand::Rng;
 
     use crate::gates::subtraction_u32::U32SubtractionGate;

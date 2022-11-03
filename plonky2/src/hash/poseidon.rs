@@ -1,5 +1,5 @@
 //! Implementation of the Poseidon hash function, as described in
-//! https://eprint.iacr.org/2019/458.pdf
+//! <https://eprint.iacr.org/2019/458.pdf>
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::{Field, PrimeField64};

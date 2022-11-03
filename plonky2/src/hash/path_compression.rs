@@ -57,10 +57,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>>
-where
-    [(); H::HASH_SIZE]:,
-{
+) -> Vec<MerkleProof<F, H>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());

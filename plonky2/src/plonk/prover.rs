@@ -1,7 +1,6 @@
 use core::mem::swap;
 
-use anyhow::ensure;
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -17,8 +16,7 @@ use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkOracle;
-use crate::plonk::proof::OpeningSet;
-use crate::plonk::proof::{Proof, ProofWithPublicInputs};
+use crate::plonk::proof::{OpeningSet, Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBaseBatch;
 use crate::timed;
@@ -31,10 +29,7 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
+) -> Result<ProofWithPublicInputs<F, C, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();

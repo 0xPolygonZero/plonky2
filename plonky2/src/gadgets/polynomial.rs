@@ -14,6 +14,10 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn eval_scalar<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,

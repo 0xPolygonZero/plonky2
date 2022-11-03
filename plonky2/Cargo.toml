@@ -19,30 +19,31 @@ rand_chacha = ["dep:rand_chacha"]
 timing = []
 
 [dependencies]
+anyhow = "1.0.40"
+derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
+itertools = "0.10.0"
+keccak-hash = "0.8.0"
+log = "0.4.14"
+maybe_rayon = { path = "../maybe_rayon" }
+num = { version = "0.4", features = [ "rand" ] }
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
-log = "0.4.14"
-itertools = "0.10.0"
-num = { version = "0.4", features = [ "rand" ] }
 rand = { version = "0.8.4", optional = true }
 rand_chacha = { version = "0.3.1", optional = true }
-maybe_rayon = { path = "../maybe_rayon" }
-unroll = "0.1.5"
-anyhow = "1.0.40"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.11.1"
-keccak-hash = "0.8.0"
 static_assertions = "1.1.0"
+unroll = "0.1.5"
 
 [dev-dependencies]
-rand = "0.8.4"
-rand_chacha = "0.3.1"
 criterion = "0.3.5"
 env_logger = "0.9.0"
-tynm = "0.1.6"
-structopt = "0.3.26"
 num_cpus = "1.13.1"
+rand = "0.8.4"
+rand_chacha = "0.3.1"
 rayon = "1.5.1" 
+structopt = "0.3.26"
+tynm = "0.1.6"
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
 jemallocator = "0.3.2"

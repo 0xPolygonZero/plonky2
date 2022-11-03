@@ -2,8 +2,7 @@ use anyhow::{ensure, Result};
 use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::hash_types::RichField;
-use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
@@ -21,6 +20,10 @@ impl<F: RichField, H: Hasher<F>> MerkleProof<F, H> {
     pub fn len(&self) -> usize {
         self.siblings.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -36,10 +39,7 @@ pub fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     leaf_index: usize,
     merkle_root: H::Hash,
     proof: &MerkleProof<F, H>,
-) -> Result<()>
-where
-    [(); H::HASH_SIZE]:,
-{
+) -> Result<()> {
     let merkle_cap = MerkleCap(vec![merkle_root]);
     verify_merkle_proof_to_cap(leaf_data, leaf_index, &merkle_cap, proof)
 }
@@ -51,10 +51,7 @@ pub fn verify_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     leaf_index: usize,
     merkle_cap: &MerkleCap<F, H>,
     proof: &MerkleProof<F, H>,
-) -> Result<()>
-where
-    [(); H::HASH_SIZE]:,
-{
+) -> Result<()> {
     let mut index = leaf_index;
     let mut current_digest = H::hash_or_noop(&leaf_data);
     for &sibling_digest in proof.siblings.iter() {

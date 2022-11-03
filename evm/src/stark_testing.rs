@@ -1,15 +1,12 @@
 use anyhow::{ensure, Result};
-use plonky2::field::extension::Extendable;
-use plonky2::field::extension::FieldExtension;
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::witness::PartialWitness;
-use plonky2::iop::witness::Witness;
+use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::config::Hasher;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 

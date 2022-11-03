@@ -6,8 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::config::Hasher;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 

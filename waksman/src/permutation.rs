@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use plonky2::field::{extension::Extendable, types::Field};
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
@@ -374,7 +375,8 @@ mod tests {
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::{seq::SliceRandom, thread_rng, Rng};
+    use rand::seq::SliceRandom;
+    use rand::{thread_rng, Rng};
 
     use super::*;
 

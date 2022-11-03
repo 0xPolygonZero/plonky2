@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::io::Cursor;
-use std::io::{Read, Result, Write};
+use std::io::{Cursor, Read, Result, Write};
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::polynomial::PolynomialCoeffs;
@@ -32,6 +31,10 @@ impl Buffer {
         self.0.get_ref().len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn bytes(self) -> Vec<u8> {
         self.0.into_inner()
     }
@@ -60,9 +63,7 @@ impl Buffer {
     fn read_field<F: Field64>(&mut self) -> Result<F> {
         let mut buf = [0; std::mem::size_of::<u64>()];
         self.0.read_exact(&mut buf)?;
-        Ok(F::from_canonical_u64(u64::from_le_bytes(
-            buf.try_into().unwrap(),
-        )))
+        Ok(F::from_canonical_u64(u64::from_le_bytes(buf)))
     }
 
     fn write_field_ext<F: RichField + Extendable<D>, const D: usize>(

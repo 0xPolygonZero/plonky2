@@ -7,7 +7,7 @@ use plonky2_field::types::Field;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 
-/// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
+/// Disjoint Set Forest data-structure following <https://en.wikipedia.org/wiki/Disjoint-set_data_structure>.
 pub struct Forest {
     /// A map of parent pointers, stored as indices.
     pub(crate) parents: Vec<usize>,
@@ -44,7 +44,7 @@ impl Forest {
         self.parents.push(index);
     }
 
-    /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
+    /// Path compression method, see <https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives>.
     pub fn find(&mut self, mut x_index: usize) -> usize {
         // Note: We avoid recursion here since the chains can be long, causing stack overflows.
 

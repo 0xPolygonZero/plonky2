@@ -1,7 +1,6 @@
 use std::ops::Mul;
 
-use plonky2_field::types::Field;
-use plonky2_field::types::PrimeField;
+use plonky2_field::types::{Field, PrimeField};
 
 use crate::curve::curve_types::{Curve, CurveScalar, ProjectivePoint};
 

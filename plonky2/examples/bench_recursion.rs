@@ -5,27 +5,26 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
-use core::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
+use core::num::ParseIntError;
+use core::ops::RangeInclusive;
+use core::str::FromStr;
 
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
-use plonky2::{
-    gates::noop::NoopGate,
-    hash::hash_types::RichField,
-    iop::witness::{PartialWitness, Witness},
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-        },
-        config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig},
-        proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
-        prover::prove,
-    },
-    util::timing::TimingTree,
+use plonky2::gates::noop::NoopGate;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::witness::{PartialWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
+use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
+use plonky2::plonk::prover::prove;
+use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
-use rand::{rngs::OsRng, RngCore, SeedableRng};
+use rand::rngs::OsRng;
+use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
 

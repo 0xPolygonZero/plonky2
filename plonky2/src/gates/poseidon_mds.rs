@@ -2,8 +2,7 @@ use core::marker::PhantomData;
 use core::ops::Range;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;
-use plonky2_field::extension::Extendable;
-use plonky2_field::extension::FieldExtension;
+use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::Field;
 
 use crate::gates::gate::Gate;
@@ -18,16 +17,14 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-#[derive(Debug)]
-pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
-    _phantom: PhantomData<F>,
-}
+/// Poseidon MDS Gate
+#[derive(derivative::Derivative)]
+#[derivative(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize>(PhantomData<F>);
 
 impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F, D> {
     pub fn new() -> Self {
-        PoseidonMdsGate {
-            _phantom: PhantomData,
-        }
+        Self(PhantomData)
     }
 
     pub fn wires_input(i: usize) -> Range<usize> {

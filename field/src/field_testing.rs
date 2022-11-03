@@ -1,5 +1,4 @@
-use crate::extension::Extendable;
-use crate::extension::Frobenius;
+use crate::extension::{Extendable, Frobenius};
 use crate::ops::Square;
 use crate::types::Field;
 
