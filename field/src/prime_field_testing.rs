@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::types::PrimeField64;
 
 /// Generates a series of non-negative integers less than `modulus` which cover a range of

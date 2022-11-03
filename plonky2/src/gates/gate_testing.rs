@@ -1,7 +1,10 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_field::types::Field;
+use plonky2_field::types::{Field, Sample};
 use plonky2_util::log2_ceil;
 
 use crate::gates::gate::Gate;

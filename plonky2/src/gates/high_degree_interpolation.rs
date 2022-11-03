@@ -279,7 +279,7 @@ mod tests {
     use anyhow::Result;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::polynomial::PolynomialCoeffs;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::{Field, Sample};
 
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};

@@ -369,9 +369,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2_field::types::Sample;
 
     use super::*;
-    use crate::field::types::Field;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;

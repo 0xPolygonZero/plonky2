@@ -154,7 +154,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let proof_bytes = proof.to_bytes()?;
+    let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
     let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
     assert_eq!(proof, &proof_from_bytes);
@@ -167,7 +167,7 @@ where
     info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
     assert_eq!(proof, &decompressed_compressed_proof);
 
-    let compressed_proof_bytes = compressed_proof.to_bytes()?;
+    let compressed_proof_bytes = compressed_proof.to_bytes();
     info!(
         "Compressed proof length: {} bytes",
         compressed_proof_bytes.len()

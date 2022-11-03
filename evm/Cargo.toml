@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-plonky2 = { path = "../plonky2", default-features = false, features = ["rand", "timing"] }
+plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
 plonky2_util = { path = "../util" }
 eth_trie_utils = "0.4.0"
 anyhow = "1.0.40"

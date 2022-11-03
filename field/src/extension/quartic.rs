@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::ops::Square;
-use crate::types::Field;
+use crate::types::{Field, Sample};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -46,6 +46,21 @@ impl<F: Extendable<4>> FieldExtension<4> for QuarticExtension<F> {
 impl<F: Extendable<4>> From<F> for QuarticExtension<F> {
     fn from(x: F) -> Self {
         Self([x, F::ZERO, F::ZERO, F::ZERO])
+    }
+}
+
+impl<F: Extendable<4>> Sample for QuarticExtension<F> {
+    #[inline]
+    fn sample<R>(rng: &mut R) -> Self
+    where
+        R: rand::RngCore + ?Sized,
+    {
+        Self::from_basefield_array([
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+        ])
     }
 }
 
@@ -103,16 +118,6 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
 
     fn from_noncanonical_u128(n: u128) -> Self {
         F::from_noncanonical_u128(n).into()
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self {
-        Self::from_basefield_array([
-            F::rand_from_rng(rng),
-            F::rand_from_rng(rng),
-            F::rand_from_rng(rng),
-            F::rand_from_rng(rng),
-        ])
     }
 }
 

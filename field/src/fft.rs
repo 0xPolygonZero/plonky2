@@ -207,6 +207,8 @@ pub(crate) fn fft_classic<F: Field>(values: &mut [F], r: usize, root_table: &Fft
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use plonky2_util::{log2_ceil, log2_strict};
 
     use crate::fft::{fft, fft_with_options, ifft};
@@ -224,7 +226,7 @@ mod tests {
         // "random", the last degree_padded-degree of them are zero.
         let coeffs = (0..degree)
             .map(|i| F::from_canonical_usize(i * 1337 % 100))
-            .chain(std::iter::repeat(F::ZERO).take(degree_padded - degree))
+            .chain(core::iter::repeat(F::ZERO).take(degree_padded - degree))
             .collect::<Vec<_>>();
         assert_eq!(coeffs.len(), degree_padded);
         let coefficients = PolynomialCoeffs { coeffs };

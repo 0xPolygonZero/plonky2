@@ -267,7 +267,7 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-    use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
     use crate::recursion::cyclic_recursion::{
         check_cyclic_proof_verifier_data, set_cyclic_recursion_data_target, CyclicRecursionData,
     };

@@ -340,7 +340,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use anyhow::Result;
     use itertools::unfold;
@@ -351,7 +351,7 @@ mod tests {
     use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::extension::quartic::QuarticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::{Field, Sample};
     use rand::Rng;
 
     use crate::gates::add_many_u32::U32AddManyGate;

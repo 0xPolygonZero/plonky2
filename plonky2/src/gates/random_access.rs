@@ -384,7 +384,7 @@ mod tests {
 
     use anyhow::Result;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::{Field, Sample};
     use rand::{thread_rng, Rng};
 
     use crate::gates::gate::Gate;

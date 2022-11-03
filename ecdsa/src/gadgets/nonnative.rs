@@ -647,7 +647,7 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2_field::secp256k1_base::Secp256K1Base;
-    use plonky2_field::types::{Field, PrimeField};
+    use plonky2_field::types::{Field, PrimeField, Sample};
 
     use crate::gadgets::nonnative::CircuitBuilderNonNative;
 

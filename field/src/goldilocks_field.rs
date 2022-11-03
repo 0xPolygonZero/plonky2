@@ -8,7 +8,7 @@ use plonky2_util::{assume, branch_hint};
 use serde::{Deserialize, Serialize};
 
 use crate::inversion::try_inverse_u64;
-use crate::types::{Field, Field64, PrimeField, PrimeField64};
+use crate::types::{Field, Field64, PrimeField, PrimeField64, Sample};
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -53,6 +53,17 @@ impl Display for GoldilocksField {
 impl Debug for GoldilocksField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.0, f)
+    }
+}
+
+impl Sample for GoldilocksField {
+    #[inline]
+    fn sample<R>(rng: &mut R) -> Self
+    where
+        R: rand::RngCore + ?Sized,
+    {
+        use rand::Rng;
+        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
 }
 
@@ -101,12 +112,6 @@ impl Field for GoldilocksField {
 
     fn from_noncanonical_u128(n: u128) -> Self {
         reduce128(n)
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self {
-        use rand::Rng;
-        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
 
     #[inline]

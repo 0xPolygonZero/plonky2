@@ -274,7 +274,6 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let random_value = F::rand();
-
         out_buffer.set_target(self.target, random_value);
     }
 }

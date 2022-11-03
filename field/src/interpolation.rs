@@ -81,7 +81,7 @@ mod tests {
     use crate::extension::quartic::QuarticExtension;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
-    use crate::types::Field;
+    use crate::types::{Field, Sample};
 
     #[test]
     fn interpolant_random() {

@@ -13,6 +13,6 @@ plonky2_u32 = { path = "../u32" }
 num = "0.4.0"
 itertools = "0.10.0"
 rayon = "1.5.1"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 anyhow = "1.0.40"
 rand = "0.8.4"

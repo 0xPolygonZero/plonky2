@@ -8,7 +8,7 @@
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
 #![feature(stdsimd)]
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
 

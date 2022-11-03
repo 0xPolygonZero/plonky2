@@ -9,7 +9,7 @@ default = ["parallel"]
 parallel = ["plonky2/parallel", "maybe_rayon/parallel"]
 
 [dependencies]
-plonky2 = { path = "../plonky2", default-features = false, features = ["rand", "timing"] }
+plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
 plonky2_util = { path = "../util" }
 maybe_rayon = { path = "../maybe_rayon"}
 anyhow = "1.0.40"

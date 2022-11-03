@@ -254,7 +254,7 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Field;
+    use plonky2::field::types::{Field, Sample};
     use plonky2::hash::poseidon::Poseidon;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
@@ -296,14 +296,14 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let state = [F::default(); SPONGE_WIDTH].map(|_| F::rand_from_rng(&mut rng));
+        let state = [F::default(); SPONGE_WIDTH].map(|_| F::sample(&mut rng));
 
         // Get true Poseidon hash
         let target = GoldilocksField::poseidon(state);
 
         // Get result from `generate_permutation_unit`
         // Initialize `values` with randomness to test that the code doesn't rely on zero-filling.
-        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::sample(&mut rng));
         for i in 0..SPONGE_WIDTH {
             values[col_input(i)] = state[i];
         }

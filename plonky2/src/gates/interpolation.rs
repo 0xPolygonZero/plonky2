@@ -108,7 +108,7 @@ mod tests {
     use anyhow::Result;
     use plonky2_field::extension::FieldExtension;
     use plonky2_field::interpolation::interpolant;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::{Field, Sample};
 
     use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;

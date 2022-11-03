@@ -134,17 +134,18 @@ impl<F: Field> PolynomialCoeffs<F> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
     use crate::extension::quartic::QuarticExtension;
     use crate::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
-    use crate::types::Field;
+    use crate::types::{Field, Sample};
 
     #[test]
     fn test_division_by_linear() {
         type F = QuarticExtension<GoldilocksField>;
-        let n = thread_rng().gen_range(1..1000);
+        let n = OsRng.gen_range(1..1000);
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
         let ev = poly.eval(z);

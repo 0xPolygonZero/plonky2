@@ -9,7 +9,7 @@ use num::bigint::BigUint;
 use num::{Integer, One};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Field, PrimeField};
+use crate::types::{Field, PrimeField, Sample};
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -64,6 +64,17 @@ impl Display for Secp256K1Scalar {
 impl Debug for Secp256K1Scalar {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.to_canonical_biguint(), f)
+    }
+}
+
+impl Sample for Secp256K1Scalar {
+    #[inline]
+    fn sample<R>(rng: &mut R) -> Self
+    where
+        R: rand::RngCore + ?Sized,
+    {
+        use num::bigint::RandBigInt;
+        Self::from_noncanonical_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
 
@@ -138,12 +149,6 @@ impl Field for Secp256K1Scalar {
     #[inline]
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self([n.0, n.1 as u64, 0, 0])
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self {
-        use num::bigint::RandBigInt;
-        Self::from_noncanonical_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
 

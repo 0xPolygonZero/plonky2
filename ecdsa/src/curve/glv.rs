@@ -103,7 +103,7 @@ pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectiveP
 mod tests {
     use anyhow::Result;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::{Field, Sample};
 
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::glv::{decompose_secp256k1_scalar, glv_mul, GLV_S};

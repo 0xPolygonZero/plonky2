@@ -191,12 +191,14 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use itertools::Itertools;
 
     use crate::extension::algebra::ExtensionAlgebra;
     use crate::extension::{Extendable, FieldExtension};
     use crate::goldilocks_field::GoldilocksField;
-    use crate::types::Field;
+    use crate::types::{Field, Sample};
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {

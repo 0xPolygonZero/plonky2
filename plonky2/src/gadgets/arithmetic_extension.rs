@@ -571,7 +571,7 @@ pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const
 mod tests {
     use anyhow::Result;
     use plonky2_field::extension::algebra::ExtensionAlgebra;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::Sample;
 
     use crate::iop::ext_target::ExtensionAlgebraTarget;
     use crate::iop::witness::{PartialWitness, Witness};
@@ -666,8 +666,8 @@ mod tests {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
 
-        let x = ExtensionAlgebra::<FF, D>(FF::rand_arr());
-        let y = ExtensionAlgebra::<FF, D>(FF::rand_arr());
+        let x = ExtensionAlgebra::<FF, D>(FF::rand_array());
+        let y = ExtensionAlgebra::<FF, D>(FF::rand_array());
         let z = x * y;
         for i in 0..D {
             pw.set_extension_target(xt.0[i], x.0[i]);

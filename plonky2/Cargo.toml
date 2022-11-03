@@ -11,12 +11,11 @@ edition = "2021"
 default-run = "generate_constants"
 
 [features]
-default = ["gate_testing", "parallel", "rand", "rand_chacha", "std", "timing"]
-rand = ["dep:rand", "num/rand", "plonky2_field/rand"]
-gate_testing = ["rand"]
+default = ["gate_testing", "parallel", "rand_chacha", "std", "timing"]
+gate_testing = []
 parallel = ["hashbrown/rayon", "maybe_rayon/parallel"]
 std = ["anyhow/std", "rand/std"]
-timing = []
+timing = ["std"]
 
 [dependencies]
 anyhow = { version = "1.0.40", default-features = false }
@@ -26,10 +25,10 @@ itertools = { version = "0.10.0", default-features = false }
 keccak-hash = { version = "0.8.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
 maybe_rayon = { path = "../maybe_rayon", default-features = false }
-num = { version = "0.4", default-features = false }
+num = { version = "0.4", default-features = false, features = ["rand"] }
 plonky2_field = { path = "../field", default-features = false }
 plonky2_util = { path = "../util", default-features = false }
-rand = { version = "0.8.4", optional = true, default-features = false }
+rand = { version = "0.8.4", default-features = false }
 rand_chacha = { version = "0.3.1", optional = true, default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_cbor = { version = "0.11.1", default-features = false }
@@ -40,6 +39,7 @@ unroll = { version = "0.1.5", default-features = false }
 criterion = "0.3.5"
 env_logger = "0.9.0"
 num_cpus = "1.13.1"
+plonky2 = { path = "." }
 rand = "0.8.4"
 rand_chacha = "0.3.1"
 rayon = "1.5.1" 
@@ -51,7 +51,7 @@ jemallocator = "0.3.2"
 
 [[bin]]
 name = "generate_constants"
-required-features = ["rand", "rand_chacha"]
+required-features = ["rand_chacha"]
 
 [[bench]]
 name = "field_arithmetic"

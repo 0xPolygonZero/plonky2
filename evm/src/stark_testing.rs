@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -90,8 +90,8 @@ where
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {
-        local_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
-        next_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
+        local_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
+        next_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
     };
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();

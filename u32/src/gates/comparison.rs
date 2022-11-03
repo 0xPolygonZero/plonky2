@@ -512,7 +512,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use anyhow::Result;
     use plonky2::gates::gate::Gate;
@@ -521,7 +521,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, PrimeField64};
+    use plonky2_field::types::{Field, PrimeField64, Sample};
     use rand::Rng;
 
     use crate::gates::comparison::ComparisonGate;

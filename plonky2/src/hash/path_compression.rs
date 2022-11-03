@@ -114,7 +114,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::types::Field;
+    use plonky2_field::types::Sample;
     use rand::{thread_rng, Rng};
 
     use super::*;

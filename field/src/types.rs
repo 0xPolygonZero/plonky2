@@ -8,11 +8,41 @@ use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAss
 use num::bigint::BigUint;
 use num::{Integer, One, ToPrimitive, Zero};
 use plonky2_util::bits_u64;
+use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::extension::Frobenius;
 use crate::ops::Square;
+
+/// Sampling
+pub trait Sample: Sized {
+    /// Samples a single value using `rng`.
+    fn sample<R>(rng: &mut R) -> Self
+    where
+        R: rand::RngCore + ?Sized;
+
+    /// Samples a single value using the [`OsRng`].
+    #[inline]
+    fn rand() -> Self {
+        Self::sample(&mut OsRng)
+    }
+
+    /// Samples a [`Vec`] of values of length `n` using [`OsRng`].
+    #[inline]
+    fn rand_vec(n: usize) -> Vec<Self> {
+        (0..n).map(|_| Self::rand()).collect()
+    }
+
+    /// Samples an array of values of length `N` using [`OsRng`].
+    #[inline]
+    fn rand_array<const N: usize>() -> [Self; N] {
+        Self::rand_vec(N)
+            .try_into()
+            .ok()
+            .expect("This conversion can never fail.")
+    }
+}
 
 /// A finite field.
 pub trait Field:
@@ -35,6 +65,7 @@ pub trait Field:
     + Debug
     + Default
     + Display
+    + Sample
     + Send
     + Sync
     + Serialize
@@ -319,9 +350,6 @@ pub trait Field:
         Self::from_noncanonical_u128(n)
     }
 
-    #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self;
-
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
         for _ in 0..power_log {
@@ -397,21 +425,6 @@ pub trait Field:
             base: *self,
             current: Self::ONE,
         }
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand() -> Self {
-        Self::rand_from_rng(&mut rand::rngs::OsRng)
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand_arr<const N: usize>() -> [Self; N] {
-        Self::rand_vec(N).try_into().unwrap()
-    }
-
-    #[cfg(feature = "rand")]
-    fn rand_vec(n: usize) -> Vec<Self> {
-        (0..n).map(|_| Self::rand()).collect()
     }
 
     /// Representative `g` of the coset used in FRI, so that LDEs in FRI are done over `gH`.

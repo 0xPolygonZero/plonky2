@@ -194,9 +194,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{
-        GenericConfig, Hasher, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
-    };
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -418,7 +416,7 @@ mod tests {
         vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, D>,
     ) -> Result<()> {
-        let proof_bytes = proof.to_bytes()?;
+        let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
         assert_eq!(proof, &proof_from_bytes);
@@ -431,7 +429,7 @@ mod tests {
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
-        let compressed_proof_bytes = compressed_proof.to_bytes()?;
+        let compressed_proof_bytes = compressed_proof.to_bytes();
         info!(
             "Compressed proof length: {} bytes",
             compressed_proof_bytes.len()

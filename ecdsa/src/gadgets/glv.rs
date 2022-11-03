@@ -137,7 +137,7 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::Field;
+    use plonky2_field::types::Sample;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::glv::glv_mul;
