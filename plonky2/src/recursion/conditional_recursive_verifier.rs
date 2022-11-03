@@ -157,7 +157,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let dummy_proof = self.add_virtual::<_, _>(inner_common_data);
+        let dummy_proof = self.add_virtual(inner_common_data);
         let dummy_verifier_data = self.add_virtual(inner_common_data.config.fri_config.cap_height);
         self.conditionally_verify_proof::<C>(
             condition,
@@ -401,9 +401,9 @@ mod tests {
         // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
-        let pt = builder.add_virtual::<_, _>(&data.common);
+        let pt = builder.add_virtual(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
-        let dummy_pt = builder.add_virtual::<_, _>(&data.common);
+        let dummy_pt = builder.add_virtual(&data.common);
         pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
         let inner_data = builder.add_virtual(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&inner_data, &data.verifier_only);

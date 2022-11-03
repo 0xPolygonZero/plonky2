@@ -40,22 +40,20 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     type Config = (&'a FriParams, usize); // (Params, query index)
 
     fn len(config: Self::Config) -> usize {
-        let num_siblings = config.0.degree_bits
+        let num_siblings = config.0.degree_bits + config.0.config.rate_bits
             - config.0.reduction_arity_bits[..=config.1]
                 .iter()
                 .sum::<usize>()
-            - config.0.config.cap_height
-            + config.0.config.rate_bits;
+            - config.0.config.cap_height;
         D * (1 << config.0.reduction_arity_bits[config.1]) + 4 * num_siblings
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
-        let num_siblings = config.0.degree_bits
+        let num_siblings = config.0.degree_bits + config.0.config.rate_bits
             - config.0.reduction_arity_bits[..=config.1]
                 .iter()
                 .sum::<usize>()
-            - config.0.config.cap_height
-            + config.0.config.rate_bits;
+            - config.0.config.cap_height;
         Self {
             evals: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
