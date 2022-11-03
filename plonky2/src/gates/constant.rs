@@ -1,3 +1,8 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+
 use plonky2_field::extension::Extendable;
 use plonky2_field::packed::PackedField;
 

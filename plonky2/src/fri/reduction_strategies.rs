@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+#[cfg(feature = "timing")]
 use std::time::Instant;
 
 use log::debug;
@@ -63,11 +66,13 @@ fn min_size_arity_bits(
     // in an optimal sequence, we would need a really massive polynomial.
     let max_arity_bits = opt_max_arity_bits.unwrap_or(4);
 
+    #[cfg(feature = "timing")]
     let start = Instant::now();
     let (mut arity_bits, fri_proof_size) =
         min_size_arity_bits_helper(degree_bits, rate_bits, num_queries, max_arity_bits, vec![]);
     arity_bits.shrink_to_fit();
 
+    #[cfg(feature = "timing")]
     debug!(
         "min_size_arity_bits took {:.3}s",
         start.elapsed().as_secs_f32()

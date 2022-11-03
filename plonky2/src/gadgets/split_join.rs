@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 use plonky2_util::ceil_div_usize;
 

@@ -1,8 +1,10 @@
 pub(crate) mod division;
 
-use std::cmp::max;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cmp::max;
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;

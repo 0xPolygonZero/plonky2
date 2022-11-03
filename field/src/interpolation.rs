@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use plonky2_util::log2_ceil;
 
 use crate::fft::ifft;

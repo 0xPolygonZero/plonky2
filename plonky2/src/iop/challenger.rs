@@ -1,4 +1,5 @@
-use core::convert::TryInto;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use plonky2_field::extension::{Extendable, FieldExtension};

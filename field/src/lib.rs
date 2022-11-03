@@ -8,8 +8,14 @@
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
 #![feature(stdsimd)]
+#![no_std]
+
+extern crate alloc;
+
+mod inversion;
 
 pub(crate) mod arch;
+
 pub mod batch_util;
 pub mod cosets;
 pub mod extension;
@@ -17,7 +23,6 @@ pub mod fft;
 pub mod goldilocks_extensions;
 pub mod goldilocks_field;
 pub mod interpolation;
-mod inversion;
 pub mod ops;
 pub mod packable;
 pub mod packed;
@@ -29,5 +34,6 @@ pub mod zero_poly_coset;
 
 #[cfg(test)]
 mod field_testing;
+
 #[cfg(test)]
 mod prime_field_testing;

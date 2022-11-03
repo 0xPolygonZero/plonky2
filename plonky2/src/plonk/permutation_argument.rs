@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use std::collections::HashMap;
 
 use maybe_rayon::*;

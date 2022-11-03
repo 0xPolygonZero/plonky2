@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use plonky2_field::extension::{flatten, Extendable, FieldExtension};
 use plonky2_field::interpolation::{barycentric_weights, interpolate};

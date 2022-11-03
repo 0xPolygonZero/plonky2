@@ -4,15 +4,19 @@
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::return_self_not_must_use)]
+#![no_std]
 
-use std::arch::asm;
-use std::hint::unreachable_unchecked;
-use std::mem::size_of;
-use std::ptr::{swap, swap_nonoverlapping};
+extern crate alloc;
 
-mod transpose_util;
+use alloc::vec::Vec;
+use core::arch::asm;
+use core::hint::unreachable_unchecked;
+use core::mem::size_of;
+use core::ptr::{swap, swap_nonoverlapping};
 
 use crate::transpose_util::transpose_in_place_square;
+
+mod transpose_util;
 
 pub fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize

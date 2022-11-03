@@ -68,7 +68,7 @@ where
 macro_rules! test_prime_field_arithmetic {
     ($field:ty) => {
         mod prime_field_arithmetic {
-            use std::ops::{Add, Mul, Neg, Sub};
+            use core::ops::{Add, Mul, Neg, Sub};
 
             use $crate::ops::Square;
             use $crate::types::{Field, Field64};

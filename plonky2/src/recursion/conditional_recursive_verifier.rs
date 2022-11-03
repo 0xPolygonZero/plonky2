@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
@@ -186,7 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         h1: HashOutTarget,
     ) -> HashOutTarget {
         HashOutTarget {
-            elements: std::array::from_fn(|i| self.select(b, h0.elements[i], h1.elements[i])),
+            elements: core::array::from_fn(|i| self.select(b, h0.elements[i], h1.elements[i])),
         }
     }
 

@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::fmt::{self, Debug, Display, Formatter};
+use core::iter::{Product, Sum};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
 use num::traits::Pow;
@@ -112,7 +112,7 @@ impl<F: Extendable<5>> Field for QuinticExtension<F> {
     }
 
     #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
+    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self {
         Self::from_basefield_array([
             F::rand_from_rng(rng),
             F::rand_from_rng(rng),
@@ -124,7 +124,7 @@ impl<F: Extendable<5>> Field for QuinticExtension<F> {
 }
 
 impl<F: Extendable<5>> Display for QuinticExtension<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{} + {}*a + {}*a^2 + {}*a^3 + {}*a^4",
@@ -134,7 +134,7 @@ impl<F: Extendable<5>> Display for QuinticExtension<F> {
 }
 
 impl<F: Extendable<5>> Debug for QuinticExtension<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
     }
 }

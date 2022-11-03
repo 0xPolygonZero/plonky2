@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::ops::Range;
 
 use plonky2_field::extension::algebra::ExtensionAlgebra;

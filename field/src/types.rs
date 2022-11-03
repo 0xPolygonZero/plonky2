@@ -1,7 +1,9 @@
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt::{Debug, Display};
+use core::hash::Hash;
+use core::iter::{Product, Sum};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
 use num::{Integer, One, ToPrimitive, Zero};
@@ -318,7 +320,7 @@ pub trait Field:
     }
 
     #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self;
+    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self;
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
@@ -399,7 +401,7 @@ pub trait Field:
 
     #[cfg(feature = "rand")]
     fn rand() -> Self {
-        Self::rand_from_rng(&mut rand::thread_rng())
+        Self::rand_from_rng(&mut rand::rngs::OsRng)
     }
 
     #[cfg(feature = "rand")]

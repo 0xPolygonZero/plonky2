@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use plonky2_util::log2_ceil;
 
 use crate::polynomial::PolynomialCoeffs;
@@ -68,7 +71,7 @@ impl<F: Field> PolynomialCoeffs<F> {
     }
 
     /// Let `self=p(X)`, this returns `(p(X)-p(z))/(X-z)`.
-    /// See https://en.wikipedia.org/wiki/Horner%27s_method
+    /// See <https://en.wikipedia.org/wiki/Horner%27s_method>
     pub fn divide_by_linear(&self, z: F) -> PolynomialCoeffs<F> {
         let mut bs = self
             .coeffs

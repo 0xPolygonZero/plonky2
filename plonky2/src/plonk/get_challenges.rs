@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use std::collections::HashSet;
 
 use plonky2_field::extension::Extendable;

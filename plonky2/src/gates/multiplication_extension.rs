@@ -1,3 +1,7 @@
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::ops::Range;
 
 use plonky2_field::extension::{Extendable, FieldExtension};

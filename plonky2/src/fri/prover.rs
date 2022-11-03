@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2_field::extension::{flatten, unflatten, Extendable};

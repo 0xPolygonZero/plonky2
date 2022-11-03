@@ -1,3 +1,6 @@
+use alloc::vec::Vec;
+use alloc::{format, vec};
+
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};

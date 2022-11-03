@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use core::borrow::Borrow;
 
 use plonky2_field::extension::{Extendable, FieldExtension, OEF};

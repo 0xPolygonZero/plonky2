@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_field::types::{Field, PrimeField64};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

@@ -1,3 +1,7 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::Gate;

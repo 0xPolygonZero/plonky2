@@ -1,4 +1,7 @@
 #![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
+
+use alloc::vec;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
@@ -47,7 +50,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
         let constants_sigmas_cap = MerkleCap(
             (0..cap_len)
                 .map(|i| HashOut {
-                    elements: std::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
+                    elements: core::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
                 })
                 .collect(),
         );
@@ -72,12 +75,12 @@ impl VerifierCircuitTarget {
         let constants_sigmas_cap = MerkleCapTarget(
             (0..cap_len)
                 .map(|i| HashOutTarget {
-                    elements: std::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
+                    elements: core::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
                 })
                 .collect(),
         );
         let circuit_digest = HashOutTarget {
-            elements: std::array::from_fn(|i| slice[len - 4 - 4 * cap_len + i]),
+            elements: core::array::from_fn(|i| slice[len - 4 - 4 * cap_len + i]),
         };
 
         Ok(Self {
@@ -420,7 +423,7 @@ mod tests {
         let mut h: [F; 4] = initial_hash.try_into().unwrap();
         assert_eq!(
             hash,
-            std::iter::repeat_with(|| {
+            core::iter::repeat_with(|| {
                 h = hash_n_to_hash_no_pad::<F, PoseidonPermutation>(&h).elements;
                 h
             })

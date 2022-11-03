@@ -1,6 +1,9 @@
 //! Implementation of the Poseidon hash function, as described in
 //! <https://eprint.iacr.org/2019/458.pdf>
 
+use alloc::vec;
+use alloc::vec::Vec;
+
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::{Field, PrimeField64};
 use unroll::unroll_for_loops;

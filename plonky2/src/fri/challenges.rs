@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 

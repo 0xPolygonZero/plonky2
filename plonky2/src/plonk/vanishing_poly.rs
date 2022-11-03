@@ -1,3 +1,6 @@
+use alloc::vec::Vec;
+use alloc::{format, vec};
+
 use plonky2_field::batch_util::batch_add_inplace;
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::Field;

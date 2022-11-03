@@ -1,8 +1,8 @@
 #![allow(clippy::assertions_on_constants)]
 
-use std::arch::aarch64::*;
-use std::arch::asm;
-use std::mem::transmute;
+use core::arch::aarch64::*;
+use core::arch::asm;
+use core::mem::transmute;
 
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_util::branch_hint;

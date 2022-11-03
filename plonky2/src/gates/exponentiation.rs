@@ -1,3 +1,7 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::marker::PhantomData;
 
 use plonky2_field::extension::Extendable;

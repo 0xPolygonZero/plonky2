@@ -1,5 +1,5 @@
-use std::cmp::{max, min};
-use std::option::Option;
+use alloc::vec::Vec;
+use core::cmp::{max, min};
 
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 use unroll::unroll_for_loops;

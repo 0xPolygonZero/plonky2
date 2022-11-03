@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 
 use crate::hash::hash_types::RichField;

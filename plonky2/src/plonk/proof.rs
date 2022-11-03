@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::ensure;
 use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
@@ -223,12 +226,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
+    #[cfg(feature = "std")]
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer = Buffer::new(Vec::new());
         buffer.write_compressed_proof_with_public_inputs(self)?;
         Ok(buffer.bytes())
     }
 
+    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,

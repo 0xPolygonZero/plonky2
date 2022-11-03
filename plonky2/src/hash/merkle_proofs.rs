@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};

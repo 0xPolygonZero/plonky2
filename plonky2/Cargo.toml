@@ -11,29 +11,40 @@ edition = "2021"
 default-run = "generate_constants"
 
 [features]
-default = ["parallel", "rand", "rand_chacha", "timing", "gate_testing"]
-parallel = ["maybe_rayon/parallel"]
-rand = ["dep:rand", "plonky2_field/rand"]
+default = [
+    "gate_testing",
+    "parallel",
+    "rand",
+    "rand_chacha",
+    "std",
+    "timing",
+]
+rand = [
+    "dep:rand",
+    "num/rand",
+    "plonky2_field/rand"
+]
 gate_testing = ["rand"]
-rand_chacha = ["dep:rand_chacha"]
+parallel = ["maybe_rayon/parallel"]
+std = ["anyhow/std"]
 timing = []
 
 [dependencies]
-anyhow = "1.0.40"
+anyhow = { version = "1.0.40", default-features = false }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
-itertools = "0.10.0"
-keccak-hash = "0.8.0"
-log = "0.4.14"
-maybe_rayon = { path = "../maybe_rayon" }
-num = { version = "0.4", features = [ "rand" ] }
-plonky2_field = { path = "../field" }
-plonky2_util = { path = "../util" }
-rand = { version = "0.8.4", optional = true }
-rand_chacha = { version = "0.3.1", optional = true }
-serde = { version = "1.0", features = ["derive"] }
-serde_cbor = "0.11.1"
-static_assertions = "1.1.0"
-unroll = "0.1.5"
+itertools = { version = "0.10.0", default-features = false }
+keccak-hash = { version = "0.8.0", default-features = false }
+log = { version = "0.4.14", default-features = false }
+maybe_rayon = { path = "../maybe_rayon", default-features = false }
+num = { version = "0.4", default-features = false }
+plonky2_field = { path = "../field", default-features = false }
+plonky2_util = { path = "../util", default-features = false }
+rand = { version = "0.8.4", optional = true, default-features = false }
+rand_chacha = { version = "0.3.1", optional = true, default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_cbor = { version = "0.11.1", default-features = false }
+static_assertions = { version = "1.1.0", default-features = false }
+unroll = { version = "0.1.5", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3.5"

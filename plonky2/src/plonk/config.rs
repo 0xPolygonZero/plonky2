@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use plonky2_field::extension::quadratic::QuadraticExtension;

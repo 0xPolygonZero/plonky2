@@ -1,8 +1,8 @@
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use alloc::vec::Vec;
+use core::fmt::{self, Debug, Display, Formatter};
+use core::hash::{Hash, Hasher};
+use core::iter::{Product, Sum};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use itertools::Itertools;
 use num::bigint::BigUint;
@@ -133,7 +133,7 @@ impl Field for Secp256K1Base {
     }
 
     #[cfg(feature = "rand")]
-    fn rand_from_rng<R: rand::Rng>(rng: &mut R) -> Self {
+    fn rand_from_rng<R: rand::RngCore>(rng: &mut R) -> Self {
         use num::bigint::RandBigInt;
         Self::from_noncanonical_biguint(rng.gen_biguint_below(&Self::order()))
     }
