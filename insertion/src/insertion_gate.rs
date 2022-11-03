@@ -1,5 +1,5 @@
-use std::marker::PhantomData;
-use std::ops::Range;
+use core::marker::PhantomData;
+use core::ops::Range;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;

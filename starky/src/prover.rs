@@ -1,4 +1,4 @@
-use std::iter::once;
+use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;

@@ -7,7 +7,6 @@
 #![allow(clippy::return_self_not_must_use)]
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
-#![feature(stdsimd)]
 #![cfg_attr(not(test), no_std)]
 
 extern crate alloc;

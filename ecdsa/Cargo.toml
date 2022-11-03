@@ -3,6 +3,9 @@ name = "plonky2_ecdsa"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+parallel = ["maybe_rayon/parallel", "plonky2/parallel"]
+
 [dependencies]
 anyhow = { version = "1.0.40", default-features = false }
 itertools = { version = "0.10.0", default-features = false }

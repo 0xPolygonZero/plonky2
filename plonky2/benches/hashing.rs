@@ -1,6 +1,3 @@
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
-
 mod allocator;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
