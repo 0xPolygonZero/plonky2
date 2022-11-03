@@ -1,13 +1,15 @@
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use num::{BigUint, Integer, Zero};
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::{PrimeField, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::{PrimeField, PrimeField64};
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
 use plonky2_u32::witness::{GeneratedValuesU32, WitnessU32};
@@ -350,6 +352,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use rand::rngs::OsRng;
     use rand::Rng;
 
     use crate::gadgets::biguint::{CircuitBuilderBiguint, WitnessBigUint};
@@ -359,7 +362,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -389,7 +392,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
         let mut y_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -419,7 +422,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -449,7 +452,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -475,7 +478,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
         let mut y_value = BigUint::from_u128(rng.gen()).unwrap();

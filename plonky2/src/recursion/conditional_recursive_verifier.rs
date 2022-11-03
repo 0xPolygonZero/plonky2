@@ -3,9 +3,8 @@ use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_util::ceil_div_usize;
 
+use crate::field::extension::Extendable;
 use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
 };
@@ -24,6 +23,7 @@ use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{
     OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
+use crate::util::ceil_div_usize;
 use crate::with_context;
 
 /// Generate a proof having a given `CommonCircuitData`.
@@ -369,9 +369,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Sample;
 
     use super::*;
+    use crate::field::types::Sample;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;

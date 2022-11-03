@@ -2,9 +2,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
-use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::merkle_tree::MerkleCap;
@@ -150,10 +150,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Field;
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
     use super::*;
+    use crate::field::types::Field;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -179,7 +180,7 @@ mod tests {
         let cap_height = 1;
         let leaves = random_data::<F>(n, 7);
         let tree = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(leaves, cap_height);
-        let i: usize = thread_rng().gen_range(0..n);
+        let i: usize = OsRng.gen_range(0..n);
         let proof = tree.prove(i);
 
         let proof_t = MerkleProofTarget {

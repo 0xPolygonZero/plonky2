@@ -3,13 +3,12 @@ use alloc::vec::Vec;
 
 use itertools::Itertools;
 use maybe_rayon::*;
-use plonky2_field::extension::Extendable;
-use plonky2_field::fft::FftRootTable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_field::types::Field;
-use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
+use crate::field::extension::Extendable;
+use crate::field::fft::FftRootTable;
+use crate::field::packed::PackedField;
+use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::field::types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
@@ -21,7 +20,7 @@ use crate::plonk::config::GenericConfig;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
-use crate::util::{reverse_bits, transpose};
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 /// Four (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 4;

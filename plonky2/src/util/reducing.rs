@@ -2,11 +2,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::packed::PackedField;
-use plonky2_field::polynomial::PolynomialCoeffs;
-use plonky2_field::types::Field;
-
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::packed::PackedField;
+use crate::field::polynomial::PolynomialCoeffs;
+use crate::field::types::Field;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::gates::reducing_extension::ReducingExtensionGate;
@@ -276,9 +275,9 @@ impl<const D: usize> ReducingFactorTarget<D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Sample;
 
     use super::*;
+    use crate::field::types::Sample;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

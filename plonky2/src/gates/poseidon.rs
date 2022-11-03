@@ -4,9 +4,8 @@ use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
-
+use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -507,9 +506,9 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
 
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::field::types::Field;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;
     use crate::hash::hashing::SPONGE_WIDTH;

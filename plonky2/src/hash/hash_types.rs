@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 
-use plonky2_field::goldilocks_field::GoldilocksField;
-use plonky2_field::types::{Field, PrimeField64, Sample};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::field::goldilocks_field::GoldilocksField;
+use crate::field::types::{Field, PrimeField64, Sample};
 use crate::hash::poseidon::Poseidon;
 use crate::iop::target::Target;
 use crate::plonk::config::GenericHashOut;

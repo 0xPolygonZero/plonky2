@@ -5,10 +5,9 @@ use alloc::{format, vec};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use plonky2_field::extension::algebra::ExtensionAlgebra;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
-
+use crate::field::extension::algebra::ExtensionAlgebra;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;

@@ -4,10 +4,10 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::{Field, PrimeField64};
 use unroll::unroll_for_loops;
 
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::{Field, PrimeField64};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
@@ -687,8 +687,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
-    use plonky2_field::types::Field;
-
+    use crate::field::types::Field;
     use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;
 

@@ -5,11 +5,10 @@ use alloc::{format, vec};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use plonky2_field::extension::algebra::PolynomialCoeffsAlgebra;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::interpolation::interpolant;
-use plonky2_field::polynomial::PolynomialCoeffs;
-
+use crate::field::extension::algebra::PolynomialCoeffsAlgebra;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::interpolation::interpolant;
+use crate::field::polynomial::PolynomialCoeffs;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
 use crate::gates::interpolation::InterpolationGate;
@@ -274,20 +273,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use anyhow::Result;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::polynomial::PolynomialCoeffs;
-    use plonky2_field::types::{Field, Sample};
 
-    use crate::gates::gate::Gate;
+    use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::field::types::{Field, Sample};
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
-    use crate::gates::interpolation::InterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {

@@ -2,9 +2,8 @@ use alloc::vec::Vec;
 use alloc::{format, vec};
 
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
+use crate::field::extension::Extendable;
 use crate::fri::proof::{
     FriChallengesTarget, FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget,
     FriQueryStepTarget,
@@ -22,6 +21,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::util::reducing::ReducingFactorTarget;
+use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {

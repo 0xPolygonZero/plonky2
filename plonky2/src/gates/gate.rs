@@ -8,10 +8,10 @@ use core::hash::{Hash, Hasher};
 use core::ops::Range;
 
 use hashbrown::HashMap;
-use plonky2_field::batch_util::batch_multiply_inplace;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
 
+use crate::field::batch_util::batch_multiply_inplace;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;

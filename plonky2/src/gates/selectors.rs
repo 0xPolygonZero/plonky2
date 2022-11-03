@@ -2,9 +2,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::polynomial::PolynomialValues;
-
+use crate::field::extension::Extendable;
+use crate::field::polynomial::PolynomialValues;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::hash::hash_types::RichField;
 

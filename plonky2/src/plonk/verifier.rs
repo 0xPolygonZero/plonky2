@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
 
+use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hash_types::RichField;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};

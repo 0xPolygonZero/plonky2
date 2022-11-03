@@ -5,9 +5,9 @@ use alloc::vec::Vec;
 use core::ops::{Range, RangeFrom};
 
 use anyhow::Result;
-use plonky2_field::extension::Extendable;
-use plonky2_field::fft::FftRootTable;
 
+use crate::field::extension::Extendable;
+use crate::field::fft::FftRootTable;
 use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::reduction_strategies::FriReductionStrategy;

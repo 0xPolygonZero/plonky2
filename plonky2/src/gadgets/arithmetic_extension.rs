@@ -2,10 +2,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use plonky2_field::extension::{Extendable, FieldExtension, OEF};
-use plonky2_field::types::{Field, Field64};
-use plonky2_util::bits_u64;
-
+use crate::field::extension::{Extendable, FieldExtension, OEF};
+use crate::field::types::{Field, Field64};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::hash::hash_types::RichField;
@@ -14,6 +12,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::bits_u64;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn arithmetic_extension(
@@ -570,9 +569,9 @@ pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension::algebra::ExtensionAlgebra;
-    use plonky2_field::types::Sample;
 
+    use crate::field::extension::algebra::ExtensionAlgebra;
+    use crate::field::types::Sample;
     use crate::iop::ext_target::ExtensionAlgebraTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;

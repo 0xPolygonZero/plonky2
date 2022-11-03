@@ -2,12 +2,12 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use plonky2_field::extension::quadratic::QuadraticExtension;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::goldilocks_field::GoldilocksField;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+use crate::field::extension::quadratic::QuadraticExtension;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::hash_types::{HashOut, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::hash::keccak::KeccakHash;

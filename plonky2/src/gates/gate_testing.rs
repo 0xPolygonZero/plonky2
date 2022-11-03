@@ -2,11 +2,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_field::types::{Field, Sample};
-use plonky2_util::log2_ceil;
 
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, RichField};
 use crate::iop::witness::{PartialWitness, Witness};
@@ -15,7 +14,7 @@ use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::plonk::verifier::verify;
-use crate::util::transpose;
+use crate::util::{log2_ceil, transpose};
 
 const WITNESS_SIZE: usize = 1 << 5;
 const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;

@@ -4,6 +4,7 @@
 
 extern crate alloc;
 
+#[doc(inline)]
 pub use plonky2_field as field;
 
 pub mod fri;

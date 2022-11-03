@@ -2,10 +2,9 @@ use alloc::vec::Vec;
 
 use itertools::Itertools;
 use maybe_rayon::*;
-use plonky2_field::extension::{flatten, unflatten, Extendable};
-use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_util::reverse_index_bits_in_place;
 
+use crate::field::extension::{flatten, unflatten, Extendable};
+use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::{HashOut, RichField};
@@ -14,6 +13,7 @@ use crate::iop::challenger::Challenger;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::timed;
+use crate::util::reverse_index_bits_in_place;
 use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.

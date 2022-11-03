@@ -2,8 +2,7 @@
 
 use alloc::vec::Vec;
 
-use plonky2_field::extension::Extendable;
-
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

@@ -3,9 +3,9 @@ use alloc::vec::Vec;
 use core::borrow::Borrow;
 
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
 
+use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -101,11 +101,11 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Field;
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
+    use super::*;
     use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
@@ -147,7 +147,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let n = thread_rng().gen_range(0..(1 << 30));
+        let n = OsRng.gen_range(0..(1 << 30));
         let x = builder.constant(F::from_canonical_usize(n));
 
         let zero = builder._false();

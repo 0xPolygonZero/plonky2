@@ -2,9 +2,9 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 use maybe_rayon::*;
-use plonky2_field::polynomial::PolynomialValues;
-use plonky2_field::types::Field;
 
+use crate::field::polynomial::PolynomialValues;
+use crate::field::types::Field;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 

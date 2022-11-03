@@ -1,4 +1,4 @@
-use plonky2_field::types::{Field, Sample};
+use plonky2::field::types::{Field, Sample};
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_msm::msm_parallel;
@@ -63,8 +63,8 @@ pub fn verify_message<C: Curve>(
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::Sample;
+    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2::field::types::Sample;
 
     use crate::curve::ecdsa::{sign_message, verify_message, ECDSASecretKey};
     use crate::curve::secp256k1::Secp256K1;

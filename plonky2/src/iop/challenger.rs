@@ -2,8 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-
+use crate::field::extension::{Extendable, FieldExtension};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
@@ -301,8 +300,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::types::Sample;
-
+    use crate::field::types::Sample;
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;

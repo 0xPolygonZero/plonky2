@@ -1,9 +1,10 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::ops::Neg;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::hash::{Hash, Hasher};
+use core::ops::Neg;
 
-use plonky2_field::ops::Square;
-use plonky2_field::types::{Field, PrimeField};
+use plonky2::field::ops::Square;
+use plonky2::field::types::{Field, PrimeField};
 use serde::{Deserialize, Serialize};
 
 // To avoid implementation conflicts from associated types,
@@ -123,7 +124,7 @@ impl<C: Curve> PartialEq for AffinePoint<C> {
 impl<C: Curve> Eq for AffinePoint<C> {}
 
 impl<C: Curve> Hash for AffinePoint<C> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         if self.zero {
             self.zero.hash(state);
         } else {

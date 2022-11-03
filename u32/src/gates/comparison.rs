@@ -1,5 +1,12 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
 
+use plonky2::field::extension::Extendable;
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::{Field, Field64};
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
 use plonky2::gates::util::StridedConstraintConsumer;
@@ -15,10 +22,7 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::{Field, Field64};
-use plonky2_util::{bits_u64, ceil_div_usize};
+use plonky2::util::{bits_u64, ceil_div_usize};
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
@@ -512,19 +516,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use anyhow::Result;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::{PrimeField64, Sample};
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, PrimeField64, Sample};
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::gates::comparison::ComparisonGate;
+    use super::*;
 
     #[test]
     fn wire_indices() {
@@ -656,7 +657,7 @@ mod tests {
             v.iter().map(|&x| x.into()).collect()
         };
 
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let max: u64 = 1 << (num_bits - 1);
         let first_input_u64 = rng.gen_range(0..max);
         let second_input_u64 = {

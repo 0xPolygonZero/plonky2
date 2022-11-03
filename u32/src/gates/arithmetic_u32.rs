@@ -1,6 +1,13 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
 
 use itertools::unfold;
+use plonky2::field::extension::Extendable;
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
 use plonky2::gates::util::StridedConstraintConsumer;
@@ -16,9 +23,6 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::Field;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
@@ -411,20 +415,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use anyhow::Result;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Sample;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use plonky2::hash::hash_types::{HashOut, RichField};
+    use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::extension::Extendable;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, Sample};
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::gates::arithmetic_u32::U32ArithmeticGate;
+    use super::*;
 
     #[test]
     fn low_degree() {
@@ -506,7 +506,7 @@ mod tests {
         type FF = <C as GenericConfig<D>>::FE;
         const NUM_U32_ARITHMETIC_OPS: usize = 3;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
             .map(|_| rng.gen::<u32>() as u64)
             .collect();

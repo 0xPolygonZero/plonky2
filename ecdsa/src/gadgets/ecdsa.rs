@@ -1,9 +1,9 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
+use plonky2::field::extension::Extendable;
+use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::extension::Extendable;
-use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
 use crate::curve::curve_types::Curve;
 use crate::curve::secp256k1::Secp256K1;
@@ -52,20 +52,14 @@ pub fn verify_message_circuit<F: RichField + Extendable<D>, const D: usize>(
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::field::types::Sample;
     use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::Sample;
 
-    use super::{ECDSAPublicKeyTarget, ECDSASignatureTarget};
-    use crate::curve::curve_types::{Curve, CurveScalar};
+    use super::*;
+    use crate::curve::curve_types::CurveScalar;
     use crate::curve::ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature};
-    use crate::curve::secp256k1::Secp256K1;
-    use crate::gadgets::curve::CircuitBuilderCurve;
-    use crate::gadgets::ecdsa::verify_message_circuit;
-    use crate::gadgets::nonnative::CircuitBuilderNonNative;
 
     fn test_ecdsa_circuit_with_config(config: CircuitConfig) -> Result<()> {
         const D: usize = 2;

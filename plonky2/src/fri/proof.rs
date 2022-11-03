@@ -3,10 +3,10 @@ use alloc::vec::Vec;
 
 use hashbrown::HashMap;
 use itertools::izip;
-use plonky2_field::extension::{flatten, unflatten, Extendable};
-use plonky2_field::polynomial::PolynomialCoeffs;
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension::{flatten, unflatten, Extendable};
+use crate::field::polynomial::PolynomialCoeffs;
 use crate::fri::FriParams;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};

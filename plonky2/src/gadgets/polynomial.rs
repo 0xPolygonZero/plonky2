@@ -1,7 +1,6 @@
 use alloc::vec::Vec;
 
-use plonky2_field::extension::Extendable;
-
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::target::Target;

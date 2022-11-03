@@ -1,8 +1,8 @@
 use num::rational::Ratio;
 use num::BigUint;
-use plonky2_field::secp256k1_base::Secp256K1Base;
-use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-use plonky2_field::types::{Field, PrimeField};
+use plonky2::field::secp256k1_base::Secp256K1Base;
+use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
+use plonky2::field::types::{Field, PrimeField};
 
 use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{AffinePoint, ProjectivePoint};
@@ -102,8 +102,8 @@ pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectiveP
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::{Field, Sample};
+    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
+    use plonky2::field::types::{Field, Sample};
 
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::glv::{decompose_secp256k1_scalar, glv_mul, GLV_S};

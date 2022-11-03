@@ -1,8 +1,7 @@
 use alloc::vec;
 use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-
+use crate::field::extension::Extendable;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -106,10 +105,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension::FieldExtension;
-    use plonky2_field::interpolation::interpolant;
-    use plonky2_field::types::{Field, Sample};
 
+    use crate::field::extension::FieldExtension;
+    use crate::field::interpolation::interpolant;
+    use crate::field::types::{Field, Sample};
     use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::iop::witness::PartialWitness;

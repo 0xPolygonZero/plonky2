@@ -9,13 +9,12 @@ use std::time::Instant;
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
-use plonky2_field::cosets::get_unique_coset_shifts;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::fft::fft_root_table;
-use plonky2_field::polynomial::PolynomialValues;
-use plonky2_field::types::Field;
-use plonky2_util::{log2_ceil, log2_strict};
 
+use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::fft::fft_root_table;
+use crate::field::polynomial::PolynomialValues;
+use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
@@ -49,7 +48,7 @@ use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
-use crate::util::{transpose, transpose_poly_values};
+use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,

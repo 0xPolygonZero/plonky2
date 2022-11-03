@@ -1,6 +1,8 @@
+use alloc::vec::Vec;
+
 use itertools::Itertools;
-use plonky2_field::types::{Field, PrimeField};
-use rayon::prelude::*;
+use maybe_rayon::{MaybeIntoParIter, MaybeParChunks};
+use plonky2::field::types::{Field, PrimeField};
 
 use crate::curve::curve_summation::affine_multisummation_best;
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
@@ -185,12 +187,12 @@ pub(crate) fn to_digits<C: Curve>(x: &C::ScalarField, w: usize) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use num::BigUint;
-    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::{Field, PrimeField};
+    use alloc::vec;
 
-    use crate::curve::curve_msm::{msm_execute, msm_precompute, to_digits};
-    use crate::curve::curve_types::Curve;
+    use num::BigUint;
+    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
+
+    use super::*;
     use crate::curve::secp256k1::Secp256K1;
 
     #[test]

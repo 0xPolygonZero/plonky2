@@ -1,5 +1,11 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
 
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
@@ -10,9 +16,7 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
-use plonky2_util::ceil_div_usize;
+use plonky2::util::ceil_div_usize;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -201,22 +205,18 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use anyhow::Result;
     use itertools::unfold;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::extension::quartic::QuarticExtension;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::{Field, Sample};
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::extension::quartic::QuarticExtension;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, Sample};
-    use plonky2_util::ceil_div_usize;
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::gates::range_check_u32::U32RangeCheckGate;
+    use super::*;
 
     #[test]
     fn low_degree() {
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_gate_constraint_good() {
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let input_limbs: Vec<_> = (0..8).map(|_| rng.gen::<u32>() as u64).collect();
 
         test_gate_constraint(input_limbs);
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_gate_constraint_bad() {
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let input_limbs: Vec<_> = (0..8).map(|_| rng.gen()).collect();
 
         test_gate_constraint(input_limbs);

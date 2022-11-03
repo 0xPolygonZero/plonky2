@@ -1,11 +1,10 @@
 use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
-use plonky2_field::extension::{flatten, Extendable, FieldExtension};
-use plonky2_field::interpolation::{barycentric_weights, interpolate};
-use plonky2_field::types::Field;
-use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
+use crate::field::extension::{flatten, Extendable, FieldExtension};
+use crate::field::interpolation::{barycentric_weights, interpolate};
+use crate::field::types::Field;
 use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::validate_shape::validate_fri_proof_shape;
@@ -15,7 +14,7 @@ use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::util::reducing::ReducingFactor;
-use crate::util::reverse_bits;
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.

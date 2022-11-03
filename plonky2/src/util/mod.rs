@@ -1,8 +1,11 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use plonky2_field::polynomial::PolynomialValues;
-use plonky2_field::types::Field;
+#[doc(inline)]
+pub use plonky2_util::*;
+
+use crate::field::polynomial::PolynomialValues;
+use crate::field::types::Field;
 
 pub(crate) mod context_tree;
 pub(crate) mod partial_products;
@@ -61,9 +64,7 @@ pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use plonky2_util::{reverse_index_bits, reverse_index_bits_in_place};
-
-    use crate::util::reverse_bits;
+    use super::*;
 
     #[test]
     fn test_reverse_bits() {

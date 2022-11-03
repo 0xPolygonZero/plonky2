@@ -4,12 +4,11 @@ use core::mem::swap;
 
 use anyhow::{ensure, Result};
 use maybe_rayon::*;
-use plonky2_field::extension::Extendable;
-use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
-use plonky2_util::{ceil_div_usize, log2_ceil};
 
+use crate::field::extension::Extendable;
+use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::Field;
+use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
@@ -24,7 +23,7 @@ use crate::plonk::vars::EvaluationVarsBaseBatch;
 use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
 use crate::util::timing::TimingTree;
-use crate::util::transpose;
+use crate::util::{ceil_div_usize, log2_ceil, transpose};
 
 pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,

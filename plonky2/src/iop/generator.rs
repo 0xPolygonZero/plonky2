@@ -3,9 +3,8 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
-
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};

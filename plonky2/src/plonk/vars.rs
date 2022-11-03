@@ -1,10 +1,9 @@
 use core::ops::Range;
 
-use plonky2_field::extension::algebra::ExtensionAlgebra;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::Field;
-
+use crate::field::extension::algebra::ExtensionAlgebra;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::packed::PackedField;
+use crate::field::types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::util::strided_view::PackedStridedView;

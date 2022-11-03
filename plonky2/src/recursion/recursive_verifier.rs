@@ -1,5 +1,4 @@
-use plonky2_field::extension::Extendable;
-
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};

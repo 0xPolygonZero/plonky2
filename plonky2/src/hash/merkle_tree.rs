@@ -3,12 +3,12 @@ use core::mem::MaybeUninit;
 use core::slice;
 
 use maybe_rayon::*;
-use plonky2_util::log2_strict;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::{GenericHashOut, Hasher};
+use crate::util::log2_strict;
 
 /// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
@@ -208,9 +208,9 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::extension::Extendable;
 
     use super::*;
+    use crate::field::extension::Extendable;
     use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 

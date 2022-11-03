@@ -4,8 +4,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::ops::Range;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-
+use crate::field::extension::{Extendable, FieldExtension};
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -207,8 +206,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::goldilocks_field::GoldilocksField;
 
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;

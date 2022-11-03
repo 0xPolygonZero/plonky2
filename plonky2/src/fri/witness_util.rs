@@ -1,6 +1,6 @@
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
 
+use crate::field::extension::Extendable;
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::hash::hash_types::RichField;
 use crate::iop::witness::Witness;

@@ -4,8 +4,8 @@ use alloc::vec;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
 
+use crate::field::extension::Extendable;
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
@@ -254,12 +254,10 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use anyhow::Result;
-    use plonky2_field::extension::Extendable;
-    use plonky2_field::types::PrimeField64;
 
-    use crate::field::types::Field;
+    use crate::field::extension::Extendable;
+    use crate::field::types::{Field, PrimeField64};
     use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::RichField;
     use crate::hash::hashing::hash_n_to_hash_no_pad;

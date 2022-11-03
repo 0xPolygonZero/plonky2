@@ -3,9 +3,9 @@ use alloc::vec::Vec;
 
 use anyhow::ensure;
 use maybe_rayon::*;
-use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension::Extendable;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{
     CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
@@ -383,8 +383,8 @@ impl<const D: usize> OpeningSetTarget<D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Sample;
 
+    use crate::field::types::Sample;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;

@@ -5,10 +5,10 @@ use core::convert::Infallible;
 use std::io::{self, Cursor, Read as _, Write as _};
 
 use hashbrown::HashMap;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::polynomial::PolynomialCoeffs;
-use plonky2_field::types::{Field64, PrimeField64};
 
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::polynomial::PolynomialCoeffs;
+use crate::field::types::{Field64, PrimeField64};
 use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
