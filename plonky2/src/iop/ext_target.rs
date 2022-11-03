@@ -89,6 +89,18 @@ impl<const D: usize> ExtensionAlgebraTarget<D> {
     }
 }
 
+impl<F, const D: usize> FromTargets<'_, F, D> for ExtensionAlgebraTarget<D> {
+    type Config = ();
+
+    fn len(_config: Self::Config) -> usize {
+        D * D
+    }
+
+    fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, _config: Self::Config) -> Self {
+        ExtensionAlgebraTarget(<_ as FromTargets<F, D>>::from_targets(targets, ()))
+    }
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_extension(&mut self, c: F::Extension) -> ExtensionTarget<D> {
         let c_parts = c.to_basefield_array();

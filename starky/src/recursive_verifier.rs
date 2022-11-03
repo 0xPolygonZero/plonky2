@@ -216,25 +216,18 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = once(S::COLUMNS)
-        .chain(
-            stark
-                .uses_permutation_args()
-                .then(|| stark.num_permutation_batches(config)),
-        )
-        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
-        .collect_vec();
-
     let permutation_zs_cap = stark
         .uses_permutation_args()
-        .then(|| builder.add_virtual_cap(cap_height));
+        .then(|| builder.add_virtual(cap_height));
+
+    let fri_instance_info = stark.fri_instance(F::Extension::ONE, F::ONE, config);
 
     StarkProofTarget {
-        trace_cap: builder.add_virtual_cap(cap_height),
+        trace_cap: builder.add_virtual(cap_height),
         permutation_zs_cap,
-        quotient_polys_cap: builder.add_virtual_cap(cap_height),
+        quotient_polys_cap: builder.add_virtual(cap_height),
         openings: add_stark_opening_set_target::<F, S, D>(builder, stark, config),
-        opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
+        opening_proof: builder.add_virtual((&fri_params, &fri_instance_info)),
     }
 }
 
@@ -245,16 +238,15 @@ fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, co
 ) -> StarkOpeningSetTarget<D> {
     let num_challenges = config.num_challenges;
     StarkOpeningSetTarget {
-        local_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        next_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        local_values: builder.add_virtual(((), S::COLUMNS)),
+        next_values: builder.add_virtual(((), S::COLUMNS)),
         permutation_zs: stark
             .uses_permutation_args()
-            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
+            .then(|| builder.add_virtual(((), stark.num_permutation_batches(config)))),
         permutation_zs_next: stark
             .uses_permutation_args()
-            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
-        quotient_polys: builder
-            .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
+            .then(|| builder.add_virtual(((), stark.num_permutation_batches(config)))),
+        quotient_polys: builder.add_virtual(((), stark.quotient_degree_factor() * num_challenges)),
     }
 }
 

@@ -15,7 +15,6 @@ use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
-use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
@@ -24,7 +23,6 @@ use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
@@ -183,46 +181,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         A::from_targets(&mut targets, c)
     }
 
-    pub fn add_virtual_target_arr<const N: usize>(&mut self) -> [Target; N] {
-        [0; N].map(|_| self.add_virtual_target())
-    }
-
-    pub fn add_virtual_hash(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_targets(4))
-    }
-
-    pub fn add_virtual_cap(&mut self, cap_height: usize) -> MerkleCapTarget {
-        MerkleCapTarget(self.add_virtual_hashes(1 << cap_height))
-    }
-
-    pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
-        (0..n).map(|_i| self.add_virtual_hash()).collect()
-    }
-
-    pub(crate) fn add_virtual_merkle_proof(&mut self, len: usize) -> MerkleProofTarget {
-        MerkleProofTarget {
-            siblings: self.add_virtual_hashes(len),
-        }
-    }
-
-    pub fn add_virtual_extension_target(&mut self) -> ExtensionTarget<D> {
-        ExtensionTarget(self.add_virtual_targets(D).try_into().unwrap())
-    }
-
-    pub fn add_virtual_extension_targets(&mut self, n: usize) -> Vec<ExtensionTarget<D>> {
-        (0..n)
-            .map(|_i| self.add_virtual_extension_target())
-            .collect()
-    }
-
-    pub(crate) fn add_virtual_poly_coeff_ext(
-        &mut self,
-        num_coeffs: usize,
-    ) -> PolynomialCoeffsExtTarget<D> {
-        let coeffs = self.add_virtual_extension_targets(num_coeffs);
-        PolynomialCoeffsExtTarget(coeffs)
-    }
-
     pub fn add_virtual_bool_target_unsafe(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.add_virtual_target())
     }
@@ -243,8 +201,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub(crate) fn add_verifier_data_public_input(&mut self) {
         let verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
-            circuit_digest: self.add_virtual_hash(),
+            constants_sigmas_cap: self.add_virtual(self.config.fri_config.cap_height),
+            circuit_digest: self.add_virtual(()),
         };
         // The verifier data are public inputs.
         self.register_public_inputs(&verifier_data.circuit_digest.elements);

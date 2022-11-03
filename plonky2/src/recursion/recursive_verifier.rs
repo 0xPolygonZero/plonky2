@@ -317,10 +317,8 @@ mod tests {
         let pt = builder.add_virtual::<_, _>(&inner_cd);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
 
-        let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let inner_data: VerifierCircuitTarget =
+            builder.add_virtual(inner_cd.config.fri_config.cap_height);
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,

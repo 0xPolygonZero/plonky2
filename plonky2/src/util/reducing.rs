@@ -331,7 +331,7 @@ mod tests {
         let manual_reduce = builder.constant_extension(manual_reduce);
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
-        let vs_t = builder.add_virtual_extension_targets(vs.len());
+        let vs_t: Vec<_> = builder.add_virtual(((), vs.len()));
         pw.set_extension_targets(&vs_t, &vs);
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 

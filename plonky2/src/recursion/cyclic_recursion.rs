@@ -259,7 +259,7 @@ mod tests {
 
     use crate::field::types::Field;
     use crate::gates::noop::NoopGate;
-    use crate::hash::hash_types::RichField;
+    use crate::hash::hash_types::{HashOutTarget, RichField};
     use crate::hash::hashing::hash_n_to_hash_no_pad;
     use crate::hash::poseidon::{PoseidonHash, PoseidonPermutation};
     use crate::iop::witness::PartialWitness;
@@ -312,13 +312,13 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         // Circuit that computes a repeated hash.
-        let initial_hash = builder.add_virtual_hash();
+        let initial_hash: HashOutTarget = builder.add_virtual(());
         builder.register_public_inputs(&initial_hash.elements);
         // Hash from the previous proof.
-        let old_hash = builder.add_virtual_hash();
+        let old_hash: HashOutTarget = builder.add_virtual(());
         // The input hash is either the previous hash or the initial hash depending on whether
         // the last proof was a base case.
-        let input_hash = builder.add_virtual_hash();
+        let input_hash: HashOutTarget = builder.add_virtual(());
         let h = builder.hash_n_to_hash_no_pad::<PoseidonHash>(input_hash.elements.to_vec());
         builder.register_public_inputs(&h.elements);
         // Previous counter.

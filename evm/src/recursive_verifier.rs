@@ -586,7 +586,7 @@ where
         VerifierCircuitTarget {
             constants_sigmas_cap: builder
                 .constant_merkle_cap(&verifier_data.verifier_only.constants_sigmas_cap),
-            circuit_digest: builder.add_virtual_hash(),
+            circuit_digest: builder.add_virtual(()),
         }
     });
     RecursiveAllProofTargetWithData {
@@ -611,9 +611,9 @@ pub fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
 pub fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> TrieRootsTarget {
-    let state_root = builder.add_virtual_target_arr();
-    let transactions_root = builder.add_virtual_target_arr();
-    let receipts_root = builder.add_virtual_target_arr();
+    let state_root = builder.add_virtual(());
+    let transactions_root = builder.add_virtual(());
+    let receipts_root = builder.add_virtual(());
     TrieRootsTarget {
         state_root,
         transactions_root,
@@ -624,13 +624,13 @@ pub fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
 pub fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> BlockMetadataTarget {
-    let block_beneficiary = builder.add_virtual_target_arr();
-    let block_timestamp = builder.add_virtual_target();
-    let block_number = builder.add_virtual_target();
-    let block_difficulty = builder.add_virtual_target();
-    let block_gaslimit = builder.add_virtual_target();
-    let block_chain_id = builder.add_virtual_target();
-    let block_base_fee = builder.add_virtual_target();
+    let block_beneficiary = builder.add_virtual(());
+    let block_timestamp = builder.add_virtual(());
+    let block_number = builder.add_virtual(());
+    let block_difficulty = builder.add_virtual(());
+    let block_gaslimit = builder.add_virtual(());
+    let block_chain_id = builder.add_virtual(());
+    let block_base_fee = builder.add_virtual(());
     BlockMetadataTarget {
         block_beneficiary,
         block_timestamp,
@@ -652,20 +652,15 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = vec![
-        S::COLUMNS,
-        stark.num_permutation_batches(config) + num_ctl_zs,
-        stark.quotient_degree_factor() * config.num_challenges,
-    ];
-
-    let permutation_zs_cap = builder.add_virtual_cap(cap_height);
+    let fri_instance_info =
+        stark.fri_instance(F::Extension::ONE, F::ONE, degree_bits, num_ctl_zs, config);
 
     StarkProofTarget {
-        trace_cap: builder.add_virtual_cap(cap_height),
-        permutation_ctl_zs_cap: permutation_zs_cap,
-        quotient_polys_cap: builder.add_virtual_cap(cap_height),
+        trace_cap: builder.add_virtual(cap_height),
+        permutation_ctl_zs_cap: builder.add_virtual(cap_height),
+        quotient_polys_cap: builder.add_virtual(cap_height),
         openings: add_virtual_stark_opening_set::<F, S, D>(builder, stark, num_ctl_zs, config),
-        opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
+        opening_proof: builder.add_virtual((&fri_params, &fri_instance_info)),
     }
 }
 
@@ -677,15 +672,14 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
 ) -> StarkOpeningSetTarget<D> {
     let num_challenges = config.num_challenges;
     StarkOpeningSetTarget {
-        local_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        next_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        local_values: builder.add_virtual(((), S::COLUMNS)),
+        next_values: builder.add_virtual(((), S::COLUMNS)),
         permutation_ctl_zs: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
+            .add_virtual(((), stark.num_permutation_batches(config) + num_ctl_zs)),
         permutation_ctl_zs_next: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
-        ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
-        quotient_polys: builder
-            .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
+            .add_virtual(((), stark.num_permutation_batches(config) + num_ctl_zs)),
+        ctl_zs_last: builder.add_virtual(((), num_ctl_zs)),
+        quotient_polys: builder.add_virtual(((), stark.quotient_degree_factor() * num_challenges)),
     }
 }
 

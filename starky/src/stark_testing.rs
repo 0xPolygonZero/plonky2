@@ -118,19 +118,19 @@ where
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
     let mut pw = PartialWitness::<F>::new();
 
-    let locals_t = builder.add_virtual_extension_targets(S::COLUMNS);
+    let locals_t: Vec<_> = builder.add_virtual(((), S::COLUMNS));
     pw.set_extension_targets(&locals_t, vars.local_values);
-    let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
+    let nexts_t: Vec<_> = builder.add_virtual(((), S::COLUMNS));
     pw.set_extension_targets(&nexts_t, vars.next_values);
-    let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
+    let pis_t: Vec<_> = builder.add_virtual(((), S::PUBLIC_INPUTS));
     pw.set_extension_targets(&pis_t, vars.public_inputs);
-    let alphas_t = builder.add_virtual_targets(1);
+    let alphas_t: Vec<_> = builder.add_virtual(((), 1));
     pw.set_target(alphas_t[0], alphas[0]);
-    let z_last_t = builder.add_virtual_extension_target();
+    let z_last_t = builder.add_virtual(());
     pw.set_extension_target(z_last_t, z_last);
-    let lagrange_first_t = builder.add_virtual_extension_target();
+    let lagrange_first_t = builder.add_virtual(());
     pw.set_extension_target(lagrange_first_t, lagrange_first);
-    let lagrange_last_t = builder.add_virtual_extension_target();
+    let lagrange_last_t = builder.add_virtual(());
     pw.set_extension_target(lagrange_last_t, lagrange_last);
 
     let vars = StarkEvaluationTargets::<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {

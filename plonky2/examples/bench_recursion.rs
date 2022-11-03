@@ -15,9 +15,7 @@ use plonky2::{
     iop::witness::{PartialWitness, Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-        },
+        circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig},
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
@@ -115,10 +113,7 @@ where
     let pt = builder.add_virtual(inner_cd);
     pw.set_proof_with_pis_target(&pt, inner_proof);
 
-    let inner_data = VerifierCircuitTarget {
-        constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
-        circuit_digest: builder.add_virtual_hash(),
-    };
+    let inner_data = builder.add_virtual(inner_cd.config.fri_config.cap_height);
     pw.set_verifier_data_target(&inner_data, inner_vd);
 
     builder.verify_proof::<InnerC>(pt, &inner_data, inner_cd);

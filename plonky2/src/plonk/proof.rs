@@ -3,6 +3,7 @@ use maybe_rayon::*;
 use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
+use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{
     CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
@@ -48,12 +49,14 @@ pub struct ProofTarget<const D: usize> {
 impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for ProofTarget<D> {
     type Config = &'a CommonCircuitData<F, D>;
     fn len(config: Self::Config) -> usize {
+        let fri_instance_info = config.get_fri_instance(F::Extension::ONE);
         3 * <MerkleCapTarget as FromTargets<F, D>>::len(config.config.fri_config.cap_height)
             + OpeningSetTarget::len(config)
-            + FriProofTarget::len(config)
+            + FriProofTarget::len((&config.fri_params, &fri_instance_info))
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
+        let fri_instance_info = config.get_fri_instance(F::Extension::ONE);
         Self {
             wires_cap: <MerkleCapTarget as FromTargets<F, D>>::from_targets(
                 targets,
@@ -68,7 +71,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for
                 config.config.fri_config.cap_height,
             ),
             openings: OpeningSetTarget::from_targets(targets, config),
-            opening_proof: FriProofTarget::from_targets(targets, config),
+            opening_proof: FriProofTarget::from_targets(
+                targets,
+                (&config.fri_params, &fri_instance_info),
+            ),
         }
     }
 }

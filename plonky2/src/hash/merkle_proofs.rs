@@ -198,13 +198,13 @@ mod tests {
         let proof = tree.prove(i);
 
         let proof_t = MerkleProofTarget {
-            siblings: builder.add_virtual_hashes(proof.siblings.len()),
+            siblings: builder.add_virtual(((), proof.siblings.len())),
         };
         for i in 0..proof.siblings.len() {
             pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
         }
 
-        let cap_t = builder.add_virtual_cap(cap_height);
+        let cap_t = builder.add_virtual(cap_height);
         pw.set_cap_target(&cap_t, &tree.cap);
 
         let i_c = builder.constant(F::from_canonical_usize(i));

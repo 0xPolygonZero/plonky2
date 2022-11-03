@@ -5,6 +5,7 @@ use plonky2_field::extension::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::PolynomialCoeffs;
 use serde::{Deserialize, Serialize};
 
+use crate::fri::structure::FriInstanceInfo;
 use crate::fri::FriParams;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::MerkleCapTarget;
@@ -14,7 +15,6 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
@@ -37,29 +37,29 @@ pub struct FriQueryStepTarget<const D: usize> {
 impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     for FriQueryStepTarget<D>
 {
-    type Config = (&'a CommonCircuitData<F, D>, usize);
+    type Config = (&'a FriParams, usize); // (Params, query index)
 
     fn len(config: Self::Config) -> usize {
-        let num_siblings = config.0.degree_bits()
-            - config.0.fri_params.reduction_arity_bits[..=config.1]
+        let num_siblings = config.0.degree_bits
+            - config.0.reduction_arity_bits[..=config.1]
                 .iter()
                 .sum::<usize>()
-            - config.0.fri_params.config.cap_height
-            + config.0.fri_params.config.rate_bits;
-        D * (1 << config.0.fri_params.reduction_arity_bits[config.1]) + 4 * num_siblings
+            - config.0.config.cap_height
+            + config.0.config.rate_bits;
+        D * (1 << config.0.reduction_arity_bits[config.1]) + 4 * num_siblings
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
-        let num_siblings = config.0.degree_bits()
-            - config.0.fri_params.reduction_arity_bits[..=config.1]
+        let num_siblings = config.0.degree_bits
+            - config.0.reduction_arity_bits[..=config.1]
                 .iter()
                 .sum::<usize>()
-            - config.0.fri_params.config.cap_height
-            + config.0.fri_params.config.rate_bits;
+            - config.0.config.cap_height
+            + config.0.config.rate_bits;
         Self {
             evals: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
-                ((), 1 << config.0.fri_params.reduction_arity_bits[config.1]),
+                ((), 1 << config.0.reduction_arity_bits[config.1]),
             ),
             merkle_proof: <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings),
         }
@@ -93,58 +93,40 @@ pub struct FriInitialTreeProofTarget {
 impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     for FriInitialTreeProofTarget
 {
-    type Config = &'a CommonCircuitData<F, D>;
+    type Config = (&'a FriParams, &'a FriInstanceInfo<F, D>);
 
     fn len(config: Self::Config) -> usize {
-        let num_siblings = config.degree_bits() + config.fri_params.config.rate_bits
-            - config.fri_params.config.cap_height;
-        let circonfig = &config.config;
-        let salt = salt_size(config.fri_params.hiding);
+        let num_siblings =
+            config.0.degree_bits + config.0.config.rate_bits - config.0.config.cap_height;
+        let salt = salt_size(config.0.hiding);
 
-        config.num_constants + circonfig.num_routed_wires // constant evals
-                + circonfig.num_wires + salt // wire evals
-                + circonfig.num_challenges * (1+config.num_partial_products)+salt // Zs+partial products evals
-        +circonfig.num_challenges * config.quotient_degree_factor + salt // quotient evals
-        + 4 * 4* num_siblings // Merkle proofs
+        config
+            .1
+            .oracles
+            .iter()
+            .map(|info| {
+                info.num_polys
+                    + info.blinding.then_some(salt).unwrap_or_default()
+                    + 4 * num_siblings
+            })
+            .sum()
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
-        let circonfig = &config.config;
-        let num_siblings = config.degree_bits() + config.fri_params.config.rate_bits
-            - config.fri_params.config.cap_height;
-        let salt = salt_size(config.fri_params.hiding);
-        let mut evals_proofs = Vec::with_capacity(4);
-        let constants_sigmas_v = <_ as FromTargets<F, D>>::from_targets(
-            targets,
-            ((), config.num_constants + circonfig.num_routed_wires),
-        );
-        let constants_sigmas_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
-        evals_proofs.push((constants_sigmas_v, constants_sigmas_p));
-
-        let wires_v =
-            <_ as FromTargets<F, D>>::from_targets(targets, ((), circonfig.num_wires + salt));
-        let wires_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
-        evals_proofs.push((wires_v, wires_p));
-
-        let zs_partial_v = <_ as FromTargets<F, D>>::from_targets(
-            targets,
-            (
-                (),
-                circonfig.num_challenges * (1 + config.num_partial_products) + salt,
-            ),
-        );
-        let zs_partial_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
-        evals_proofs.push((zs_partial_v, zs_partial_p));
-
-        let quotient_v = <_ as FromTargets<F, D>>::from_targets(
-            targets,
-            (
-                (),
-                circonfig.num_challenges * config.quotient_degree_factor + salt,
-            ),
-        );
-        let quotient_p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
-        evals_proofs.push((quotient_v, quotient_p));
+        let num_siblings =
+            config.0.degree_bits + config.0.config.rate_bits - config.0.config.cap_height;
+        let salt = salt_size(config.0.hiding);
+        let evals_proofs = config
+            .1
+            .oracles
+            .iter()
+            .map(|info| {
+                let n = info.num_polys + info.blinding.then_some(salt).unwrap_or_default();
+                let v = <_ as FromTargets<F, D>>::from_targets(targets, ((), n));
+                let p = <_ as FromTargets<'_, F, D>>::from_targets(targets, num_siblings);
+                (v, p)
+            })
+            .collect();
 
         Self { evals_proofs }
     }
@@ -183,20 +165,20 @@ pub struct FriQueryRoundTarget<const D: usize> {
 impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D>
     for FriQueryRoundTarget<D>
 {
-    type Config = &'a CommonCircuitData<F, D>;
+    type Config = (&'a FriParams, &'a FriInstanceInfo<F, D>);
 
     fn len(config: Self::Config) -> usize {
         FriInitialTreeProofTarget::len(config)
-            + (0..config.fri_params.reduction_arity_bits.len())
-                .map(|i| FriQueryStepTarget::len((config, i)))
+            + (0..config.0.reduction_arity_bits.len())
+                .map(|i| <FriQueryStepTarget<D> as FromTargets<'a, F, D>>::len((config.0, i)))
                 .sum::<usize>()
     }
 
     fn from_targets<I: Iterator<Item = Target>>(targets: &mut I, config: Self::Config) -> Self {
         Self {
             initial_trees_proof: <_>::from_targets(targets, config),
-            steps: (0..config.fri_params.reduction_arity_bits.len())
-                .map(|i| <_>::from_targets(targets, (config, i)))
+            steps: (0..config.0.reduction_arity_bits.len())
+                .map(|i| <_ as FromTargets<'a, F, D>>::from_targets(targets, (config.0, i)))
                 .collect(),
         }
     }
@@ -236,18 +218,17 @@ pub struct FriProofTarget<const D: usize> {
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for FriProofTarget<D> {
-    type Config = &'a CommonCircuitData<F, D>;
+    type Config = (&'a FriParams, &'a FriInstanceInfo<F, D>);
+
     fn len(config: Self::Config) -> usize {
-        (0..config.fri_params.reduction_arity_bits.len())
-            .map(|_| {
-                <MerkleCapTarget as FromTargets<'_, F, D>>::len(config.config.fri_config.cap_height)
-            })
+        (0..config.0.reduction_arity_bits.len())
+            .map(|_| <MerkleCapTarget as FromTargets<'_, F, D>>::len(config.0.config.cap_height))
             .sum::<usize>()
-            + (0..config.fri_params.config.num_query_rounds)
+            + (0..config.0.config.num_query_rounds)
                 .map(|_| FriQueryRoundTarget::len(config))
                 .sum::<usize>()
             + <PolynomialCoeffsExtTarget<D> as FromTargets<'_, F, D>>::len(
-                config.fri_params.final_poly_len(),
+                config.0.final_poly_len(),
             )
             + 1
     }
@@ -257,17 +238,17 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> FromTargets<'a, F, D> for
             commit_phase_merkle_caps: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
                 (
-                    config.config.fri_config.cap_height,
-                    config.fri_params.reduction_arity_bits.len(),
+                    config.0.config.cap_height,
+                    config.0.reduction_arity_bits.len(),
                 ),
             ),
             query_round_proofs: <_>::from_targets(
                 targets,
-                (config, config.fri_params.config.num_query_rounds),
+                (config, config.0.config.num_query_rounds),
             ),
             final_poly: <_ as FromTargets<'_, F, D>>::from_targets(
                 targets,
-                config.fri_params.final_poly_len(),
+                config.0.final_poly_len(),
             ),
             pow_witness: <_ as FromTargets<'_, F, D>>::from_targets(targets, ()),
         }

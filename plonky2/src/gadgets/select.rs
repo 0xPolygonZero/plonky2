@@ -59,8 +59,8 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());
-        let xt = builder.add_virtual_extension_target();
-        let yt = builder.add_virtual_extension_target();
+        let xt = builder.add_virtual(());
+        let yt = builder.add_virtual(());
         let truet = builder._true();
         let falset = builder._false();
 

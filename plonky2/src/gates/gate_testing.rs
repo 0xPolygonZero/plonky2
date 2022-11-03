@@ -137,11 +137,11 @@ where
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    let wires_t = builder.add_virtual_extension_targets(wires.len());
-    let constants_t = builder.add_virtual_extension_targets(constants.len());
+    let wires_t: Vec<_> = builder.add_virtual(((), wires.len()));
+    let constants_t: Vec<_> = builder.add_virtual(((), constants.len()));
     pw.set_extension_targets(&wires_t, &wires);
     pw.set_extension_targets(&constants_t, &constants);
-    let public_inputs_hash_t = builder.add_virtual_hash();
+    let public_inputs_hash_t = builder.add_virtual(());
     pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
 
     let vars = EvaluationVars {

@@ -158,11 +158,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         let dummy_proof = self.add_virtual::<_, _>(inner_common_data);
-        let dummy_verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self
-                .add_virtual_cap(inner_common_data.config.fri_config.cap_height),
-            circuit_digest: self.add_virtual_hash(),
-        };
+        let dummy_verifier_data = self.add_virtual(inner_common_data.config.fri_config.cap_height);
         self.conditionally_verify_proof::<C>(
             condition,
             proof_with_pis,
@@ -409,15 +405,9 @@ mod tests {
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual::<_, _>(&data.common);
         pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
-        let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let inner_data = builder.add_virtual(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&inner_data, &data.verifier_only);
-        let dummy_inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let dummy_inner_data = builder.add_virtual(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&dummy_inner_data, &dummy_data);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof::<C>(
