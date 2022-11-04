@@ -9,8 +9,6 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use core::arch::asm;
-use core::convert::Infallible;
 use core::hint::unreachable_unchecked;
 use core::mem::size_of;
 use core::ptr::{swap, swap_nonoverlapping};
@@ -18,15 +16,6 @@ use core::ptr::{swap, swap_nonoverlapping};
 use crate::transpose_util::transpose_in_place_square;
 
 mod transpose_util;
-
-/// Converts `result` into the [`Ok`] variant of [`Result`].
-#[inline]
-pub fn into_ok<T>(result: Result<T, Infallible>) -> T {
-    match result {
-        Ok(value) => value,
-        _ => unreachable!("The `Infallible` value cannot be constructed."),
-    }
-}
 
 pub fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
@@ -281,8 +270,19 @@ pub fn assume(p: bool) {
 /// This function has no semantics. It is a hint only.
 #[inline(always)]
 pub fn branch_hint() {
+    // NOTE: These are the currently supported assembly architectures. See the
+    // [nightly reference](https://doc.rust-lang.org/nightly/reference/inline-assembly.html) for
+    // the most up-to-date list.
+    #[cfg(any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "riscv32",
+        target_arch = "riscv64",
+        target_arch = "x86",
+        target_arch = "x86_64",
+    ))]
     unsafe {
-        asm!("", options(nomem, nostack, preserves_flags));
+        core::arch::asm!("", options(nomem, nostack, preserves_flags));
     }
 }
 

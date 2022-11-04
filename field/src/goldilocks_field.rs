@@ -305,10 +305,9 @@ impl DivAssign for GoldilocksField {
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
-    use core::arch::asm;
     let res_wrapped: u64;
     let adjustment: u64;
-    asm!(
+    core::arch::asm!(
         "add {0}, {1}",
         // Trick. The carry flag is set iff the addition overflowed.
         // sbb x, y does x := x - y - CF. In our case, x and y are both {1:e}, so it simply does
