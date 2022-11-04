@@ -17,4 +17,3 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }
-
