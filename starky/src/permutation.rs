@@ -1,5 +1,8 @@
 //! Permutation arguments.
 
+use alloc::vec;
+use alloc::vec::Vec;
+
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::batch_util::batch_multiply_inplace;

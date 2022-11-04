@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::iter::once;
 
 use anyhow::{anyhow, ensure, Result};
