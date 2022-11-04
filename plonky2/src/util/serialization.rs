@@ -48,15 +48,15 @@ impl Size for Vec<u8> {
     }
 }
 
-///
+/// Reading
 pub trait Read {
-    ///
+    /// Error Type
     type Error;
 
-    ///
+    /// Reads exactly the length of `bytes` from `self` and writes it to `bytes`.
     fn read_exact(&mut self, bytes: &mut [u8]) -> Result<(), Self::Error>;
 
-    ///
+    /// Reads a `u8` value from `self`.
     #[inline]
     fn read_u8(&mut self) -> Result<u8, Self::Error> {
         let mut buf = [0; core::mem::size_of::<u8>()];
@@ -64,7 +64,7 @@ pub trait Read {
         Ok(buf[0])
     }
 
-    ///
+    /// Reads a `u32` value from `self`.
     #[inline]
     fn read_u32(&mut self) -> Result<u32, Self::Error> {
         let mut buf = [0; core::mem::size_of::<u32>()];
@@ -72,7 +72,7 @@ pub trait Read {
         Ok(u32::from_le_bytes(buf))
     }
 
-    ///
+    /// Reads a element from the field `F` with size less than `2^64` from `self.`
     #[inline]
     fn read_field<F>(&mut self) -> Result<F, Self::Error>
     where
@@ -83,11 +83,22 @@ pub trait Read {
         Ok(F::from_canonical_u64(u64::from_le_bytes(buf)))
     }
 
-    ///
+    /// Reads a vector of elements from the field `F` from `self`.
+    #[inline]
+    fn read_field_vec<F>(&mut self, length: usize) -> Result<Vec<F>, Self::Error>
+    where
+        F: Field64,
+    {
+        (0..length)
+            .map(|_| self.read_field())
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    /// Reads an element from the field extension of `F` from `self.`
     #[inline]
     fn read_field_ext<F, const D: usize>(&mut self) -> Result<F::Extension, Self::Error>
     where
-        F: RichField + Extendable<D>,
+        F: Field64 + Extendable<D>,
     {
         let mut arr = [F::ZERO; D];
         for a in arr.iter_mut() {
@@ -98,7 +109,19 @@ pub trait Read {
         ))
     }
 
-    ///
+    /// Reads a vector of elements from the field extension of `F` from `self`.
+    #[inline]
+    fn read_field_ext_vec<F, const D: usize>(
+        &mut self,
+        length: usize,
+    ) -> Result<Vec<F::Extension>, Self::Error>
+    where
+        F: RichField + Extendable<D>,
+    {
+        (0..length).map(|_| self.read_field_ext::<F, D>()).collect()
+    }
+
+    /// Reads a hash value from `self`.
     #[inline]
     fn read_hash<F, H>(&mut self) -> Result<H::Hash, Self::Error>
     where
@@ -110,7 +133,7 @@ pub trait Read {
         Ok(H::Hash::from_bytes(&buf))
     }
 
-    ///
+    /// Reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
     #[inline]
     fn read_merkle_cap<F, H>(&mut self, cap_height: usize) -> Result<MerkleCap<F, H>, Self::Error>
     where
@@ -125,30 +148,7 @@ pub trait Read {
         ))
     }
 
-    ///
-    #[inline]
-    fn read_field_vec<F>(&mut self, length: usize) -> Result<Vec<F>, Self::Error>
-    where
-        F: Field64,
-    {
-        (0..length)
-            .map(|_| self.read_field())
-            .collect::<Result<Vec<_>, _>>()
-    }
-
-    ///
-    #[inline]
-    fn read_field_ext_vec<F, const D: usize>(
-        &mut self,
-        length: usize,
-    ) -> Result<Vec<F::Extension>, Self::Error>
-    where
-        F: RichField + Extendable<D>,
-    {
-        (0..length).map(|_| self.read_field_ext::<F, D>()).collect()
-    }
-
-    ///
+    /// Reads a value of type [`OpeningSet`] from `self` with the given `common_data`.
     #[inline]
     fn read_opening_set<F, C, const D: usize>(
         &mut self,
@@ -180,7 +180,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`MerkleProof`] from `self`.
     #[inline]
     fn read_merkle_proof<F, H>(&mut self) -> Result<MerkleProof<F, H>, Self::Error>
     where
@@ -191,11 +191,11 @@ pub trait Read {
         Ok(MerkleProof {
             siblings: (0..length)
                 .map(|_| self.read_hash::<F, H>())
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect::<Result<_, _>>()?,
         })
     }
 
-    ///
+    /// Reads a value of type [`FriInitialTreeProof`] from `self` with the given `common_data`.
     #[inline]
     fn read_fri_initial_proof<F, C, const D: usize>(
         &mut self,
@@ -232,7 +232,8 @@ pub trait Read {
         Ok(FriInitialTreeProof { evals_proofs })
     }
 
-    ///
+    /// Reads a value of type [`FriQueryStep`] from `self` with the given `arity` and `compressed`
+    /// flag.
     #[inline]
     fn read_fri_query_step<F, C, const D: usize>(
         &mut self,
@@ -251,7 +252,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a vector of [`FriQueryRound`]s from `self` with `common_data`.
     #[inline]
     fn read_fri_query_rounds<F, C, const D: usize>(
         &mut self,
@@ -279,7 +280,7 @@ pub trait Read {
         Ok(fqrs)
     }
 
-    ///
+    /// Reads a value of type [`FriProof`] from `self` with `common_data`.
     #[inline]
     fn read_fri_proof<F, C, const D: usize>(
         &mut self,
@@ -306,7 +307,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`Proof`] from `self` with `common_data`.
     #[inline]
     fn read_proof<F, C, const D: usize>(
         &mut self,
@@ -331,7 +332,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`ProofWithPublicInputs`] from `self` with `common_data`.
     #[inline]
     fn read_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
@@ -352,7 +353,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`CompressedFriQueryRounds`] from `self` with `common_data`.
     #[inline]
     fn read_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
@@ -400,7 +401,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`CompressedFriProof`] from `self` with `common_data`.
     #[inline]
     fn read_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
@@ -427,7 +428,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`CompressedProof`] from `self` with `common_data`.
     #[inline]
     fn read_compressed_proof<F, C, const D: usize>(
         &mut self,
@@ -452,7 +453,7 @@ pub trait Read {
         })
     }
 
-    ///
+    /// Reads a value of type [`CompressedProofWithPublicInputs`] from `self` with `common_data`.
     #[inline]
     fn read_compressed_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
@@ -474,27 +475,27 @@ pub trait Read {
     }
 }
 
-///
+/// Writing
 pub trait Write {
-    ///
+    /// Error Type
     type Error;
 
-    ///
+    /// Writes all `bytes` to `self`.
     fn write_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
 
-    ///
+    /// Writes a byte `x` to `self`.
     #[inline]
     fn write_u8(&mut self, x: u8) -> Result<(), Self::Error> {
         self.write_all(&[x])
     }
 
-    ///
+    /// Writes a word `x` to `self.`
     #[inline]
     fn write_u32(&mut self, x: u32) -> Result<(), Self::Error> {
         self.write_all(&x.to_le_bytes())
     }
 
-    ///
+    /// Writes an element `x` from the field `F` to `self`.
     #[inline]
     fn write_field<F>(&mut self, x: F) -> Result<(), Self::Error>
     where
@@ -503,48 +504,25 @@ pub trait Write {
         self.write_all(&x.to_canonical_u64().to_le_bytes())
     }
 
-    ///
-    #[inline]
-    fn write_field_ext<F, const D: usize>(&mut self, x: F::Extension) -> Result<(), Self::Error>
-    where
-        F: RichField + Extendable<D>,
-    {
-        for &a in &x.to_basefield_array() {
-            self.write_field(a)?;
-        }
-        Ok(())
-    }
-
-    ///
-    #[inline]
-    fn write_hash<F, H>(&mut self, h: H::Hash) -> Result<(), Self::Error>
-    where
-        F: RichField,
-        H: Hasher<F>,
-    {
-        self.write_all(&h.to_bytes())
-    }
-
-    ///
-    #[inline]
-    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> Result<(), Self::Error>
-    where
-        F: RichField,
-        H: Hasher<F>,
-    {
-        for &a in &cap.0 {
-            self.write_hash::<F, H>(a)?;
-        }
-        Ok(())
-    }
-
-    ///
+    /// Writes a vector of elements
     #[inline]
     fn write_field_vec<F>(&mut self, v: &[F]) -> Result<(), Self::Error>
     where
         F: PrimeField64,
     {
         for &a in v {
+            self.write_field(a)?;
+        }
+        Ok(())
+    }
+
+    /// Writes an element `x` from the field extension of `F` to `self`.
+    #[inline]
+    fn write_field_ext<F, const D: usize>(&mut self, x: F::Extension) -> Result<(), Self::Error>
+    where
+        F: RichField + Extendable<D>,
+    {
+        for &a in &x.to_basefield_array() {
             self.write_field(a)?;
         }
         Ok(())
@@ -565,7 +543,30 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a hash `h` to `self`.
+    #[inline]
+    fn write_hash<F, H>(&mut self, h: H::Hash) -> Result<(), Self::Error>
+    where
+        F: RichField,
+        H: Hasher<F>,
+    {
+        self.write_all(&h.to_bytes())
+    }
+
+    /// Writes `cap`, a value of type [`MerkleCap`], to `self`.
+    #[inline]
+    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> Result<(), Self::Error>
+    where
+        F: RichField,
+        H: Hasher<F>,
+    {
+        for &a in &cap.0 {
+            self.write_hash::<F, H>(a)?;
+        }
+        Ok(())
+    }
+
+    /// Writes a value `os` of type [`OpeningSet`] to `self.`
     #[inline]
     fn write_opening_set<F, const D: usize>(
         &mut self,
@@ -583,7 +584,7 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }
 
-    ///
+    /// Writes a value `p` of type [`MerkleProof`] to `self.`
     #[inline]
     fn write_merkle_proof<F, H>(&mut self, p: &MerkleProof<F, H>) -> Result<(), Self::Error>
     where
@@ -602,7 +603,7 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a value `fitp` of type [`FriInitialTreeProof`] to `self.`
     #[inline]
     fn write_fri_initial_proof<F, C, const D: usize>(
         &mut self,
@@ -619,7 +620,7 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a value `fqs` of type [`FriQueryStep`] to `self.`
     #[inline]
     fn write_fri_query_step<F, C, const D: usize>(
         &mut self,
@@ -633,7 +634,7 @@ pub trait Write {
         self.write_merkle_proof(&fqs.merkle_proof)
     }
 
-    ///
+    /// Writes a value `fqrs` of type [`FriQueryRound`] to `self.`
     #[inline]
     fn write_fri_query_rounds<F, C, const D: usize>(
         &mut self,
@@ -652,7 +653,7 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a value `fq` of type [`FriProof`] to `self.`
     #[inline]
     fn write_fri_proof<F, C, const D: usize>(
         &mut self,
@@ -670,7 +671,7 @@ pub trait Write {
         self.write_field(fp.pow_witness)
     }
 
-    ///
+    /// Writes a value `proof` of type [`Proof`] to `self.`
     #[inline]
     fn write_proof<F, C, const D: usize>(
         &mut self,
@@ -687,7 +688,7 @@ pub trait Write {
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
 
-    ///
+    /// Writes a value `proof_with_pis` of type [`ProofWithPublicInputs`] to `self.`
     #[inline]
     fn write_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
@@ -705,7 +706,7 @@ pub trait Write {
         self.write_field_vec(public_inputs)
     }
 
-    ///
+    /// Writes a value `cfqrs` of type [`CompressedFriQueryRounds`] to `self.`
     #[inline]
     fn write_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
@@ -733,7 +734,7 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a value `fq` of type [`CompressedFriProof`] to `self.`
     #[inline]
     fn write_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
@@ -751,7 +752,7 @@ pub trait Write {
         self.write_field(fp.pow_witness)
     }
 
-    ///
+    /// Writes a value `proof` of type [`CompressedProof`] to `self.`
     #[inline]
     fn write_compressed_proof<F, C, const D: usize>(
         &mut self,
@@ -768,7 +769,7 @@ pub trait Write {
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }
 
-    ///
+    /// Writes a value `proof_with_pis` of type [`CompressedProofWithPublicInputs`] to `self.`
     #[inline]
     fn write_compressed_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
@@ -797,20 +798,20 @@ impl Write for Vec<u8> {
     }
 }
 
-///
+/// Buffer
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);
 
 #[cfg(feature = "std")]
 impl Buffer {
-    ///
+    /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
     pub fn new(buffer: Vec<u8>) -> Self {
         Self(Cursor::new(buffer))
     }
 
-    ///
+    /// Returns the inner buffer.
     #[inline]
     pub fn bytes(self) -> Vec<u8> {
         self.0.into_inner()
