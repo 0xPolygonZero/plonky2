@@ -14,44 +14,39 @@ pub(crate) fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_shift = lv.op.shl + lv.op.shr;
-    let val = lv.mem_channels[0];
     let displacement = lv.mem_channels[1]; // holds the shift displacement d
     let two_exp = lv.mem_channels[2]; // holds 2^d
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1]; // should hold val * 2^d (mod 2^256)
+
+    // Not needed here; val is the input and we're verifying that output is
+    // val * 2^d (mod 2^256)
+    //let val = lv.mem_channels[0];
+    //let output = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
     let shift_table_segment = P::Scalar::from_canonical_u64(Segment::ShiftTable as u64);
 
-    // Value, displacement, 2^disp, and output channels must be used and read-only.
-    yield_constr.constraint(is_shift * (val.used - P::ONES));
-    yield_constr.constraint(is_shift * (val.is_read - P::ONES));
-    yield_constr.constraint(is_shift * (displacement.used - P::ONES));
-    yield_constr.constraint(is_shift * (displacement.is_read - P::ONES));
-    yield_constr.constraint(is_shift * (output.used - P::ONES));
-    yield_constr.constraint(is_shift * (output.is_read - P::ONES));
-    yield_constr.constraint(is_shift * (two_exp.used - P::ONES));
-    yield_constr.constraint(is_shift * (two_exp.is_read - P::ONES));
-
     let high_limbs_are_zero = lv.general.shift().displacement_high_limbs_are_zero;
     yield_constr
-        .constraint(is_shift * (high_limbs_are_zero - high_limbs_are_zero * high_limbs_are_zero));
+        .constraint(is_shift * (high_limbs_are_zero * high_limbs_are_zero - high_limbs_are_zero));
+
+    // Only lookup the shifting factor when displacement is < 2^32
+    yield_constr.constraint(is_shift * (two_exp.used - high_limbs_are_zero));
+    yield_constr.constraint(is_shift * (two_exp.is_read - high_limbs_are_zero));
 
     let high_limbs_sum: P = displacement.value[1..].iter().copied().sum();
+    let high_limbs_sum_inv = lv.general.shift().high_limb_sum_inv;
+    // Verify that high_limbs_are_zero = 0 implies high_limbs_sum != 0 and
+    // high_limbs_are_zero = 1 implies high_limbs_sum = 0.
+    let t = high_limbs_sum * high_limbs_sum_inv - (P::ONES - high_limbs_are_zero);
+    yield_constr.constraint(is_shift * t);
     yield_constr.constraint(is_shift * high_limbs_sum * high_limbs_are_zero);
 
     // When the shift displacement is < 2^32, constrain the two_exp
     // mem_channel to be the entry corresponding to `displacement` in
     // the shift table lookup (will be zero if displacement >= 256).
     let small_disp_filter = is_shift * high_limbs_are_zero;
-    yield_constr.constraint(small_disp_filter * two_exp.addr_context); // kernel mode only
+    yield_constr.constraint(small_disp_filter * two_exp.addr_context); // read from kernel memory
     yield_constr.constraint(small_disp_filter * (two_exp.addr_segment - shift_table_segment));
     yield_constr.constraint(small_disp_filter * (two_exp.addr_virtual - displacement.value[0]));
-
-    // When the shift displacement is >= 2^32, constrain two_exp.value
-    // to be zero.
-    let large_disp_filter = is_shift * (P::ONES - high_limbs_are_zero);
-    for &limb in &two_exp.value {
-        yield_constr.constraint(large_disp_filter * limb);
-    }
 
     // Other channels must be unused
     for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
@@ -73,29 +68,10 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_shift = builder.add_extension(lv.op.shl, lv.op.shr);
-    let val = lv.mem_channels[0];
     let displacement = lv.mem_channels[1];
     let two_exp = lv.mem_channels[2];
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
     let shift_table_segment = F::from_canonical_u64(Segment::ShiftTable as u64);
-
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, val.used, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, val.is_read, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, displacement.used, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, displacement.is_read, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, output.used, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, output.is_read, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, two_exp.used, is_shift);
-    yield_constr.constraint(builder, t);
-    let t = builder.arithmetic_extension(F::ONE, -F::ONE, is_shift, two_exp.is_read, is_shift);
-    yield_constr.constraint(builder, t);
 
     let high_limbs_are_zero = lv.general.shift().displacement_high_limbs_are_zero;
     let t = builder.mul_sub_extension(
@@ -106,7 +82,20 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(t, is_shift);
     yield_constr.constraint(builder, t);
 
+    let t = builder.sub_extension(two_exp.used, high_limbs_are_zero);
+    let t = builder.mul_extension(is_shift, t);
+    yield_constr.constraint(builder, t);
+
+    let t = builder.sub_extension(two_exp.is_read, high_limbs_are_zero);
+    let t = builder.mul_extension(is_shift, t);
+    yield_constr.constraint(builder, t);
+
     let high_limbs_sum = builder.add_many_extension(&displacement.value[1..]);
+    let high_limbs_sum_inv = lv.general.shift().high_limb_sum_inv;
+    let t = builder.one_extension();
+    let t = builder.sub_extension(t, high_limbs_are_zero);
+    let t = builder.mul_sub_extension(high_limbs_sum, high_limbs_sum_inv, t);
+    yield_constr.constraint(builder, t);
     let t = builder.mul_many_extension([is_shift, high_limbs_sum, high_limbs_are_zero]);
     yield_constr.constraint(builder, t);
 
@@ -124,13 +113,6 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.sub_extension(two_exp.addr_virtual, displacement.value[0]);
     let t = builder.mul_extension(small_disp_filter, t);
     yield_constr.constraint(builder, t);
-
-    let large_disp_filter =
-        builder.arithmetic_extension(-F::ONE, F::ONE, is_shift, high_limbs_are_zero, is_shift);
-    for &limb in &two_exp.value {
-        let t = builder.mul_extension(large_disp_filter, limb);
-        yield_constr.constraint(builder, t);
-    }
 
     for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
         let t = builder.mul_extension(is_shift, chan.used);

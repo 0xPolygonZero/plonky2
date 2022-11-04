@@ -160,6 +160,9 @@ pub(crate) struct CpuShiftView<T: Copy> {
     // 1 if the high limbs of the displacement are all zero, 0 if one
     // or more of the limbs is nonzero.
     pub(crate) displacement_high_limbs_are_zero: T,
+    // For a shift amount of displacement: [T], this is the inverse of
+    // sum(displacement[1..]) or zero if the sum is zero.
+    pub(crate) high_limb_sum_inv: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
