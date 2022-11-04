@@ -10,6 +10,9 @@ use crate::arithmetic::columns::{NUM_ARITH_COLUMNS, N_LIMBS};
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
 /// cols[0] + cols.len() - 1]`.
+///
+/// TODO: Hamish to delete this when he has implemented and integrated
+/// range checks.
 pub(crate) fn _range_check_error<const RC_BITS: u32>(
     _file: &str,
     _line: u32,
