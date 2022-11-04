@@ -92,7 +92,3 @@ global blake_g_function:
     %mstore_kernel_general
     ADD
     %mstore_kernel_general
-    
-
-
-

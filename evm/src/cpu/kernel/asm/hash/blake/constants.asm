@@ -1,4 +1,4 @@
-global blake_iv:
+global blake_iv_const:
     // IV constants (big-endian)
 
     // IV_0
@@ -32,3 +32,25 @@ global blake_iv:
     // IV_7
     BYTES 91, 224, 205, 25
     BYTES 19, 126, 33, 121
+
+%macro blake_iv(i)
+    PUSH blake_iv_const
+    // stack: blake_iv_const
+    PUSH $i
+    // stack: i, blake_iv_const
+    %mul_const(2)
+    ADD
+    // stack: blake_iv_const + 2 * i
+    DUP1
+    // stack: blake_iv_const + 2 * i, blake_iv_const + 2 * i
+    %increment
+    // stack: blake_iv_const + 2 * i, blake_iv_const + 2 * i
+    %mload_kernel_code
+    SWAP1
+    %increment
+    // stack: IV_i[32:], IV_i[:32]
+    %shl_const(32)
+    // stack: IV_i[32:] << 32, IV_i[:32]
+    ADD
+    // stack: IV_i
+%endmacro
