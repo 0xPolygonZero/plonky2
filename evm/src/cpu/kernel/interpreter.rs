@@ -8,7 +8,6 @@ use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
@@ -80,17 +79,15 @@ pub struct Interpreter<'a> {
     running: bool,
 }
 
-pub fn run_with_kernel(
-    // TODO: Remove param and just use KERNEL.
-    kernel: &Kernel,
+pub fn run_interpreter(
     initial_offset: usize,
     initial_stack: Vec<U256>,
-) -> anyhow::Result<Interpreter> {
+) -> anyhow::Result<Interpreter<'static>> {
     run(
-        &kernel.code,
+        &KERNEL.code,
         initial_offset,
         initial_stack,
-        &kernel.prover_inputs,
+        &KERNEL.prover_inputs,
     )
 }
 
