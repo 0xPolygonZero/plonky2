@@ -504,7 +504,7 @@ pub trait Write {
         self.write_all(&x.to_canonical_u64().to_le_bytes())
     }
 
-    /// Writes a vector of elements
+    /// Writes a vector `v` of elements from the field `F` to `self`.
     #[inline]
     fn write_field_vec<F>(&mut self, v: &[F]) -> Result<(), Self::Error>
     where
@@ -528,7 +528,7 @@ pub trait Write {
         Ok(())
     }
 
-    ///
+    /// Writes a vector `v` of elements from the field extension of `F` to `self`.
     #[inline]
     fn write_field_ext_vec<F, const D: usize>(
         &mut self,
