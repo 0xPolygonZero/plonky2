@@ -13,6 +13,8 @@ use crate::helper::byte_to_u32_target;
 use crate::bit_operations::{add_arr, and_arr, not_arr, xor2_arr, xor3_arr, zip_add};
 use crate::helper::{_right_rotate, _shr, uint32_to_bits};
 use crate::sha256::make_sha256_circuit;
+use plonky2::iop::wire::Wire;
+use std::marker::PhantomData;
 pub struct HeaderTarget {
     header_bits: Vec<BoolTarget>,
     threshold_bits: Vec<BoolTarget>,
@@ -433,5 +435,203 @@ mod tests {
         let now = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
         data.verify(proof).expect("header failure");
+    }
+}
+
+use plonky2::gates::gate::Gate;
+use plonky2::gates::packed_util::PackedEvaluableBase;
+use plonky2::gates::util::StridedConstraintConsumer;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
+use plonky2_field::packed::PackedField;
+use plonky2_field::types::Field;
+
+/// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
+/// supports enough routed wires, it can support several such operations in one gate.
+#[derive(Debug, Clone)]
+pub struct XOR3Gate {
+    pub num_xors: usize
+}
+
+impl XOR3Gate {
+    pub fn new(num_xors: usize) -> Self {
+        Self { num_xors }
+    }
+
+    pub fn wire_ith_a(i: usize) -> usize {
+        i * 4
+    }
+
+    pub fn wire_ith_b(i: usize) -> usize {
+        i * 4 + 1
+    }
+
+    pub fn wire_ith_c(i: usize) -> usize {
+        i * 4 + 2
+    }
+
+    pub fn wire_ith_d(i: usize) -> usize {
+        i * 4 + 3
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for XOR3Gate {
+    fn id(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
+        let mut constraints = Vec::new();
+
+        let one = F::Extension::from_canonical_u64(1);
+        let two = F::Extension::from_canonical_u64(2);
+        let four = F::Extension::from_canonical_u64(4);
+        let mut acc = F::Extension::from_canonical_u64(0);
+
+        for i in 0..self.num_xors {
+            let a = vars.local_wires[XOR3Gate::wire_ith_a(i)];
+            let b = vars.local_wires[XOR3Gate::wire_ith_b(i)];
+            let c = vars.local_wires[XOR3Gate::wire_ith_c(i)];
+            let d = vars.local_wires[XOR3Gate::wire_ith_d(i)];
+            let output = a * (one - two * b - two * c + four * b * c) + b + c - two * b * c - d;
+            acc += output;
+        }
+
+        constraints.push(acc);
+
+        constraints
+    }
+
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
+        let one = F::from_canonical_u64(1);
+        let two = F::from_canonical_u64(2);
+        let four = F::from_canonical_u64(4);
+
+        let mut acc = F::from_canonical_u64(0);
+        for i in 0..self.num_xors {
+            let a = vars.local_wires[XOR3Gate::wire_ith_a(i)];
+            let b = vars.local_wires[XOR3Gate::wire_ith_b(i)];
+            let c = vars.local_wires[XOR3Gate::wire_ith_c(i)];
+            let d = vars.local_wires[XOR3Gate::wire_ith_d(i)];
+            let output = a * (one - two * b - two * c + four * b * c) + b + c - two * b * c - d;
+            acc += output;
+        }
+
+        yield_constr.one(acc);
+    }
+
+    fn eval_unfiltered_circuit(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
+        let mut constraints = Vec::new();
+
+        // let one = builder.constant_extension(F::Extension::from_canonical_u64(1));
+        // let two = builder.constant_extension(F::Extension::from_canonical_u64(2));
+        // let four = builder.constant_extension(F::Extension::from_canonical_u64(4));
+
+        // let a = vars.local_wires[0];
+        // let b = vars.local_wires[1];
+        // let c = vars.local_wires[2];
+        // let output = vars.local_wires[3];
+
+        // let m = builder.mul_extension(b, c);
+        // let two_b = builder.mul_extension(two, b);
+        // let two_c = builder.mul_extension(two, c);
+        // let two_m = builder.mul_extension(four, m);
+        // let four_m = builder.mul_extension(four, m);
+
+        // let result = builder.sub_extension(one, two_b);
+        // let result = builder.sub_extension(result, two_c);
+        // let result = builder.add_extension(result, four_m);
+        // let result = builder.mul_extension(result, a);
+
+        // let result = builder.add_extension(result, b);
+        // let result = builder.add_extension(result, c);
+        // let result = builder.sub_extension(result, two_m);
+
+        // let result = builder.sub_extension(result, result);
+
+        // constraints.push(result);
+
+        constraints
+    }
+
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+        let gen = XOR3Generator::<F, D> { row, num_xors: self.num_xors, _phantom: PhantomData };
+        vec![Box::new(gen.adapter())]
+    }
+
+    fn num_wires(&self) -> usize {
+        4
+    }
+
+    fn num_constants(&self) -> usize {
+        0
+    }
+
+    fn degree(&self) -> usize {
+        3
+    }
+
+    fn num_constraints(&self) -> usize {
+        1
+    }
+}
+
+
+#[derive(Debug)]
+struct XOR3Generator<F: RichField + Extendable<D>, const D: usize> {
+    row: usize,
+    num_xors: usize,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for XOR3Generator<F, D> {
+    fn dependencies(&self) -> Vec<Target> {
+        let local_target = |column| Target::wire(self.row, column);
+        let mut result: Vec<Target> = Vec::new();
+
+        for i in 0..self.num_xors {
+            result.push(local_target(i*4));
+            result.push(local_target(i*4+1));
+            result.push(local_target(i*4+2));
+        }
+
+        result
+    }
+
+    /*
+    a ^ b ^ c = a+b+c - 2*a*b - 2*a*c - 2*b*c + 4*a*b*c
+            = a*( 1 - 2*b - 2*c + 4*b*c ) + b + c - 2*b*c
+            = a*( 1 - 2*b -2*c + 4*m ) + b + c - 2*m
+    where m = b*c
+    */
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
+
+        let one = F::from_canonical_u64(1);
+        let two = F::from_canonical_u64(2);
+        let four = F::from_canonical_u64(4);
+
+        for i in 0..self.num_xors {
+            let a = get_wire(4*i);
+            let b = get_wire(4*i+1);
+            let c = get_wire(4*i+2);
+            let d_target = Target::wire(self.row, 4*i+3);
+            let computed_output = a * (one - two * b - two * c + four * b * c) + b + c - two * b * c;
+            out_buffer.set_target(d_target, computed_output);
+        }
     }
 }
