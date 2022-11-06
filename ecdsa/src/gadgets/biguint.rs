@@ -136,6 +136,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
     }
 
     fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+        if a.num_limbs() != b.num_limbs() {
+            panic!("The limb sizes must be the same for this modification");
+        }
         let num_limbs = a.num_limbs().max(b.num_limbs());
 
         let mut combined_limbs = vec![];
@@ -152,7 +155,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
-        combined_limbs.push(carry);
+        // This is assuming that we are adding a and b that have the same number of limbs
+        // combined_limbs.push(carry);
 
         BigUintTarget {
             limbs: combined_limbs,
@@ -179,6 +183,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
     }
 
     fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+        if a.num_limbs() != b.num_limbs() {
+            panic!("The limb sizes must be the same for this modification");
+        }
         let total_limbs = a.limbs.len() + b.limbs.len();
 
         let mut to_add = vec![vec![]; total_limbs];
@@ -199,9 +206,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
         combined_limbs.push(carry);
 
-        BigUintTarget {
-            limbs: combined_limbs,
+        let mut final_limbs = vec![];
+        for i in 0..a.limbs.len() {
+            final_limbs.push(combined_limbs[i]);
         }
+
+        BigUintTarget { limbs: final_limbs }
     }
 
     fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
@@ -231,13 +241,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         a: &BigUintTarget,
         b: &BigUintTarget,
     ) -> (BigUintTarget, BigUintTarget) {
+        if a.num_limbs() != b.num_limbs() {
+            panic!("The limb sizes must be the same for this modification");
+        }
         let a_len = a.limbs.len();
         let b_len = b.limbs.len();
-        let div_num_limbs = if b_len > a_len + 1 {
-            0
-        } else {
-            a_len - b_len + 1
-        };
+        // let div_num_limbs = if b_len > a_len + 1 {
+        //     0
+        // } else {
+        //     a_len - b_len + 1
+        // };
+        let div_num_limbs = a_len;
         let div = self.add_virtual_biguint_target(div_num_limbs);
         let rem = self.add_virtual_biguint_target(b_len);
 
@@ -336,6 +350,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let a = witness.get_biguint_target(self.a.clone());
         let b = witness.get_biguint_target(self.b.clone());
         let (div, rem) = a.div_rem(&b);
+        println!("a: {:?}, b: {:?}, div: {:?}, rem: {:?}", a, b, div, rem);
 
         out_buffer.set_biguint_target(&self.div, &div);
         out_buffer.set_biguint_target(&self.rem, &rem);

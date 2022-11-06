@@ -167,7 +167,7 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         if i == 0 {
             numerator_bits.push(builder.constant_bool(true));
         } else {
-            numerator_bits.push(builder.constant_bool(false));
+            numerator_bits.push(builder.constant_bool(true));
         }
         threshold_bits_copy.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
         builder.connect(
@@ -175,9 +175,12 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
             threshold_bits_copy[i].target,
         );
     }
+    println!("numerator bits length {}", numerator_bits.len());
+    println!("threshold bits length {}", threshold_bits_copy.len());
     let numerator_as_biguint = bits_to_biguint_target(builder, numerator_bits);
     let denominator = bits_to_biguint_target(builder, threshold_bits_copy);
     let work = builder.div_biguint(&numerator_as_biguint, &denominator);
+    println!("In header circuit, the limbs is {}", work.num_limbs());
 
     return HeaderTarget {
         header_bits: header_bits,
@@ -230,7 +233,11 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
             );
         }
 
-        println!("Header {}", h);
+        println!("header number {}", h);
+        println!(
+            "header_targets.work.num_limbs = {}",
+            header_targets.work.num_limbs()
+        );
 
         // Then add the header's work to the total work
         if h == 0 {
@@ -238,6 +245,7 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         } else {
             work.push(builder.add_biguint(&work[h - 1], &header_targets.work));
         }
+        println!("work sum num_limbs {}", work[h].num_limbs());
 
         hashes.push(header_targets.hash);
 
@@ -264,14 +272,23 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
+    use std::ops::AddAssign;
+    use std::ops::MulAssign;
+    use std::ops::SubAssign;
+
     use anyhow::Result;
     use hex::decode;
     use num::BigUint;
+    use num::Integer;
+    use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::{PartialWitness, Witness};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
     use plonky2_ecdsa::gadgets::biguint::CircuitBuilderBiguint;
+    use plonky2_field::extension::Extendable;
+    use plonky2_u32::gadgets::arithmetic_u32::CircuitBuilderU32;
 
     use crate::btc::make_header_circuit;
     use crate::btc::make_multi_header_circuit;
@@ -312,6 +329,47 @@ mod tests {
         (exp, mantissa)
     }
 
+    fn compute_work(exp: u32, mantissa: u64) -> BigUint {
+        let mut my_threshold_bits = Vec::new();
+        for i in 0..256 {
+            if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
+                my_threshold_bits.push(true);
+            } else {
+                my_threshold_bits.push(false);
+            }
+        }
+        let mut acc: BigUint = BigUint::new(vec![1]);
+        let mut denominator: BigUint = BigUint::new(vec![0]);
+        for i in 0..256 {
+            if my_threshold_bits[255 - i] {
+                denominator.add_assign(acc.clone());
+            }
+            acc.mul_assign(BigUint::new(vec![2]));
+        }
+        let numerator = acc;
+        let correct_work = numerator / denominator;
+        return correct_work;
+    }
+
+    fn get_work_target<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        work: BigUint,
+    ) -> BigUintTarget {
+        let mut correct_work_bits = Vec::new();
+        for i in 0..256 {
+            let bit = work.bit(256 - i);
+            if bit {
+                let _true = builder._true();
+                correct_work_bits.push(_true);
+            } else {
+                let _false = builder._false();
+                correct_work_bits.push(_false);
+            }
+        }
+        let correct_work_target = bits_to_biguint_target(builder, correct_work_bits);
+        return correct_work_target;
+    }
+
     #[test]
     fn test_header_circuit() -> Result<()> {
         let genesis_header = decode("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c").unwrap();
@@ -336,8 +394,6 @@ mod tests {
             }
         }
 
-        let data = builder.build::<C>();
-
         let mut pw = PartialWitness::new();
         for i in 0..header_bits.len() {
             pw.set_bool_target(targets.header_bits[i], header_bits[i]);
@@ -346,42 +402,32 @@ mod tests {
         let (exp, mantissa) = compute_exp_and_mantissa(header_bits);
 
         println!("exp: {}, mantissa: {}", exp, mantissa);
+        let mut correct_work = compute_work(exp, mantissa);
+        // When you include the below line, the circuit should fail since correct work is wrong
+        // correct_work.sub_assign(BigUint::new(vec![1]));
 
-        let my_threshold_bits = Vec::new();
         for i in 0..256 {
             if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
                 pw.set_bool_target(targets.threshold_bits[i as usize], true);
-                my_threshold_bits.push(true);
+                print!("1");
             } else {
                 pw.set_bool_target(targets.threshold_bits[i as usize], false);
-                my_threshold_bits.push(false);
+                print!("0");
             }
         }
+        println!("");
 
-        let acc: BigUint = BigUint::from(1);
-        let denominator: BigUint = BigUint::from(0);
-        for i in 0..256 {
-            if my_threshold_bits[255 - i] {
-                denominator += acc;
-            }
-            acc *= 2;
+        let mut correct_work_target = builder.constant_biguint(&correct_work);
+        println!(
+            "correct work number limbs: {}",
+            correct_work_target.num_limbs()
+        );
+        for _ in 8 - correct_work_target.num_limbs()..8 {
+            correct_work_target.limbs.push(builder.zero_u32());
         }
-        let numerator = acc;
-        let correct_work = numerator / denominator;
-        let correct_work_bits = Vec::new();
-        for i in 0..256 {
-            if correct_work & (1 << (255 - i)) != 0 {
-                let _true = builder._true();
-                correct_work_bits.push(_true);
-            } else {
-                let _false = builder._false();
-                correct_work_bits.push(_false);
-            }
-        }
-        let correct_work_target = bits_to_biguint_target(builder, correct_work_bits);
-
         builder.connect_biguint(&targets.work, &correct_work_target);
 
+        let data = builder.build::<C>();
         let now = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
         let elapsed = now.elapsed().as_millis();
@@ -444,9 +490,7 @@ mod tests {
             }
         }
 
-        let data = builder.build::<C>();
-        println!("Built the circuit");
-
+        let mut total_work = BigUint::new(vec![0]);
         let mut pw = PartialWitness::new();
         for h in 0..num_headers {
             let header_bits = to_bits(decode(headers[h]).unwrap());
@@ -455,18 +499,28 @@ mod tests {
             }
 
             let (exp, mantissa) = compute_exp_and_mantissa(header_bits);
+            let header_work = compute_work(exp, mantissa);
+            println!("header {} work {}", h, header_work);
+            total_work.add_assign(header_work);
 
             for i in 0..256 {
                 if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
                     pw.set_bool_target(targets.multi_threshold_bits[h * 256 + i as usize], true);
-                    print!("1");
+                    // print!("1");
                 } else {
                     pw.set_bool_target(targets.multi_threshold_bits[h * 256 + i as usize], false);
-                    print!("0");
+                    // print!("0");
                 }
             }
         }
+        let mut total_work_target = builder.constant_biguint(&total_work);
+        for _ in 8 - total_work_target.num_limbs()..8 {
+            total_work_target.limbs.push(builder.zero_u32());
+        }
+        builder.connect_biguint(&targets.total_work, &total_work_target);
 
+        let data = builder.build::<C>();
+        println!("Built the circuit");
         let now = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
         let elapsed = now.elapsed().as_millis();
