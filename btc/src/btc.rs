@@ -1,25 +1,20 @@
 use std::marker::PhantomData;
-use std::time::{Duration, Instant};
 
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::wire::Wire;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2_ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint};
 use plonky2_field::extension::Extendable;
-use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
-use plonky2_u32::gates::comparison::ComparisonGate;
 
-use crate::bit_operations::{add_arr, and_arr, not_arr, xor2_arr, xor3_arr, zip_add};
-use crate::helper::byte_to_u32_target;
-use crate::helper::{_right_rotate, _shr, uint32_to_bits};
+use crate::helper::{bits_to_biguint_target, byte_to_u32_target};
 use crate::sha256::make_sha256_circuit;
 pub struct HeaderTarget {
     header_bits: Vec<BoolTarget>,
     threshold_bits: Vec<BoolTarget>,
     hash: Vec<BoolTarget>,
-    work: Target,
+    work: BigUintTarget,
 }
 
 pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -153,8 +148,6 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.connect(sha2_bytes[j], byte_from_bits);
     }
 
-    println!("here2");
-
     // Compare difficulty_bits with output of double SHA 256
     let is_less = list_le_u32_circuit(
         builder,
@@ -162,23 +155,42 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         sha2_bytes.into_iter().map(|x| U32Target(x)).collect(),
     );
 
-    println!("here3");
-
     let one = builder._true();
     builder.connect(is_less.target, one.target);
+
+    println!("Done comparing sha hash to threshold");
+
+    // Now we compute the work given the threshold bits
+    let mut numerator_bits = Vec::new(); // 2^256
+    let mut threshold_bits_copy = Vec::new();
+    for i in 0..256 {
+        if i == 0 {
+            numerator_bits.push(builder.constant_bool(true));
+        } else {
+            numerator_bits.push(builder.constant_bool(false));
+        }
+        threshold_bits_copy.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
+        builder.connect(
+            threshold_bits_input[i].target,
+            threshold_bits_copy[i].target,
+        );
+    }
+    let numerator_as_biguint = bits_to_biguint_target(builder, numerator_bits);
+    let denominator = bits_to_biguint_target(builder, threshold_bits_copy);
+    let work = builder.div_biguint(&numerator_as_biguint, &denominator);
 
     return HeaderTarget {
         header_bits: header_bits,
         threshold_bits: threshold_bits_input,
         hash: return_hash,
-        work: builder.constant(F::ONE), // TODO
+        work: work,
     };
 }
 
 pub struct MultiHeaderTarget {
     pub headers: Vec<BoolTarget>,
     pub multi_threshold_bits: Vec<BoolTarget>,
-    pub total_work: Target,
+    pub total_work: BigUintTarget,
     pub hashes: Vec<Vec<BoolTarget>>,
 }
 
@@ -224,7 +236,7 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         if h == 0 {
             work.push(header_targets.work);
         } else {
-            work.push(builder.add(work[h - 1], header_targets.work));
+            work.push(builder.add_biguint(&work[h - 1], &header_targets.work));
         }
 
         hashes.push(header_targets.hash);
@@ -239,10 +251,13 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         }
     }
 
+    let total_work = builder.add_virtual_biguint_target(work[work.len() - 1].num_limbs());
+    builder.connect_biguint(&work[work.len() - 1], &total_work);
+
     return MultiHeaderTarget {
         headers: multi_header_bits,
         multi_threshold_bits: multi_threshold_bits,
-        total_work: work[num_headers - 1],
+        total_work: total_work,
         hashes: hashes,
     };
 }
