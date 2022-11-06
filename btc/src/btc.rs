@@ -107,21 +107,26 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Check that mantissa range matches mantissa from 80-byte header
     // However, it's annoying because mantissa from the header is in little-endian by BYTES
 
+    let mut threshold_bytes = Vec::new();
+    for j in 0..32 {
+        threshold_bytes.push(builder.add_virtual_target()); // Will verify that input is 0 or 1
+
+        let byte_from_bits =
+            byte_to_u32_target(builder, threshold_bits[j * 8..(j + 1) * 8].to_vec()).0;
+        builder.connect(threshold_bytes[j], byte_from_bits);
+    }
+
     let mut check_bytes = |threshold_byte_index: u64, header_bit_index: usize| {
         // Check left-most byte of threshold bits
-        let mut threshold_bytes = Vec::new();
+        let mut new_threshold_bytes = Vec::new();
         for j in 0..32 {
-            threshold_bytes.push(builder.add_virtual_target()); // Will verify that input is 0 or 1
-
-            let byte_from_bits =
-                byte_to_u32_target(builder, threshold_bits[j * 8..(j + 1) * 8].to_vec()).0;
-            builder.connect(threshold_bytes[j], byte_from_bits);
+            builder.connect(new_threshold_bytes[j], threshold_bytes[j]);
         }
 
         let thirty_two = builder.constant(F::from_canonical_u64(threshold_byte_index));
         let mut access_index = builder.sub(thirty_two, difficulty_exp_int.0);
 
-        let threshold_byte = builder.random_access(access_index, threshold_bytes);
+        let threshold_byte = builder.random_access(access_index, new_threshold_bytes);
 
         // Check that threshold_bits matches mantissa
         let header_byte = byte_to_u32_target(
@@ -137,15 +142,6 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
     check_bytes(34, 576);
 
     println!("Bytes comparison done");
-
-    let mut threshold_bytes = Vec::new();
-    for j in 0..32 {
-        threshold_bytes.push(builder.add_virtual_target()); // Will verify that input is 0 or 1
-
-        let byte_from_bits =
-            byte_to_u32_target(builder, threshold_bits[j * 8..(j + 1) * 8].to_vec()).0;
-        builder.connect(threshold_bytes[j], byte_from_bits);
-    }
 
     let mut sha2_bytes = Vec::new();
     for j in 0..32 {
