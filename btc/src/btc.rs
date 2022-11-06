@@ -266,13 +266,16 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
 mod tests {
     use anyhow::Result;
     use hex::decode;
+    use num::BigUint;
     use plonky2::iop::witness::{PartialWitness, Witness};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2_ecdsa::gadgets::biguint::CircuitBuilderBiguint;
 
     use crate::btc::make_header_circuit;
     use crate::btc::make_multi_header_circuit;
+    use crate::helper::bits_to_biguint_target;
 
     fn to_bits(msg: Vec<u8>) -> Vec<bool> {
         let mut res = Vec::new();
@@ -344,15 +347,40 @@ mod tests {
 
         println!("exp: {}, mantissa: {}", exp, mantissa);
 
+        let my_threshold_bits = Vec::new();
         for i in 0..256 {
             if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
                 pw.set_bool_target(targets.threshold_bits[i as usize], true);
-                print!("1");
+                my_threshold_bits.push(true);
             } else {
                 pw.set_bool_target(targets.threshold_bits[i as usize], false);
-                print!("0");
+                my_threshold_bits.push(false);
             }
         }
+
+        let acc: BigUint = BigUint::from(1);
+        let denominator: BigUint = BigUint::from(0);
+        for i in 0..256 {
+            if my_threshold_bits[255 - i] {
+                denominator += acc;
+            }
+            acc *= 2;
+        }
+        let numerator = acc;
+        let correct_work = numerator / denominator;
+        let correct_work_bits = Vec::new();
+        for i in 0..256 {
+            if correct_work & (1 << (255 - i)) != 0 {
+                let _true = builder._true();
+                correct_work_bits.push(_true);
+            } else {
+                let _false = builder._false();
+                correct_work_bits.push(_false);
+            }
+        }
+        let correct_work_target = bits_to_biguint_target(builder, correct_work_bits);
+
+        builder.connect_biguint(&targets.work, &correct_work_target);
 
         let now = std::time::Instant::now();
         let proof = data.prove(pw).unwrap();
