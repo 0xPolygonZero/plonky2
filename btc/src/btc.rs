@@ -20,6 +20,9 @@ pub struct HeaderTarget {
     work: BigUintTarget
 }
 
+const DO_WORK: bool = false;
+const DO_THRESHOLD_BITS: bool = false;
+
 pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>
 ) -> HeaderTarget 
@@ -63,163 +66,167 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.connect(threshold_bits_input[i].target, threshold_bits[i].target);
     }
 
-
-    let mut difficulty_exp_bits = header_bits[512..528].to_vec();
-    let mut padded_difficulty_bits = Vec::new();
-    for i in 0..32 {
-        padded_difficulty_bits.push(builder.add_virtual_bool_target_safe());
-        if (i > 15  ) {
-            let zero = builder.zero();
-            builder.connect(padded_difficulty_bits[i].target, zero);
-        } else {
-            builder.connect(difficulty_exp_bits[i].target, padded_difficulty_bits[i].target);
+    if DO_THRESHOLD_BITS {
+        let mut difficulty_exp_bits = header_bits[512..528].to_vec();
+        let mut padded_difficulty_bits = Vec::new();
+        for i in 0..32 {
+            padded_difficulty_bits.push(builder.add_virtual_bool_target_safe());
+            if (i > 15  ) {
+                let zero = builder.zero();
+                builder.connect(padded_difficulty_bits[i].target, zero);
+            } else {
+                builder.connect(difficulty_exp_bits[i].target, padded_difficulty_bits[i].target);
+            }
         }
-    }
-    let mut difficulty_exp_int = bits_to_biguint_target(builder, padded_difficulty_bits).limbs[0];
-
-    let inter1 = builder.mul_const(
-        F::from_canonical_u64(8),
-        difficulty_exp_int.0,
-    );
-    let const1 =  builder.constant(F::from_canonical_u64(232));
-    let mut mantissa_start_index = builder.sub(
-        const1,
-        inter1
-    );
-
-    // Check if threshold array is all 0 OR in the range of mantissa
-    for i in 0..256 {
-        let a_le_b_gate = ComparisonGate::new(9, 1);
-        let a_le_b_row = builder.add_gate(a_le_b_gate.clone(), vec![]);
-        builder.connect(
-            Target::wire(a_le_b_row, a_le_b_gate.wire_first_input()),
-            mantissa_start_index,
+        let mut difficulty_exp_int = bits_to_biguint_target(builder, padded_difficulty_bits).limbs[0];
+    
+        let inter1 = builder.mul_const(
+            F::from_canonical_u64(8),
+            difficulty_exp_int.0,
         );
-        builder.connect(
-            Target::wire(a_le_b_row, a_le_b_gate.wire_second_input()),
-            threshold_bits[i].target,
+        let const1 =  builder.constant(F::from_canonical_u64(232));
+        let mut mantissa_start_index = builder.sub(
+            const1,
+            inter1
         );
-        let first_result = Target::wire(a_le_b_row, a_le_b_gate.wire_result_bool());
-
-        let a_le_b_gate = ComparisonGate::new(9, 1);
-        let a_le_b_row = builder.add_gate(a_le_b_gate.clone(), vec![]);
-        builder.connect(
-            Target::wire(a_le_b_row, a_le_b_gate.wire_first_input()),
-            threshold_bits[i].target,
-        );
-        let inter2 =builder.add_const(
-            mantissa_start_index,
-            F::from_canonical_u64(47),
-        );
-        builder.connect(
-            Target::wire(a_le_b_row, a_le_b_gate.wire_second_input()),
-            inter2
-        );
-        let second_result = Target::wire(a_le_b_row, a_le_b_gate.wire_result_bool());
-
-        {
-            let zero1 = builder.zero();
-            let const1 = builder.is_equal(threshold_bits[i].target, zero1).target;
-            let const2 = builder.and(BoolTarget::new_unsafe(first_result), BoolTarget::new_unsafe(second_result)).target;
-            let const3 = builder.add(const1, const2);
-            let zero2 = builder.zero();
-            let const4 = builder.is_equal(const3, zero2);
-
-            let in_range_or_equals_zero = builder.not(const4);
-            let true1 = builder._true();
-            builder.connect(in_range_or_equals_zero.target, true1.target);
-        }
-
-    }
-
-    // Check that mantissa range matches mantissa from 80 bytes
-    let claimed_element = builder.add_virtual_target();
-
-    let random_gate = RandomAccessGate::<F, D>::new_from_config(&builder.config, 256);
-    let (row, copy) = builder.find_slot(random_gate, &[], &[]);
-
-    threshold_bits.iter().enumerate().for_each(|(i, &val)| {
-        builder.connect(
-            val.target,
-            Target::wire(row, random_gate.wire_list_item(i, copy)),
-        );
-    });
-
-    for i in 0..48 {
-        {
-            let const1 = builder.constant(F::from_canonical_u64(232 + i));
-            let mul1 = builder.mul_const(
-                F::from_canonical_u64(8),
-                difficulty_exp_int.0,
-            );
-            let mut access_index = builder.sub(
-                const1,
-                mul1
+    
+        // Check if threshold array is all 0 OR in the range of mantissa
+        for i in 0..256 {
+            let a_le_b_gate = ComparisonGate::new(9, 1);
+            let a_le_b_row = builder.add_gate(a_le_b_gate.clone(), vec![]);
+            builder.connect(
+                Target::wire(a_le_b_row, a_le_b_gate.wire_first_input()),
+                mantissa_start_index,
             );
             builder.connect(
-                access_index,
-                Target::wire(row, random_gate.wire_access_index(copy)),
+                Target::wire(a_le_b_row, a_le_b_gate.wire_second_input()),
+                threshold_bits[i].target,
             );
+            let first_result = Target::wire(a_le_b_row, a_le_b_gate.wire_result_bool());
+    
+            let a_le_b_gate = ComparisonGate::new(9, 1);
+            let a_le_b_row = builder.add_gate(a_le_b_gate.clone(), vec![]);
+            builder.connect(
+                Target::wire(a_le_b_row, a_le_b_gate.wire_first_input()),
+                threshold_bits[i].target,
+            );
+            let inter2 =builder.add_const(
+                mantissa_start_index,
+                F::from_canonical_u64(47),
+            );
+            builder.connect(
+                Target::wire(a_le_b_row, a_le_b_gate.wire_second_input()),
+                inter2
+            );
+            let second_result = Target::wire(a_le_b_row, a_le_b_gate.wire_result_bool());
+    
+            {
+                let zero1 = builder.zero();
+                let const1 = builder.is_equal(threshold_bits[i].target, zero1).target;
+                let const2 = builder.and(BoolTarget::new_unsafe(first_result), BoolTarget::new_unsafe(second_result)).target;
+                let const3 = builder.add(const1, const2);
+                let zero2 = builder.zero();
+                let const4 = builder.is_equal(const3, zero2);
+    
+                let in_range_or_equals_zero = builder.not(const4);
+                let true1 = builder._true();
+                builder.connect(in_range_or_equals_zero.target, true1.target);
+            }
+    
         }
-        
-        builder.connect(
-            claimed_element,
-            Target::wire(row, random_gate.wire_claimed_element(copy)),
+    
+        // Check that mantissa range matches mantissa from 80 bytes
+        let claimed_element = builder.add_virtual_target();
+    
+        let random_gate = RandomAccessGate::<F, D>::new_from_config(&builder.config, 256);
+        let (row, copy) = builder.find_slot(random_gate, &[], &[]);
+    
+        threshold_bits.iter().enumerate().for_each(|(i, &val)| {
+            builder.connect(
+                val.target,
+                Target::wire(row, random_gate.wire_list_item(i, copy)),
+            );
+        });
+    
+        for i in 0..48 {
+            {
+                let const1 = builder.constant(F::from_canonical_u64(232 + i));
+                let mul1 = builder.mul_const(
+                    F::from_canonical_u64(8),
+                    difficulty_exp_int.0,
+                );
+                let mut access_index = builder.sub(
+                    const1,
+                    mul1
+                );
+                builder.connect(
+                    access_index,
+                    Target::wire(row, random_gate.wire_access_index(copy)),
+                );
+            }
+            
+            builder.connect(
+                claimed_element,
+                Target::wire(row, random_gate.wire_claimed_element(copy)),
+            );
+    
+            // Check that threshold_bits matches mantissa
+            builder.connect(claimed_element, header_bits[(528 + i) as usize].target);
+        }
+    
+        // Compare difficulty_bits with output of double SHA 256
+        let is_less = list_le_circuit(
+            builder,
+            threshold_bits.into_iter().map(|x| x.target).collect(),
+            sha2_targets.digest.into_iter().map(|x| x.target).collect(),
+            256,
         );
-
-        // Check that threshold_bits matches mantissa
-        builder.connect(claimed_element, header_bits[(528 + i) as usize].target);
+    
+        let one = builder._true();
+        builder.connect(is_less.target, one.target);
+    
+        // let mut difficulty_bits = Vec::new();
+        // for i in 0..256 {
+        //     let mut agg = builder.constant_bool(true);
+        //     let mut chosen_bit = builder.constant_bool(false);
+        //     for j in 0..48 {
+        //         let mut check = builder.is_equal(
+        //             builder.constant(F::from_canonical_u64(i)),
+        //             builder.add(
+        //                 builder.constant(F::from_canonical_u64(j)),
+        //                 mantissa_start_index,
+        //             ),
+        //         );
+        //         agg = builder.and(agg, builder.not(check));
+        //         chosen_bit = builder.select(
+        //             check,
+        //             header_bits[(528 + j) as usize].target,
+        //             chosen_bit.target,
+        //         );
+        //         // chosen_bit = builder.select(check, difficulty_mantissa_bits[j].target, chosen_bit.target);
+        //     }
+        //     difficulty_bits.push(builder.select(builder.not(agg), chosen_bit, F::ZERO));
+        // }
     }
 
-    // Compare difficulty_bits with output of double SHA 256
-    let is_less = list_le_circuit(
-        builder,
-        threshold_bits.into_iter().map(|x| x.target).collect(),
-        sha2_targets.digest.into_iter().map(|x| x.target).collect(),
-        256,
-    );
-
-    let one = builder._true();
-    builder.connect(is_less.target, one.target);
-
-    // let mut difficulty_bits = Vec::new();
-    // for i in 0..256 {
-    //     let mut agg = builder.constant_bool(true);
-    //     let mut chosen_bit = builder.constant_bool(false);
-    //     for j in 0..48 {
-    //         let mut check = builder.is_equal(
-    //             builder.constant(F::from_canonical_u64(i)),
-    //             builder.add(
-    //                 builder.constant(F::from_canonical_u64(j)),
-    //                 mantissa_start_index,
-    //             ),
-    //         );
-    //         agg = builder.and(agg, builder.not(check));
-    //         chosen_bit = builder.select(
-    //             check,
-    //             header_bits[(528 + j) as usize].target,
-    //             chosen_bit.target,
-    //         );
-    //         // chosen_bit = builder.select(check, difficulty_mantissa_bits[j].target, chosen_bit.target);
-    //     }
-    //     difficulty_bits.push(builder.select(builder.not(agg), chosen_bit, F::ZERO));
-    // }
-
-    // Now we compute the work given the threshold bits
-    let mut numerator_bits = Vec::new(); // 2^256
-    let mut threshold_bits_copy = Vec::new();
-    for i in 0..256 {
-        if i == 0 {
-            numerator_bits.push(builder.constant_bool(true));
-        } else {
-            numerator_bits.push(builder.constant_bool(false));
+    let mut work = builder.zero_biguint();
+    if DO_WORK {
+        // Now we compute the work given the threshold bits
+        let mut numerator_bits = Vec::new(); // 2^256
+        let mut threshold_bits_copy = Vec::new();
+        for i in 0..256 {
+            if i == 0 {
+                numerator_bits.push(builder.constant_bool(true));
+            } else {
+                numerator_bits.push(builder.constant_bool(false));
+            }
+            threshold_bits_copy.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
+            builder.connect(threshold_bits_input[i].target, threshold_bits_copy[i].target);
         }
-        threshold_bits_copy.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
-        builder.connect(threshold_bits_input[i].target, threshold_bits_copy[i].target);
+        let numerator_as_biguint = bits_to_biguint_target(builder, numerator_bits);
+        let denominator = bits_to_biguint_target(builder, threshold_bits_copy);
+        work = builder.div_biguint(&numerator_as_biguint, &denominator);
     }
-    let numerator_as_biguint = bits_to_biguint_target(builder, numerator_bits);
-    let denominator = bits_to_biguint_target(builder, threshold_bits_copy);
-    let work = builder.div_biguint(&numerator_as_biguint, &denominator);
 
     return HeaderTarget {
         header_bits: header_bits,
