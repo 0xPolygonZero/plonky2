@@ -120,6 +120,7 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         // Check left-most byte of threshold bits
         let mut new_threshold_bytes = Vec::new();
         for j in 0..32 {
+            new_threshold_bytes.push(builder.add_virtual_target());
             builder.connect(new_threshold_bytes[j], threshold_bytes[j]);
         }
 
