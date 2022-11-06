@@ -1,8 +1,8 @@
-use plonky2_field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::target::BoolTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::iop::target::{BoolTarget};
 use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
+use plonky2_field::extension::Extendable;
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
 use crate::split_base::CircuitBuilderSplit;
@@ -15,7 +15,11 @@ pub fn _right_rotate<const S: usize>(n: [BoolTarget; S], bits: usize) -> [BoolTa
     res.map(|x| x.unwrap())
 }
 
-pub fn _shr<F:RichField + Extendable<D>, const D:usize, const S: usize>(n: [BoolTarget; S], bits: i64, builder: &mut CircuitBuilder<F, D>) -> [BoolTarget; S] {
+pub fn _shr<F: RichField + Extendable<D>, const D: usize, const S: usize>(
+    n: [BoolTarget; S],
+    bits: i64,
+    builder: &mut CircuitBuilder<F, D>,
+) -> [BoolTarget; S] {
     let mut res = [None; S];
     for i in 0..S {
         if (i as i64) < bits {
@@ -27,10 +31,13 @@ pub fn _shr<F:RichField + Extendable<D>, const D:usize, const S: usize>(n: [Bool
     res.map(|x| x.unwrap())
 }
 
-pub fn uint64_to_bits<F:RichField + Extendable<D>, const D:usize>(value: u64, builder: &mut CircuitBuilder<F, D>) -> [BoolTarget; 64] {
+pub fn uint64_to_bits<F: RichField + Extendable<D>, const D: usize>(
+    value: u64,
+    builder: &mut CircuitBuilder<F, D>,
+) -> [BoolTarget; 64] {
     let mut bits = [None; 64];
     for i in 0..64 {
-        if value & (1 << (63-i)) != 0 {
+        if value & (1 << (63 - i)) != 0 {
             bits[i] = Some(BoolTarget::new_unsafe(builder.constant(F::ONE)));
         } else {
             bits[i] = Some(BoolTarget::new_unsafe(builder.constant(F::ZERO)));
@@ -39,10 +46,13 @@ pub fn uint64_to_bits<F:RichField + Extendable<D>, const D:usize>(value: u64, bu
     bits.map(|x| x.unwrap())
 }
 
-pub fn uint32_to_bits<F:RichField + Extendable<D>, const D:usize>(value: u32, builder: &mut CircuitBuilder<F, D>) -> [BoolTarget; 32] {
+pub fn uint32_to_bits<F: RichField + Extendable<D>, const D: usize>(
+    value: u32,
+    builder: &mut CircuitBuilder<F, D>,
+) -> [BoolTarget; 32] {
     let mut bits = [None; 32];
     for i in 0..32 {
-        if value & (1 << (31-i)) != 0 {
+        if value & (1 << (31 - i)) != 0 {
             bits[i] = Some(BoolTarget::new_unsafe(builder.constant(F::ONE)));
         } else {
             bits[i] = Some(BoolTarget::new_unsafe(builder.constant(F::ZERO)));
@@ -76,9 +86,19 @@ pub fn bits_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
     let mut u32_targets = Vec::new();
     for i in 0..bit_len / 32 {
         u32_targets.push(U32Target(
-             builder.le_sum(bits_target[i * 32..(i + 1) * 32].iter().rev())
+            builder.le_sum(bits_target[i * 32..(i + 1) * 32].iter().rev()),
         ));
     }
     u32_targets.reverse();
     BigUintTarget { limbs: u32_targets }
+}
+
+pub fn byte_to_u32_target<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    bits_target: Vec<BoolTarget>,
+) -> U32Target {
+    let bit_len = bits_target.len();
+    assert_eq!(bit_len, 8);
+
+    U32Target(builder.le_sum(bits_target.iter().rev()))
 }
