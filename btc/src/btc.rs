@@ -54,19 +54,24 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.connect(sha2_targets.digest[i].target, return_hash[i].target);
     }
 
-    // TODO should be in a different circuit
-    // Deal with the difficulty
-    // Extract difficulty bits from the 80 bytes
     let mut threshold_bits_input = Vec::new();
-    let mut threshold_bits = Vec::new();
     for i in 0..80 * 8 {
         // 80 bytes in a header
         threshold_bits_input.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
-        threshold_bits.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
-        builder.connect(threshold_bits_input[i].target, threshold_bits[i].target);
     }
 
+    let mut work = builder.zero_biguint();
+
     if DO_THRESHOLD_BITS {
+        // TODO should be in a different circuit
+        // Deal with the difficulty
+        // Extract difficulty bits from the 80 bytes
+        let mut threshold_bits = Vec::new();
+        for i in 0..80 * 8 {
+            threshold_bits.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
+            builder.connect(threshold_bits[i].target, threshold_bits_input[i].target);
+        }
+
         let mut difficulty_exp_bits = header_bits[512..528].to_vec();
         let mut padded_difficulty_bits = Vec::new();
         for i in 0..32 {
@@ -207,10 +212,6 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         //     }
         //     difficulty_bits.push(builder.select(builder.not(agg), chosen_bit, F::ZERO));
         // }
-    }
-
-    let mut work = builder.zero_biguint();
-    if DO_WORK {
         // Now we compute the work given the threshold bits
         let mut numerator_bits = Vec::new(); // 2^256
         let mut threshold_bits_copy = Vec::new();
@@ -344,26 +345,31 @@ mod tests {
         let data = builder.build::<C>();
 
         let mut pw = PartialWitness::new();
-        for i in 0..header_bits.len() {
-            pw.set_bool_target(targets.header_bits[i], header_bits[i]);
+        let mut d = 0;
+        for i in 600..608 {
+            d += ((header_bits[i]) as u32) << (608 - i - 1);
         }
-        let mut exp = 0;
-        for i in 512..512 + 16 {
-            exp += ((header_bits[i]) as u32) << (i - 512);
-        }
+        let exp = 8 * (d - 3);
         let mut mantissa = 0;
-        for i in 512 + 16 .. 512+64 {
-            mantissa += ((header_bits[i]) as u64) << (i - (512 + 16));
+        for i in 576..584 {
+            mantissa += ((header_bits[i]) as u64) << (584 - i - 1);
+        }
+        for i in 584..592 {
+            mantissa += ((header_bits[i]) as u64) << (592 - i - 1 + 8);
+        }
+        for i in 592..600 {
+            mantissa += ((header_bits[i]) as u64) << (600 - i - 1 + 16);
         }
 
-        let threshold = mantissa * 2u64.pow(8 * (exp - 3));
-        println!("Threshold: {}", threshold);
+        println!("exp: {}, mantissa: {}", exp, mantissa);
 
         for i in 0..256 {
-            if threshold & (1 << (255 - i)) != 0 {
-                pw.set_bool_target(targets.threshold_bits[i], true);
+            if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
+                pw.set_bool_target(targets.threshold_bits[i as usize], true);
+                print!("1");
             } else {
-                pw.set_bool_target(targets.threshold_bits[i], false);
+                pw.set_bool_target(targets.threshold_bits[i as usize], false);
+                print!("0");
             }
         }
 
