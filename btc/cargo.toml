@@ -1,0 +1,37 @@
+[package]
+name = "btc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["rand"]
+rand = ["dep:rand"]
+
+[[bin]]
+name = "btc"
+test = false
+bench = false
+path = "src/main.rs"
+
+[dependencies]
+plonky2 = { path = "../plonky2" }
+plonky2_ecdsa = { path = "../ecdsa" }
+plonky2_field = { path = "../field" }
+plonky2_util = { path = "../util" }
+plonky2_u32 = { path = "../u32"  }
+anyhow = "1.0.65"
+hex = "0.4.3"
+hex-literal = "0.3.4"
+itertools = "0.10.0"
+num = { version = "0.4", features = [ "rand" ] }
+rand = { optional = true, version = "0.8.4" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10.6"
+
+[profile.bench]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
