@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::iop::wire::Wire;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension::Extendable;
 use plonky2_field::goldilocks_field::GoldilocksField;
@@ -9,12 +11,10 @@ use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
 use plonky2_u32::gates::comparison::ComparisonGate;
 
-use crate::helper::byte_to_u32_target;
 use crate::bit_operations::{add_arr, and_arr, not_arr, xor2_arr, xor3_arr, zip_add};
+use crate::helper::byte_to_u32_target;
 use crate::helper::{_right_rotate, _shr, uint32_to_bits};
 use crate::sha256::make_sha256_circuit;
-use plonky2::iop::wire::Wire;
-use std::marker::PhantomData;
 pub struct HeaderTarget {
     header_bits: Vec<BoolTarget>,
     threshold_bits: Vec<BoolTarget>,
@@ -180,6 +180,7 @@ pub fn make_header_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 pub struct MultiHeaderTarget {
     pub headers: Vec<BoolTarget>,
+    pub multi_threshold_bits: Vec<BoolTarget>,
     pub total_work: Target,
     pub hashes: Vec<Vec<BoolTarget>>,
 }
@@ -194,6 +195,12 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
         multi_header_bits.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
     }
 
+    let mut multi_threshold_bits = Vec::new();
+    for _ in 0..num_headers * 256 {
+        // 256 bits in a header
+        multi_threshold_bits.push(builder.add_virtual_bool_target_safe()); // Will verify that input is 0 or 1
+    }
+
     let mut hashes = Vec::new();
     let mut work = Vec::new();
 
@@ -204,6 +211,13 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
             builder.connect(
                 header_targets.header_bits[i].target,
                 multi_header_bits[(h * 8 * 80) + i].target,
+            );
+        }
+
+        for i in 0..256 {
+            builder.connect(
+                header_targets.threshold_bits[i].target,
+                multi_threshold_bits[h * 256 + i].target,
             );
         }
 
@@ -230,6 +244,7 @@ pub fn make_multi_header_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     return MultiHeaderTarget {
         headers: multi_header_bits,
+        multi_threshold_bits: multi_threshold_bits,
         total_work: work[num_headers - 1],
         hashes: hashes,
     };
@@ -262,6 +277,26 @@ mod tests {
         res
     }
 
+    fn compute_exp_and_mantissa(header_bits: Vec<bool>) -> (u32, u64) {
+        let mut d = 0;
+        for i in 600..608 {
+            d += ((header_bits[i]) as u32) << (608 - i - 1);
+        }
+        let exp = 8 * (d - 3);
+        let mut mantissa = 0;
+        for i in 576..584 {
+            mantissa += ((header_bits[i]) as u64) << (584 - i - 1);
+        }
+        for i in 584..592 {
+            mantissa += ((header_bits[i]) as u64) << (592 - i - 1 + 8);
+        }
+        for i in 592..600 {
+            mantissa += ((header_bits[i]) as u64) << (600 - i - 1 + 16);
+        }
+
+        (exp, mantissa)
+    }
+
     #[test]
     fn test_header_circuit() -> Result<()> {
         let genesis_header = decode("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c").unwrap();
@@ -292,21 +327,8 @@ mod tests {
         for i in 0..header_bits.len() {
             pw.set_bool_target(targets.header_bits[i], header_bits[i]);
         }
-        let mut d = 0;
-        for i in 600..608 {
-            d += ((header_bits[i]) as u32) << (608 - i - 1);
-        }
-        let exp = 8 * (d - 3);
-        let mut mantissa = 0;
-        for i in 576..584 {
-            mantissa += ((header_bits[i]) as u64) << (584 - i - 1);
-        }
-        for i in 584..592 {
-            mantissa += ((header_bits[i]) as u64) << (592 - i - 1 + 8);
-        }
-        for i in 592..600 {
-            mantissa += ((header_bits[i]) as u64) << (600 - i - 1 + 16);
-        }
+
+        let (exp, mantissa) = compute_exp_and_mantissa(header_bits);
 
         println!("exp: {}, mantissa: {}", exp, mantissa);
 
@@ -391,6 +413,18 @@ mod tests {
             for i in 0..80 * 8 {
                 pw.set_bool_target(targets.headers[h * 80 * 8 + i], header_bits[i]);
             }
+
+            let (exp, mantissa) = compute_exp_and_mantissa(header_bits);
+
+            for i in 0..256 {
+                if i < 256 - exp && mantissa & (1 << (255 - exp - i)) != 0 {
+                    pw.set_bool_target(targets.multi_threshold_bits[h * 256 + i as usize], true);
+                    print!("1");
+                } else {
+                    pw.set_bool_target(targets.multi_threshold_bits[h * 256 + i as usize], false);
+                    print!("0");
+                }
+            }
         }
 
         let now = std::time::Instant::now();
@@ -456,7 +490,7 @@ use plonky2_field::types::Field;
 /// supports enough routed wires, it can support several such operations in one gate.
 #[derive(Debug, Clone)]
 pub struct XOR3Gate {
-    pub num_xors: usize
+    pub num_xors: usize,
 }
 
 impl XOR3Gate {
@@ -569,7 +603,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for XOR3Gate {
     }
 
     fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = XOR3Generator::<F, D> { row, num_xors: self.num_xors, _phantom: PhantomData };
+        let gen = XOR3Generator::<F, D> {
+            row,
+            num_xors: self.num_xors,
+            _phantom: PhantomData,
+        };
         vec![Box::new(gen.adapter())]
     }
 
@@ -590,7 +628,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for XOR3Gate {
     }
 }
 
-
 #[derive(Debug)]
 struct XOR3Generator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
@@ -604,9 +641,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for XOR3Ge
         let mut result: Vec<Target> = Vec::new();
 
         for i in 0..self.num_xors {
-            result.push(local_target(i*4));
-            result.push(local_target(i*4+1));
-            result.push(local_target(i*4+2));
+            result.push(local_target(i * 4));
+            result.push(local_target(i * 4 + 1));
+            result.push(local_target(i * 4 + 2));
         }
 
         result
@@ -626,11 +663,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for XOR3Ge
         let four = F::from_canonical_u64(4);
 
         for i in 0..self.num_xors {
-            let a = get_wire(4*i);
-            let b = get_wire(4*i+1);
-            let c = get_wire(4*i+2);
-            let d_target = Target::wire(self.row, 4*i+3);
-            let computed_output = a * (one - two * b - two * c + four * b * c) + b + c - two * b * c;
+            let a = get_wire(4 * i);
+            let b = get_wire(4 * i + 1);
+            let c = get_wire(4 * i + 2);
+            let d_target = Target::wire(self.row, 4 * i + 3);
+            let computed_output =
+                a * (one - two * b - two * c + four * b * c) + b + c - two * b * c;
             out_buffer.set_target(d_target, computed_output);
         }
     }
