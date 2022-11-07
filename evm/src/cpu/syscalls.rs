@@ -71,7 +71,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint_transition(filter * (nv.context - lv.context));
 
     // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[0].value;
+    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     // Push current PC to stack
     yield_constr.constraint(filter * (output[0] - lv.program_counter));
     // Push current kernel flag to stack (share register with PC)
@@ -179,7 +179,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[0].value;
+    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     // Push current PC to stack
     {
         let diff = builder.sub_extension(output[0], lv.program_counter);

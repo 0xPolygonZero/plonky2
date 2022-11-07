@@ -28,6 +28,7 @@ pub struct OpsColumnsView<T> {
     pub or: T,
     pub xor: T,
     pub not: T,
+    pub byte: T,
     // TODO: combine SHL and SHR into one flag
     pub shl: T,
     pub shr: T,

@@ -6,7 +6,6 @@ global sys_smod:
 global sys_signextend:
 global sys_slt:
 global sys_sgt:
-global sys_byte:
 global sys_sar:
 global sys_keccak256:
 global sys_address:
