@@ -7,106 +7,59 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T> {
-    pub stop: T,
+    // TODO: combine ADD, MUL, SUB, DIV, MOD, ADDFP254, MULFP254, SUBFP254, LT, and GT into one flag
     pub add: T,
     pub mul: T,
     pub sub: T,
     pub div: T,
-    pub sdiv: T,
     pub mod_: T,
-    pub smod: T,
+    // TODO: combine ADDMOD, MULMOD into one flag
     pub addmod: T,
     pub mulmod: T,
-    pub exp: T,
-    pub signextend: T,
     pub addfp254: T,
     pub mulfp254: T,
     pub subfp254: T,
     pub lt: T,
     pub gt: T,
-    pub slt: T,
-    pub sgt: T,
     pub eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
     pub iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    // TODO: combine AND, OR, and XOR into one flag
     pub and: T,
     pub or: T,
     pub xor: T,
     pub not: T,
     pub byte: T,
+    // TODO: combine SHL and SHR into one flag
     pub shl: T,
     pub shr: T,
-    pub sar: T,
-    pub keccak256: T,
     pub keccak_general: T,
-    pub address: T,
-    pub balance: T,
-    pub origin: T,
-    pub caller: T,
-    pub callvalue: T,
-    pub calldataload: T,
-    pub calldatasize: T,
-    pub calldatacopy: T,
-    pub codesize: T,
-    pub codecopy: T,
-    pub gasprice: T,
-    pub extcodesize: T,
-    pub extcodecopy: T,
-    pub returndatasize: T,
-    pub returndatacopy: T,
-    pub extcodehash: T,
-    pub blockhash: T,
-    pub coinbase: T,
-    pub timestamp: T,
-    pub number: T,
-    pub difficulty: T,
-    pub gaslimit: T,
-    pub chainid: T,
-    pub selfbalance: T,
-    pub basefee: T,
     pub prover_input: T,
     pub pop: T,
-    pub mload: T,
-    pub mstore: T,
-    pub mstore8: T,
-    pub sload: T,
-    pub sstore: T,
+    // TODO: combine JUMP and JUMPI into one flag
     pub jump: T,  // Note: This column must be 0 when is_cpu_cycle = 0.
     pub jumpi: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     pub pc: T,
-    pub msize: T,
     pub gas: T,
     pub jumpdest: T,
+    // TODO: combine GET_STATE_ROOT and SET_STATE_ROOT into one flag
     pub get_state_root: T,
     pub set_state_root: T,
+    // TODO: combine GET_RECEIPT_ROOT and SET_RECEIPT_ROOT into one flag
     pub get_receipt_root: T,
     pub set_receipt_root: T,
     pub push: T,
     pub dup: T,
     pub swap: T,
-    pub log0: T,
-    pub log1: T,
-    pub log2: T,
-    pub log3: T,
-    pub log4: T,
-    // PANIC does not get a flag; it fails at the decode stage.
-    pub create: T,
-    pub call: T,
-    pub callcode: T,
-    pub return_: T,
-    pub delegatecall: T,
-    pub create2: T,
+    // TODO: combine GET_CONTEXT and SET_CONTEXT into one flag
     pub get_context: T,
     pub set_context: T,
     pub consume_gas: T,
     pub exit_kernel: T,
-    pub staticcall: T,
+    // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
     pub mload_general: T,
     pub mstore_general: T,
-    pub revert: T,
-    pub selfdestruct: T,
 
-    // TODO: this doesn't actually need its own flag. We can just do `1 - sum(all other flags)`.
-    pub invalid: T,
+    pub syscall: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

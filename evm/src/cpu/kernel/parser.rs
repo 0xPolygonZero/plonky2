@@ -39,6 +39,9 @@ fn parse_item(item: Pair<Rule>) -> Item {
             Item::MacroLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
         Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal_u8).collect()),
+        Rule::jumptable_item => {
+            Item::Jumptable(item.into_inner().map(|i| i.as_str().into()).collect())
+        }
         Rule::push_instruction => Item::Push(parse_push_target(item.into_inner().next().unwrap())),
         Rule::prover_input_instruction => Item::ProverInput(
             item.into_inner()
