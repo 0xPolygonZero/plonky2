@@ -1,4 +1,4 @@
-global blake_g_function:
+%macro blake_g_function
     // Function to mix two input words, x and y, into the four words indexed by a, b, c, d (which
     // are in the range 0..16) in the internal state.
     // The internal state is stored in memory starting at the address start.
@@ -92,3 +92,27 @@ global blake_g_function:
     %mstore_kernel_general
     ADD
     %mstore_kernel_general
+%endmacro
+
+%macro call_blake_g_function(a, b, c, d, x_idx, y_idx)
+    // stack: round, start
+    PUSH $y_idx
+    DUP2
+    // stack: round, y_idx, round, start
+    %blake_permutation
+    // stack: s[y_idx], round, start
+    PUSH $x_idx
+    DUP3
+    // stack: round, 2, s[y_idx], round, start
+    %blake_permutation
+    // stack: s[x_idx], s[y_idx], round, start
+    %stack (ss: 2, r, s) -> (ss, s, r, s)
+    // stack: s[x_idx], s[y_idx], start, round, start
+    PUSH $d
+    PUSH $c
+    PUSH $b
+    PUSH $a
+    // stack: a, b, c, d, s[x_idx], s[y_idx], start, round, start
+    %blake_g_function
+    // stack: round, start
+%endmacro

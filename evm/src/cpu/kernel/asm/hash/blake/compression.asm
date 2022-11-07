@@ -1,9 +1,18 @@
-%macro blake_compression_internal_state_addr
+// We put the message schedule in memory starting at 64 * num_blocks + 2.
+%macro message_schedule_addr_from_num_blocks
+
+%macro blake_internal_state_addr
     PUSH 0
+    // stack: 0
+    %mload_kernel_general
+    // stack: num_blocks
+    %mul_const(128)
+    // stack: num_bytes
 %endmacro
 
-%macro blake_compression_message_addr
-    PUSH 16
+%macro blake_message_addr
+    %blake_internal_state_addr
+    %add_const(16)
 %endmacro
 
 global blake_compression:
@@ -61,17 +70,28 @@ global blake_compression:
     %blake_compression_message_addr
     // stack: addr, m_0, ..., m_15
     %rep 16
-        
+        SWAP1
+        DUP2
+        %mstore_kernel_general
+        %increment
     %endrep
+    // stack: (empty)
+    %blake_compression_internal_state_addr
+    // stack: start
     PUSH 0
-    // stack: round=0, m_0, ..., m_15
-compression_loop:
-    // stack: round, m_0, ..., m_15
-    PUSH 0
-    DUP2
-    // stack: round, 0, round, m_0, ..., m_15
-    %blake_permutation
-    // stack: s[0], round, m_0, ..., m_15
+    // stack: round=0, start
+    %rep 12
+        // stack: round, start
+        %call_blake_g_function(0, 4, 8, 12, 0, 1)
+        %call_blake_g_function(1, 5, 9, 13, 2, 3)
+        %call_blake_g_function(2, 6, 10, 14, 4, 5)
+        %call_blake_g_function(3, 7, 11, 15, 6, 7)
+        %call_blake_g_function(0, 5, 10, 15, 8, 9)
+        %call_blake_g_function(1, 6, 11, 12, 10, 11)
+        %call_blake_g_function(2, 7, 8, 13, 12, 13)
+        %call_blake_g_function(3, 4, 9, 14, 14, 15)
+        // stack: round, start
+        %increment
+        // stack: round + 1, start
+    %endrep
     
-
-
