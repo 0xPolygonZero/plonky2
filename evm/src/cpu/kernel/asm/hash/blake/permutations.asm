@@ -160,13 +160,15 @@ permutation_9_constants:
     BYTES 13
     BYTES 0
 
-%macro blake_permutation(round, i)
+%macro blake_permutation
+    // stack: round, i
     PUSH permutation_1_constants
-    PUSH $round
+    // stack: permutation_1_constants, round, i
+    SWAP1
+    // stack: round, permutation_1_constants, i
     %mod_const(10)
     %mul_const(16)
     ADD
     %add_const($i)
     %mload_kernel_code
 %endmacro
-    
