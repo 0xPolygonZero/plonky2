@@ -375,7 +375,7 @@ mod tests {
 
         let mut out = vec![None; n];
         for (i, v) in arr.iter().enumerate() {
-            let dst = i.reverse_bits() >> 64 - n_power;
+            let dst = i.reverse_bits() >> (64 - n_power);
             out[dst] = Some(*v);
         }
 
