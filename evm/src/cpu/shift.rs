@@ -95,7 +95,9 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.one_extension();
     let t = builder.sub_extension(t, high_limbs_are_zero);
     let t = builder.mul_sub_extension(high_limbs_sum, high_limbs_sum_inv, t);
+    let t = builder.mul_extension(is_shift, t);
     yield_constr.constraint(builder, t);
+
     let t = builder.mul_many_extension([is_shift, high_limbs_sum, high_limbs_are_zero]);
     yield_constr.constraint(builder, t);
 
