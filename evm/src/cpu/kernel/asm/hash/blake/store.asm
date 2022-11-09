@@ -36,4 +36,4 @@ store_end:
     // stack: addr, counter, retdest
     %pop2
     // stack: retdest
-    %jump(blake_pad)
+    %jump(blake_compression)
