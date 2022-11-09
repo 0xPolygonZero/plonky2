@@ -145,6 +145,7 @@ impl<'a> Interpreter<'a> {
                 println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
             }
         }
+        println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
 
