@@ -1,4 +1,4 @@
-%macro blae_initial_state
+%macro blake_initial_state
     %blake_iv(7)
     %blake_iv(6)
     %blake_iv(5)
