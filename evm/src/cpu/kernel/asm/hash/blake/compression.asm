@@ -1,6 +1,3 @@
-// We put the message schedule in memory starting at 64 * num_blocks + 2.
-%macro message_schedule_addr_from_num_blocks
-
 %macro blake_internal_state_addr
     PUSH 0
     // stack: 0
@@ -17,7 +14,7 @@
 
 global blake_compression:
     // stack: h_0, ..., h_7, t_0, t_1, f_0, f_1, m_0, ..., m_15
-    %blake_compression_internal_state_addr
+    %blake_internal_state_addr
     // stack: start, h_0, ..., h_7, t_0, t_1, f_0, f_1, m_0, ..., m_15
     %rep 8
         SWAP1
@@ -67,7 +64,7 @@ global blake_compression:
     POP
     POP
     // stack: m_0, ..., m_15
-    %blake_compression_message_addr
+    %blake_message_addr
     // stack: addr, m_0, ..., m_15
     %rep 16
         SWAP1
@@ -76,7 +73,7 @@ global blake_compression:
         %increment
     %endrep
     // stack: (empty)
-    %blake_compression_internal_state_addr
+    %blake_internal_state_addr
     // stack: start
     PUSH 0
     // stack: round=0, start

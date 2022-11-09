@@ -169,6 +169,6 @@ permutation_9_constants:
     %mod_const(10)
     %mul_const(16)
     ADD
-    %add_const($i)
+    ADD
     %mload_kernel_code
 %endmacro
