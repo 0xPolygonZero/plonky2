@@ -23,8 +23,8 @@ secp_precompute_loop:
     %jump(ec_add_valid_points_secp)
 secp_precompute_loop_contd:
     %stack (accx, accy, x, y, ssi, retdest) -> (ssi, accx, accy, x, y, retdest)
-    DUP1 %lt_const(8)
-    // stack: ssi < 8, ssi, accx, accy, x, y, retdest
+    DUP1 %lt_const(32)
+    // stack: ssi < 32, ssi, accx, accy, x, y, retdest
     %jumpi(secp_precompute_loop)
     // stack: ssi, accx, accy, x, y, retdest
     %pop5 JUMP
@@ -39,9 +39,9 @@ after_precomputation:
     PUSH 0 PUSH 0 PUSH 0
 global mul_loop:
     // stack: i, accx, accy, s, retdest
-    %stack (i, accx, accy, s, retdest) -> (254, s, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest)
+    %stack (i, accx, accy, s, retdest) -> (252, s, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest)
     SHR
-    // stack: s>>254, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest
+    // stack: s>>252, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest
     %mul_const(2)
     // stack: index, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest
     DUP1 %increment
@@ -52,13 +52,13 @@ global mul_loop:
 global mul_loop_contd:
     //%stack (accx, accy, mul_loop_contd_bis, s, i, retdest) -> (i, accx, accy, mul_loop_contd_bis, s, i, retdest)
     DUP5
-    %eq_const(127) %jumpi(mul_end)
+    %eq_const(63) %jumpi(mul_end)
     %jump(repeated_double)
 mul_loop_contd_bis:
     // stack: accx, accy, s, i, retdest
     SWAP2
     // stack: s, accy, accx, i, retdest
-    %shl_const(2)
+    %shl_const(4)
     // stack: news, accy, accx, i, retdest
     %stack (s, accy, accx, i, retdest) -> (i, accx, accy, s, retdest)
     %increment %jump(mul_loop)
@@ -72,7 +72,7 @@ repeated_double:
     PUSH 0
 repeated_double_loop:
     // stack: i, x, y, retdest
-    DUP1 %eq_const(2) %jumpi(repeated_double_end)
+    DUP1 %eq_const(4) %jumpi(repeated_double_end)
     %stack (i, x, y, retdest) -> (x, y, repeated_double_loop_contd, i, retdest)
     %jump(ec_double_secp)
 repeated_double_loop_contd:
