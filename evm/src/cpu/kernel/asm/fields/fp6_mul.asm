@@ -256,3 +256,7 @@ global mul_fp6:
 
     // stack: retdest, e0, e0_, e1, e1_, e2, e2_
     JUMP
+
+
+global square_fp6:
+    
