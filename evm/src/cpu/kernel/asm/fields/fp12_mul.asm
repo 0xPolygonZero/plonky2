@@ -329,7 +329,7 @@ global mul_fp12_sparse:
     // stack:                      inB, f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     %mload_kernel_general
     // stack:                      g0 , f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
-    %mul_fp_fp12
+    %mul_fp_fp6
     // stack:                      g0 * f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     %swap_fp6
     // stack:                    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
@@ -337,7 +337,7 @@ global mul_fp12_sparse:
     // stack:           inB2,    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
     %load_fp2
     // stack:           G2  ,    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
-    %mul_fp2_fp12_sh2
+    %mul_fp2_fp6_sh2
     // stack:           G2 * sh2(f') , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
     %add_fp6
     // stack:           G2 * sh2(f') + g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
@@ -347,7 +347,7 @@ global mul_fp12_sparse:
     // stack: inB1,    f , inB, G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     %load_fp2
     // stack:  G1 ,    f , inB, G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
-    %mul_fp2_fp12_sh
+    %mul_fp2_fp6_sh
     // stack:  G1 * sh(f), inB, G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     %add_fp6_hole
     // stack:      G1 * sh(f) + G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
@@ -361,7 +361,7 @@ global mul_fp12_sparse:
     // stack:                                               inB, f', f, inB, f', inA, inB, out
     %mload_kernel_general
     // stack:                                               g0 , f', f, inB, f', inA, inB, out
-    %mul_fp_fp12
+    %mul_fp_fp6
     // stack:                                               g0 * f', f, inB, f', inA, inB, out
     %swap_fp6
     // stack:                                             f  , g0 * f', inB, f', inA, inB, out
@@ -369,7 +369,7 @@ global mul_fp12_sparse:
     // stack:                                    inB2,    f  , g0 * f', inB, f', inA, inB, out
     %load_fp2
     // stack:                                     G2 ,    f  , g0 * f', inB, f', inA, inB, out
-    %mul_fp2_fp12_sh
+    %mul_fp2_fp6_sh
     // stack:                                     G2 * sh(f) , g0 * f', inB, f', inA, inB, out
     %add_fp6
     // stack:                                     G2 * sh(f) + g0 * f', inB, f', inA, inB, out
@@ -379,7 +379,7 @@ global mul_fp12_sparse:
     // stack:                           inB1,    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
     %load_fp2
     // stack:                            G1 ,    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
-    %mul_fp2_fp12_sh
+    %mul_fp2_fp6_sh
     // stack:                            G1 * sh(f'), inB, G2 * sh(f) + g0 * f', inA, inB, out
     %add_fp6_hole
     // stack:                                G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
