@@ -47,7 +47,7 @@ pub(crate) const ALL_OPERATIONS: [usize; 17] = [
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.  Can be increased as needed as other operations are
 /// implemented.
-const NUM_SHARED_COLS: usize = 9 * N_LIMBS; // only need 64 for add, sub, and mul
+const NUM_SHARED_COLS: usize = 9 * N_LIMBS;
 
 const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
@@ -57,24 +57,32 @@ const AUX_INPUT_0: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + 2 *
 const AUX_INPUT_1: Range<usize> = AUX_INPUT_0.end..AUX_INPUT_0.end + 2 * N_LIMBS;
 const AUX_INPUT_2: Range<usize> = AUX_INPUT_1.end..AUX_INPUT_1.end + N_LIMBS;
 
+// ADD takes 3 * N_LIMBS = 48 columns
 pub(crate) const ADD_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const ADD_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const ADD_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 
+// SUB takes 3 * N_LIMBS = 48 columns
 pub(crate) const SUB_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const SUB_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const SUB_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 
+// MUL takes 4 * N_LIMBS = 64 columns
 pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MUL_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
 
+// LT and GT take 4 * N_LIMBS = 64 columns
 pub(crate) const CMP_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const CMP_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const CMP_OUTPUT: usize = GENERAL_INPUT_2.start;
 pub(crate) const CMP_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
 
+// MULMOD takes 4 * N_LIMBS + 2 * 2*N_LIMBS + N_LIMBS = 144 columns
+//
+// ADDMOD, SUBMOD, MOD and DIV are currently implemented in terms of
+// the general modular code, so they also take 144 columns.
 pub(crate) const MODULAR_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MODULAR_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MODULAR_MODULUS: Range<usize> = GENERAL_INPUT_2;
