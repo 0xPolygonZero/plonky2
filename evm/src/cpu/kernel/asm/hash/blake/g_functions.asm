@@ -101,18 +101,26 @@
     // stack: round, y_idx, round, start
     %blake_permutation
     // stack: s[y_idx], round, start
+    %blake_message_addr
+    ADD
+    %mload_blake_word
+    // stack: m[s[y_idx]], round, start
     PUSH $x_idx
     DUP3
-    // stack: round, 2, s[y_idx], round, start
+    // stack: round, 2, m[s[y_idx]], round, start
     %blake_permutation
-    // stack: s[x_idx], s[y_idx], round, start
+    // stack: s[x_idx], m[s[y_idx]], round, start
+    %blake_message_addr
+    ADD
+    %mload_blake_word
+    // stack: m[s[x_idx]], m[s[y_idx]], round, start
     %stack (ss: 2, r, s) -> (ss, s, r, s)
-    // stack: s[x_idx], s[y_idx], start, round, start
+    // stack: m[s[x_idx]], m[s[y_idx]], start, round, start
     PUSH $d
     PUSH $c
     PUSH $b
     PUSH $a
-    // stack: a, b, c, d, s[x_idx], s[y_idx], start, round, start
+    // stack: a, b, c, d, m[s[x_idx]], m[s[y_idx]], start, round, start
     %blake_g_function
     // stack: round, start
 %endmacro
