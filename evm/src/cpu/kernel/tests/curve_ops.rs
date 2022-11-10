@@ -174,73 +174,73 @@ mod secp {
         );
 
         // Standard addition #1
-        // let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point2.1, point2.0])?);
-        // // Standard addition #2
-        // let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
-        // let stack = run(&kernel.code, ec_add, initial_stack, &kernel.prover_inputs)?
-        //     .stack()
-        //     .to_vec();
-        // assert_eq!(stack, u256ify([point2.1, point2.0])?);
-        //
+        let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point2.1, point2.0])?);
+        // Standard addition #2
+        let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
+        let stack = run(&kernel.code, ec_add, initial_stack, &kernel.prover_inputs)?
+            .stack()
+            .to_vec();
+        assert_eq!(stack, u256ify([point2.1, point2.0])?);
+
         // Standard doubling #1
-        // let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point3.1, point3.0])?);
-        // // Standard doubling #2
-        // let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
-        // let stack = run_interpreter(ec_double, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point3.1, point3.0])?);
-        // // Standard doubling #3
-        // let initial_stack = u256ify(["0xdeadbeef", "0x2", point0.1, point0.0])?;
-        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point3.1, point3.0])?);
-        //
-        // // Addition with identity #1
-        // let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point1.1, point1.0])?);
-        // // Addition with identity #2
-        // let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, identity.1, identity.0])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point1.1, point1.0])?);
-        // // Addition with identity #3
-        // let initial_stack =
-        //     u256ify(["0xdeadbeef", identity.1, identity.0, identity.1, identity.0])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([identity.1, identity.0])?);
+        let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point3.1, point3.0])?);
+        // Standard doubling #2
+        let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
+        let stack = run_interpreter(ec_double, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point3.1, point3.0])?);
+        // Standard doubling #3
+        let initial_stack = u256ify(["0xdeadbeef", "0x2", point0.1, point0.0])?;
+        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point3.1, point3.0])?);
+
+        // Addition with identity #1
+        let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point1.1, point1.0])?);
+        // Addition with identity #2
+        let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, identity.1, identity.0])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point1.1, point1.0])?);
+        // Addition with identity #3
+        let initial_stack =
+            u256ify(["0xdeadbeef", identity.1, identity.0, identity.1, identity.0])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
         // Scalar multiplication #1
         let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
         let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
-        // // Scalar multiplication #2
-        // let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
-        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([identity.1, identity.0])?);
-        // // Scalar multiplication #3
-        // let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
-        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point0.1, point0.0])?);
-        // // Scalar multiplication #4
-        // let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
-        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([identity.1, identity.0])?);
-        //
-        // // Multiple calls
-        // let ec_mul_hex = format!("0x{ec_mul:x}");
-        // let initial_stack = u256ify([
-        //     "0xdeadbeef",
-        //     s,
-        //     &ec_mul_hex,
-        //     identity.1,
-        //     identity.0,
-        //     point0.1,
-        //     point0.0,
-        // ])?;
-        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        // assert_eq!(stack, u256ify([point4.1, point4.0])?);
+        // Scalar multiplication #2
+        let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
+        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([identity.1, identity.0])?);
+        // Scalar multiplication #3
+        let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
+        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point0.1, point0.0])?);
+        // Scalar multiplication #4
+        let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
+        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([identity.1, identity.0])?);
+
+        // Multiple calls
+        let ec_mul_hex = format!("0x{ec_mul:x}");
+        let initial_stack = u256ify([
+            "0xdeadbeef",
+            s,
+            &ec_mul_hex,
+            identity.1,
+            identity.0,
+            point0.1,
+            point0.0,
+        ])?;
+        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        assert_eq!(stack, u256ify([point4.1, point4.0])?);
 
         Ok(())
     }

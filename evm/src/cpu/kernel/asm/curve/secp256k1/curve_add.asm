@@ -198,15 +198,20 @@ ec_add_equal_points:
     %jump(ec_add_valid_points_with_lambda)
 
 // Secp256k1 elliptic curve doubling.
-// Assumption: (x0,y0) is a valid point.
+// Assumption: (x,y) is a valid point.
 // Standard doubling formula.
 global ec_double_secp:
-    // stack: x0, y0, retdest
-    DUP2
-    // stack: y0, x0, y0, retdest
-    DUP2
-    // stack: x0, y0, x0, y0, retdest
+    // stack: x, y, retdest
+    DUP2 DUP2 %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, retdest
+    %jumpi(retpoint)
+    DUP2 DUP2
+    // stack: x, y, x, y, retdest
     %jump(ec_add_equal_points)
+
+retpoint:
+    %stack (x, y, retdest) -> (retdest, x, y)
+    JUMP
 
 // Push the order of the Secp256k1 scalar field.
 %macro secp_base
