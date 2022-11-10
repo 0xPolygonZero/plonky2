@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use blake::{hash as blake_hash};
+use blake::hash as blake_hash;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};

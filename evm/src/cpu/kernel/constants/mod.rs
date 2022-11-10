@@ -18,12 +18,15 @@ pub(crate) mod txn_fields;
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
-    
-    let hex_constants = MISC_CONSTANTS.iter().chain(EC_CONSTANTS.iter()).chain(HASH_CONSTANTS.iter());
+
+    let hex_constants = MISC_CONSTANTS
+        .iter()
+        .chain(EC_CONSTANTS.iter())
+        .chain(HASH_CONSTANTS.iter());
     for (name, value) in hex_constants {
         c.insert(name.clone().into(), U256::from_big_endian(value));
     }
-    
+
     for (name, value) in GAS_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
