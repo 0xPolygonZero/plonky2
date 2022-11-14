@@ -15,8 +15,8 @@ use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
 pub struct Challenger<F: RichField, H: Hasher<F>> {
-    sponge_state: [F; SPONGE_WIDTH],
-    input_buffer: Vec<F>,
+    pub(crate) sponge_state: [F; SPONGE_WIDTH],
+    pub(crate) input_buffer: Vec<F>,
     output_buffer: Vec<F>,
     _phantom: PhantomData<H>,
 }
