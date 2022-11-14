@@ -41,9 +41,20 @@ global blake_compression:
     // stack: retdest
     %stack () -> (0, 0, 0)
     // stack: cur_block = 0, t_0 = 0, t_1 = 0, retdest
-
-    // TODO: load %blake_initial_hash_value and store to blake_hash_value_addr
-
+    %blake_initial_hash_value
+    // stack: h_0, ..., h_7, cur_block, t_0, t_1, retdest
+    %blake_hash_value_addr
+    STOP
+    // stack: addr, h_0, ..., h_7, cur_block, t_0, t_1, retdest
+    %rep 8
+        DUP2
+        DUP2
+        %mstore_kernel_general
+        %increment
+    %endrep
+    // stack: addr, cur_block, t_0, t_1, retdest
+    POP
+    // stack: cur_block, t_0, t_1, retdest
 compression_loop:
     // stack: cur_block, t_0, t_1, retdest
     PUSH 0
@@ -88,7 +99,17 @@ compression_loop:
     %mul_const(0xFFFFFFFF)
     %stack (l, t0, t1) -> (t0, t1, l, 0)
     // stack: t_0, t_1, invert_if_last_block, 0, retdest
-    // TODO: LOAD from %blake_hash_value_addr
+    %blake_hash_value_addr
+    %rep 8
+        // stack: addr, ...
+        DUP1
+        // stack: addr, addr, ...
+        %mload_kernel_general
+        // stack: val, addr, ...
+        SWAP1
+        // stack: addr, val, ...
+        %increment
+    %endrep
     // stack: h_0, ..., h_7, t_0, t_1, invert_if_last_block, 0, retdest
     %blake_internal_state_addr
     // stack: start, h_0, ..., h_7, t_0, t_1, invert_if_last_block, 0, retdest
