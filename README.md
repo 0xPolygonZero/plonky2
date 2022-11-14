@@ -47,7 +47,11 @@ Jemalloc is known to cause crashes when a binary compiled for x86 is run on an A
 As this is a monorepo, see the individual crates within for license information.
 
 
-## Disclaimer
+## Security
 
 This code has not yet been audited, and should not be used in any production systems.
+
+While Plonky2 is configurable, its defaults generally target 100 bits of security. The default FRI configuration targets 100 bits of *conjectured* security based on the conjecture in [ethSTARK](https://eprint.iacr.org/2021/582).
+
+Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 partial rounds, a width of 12 field elements (each ~64 bits), and an S-box of `x^7`. [BBLP22](https://tosc.iacr.org/index.php/ToSC/article/view/9850) suggests that this configuration may have around 95 bits of security, falling a bit short of our 100 bit target.
 

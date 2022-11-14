@@ -20,23 +20,28 @@ pub(crate) enum Segment {
     KernelGeneral = 7,
     /// Another segment for general purpose kernel use.
     KernelGeneral2 = 8,
+    /// Segment to hold account code for opcodes like `CODESIZE, CODECOPY,...`.
+    KernelAccountCode = 9,
     /// Contains normalized transaction fields; see `NormalizedTxnField`.
-    TxnFields = 9,
+    TxnFields = 10,
     /// Contains the data field of a transaction.
-    TxnData = 10,
+    TxnData = 11,
     /// A buffer used to hold raw RLP data.
-    RlpRaw = 11,
+    RlpRaw = 12,
     /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
     /// append-only buffer. It is owned by the kernel, so it only lives on context 0.
-    TrieData = 12,
+    TrieData = 13,
     /// A buffer used to store the encodings of a branch node's children.
-    TrieEncodedChild = 13,
+    TrieEncodedChild = 14,
     /// A buffer used to store the lengths of the encodings of a branch node's children.
-    TrieEncodedChildLen = 14,
+    TrieEncodedChildLen = 15,
+    /// A table of values 2^i for i=0..255 for use with shift
+    /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
+    ShiftTable = 16,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 15;
+    pub(crate) const COUNT: usize = 17;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -49,12 +54,14 @@ impl Segment {
             Self::ContextMetadata,
             Self::KernelGeneral,
             Self::KernelGeneral2,
+            Self::KernelAccountCode,
             Self::TxnFields,
             Self::TxnData,
             Self::RlpRaw,
             Self::TrieData,
             Self::TrieEncodedChild,
             Self::TrieEncodedChildLen,
+            Self::ShiftTable,
         ]
     }
 
@@ -70,12 +77,14 @@ impl Segment {
             Segment::ContextMetadata => "SEGMENT_CONTEXT_METADATA",
             Segment::KernelGeneral => "SEGMENT_KERNEL_GENERAL",
             Segment::KernelGeneral2 => "SEGMENT_KERNEL_GENERAL_2",
+            Segment::KernelAccountCode => "SEGMENT_KERNEL_ACCOUNT_CODE",
             Segment::TxnFields => "SEGMENT_NORMALIZED_TXN",
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
             Segment::TrieData => "SEGMENT_TRIE_DATA",
             Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
             Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
+            Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
         }
     }
 
@@ -91,12 +100,14 @@ impl Segment {
             Segment::ContextMetadata => 256,
             Segment::KernelGeneral => 256,
             Segment::KernelGeneral2 => 256,
+            Segment::KernelAccountCode => 8,
             Segment::TxnFields => 256,
             Segment::TxnData => 256,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
             Segment::TrieEncodedChild => 256,
             Segment::TrieEncodedChildLen => 6,
+            Segment::ShiftTable => 256,
         }
     }
 }

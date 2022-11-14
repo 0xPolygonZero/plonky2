@@ -2,11 +2,11 @@ use anyhow::Result;
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
 
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
-use crate::cpu::kernel::{aggregator::KERNEL, tests::mpt::nibbles};
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 
@@ -49,7 +49,7 @@ fn load_all_mpts_empty() -> Result<()> {
 fn load_all_mpts_leaf() -> Result<()> {
     let trie_inputs = TrieInputs {
         state_trie: PartialTrie::Leaf {
-            nibbles: nibbles(0xABC),
+            nibbles: 0xABC_u64.into(),
             value: test_account_1_rlp(),
         },
         transactions_trie: Default::default(),

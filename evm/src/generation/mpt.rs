@@ -109,7 +109,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
             prover_inputs.push(U256::zero()); // value_present = 0
 
             for (i, child) in children.iter().enumerate() {
-                let extended_key = key.merge(&Nibbles {
+                let extended_key = key.merge_nibbles(&Nibbles {
                     count: 1,
                     packed: i.into(),
                 });
@@ -124,7 +124,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
         PartialTrie::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
             prover_inputs.push(nibbles.packed);
-            let extended_key = key.merge(nibbles);
+            let extended_key = key.merge_nibbles(nibbles);
             mpt_prover_inputs_state_trie(
                 child,
                 extended_key,

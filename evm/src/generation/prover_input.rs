@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
 use crate::generation::prover_input::EvmField::{
@@ -28,6 +28,7 @@ impl<F: Field> GenerationState<F> {
             "ff" => self.run_ff(stack, input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
+            "account_code" => self.run_account_code(stack, input_fn),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -62,6 +63,29 @@ impl<F: Field> GenerationState<F> {
         self.rlp_prover_inputs
             .pop()
             .unwrap_or_else(|| panic!("Out of RLP data"))
+    }
+
+    /// Account code.
+    fn run_account_code(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
+        match input_fn.0[1].as_str() {
+            "length" => {
+                // Return length of code.
+                // stack: codehash
+                let codehash = stack.last().expect("Empty stack");
+                self.inputs.contract_code[&H256::from_uint(codehash)]
+                    .len()
+                    .into()
+            }
+            "get" => {
+                // Return `code[i]`.
+                // stack: i, code_length, codehash
+                let stacklen = stack.len();
+                let i = stack[stacklen - 1].as_usize();
+                let codehash = stack[stacklen - 3];
+                self.inputs.contract_code[&H256::from_uint(&codehash)][i].into()
+            }
+            _ => panic!("Invalid prover input function."),
+        }
     }
 }
 

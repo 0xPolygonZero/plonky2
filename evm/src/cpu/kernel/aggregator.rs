@@ -18,6 +18,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/invalid.asm"),
         include_str!("asm/core/nonce.asm"),
         include_str!("asm/core/process_txn.asm"),
+        include_str!("asm/core/syscall.asm"),
+        include_str!("asm/core/syscall_stubs.asm"),
         include_str!("asm/core/terminate.asm"),
         include_str!("asm/core/transfer.asm"),
         include_str!("asm/core/util.asm"),
@@ -75,6 +77,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/sha2/store_pad.asm"),
         include_str!("asm/sha2/temp_words.asm"),
         include_str!("asm/sha2/write_length.asm"),
+        include_str!("asm/shift.asm"),
         include_str!("asm/transactions/router.asm"),
         include_str!("asm/transactions/type_0.asm"),
         include_str!("asm/transactions/type_1.asm"),
@@ -82,6 +85,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/util/assertions.asm"),
         include_str!("asm/util/basic_macros.asm"),
         include_str!("asm/util/keccak.asm"),
+        include_str!("asm/account_code.asm"),
+        include_str!("asm/balance.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();

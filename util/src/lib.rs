@@ -274,7 +274,49 @@ pub fn branch_hint() {
 
 #[cfg(test)]
 mod tests {
+    use rand::rngs::OsRng;
+    use rand::Rng;
+
     use crate::{log2_ceil, log2_strict};
+
+    #[test]
+    fn test_reverse_index_bits() {
+        let lengths = [32, 128, 1 << 16];
+        let mut rng = OsRng;
+        for _ in 0..32 {
+            for length in lengths {
+                let mut rand_list: Vec<u32> = Vec::with_capacity(length);
+                rand_list.resize_with(length, || rng.gen());
+
+                let out = super::reverse_index_bits(&rand_list);
+                let expect = reverse_index_bits_naive(&rand_list);
+
+                for (out, expect) in out.iter().zip(&expect) {
+                    assert_eq!(out, expect);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_reverse_index_bits_in_place() {
+        let lengths = [32, 128, 1 << 16];
+        let mut rng = OsRng;
+        for _ in 0..32 {
+            for length in lengths {
+                let mut rand_list: Vec<u32> = Vec::with_capacity(length);
+                rand_list.resize_with(length, || rng.gen());
+
+                let expect = reverse_index_bits_naive(&rand_list);
+
+                super::reverse_index_bits_in_place(&mut rand_list);
+
+                for (got, expect) in rand_list.iter().zip(&expect) {
+                    assert_eq!(got, expect);
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_log2_strict() {
@@ -325,5 +367,18 @@ mod tests {
         );
         assert_eq!(log2_ceil(usize::MAX - 1), usize::BITS as usize);
         assert_eq!(log2_ceil(usize::MAX), usize::BITS as usize);
+    }
+
+    fn reverse_index_bits_naive<T: Copy>(arr: &[T]) -> Vec<T> {
+        let n = arr.len();
+        let n_power = log2_strict(n);
+
+        let mut out = vec![None; n];
+        for (i, v) in arr.iter().enumerate() {
+            let dst = i.reverse_bits() >> (64 - n_power);
+            out[dst] = Some(*v);
+        }
+
+        out.into_iter().map(|x| x.unwrap()).collect()
     }
 }

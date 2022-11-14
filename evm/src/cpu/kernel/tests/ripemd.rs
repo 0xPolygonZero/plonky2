@@ -2,8 +2,8 @@ use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
 
-use crate::cpu::kernel::aggregator::combined_kernel;
-use crate::cpu::kernel::interpreter::run_with_kernel;
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::interpreter::run_interpreter;
 
 fn make_input(word: &str) -> Vec<u32> {
     let mut input: Vec<u32> = vec![word.len().try_into().unwrap()];
@@ -44,10 +44,9 @@ fn test_ripemd_reference() -> Result<()> {
         let input: Vec<u32> = make_input(x);
         let expected = U256::from(y);
 
-        let kernel = combined_kernel();
-        let initial_offset = kernel.global_labels["ripemd_stack"];
+        let initial_offset = KERNEL.global_labels["ripemd_stack"];
         let initial_stack: Vec<U256> = input.iter().map(|&x| U256::from(x)).rev().collect();
-        let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
+        let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
             .stack()
             .to_vec();
         let actual = final_stack[0];
