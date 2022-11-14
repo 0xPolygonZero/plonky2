@@ -11,6 +11,11 @@ global ec_mul_valid_point_secp:
     // stack: x, y, s, retdest
     %jump(ret_zero_ec_mul)
 
+before_precomputation:
+    %stack (x, y, s, retdest) -> (x, y, after_precomputation, s, retdest)
+    %jump(secp_precompute)
+
+// Write `(xi, yi) = i * (x, y)` in memory at locations `2i, 2i+1` for `i = 0,...,15`.
 secp_precompute:
     // stack: x, y, retdest
     DUP2 DUP2 PUSH 2
@@ -30,10 +35,7 @@ secp_precompute_loop_contd:
     %pop5 JUMP
 
 
-before_precomputation:
-    %stack (x, y, s, retdest) -> (x, y, after_precomputation, s, retdest)
-    %jump(secp_precompute)
-
+// Windowed scalar multiplication with a 4-bit window.
 after_precomputation:
     // stack: s, retdest
     PUSH 0 PUSH 0 PUSH 0
@@ -67,6 +69,7 @@ mul_end:
     JUMP
 
 
+// Computes `16 * (x, y)` by doubling 4 times.
 repeated_double:
     // stack: x, y, retdest
     PUSH 0
@@ -81,44 +84,3 @@ repeated_double_loop_contd:
 repeated_double_end:
     %stack (i, x, y, retdest) -> (retdest, x, y)
     JUMP
-
-// Assumption: 2(x,y) = (x',y')
-step_case_contd:
-    // stack: x', y', s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_mul_valid_point_secp)
-
-recursion_return:
-    // stack: x', y', x, y, s, retdest
-    SWAP4
-    // stack: s, y', x, y, x', retdest
-    PUSH 1
-    // stack: 1, s, y', x, y, x', retdest
-    AND
-    // stack: s & 1, y', x, y, x', retdest
-    SWAP1
-    // stack: y', s & 1, x, y, x', retdest
-    SWAP2
-    // stack: x, s & 1, y', y, x', retdest
-    SWAP3
-    // stack: y, s & 1, y', x, x', retdest
-    SWAP4
-    // stack: x', s & 1, y', x, y, retdest
-    SWAP1
-    // stack: s & 1, x', y', x, y, retdest
-    %jumpi(odd_scalar)
-    // stack: x', y', x, y, retdest
-    SWAP3
-    // stack: y, y', x, x', retdest
-    POP
-    // stack: y', x, x', retdest
-    SWAP1
-    // stack: x, y', x', retdest
-    POP
-    // stack: y', x', retdest
-    SWAP2
-    // stack: retdest, x', y'
-    JUMP
-
-odd_scalar:
-    // stack: x', y', x, y, retdest
-    %jump(ec_add_valid_points_secp)

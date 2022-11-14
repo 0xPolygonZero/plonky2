@@ -335,13 +335,6 @@ impl<'a> Interpreter<'a> {
         if self.debug_offsets.contains(&self.offset) {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            if &self.offset_name() == "ec_double_secp" {
-                // println!("{:?}", self.stack());
-            }
-            if &self.offset_name() == "mul_loop_contd" {
-                println!("wtf {:?}", self.stack());
-            }
-
             println!("At {label}");
         }
 
