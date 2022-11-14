@@ -685,6 +685,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// In PLONK's permutation argument, there's a slight chance of division by zero. We can
+    /// mitigate this by randomizing some unused witness elements, so if proving fails with
+    /// division by zero, the next attempt will have an (almost) independent chance of success.
+    /// See https://github.com/mir-protocol/plonky2/issues/456
+    fn randomize_unused_pi_wires(&mut self, pi_gate: usize) {
+        for wire in PublicInputGate::wires_public_inputs_hash().end..self.config.num_wires {
+            self.add_simple_generator(RandomValueGenerator {
+                target: Target::wire(pi_gate, wire),
+            });
+        }
+    }
+
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
     where
@@ -708,6 +720,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
+        self.randomize_unused_pi_wires(pi_gate);
 
         // Make sure we have enough constant generators. If not, add a `ConstantGate`.
         while self.constants_to_targets.len() > self.constant_generators.len() {
