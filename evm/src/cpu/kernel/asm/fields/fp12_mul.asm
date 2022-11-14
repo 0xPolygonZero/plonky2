@@ -1,39 +1,39 @@
 /// Note: uncomment this to test
 
-/// global test_mul_fp12:
-///     // stack:      f, inA , f', g, inB , g', inB, out, inA,       out
-///     DUP7
-///     // stack: inA, f, inA , f', g, inB , g', inB, out, inA,       out
-///     %store_fp6
-///     // stack:         inA , f', g, inB , g', inB, out, inA,       out
-///     %offset_fp6
-///     // stack:         inA', f', g, inB , g', inB, out, inA,       out
-///     %store_fp6
-///     // stack:                   g, inB , g', inB, out, inA,       out
-///     DUP7
-///     // stack:              inB, g, inB , g', inB, out, inA,       out
-///     %store_fp6
-///     // stack:                      inB , g', inB, out, inA,       out
-///     %offset_fp6
-///     // stack:                      inB', g', inB, out, inA,       out
-///     %store_fp6
-///     // stack:                                inB, out, inA,       out
-///     PUSH ret_stack
-///     // stack:                     ret_stack, inB, out, inA,       out
-///     SWAP3
-///     // stack:                           inA, inB, out, ret_stack, out
-///     %jump(mul_fp12)
-/// ret_stack:
-///     // stack:          out
-///     DUP1  %offset_fp6
-///     // stack:    out', out
-///     %load_fp6
-///     // stack:      h', out
-///     DUP7
-///     // stack: out, h', out
-///     %load_fp6
-///     // stack:   h, h', out
-///     %jump(0xdeadbeef)
+global test_mul_fp12:
+    // stack:      f, inA , f', g, inB , g', inB, out, inA,       out
+    DUP7
+    // stack: inA, f, inA , f', g, inB , g', inB, out, inA,       out
+    %store_fp6
+    // stack:         inA , f', g, inB , g', inB, out, inA,       out
+    %offset_fp6
+    // stack:         inA', f', g, inB , g', inB, out, inA,       out
+    %store_fp6
+    // stack:                   g, inB , g', inB, out, inA,       out
+    DUP7
+    // stack:              inB, g, inB , g', inB, out, inA,       out
+    %store_fp6
+    // stack:                      inB , g', inB, out, inA,       out
+    %offset_fp6
+    // stack:                      inB', g', inB, out, inA,       out
+    %store_fp6
+    // stack:                                inB, out, inA,       out
+    PUSH ret_stack
+    // stack:                     ret_stack, inB, out, inA,       out
+    SWAP3
+    // stack:                           inA, inB, out, ret_stack, out
+    %jump(mul_fp12)
+ret_stack:
+    // stack:          out
+    DUP1  %offset_fp6
+    // stack:    out', out
+    %load_fp6
+    // stack:      h', out
+    DUP7
+    // stack: out, h', out
+    %load_fp6
+    // stack:   h, h', out
+    %jump(0xdeadbeef)
 
 
 /// fp6 functions:
@@ -259,28 +259,25 @@ post_sq2:
     JUMP
 
 /// fp6 functions:
-///  fn    | num | ops | cost
-///  -------------------------
-///  load  |   2 |  40 |   80
-///  store |   2 |  40 |   80
-///  dup   |   2 |   6 |   12
-///  swap  |   2 |  16 |   32
-///  add   |   1 |  16 |   16
-///  mul   |   1 | 157 |  157
-///  sq    |   2 |     |
-///  dbl   |   1 |  13 |   13
+///  fn      | num | ops | cost
+///  ---------------------------
+///  load    |   2 |  40 |   80
+///  store   |   2 |  40 |   80
+///  dup     |   4 |   6 |   24
+///  swap    |   4 |  16 |   64
+///  add     |   4 |  16 |   64
+///  mul_fp  |   2 |  21 |   42
+///  mul_fp2 |   4 |  59 |  236
 ///
 /// lone stack operations:
 ///  op    | num 
 ///  ------------
-///  ADD   |   3
-///  SWAP  |   4
-///  DUP   |   5
+///  ADD   |   6
+///  DUP   |   9
 ///  PUSH  |   6
-///  POP   |   3
-///  JUMP  |   4
+///  POP   |   5
 ///
-/// TOTAL: 
+/// TOTAL: 618
 
 /// input:
 ///     F = f + f'z
