@@ -268,26 +268,22 @@ global mul_fp12_sparse:
     %add_fp6_hole
     // stack:      G1 * sh(f) + G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     DUP14
-    // stack: out, G1 * sh(f) + G2 * sh2(f') + g0 * f, inB, out, f', f, inB, f', inA, inB, out
+    // stack: out, G1 * sh(f) + G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     %store_fp6
-    // stack:                                          inB, out, f', f, inB, f', inA, inB, out
-    %pop2
-    // stack:                                                    f', f, inB, f', inA, inB, out
-    DUP13
-    // stack:                                               inB, f', f, inB, f', inA, inB, out
+    // stack:                                          inB, f', out, f, inB, f', inA, inB, out
     %mload_kernel_general
-    // stack:                                               g0 , f', f, inB, f', inA, inB, out
+    // stack:                                          g0 , f', out, f, inB, f', inA, inB, out
     %mul_fp_fp6
-    // stack:                                               g0 * f', f, inB, f', inA, inB, out
-    %swap_fp6
-    // stack:                                             f  , g0 * f', inB, f', inA, inB, out
-    DUP13  %add_const(8)
-    // stack:                                    inB2,    f  , g0 * f', inB, f', inA, inB, out
+    // stack:                                          g0 * f', out, f, inB, f', inA, inB, out
+    %swap_fp6_hole
+    // stack:                                        f  , out, g0 * f', inB, f', inA, inB, out
+    DUP14  %add_const(8)
+    // stack:                               inB2,    f  , out, g0 * f', inB, f', inA, inB, out
     %load_fp2
-    // stack:                                     G2 ,    f  , g0 * f', inB, f', inA, inB, out
+    // stack:                                G2 ,    f  , out, g0 * f', inB, f', inA, inB, out
     %mul_fp2_fp6_sh
-    // stack:                                     G2 * sh(f) , g0 * f', inB, f', inA, inB, out
-    %add_fp6
+    // stack:                                G2 * sh(f) , out, g0 * f', inB, f', inA, inB, out
+    %add_fp6_hole
     // stack:                                     G2 * sh(f) + g0 * f', inB, f', inA, inB, out
     %swap_fp6_hole
     // stack:                                    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
