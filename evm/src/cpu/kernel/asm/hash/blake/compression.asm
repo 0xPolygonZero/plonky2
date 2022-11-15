@@ -216,5 +216,21 @@ compression_loop:
     %blake_generate_new_hash_value(1)
     %blake_generate_new_hash_value(0)
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    %stack (hash: 8, retdest) -> (retdest, hash)
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    %shl_const(32)
+    OR
+    // stack: hash, retdest
+    SWAP1
+    // stack: retdest, hash
     JUMP
