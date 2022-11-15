@@ -105,7 +105,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
-        let _ = buffer.write_proof_with_public_inputs(self);
+        buffer
+            .write_proof_with_public_inputs(self)
+            .expect("Writing to a byte-vector cannot fail.");
         buffer
     }
 
