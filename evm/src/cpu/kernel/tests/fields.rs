@@ -2,8 +2,8 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 
-use crate::cpu::kernel::aggregator::combined_kernel;
-use crate::cpu::kernel::interpreter::run_with_kernel;
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::interpreter::run_interpreter;
 
 // TODO: 107 is hardcoded as a dummy prime for testing
 // should be changed to the proper implementation prime
@@ -137,10 +137,9 @@ fn test_fp6() -> Result<()> {
     let mut input: Vec<u32> = [c, d].into_iter().flatten().flatten().collect();
     input.push(0xdeadbeef);
 
-    let kernel = combined_kernel();
-    let initial_offset = kernel.global_labels["mul_fp6"];
+    let initial_offset = KERNEL.global_labels["mul_fp6"];
     let initial_stack: Vec<U256> = as_stack(input);
-    let final_stack: Vec<U256> = run_with_kernel(&kernel, initial_offset, initial_stack)?
+    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
         .stack()
         .to_vec();
 

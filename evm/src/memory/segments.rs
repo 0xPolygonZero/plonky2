@@ -35,10 +35,13 @@ pub(crate) enum Segment {
     TrieEncodedChild = 14,
     /// A buffer used to store the lengths of the encodings of a branch node's children.
     TrieEncodedChildLen = 15,
+    /// A table of values 2^i for i=0..255 for use with shift
+    /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
+    ShiftTable = 16,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 16;
+    pub(crate) const COUNT: usize = 17;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -58,6 +61,7 @@ impl Segment {
             Self::TrieData,
             Self::TrieEncodedChild,
             Self::TrieEncodedChildLen,
+            Self::ShiftTable,
         ]
     }
 
@@ -80,6 +84,7 @@ impl Segment {
             Segment::TrieData => "SEGMENT_TRIE_DATA",
             Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
             Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
+            Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
         }
     }
 
@@ -102,6 +107,7 @@ impl Segment {
             Segment::TrieData => 256,
             Segment::TrieEncodedChild => 256,
             Segment::TrieEncodedChildLen => 6,
+            Segment::ShiftTable => 256,
         }
     }
 }
