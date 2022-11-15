@@ -18,7 +18,7 @@ std = ["anyhow/std", "rand/std"]
 timing = ["std"]
 
 [dependencies]
-ahash = { version = "0.8.2", default-features = false, features = ["compile-time-rng"] }
+ahash = { version = "0.7.6", default-features = false, features = ["compile-time-rng"] }
 anyhow = { version = "1.0.40", default-features = false }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 hashbrown = { version = "0.12.3", default-features = false, features = ["ahash", "serde"] }
