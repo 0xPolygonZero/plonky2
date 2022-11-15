@@ -176,7 +176,7 @@ ret_3:
 ///// SPARSE FP12 MULTIPLICATION /////
 //////////////////////////////////////
 
-/// cost: 646
+/// cost: 645
 
 /// fp6 functions:
 ///  fn      | num | ops | cost
