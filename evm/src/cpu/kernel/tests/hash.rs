@@ -34,7 +34,7 @@ fn blake(input: Vec<u8>) -> U256 {
 fn make_random_input() -> Vec<u8> {
     // Generate a random message, between 0 and 9999 bytes.
     let mut rng = thread_rng();
-    let num_bytes = rng.gen_range(0..100);
+    let num_bytes = rng.gen_range(0..25);
     (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
