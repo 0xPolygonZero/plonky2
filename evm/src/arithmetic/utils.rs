@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
-use log::error;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
@@ -11,21 +10,24 @@ use crate::arithmetic::columns::{NUM_ARITH_COLUMNS, N_LIMBS};
 /// Emit an error message regarding unchecked range assumptions.
 /// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
 /// cols[0] + cols.len() - 1]`.
+///
+/// TODO: Hamish to delete this when he has implemented and integrated
+/// range checks.
 pub(crate) fn _range_check_error<const RC_BITS: u32>(
-    file: &str,
-    line: u32,
-    cols: Range<usize>,
-    signedness: &str,
+    _file: &str,
+    _line: u32,
+    _cols: Range<usize>,
+    _signedness: &str,
 ) {
-    error!(
-        "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
-        line,
-        file,
-        RC_BITS,
-        signedness,
-        cols.start,
-        cols.end - 1,
-    );
+    // error!(
+    //     "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
+    //     line,
+    //     file,
+    //     RC_BITS,
+    //     signedness,
+    //     cols.start,
+    //     cols.end - 1,
+    // );
 }
 
 #[macro_export]

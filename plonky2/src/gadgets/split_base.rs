@@ -3,6 +3,7 @@ use std::borrow::Borrow;
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_field::types::Field;
+use plonky2_util::log_floor;
 
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
@@ -33,6 +34,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
         let bits = bits.map(|b| *b.borrow()).collect_vec();
         let num_bits = bits.len();
+        assert!(
+            num_bits <= log_floor(F::ORDER, 2),
+            "{} bits may overflow the field",
+            num_bits
+        );
         if num_bits == 0 {
             return self.zero();
         }

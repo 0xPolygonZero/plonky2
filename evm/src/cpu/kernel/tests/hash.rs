@@ -6,8 +6,8 @@ use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
 
-use crate::cpu::kernel::aggregator::combined_kernel;
-use crate::cpu::kernel::interpreter::run_with_kernel;
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::interpreter::run_interpreter;
 
 /// Standard Sha2 implementation.
 fn sha2(input: Vec<u8>) -> U256 {
@@ -62,12 +62,11 @@ fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U
     let initial_stack_custom = make_input_stack(message_custom);
 
     // Make the kernel.
-    let kernel = combined_kernel();
-    let kernel_function = kernel.global_labels[hash_fn_label];
+    let kernel_function = KERNEL.global_labels[hash_fn_label];
 
     // Run the kernel code.
-    let result_random = run_with_kernel(&kernel, kernel_function, initial_stack_random)?;
-    let result_custom = run_with_kernel(&kernel, kernel_function, initial_stack_custom)?;
+    let result_random = run_interpreter(kernel_function, initial_stack_random)?;
+    let result_custom = run_interpreter(kernel_function, initial_stack_custom)?;
 
     // Extract the final output.
     let actual_random = result_random.stack()[0];
