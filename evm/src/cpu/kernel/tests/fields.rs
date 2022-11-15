@@ -106,6 +106,11 @@ fn sh(c: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     [i9(c2), c0, c1]
 }
 
+fn sparse_embed(x: [u32; 5]) -> [[[u32; 2]; 3]; 2] {
+    let [g0, g1, g1_, g2, g2_] = x;
+    [[[g0, 0], [g1, g1_], [0, 0]], [[0, 0], [g2, g2_], [0, 0]]]
+}
+
 fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] {
     let [f0, f1] = f;
     let [g0, g1] = g;
@@ -123,6 +128,17 @@ fn gen_fp6() -> [[u32; 2]; 3] {
         [rng.gen_range(0..P254), rng.gen_range(0..P254)],
         [rng.gen_range(0..P254), rng.gen_range(0..P254)],
     ]
+}
+
+fn gen_fp12_sparse() -> [[[u32; 2]; 3]; 2] {
+    let mut rng = thread_rng();
+    sparse_embed([
+        rng.gen_range(0..P254),
+        rng.gen_range(0..P254),
+        rng.gen_range(0..P254),
+        rng.gen_range(0..P254),
+        rng.gen_range(0..P254),
+    ])
 }
 
 fn as_stack(xs: Vec<u32>) -> Vec<U256> {
@@ -177,7 +193,7 @@ fn make_initial_stack(
     as_stack(input)
 }
 
-#[test]
+// #[test]
 fn test_fp12() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
@@ -187,6 +203,35 @@ fn test_fp12() -> Result<()> {
     let f1 = gen_fp6();
     let g0 = gen_fp6();
     let g1 = gen_fp6();
+
+    let initial_offset = KERNEL.global_labels["test_mul_fp12"];
+    let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, g0, g1);
+    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
+        .stack()
+        .to_vec();
+
+    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1])
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
+    output.extend(vec![out]);
+    let expected = as_stack(output);
+
+    assert_eq!(final_stack, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_fp12_sparse() -> Result<()> {
+    let in1 = 64;
+    let in2 = 76;
+    let out = 88;
+
+    let f0 = gen_fp6();
+    let f1 = gen_fp6();
+    let [g0, g1] = gen_fp12_sparse();
 
     let initial_offset = KERNEL.global_labels["test_mul_fp12"];
     let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, g0, g1);
