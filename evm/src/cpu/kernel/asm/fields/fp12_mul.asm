@@ -356,6 +356,8 @@ global mul_fp12_sparse:
 ///// FP12 SQUARING /////
 /////////////////////////
 
+/// cost: 646
+
 /// fp6 functions:
 ///  fn    | num | ops | cost
 ///  -------------------------
