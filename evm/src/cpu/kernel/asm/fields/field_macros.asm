@@ -678,3 +678,23 @@
     ADDFP254
     // stack: 9b + a, 9a - b 
 %endmacro
+
+%macro sh
+    // stack: f0 , f0_, f1,  f1_, f2 , f2_
+    SWAP2
+    // stack: f1 , f0_, g0 , f1_, f2 , f2_
+    SWAP4
+    // stack: f2 , f0_, g0 , f1_, g1 , f2_
+    SWAP1
+    // stack: f0_, f2 , g0 , f1_, g1 , f2_
+    SWAP3
+    // stack: f1_, f2 , g0 , g0_, g1 , f2_
+    SWAP5
+    // stack: f2_, f2 , g0 , g0_, g1 , g1_
+    SWAP1 
+    // stack: f2 , f2_, g0 , g0_, g1 , g1_
+    %i9
+    // stack: g2_, g2 , g0 , g0_, g1 , g1_
+    SWAP1
+    // stack: g2 , g2_, g0 , g0_, g1 , g1_
+%endmacro

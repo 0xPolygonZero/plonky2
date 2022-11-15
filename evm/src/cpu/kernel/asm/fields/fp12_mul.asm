@@ -23,7 +23,7 @@ global test_mul_fp12:
     // stack:                     ret_stack, inB, out, inA,       out
     SWAP3
     // stack:                           inA, inB, out, ret_stack, out
-    %jump(mul_fp12_sparse)
+    %jump(square_fp12_test)
 ret_stack:
     // stack:          out
     DUP1  %offset_fp6
@@ -35,6 +35,11 @@ ret_stack:
     %load_fp6
     // stack:   h, h', out
     %jump(0xdeadbeef)
+
+square_fp12_test:
+    POP
+    %jump(square_fp12)
+
 
 ///////////////////////////////////////
 ///// GENERAL FP12 MULTIPLICATION /////
@@ -360,7 +365,7 @@ global mul_fp12_sparse:
 ///  swap  |   2 |  16 |   32
 ///  add   |   1 |  16 |   16
 ///  mul   |   1 | 157 |  157
-///  sq    |   2 |     |
+///  sq    |   2 | 101 |  202
 ///  dbl   |   1 |  13 |   13
 ///
 /// lone stack operations:
@@ -391,7 +396,7 @@ global mul_fp12_sparse:
 
 global square_fp12:
     // stack:                                                    inp, out
-    DUP1  %offset_fp6
+    DUP1
     // stack:                                               inp, inp, out
     %load_fp6 
     // stack:                                                 f, inp, out
@@ -427,17 +432,19 @@ post_mul:
     %jump(square_fp6)
 post_sq1:
     // stack:                                 f'f', inp, f, post_sq2, out
+    %sh
+    // stack:                             sh(f'f'), inp, f, post_sq2, out
     %swap_fp6_hole
-    // stack:                                 f, inp, f'f', post_sq2, out
+    // stack:                             f, inp, sh(f'f'), post_sq2, out
     SWAP6  SWAP13  SWAP6
-    // stack:                                 f, post_sq2, f'f', inp, out
+    // stack:                             f, post_sq2, sh(f'f'), inp, out
     %jump(square_fp6)
 post_sq2:
-    // stack:                                         ff , f'f', inp, out
+    // stack:                                     ff , sh(f'f'), inp, out
     %add_fp6
-    // stack:                                         ff + f'f', inp, out
+    // stack:                                     ff + sh(f'f'), inp, out
     DUP8
-    // stack:                                    out, ff + f'f', inp, out
+    // stack:                                out, ff + sh(f'f'), inp, out
     %store_fp6
     // stack:                                                    inp, out
     %pop2

@@ -223,7 +223,7 @@ fn test_fp12() -> Result<()> {
     Ok(())
 }
 
-#[test]
+// #[test]
 fn test_fp12_sparse() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
@@ -240,6 +240,34 @@ fn test_fp12_sparse() -> Result<()> {
         .to_vec();
 
     let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1])
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
+    output.extend(vec![out]);
+    let expected = as_stack(output);
+
+    assert_eq!(final_stack, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_fp12_square() -> Result<()> {
+    let in1 = 64;
+    let in2 = 76;
+    let out = 88;
+
+    let f0 = gen_fp6();
+    let f1 = gen_fp6();
+
+    let initial_offset = KERNEL.global_labels["test_mul_fp12"];
+    let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, f0, f1);
+    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
+        .stack()
+        .to_vec();
+
+    let mut output: Vec<u32> = mul_fp12([f0, f1], [f0, f1])
         .into_iter()
         .flatten()
         .flatten()
