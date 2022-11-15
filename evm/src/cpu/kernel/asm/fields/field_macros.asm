@@ -442,12 +442,12 @@
 
 // cost: 21
 %macro mul_fp_fp6
-    // stack: c, f0,      f1,     f2,     f3,     f4,     f5
+    // stack: c , f0,      f1,    f2,     f3,     f4,     f5
     SWAP6
     DUP7
     MULFP254
     SWAP6
-    // stack: c, f0,      f1,     f2,     f3,     f4, c * f5
+    // stack: c , f0,      f1,    f2,     f3,     f4, c * f5
     SWAP5
     DUP6
     MULFP254
@@ -641,7 +641,7 @@
     DUP4
     MULFP254
     // stack:  cf1, df1_, f1_, c, f1, d, g1, g1_, g2, g2_
-    ADDFP254
+    SUBFP254
     // stack:         g0, f1_, c, f1, d, g1, g1_, g2, g2_
     SWAP3
     // stack:         f1, f1_, c, g0, d, g1, g1_, g2, g2_
