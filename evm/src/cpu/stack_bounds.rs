@@ -19,7 +19,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
-const MAX_USER_STACK_SIZE: u64 = 1024;
+pub const MAX_USER_STACK_SIZE: u64 = 1024;
 
 // Below only includes the operations that pop the top of the stack **without reading the value from
 // memory**, i.e. `POP`.

@@ -7,7 +7,17 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
-pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
+fn limbs(x: U256) -> [u32; 8] {
+    let mut res = [0; 8];
+    let x_u64: &[u64; 4] = x.as_ref();
+    for i in 0..4 {
+        res[2 * i] = x_u64[i] as u32;
+        res[2 * i + 1] = (x_u64[i] >> 32) as u32;
+    }
+    res
+}
+
+pub fn generate_pinv_diff<F: RichField>(val0: U256, val1: U256, lv: &mut CpuColumnsView<F>) {
     let input0 = lv.mem_channels[0].value;
 
     let eq_filter = lv.op.eq.to_canonical_u64();
