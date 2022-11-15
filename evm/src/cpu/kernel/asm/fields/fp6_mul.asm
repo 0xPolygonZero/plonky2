@@ -1,3 +1,7 @@
+//////////////////////////////////////
+///// GENERAL FP6 MULFP254TIPLICATION /////
+//////////////////////////////////////
+
 /// inputs:
 ///     C = C0 + C1t + C2t^2 
 ///       = (c0 + c0_i) + (c1 + c1_i)t + (c2 + c2_i)t^2
@@ -258,5 +262,174 @@ global mul_fp6:
     JUMP
 
 
+////////////////////////
+///// FP6 SQUARING /////
+////////////////////////
+
+/// inputs:
+///     C = C0 + C1t + C2t^2 
+///       = (c0 + c0_i) + (c1 + c1_i)t + (c2 + c2_i)t^2
+///
+/// output:
+///     E = E0 + E1t + E2t^2 = C^2
+///       = (e0 + e0_i) + (e1 + e1_i)t + (e2 + e2_i)t^2
+///
+/// initial stack: c0, c0_, c1, c1_, c2, c2_, retdest
+/// final   stack: e0, e0_, e1, e1_, e2, e2_
+
+/// computations:
+///
+/// E0 = C0C0 + i9(2C1C2) = (c0+c0_i)^2 + i9(2(c1+c1_i)(c2+c2_i))
+///    = (c0^2 - c0_^2) + (2c0c0_)i + i9[2(c1c2 - c1_c2_) + 2(c1_c2 + c1c2_)i]
+///
+/// E1 = 2*C0C1 + i9(C2C2) = 2(c0+c0_i)(c1+c1_i) + i9((c2+c2_i)(c2+c2_i))
+///    = 2(c0c1 - c0_c1_) + 2(c0c1_ + c0_c1)i + i9[(c2^2 - c2_^2) + (2c2c2_)i]
+///
+/// E2 = 2*C0C2 + C1C1
+///    = 2(c0c2 - c0_c2_) + 2(c0_c2 + c2c0_)i + (c1^2 - c1_^2) + (2c1c1_)i
+///
+/// e0  = (c0^2 - c0_^2) + x0
+/// e0_ = 2c0c0_ + x0_
+///     where x0_, x0 = %i9 c1c2 - c1_c2_, c1_c2 + c1c2_
+///
+/// e1  = 2(c0c1 - c0_c1_) + x1
+/// e1_ = 2(c0c1_ + c0_c1) + x1_
+///     where x1_, x1 = %i9 c2^2 - c2_^2, 2c2c2_
+///
+/// e2  = 2(c0c2 - c0_c2_) + (c1^2 - c1_^2)
+/// e2_ = 2(c0_c2 + c2c0_) + 2c1c1_
+
 global square_fp6:
-    
+    /// e0  = (c0^2 - c0_^2) + x0
+    /// e0_ = 2c0c0_ + x0_
+    ///     where x0_, x0 = %i9 2(c1c2 - c1_c2_), 2(c1_c2 + c1c2_)
+    DUP6
+    DUP4
+    MULFP254
+    DUP6
+    DUP6
+    MULFP254
+    ADDFP254
+    PUSH 2
+    MULFP254
+    DUP7
+    DUP6
+    MULFP254
+    DUP7
+    DUP6
+    MULFP254
+    SUBFP254
+    PUSH 2
+    MULFP254
+    %i9
+    // stack:          x0_, x0
+    DUP3
+    DUP5
+    MULFP254
+    PUSH 2
+    MULFP254
+    // stack:  2c0c0_, x0_, x0
+    ADDFP254
+    // stack:          e0_, x0
+    SWAP4
+    SWAP1
+    // stack:               x0
+    DUP4
+    DUP1
+    MULFP254
+    DUP4
+    DUP1
+    MULFP254
+    SUBFP254
+    // stack: c0^2 - c0_^2, x0
+    ADDFP254
+    // stack:               e0
+    SWAP3
+
+    /// e1  = 2(c0c1  - c0_c1_) + x1
+    /// e1_ = 2(c0c1_ + c0_c1 ) + x1_
+    ///     where x1_, x1 = %i9 c2^2 - c2_^2, 2c2c2_
+    DUP7
+    DUP9
+    MULFP254
+    PUSH 2
+    MULFP254
+    DUP9
+    DUP1
+    MULFP254
+    DUP9
+    DUP1
+    MULFP254
+    SUBFP254
+    %i9
+    // stack:                    x1_, x1
+    DUP4
+    DUP4
+    MULFP254
+    DUP9
+    DUP7
+    MULFP254
+    ADDFP254
+    PUSH 2
+    MULFP254
+    // stack:  2(c0c1_ + c0_c1), x1_, x1
+    ADDFP254
+    // stack:                    e1_, x1
+    SWAP8
+    SWAP1
+    // stack:                         x1
+    DUP8
+    DUP4
+    MULFP254
+    DUP5
+    DUP7
+    MULFP254
+    SUBFP254
+    PUSH 2
+    MULFP254
+    // stack:      2(c0c1  - c0_c1_), x1
+    ADDFP254
+    SWAP7
+
+    /// e2  = 2(c0c2 - c0_c2_) + (c1^2 - c1_^2)
+    /// e2_ = 2(c0_c2 + c2c0_ + c1c1_)
+    DUP1
+    DUP1
+    MULFP254
+    DUP5
+    DUP1
+    MULFP254
+    SUBFP254
+    DUP11
+    DUP5
+    MULFP254
+    DUP4
+    DUP8
+    MULFP254
+    SUBFP254
+    PUSH 2
+    MULFP254
+    ADDFP254
+    // stack: e2
+    SWAP10
+    // stack: c2_, c1_, c2, c0_, c1, c0
+    SWAP4
+    MULFP254
+    // stack:   c1c1_, c2, c0_, c2_, c0
+    SWAP2
+    MULFP254
+    // stack:    c0_c2 , c1c1_, c2_, c0
+    ADDFP254
+    // stack:    c0_c2 + c1c1_, c2_, c0
+    SWAP2
+    MULFP254
+    // stack:     c0c2_ , c0_c2 + c1c1_
+    ADDFP254
+    // stack:     c0c2_ + c0_c2 + c1c1_
+    PUSH 2
+    MULFP254
+    // stack:                       e2_
+    SWAP6
+
+    // stack: retdest, e0, e0_, e1, e1_, e2, e2_
+    JUMP
