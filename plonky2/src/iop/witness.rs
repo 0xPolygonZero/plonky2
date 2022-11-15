@@ -250,8 +250,7 @@ impl<F: Field> MatrixWitness<F> {
     }
 }
 
-#[derive(derivative::Derivative)]
-#[derivative(Clone, Debug, Default(bound = ""))]
+#[derive(Clone, Debug, Default)]
 pub struct PartialWitness<F: Field> {
     pub(crate) target_values: HashMap<Target, F>,
 }

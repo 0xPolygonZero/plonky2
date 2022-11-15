@@ -26,8 +26,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// This also has some extra features to make it suitable for efficiently verifying Merkle proofs.
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
 /// sibling digests.
-#[derive(derivative::Derivative)]
-#[derivative(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Debug, Default)]
 pub struct PoseidonGate<F: RichField + Extendable<D>, const D: usize>(PhantomData<F>);
 
 impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
