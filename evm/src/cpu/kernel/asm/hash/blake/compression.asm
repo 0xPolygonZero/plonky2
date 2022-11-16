@@ -114,11 +114,12 @@ compression_loop:
     POP
     POP
     // stack: is_last_block, t_0, t_1, retdest
-    %mul_const(0xFFFFFFFF)
+    %mul_const(0xFFFFFFFFFFFFFFFF)
     // stack: invert_if_last_block, t_0, t_1, retdest
     %stack (l, t0, t1) -> (t0, t1, l, 0)
     // stack: t_0, t_1, invert_if_last_block, 0, retdest
     %blake_hash_value_addr
+    %add_const(7)
     %rep 8
         // stack: addr, ...
         DUP1
@@ -127,7 +128,7 @@ compression_loop:
         // stack: val, addr, ...
         SWAP1
         // stack: addr, val, ...
-        %increment
+        %decrement
     %endrep
     // stack: addr, h_0, ..., h_7, t_0, t_1, invert_if_last_block, 0, retdest
     POP
@@ -181,6 +182,24 @@ compression_loop:
         SWAP1
         // stack: i + 1, loc + 1, next_val,...
     %endrep
+
+
+
+    %blake_internal_state_addr
+    %add_const(15)
+    %rep 16
+        // stack: addr, ...
+        DUP1
+        // stack: addr, addr, ...
+        %mload_kernel_general
+        // stack: val, addr, ...
+        SWAP1
+        // stack: addr, val, ...
+        %decrement
+    %endrep
+    POP
+    STOP
+
     // stack: 8, loc + 16, retdest
     POP
     POP
@@ -216,21 +235,22 @@ compression_loop:
     %blake_generate_new_hash_value(1)
     %blake_generate_new_hash_value(0)
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    %shl_const(32)
+    %shl_const(64)
     OR
-    %shl_const(32)
+    %shl_const(64)
     OR
-    %shl_const(32)
+    %shl_const(64)
     OR
-    %shl_const(32)
+    // stack: h_0' || h_1' || h_2' || h_3', h_4', h_5', h_6', h_7', retdest
+    %stack (first, second: 4) -> (second, first)
+    // stack: h_4', h_5', h_6', h_7', h_0' || h_1' || h_2' || h_3', retdest
+    %shl_const(64)
     OR
-    %shl_const(32)
+    %shl_const(64)
     OR
-    %shl_const(32)
+    %shl_const(64)
     OR
-    %shl_const(32)
-    OR
-    // stack: hash, retdest
-    SWAP1
-    // stack: retdest, hash
+    // stack: hash_first = h_4' || h_5' || h_6' || h_7', hash_second = h_0' || h_1' || h_2' || h_3', retdest
+    SWAP2
+    // stack: retdest, hash_first, hash_second
     JUMP

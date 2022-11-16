@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.40"
-blake = "2.0.2"
+blake2 = "0.10.5"
 env_logger = "0.9.0"
 eth_trie_utils = "0.4.0"
 ethereum-types = "0.14.0"
