@@ -98,7 +98,7 @@ secp_precompute_e:
 after_precomputation:
     // stack: s, retdest
     PUSH 0 PUSH 0 PUSH 0
-global mul_loop:
+mul_loop:
     // stack: i, accx, accy, s, retdest
     %stack (i, accx, accy, s, retdest) -> (252, s, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest)
     SHR
@@ -110,7 +110,7 @@ global mul_loop:
     %mload_kernel_general SWAP1 %mload_kernel_general
     // stack: x, y, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest
     %jump(ec_add_valid_points_secp)
-global mul_loop_contd:
+mul_loop_contd:
     DUP5
     %eq_const(63) %jumpi(mul_end)
     %jump(repeated_double)
