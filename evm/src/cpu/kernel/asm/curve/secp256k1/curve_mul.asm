@@ -52,7 +52,6 @@ global mul_loop:
     // stack: x, y, accx, accy, mul_loop_contd, mul_loop_contd_bis, s, i, retdest
     %jump(ec_add_valid_points_secp)
 global mul_loop_contd:
-    //%stack (accx, accy, mul_loop_contd_bis, s, i, retdest) -> (i, accx, accy, mul_loop_contd_bis, s, i, retdest)
     DUP5
     %eq_const(63) %jumpi(mul_end)
     %jump(repeated_double)
@@ -72,15 +71,17 @@ mul_end:
 // Computes `16 * (x, y)` by doubling 4 times.
 repeated_double:
     // stack: x, y, retdest
-    PUSH 0
-repeated_double_loop:
-    // stack: i, x, y, retdest
-    DUP1 %eq_const(4) %jumpi(repeated_double_end)
-    %stack (i, x, y, retdest) -> (x, y, repeated_double_loop_contd, i, retdest)
+    %stack (x, y, retdest) -> (x, y, repeated_double_1, retdest)
     %jump(ec_double_secp)
-repeated_double_loop_contd:
-    %stack (x2, y2, i, retdest) -> (i, x2, y2, retdest)
-    %increment %jump(repeated_double_loop)
-repeated_double_end:
-    %stack (i, x, y, retdest) -> (retdest, x, y)
+repeated_double_1:
+    %stack (x, y, retdest) -> (x, y, repeated_double_2, retdest)
+    %jump(ec_double_secp)
+repeated_double_2:
+    %stack (x, y, retdest) -> (x, y, repeated_double_3, retdest)
+    %jump(ec_double_secp)
+repeated_double_3:
+    %stack (x, y, retdest) -> (x, y, repeated_double_4, retdest)
+    %jump(ec_double_secp)
+repeated_double_4:
+    %stack (x, y, retdest) -> (retdest, x, y)
     JUMP
