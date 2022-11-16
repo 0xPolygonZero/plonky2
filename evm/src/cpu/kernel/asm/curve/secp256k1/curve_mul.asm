@@ -18,21 +18,80 @@ before_precomputation:
 // Write `(xi, yi) = i * (x, y)` in memory at locations `2i, 2i+1` for `i = 0,...,15`.
 secp_precompute:
     // stack: x, y, retdest
-    DUP2 DUP2 PUSH 2
-secp_precompute_loop:
-    // stack: i, accx, accy, x, y, retdest
-    DUP1 %increment DUP1 %increment
-    %stack (ssi, si, i, accx, accy, x, y, retdest) -> (i, accx, si, accy, accx, accy, x, y, ssi, retdest)
+    DUP2 DUP2
+    %stack (accx, accy, x, y, retdest) -> (2, accx, 3, accy, accx, accy, x, y, retdest)
     %mstore_kernel_general %mstore_kernel_general
-    %stack (accx, accy, x, y, ssi, retdest) -> (accx, accy, x, y, secp_precompute_loop_contd, x, y, ssi, retdest)
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_1, x, y, retdest)
     %jump(ec_add_valid_points_secp)
-secp_precompute_loop_contd:
-    %stack (accx, accy, x, y, ssi, retdest) -> (ssi, accx, accy, x, y, retdest)
-    DUP1 %lt_const(32)
-    // stack: ssi < 32, ssi, accx, accy, x, y, retdest
-    %jumpi(secp_precompute_loop)
-    // stack: ssi, accx, accy, x, y, retdest
-    %pop5 JUMP
+secp_precompute_1:
+    %stack (accx, accy, x, y, retdest) -> (4, accx, 5, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_2, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_2:
+    %stack (accx, accy, x, y, retdest) -> (6, accx, 7, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_3, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_3:
+    %stack (accx, accy, x, y, retdest) -> (8, accx, 9, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_4, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_4:
+    %stack (accx, accy, x, y, retdest) -> (10, accx, 11, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_5, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_5:
+    %stack (accx, accy, x, y, retdest) -> (12, accx, 13, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_6, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_6:
+    %stack (accx, accy, x, y, retdest) -> (14, accx, 15, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_7, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_7:
+    %stack (accx, accy, x, y, retdest) -> (16, accx, 17, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_8, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_8:
+    %stack (accx, accy, x, y, retdest) -> (18, accx, 19, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_9, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_9:
+    %stack (accx, accy, x, y, retdest) -> (20, accx, 21, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_a, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_a:
+    %stack (accx, accy, x, y, retdest) -> (22, accx, 23, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_b, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_b:
+    %stack (accx, accy, x, y, retdest) -> (24, accx, 25, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_c, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_c:
+    %stack (accx, accy, x, y, retdest) -> (26, accx, 27, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_d, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_d:
+    %stack (accx, accy, x, y, retdest) -> (28, accx, 29, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %stack (accx, accy, x, y, retdest) -> (accx, accy, x, y, secp_precompute_e, x, y, retdest)
+    %jump(ec_add_valid_points_secp)
+secp_precompute_e:
+    %stack (accx, accy, x, y, retdest) -> (30, accx, 31, accy, accx, accy, x, y, retdest)
+    %mstore_kernel_general %mstore_kernel_general
+    %pop4 JUMP
 
 
 // Windowed scalar multiplication with a 4-bit window.
