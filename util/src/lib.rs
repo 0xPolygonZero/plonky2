@@ -288,6 +288,9 @@ pub fn branch_hint() {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+    use alloc::vec::Vec;
+
     use rand::rngs::OsRng;
     use rand::Rng;
 
