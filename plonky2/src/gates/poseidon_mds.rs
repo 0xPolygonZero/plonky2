@@ -1,11 +1,13 @@
-use std::marker::PhantomData;
-use std::ops::Range;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
+use core::ops::Range;
 
-use plonky2_field::extension::algebra::ExtensionAlgebra;
-use plonky2_field::extension::Extendable;
-use plonky2_field::extension::FieldExtension;
-use plonky2_field::types::Field;
-
+use crate::field::extension::algebra::ExtensionAlgebra;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -18,16 +20,13 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-#[derive(Debug)]
-pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
-    _phantom: PhantomData<F>,
-}
+/// Poseidon MDS Gate
+#[derive(Debug, Default)]
+pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize>(PhantomData<F>);
 
 impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F, D> {
     pub fn new() -> Self {
-        PoseidonMdsGate {
-            _phantom: PhantomData,
-        }
+        Self(PhantomData)
     }
 
     pub fn wires_input(i: usize) -> Range<usize> {

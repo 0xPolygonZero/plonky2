@@ -1,6 +1,5 @@
-use plonky2_field::extension::Extendable;
-use plonky2_field::polynomial::PolynomialCoeffs;
-
+use crate::field::extension::Extendable;
+use crate::field::polynomial::PolynomialCoeffs;
 use crate::fri::proof::{FriChallenges, FriChallengesTarget};
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;

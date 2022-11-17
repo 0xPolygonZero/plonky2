@@ -11,8 +11,7 @@ use plonky2::util::transpose;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use starky::permutation::PermutationPair;
 use starky::stark::Stark;
-use starky::vars::StarkEvaluationTargets;
-use starky::vars::StarkEvaluationVars;
+use starky::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 use crate::alu::{eval_alu, eval_alu_circuit, generate_alu};
 use crate::core_registers::{

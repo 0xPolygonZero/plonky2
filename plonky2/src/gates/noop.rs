@@ -1,5 +1,8 @@
-use plonky2_field::extension::Extendable;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -54,8 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::goldilocks_field::GoldilocksField;
-
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::noop::NoopGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

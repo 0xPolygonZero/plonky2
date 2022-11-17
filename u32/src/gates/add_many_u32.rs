@@ -1,6 +1,12 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use itertools::unfold;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
@@ -12,9 +18,7 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
-use plonky2_util::ceil_div_usize;
+use plonky2::util::ceil_div_usize;
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 16;
@@ -340,21 +344,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use anyhow::Result;
-    use itertools::unfold;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::extension::quartic::QuarticExtension;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::Sample;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::extension::quartic::QuarticExtension;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::gates::add_many_u32::U32AddManyGate;
+    use super::*;
 
     #[test]
     fn low_degree() {
@@ -428,7 +428,7 @@ mod tests {
             v0.iter().chain(v1.iter()).map(|&x| x.into()).collect()
         }
 
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let addends: Vec<Vec<_>> = (0..NUM_U32_ADD_MANY_OPS)
             .map(|_| (0..NUM_ADDENDS).map(|_| rng.gen::<u32>() as u64).collect())
             .collect();

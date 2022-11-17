@@ -1,15 +1,16 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::config::Hasher;
-use plonky2::util::transpose;
-use plonky2_util::{log2_ceil, log2_strict};
+use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::util::{log2_ceil, log2_strict, transpose};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
@@ -30,7 +31,7 @@ where
 
     let trace_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
     let size = trace_ldes.len();
-    let public_inputs = F::rand_arr::<{ S::PUBLIC_INPUTS }>();
+    let public_inputs = F::rand_array::<{ S::PUBLIC_INPUTS }>();
 
     let lagrange_first = PolynomialValues::selector(WITNESS_SIZE, 0).lde(rate_bits);
     let lagrange_last = PolynomialValues::selector(WITNESS_SIZE, WITNESS_SIZE - 1).lde(rate_bits);
@@ -92,9 +93,9 @@ where
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {
-        local_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
-        next_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
-        public_inputs: &F::Extension::rand_arr::<{ S::PUBLIC_INPUTS }>(),
+        local_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
+        next_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
+        public_inputs: &F::Extension::rand_array::<{ S::PUBLIC_INPUTS }>(),
     };
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();

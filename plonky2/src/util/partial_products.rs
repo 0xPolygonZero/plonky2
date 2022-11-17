@@ -1,13 +1,14 @@
-use std::iter;
+use alloc::vec::Vec;
+use core::iter;
 
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
-use plonky2_util::ceil_div_usize;
 
+use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::ceil_div_usize;
 
 pub(crate) fn quotient_chunk_products<F: Field>(
     quotient_values: &[F],
@@ -107,9 +108,8 @@ pub(crate) fn check_partial_products_circuit<F: RichField + Extendable<D>, const
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::goldilocks_field::GoldilocksField;
-
     use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
 
     #[test]
     fn test_partial_products() {

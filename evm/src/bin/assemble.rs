@@ -1,5 +1,4 @@
-use std::env;
-use std::fs;
+use std::{env, fs};
 
 use hex::encode;
 use plonky2_evm::cpu::kernel::assemble_to_bytes;

@@ -1,16 +1,20 @@
-use std::cmp::max;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cmp::max;
+#[cfg(feature = "std")]
 use std::time::Instant;
 
+use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
-use plonky2_field::cosets::get_unique_coset_shifts;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::fft::fft_root_table;
-use plonky2_field::polynomial::PolynomialValues;
-use plonky2_field::types::Field;
-use plonky2_util::{log2_ceil, log2_strict};
 
+use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::fft::fft_root_table;
+use crate::field::polynomial::PolynomialValues;
+use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
@@ -44,7 +48,7 @@ use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
-use crate::util::{transpose, transpose_poly_values};
+use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
@@ -698,11 +702,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
+        #[cfg(feature = "std")]
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
         let cap_height = self.config.fri_config.cap_height;
@@ -891,6 +893,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         timing.print();
+        #[cfg(feature = "std")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         CircuitData {
             prover_only,
@@ -900,20 +903,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.verifier_data()

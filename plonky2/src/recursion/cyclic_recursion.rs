@@ -1,8 +1,11 @@
 #![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
+
+use alloc::vec;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
 
+use crate::field::extension::Extendable;
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
@@ -12,7 +15,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
     CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::Hasher;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use crate::recursion::conditional_recursive_verifier::dummy_proof;
@@ -48,7 +50,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
         let constants_sigmas_cap = MerkleCap(
             (0..cap_len)
                 .map(|i| HashOut {
-                    elements: std::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
+                    elements: core::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
                 })
                 .collect(),
         );
@@ -73,12 +75,12 @@ impl VerifierCircuitTarget {
         let constants_sigmas_cap = MerkleCapTarget(
             (0..cap_len)
                 .map(|i| HashOutTarget {
-                    elements: std::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
+                    elements: core::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
                 })
                 .collect(),
         );
         let circuit_digest = HashOutTarget {
-            elements: std::array::from_fn(|i| slice[len - 4 - 4 * cap_len + i]),
+            elements: core::array::from_fn(|i| slice[len - 4 - 4 * cap_len + i]),
         };
 
         Ok(Self {
@@ -100,7 +102,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> Result<CyclicRecursionTarget<D>>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         if self.verifier_data_public_input.is_none() {
             self.add_verifier_data_public_input();
@@ -179,7 +180,6 @@ pub fn set_cyclic_recursion_data_target<
 ) -> Result<()>
 where
     C::Hasher: AlgebraicHasher<F>,
-    [(); C::Hasher::HASH_SIZE]:,
 {
     if let Some(proof) = cyclic_recursion_data.proof {
         pw.set_bool_target(cyclic_recursion_data_target.base_case, false);
@@ -254,12 +254,10 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use anyhow::Result;
-    use plonky2_field::extension::Extendable;
-    use plonky2_field::types::PrimeField64;
 
-    use crate::field::types::Field;
+    use crate::field::extension::Extendable;
+    use crate::field::types::{Field, PrimeField64};
     use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::RichField;
     use crate::hash::hashing::hash_n_to_hash_no_pad;
@@ -267,7 +265,7 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-    use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
     use crate::recursion::cyclic_recursion::{
         check_cyclic_proof_verifier_data, set_cyclic_recursion_data_target, CyclicRecursionData,
     };
@@ -280,7 +278,6 @@ mod tests {
     >() -> CommonCircuitData<F, D>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         let config = CircuitConfig::standard_recursion_config();
         let builder = CircuitBuilder::<F, D>::new(config);
@@ -424,7 +421,7 @@ mod tests {
         let mut h: [F; 4] = initial_hash.try_into().unwrap();
         assert_eq!(
             hash,
-            std::iter::repeat_with(|| {
+            core::iter::repeat_with(|| {
                 h = hash_n_to_hash_no_pad::<F, PoseidonPermutation>(&h).elements;
                 h
             })

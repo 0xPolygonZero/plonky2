@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use crate::iop::target::Target;
 
 /// A named copy constraint.

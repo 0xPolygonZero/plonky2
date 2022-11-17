@@ -13,8 +13,7 @@ use plonky2_util::ceil_div_usize;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationPair;
-use crate::vars::StarkEvaluationTargets;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 const TRACE_ORACLE_INDEX: usize = 0;
 const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;

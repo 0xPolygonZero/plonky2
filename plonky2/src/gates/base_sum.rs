@@ -1,10 +1,12 @@
-use std::ops::Range;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::{Field, Field64};
-use plonky2_util::log_floor;
-
+use crate::field::extension::Extendable;
+use crate::field::packed::PackedField;
+use crate::field::types::{Field, Field64};
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -20,6 +22,7 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::log_floor;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -197,8 +200,8 @@ impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> 
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::goldilocks_field::GoldilocksField;
 
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

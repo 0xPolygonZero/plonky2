@@ -1,13 +1,15 @@
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use num::BigUint;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::keccak::KeccakHash;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericHashOut, Hasher};
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 
 use crate::curve::curve_types::{Curve, CurveScalar};
@@ -169,22 +171,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Neg;
+    use core::ops::Neg;
 
     use anyhow::Result;
+    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
     use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2_field::types::Field;
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::curve::curve_types::{Curve, CurveScalar};
+    use super::*;
     use crate::curve::secp256k1::Secp256K1;
-    use crate::gadgets::curve::CircuitBuilderCurve;
-    use crate::gadgets::curve_windowed_mul::CircuitBuilderWindowedMul;
-    use crate::gadgets::nonnative::CircuitBuilderNonNative;
 
     #[test]
     fn test_random_access_curve_points() -> Result<()> {
@@ -206,7 +204,7 @@ mod tests {
             })
             .collect();
 
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let access_index = rng.gen::<usize>() % num_points;
 
         let access_index_target = builder.constant(F::from_canonical_usize(access_index));

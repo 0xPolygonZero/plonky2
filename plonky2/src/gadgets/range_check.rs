@@ -1,5 +1,7 @@
-use plonky2_field::extension::Extendable;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};

@@ -6,8 +6,8 @@ use crate::types::PrimeField64;
 #[inline(always)]
 fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if f < g {
-        std::mem::swap(f, g);
-        std::mem::swap(c, d);
+        core::mem::swap(f, g);
+        core::mem::swap(c, d);
     }
     if *f & 3 == *g & 3 {
         // f - g = 0 (mod 4)
@@ -36,8 +36,8 @@ fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut 
 #[inline(always)]
 unsafe fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if *f < *g {
-        std::mem::swap(f, g);
-        std::mem::swap(c, d);
+        core::mem::swap(f, g);
+        core::mem::swap(c, d);
     }
     if *f & 3 == *g & 3 {
         // f - g = 0 (mod 4)
