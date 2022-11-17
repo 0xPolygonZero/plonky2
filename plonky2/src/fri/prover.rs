@@ -118,7 +118,6 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     challenger: &mut Challenger<F, C::Hasher>,
     config: &FriConfig,
 ) -> F {
-    // let pow_seed = challenger.get_hash();
     let min_leading_zeros = config.proof_of_work_bits + (64 - F::order().bits()) as u32;
 
     // The easiest implementation would be repeatedly clone our Challenger. With each clone, we'd
