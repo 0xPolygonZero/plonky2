@@ -1,9 +1,9 @@
 //! Concrete instantiation of a hash function.
 
-use plonky2_field::extension::Extendable;
+use alloc::vec::Vec;
 
-use crate::hash::hash_types::RichField;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::field::extension::Extendable;
+use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;

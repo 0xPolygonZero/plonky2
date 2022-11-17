@@ -1,6 +1,6 @@
 use anyhow::ensure;
-use plonky2_field::extension::Extendable;
 
+use crate::field::extension::Extendable;
 use crate::fri::proof::{FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::structure::FriInstanceInfo;
 use crate::fri::FriParams;

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::packed::PackedField;
 use crate::types::Field;
 

@@ -1,15 +1,15 @@
-use std::arch::asm;
-use std::arch::x86_64::*;
-use std::mem::size_of;
+use core::arch::asm;
+use core::arch::x86_64::*;
+use core::mem::size_of;
 
-use plonky2_field::types::Field;
-use plonky2_field::goldilocks_field::GoldilocksField;
-use plonky2_util::branch_hint;
 use static_assertions::const_assert;
 
+use crate::field::goldilocks_field::GoldilocksField;
+use crate::field::types::Field;
 use crate::hash::poseidon::{
     Poseidon, ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS, N_ROUNDS,
 };
+use crate::util::branch_hint;
 
 // WARNING: This code contains tricks that work for the current MDS matrix and round constants, but
 // are not guaranteed to work if those are changed.

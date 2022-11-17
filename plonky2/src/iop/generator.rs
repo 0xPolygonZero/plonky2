@@ -1,9 +1,10 @@
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::marker::PhantomData;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
-
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -272,7 +273,6 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let random_value = F::rand();
-
         out_buffer.set_target(self.target, random_value);
     }
 }

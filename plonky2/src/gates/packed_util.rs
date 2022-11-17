@@ -1,7 +1,9 @@
-use plonky2_field::extension::Extendable;
-use plonky2_field::packable::Packable;
-use plonky2_field::packed::PackedField;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
+use crate::field::packable::Packable;
+use crate::field::packed::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;

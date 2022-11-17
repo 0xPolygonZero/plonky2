@@ -13,13 +13,12 @@ use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
-use plonky2::plonk::config::Hasher;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
-use crate::all_stark::NUM_TABLES;
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -41,13 +40,9 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::h160_limbs;
+use crate::util::{h160_limbs, h256_limbs};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
-use crate::{
-    all_stark::{AllStark, Table},
-    util::h256_limbs,
-};
 
 /// Table-wise recursive proofs of an `AllProof`.
 pub struct RecursiveAllProof<
@@ -850,8 +845,7 @@ pub(crate) mod tests {
     use plonky2::iop::witness::{PartialWitness, Witness};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData};
-    use plonky2::plonk::config::Hasher;
-    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
     use plonky2::plonk::proof::ProofWithPublicInputs;
 
     use crate::all_stark::{AllStark, Table};

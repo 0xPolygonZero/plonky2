@@ -1,7 +1,7 @@
 #![allow(clippy::needless_range_loop)]
-// Below lint is currently broken and produces false positives.
-// TODO: Remove this override when Clippy is patched.
-#![allow(clippy::derive_partial_eq_without_eq)]
+#![cfg_attr(not(test), no_std)]
+
+extern crate alloc;
 
 pub mod curve;
 pub mod gadgets;

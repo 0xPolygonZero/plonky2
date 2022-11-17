@@ -1,10 +1,13 @@
-use std::collections::BTreeMap;
-use std::ops::{Range, RangeFrom};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::ops::{Range, RangeFrom};
 
 use anyhow::Result;
-use plonky2_field::extension::Extendable;
-use plonky2_field::fft::FftRootTable;
 
+use crate::field::extension::Extendable;
+use crate::field::fft::FftRootTable;
 use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -112,10 +115,7 @@ pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove(
             &self.prover_only,
             &self.common,
@@ -124,20 +124,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 
@@ -151,10 +145,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn decompress(
         &self,
         proof: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
         proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
 
@@ -202,10 +193,7 @@ pub struct ProverCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ProverCircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove(
             &self.prover_only,
             &self.common,
@@ -229,20 +217,14 @@ pub struct VerifierCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     VerifierCircuitData<F, C, D>
 {
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }

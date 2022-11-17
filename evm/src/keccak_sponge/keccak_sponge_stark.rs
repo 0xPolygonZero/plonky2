@@ -21,8 +21,7 @@ use crate::keccak_sponge::columns::*;
 use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::StarkEvaluationTargets;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {

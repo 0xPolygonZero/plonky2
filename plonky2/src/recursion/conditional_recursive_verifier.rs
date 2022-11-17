@@ -1,8 +1,10 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_util::ceil_div_usize;
 
+use crate::field::extension::Extendable;
 use crate::fri::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
 };
@@ -17,10 +19,11 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
     CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{
     OpeningSetTarget, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
+use crate::util::ceil_div_usize;
 use crate::with_context;
 
 /// Generate a proof having a given `CommonCircuitData`.
@@ -33,10 +36,7 @@ pub(crate) fn dummy_proof<
 ) -> Result<(
     ProofWithPublicInputs<F, C, D>,
     VerifierOnlyCircuitData<C, D>,
-)>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
+)> {
     let config = common_data.config.clone();
 
     let mut pw = PartialWitness::new();
@@ -189,7 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         h1: HashOutTarget,
     ) -> HashOutTarget {
         HashOutTarget {
-            elements: std::array::from_fn(|i| self.select(b, h0.elements[i], h1.elements[i])),
+            elements: core::array::from_fn(|i| self.select(b, h0.elements[i], h1.elements[i])),
         }
     }
 
@@ -371,7 +371,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::types::Field;
+    use crate::field::types::Sample;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;
