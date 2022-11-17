@@ -1,4 +1,4 @@
-/// def frob_fp6(n, C0, C1, C2):
+/// def frob_fp6_n(C0, C1, C2):
 ///     if n%2:
 ///         D0, D1, D2 = C0`, FROB_t1[n] * C1`, FROB_t2[n] * C2`
 ///     else: 
@@ -76,18 +76,122 @@
 %endmacro
 
 
-/// def Fp12_frob(n, f, f'):
-/// return                frob_fp6(n, f ),
-///           FROB_z[n] * frob_fp6(n, f')
+/// def Fp12_frob_n(f, f'):
+///     g  =             frob_fp6(n, f )
+///     g' = FROB_z[n] * frob_fp6(n, f')
+///     return g, g'
 
 global frob_fp12_1:
-
+    // stack:           ptr, retdest
+    DUP1
+    // stack:      ptr, ptr, retdest 
+    %load_fp6
+    // stack:        f, ptr, retdest
+    %frob_fp6_1
+    // stack:        g, ptr, retdest
+    DUP7
+    // stack:   ptr, g, ptr, retdest
+    %load_fp6
+    // stack:           ptr, retdest
+    DUP1  %offset_fp6
+    // stack:     ptr', ptr, retdest
+    %load_fp6
+    // stack:       f', ptr, retdest
+    %frobz_1
+    // stack:       g', ptr, retdest
+    DUP1  %offset_fp6
+    // stack: ptr', g', ptr, retdest
+    %store_fp6
+    // stack:           ptr, retdest
+    SWAP1
+    JUMP
 
 global frob_fp12_2:
-
+    // stack:           ptr, retdest
+    DUP1
+    // stack:      ptr, ptr, retdest 
+    %load_fp6
+    // stack:        f, ptr, retdest
+    %frob_fp6_2
+    // stack:        g, ptr, retdest
+    DUP7
+    // stack:   ptr, g, ptr, retdest
+    %load_fp6
+    // stack:           ptr, retdest
+    DUP1  %offset_fp6
+    // stack:     ptr', ptr, retdest
+    %load_fp6
+    // stack:       f', ptr, retdest
+    %frobz_2
+    // stack:       g', ptr, retdest
+    DUP1  %offset_fp6
+    // stack: ptr', g', ptr, retdest
+    %store_fp6
+    // stack:           ptr, retdest
+    SWAP1
+    JUMP
 
 global frob_fp12_3:
-
+    // stack:           ptr, retdest
+    DUP1
+    // stack:      ptr, ptr, retdest 
+    %load_fp6
+    // stack:        f, ptr, retdest
+    %frob_fp6_3
+    // stack:        g, ptr, retdest
+    DUP7
+    // stack:   ptr, g, ptr, retdest
+    %load_fp6
+    // stack:           ptr, retdest
+    DUP1  %offset_fp6
+    // stack:     ptr', ptr, retdest
+    %load_fp6
+    // stack:       f', ptr, retdest
+    %frobz_3
+    // stack:       g', ptr, retdest
+    DUP1  %offset_fp6
+    // stack: ptr', g', ptr, retdest
+    %store_fp6
+    // stack:           ptr, retdest
+    SWAP1
+    JUMP
 
 global frob_fp12_6:
-    
+    // stack:           ptr, retdest
+    DUP1  %offset_fp6
+    // stack:     ptr', ptr, retdest
+    %load_fp6
+    // stack:       f', ptr, retdest
+    %frobz_6
+    // stack:       g', ptr, retdest
+    DUP7  %offset_fp6
+    // stack: ptr', g', ptr, retdest
+    %store_fp6
+    // stack:           ptr, retdest
+    SWAP1
+    JUMP
+
+%macro frobz_1
+    %frob_fp6_1
+    PUSH 0x246996f3b4fae7e6a6327cfe12150b8e747992778eeec7e5ca5cf05f80f362ac
+    PUSH 0x1284b71c2865a7dfe8b99fdd76e68b605c521e08292f2176d60b35dadcc9e470
+    %mul_fp2_fp6
+%endmacro
+
+%macro frobz_2
+    %frob_fp6_2
+    PUSH 0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd49
+    %mul_fp_fp6
+%endmacro
+
+%macro frobz_3
+    %frob_fp6_3
+    PUSH 0xabf8b60be77d7306cbeee33576139d7f03a5e397d439ec7694aa2bf4c0c101
+    PUSH 0x19dc81cfcc82e4bbefe9608cd0acaa90894cb38dbe55d24ae86f7d391ed4a67f
+    %mul_fp2_fp6
+%endmacro
+
+%macro frobz_6
+    PUSH 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd46
+    %mul_fp_fp6
+%endmacro
