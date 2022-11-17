@@ -2,6 +2,8 @@
     %add_const(6)
 %endmacro
 
+// fp2 macros
+
 // cost: 2 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp2
     // stack:       ptr
@@ -14,6 +16,72 @@
     %mload_kernel_general
     // stack:   x0, x1
 %endmacro 
+
+%macro conj
+    // stack: a,  b
+    SWAP1 
+    PUSH 0
+    SUBFP254
+    SWAP1
+    // stack: a, -b 
+%endmacro
+
+%macro swap_fp2
+    // stack: a , a_, b , b_
+    SWAP2
+    // stack: b , a_, a , b_
+    SWAP1
+    // stack: a_, b , a , b_
+    SWAP3
+    // stack: b_, b , a , a_
+    SWAP1 
+    // stack: b , b_, a , a_
+%endmacro
+
+%macro swap_fp2_hole_2
+    // stack: a , a_, X, b , b_
+    SWAP4
+    // stack: b , a_, X, a , b_
+    SWAP1
+    // stack: a_, b , X, a , b_
+    SWAP5
+    // stack: b_, b , X, a , a_
+    SWAP1 
+    // stack: b , b_, X, a , a_
+%endmacro
+
+%macro mul_fp_fp2
+    // stack:    c, x, y
+    SWAP2
+    // stack:    y, x, c 
+    DUP3
+    // stack: c, y, x, c
+    MULFP254
+    // stack:   cy, x, c
+    SWAP2
+    // stack:   c, x, cy
+    MULFP254
+    // stack:     cx, cy 
+%endmacro
+
+// cost: 9; note this returns y, x for the output x + yi
+%macro i9
+    // stack:          a , b
+    DUP2
+    // stack:      b,  a , b
+    DUP2
+    // stack:  a , b,  a , b
+    PUSH 9  MULFP254
+    // stack: 9a , b,  a , b
+    SUBFP254
+    // stack: 9a - b,  a , b
+    SWAP2 
+    // stack:  b , a, 9a - b
+    PUSH 9  MULFP254
+    // stack  9b , a, 9a - b
+    ADDFP254
+    // stack: 9b + a, 9a - b 
+%endmacro
 
 %macro mul_fp2
     // stack:          a, b, c, d
@@ -40,6 +108,8 @@
     SWAP1
     // stack:    ac - bd, bc + ad
 %endmacro 
+
+// fp6 macros
 
 // cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp6
@@ -518,25 +588,6 @@
     // stack: c * f0, c * f1, c * f2, c * f3, c * f4, c * f5
 %endmacro
 
-// cost: 9; note this returns y, x for the output x + yi
-%macro i9
-    // stack:          a , b
-    DUP2
-    // stack:      b,  a , b
-    DUP2
-    // stack:  a , b,  a , b
-    PUSH 9  MULFP254
-    // stack: 9a , b,  a , b
-    SUBFP254
-    // stack: 9a - b,  a , b
-    SWAP2 
-    // stack:  b , a, 9a - b
-    PUSH 9  MULFP254
-    // stack  9b , a, 9a - b
-    ADDFP254
-    // stack: 9b + a, 9a - b 
-%endmacro
-
 /// cost: 1 i9 (9) + 16 dups + 15 swaps + 12 muls + 6 adds/subs = 58
 ///
 /// G0 + G1t + G2t^2 = (a+bi)t * (F0 + F1t + F2t^2) 
@@ -723,19 +774,4 @@
     // stack:                   g0_, g0, g1, g1_, g2, g2_
     SWAP1
     // stack:                   g0, g0_, g1, g1_, g2, g2_
-%endmacro
-
-%macro frob_fp2
-    // stack:     n  , a, b
-    PUSH 2
-    MULFP254
-    PUSH 1
-    SUBFP254
-    // stack:  1-2n  , a, b 
-    DUP3
-    MULFP254
-    // stack: (1-2n)b, a, b
-    SWAP2
-    POP
-    // stack:          a, (1-2n)b
 %endmacro
