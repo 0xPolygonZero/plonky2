@@ -648,8 +648,8 @@ mod tests {
                 let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                     GoldilocksField::ONE,
-                    GoldilocksField::ONE,
-                    GoldilocksField::ONE,
+                    GoldilocksField::ZERO,
+                    GoldilocksField::ZERO,
                 );
                 eval_packed_generic(&lv, &nv, &mut constraint_consumer);
                 for &acc in &constraint_consumer.constraint_accs {
@@ -701,8 +701,8 @@ mod tests {
                 let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                     GoldilocksField::ONE,
-                    GoldilocksField::ONE,
-                    GoldilocksField::ONE,
+                    GoldilocksField::ZERO,
+                    GoldilocksField::ZERO,
                 );
                 eval_packed_generic(&lv, &nv, &mut constraint_consumer);
                 assert!(constraint_consumer
