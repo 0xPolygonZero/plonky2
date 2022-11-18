@@ -136,7 +136,7 @@ mod bn {
 mod secp {
     use anyhow::Result;
 
-    use crate::cpu::kernel::aggregator::combined_kernel;
+    use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
     use crate::cpu::kernel::interpreter::{run, run_interpreter};
     use crate::cpu::kernel::tests::u256ify;
 
@@ -215,6 +215,46 @@ mod secp {
         let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
         let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
+        // // Scalar multiplication #2
+        // let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
+        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        // assert_eq!(stack, u256ify([identity.1, identity.0])?);
+        // // Scalar multiplication #3
+        // let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
+        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        // assert_eq!(stack, u256ify([point0.1, point0.0])?);
+        // // Scalar multiplication #4
+        // let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
+        // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        // assert_eq!(stack, u256ify([identity.1, identity.0])?);
+        //
+        // // Multiple calls
+        // let ec_mul_hex = format!("0x{ec_mul:x}");
+        // let initial_stack = u256ify([
+        //     "0xdeadbeef",
+        //     s,
+        //     &ec_mul_hex,
+        //     identity.1,
+        //     identity.0,
+        //     point0.1,
+        //     point0.0,
+        // ])?;
+        // let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        // assert_eq!(stack, u256ify([point4.1, point4.0])?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_glv() -> Result<()> {
+        // Make sure we can parse and assemble the entire kernel.
+        let glv = KERNEL.global_labels["glv"];
+        let identity = ("0x0", "0x0");
+
+        let initial_stack =
+            u256ify(["0xcbc66a829ce38829c81112bb33fde810928cbdf3026219056a4cf6ca88fe006"])?;
+        let stack = run_interpreter(glv, initial_stack)?.stack().to_vec();
+        dbg!(stack);
         // // Scalar multiplication #2
         // let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
         // let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
