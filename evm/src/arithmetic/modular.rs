@@ -108,6 +108,7 @@
 //!   only require 96 columns, or 80 if the output doesn't need to be
 //!   reduced.
 
+use itertools::izip;
 use num::{bigint::Sign, BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -199,18 +200,7 @@ fn generate_modular_op<F: RichField>(
     // conversion is safe.
 
     let input0_limbs = read_value_i64_limbs(lv, MODULAR_INPUT_0);
-
-    // MODULAR_INPUT_1 limbs are split across two rows, so we need to
-    // reconstruct the array here:
-    let input1_limbs = {
-        let mut t = [i64::default(); N_LIMBS];
-        let lo_limbs: [_; N_LIMBS / 2] = read_value_i64_limbs(lv, MODULAR_INPUT_1_LO);
-        t[..N_LIMBS / 2].copy_from_slice(&lo_limbs);
-        let hi_limbs: [_; N_LIMBS / 2] = read_value_i64_limbs(nv, MODULAR_INPUT_1_HI);
-        t[N_LIMBS / 2..].copy_from_slice(&hi_limbs);
-        t
-    };
-
+    let input1_limbs = read_value_i64_limbs(lv, MODULAR_INPUT_1);
     let mut modulus_limbs = read_value_i64_limbs(lv, MODULAR_MODULUS);
 
     // BigInts are just used to avoid having to implement modular
@@ -279,10 +269,24 @@ fn generate_modular_op<F: RichField>(
     let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
 
     lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
-    lv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
-    nv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
+
+    for (i, lo, j, hi) in izip!(
+        MODULAR_QUO_INPUT_LO,
+        quot_limbs[..N_LIMBS]
+            .iter()
+            .map(|&c| F::from_noncanonical_i64(c)),
+        MODULAR_QUO_INPUT_HI,
+        quot_limbs[N_LIMBS..]
+            .iter()
+            .map(|&c| F::from_noncanonical_i64(c)),
+    ) {
+        lv[i] = lo;
+        nv[j] = hi;
+    }
+
     nv[MODULAR_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
+    nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
 }
 
 /// Generate the output and auxiliary values for modular operations.
@@ -319,10 +323,10 @@ fn modular_constr_poly<P: PackedField>(
     filter: P,
 ) -> [P; 2 * N_LIMBS] {
     range_check_error!(MODULAR_INPUT_0, 16);
-    range_check_error!(MODULAR_INPUT_1_LO, 16);
-    range_check_error!(MODULAR_INPUT_1_HI, 16);
+    range_check_error!(MODULAR_INPUT_1, 16);
     range_check_error!(MODULAR_MODULUS, 16);
-    range_check_error!(MODULAR_QUO_INPUT, 16);
+    range_check_error!(MODULAR_QUO_INPUT_LO, 16);
+    range_check_error!(MODULAR_QUO_INPUT_HI, 16);
     range_check_error!(MODULAR_AUX_INPUT, 20, signed);
     range_check_error!(MODULAR_OUTPUT, 16);
 
@@ -349,7 +353,7 @@ fn modular_constr_poly<P: PackedField>(
     output[0] += mod_is_zero * lv[IS_DIV];
 
     // Verify that the output is reduced, i.e. output < modulus.
-    let out_aux_red = &lv[MODULAR_OUT_AUX_RED];
+    let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     // This sets is_less_than to 1 unless we get mod_is_zero when
     // doing a DIV; in that case, we need is_less_than=0, since the
     // function checks
@@ -358,8 +362,10 @@ fn modular_constr_poly<P: PackedField>(
     //
     // and we were given output = out_aux_red
     let is_less_than = P::ONES - mod_is_zero * lv[IS_DIV];
-    // NB: output, modulus and out_aux_red are all in lv, so can just
-    // call yield_constr.constraint() in eval_ext_circuit_lt here.
+    // NB: output and modulus in lv while out_aux_red and is_less_than
+    // (via mod_is_zero) depend on nv; eval_ext_circuit_lt calls
+    // yield_constr.constraint_transition() for all constraints, so
+    // splitting the input across the two rows is okay.
     eval_packed_generic_lt(
         yield_constr,
         filter,
@@ -372,7 +378,13 @@ fn modular_constr_poly<P: PackedField>(
     output[0] -= mod_is_zero * lv[IS_DIV];
 
     // prod = q(x) * m(x)
-    let quot = read_value::<{ 2 * N_LIMBS }, _>(nv, MODULAR_QUO_INPUT);
+    let quot = {
+        let mut quot = [P::default(); 2 * N_LIMBS];
+        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
+        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot
+    };
+
     let prod = pol_mul_wide2(quot, modulus);
     // higher order terms must be zero
     for &x in prod[2 * N_LIMBS..].iter() {
@@ -414,15 +426,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let constr_poly = modular_constr_poly(lv, nv, yield_constr, filter);
 
     let input0 = read_value(lv, MODULAR_INPUT_0);
-
-    // MODULAR_INPUT_1 is split across two rows, so we need to
-    // reconstruct it into one array:
-    let input1 = {
-        let mut t = [P::default(); N_LIMBS];
-        t[..N_LIMBS / 2].copy_from_slice(&lv[MODULAR_INPUT_1_LO]);
-        t[N_LIMBS / 2..].copy_from_slice(&nv[MODULAR_INPUT_1_HI]);
-        t
-    };
+    let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add(input0, input1);
     let sub_input = pol_sub(input0, input1);
@@ -479,7 +483,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
     output[0] = builder.mul_add_extension(mod_is_zero, lv[IS_DIV], output[0]);
 
-    let out_aux_red = &lv[MODULAR_OUT_AUX_RED];
+    let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     let one = builder.one_extension();
     let is_less_than =
         builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
@@ -495,8 +499,14 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     );
     output[0] =
         builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], output[0]);
+    let quot = {
+        let zero = builder.zero_extension();
+        let mut quot = [zero; 2 * N_LIMBS];
+        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
+        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot
+    };
 
-    let quot = read_value::<{ 2 * N_LIMBS }, _>(nv, MODULAR_QUO_INPUT);
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
     for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
@@ -533,13 +543,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let constr_poly = modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter);
     let input0 = read_value(lv, MODULAR_INPUT_0);
-    let input1 = {
-        let zero = builder.zero_extension();
-        let mut t = [zero; N_LIMBS];
-        t[..N_LIMBS / 2].copy_from_slice(&lv[MODULAR_INPUT_1_LO]);
-        t[N_LIMBS / 2..].copy_from_slice(&nv[MODULAR_INPUT_1_HI]);
-        t
-    };
+    let input1 = read_value(lv, MODULAR_INPUT_1);
 
     let add_input = pol_add_ext_circuit(builder, input0, input1);
     let sub_input = pol_sub_ext_circuit(builder, input0, input1);
@@ -623,13 +627,10 @@ mod tests {
 
             for i in 0..N_RND_TESTS {
                 // set inputs to random values
-                for (ai, mi) in MODULAR_INPUT_0.zip(MODULAR_MODULUS) {
+                for (ai, bi, mi) in izip!(MODULAR_INPUT_0, MODULAR_INPUT_1, MODULAR_MODULUS) {
                     lv[ai] = F::from_canonical_u16(rng.gen());
+                    lv[bi] = F::from_canonical_u16(rng.gen());
                     lv[mi] = F::from_canonical_u16(rng.gen());
-                }
-                for (bi_lo, bi_hi) in MODULAR_INPUT_1_LO.zip(MODULAR_INPUT_1_HI) {
-                    lv[bi_lo] = F::from_canonical_u16(rng.gen());
-                    nv[bi_hi] = F::from_canonical_u16(rng.gen());
                 }
 
                 // For the second half of the tests, set the top
@@ -680,20 +681,17 @@ mod tests {
                 // set inputs to random values and the modulus to zero;
                 // the output is defined to be zero when modulus is zero.
 
-                for (ai, mi) in MODULAR_INPUT_0.zip(MODULAR_MODULUS) {
+                for (ai, bi, mi) in izip!(MODULAR_INPUT_0, MODULAR_INPUT_1, MODULAR_MODULUS) {
                     lv[ai] = F::from_canonical_u16(rng.gen());
+                    lv[bi] = F::from_canonical_u16(rng.gen());
                     lv[mi] = F::ZERO;
-                }
-                for (bi_lo, bi_hi) in MODULAR_INPUT_1_LO.zip(MODULAR_INPUT_1_HI) {
-                    lv[bi_lo] = F::from_canonical_u16(rng.gen());
-                    nv[bi_hi] = F::from_canonical_u16(rng.gen());
                 }
 
                 generate(&mut lv, &mut nv, op_filter);
 
                 // check that the correct output was generated
                 if op_filter == IS_DIV {
-                    assert!(nv[DIV_OUTPUT].iter().all(|&c| c == F::ZERO));
+                    assert!(lv[DIV_OUTPUT].iter().all(|&c| c == F::ZERO));
                 } else {
                     assert!(lv[MODULAR_OUTPUT].iter().all(|&c| c == F::ZERO));
                 }
@@ -713,7 +711,7 @@ mod tests {
                 // Corrupt one output limb by setting it to a non-zero value
                 if op_filter == IS_DIV {
                     let random_oi = DIV_OUTPUT.start + rng.gen::<usize>() % N_LIMBS;
-                    nv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
+                    lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
                 } else {
                     let random_oi = MODULAR_OUTPUT.start + rng.gen::<usize>() % N_LIMBS;
                     lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));

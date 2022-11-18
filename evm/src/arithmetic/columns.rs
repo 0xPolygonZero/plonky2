@@ -52,24 +52,26 @@ pub(crate) const ALL_OPERATIONS: [usize; 17] = [
 /// this cycle.
 ///
 /// Modular arithmetic takes 9 * N_LIMBS columns which is split across
-/// two rows of 4.5 * N_LIMBS columns.
-const NUM_SHARED_COLS: usize = 4 * N_LIMBS + N_LIMBS / 2;
+/// two rows, the first with 5 * N_LIMBS columns and the second with
+/// 4 * N_LIMBS columns. (There are hence N_LIMBS "wasted columns" in
+/// the second row.)
+const NUM_SHARED_COLS: usize = 5 * N_LIMBS;
 
 const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
 const GENERAL_INPUT_2: Range<usize> = GENERAL_INPUT_1.end..GENERAL_INPUT_1.end + N_LIMBS;
 const GENERAL_INPUT_3: Range<usize> = GENERAL_INPUT_2.end..GENERAL_INPUT_2.end + N_LIMBS;
+const AUX_INPUT_0_LO: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
 
 // The auxiliary input columns overlap the general input columns
 // because they correspond to the values in the second row for modular
 // operations.
-const AUX_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + 2 * N_LIMBS;
-const AUX_INPUT_1: Range<usize> = AUX_INPUT_0.end..AUX_INPUT_0.end + 2 * N_LIMBS;
+const AUX_INPUT_0_HI: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
+const AUX_INPUT_1: Range<usize> = AUX_INPUT_0_HI.end..AUX_INPUT_0_HI.end + 2 * N_LIMBS;
 // These auxiliary input columns are awkwardly split across two rows,
 // with the first half after the general input columns and the second
 // half after the auxiliary input columns.
-const AUX_INPUT_2_LO: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS / 2;
-const AUX_INPUT_2_HI: Range<usize> = AUX_INPUT_1.end..AUX_INPUT_1.end + N_LIMBS / 2;
+const AUX_INPUT_2: Range<usize> = AUX_INPUT_1.end..AUX_INPUT_1.end + N_LIMBS;
 
 // ADD takes 3 * N_LIMBS = 48 columns
 pub(crate) const ADD_INPUT_0: Range<usize> = GENERAL_INPUT_0;
@@ -94,27 +96,27 @@ pub(crate) const CMP_OUTPUT: usize = GENERAL_INPUT_2.start;
 pub(crate) const CMP_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
 
 // MULMOD takes 4 * N_LIMBS + 2 * 2*N_LIMBS + N_LIMBS = 144 columns
-// but split over two rows of 72 columns each.
+// but split over two rows of 80 columns and 64 columns.
 //
 // ADDMOD, SUBMOD, MOD and DIV are currently implemented in terms of
 // the general modular code, so they also take 144 columns (also split
 // over two rows).
 pub(crate) const MODULAR_INPUT_0: Range<usize> = GENERAL_INPUT_0;
-pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = GENERAL_INPUT_1;
+pub(crate) const MODULAR_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MODULAR_MODULUS: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MODULAR_OUTPUT: Range<usize> = GENERAL_INPUT_3;
-pub(crate) const MODULAR_QUO_INPUT: Range<usize> = AUX_INPUT_0;
+pub(crate) const MODULAR_QUO_INPUT_LO: Range<usize> = AUX_INPUT_0_LO;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
+pub(crate) const MODULAR_QUO_INPUT_HI: Range<usize> = AUX_INPUT_0_HI;
 pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.end - 1;
-pub(crate) const MODULAR_INPUT_1_LO: Range<usize> = AUX_INPUT_2_LO;
-pub(crate) const MODULAR_INPUT_1_HI: Range<usize> = AUX_INPUT_2_HI;
+pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_2;
 
 #[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_NUMERATOR: Range<usize> = MODULAR_INPUT_0;
 #[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_DENOMINATOR: Range<usize> = MODULAR_MODULUS;
 #[allow(unused)] // TODO: Will be used when hooking into the CPU
-pub(crate) const DIV_OUTPUT: Range<usize> = MODULAR_QUO_INPUT.start..MODULAR_QUO_INPUT.start + 16;
+pub(crate) const DIV_OUTPUT: Range<usize> = MODULAR_QUO_INPUT_LO;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
