@@ -8,36 +8,49 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-// TODO: This list is incomplete.
-const NATIVE_INSTRUCTIONS: [usize; 28] = [
+const NATIVE_INSTRUCTIONS: [usize; 37] = [
     COL_MAP.op.add,
     COL_MAP.op.mul,
     COL_MAP.op.sub,
     COL_MAP.op.div,
-    COL_MAP.op.sdiv,
     COL_MAP.op.mod_,
-    COL_MAP.op.smod,
     COL_MAP.op.addmod,
     COL_MAP.op.mulmod,
-    COL_MAP.op.signextend,
     COL_MAP.op.addfp254,
     COL_MAP.op.mulfp254,
     COL_MAP.op.subfp254,
     COL_MAP.op.lt,
     COL_MAP.op.gt,
-    COL_MAP.op.slt,
-    COL_MAP.op.sgt,
     COL_MAP.op.eq,
     COL_MAP.op.iszero,
     COL_MAP.op.and,
     COL_MAP.op.or,
     COL_MAP.op.xor,
     COL_MAP.op.not,
-    COL_MAP.op.byte,
     COL_MAP.op.shl,
     COL_MAP.op.shr,
-    COL_MAP.op.sar,
+    COL_MAP.op.keccak_general,
+    COL_MAP.op.prover_input,
     COL_MAP.op.pop,
+    // not JUMP (need to jump)
+    // not JUMPI (possible need to jump)
+    COL_MAP.op.pc,
+    COL_MAP.op.gas,
+    COL_MAP.op.jumpdest,
+    COL_MAP.op.get_state_root,
+    COL_MAP.op.set_state_root,
+    COL_MAP.op.get_receipt_root,
+    COL_MAP.op.set_receipt_root,
+    // not PUSH (need to increment by more than 1)
+    COL_MAP.op.dup,
+    COL_MAP.op.swap,
+    COL_MAP.op.get_context,
+    COL_MAP.op.set_context,
+    COL_MAP.op.consume_gas,
+    // not EXIT_KERNEL (performs a jump)
+    COL_MAP.op.mload_general,
+    COL_MAP.op.mstore_general,
+    // not SYSCALL (performs a jump)
 ];
 
 fn get_halt_pcs<F: Field>() -> (F, F) {

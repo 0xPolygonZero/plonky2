@@ -22,25 +22,20 @@ pub const IS_ADD: usize = 0;
 pub const IS_MUL: usize = IS_ADD + 1;
 pub const IS_SUB: usize = IS_MUL + 1;
 pub const IS_DIV: usize = IS_SUB + 1;
-pub const IS_SDIV: usize = IS_DIV + 1;
-pub const IS_MOD: usize = IS_SDIV + 1;
-pub const IS_SMOD: usize = IS_MOD + 1;
-pub const IS_ADDMOD: usize = IS_SMOD + 1;
+pub const IS_MOD: usize = IS_DIV + 1;
+pub const IS_ADDMOD: usize = IS_MOD + 1;
 pub const IS_SUBMOD: usize = IS_ADDMOD + 1;
 pub const IS_MULMOD: usize = IS_SUBMOD + 1;
 pub const IS_LT: usize = IS_MULMOD + 1;
 pub const IS_GT: usize = IS_LT + 1;
-pub const IS_SLT: usize = IS_GT + 1;
-pub const IS_SGT: usize = IS_SLT + 1;
-pub const IS_SHL: usize = IS_SGT + 1;
+pub const IS_SHL: usize = IS_GT + 1;
 pub const IS_SHR: usize = IS_SHL + 1;
-pub const IS_SAR: usize = IS_SHR + 1;
 
-const START_SHARED_COLS: usize = IS_SAR + 1;
+const START_SHARED_COLS: usize = IS_SHR + 1;
 
-pub(crate) const ALL_OPERATIONS: [usize; 17] = [
-    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_SDIV, IS_MOD, IS_SMOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD,
-    IS_LT, IS_GT, IS_SLT, IS_SGT, IS_SHL, IS_SHR, IS_SAR,
+pub(crate) const ALL_OPERATIONS: [usize; 12] = [
+    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD, IS_LT, IS_GT, IS_SHL,
+    IS_SHR,
 ];
 
 /// Within the Arithmetic Unit, there are shared columns which can be

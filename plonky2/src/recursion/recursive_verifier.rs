@@ -1,5 +1,4 @@
-use plonky2_field::extension::Extendable;
-
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
@@ -194,9 +193,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{
-        GenericConfig, Hasher, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
-    };
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -323,18 +320,17 @@ mod tests {
         Ok(())
     }
 
+    type Proof<F, C, const D: usize> = (
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, D>,
+    );
+
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
     fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<(
-        ProofWithPublicInputs<F, C, D>,
-        VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
-    )>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Result<Proof<F, C, D>> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
@@ -361,14 +357,9 @@ mod tests {
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
-    ) -> Result<(
-        ProofWithPublicInputs<F, C, D>,
-        VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
-    )>
+    ) -> Result<Proof<F, C, D>>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
-        [(); C::Hasher::HASH_SIZE]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -423,11 +414,8 @@ mod tests {
         proof: &ProofWithPublicInputs<F, C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, D>,
-    ) -> Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
-        let proof_bytes = proof.to_bytes()?;
+    ) -> Result<()> {
+        let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
         assert_eq!(proof, &proof_from_bytes);
@@ -440,7 +428,7 @@ mod tests {
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
-        let compressed_proof_bytes = compressed_proof.to_bytes()?;
+        let compressed_proof_bytes = compressed_proof.to_bytes();
         info!(
             "Compressed proof length: {} bytes",
             compressed_proof_bytes.len()

@@ -1,17 +1,19 @@
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use num::{BigUint, Integer, One, Zero};
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::{Field, PrimeField};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::PartitionWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::types::PrimeField;
-use plonky2_field::{extension::Extendable, types::Field};
+use plonky2::util::ceil_div_usize;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::range_check::range_check_u32_circuit;
 use plonky2_u32::witness::GeneratedValuesU32;
-use plonky2_util::ceil_div_usize;
 
 use crate::gadgets::biguint::{
     BigUintTarget, CircuitBuilderBiguint, GeneratedValuesBigUint, WitnessBigUint,
@@ -642,12 +644,12 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::field::secp256k1_base::Secp256K1Base;
+    use plonky2::field::types::{Field, PrimeField, Sample};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::secp256k1_base::Secp256K1Base;
-    use plonky2_field::types::{Field, PrimeField};
 
     use crate::gadgets::nonnative::CircuitBuilderNonNative;
 

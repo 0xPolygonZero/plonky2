@@ -5,11 +5,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.40"
+array_tool = "1.0.3"
+bimap = "0.6.1"
+itertools = "0.10.0"
 "plonky2" = { path = "../plonky2" }
 "plonky2_field" = { path = "../field" }
 "plonky2_util" = { path = "../util" }
-anyhow = "1.0.40"
-bimap = "0.6.1"
-itertools = "0.10.0"
 rand = "0.8.4"
-array_tool = "1.0.3"

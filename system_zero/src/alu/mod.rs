@@ -4,8 +4,7 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use starky::vars::StarkEvaluationTargets;
-use starky::vars::StarkEvaluationVars;
+use starky::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 use crate::alu::addition::{eval_addition, eval_addition_circuit, generate_addition};
 use crate::alu::bitops::{eval_bitop, eval_bitop_circuit, generate_bitop};

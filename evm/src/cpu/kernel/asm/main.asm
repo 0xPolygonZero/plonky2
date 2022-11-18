@@ -1,5 +1,7 @@
 global main:
-    // First, load all MPT data from the prover.
+    // First, initialise the shift table
+    %shift_table_init
+    // Second, load all MPT data from the prover.
     PUSH txn_loop
     %jump(load_all_mpts)
 

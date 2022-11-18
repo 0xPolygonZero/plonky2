@@ -1,20 +1,22 @@
 use core::arch::x86_64::*;
-use std::fmt;
-use std::fmt::{Debug, Formatter};
-use std::iter::{Product, Sum};
-use std::mem::transmute;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::fmt;
+use core::fmt::{Debug, Formatter};
+use core::iter::{Product, Sum};
+use core::mem::transmute;
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::goldilocks_field::GoldilocksField;
 use crate::ops::Square;
 use crate::packed::PackedField;
 use crate::types::{Field, Field64};
 
-// Ideally `Avx512GoldilocksField` would wrap `__m512i`. Unfortunately, `__m512i` has an alignment
-// of 64B, which would preclude us from casting `[GoldilocksField; 8]` (alignment 8B) to
-// `Avx512GoldilocksField`. We need to ensure that `Avx512GoldilocksField` has the same alignment as
-// `GoldilocksField`. Thus we wrap `[GoldilocksField; 8]` and use the `new` and `get` methods to
-// convert to and from `__m512i`.
+/// AVX512 Goldilocks Field
+///
+/// Ideally `Avx512GoldilocksField` would wrap `__m512i`. Unfortunately, `__m512i` has an alignment
+/// of 64B, which would preclude us from casting `[GoldilocksField; 8]` (alignment 8B) to
+/// `Avx512GoldilocksField`. We need to ensure that `Avx512GoldilocksField` has the same alignment as
+/// `GoldilocksField`. Thus we wrap `[GoldilocksField; 8]` and use the `new` and `get` methods to
+/// convert to and from `__m512i`.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Avx512GoldilocksField(pub [GoldilocksField; 8]);

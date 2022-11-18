@@ -1,19 +1,20 @@
-use anyhow::{ensure, Result};
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_field::types::Field;
-use plonky2_util::log2_ceil;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use anyhow::{ensure, Result};
+
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
-use crate::hash::hash_types::HashOut;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{HashOut, RichField};
 use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::GenericConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::plonk::verifier::verify;
-use crate::util::transpose;
+use crate::util::{log2_ceil, transpose};
 
 const WITNESS_SIZE: usize = 1 << 5;
 const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;
@@ -92,10 +93,7 @@ pub fn test_eval_fns<
     const D: usize,
 >(
     gate: G,
-) -> Result<()>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
+) -> Result<()> {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
     let wires_base = F::rand_vec(gate.num_wires());
     let constants_base = F::rand_vec(gate.num_constants());

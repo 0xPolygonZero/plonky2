@@ -2,30 +2,28 @@
 // custom CLI argument parsing (even with harness disabled). We could also have
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
-use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
+use core::num::ParseIntError;
+use core::ops::RangeInclusive;
+use core::str::FromStr;
 
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
-use plonky2::{
-    gates::noop::NoopGate,
-    hash::hash_types::RichField,
-    iop::witness::{PartialWitness, Witness},
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-        },
-        config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig},
-        proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
-        prover::prove,
-    },
-    util::timing::TimingTree,
+use maybe_rayon::rayon;
+use plonky2::gates::noop::NoopGate;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::witness::{PartialWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
+use plonky2::plonk::prover::prove;
+use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
-use rand::{rngs::OsRng, RngCore, SeedableRng};
+use rand::rngs::OsRng;
+use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
 
@@ -66,10 +64,7 @@ struct Options {
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
+) -> Result<ProofTuple<F, C, D>> {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -107,7 +102,6 @@ fn recursive_proof<
 ) -> Result<ProofTuple<F, C, D>>
 where
     InnerC::Hasher: AlgebraicHasher<F>,
-    [(); C::Hasher::HASH_SIZE]:,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -151,11 +145,8 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     proof: &ProofWithPublicInputs<F, C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
     cd: &CommonCircuitData<F, D>,
-) -> Result<()>
-where
-    [(); C::Hasher::HASH_SIZE]:,
-{
-    let proof_bytes = proof.to_bytes()?;
+) -> Result<()> {
+    let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
     let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
     assert_eq!(proof, &proof_from_bytes);
@@ -168,7 +159,7 @@ where
     info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
     assert_eq!(proof, &decompressed_compressed_proof);
 
-    let compressed_proof_bytes = compressed_proof.to_bytes()?;
+    let compressed_proof_bytes = compressed_proof.to_bytes();
     info!(
         "Compressed proof length: {} bytes",
         compressed_proof_bytes.len()

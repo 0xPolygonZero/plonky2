@@ -1,12 +1,14 @@
-use plonky2_field::extension::Extendable;
-use plonky2_util::ceil_div_usize;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::ceil_div_usize;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a

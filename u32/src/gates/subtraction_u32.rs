@@ -1,5 +1,12 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
 
+use plonky2::field::extension::Extendable;
+use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::packed_util::PackedEvaluableBase;
 use plonky2::gates::util::StridedConstraintConsumer;
@@ -15,9 +22,6 @@ use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::Field;
 
 /// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
 /// the result `x - y - borrow` and, if this underflows, a new `borrow`. Inputs are not range-checked.
@@ -329,21 +333,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use anyhow::Result;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::extension::quartic::QuarticExtension;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::types::{PrimeField64, Sample};
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
-    use plonky2_field::extension::quartic::QuarticExtension;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
-    use plonky2_field::types::PrimeField64;
+    use rand::rngs::OsRng;
     use rand::Rng;
 
-    use crate::gates::subtraction_u32::U32SubtractionGate;
+    use super::*;
 
     #[test]
     fn low_degree() {
@@ -415,7 +415,7 @@ mod tests {
             v0.iter().chain(v1.iter()).map(|&x| x.into()).collect()
         }
 
-        let mut rng = rand::thread_rng();
+        let mut rng = OsRng;
         let inputs_x = (0..NUM_U32_SUBTRACTION_OPS)
             .map(|_| rng.gen::<u32>() as u64)
             .collect();

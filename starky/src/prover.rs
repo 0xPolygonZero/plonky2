@@ -1,4 +1,5 @@
-use std::iter::once;
+use alloc::vec::Vec;
+use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -15,14 +16,13 @@ use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use plonky2::util::transpose;
-use plonky2_util::{log2_ceil, log2_strict};
+use plonky2::util::{log2_ceil, log2_strict, transpose};
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
+    PermutationCheckVars,
 };
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;

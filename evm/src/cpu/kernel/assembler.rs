@@ -7,15 +7,12 @@ use plonky2_util::ceil_div_usize;
 
 use super::ast::PushTarget;
 use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
-use crate::cpu::kernel::ast::StackReplacement;
+use crate::cpu::kernel::ast::{File, Item, StackReplacement};
 use crate::cpu::kernel::keccak_util::hash_kernel;
+use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 use crate::cpu::kernel::optimizer::optimize_asm;
 use crate::cpu::kernel::stack::stack_manipulation::expand_stack_manipulation;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
-use crate::cpu::kernel::{
-    ast::{File, Item},
-    opcodes::{get_opcode, get_push_opcode},
-};
 use crate::generation::prover_input::ProverInputFn;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 
@@ -300,9 +297,27 @@ fn find_labels(
             }
             Item::StandardOp(_) => *offset += 1,
             Item::Bytes(bytes) => *offset += bytes.len(),
+            Item::Jumptable(labels) => *offset += labels.len() * (BYTES_PER_OFFSET as usize),
         }
     }
     local_labels
+}
+
+fn look_up_label(
+    label: &String,
+    local_labels: &HashMap<String, usize>,
+    global_labels: &HashMap<String, usize>,
+) -> Vec<u8> {
+    let offset = local_labels
+        .get(label)
+        .or_else(|| global_labels.get(label))
+        .unwrap_or_else(|| panic!("No such label: {label}"));
+    // We want the BYTES_PER_OFFSET least significant bytes in BE order.
+    // It's easiest to rev the first BYTES_PER_OFFSET bytes of the LE encoding.
+    (0..BYTES_PER_OFFSET)
+        .rev()
+        .map(|i| offset.to_le_bytes()[i as usize])
+        .collect()
 }
 
 fn assemble_file(
@@ -327,18 +342,7 @@ fn assemble_file(
             Item::Push(target) => {
                 let target_bytes: Vec<u8> = match target {
                     PushTarget::Literal(n) => u256_to_trimmed_be_bytes(&n),
-                    PushTarget::Label(label) => {
-                        let offset = local_labels
-                            .get(&label)
-                            .or_else(|| global_labels.get(&label))
-                            .unwrap_or_else(|| panic!("No such label: {label}"));
-                        // We want the BYTES_PER_OFFSET least significant bytes in BE order.
-                        // It's easiest to rev the first BYTES_PER_OFFSET bytes of the LE encoding.
-                        (0..BYTES_PER_OFFSET)
-                            .rev()
-                            .map(|i| offset.to_le_bytes()[i as usize])
-                            .collect()
-                    }
+                    PushTarget::Label(label) => look_up_label(&label, &local_labels, global_labels),
                     PushTarget::MacroLabel(v) => panic!("Macro label not in a macro: {v}"),
                     PushTarget::MacroVar(v) => panic!("Variable not in a macro: {v}"),
                     PushTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
@@ -353,6 +357,12 @@ fn assemble_file(
                 code.push(get_opcode(&opcode));
             }
             Item::Bytes(bytes) => code.extend(bytes),
+            Item::Jumptable(labels) => {
+                for label in labels {
+                    let bytes = look_up_label(&label, &local_labels, global_labels);
+                    code.extend(bytes);
+                }
+            }
         }
     }
 }
@@ -374,8 +384,9 @@ mod tests {
 
     use itertools::Itertools;
 
+    use crate::cpu::kernel::assembler::*;
+    use crate::cpu::kernel::ast::*;
     use crate::cpu::kernel::parser::parse;
-    use crate::cpu::kernel::{assembler::*, ast::*};
 
     #[test]
     fn two_files() {

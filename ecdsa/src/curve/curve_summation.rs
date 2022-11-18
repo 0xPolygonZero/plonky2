@@ -1,7 +1,9 @@
-use std::iter::Sum;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::iter::Sum;
 
-use plonky2_field::ops::Square;
-use plonky2_field::types::Field;
+use plonky2::field::ops::Square;
+use plonky2::field::types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
 
@@ -188,10 +190,7 @@ pub fn affine_multisummation_batch_inversion<C: Curve>(
 
 #[cfg(test)]
 mod tests {
-    use crate::curve::curve_summation::{
-        affine_summation_batch_inversion, affine_summation_pairwise,
-    };
-    use crate::curve::curve_types::{Curve, ProjectivePoint};
+    use super::*;
     use crate::curve::secp256k1::Secp256K1;
 
     #[test]

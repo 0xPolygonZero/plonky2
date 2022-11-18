@@ -1,13 +1,17 @@
-use std::collections::HashMap;
-use std::fmt::{Debug, Error, Formatter};
-use std::hash::{Hash, Hasher};
-use std::ops::Range;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt::{Debug, Error, Formatter};
+use core::hash::{Hash, Hasher};
+use core::ops::Range;
 
-use plonky2_field::batch_util::batch_multiply_inplace;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
+use hashbrown::HashMap;
 
+use crate::field::batch_util::batch_multiply_inplace;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;

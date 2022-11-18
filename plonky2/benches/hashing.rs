@@ -1,10 +1,8 @@
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
-
 mod allocator;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Sample;
 use plonky2::hash::hash_types::{BytesHash, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::keccak::KeccakHash;
@@ -27,7 +25,7 @@ pub(crate) fn bench_poseidon<F: Poseidon>(c: &mut Criterion) {
         &format!("poseidon<{}, {SPONGE_WIDTH}>", type_name::<F>()),
         |b| {
             b.iter_batched(
-                || F::rand_arr::<SPONGE_WIDTH>(),
+                || F::rand_array::<SPONGE_WIDTH>(),
                 |state| F::poseidon(state),
                 BatchSize::SmallInput,
             )

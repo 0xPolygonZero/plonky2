@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;

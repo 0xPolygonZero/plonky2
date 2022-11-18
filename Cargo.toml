@@ -1,5 +1,5 @@
 [workspace]
-members = ["field", "insertion", "plonky2", "starky", "system_zero", "util", "waksman", "ecdsa", "u32", "evm", "maybe_rayon"]
+members = ["ecdsa", "evm", "field", "insertion", "maybe_rayon", "plonky2", "starky", "system_zero", "u32", "util", "waksman"]
 
 [profile.release]
 opt-level = 3
