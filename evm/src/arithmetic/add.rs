@@ -47,7 +47,7 @@ where
     for (a, b) in larger.zip(smaller) {
         // t should be either 0 or 2^LIMB_BITS
         let t = cy + a - b;
-        yield_constr.constraint(is_op * t * (overflow - t));
+        yield_constr.constraint_transition(is_op * t * (overflow - t));
         // cy <-- 0 or 1
         // NB: this is multiplication by a constant, so doesn't
         // increase the degree of the constraint.
@@ -87,7 +87,7 @@ where
         let t2 = builder.mul_extension(t, t1);
 
         let filtered_limb_constraint = builder.mul_extension(is_op, t2);
-        yield_constr.constraint(builder, filtered_limb_constraint);
+        yield_constr.constraint_transition(builder, filtered_limb_constraint);
 
         cy = builder.mul_const_extension(overflow_inv, t);
     }

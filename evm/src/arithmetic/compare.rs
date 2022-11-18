@@ -68,7 +68,7 @@ pub(crate) fn eval_packed_generic_lt<P: PackedField>(
     let cy = eval_packed_generic_are_equal(yield_constr, is_op, aux.iter().copied(), lhs_limbs);
     // We don't need to check that cy is 0 or 1, since output has
     // already been checked to be 0 or 1.
-    yield_constr.constraint(is_op * (cy - output));
+    yield_constr.constraint_transition(is_op * (cy - output));
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -136,7 +136,7 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     );
     let good_output = builder.sub_extension(cy, output);
     let filter = builder.mul_extension(is_op, good_output);
-    yield_constr.constraint(builder, filter);
+    yield_constr.constraint_transition(builder, filter);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
