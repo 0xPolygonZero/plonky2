@@ -1,8 +1,10 @@
-use std::ops::Range;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-
+use crate::field::extension::Extendable;
+use crate::field::packed::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -99,8 +101,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::goldilocks_field::GoldilocksField;
-
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::public_input::PublicInputGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

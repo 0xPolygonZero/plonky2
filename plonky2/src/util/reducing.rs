@@ -1,10 +1,11 @@
-use std::borrow::Borrow;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::packed::PackedField;
-use plonky2_field::polynomial::PolynomialCoeffs;
-use plonky2_field::types::Field;
-
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::packed::PackedField;
+use crate::field::polynomial::PolynomialCoeffs;
+use crate::field::types::Field;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::gates::reducing_extension::ReducingExtensionGate;
@@ -19,7 +20,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 /// scale the second one by `a^(r-1-k)`, and add them up.
 /// This struct abstract away these operations by implementing Horner's method and keeping track
 /// of the number of multiplications by `a` to compute the scaling factor.
-/// See https://github.com/mir-protocol/plonky2/pull/69 for more details and discussions.
+/// See <https://github.com/mir-protocol/plonky2/pull/69> for more details and discussions.
 #[derive(Debug, Clone)]
 pub struct ReducingFactor<F: Field> {
     base: F,
@@ -276,6 +277,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
+    use crate::field::types::Sample;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

@@ -6,12 +6,7 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 
-use crate::arithmetic::add;
-use crate::arithmetic::columns;
-use crate::arithmetic::compare;
-use crate::arithmetic::modular;
-use crate::arithmetic::mul;
-use crate::arithmetic::sub;
+use crate::arithmetic::{add, columns, compare, modular, mul, sub};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};

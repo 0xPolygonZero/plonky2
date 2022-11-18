@@ -1,13 +1,16 @@
 #[cfg(not(feature = "parallel"))]
-use std::{
+use core::{
     iter::{FlatMap, IntoIterator, Iterator},
     slice::{Chunks, ChunksExact, ChunksExactMut, ChunksMut},
 };
 
 #[cfg(feature = "parallel")]
-pub use rayon::prelude::{
-    IndexedParallelIterator, ParallelDrainFull, ParallelDrainRange, ParallelExtend,
-    ParallelIterator,
+pub use rayon::{
+    self,
+    prelude::{
+        IndexedParallelIterator, ParallelDrainFull, ParallelDrainRange, ParallelExtend,
+        ParallelIterator,
+    },
 };
 #[cfg(feature = "parallel")]
 use rayon::{

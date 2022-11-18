@@ -1,11 +1,12 @@
-use plonky2_field::extension::Extendable;
-use plonky2_util::log2_strict;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::log2_strict;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a non-deterministic index.
@@ -55,9 +56,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Field;
 
     use super::*;
+    use crate::field::types::{Field, Sample};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

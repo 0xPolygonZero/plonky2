@@ -1,5 +1,9 @@
-use std::marker::PhantomData;
-use std::ops::Range;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
+use core::ops::Range;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -317,18 +321,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use anyhow::Result;
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Field;
-    use plonky2::gates::gate::Gate;
+    use plonky2::field::types::Sample;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::vars::EvaluationVars;
 
-    use crate::insertion_gate::InsertionGate;
+    use super::*;
 
     #[test]
     fn wire_indices() {

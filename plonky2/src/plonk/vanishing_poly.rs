@@ -1,8 +1,10 @@
-use plonky2_field::batch_util::batch_add_inplace;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
-use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
+use alloc::vec::Vec;
+use alloc::{format, vec};
 
+use crate::field::batch_util::batch_add_inplace;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
+use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;

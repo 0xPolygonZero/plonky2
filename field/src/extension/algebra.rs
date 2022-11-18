@@ -1,6 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use alloc::vec::Vec;
+use core::fmt::{self, Debug, Display, Formatter};
+use core::iter::{Product, Sum};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::extension::OEF;
 
@@ -42,7 +43,7 @@ impl<F: OEF<D>, const D: usize> From<F> for ExtensionAlgebra<F, D> {
 }
 
 impl<F: OEF<D>, const D: usize> Display for ExtensionAlgebra<F, D> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "({})", self.0[0])?;
         for i in 1..D {
             write!(f, " + ({})*b^{i}", self.0[i])?;
@@ -52,7 +53,7 @@ impl<F: OEF<D>, const D: usize> Display for ExtensionAlgebra<F, D> {
 }
 
 impl<F: OEF<D>, const D: usize> Debug for ExtensionAlgebra<F, D> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
@@ -190,12 +191,14 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use itertools::Itertools;
 
     use crate::extension::algebra::ExtensionAlgebra;
     use crate::extension::{Extendable, FieldExtension};
     use crate::goldilocks_field::GoldilocksField;
-    use crate::types::Field;
+    use crate::types::{Field, Sample};
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {

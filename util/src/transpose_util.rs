@@ -1,4 +1,4 @@
-use std::ptr::swap;
+use core::ptr::swap;
 
 const LB_BLOCK_SIZE: usize = 3;
 

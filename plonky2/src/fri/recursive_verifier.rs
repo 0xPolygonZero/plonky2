@@ -1,7 +1,9 @@
-use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_util::{log2_strict, reverse_index_bits_in_place};
+use alloc::vec::Vec;
+use alloc::{format, vec};
 
+use itertools::Itertools;
+
+use crate::field::extension::Extendable;
 use crate::fri::proof::{
     FriChallengesTarget, FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget,
     FriQueryStepTarget,
@@ -13,13 +15,13 @@ use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
 use crate::gates::interpolation::InterpolationGate;
 use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
-use crate::hash::hash_types::MerkleCapTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::util::reducing::ReducingFactorTarget;
+use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {

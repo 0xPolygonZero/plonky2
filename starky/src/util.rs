@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use itertools::Itertools;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;

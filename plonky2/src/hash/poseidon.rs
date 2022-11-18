@@ -1,10 +1,13 @@
 //! Implementation of the Poseidon hash function, as described in
-//! https://eprint.iacr.org/2019/458.pdf
+//! <https://eprint.iacr.org/2019/458.pdf>
 
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::{Field, PrimeField64};
+use alloc::vec;
+use alloc::vec::Vec;
+
 use unroll::unroll_for_loops;
 
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::{Field, PrimeField64};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
@@ -684,8 +687,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
-    use plonky2_field::types::Field;
-
+    use crate::field::types::Field;
     use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;
 

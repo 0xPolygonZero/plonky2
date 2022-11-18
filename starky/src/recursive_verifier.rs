@@ -1,4 +1,5 @@
-use std::iter::once;
+use alloc::vec::Vec;
+use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
