@@ -6,6 +6,7 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::return_self_not_must_use)]
 #![feature(generic_const_exprs)]
+#![feature(stdsimd)]
 #![feature(specialization)]
 #![cfg_attr(not(test), no_std)]
 
