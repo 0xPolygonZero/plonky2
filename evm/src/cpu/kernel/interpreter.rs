@@ -229,6 +229,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
         let opcode = self.code().get(self.offset).byte(0);
+        println!("{} {}", opcode, get_mnemonic(opcode));
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
         match opcode {
