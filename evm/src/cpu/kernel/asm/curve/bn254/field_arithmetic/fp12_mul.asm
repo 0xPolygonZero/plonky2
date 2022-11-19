@@ -2,27 +2,27 @@
 
 /// cost: 220
 global test_mul_fp12:
-    // stack:      f, inA , f', g, inB , g', inB, out, inA,       out
+    // stack:      f, inA , f', g, inB , g', inB, out, inA
     DUP7
-    // stack: inA, f, inA , f', g, inB , g', inB, out, inA,       out
+    // stack: inA, f, inA , f', g, inB , g', inB, out, inA
     %store_fp6
-    // stack:         inA , f', g, inB , g', inB, out, inA,       out
+    // stack:         inA , f', g, inB , g', inB, out, inA
     %offset_fp6
-    // stack:         inA', f', g, inB , g', inB, out, inA,       out
+    // stack:         inA', f', g, inB , g', inB, out, inA
     %store_fp6
-    // stack:                   g, inB , g', inB, out, inA,       out
+    // stack:                   g, inB , g', inB, out, inA
     DUP7
-    // stack:              inB, g, inB , g', inB, out, inA,       out
+    // stack:              inB, g, inB , g', inB, out, inA
     %store_fp6
-    // stack:                      inB , g', inB, out, inA,       out
+    // stack:                      inB , g', inB, out, inA
     %offset_fp6
-    // stack:                      inB', g', inB, out, inA,       out
+    // stack:                      inB', g', inB, out, inA
     %store_fp6
-    // stack:                                inB, out, inA,       out
+    // stack:                                inB, out, inA
     PUSH ret_stack
-    // stack:                     ret_stack, inB, out, inA,       out
+    // stack:                     ret_stack, inB, out, inA
     SWAP3
-    // stack:                           inA, inB, out, ret_stack, out
+    // stack:                           inA, inB, out, ret_stack
     %jump(square_fp12_test)
 ret_stack:
     // stack:          out
@@ -173,8 +173,7 @@ ret_3:
     // stack:                 out, sh(f'g') + fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %store_fp6
     // stack:                                     inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %pop2  
-    JUMP
+    POP  SWAP1  JUMP
 
 
 //////////////////////////////////////
@@ -304,8 +303,7 @@ global mul_fp12_sparse:
     // stack:                          out', G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
     %store_fp6
     // stack:                                                                    inA, inB, out
-    %pop3
-    JUMP
+    %pop2  SWAP1  JUMP
 
 /// global mul_fp12_sparse_fast:
 ///    // stack:                                                            inA, inB, out
@@ -449,5 +447,4 @@ post_sq2:
     // stack:                                out, ff + sh(f'f'), inp, out
     %store_fp6
     // stack:                                                    inp, out
-    %pop2
-    JUMP
+    POP  SWAP1  JUMP

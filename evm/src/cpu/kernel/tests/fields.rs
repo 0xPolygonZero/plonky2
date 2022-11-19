@@ -188,7 +188,7 @@ fn make_initial_stack(
     input.extend(g0);
     input.extend(vec![in2]);
     input.extend(g1);
-    input.extend(vec![in2, out, in1, out]);
+    input.extend(vec![in2, out, in1]);
 
     as_stack(input)
 }
