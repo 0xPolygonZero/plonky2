@@ -41,9 +41,7 @@ fn make_random_input() -> Vec<u8> {
 fn make_custom_input() -> Vec<u8> {
     // Hardcode a custom message
     vec![
-        86, 124, 206, 245, 74, 57, 250, 43, 60, 30, 254, 43, 143, 144, 242, 215, 13, 103, 237, 61,
-        90, 105, 123, 250, 189, 181, 110, 192, 227, 57, 145, 46, 221, 238, 7, 181, 146, 111, 209,
-        150, 31, 157, 229, 126, 206, 105, 37, 17,
+        1, 2, 3, 4, 5,
     ]
 }
 
@@ -116,6 +114,9 @@ fn test_hash_512(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) 
 
     let random_stack = result_random.stack();
     let custom_stack = result_custom.stack();
+
+    dbg!(custom_stack);
+    // dbg!(result_custom.get_kernel_general_memory());
 
     // Extract the final output.
     let actual_random = combine_u256s(random_stack[0], random_stack[1]);
