@@ -570,15 +570,14 @@ impl<'a> Interpreter<'a> {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
         for i in 0..size {
-            let calldata_byte = self
-                .memory
-                .mload_general(self.context, Segment::Calldata, offset + i)
-                .byte(0);
+            let calldata_byte =
+                self.memory
+                    .mload_general(self.context, Segment::Calldata, offset + i);
             self.memory.mstore_general(
                 self.context,
                 Segment::MainMemory,
                 dest_offset + i,
-                calldata_byte.into(),
+                calldata_byte,
             );
         }
     }
