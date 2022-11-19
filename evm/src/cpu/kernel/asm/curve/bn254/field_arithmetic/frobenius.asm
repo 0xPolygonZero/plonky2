@@ -71,95 +71,91 @@
 ///     g' = FROB_z[n] * frob_fp6(n, f')
 ///     return g, g'
 
-global frob_fp12_1:
-    // stack:           ptr, retdest
+%macro frob_fp12_1
+    // stack:           ptr
     DUP1
-    // stack:      ptr, ptr, retdest 
+    // stack:      ptr, ptr 
     %load_fp6
-    // stack:        f, ptr, retdest
+    // stack:        f, ptr
     %frob_fp6_1
-    // stack:        g, ptr, retdest
+    // stack:        g, ptr
     DUP7
-    // stack:   ptr, g, ptr, retdest
-    %load_fp6
-    // stack:           ptr, retdest
+    // stack:   ptr, g, ptr
+    %store_fp6
+    // stack:           ptr
     DUP1  %offset_fp6
-    // stack:     ptr', ptr, retdest
+    // stack:     ptr', ptr
     %load_fp6
-    // stack:       f', ptr, retdest
+    // stack:       f', ptr
     %frobz_1
-    // stack:       g', ptr, retdest
+    // stack:       g', ptr
     DUP1  %offset_fp6
-    // stack: ptr', g', ptr, retdest
+    // stack: ptr', g', ptr
     %store_fp6
-    // stack:           ptr, retdest
-    SWAP1
-    JUMP
+    // stack:           ptr
+%endmacro 
 
-global frob_fp12_2:
-    // stack:           ptr, retdest
+%macro frob_fp12_2
+    // stack:           ptr , out
     DUP1
-    // stack:      ptr, ptr, retdest 
+    // stack:      ptr, ptr , out
     %load_fp6
-    // stack:        f, ptr, retdest
+    // stack:        f, ptr , out
     %frob_fp6_2
-    // stack:        g, ptr, retdest
-    DUP7
-    // stack:   ptr, g, ptr, retdest
+    // stack:        g, ptr , out
+    DUP8
+    // stack:   out, g, ptr , out
+    %store_fp6 
+    // stack:           ptr , out
+    %offset_fp6
+    // stack:           ptr', out
     %load_fp6
-    // stack:           ptr, retdest
-    DUP1  %offset_fp6
-    // stack:     ptr', ptr, retdest
-    %load_fp6
-    // stack:       f', ptr, retdest
+    // stack:             f', out
     %frobz_2
-    // stack:       g', ptr, retdest
+    // stack:             g', out
     DUP1  %offset_fp6
-    // stack: ptr', g', ptr, retdest
+    // stack:       out', g', out
     %store_fp6
-    // stack:           ptr, retdest
-    SWAP1
-    JUMP
+    // stack:                 out
+%endmacro 
 
-global frob_fp12_3:
-    // stack:           ptr, retdest
+%macro frob_fp12_3
+    // stack:           ptr
     DUP1
-    // stack:      ptr, ptr, retdest 
+    // stack:      ptr, ptr 
     %load_fp6
-    // stack:        f, ptr, retdest
+    // stack:        f, ptr
     %frob_fp6_3
-    // stack:        g, ptr, retdest
+    // stack:        g, ptr
     DUP7
-    // stack:   ptr, g, ptr, retdest
-    %load_fp6
-    // stack:           ptr, retdest
+    // stack:   ptr, g, ptr
+    %store_fp6
+    // stack:           ptr
     DUP1  %offset_fp6
-    // stack:     ptr', ptr, retdest
+    // stack:     ptr', ptr
     %load_fp6
-    // stack:       f', ptr, retdest
+    // stack:       f', ptr
     %frobz_3
-    // stack:       g', ptr, retdest
+    // stack:       g', ptr
     DUP1  %offset_fp6
-    // stack: ptr', g', ptr, retdest
+    // stack: ptr', g', ptr
     %store_fp6
-    // stack:           ptr, retdest
-    SWAP1
-    JUMP
+    // stack:           ptr
+%endmacro 
 
-global frob_fp12_6:
-    // stack:           ptr, retdest
+%macro frob_fp12_6:
+    // stack:           ptr
     DUP1  %offset_fp6
-    // stack:     ptr', ptr, retdest
+    // stack:     ptr', ptr
     %load_fp6
-    // stack:       f', ptr, retdest
+    // stack:       f', ptr
     %frobz_6
-    // stack:       g', ptr, retdest
+    // stack:       g', ptr
     DUP7  %offset_fp6
-    // stack: ptr', g', ptr, retdest
+    // stack: ptr', g', ptr
     %store_fp6
-    // stack:           ptr, retdest
-    SWAP1
-    JUMP
+    // stack:           ptr
+%endmacro
 
 %macro frobz_1
     %frob_fp6_1
