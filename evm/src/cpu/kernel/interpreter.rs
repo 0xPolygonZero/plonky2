@@ -202,6 +202,25 @@ impl<'a> Interpreter<'a> {
             rlp.into_iter().map(U256::from).collect();
     }
 
+    pub(crate) fn set_code(&mut self, context: usize, code: Vec<u8>) {
+        assert_ne!(context, 0, "Can't modify kernel code.");
+        while self.memory.context_memory.len() <= context {
+            self.memory
+                .context_memory
+                .push(MemoryContextState::default());
+        }
+        self.memory.context_memory[context].segments[Segment::Code as usize].content =
+            code.into_iter().map(U256::from).collect();
+    }
+
+    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
+        self.memory.context_memory[context].segments[Segment::JumpdestBits as usize]
+            .content
+            .iter()
+            .map(|x| x.bit(0))
+            .collect()
+    }
+
     fn incr(&mut self, n: usize) {
         self.offset += n;
     }

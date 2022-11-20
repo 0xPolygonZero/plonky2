@@ -38,10 +38,11 @@ pub(crate) enum Segment {
     /// A table of values 2^i for i=0..255 for use with shift
     /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
     ShiftTable = 16,
+    JumpdestBits = 17,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 17;
+    pub(crate) const COUNT: usize = 18;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -62,6 +63,7 @@ impl Segment {
             Self::TrieEncodedChild,
             Self::TrieEncodedChildLen,
             Self::ShiftTable,
+            Self::JumpdestBits,
         ]
     }
 
@@ -85,6 +87,7 @@ impl Segment {
             Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
             Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
+            Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
         }
     }
 
@@ -108,6 +111,7 @@ impl Segment {
             Segment::TrieEncodedChild => 256,
             Segment::TrieEncodedChildLen => 6,
             Segment::ShiftTable => 256,
+            Segment::JumpdestBits => 1,
         }
     }
 }
