@@ -1,8 +1,8 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
-#[cfg(feature = "std")]
-use std::io::{self, Cursor, Read as _, Write as _};
+use core::fmt::{Debug, Display, Formatter};
+use core::mem::size_of;
 
 use hashbrown::HashMap;
 
@@ -23,69 +23,65 @@ use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
 
-/// Buffer Position
-pub trait Position {
-    /// Returns the position of the buffer.
-    fn position(&self) -> u64;
+/// A no_std compatible variant of `std::io::Error`
+#[derive(Debug)]
+pub struct IoError;
+
+impl Display for IoError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
 
-/// Buffer Size
-pub trait Size {
-    /// Returns the length of `self`.
-    fn len(&self) -> usize;
+/// A no_std compatible variant of `std::io::Result`
+pub type IoResult<T> = Result<T, IoError>;
 
-    /// Returns `true` if `self` has length zero.
-    #[inline]
+/// A `Read` which is able to report how many bytes are remaining.
+pub trait Remaining: Read {
+    /// Returns the number of bytes remaining in the buffer.
+    fn remaining(&self) -> usize;
+
+    /// Returns whether zero bytes are remaining.
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.remaining() == 0
     }
 }
 
-impl Size for Vec<u8> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.len()
-    }
-}
-
-/// Reading
+/// Similar to `std::io::Read`, but works with no_std.
 pub trait Read {
-    /// Error Type
-    type Error;
-
     /// Reads exactly the length of `bytes` from `self` and writes it to `bytes`.
-    fn read_exact(&mut self, bytes: &mut [u8]) -> Result<(), Self::Error>;
+    fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()>;
 
     /// Reads a `u8` value from `self`.
     #[inline]
-    fn read_u8(&mut self) -> Result<u8, Self::Error> {
-        let mut buf = [0; core::mem::size_of::<u8>()];
+    fn read_u8(&mut self) -> IoResult<u8> {
+        let mut buf = [0; size_of::<u8>()];
         self.read_exact(&mut buf)?;
         Ok(buf[0])
     }
 
     /// Reads a `u32` value from `self`.
     #[inline]
-    fn read_u32(&mut self) -> Result<u32, Self::Error> {
-        let mut buf = [0; core::mem::size_of::<u32>()];
+    fn read_u32(&mut self) -> IoResult<u32> {
+        let mut buf = [0; size_of::<u32>()];
         self.read_exact(&mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
 
     /// Reads a element from the field `F` with size less than `2^64` from `self.`
     #[inline]
-    fn read_field<F>(&mut self) -> Result<F, Self::Error>
+    fn read_field<F>(&mut self) -> IoResult<F>
     where
         F: Field64,
     {
-        let mut buf = [0; core::mem::size_of::<u64>()];
+        let mut buf = [0; size_of::<u64>()];
         self.read_exact(&mut buf)?;
         Ok(F::from_canonical_u64(u64::from_le_bytes(buf)))
     }
 
     /// Reads a vector of elements from the field `F` from `self`.
     #[inline]
-    fn read_field_vec<F>(&mut self, length: usize) -> Result<Vec<F>, Self::Error>
+    fn read_field_vec<F>(&mut self, length: usize) -> IoResult<Vec<F>>
     where
         F: Field64,
     {
@@ -96,7 +92,7 @@ pub trait Read {
 
     /// Reads an element from the field extension of `F` from `self.`
     #[inline]
-    fn read_field_ext<F, const D: usize>(&mut self) -> Result<F::Extension, Self::Error>
+    fn read_field_ext<F, const D: usize>(&mut self) -> IoResult<F::Extension>
     where
         F: Field64 + Extendable<D>,
     {
@@ -114,7 +110,7 @@ pub trait Read {
     fn read_field_ext_vec<F, const D: usize>(
         &mut self,
         length: usize,
-    ) -> Result<Vec<F::Extension>, Self::Error>
+    ) -> IoResult<Vec<F::Extension>>
     where
         F: RichField + Extendable<D>,
     {
@@ -123,7 +119,7 @@ pub trait Read {
 
     /// Reads a hash value from `self`.
     #[inline]
-    fn read_hash<F, H>(&mut self) -> Result<H::Hash, Self::Error>
+    fn read_hash<F, H>(&mut self) -> IoResult<H::Hash>
     where
         F: RichField,
         H: Hasher<F>,
@@ -135,7 +131,7 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
     #[inline]
-    fn read_merkle_cap<F, H>(&mut self, cap_height: usize) -> Result<MerkleCap<F, H>, Self::Error>
+    fn read_merkle_cap<F, H>(&mut self, cap_height: usize) -> IoResult<MerkleCap<F, H>>
     where
         F: RichField,
         H: Hasher<F>,
@@ -153,7 +149,7 @@ pub trait Read {
     fn read_opening_set<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<OpeningSet<F, D>, Self::Error>
+    ) -> IoResult<OpeningSet<F, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -182,7 +178,7 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleProof`] from `self`.
     #[inline]
-    fn read_merkle_proof<F, H>(&mut self) -> Result<MerkleProof<F, H>, Self::Error>
+    fn read_merkle_proof<F, H>(&mut self) -> IoResult<MerkleProof<F, H>>
     where
         F: RichField,
         H: Hasher<F>,
@@ -200,7 +196,7 @@ pub trait Read {
     fn read_fri_initial_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<FriInitialTreeProof<F, C::Hasher>, Self::Error>
+    ) -> IoResult<FriInitialTreeProof<F, C::Hasher>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -239,7 +235,7 @@ pub trait Read {
         &mut self,
         arity: usize,
         compressed: bool,
-    ) -> Result<FriQueryStep<F, C::Hasher, D>, Self::Error>
+    ) -> IoResult<FriQueryStep<F, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -257,7 +253,7 @@ pub trait Read {
     fn read_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<Vec<FriQueryRound<F, C::Hasher, D>>, Self::Error>
+    ) -> IoResult<Vec<FriQueryRound<F, C::Hasher, D>>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -285,7 +281,7 @@ pub trait Read {
     fn read_fri_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<FriProof<F, C::Hasher, D>, Self::Error>
+    ) -> IoResult<FriProof<F, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -312,7 +308,7 @@ pub trait Read {
     fn read_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<Proof<F, C, D>, Self::Error>
+    ) -> IoResult<Proof<F, C, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -337,16 +333,14 @@ pub trait Read {
     fn read_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, Self::Error>
+    ) -> IoResult<ProofWithPublicInputs<F, C, D>>
     where
-        Self: Position + Size,
+        Self: Remaining,
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
     {
         let proof = self.read_proof(common_data)?;
-        let public_inputs = self.read_field_vec(
-            (self.len() - self.position() as usize) / core::mem::size_of::<u64>(),
-        )?;
+        let public_inputs = self.read_field_vec(self.remaining() / size_of::<u64>())?;
         Ok(ProofWithPublicInputs {
             proof,
             public_inputs,
@@ -358,7 +352,7 @@ pub trait Read {
     fn read_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<CompressedFriQueryRounds<F, C::Hasher, D>, Self::Error>
+    ) -> IoResult<CompressedFriQueryRounds<F, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -406,7 +400,7 @@ pub trait Read {
     fn read_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<CompressedFriProof<F, C::Hasher, D>, Self::Error>
+    ) -> IoResult<CompressedFriProof<F, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -433,7 +427,7 @@ pub trait Read {
     fn read_compressed_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<CompressedProof<F, C, D>, Self::Error>
+    ) -> IoResult<CompressedProof<F, C, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -458,16 +452,14 @@ pub trait Read {
     fn read_compressed_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> Result<CompressedProofWithPublicInputs<F, C, D>, Self::Error>
+    ) -> IoResult<CompressedProofWithPublicInputs<F, C, D>>
     where
-        Self: Position + Size,
+        Self: Remaining,
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
     {
         let proof = self.read_compressed_proof(common_data)?;
-        let public_inputs = self.read_field_vec(
-            (self.len() - self.position() as usize) / core::mem::size_of::<u64>(),
-        )?;
+        let public_inputs = self.read_field_vec((self.remaining() as usize) / size_of::<u64>())?;
         Ok(CompressedProofWithPublicInputs {
             proof,
             public_inputs,
@@ -481,23 +473,23 @@ pub trait Write {
     type Error;
 
     /// Writes all `bytes` to `self`.
-    fn write_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
+    fn write_all(&mut self, bytes: &[u8]) -> IoResult<()>;
 
     /// Writes a byte `x` to `self`.
     #[inline]
-    fn write_u8(&mut self, x: u8) -> Result<(), Self::Error> {
+    fn write_u8(&mut self, x: u8) -> IoResult<()> {
         self.write_all(&[x])
     }
 
     /// Writes a word `x` to `self.`
     #[inline]
-    fn write_u32(&mut self, x: u32) -> Result<(), Self::Error> {
+    fn write_u32(&mut self, x: u32) -> IoResult<()> {
         self.write_all(&x.to_le_bytes())
     }
 
     /// Writes an element `x` from the field `F` to `self`.
     #[inline]
-    fn write_field<F>(&mut self, x: F) -> Result<(), Self::Error>
+    fn write_field<F>(&mut self, x: F) -> IoResult<()>
     where
         F: PrimeField64,
     {
@@ -506,7 +498,7 @@ pub trait Write {
 
     /// Writes a vector `v` of elements from the field `F` to `self`.
     #[inline]
-    fn write_field_vec<F>(&mut self, v: &[F]) -> Result<(), Self::Error>
+    fn write_field_vec<F>(&mut self, v: &[F]) -> IoResult<()>
     where
         F: PrimeField64,
     {
@@ -518,7 +510,7 @@ pub trait Write {
 
     /// Writes an element `x` from the field extension of `F` to `self`.
     #[inline]
-    fn write_field_ext<F, const D: usize>(&mut self, x: F::Extension) -> Result<(), Self::Error>
+    fn write_field_ext<F, const D: usize>(&mut self, x: F::Extension) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
     {
@@ -530,10 +522,7 @@ pub trait Write {
 
     /// Writes a vector `v` of elements from the field extension of `F` to `self`.
     #[inline]
-    fn write_field_ext_vec<F, const D: usize>(
-        &mut self,
-        v: &[F::Extension],
-    ) -> Result<(), Self::Error>
+    fn write_field_ext_vec<F, const D: usize>(&mut self, v: &[F::Extension]) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
     {
@@ -545,7 +534,7 @@ pub trait Write {
 
     /// Writes a hash `h` to `self`.
     #[inline]
-    fn write_hash<F, H>(&mut self, h: H::Hash) -> Result<(), Self::Error>
+    fn write_hash<F, H>(&mut self, h: H::Hash) -> IoResult<()>
     where
         F: RichField,
         H: Hasher<F>,
@@ -555,7 +544,7 @@ pub trait Write {
 
     /// Writes `cap`, a value of type [`MerkleCap`], to `self`.
     #[inline]
-    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> Result<(), Self::Error>
+    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> IoResult<()>
     where
         F: RichField,
         H: Hasher<F>,
@@ -568,10 +557,7 @@ pub trait Write {
 
     /// Writes a value `os` of type [`OpeningSet`] to `self.`
     #[inline]
-    fn write_opening_set<F, const D: usize>(
-        &mut self,
-        os: &OpeningSet<F, D>,
-    ) -> Result<(), Self::Error>
+    fn write_opening_set<F, const D: usize>(&mut self, os: &OpeningSet<F, D>) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
     {
@@ -586,7 +572,7 @@ pub trait Write {
 
     /// Writes a value `p` of type [`MerkleProof`] to `self.`
     #[inline]
-    fn write_merkle_proof<F, H>(&mut self, p: &MerkleProof<F, H>) -> Result<(), Self::Error>
+    fn write_merkle_proof<F, H>(&mut self, p: &MerkleProof<F, H>) -> IoResult<()>
     where
         F: RichField,
         H: Hasher<F>,
@@ -608,7 +594,7 @@ pub trait Write {
     fn write_fri_initial_proof<F, C, const D: usize>(
         &mut self,
         fitp: &FriInitialTreeProof<F, C::Hasher>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -625,7 +611,7 @@ pub trait Write {
     fn write_fri_query_step<F, C, const D: usize>(
         &mut self,
         fqs: &FriQueryStep<F, C::Hasher, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -639,7 +625,7 @@ pub trait Write {
     fn write_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         fqrs: &[FriQueryRound<F, C::Hasher, D>],
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -658,7 +644,7 @@ pub trait Write {
     fn write_fri_proof<F, C, const D: usize>(
         &mut self,
         fp: &FriProof<F, C::Hasher, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -673,10 +659,7 @@ pub trait Write {
 
     /// Writes a value `proof` of type [`Proof`] to `self.`
     #[inline]
-    fn write_proof<F, C, const D: usize>(
-        &mut self,
-        proof: &Proof<F, C, D>,
-    ) -> Result<(), Self::Error>
+    fn write_proof<F, C, const D: usize>(&mut self, proof: &Proof<F, C, D>) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -693,7 +676,7 @@ pub trait Write {
     fn write_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
         proof_with_pis: &ProofWithPublicInputs<F, C, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -711,7 +694,7 @@ pub trait Write {
     fn write_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         cfqrs: &CompressedFriQueryRounds<F, C::Hasher, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -739,7 +722,7 @@ pub trait Write {
     fn write_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
         fp: &CompressedFriProof<F, C::Hasher, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -757,7 +740,7 @@ pub trait Write {
     fn write_compressed_proof<F, C, const D: usize>(
         &mut self,
         proof: &CompressedProof<F, C, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -774,7 +757,7 @@ pub trait Write {
     fn write_compressed_proof_with_public_inputs<F, C, const D: usize>(
         &mut self,
         proof_with_pis: &CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<(), Self::Error>
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -792,7 +775,7 @@ impl Write for Vec<u8> {
     type Error = Infallible;
 
     #[inline]
-    fn write_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+    fn write_all(&mut self, bytes: &[u8]) -> IoResult<()> {
         self.extend_from_slice(bytes);
         Ok(())
     }
@@ -801,55 +784,42 @@ impl Write for Vec<u8> {
 /// Buffer
 #[cfg(feature = "std")]
 #[derive(Debug)]
-pub struct Buffer(Cursor<Vec<u8>>);
+pub struct Buffer {
+    bytes: Vec<u8>,
+    pos: usize,
+}
 
 #[cfg(feature = "std")]
 impl Buffer {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
-    pub fn new(buffer: Vec<u8>) -> Self {
-        Self(Cursor::new(buffer))
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes, pos: 0 }
     }
 
     /// Returns the inner buffer.
     #[inline]
     pub fn bytes(self) -> Vec<u8> {
-        self.0.into_inner()
+        self.bytes
     }
 }
 
-#[cfg(feature = "std")]
-impl Size for Buffer {
-    #[inline]
-    fn len(&self) -> usize {
-        self.0.get_ref().len()
+impl Remaining for Buffer {
+    fn remaining(&self) -> usize {
+        self.bytes.len() - self.pos
     }
 }
 
-#[cfg(feature = "std")]
-impl Position for Buffer {
-    #[inline]
-    fn position(&self) -> u64 {
-        self.0.position()
-    }
-}
-
-#[cfg(feature = "std")]
 impl Read for Buffer {
-    type Error = io::Error;
-
     #[inline]
-    fn read_exact(&mut self, bytes: &mut [u8]) -> Result<(), Self::Error> {
-        self.0.read_exact(bytes)
-    }
-}
-
-#[cfg(feature = "std")]
-impl Write for Buffer {
-    type Error = io::Error;
-
-    #[inline]
-    fn write_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.0.write_all(bytes)
+    fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
+        let n = bytes.len();
+        if self.remaining() < n {
+            Err(IoError)
+        } else {
+            bytes.copy_from_slice(&self.bytes[self.pos..][..n]);
+            self.pos += n;
+            Ok(())
+        }
     }
 }
