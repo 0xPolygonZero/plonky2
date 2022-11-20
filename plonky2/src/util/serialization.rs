@@ -459,7 +459,7 @@ pub trait Read {
         C: GenericConfig<D, F = F>,
     {
         let proof = self.read_compressed_proof(common_data)?;
-        let public_inputs = self.read_field_vec((self.remaining() as usize) / size_of::<u64>())?;
+        let public_inputs = self.read_field_vec(self.remaining() / size_of::<u64>())?;
         Ok(CompressedProofWithPublicInputs {
             proof,
             public_inputs,
