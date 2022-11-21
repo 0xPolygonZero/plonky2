@@ -53,6 +53,11 @@ use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
+    /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
+    /// needed, but can be used to ensure that proofs for one application are not valid for another.
+    /// Defaults to zero.
+    domain_separator: Option<F>,
+
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
 
@@ -102,6 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
+            domain_separator: None,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
             public_inputs: Vec::new(),
@@ -143,6 +149,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fri_security_bits >= security_bits,
             "FRI params fall short of target security"
         );
+    }
+
+    pub fn set_domain_separator(&mut self, separator: F) {
+        assert!(self.domain_separator.is_none());
+        self.domain_separator = Some(separator);
     }
 
     pub fn num_gates(&self) -> usize {
@@ -853,6 +864,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
             vec![
+                self.domain_separator.unwrap_or_default(),
                 F::from_canonical_usize(degree_bits),
                 /* Add other circuit data here */
             ],
