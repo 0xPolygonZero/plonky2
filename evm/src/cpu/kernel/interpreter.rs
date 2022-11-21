@@ -46,7 +46,7 @@ impl InterpreterMemory {
         mem
     }
 
-    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+    pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.context_memory[context].segments[segment as usize].get(offset);
         assert!(
             value.bits() <= segment.bit_range(),
@@ -56,7 +56,13 @@ impl InterpreterMemory {
         value
     }
 
-    fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
+    pub(crate) fn mstore_general(
+        &mut self,
+        context: usize,
+        segment: Segment,
+        offset: usize,
+        value: U256,
+    ) {
         assert!(
             value.bits() <= segment.bit_range(),
             "Value written to memory exceeds expected range of {:?} segment",
@@ -272,8 +278,8 @@ impl<'a> Interpreter<'a> {
             0x35 => self.run_calldataload(),                            // "CALLDATALOAD",
             0x36 => self.run_calldatasize(),                            // "CALLDATASIZE",
             0x37 => self.run_calldatacopy(),                            // "CALLDATACOPY",
-            0x38 => todo!(),                                            // "CODESIZE",
-            0x39 => todo!(),                                            // "CODECOPY",
+            0x38 => self.run_codesize(),                                // "CODESIZE",
+            0x39 => self.run_codecopy(),                                // "CODECOPY",
             0x3a => todo!(),                                            // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
@@ -585,6 +591,28 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn run_codesize(&mut self) {
+        let size = self.code().content.len();
+        self.push(size.into());
+    }
+
+    fn run_codecopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let code_byte = self
+                .memory
+                .mload_general(self.context, Segment::Code, offset + i);
+            self.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                code_byte,
+            );
+        }
+    }
+
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
         let prover_input_fn = self
             .prover_inputs_map
@@ -611,12 +639,16 @@ impl<'a> Interpreter<'a> {
                 })
                 .collect::<Vec<_>>(),
         );
+        dbg!(offset, value);
         self.push(value);
     }
 
     fn run_mstore(&mut self) {
         let offset = self.pop().as_usize();
         let value = self.pop();
+        if offset <= 448 + 33 && offset + 32 > 448 {
+            println!("YOO {} {}", offset, value);
+        }
         let mut bytes = [0; 32];
         value.to_big_endian(&mut bytes);
         for (i, byte) in (0..32).zip(bytes) {
@@ -637,8 +669,9 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_jump(&mut self) {
-        let x = self.pop().as_usize();
-        self.jump_to(x);
+        let x = self.pop();
+        dbg!(x);
+        self.jump_to(x.as_usize());
     }
 
     fn run_jumpi(&mut self) {
@@ -661,7 +694,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_jumpdest(&mut self) {
-        assert!(!self.kernel_mode, "JUMPDEST is not needed in kernel code");
+        // assert!(!self.kernel_mode, "JUMPDEST is not needed in kernel code");
     }
 
     fn jump_to(&mut self, offset: usize) {
@@ -679,6 +712,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_push(&mut self, num_bytes: u8) {
         let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
+        dbg!(x);
         self.incr(num_bytes as usize);
         self.push(x);
     }
