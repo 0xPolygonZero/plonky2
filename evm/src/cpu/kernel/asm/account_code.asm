@@ -21,7 +21,7 @@ global extcodehash:
 %endmacro
 
 %macro extcodesize
-    %stack (address) -> (address, %%after)
+    %stack (address) -> (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, %%after)
     %jump(load_code)
 %%after:
 %endmacro
@@ -44,7 +44,8 @@ global extcodesize:
 // Post stack: (empty)
 global extcodecopy:
     // stack: address, dest_offset, offset, size, retdest
-    %stack (address, dest_offset, offset, size, retdest) -> (address, extcodecopy_contd, size, offset, dest_offset, retdest)
+    %stack (address, dest_offset, offset, size, retdest)
+        -> (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, size, offset, dest_offset, retdest)
     %jump(load_code)
 
 extcodecopy_contd:
@@ -55,19 +56,22 @@ extcodecopy_contd:
 
 // Loop copying the `code[offset]` to `memory[dest_offset]` until `i==size`.
 // Each iteration increments `offset, dest_offset, i`.
+// TODO: Consider implementing this with memcpy.
 extcodecopy_loop:
     // stack: i, size, code_length, offset, dest_offset, retdest
     DUP2 DUP2 EQ
     // stack: i == size, i, size, code_length, offset, dest_offset, retdest
     %jumpi(extcodecopy_end)
-    %stack (i, size, code_length, offset, dest_offset, retdest) -> (offset, code_length, offset, code_length, dest_offset, i, size, retdest)
+    %stack (i, size, code_length, offset, dest_offset, retdest)
+        -> (offset, code_length, offset, code_length, dest_offset, i, size, retdest)
     LT
     // stack: offset < code_length, offset, code_length, dest_offset, i, size, retdest
     DUP2
     // stack: offset, offset < code_length, offset, code_length, dest_offset, i, size, retdest
     %mload_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
     // stack: opcode, offset < code_length, offset, code_length, dest_offset, i, size, retdest
-    %stack (opcode, offset_lt_code_length, offset, code_length, dest_offset, i, size, retdest) -> (offset_lt_code_length, 0, opcode, offset, code_length, dest_offset, i, size, retdest)
+    %stack (opcode, offset_lt_code_length, offset, code_length, dest_offset, i, size, retdest)
+        -> (offset_lt_code_length, 0, opcode, offset, code_length, dest_offset, i, size, retdest)
     // If `offset >= code_length`, use `opcode=0`. Necessary since `SEGMENT_KERNEL_ACCOUNT_CODE` might be clobbered from previous calls.
     %select_bool
     // stack: opcode, offset, code_length, dest_offset, i, size, retdest
@@ -93,41 +97,42 @@ extcodecopy_end:
     JUMP
 
 
-// Loads the code at `address` in the `SEGMENT_KERNEL_ACCOUNT_CODE` at the current context and starting at offset 0.
+// Loads the code at `address` into memory, at the given context and segment, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
-// Pre stack: address, retdest
+// Pre stack: address, ctx, segment, retdest
 // Post stack: code_len
 global load_code:
-    %stack (address, retdest) -> (extcodehash, address, load_code_ctd, retdest)
+    %stack (address, ctx, segment, retdest) -> (extcodehash, address, load_code_ctd, ctx, segment, retdest)
     JUMP
 load_code_ctd:
-    // stack: codehash, retdest
+    // stack: codehash, ctx, segment, retdest
     PROVER_INPUT(account_code::length)
-    // stack: code_length, codehash, retdest
+    // stack: code_length, codehash, ctx, segment, retdest
     PUSH 0
 
 // Loop non-deterministically querying `code[i]` and storing it in `SEGMENT_KERNEL_ACCOUNT_CODE` at offset `i`, until `i==code_length`.
 load_code_loop:
-    // stack: i, code_length, codehash, retdest
+    // stack: i, code_length, codehash, ctx, segment, retdest
     DUP2 DUP2 EQ
-    // stack: i == code_length, i, code_length, codehash, retdest
+    // stack: i == code_length, i, code_length, codehash, ctx, segment, retdest
     %jumpi(load_code_check)
     PROVER_INPUT(account_code::get)
-    // stack: opcode, i, code_length, codehash, retdest
+    // stack: opcode, i, code_length, codehash, ctx, segment, retdest
     DUP2
-    // stack: i, opcode, i, code_length, codehash, retdest
-    %mstore_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
-    // stack: i, code_length, codehash, retdest
+    // stack: i, opcode, i, code_length, codehash, ctx, segment, retdest
+    DUP7 // segment
+    DUP7 // context
+    MSTORE_GENERAL
+    // stack: i, code_length, codehash, ctx, segment, retdest
     %increment
-    // stack: i+1, code_length, codehash, retdest
+    // stack: i+1, code_length, codehash, ctx, segment, retdest
     %jump(load_code_loop)
 
 // Check that the hash of the loaded code equals `codehash`.
 load_code_check:
-    // stack: i, code_length, codehash, retdest
-    POP
-    // stack: code_length, codehash, retdest
-    %stack (code_length, codehash, retdest) -> (0, @SEGMENT_KERNEL_ACCOUNT_CODE, 0, code_length, codehash, retdest, code_length)
+    // stack: i, code_length, codehash, ctx, segment, retdest
+    %stack (i, code_length, codehash, ctx, segment, retdest)
+        -> (ctx, segment, 0, code_length, codehash, retdest, code_length)
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_length
     %assert_eq
