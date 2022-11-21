@@ -1,8 +1,9 @@
-use std::borrow::Borrow;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field64;
-
+use crate::field::extension::Extendable;
+use crate::field::types::Field64;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;

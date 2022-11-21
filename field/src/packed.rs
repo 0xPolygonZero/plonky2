@@ -1,7 +1,7 @@
-use std::fmt::Debug;
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-use std::slice;
+use core::fmt::Debug;
+use core::iter::{Product, Sum};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::slice;
 
 use crate::ops::Square;
 use crate::types::Field;
@@ -82,7 +82,7 @@ where
         );
         let buf_ptr = buf.as_ptr().cast::<Self>();
         let n = buf.len() / Self::WIDTH;
-        unsafe { std::slice::from_raw_parts(buf_ptr, n) }
+        unsafe { slice::from_raw_parts(buf_ptr, n) }
     }
     fn pack_slice_mut(buf: &mut [Self::Scalar]) -> &mut [Self] {
         assert!(
@@ -93,7 +93,7 @@ where
         );
         let buf_ptr = buf.as_mut_ptr().cast::<Self>();
         let n = buf.len() / Self::WIDTH;
-        unsafe { std::slice::from_raw_parts_mut(buf_ptr, n) }
+        unsafe { slice::from_raw_parts_mut(buf_ptr, n) }
     }
 
     fn doubles(&self) -> Self {

@@ -96,8 +96,8 @@ extcodecopy_end:
 // Loads the code at `address` in the `SEGMENT_KERNEL_ACCOUNT_CODE` at the current context and starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
 // Pre stack: address, retdest
-// Post stack: extcodesize(address)
-load_code:
+// Post stack: code_len
+global load_code:
     %stack (address, retdest) -> (extcodehash, address, load_code_ctd, retdest)
     JUMP
 load_code_ctd:

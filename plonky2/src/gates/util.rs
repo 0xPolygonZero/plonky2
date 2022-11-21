@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use plonky2_field::packed::PackedField;
+use crate::field::packed::PackedField;
 
 /// Writes constraints yielded by a gate to a buffer, with a given stride.
 /// Permits us to abstract the underlying memory layout. In particular, we can make a matrix of

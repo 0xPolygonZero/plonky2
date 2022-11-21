@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use hashbrown::HashMap;
 use num::Integer;
 
 use crate::hash::hash_types::RichField;
@@ -57,10 +59,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>>
-where
-    [(); H::HASH_SIZE]:,
-{
+) -> Vec<MerkleProof<F, H>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
@@ -115,10 +114,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::types::Field;
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
     use super::*;
+    use crate::field::types::Sample;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
@@ -132,7 +132,7 @@ mod tests {
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
         let mt = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(vs.clone(), cap_height);
 
-        let mut rng = thread_rng();
+        let mut rng = OsRng;
         let k = rng.gen_range(1..=1 << h);
         let indices = (0..k).map(|_| rng.gen_range(0..1 << h)).collect::<Vec<_>>();
         let proofs = indices.iter().map(|&i| mt.prove(i)).collect::<Vec<_>>();

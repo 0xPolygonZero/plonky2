@@ -1,7 +1,9 @@
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::Field;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
+use crate::field::packed::PackedField;
+use crate::field::types::Field;
 use crate::fri::oracle::SALT_SIZE;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::hash::hash_types::RichField;

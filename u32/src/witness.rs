@@ -1,6 +1,6 @@
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::iop::generator::GeneratedValues;
 use plonky2::iop::witness::Witness;
-use plonky2_field::types::{Field, PrimeField64};
 
 use crate::gadgets::arithmetic_u32::U32Target;
 

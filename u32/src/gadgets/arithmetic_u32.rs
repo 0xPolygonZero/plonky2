@@ -1,11 +1,13 @@
-use std::marker::PhantomData;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
+use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_field::extension::Extendable;
 
 use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
@@ -258,12 +260,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 mod tests {
     use anyhow::Result;
     use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
-    use crate::gadgets::arithmetic_u32::CircuitBuilderU32;
+    use super::*;
 
     #[test]
     pub fn test_add_many_u32s() -> Result<()> {
@@ -278,7 +280,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let mut rng = thread_rng();
+        let mut rng = OsRng;
         let mut to_add = Vec::new();
         let mut sum = 0u64;
         for _ in 0..NUM_ADDENDS {

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
 mod challenges;

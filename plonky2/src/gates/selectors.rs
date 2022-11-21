@@ -1,8 +1,9 @@
-use std::ops::Range;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::ops::Range;
 
-use plonky2_field::extension::Extendable;
-use plonky2_field::polynomial::PolynomialValues;
-
+use crate::field::extension::Extendable;
+use crate::field::polynomial::PolynomialValues;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::hash::hash_types::RichField;
 
@@ -28,7 +29,7 @@ impl SelectorsInfo {
 /// `|G| + max_{g in G} g.degree() <= max_degree`. These groups are constructed greedily from
 /// the list of gates sorted by degree.
 /// We build a selector polynomial `S_i` for each group `G_i`, with
-/// S_i[j] =
+/// S_i\[j\] =
 ///     if j-th row gate=g_k in G_i
 ///         k
 ///     else

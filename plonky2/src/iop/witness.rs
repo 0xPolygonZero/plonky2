@@ -1,14 +1,14 @@
-use std::collections::HashMap;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use hashbrown::HashMap;
 use itertools::Itertools;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::types::Field;
 
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::types::Field;
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
-use crate::hash::hash_types::HashOutTarget;
-use crate::hash::hash_types::RichField;
-use crate::hash::hash_types::{HashOut, MerkleCapTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -250,14 +250,14 @@ impl<F: Field> MatrixWitness<F> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PartialWitness<F: Field> {
     pub(crate) target_values: HashMap<Target, F>,
 }
 
 impl<F: Field> PartialWitness<F> {
     pub fn new() -> Self {
-        PartialWitness {
+        Self {
             target_values: HashMap::new(),
         }
     }
