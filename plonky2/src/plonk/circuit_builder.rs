@@ -40,7 +40,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
@@ -56,7 +56,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
     /// needed, but can be used to ensure that proofs for one application are not valid for another.
     /// Defaults to zero.
-    domain_separator: Option<F>,
+    domain_separator: Option<Vec<F>>,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
@@ -151,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    pub fn set_domain_separator(&mut self, separator: F) {
+    pub fn set_domain_separator(&mut self, separator: Vec<F>) {
         assert!(self.domain_separator.is_none());
         self.domain_separator = Some(separator);
     }
@@ -860,11 +860,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
+        let domain_separator = self.domain_separator.unwrap_or_default();
+        let domain_separator_digest = C::Hasher::hash_pad(&domain_separator);
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
+            domain_separator_digest.to_vec(),
             vec![
-                self.domain_separator.unwrap_or_default(),
                 F::from_canonical_usize(degree_bits),
                 /* Add other circuit data here */
             ],
