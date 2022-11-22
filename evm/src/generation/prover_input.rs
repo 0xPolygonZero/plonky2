@@ -70,7 +70,7 @@ impl<F: Field> GenerationState<F> {
         match input_fn.0[1].as_str() {
             "length" => {
                 // Return length of code.
-                // stack: codehash
+                // stack: codehash, ...
                 let codehash = stack.last().expect("Empty stack");
                 self.inputs.contract_code[&H256::from_uint(codehash)]
                     .len()
@@ -78,7 +78,7 @@ impl<F: Field> GenerationState<F> {
             }
             "get" => {
                 // Return `code[i]`.
-                // stack: i, code_length, codehash
+                // stack: i, code_length, codehash, ...
                 let stacklen = stack.len();
                 let i = stack[stacklen - 1].as_usize();
                 let codehash = stack[stacklen - 3];
