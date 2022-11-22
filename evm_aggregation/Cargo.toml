@@ -1,0 +1,18 @@
+[package]
+name = "plonky2_evm_aggregation"
+description = "Aggregation circuit for zkEVM proofs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.40"
+env_logger = "0.9.0"
+ethereum-types = "0.14.0"
+log = "0.4.14"
+plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
+plonky2_util = { path = "../util" }
+plonky2_evm = { path = "../evm" }
+
+[features]
+default = ["parallel"]
+parallel = ["plonky2_evm/parallel"]
