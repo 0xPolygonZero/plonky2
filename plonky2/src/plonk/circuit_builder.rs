@@ -40,7 +40,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
@@ -52,6 +52,11 @@ use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
+
+    /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
+    /// needed, but can be used to ensure that proofs for one application are not valid for another.
+    /// Defaults to the empty vector.
+    domain_separator: Option<Vec<F>>,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
@@ -102,6 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
+            domain_separator: None,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
             public_inputs: Vec::new(),
@@ -143,6 +149,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fri_security_bits >= security_bits,
             "FRI params fall short of target security"
         );
+    }
+
+    pub fn set_domain_separator(&mut self, separator: Vec<F>) {
+        assert!(self.domain_separator.is_none());
+        self.domain_separator = Some(separator);
     }
 
     pub fn num_gates(&self) -> usize {
@@ -849,9 +860,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
+        let domain_separator = self.domain_separator.unwrap_or_default();
+        let domain_separator_digest = C::Hasher::hash_pad(&domain_separator);
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
+            domain_separator_digest.to_vec(),
             vec![
                 F::from_canonical_usize(degree_bits),
                 /* Add other circuit data here */
