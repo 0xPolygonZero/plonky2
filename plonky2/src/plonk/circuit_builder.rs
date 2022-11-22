@@ -55,7 +55,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
     /// needed, but can be used to ensure that proofs for one application are not valid for another.
-    /// Defaults to zero.
+    /// Defaults to the empty vector.
     domain_separator: Option<Vec<F>>,
 
     /// The types of gates used in this circuit.
