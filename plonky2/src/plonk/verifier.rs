@@ -4,6 +4,7 @@ use crate::field::extension::Extendable;
 use crate::field::types::Field;
 use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::reduce_with_powers;
@@ -12,11 +13,21 @@ use crate::plonk::validate_shape::validate_proof_with_pis_shape;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
-pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    proof_with_pis: ProofWithPublicInputs<F, C, D>,
-    verifier_data: &VerifierOnlyCircuitData<C, D>,
+pub(crate) fn verify<
+    F: RichField + Extendable<D>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+>(
+    proof_with_pis: ProofWithPublicInputs<F, HCO, HCI, C, D>,
+    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     common_data: &CommonCircuitData<F, D>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
+{
     validate_proof_with_pis_shape(&proof_with_pis, common_data)?;
 
     let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
@@ -26,7 +37,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
         common_data,
     )?;
 
-    verify_with_challenges(
+    verify_with_challenges::<F, HCO, HCI, C, D>(
         proof_with_pis.proof,
         public_inputs_hash,
         challenges,
@@ -37,15 +48,20 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
 
 pub(crate) fn verify_with_challenges<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 >(
-    proof: Proof<F, C, D>,
-    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+    proof: Proof<F, HCO, HCI, C, D>,
+    public_inputs_hash: <<C as GenericConfig<HCO, HCI, D>>::InnerHasher as Hasher<F, HCI>>::Hash,
     challenges: ProofChallenges<F, D>,
-    verifier_data: &VerifierOnlyCircuitData<C, D>,
+    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     common_data: &CommonCircuitData<F, D>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+{
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
     let vars = EvaluationVars {
@@ -97,7 +113,7 @@ pub(crate) fn verify_with_challenges<
         proof.quotient_polys_cap,
     ];
 
-    verify_fri_proof::<F, C, D>(
+    verify_fri_proof::<F, HCO, HCI, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,

@@ -6,10 +6,11 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use plonky2::util::{log2_ceil, log2_strict, transpose};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -80,7 +81,9 @@ where
 /// Tests that the circuit constraints imposed by the given STARK are coherent with the native constraints.
 pub fn test_stark_circuit_constraints<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -89,7 +92,8 @@ pub fn test_stark_circuit_constraints<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); C::Hasher::HASH_SIZE]:,
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {
@@ -151,7 +155,7 @@ where
     let native_eval_t = builder.constant_extension(native_eval);
     builder.connect_extension(circuit_eval, native_eval_t);
 
-    let data = builder.build::<C>();
+    let data = builder.build::<HCO, HCI, C>();
     let proof = data.prove(pw)?;
     data.verify(proof)
 }

@@ -9,7 +9,7 @@ use crate::field::extension::quadratic::QuadraticExtension;
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
+use crate::hash::hashing::{HashConfig, PlonkyPermutation};
 use crate::hash::keccak::KeccakHash;
 use crate::hash::poseidon::PoseidonHash;
 use crate::iop::target::{BoolTarget, Target};
@@ -25,7 +25,7 @@ pub trait GenericHashOut<F: RichField>:
 }
 
 /// Trait for hash functions.
-pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
+pub trait Hasher<F: RichField, HC: HashConfig>: Sized + Clone + Debug + Eq + PartialEq {
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
 
@@ -33,17 +33,22 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     type Hash: GenericHashOut<F>;
 
     /// Permutation used in the sponge construction.
-    type Permutation: PlonkyPermutation<F>;
+    type Permutation: PlonkyPermutation<F, HC>;
 
     /// Hash a message without any padding step. Note that this can enable length-extension attacks.
     /// However, it is still collision-resistant in cases where the input has a fixed length.
-    fn hash_no_pad(input: &[F]) -> Self::Hash;
+    fn hash_no_pad(input: &[F]) -> Self::Hash
+    where
+        [(); HC::WIDTH]:;
 
     /// Pad the message using the `pad10*1` rule, then hash it.
-    fn hash_pad(input: &[F]) -> Self::Hash {
+    fn hash_pad(input: &[F]) -> Self::Hash
+    where
+        [(); HC::WIDTH]:,
+    {
         let mut padded_input = input.to_vec();
         padded_input.push(F::ONE);
-        while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
+        while (padded_input.len() + 1) % HC::WIDTH != 0 {
             padded_input.push(F::ZERO);
         }
         padded_input.push(F::ONE);
@@ -52,7 +57,10 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
 
     /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
     /// no-op.
-    fn hash_or_noop(inputs: &[F]) -> Self::Hash {
+    fn hash_or_noop(inputs: &[F]) -> Self::Hash
+    where
+        [(); HC::WIDTH]:,
+    {
         if inputs.len() * 8 <= Self::HASH_SIZE {
             let mut inputs_bytes = vec![0u8; Self::HASH_SIZE];
             for i in 0..inputs.len() {
@@ -65,27 +73,27 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
         }
     }
 
-    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash
+    where
+        [(); HC::WIDTH]:;
 }
 
 /// Trait for algebraic hash functions, built from a permutation using the sponge construction.
-pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
-    // TODO: Adding a `const WIDTH: usize` here yields a compiler error down the line.
-    // Maybe try again in a while.
-
+pub trait AlgebraicHasher<F: RichField, HC: HashConfig>: Hasher<F, HC, Hash = HashOut<F>> {
     /// Circuit to conditionally swap two chunks of the inputs (useful in verifying Merkle proofs),
     /// then apply the permutation.
     fn permute_swapped<const D: usize>(
-        inputs: [Target; SPONGE_WIDTH],
+        inputs: [Target; HC::WIDTH],
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
+    ) -> [Target; HC::WIDTH]
     where
+        [(); HC::WIDTH]:,
         F: RichField + Extendable<D>;
 }
 
 /// Generic configuration trait.
-pub trait GenericConfig<const D: usize>:
+pub trait GenericConfig<HCO: HashConfig, HCI: HashConfig, const D: usize>:
     Debug + Clone + Sync + Sized + Send + Eq + PartialEq
 {
     /// Main field.
@@ -93,25 +101,37 @@ pub trait GenericConfig<const D: usize>:
     /// Field extension of degree D of the main field.
     type FE: FieldExtension<D, BaseField = Self::F>;
     /// Hash function used for building Merkle trees.
-    type Hasher: Hasher<Self::F>;
+    type Hasher: Hasher<Self::F, HCO>;
     /// Algebraic hash function used for the challenger and hashing public inputs.
-    type InnerHasher: AlgebraicHasher<Self::F>;
+    type InnerHasher: AlgebraicHasher<Self::F, HCI>;
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PoseidonHashConfig;
+impl HashConfig for PoseidonHashConfig {
+    const RATE: usize = 8;
+    const WIDTH: usize = 12;
+}
 /// Configuration using Poseidon over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PoseidonGoldilocksConfig;
-impl GenericConfig<2> for PoseidonGoldilocksConfig {
+impl GenericConfig<PoseidonHashConfig, PoseidonHashConfig, 2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = PoseidonHash;
     type InnerHasher = PoseidonHash;
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KeccakHashConfig;
+impl HashConfig for KeccakHashConfig {
+    const RATE: usize = 8;
+    const WIDTH: usize = 12;
+}
 /// Configuration using truncated Keccak over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct KeccakGoldilocksConfig;
-impl GenericConfig<2> for KeccakGoldilocksConfig {
+impl GenericConfig<KeccakHashConfig, PoseidonHashConfig, 2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = KeccakHash<25>;

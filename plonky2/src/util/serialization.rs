@@ -14,6 +14,7 @@ use crate::fri::proof::{
     FriQueryStep,
 };
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -119,10 +120,11 @@ pub trait Read {
 
     /// Reads a hash value from `self`.
     #[inline]
-    fn read_hash<F, H>(&mut self) -> IoResult<H::Hash>
+    fn read_hash<F, HC, H>(&mut self) -> IoResult<H::Hash>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let mut buf = vec![0; H::HASH_SIZE];
         self.read_exact(&mut buf)?;
@@ -131,28 +133,31 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
     #[inline]
-    fn read_merkle_cap<F, H>(&mut self, cap_height: usize) -> IoResult<MerkleCap<F, H>>
+    fn read_merkle_cap<F, HC, H>(&mut self, cap_height: usize) -> IoResult<MerkleCap<F, HC, H>>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let cap_length = 1 << cap_height;
         Ok(MerkleCap(
             (0..cap_length)
-                .map(|_| self.read_hash::<F, H>())
+                .map(|_| self.read_hash::<F, HC, H>())
                 .collect::<Result<Vec<_>, _>>()?,
         ))
     }
 
     /// Reads a value of type [`OpeningSet`] from `self` with the given `common_data`.
     #[inline]
-    fn read_opening_set<F, C, const D: usize>(
+    fn read_opening_set<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<OpeningSet<F, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let constants = self.read_field_ext_vec::<F, D>(common_data.num_constants)?;
@@ -178,28 +183,31 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleProof`] from `self`.
     #[inline]
-    fn read_merkle_proof<F, H>(&mut self) -> IoResult<MerkleProof<F, H>>
+    fn read_merkle_proof<F, HC, H>(&mut self) -> IoResult<MerkleProof<F, HC, H>>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let length = self.read_u8()?;
         Ok(MerkleProof {
             siblings: (0..length)
-                .map(|_| self.read_hash::<F, H>())
+                .map(|_| self.read_hash::<F, HC, H>())
                 .collect::<Result<_, _>>()?,
         })
     }
 
     /// Reads a value of type [`FriInitialTreeProof`] from `self` with the given `common_data`.
     #[inline]
-    fn read_fri_initial_proof<F, C, const D: usize>(
+    fn read_fri_initial_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<FriInitialTreeProof<F, C::Hasher>>
+    ) -> IoResult<FriInitialTreeProof<F, HCO, C::Hasher>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let salt = salt_size(common_data.fri_params.hiding);
@@ -231,14 +239,16 @@ pub trait Read {
     /// Reads a value of type [`FriQueryStep`] from `self` with the given `arity` and `compressed`
     /// flag.
     #[inline]
-    fn read_fri_query_step<F, C, const D: usize>(
+    fn read_fri_query_step<F, HCO, HCI, C, const D: usize>(
         &mut self,
         arity: usize,
         compressed: bool,
-    ) -> IoResult<FriQueryStep<F, C::Hasher, D>>
+    ) -> IoResult<FriQueryStep<F, HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let evals = self.read_field_ext_vec::<F, D>(arity - usize::from(compressed))?;
         let merkle_proof = self.read_merkle_proof()?;
@@ -250,23 +260,26 @@ pub trait Read {
 
     /// Reads a vector of [`FriQueryRound`]s from `self` with `common_data`.
     #[inline]
-    fn read_fri_query_rounds<F, C, const D: usize>(
+    fn read_fri_query_rounds<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<Vec<FriQueryRound<F, C::Hasher, D>>>
+    ) -> IoResult<Vec<FriQueryRound<F, HCO, C::Hasher, D>>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
-            let initial_trees_proof = self.read_fri_initial_proof::<F, C, D>(common_data)?;
+            let initial_trees_proof =
+                self.read_fri_initial_proof::<F, HCO, HCI, C, D>(common_data)?;
             let steps = common_data
                 .fri_params
                 .reduction_arity_bits
                 .iter()
-                .map(|&ar| self.read_fri_query_step::<F, C, D>(1 << ar, false))
+                .map(|&ar| self.read_fri_query_step::<F, HCO, HCI, C, D>(1 << ar, false))
                 .collect::<Result<_, _>>()?;
             fqrs.push(FriQueryRound {
                 initial_trees_proof,
@@ -278,19 +291,21 @@ pub trait Read {
 
     /// Reads a value of type [`FriProof`] from `self` with `common_data`.
     #[inline]
-    fn read_fri_proof<F, C, const D: usize>(
+    fn read_fri_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<FriProof<F, C::Hasher, D>>
+    ) -> IoResult<FriProof<F, HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
-        let query_round_proofs = self.read_fri_query_rounds::<F, C, D>(common_data)?;
+        let query_round_proofs = self.read_fri_query_rounds::<F, HCO, HCI, C, D>(common_data)?;
         let final_poly = PolynomialCoeffs::new(
             self.read_field_ext_vec::<F, D>(common_data.fri_params.final_poly_len())?,
         );
@@ -305,20 +320,22 @@ pub trait Read {
 
     /// Reads a value of type [`Proof`] from `self` with `common_data`.
     #[inline]
-    fn read_proof<F, C, const D: usize>(
+    fn read_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<Proof<F, C, D>>
+    ) -> IoResult<Proof<F, HCO, HCI, C, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let openings = self.read_opening_set::<F, C, D>(common_data)?;
-        let opening_proof = self.read_fri_proof::<F, C, D>(common_data)?;
+        let openings = self.read_opening_set::<F, HCO, HCI, C, D>(common_data)?;
+        let opening_proof = self.read_fri_proof::<F, HCO, HCI, C, D>(common_data)?;
         Ok(Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -330,14 +347,16 @@ pub trait Read {
 
     /// Reads a value of type [`ProofWithPublicInputs`] from `self` with `common_data`.
     #[inline]
-    fn read_proof_with_public_inputs<F, C, const D: usize>(
+    fn read_proof_with_public_inputs<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<ProofWithPublicInputs<F, C, D>>
+    ) -> IoResult<ProofWithPublicInputs<F, HCO, HCI, C, D>>
     where
         Self: Remaining,
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let proof = self.read_proof(common_data)?;
         let public_inputs = self.read_field_vec(self.remaining() / size_of::<u64>())?;
@@ -349,13 +368,15 @@ pub trait Read {
 
     /// Reads a value of type [`CompressedFriQueryRounds`] from `self` with `common_data`.
     #[inline]
-    fn read_compressed_fri_query_rounds<F, C, const D: usize>(
+    fn read_compressed_fri_query_rounds<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedFriQueryRounds<F, C::Hasher, D>>
+    ) -> IoResult<CompressedFriQueryRounds<F, HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let original_indices = (0..config.fri_config.num_query_rounds)
@@ -366,7 +387,10 @@ pub trait Read {
         indices.dedup();
         let mut pairs = Vec::new();
         for &i in &indices {
-            pairs.push((i, self.read_fri_initial_proof::<F, C, D>(common_data)?));
+            pairs.push((
+                i,
+                self.read_fri_initial_proof::<F, HCO, HCI, C, D>(common_data)?,
+            ));
         }
         let initial_trees_proofs = HashMap::from_iter(pairs);
 
@@ -377,7 +401,7 @@ pub trait Read {
             });
             indices.dedup();
             let query_steps = (0..indices.len())
-                .map(|_| self.read_fri_query_step::<F, C, D>(1 << a, true))
+                .map(|_| self.read_fri_query_step::<F, HCO, HCI, C, D>(1 << a, true))
                 .collect::<Result<Vec<_>, _>>()?;
             steps.push(
                 indices
@@ -397,19 +421,22 @@ pub trait Read {
 
     /// Reads a value of type [`CompressedFriProof`] from `self` with `common_data`.
     #[inline]
-    fn read_compressed_fri_proof<F, C, const D: usize>(
+    fn read_compressed_fri_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedFriProof<F, C::Hasher, D>>
+    ) -> IoResult<CompressedFriProof<F, HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
-        let query_round_proofs = self.read_compressed_fri_query_rounds::<F, C, D>(common_data)?;
+        let query_round_proofs =
+            self.read_compressed_fri_query_rounds::<F, HCO, HCI, C, D>(common_data)?;
         let final_poly = PolynomialCoeffs::new(
             self.read_field_ext_vec::<F, D>(common_data.fri_params.final_poly_len())?,
         );
@@ -424,20 +451,22 @@ pub trait Read {
 
     /// Reads a value of type [`CompressedProof`] from `self` with `common_data`.
     #[inline]
-    fn read_compressed_proof<F, C, const D: usize>(
+    fn read_compressed_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedProof<F, C, D>>
+    ) -> IoResult<CompressedProof<F, HCO, HCI, C, D>>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let openings = self.read_opening_set::<F, C, D>(common_data)?;
-        let opening_proof = self.read_compressed_fri_proof::<F, C, D>(common_data)?;
+        let openings = self.read_opening_set::<F, HCO, HCI, C, D>(common_data)?;
+        let opening_proof = self.read_compressed_fri_proof::<F, HCO, HCI, C, D>(common_data)?;
         Ok(CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -449,14 +478,16 @@ pub trait Read {
 
     /// Reads a value of type [`CompressedProofWithPublicInputs`] from `self` with `common_data`.
     #[inline]
-    fn read_compressed_proof_with_public_inputs<F, C, const D: usize>(
+    fn read_compressed_proof_with_public_inputs<F, HCO, HCI, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedProofWithPublicInputs<F, C, D>>
+    ) -> IoResult<CompressedProofWithPublicInputs<F, HCO, HCI, C, D>>
     where
         Self: Remaining,
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let proof = self.read_compressed_proof(common_data)?;
         let public_inputs = self.read_field_vec(self.remaining() / size_of::<u64>())?;
@@ -534,23 +565,25 @@ pub trait Write {
 
     /// Writes a hash `h` to `self`.
     #[inline]
-    fn write_hash<F, H>(&mut self, h: H::Hash) -> IoResult<()>
+    fn write_hash<F, HC, H>(&mut self, h: H::Hash) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         self.write_all(&h.to_bytes())
     }
 
     /// Writes `cap`, a value of type [`MerkleCap`], to `self`.
     #[inline]
-    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> IoResult<()>
+    fn write_merkle_cap<F, HC, H>(&mut self, cap: &MerkleCap<F, HC, H>) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         for &a in &cap.0 {
-            self.write_hash::<F, H>(a)?;
+            self.write_hash::<F, HC, H>(a)?;
         }
         Ok(())
     }
@@ -572,10 +605,11 @@ pub trait Write {
 
     /// Writes a value `p` of type [`MerkleProof`] to `self.`
     #[inline]
-    fn write_merkle_proof<F, H>(&mut self, p: &MerkleProof<F, H>) -> IoResult<()>
+    fn write_merkle_proof<F, HC, H>(&mut self, p: &MerkleProof<F, HC, H>) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let length = p.siblings.len();
         self.write_u8(
@@ -584,20 +618,22 @@ pub trait Write {
                 .expect("Merkle proof length must fit in u8."),
         )?;
         for &h in &p.siblings {
-            self.write_hash::<F, H>(h)?;
+            self.write_hash::<F, HC, H>(h)?;
         }
         Ok(())
     }
 
     /// Writes a value `fitp` of type [`FriInitialTreeProof`] to `self.`
     #[inline]
-    fn write_fri_initial_proof<F, C, const D: usize>(
+    fn write_fri_initial_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        fitp: &FriInitialTreeProof<F, C::Hasher>,
+        fitp: &FriInitialTreeProof<F, HCO, C::Hasher>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         for (v, p) in &fitp.evals_proofs {
             self.write_field_vec(v)?;
@@ -608,13 +644,15 @@ pub trait Write {
 
     /// Writes a value `fqs` of type [`FriQueryStep`] to `self.`
     #[inline]
-    fn write_fri_query_step<F, C, const D: usize>(
+    fn write_fri_query_step<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        fqs: &FriQueryStep<F, C::Hasher, D>,
+        fqs: &FriQueryStep<F, HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         self.write_field_ext_vec::<F, D>(&fqs.evals)?;
         self.write_merkle_proof(&fqs.merkle_proof)
@@ -622,18 +660,20 @@ pub trait Write {
 
     /// Writes a value `fqrs` of type [`FriQueryRound`] to `self.`
     #[inline]
-    fn write_fri_query_rounds<F, C, const D: usize>(
+    fn write_fri_query_rounds<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        fqrs: &[FriQueryRound<F, C::Hasher, D>],
+        fqrs: &[FriQueryRound<F, HCO, C::Hasher, D>],
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         for fqr in fqrs {
-            self.write_fri_initial_proof::<F, C, D>(&fqr.initial_trees_proof)?;
+            self.write_fri_initial_proof::<F, HCO, HCI, C, D>(&fqr.initial_trees_proof)?;
             for fqs in &fqr.steps {
-                self.write_fri_query_step::<F, C, D>(fqs)?;
+                self.write_fri_query_step::<F, HCO, HCI, C, D>(fqs)?;
             }
         }
         Ok(())
@@ -641,45 +681,54 @@ pub trait Write {
 
     /// Writes a value `fq` of type [`FriProof`] to `self.`
     #[inline]
-    fn write_fri_proof<F, C, const D: usize>(
+    fn write_fri_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        fp: &FriProof<F, C::Hasher, D>,
+        fp: &FriProof<F, HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         for cap in &fp.commit_phase_merkle_caps {
             self.write_merkle_cap(cap)?;
         }
-        self.write_fri_query_rounds::<F, C, D>(&fp.query_round_proofs)?;
+        self.write_fri_query_rounds::<F, HCO, HCI, C, D>(&fp.query_round_proofs)?;
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
 
     /// Writes a value `proof` of type [`Proof`] to `self.`
     #[inline]
-    fn write_proof<F, C, const D: usize>(&mut self, proof: &Proof<F, C, D>) -> IoResult<()>
+    fn write_proof<F, HCO, HCI, C, const D: usize>(
+        &mut self,
+        proof: &Proof<F, HCO, HCI, C, D>,
+    ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
         self.write_opening_set(&proof.openings)?;
-        self.write_fri_proof::<F, C, D>(&proof.opening_proof)
+        self.write_fri_proof::<F, HCO, HCI, C, D>(&proof.opening_proof)
     }
 
     /// Writes a value `proof_with_pis` of type [`ProofWithPublicInputs`] to `self.`
     #[inline]
-    fn write_proof_with_public_inputs<F, C, const D: usize>(
+    fn write_proof_with_public_inputs<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+        proof_with_pis: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let ProofWithPublicInputs {
             proof,
@@ -691,13 +740,15 @@ pub trait Write {
 
     /// Writes a value `cfqrs` of type [`CompressedFriQueryRounds`] to `self.`
     #[inline]
-    fn write_compressed_fri_query_rounds<F, C, const D: usize>(
+    fn write_compressed_fri_query_rounds<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        cfqrs: &CompressedFriQueryRounds<F, C::Hasher, D>,
+        cfqrs: &CompressedFriQueryRounds<F, HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         for &i in &cfqrs.indices {
             self.write_u32(i as u32)?;
@@ -705,13 +756,13 @@ pub trait Write {
         let mut initial_trees_proofs = cfqrs.initial_trees_proofs.iter().collect::<Vec<_>>();
         initial_trees_proofs.sort_by_key(|&x| x.0);
         for (_, itp) in initial_trees_proofs {
-            self.write_fri_initial_proof::<F, C, D>(itp)?;
+            self.write_fri_initial_proof::<F, HCO, HCI, C, D>(itp)?;
         }
         for h in &cfqrs.steps {
             let mut fri_query_steps = h.iter().collect::<Vec<_>>();
             fri_query_steps.sort_by_key(|&x| x.0);
             for (_, fqs) in fri_query_steps {
-                self.write_fri_query_step::<F, C, D>(fqs)?;
+                self.write_fri_query_step::<F, HCO, HCI, C, D>(fqs)?;
             }
         }
         Ok(())
@@ -719,48 +770,54 @@ pub trait Write {
 
     /// Writes a value `fq` of type [`CompressedFriProof`] to `self.`
     #[inline]
-    fn write_compressed_fri_proof<F, C, const D: usize>(
+    fn write_compressed_fri_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        fp: &CompressedFriProof<F, C::Hasher, D>,
+        fp: &CompressedFriProof<F, HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         for cap in &fp.commit_phase_merkle_caps {
             self.write_merkle_cap(cap)?;
         }
-        self.write_compressed_fri_query_rounds::<F, C, D>(&fp.query_round_proofs)?;
+        self.write_compressed_fri_query_rounds::<F, HCO, HCI, C, D>(&fp.query_round_proofs)?;
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
 
     /// Writes a value `proof` of type [`CompressedProof`] to `self.`
     #[inline]
-    fn write_compressed_proof<F, C, const D: usize>(
+    fn write_compressed_proof<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        proof: &CompressedProof<F, C, D>,
+        proof: &CompressedProof<F, HCO, HCI, C, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
         self.write_opening_set(&proof.openings)?;
-        self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
+        self.write_compressed_fri_proof::<F, HCO, HCI, C, D>(&proof.opening_proof)
     }
 
     /// Writes a value `proof_with_pis` of type [`CompressedProofWithPublicInputs`] to `self.`
     #[inline]
-    fn write_compressed_proof_with_public_inputs<F, C, const D: usize>(
+    fn write_compressed_proof_with_public_inputs<F, HCO, HCI, C, const D: usize>(
         &mut self,
-        proof_with_pis: &CompressedProofWithPublicInputs<F, C, D>,
+        proof_with_pis: &CompressedProofWithPublicInputs<F, HCO, HCI, C, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
     {
         let CompressedProofWithPublicInputs {
             proof,

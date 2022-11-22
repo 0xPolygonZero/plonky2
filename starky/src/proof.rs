@@ -11,6 +11,7 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
+use plonky2::hash::hashing::HashConfig;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -21,20 +22,33 @@ use crate::config::StarkConfig;
 use crate::permutation::PermutationChallengeSet;
 
 #[derive(Debug, Clone)]
-pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct StarkProof<
+    F: RichField + Extendable<D>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<F, HCO, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_zs_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub permutation_zs_cap: Option<MerkleCap<F, HCO, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, HCO, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::Hasher, D>,
+    pub opening_proof: FriProof<F, HCO, C::Hasher, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
+impl<
+        F: RichField + Extendable<D>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
+        const D: usize,
+    > StarkProof<F, HCO, HCI, C, D>
+{
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
@@ -69,10 +83,12 @@ impl<const D: usize> StarkProofTarget<D> {
 #[derive(Debug, Clone)]
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 > {
-    pub proof: StarkProof<F, C, D>,
+    pub proof: StarkProof<F, HCO, HCI, C, D>,
     // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
     pub public_inputs: Vec<F>,
 }
@@ -84,23 +100,27 @@ pub struct StarkProofWithPublicInputsTarget<const D: usize> {
 
 pub struct CompressedStarkProof<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 > {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<F, HCO, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
+    pub opening_proof: CompressedFriProof<F, HCO, C::Hasher, D>,
 }
 
 pub struct CompressedStarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 > {
-    pub proof: CompressedStarkProof<F, C, D>,
+    pub proof: CompressedStarkProof<F, HCO, HCI, C, D>,
     pub public_inputs: Vec<F>,
 }
 
@@ -135,14 +155,14 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
-    pub fn new<C: GenericConfig<D, F = F>>(
+    pub fn new<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
         zeta: F::Extension,
         g: F,
-        trace_commitment: &PolynomialBatch<F, C, D>,
-        permutation_zs_commitment: Option<&PolynomialBatch<F, C, D>>,
-        quotient_commitment: &PolynomialBatch<F, C, D>,
+        trace_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
+        permutation_zs_commitment: Option<&PolynomialBatch<F, HCO, HCI, C, D>>,
+        quotient_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, HCO, HCI, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))

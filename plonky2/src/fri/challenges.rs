@@ -5,25 +5,30 @@ use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::{Challenger, RecursiveChallenger};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
-impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
+impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H>
+where
+    [(); HCO::WIDTH]:,
+{
     pub fn observe_openings<const D: usize>(&mut self, openings: &FriOpenings<F, D>)
     where
         F: RichField + Extendable<D>,
+        [(); HCO::WIDTH]:,
     {
         for v in &openings.batches {
             self.observe_extension_elements(&v.values);
         }
     }
 
-    pub fn fri_challenges<C: GenericConfig<D, F = F>, const D: usize>(
+    pub fn fri_challenges<HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>, const D: usize>(
         &mut self,
-        commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
+        commit_phase_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
         final_poly: &PolynomialCoeffs<F::Extension>,
         pow_witness: F,
         degree_bits: usize,
@@ -31,6 +36,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     ) -> FriChallenges<F, D>
     where
         F: RichField + Extendable<D>,
+        [(); HCO::WIDTH]:,
+        [(); HCI::WIDTH]:,
     {
         let num_fri_queries = config.num_query_rounds;
         let lde_size = 1 << (degree_bits + config.rate_bits);
@@ -41,7 +48,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         let fri_betas = commit_phase_merkle_caps
             .iter()
             .map(|cap| {
-                self.observe_cap(cap);
+                self.observe_cap::<HCO, C::Hasher>(cap);
                 self.get_extension_challenge::<D>()
             })
             .collect();
@@ -64,10 +71,15 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     }
 }
 
-impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
-    RecursiveChallenger<F, H, D>
+impl<F: RichField + Extendable<D>, HCO: HashConfig, H: AlgebraicHasher<F, HCO>, const D: usize>
+    RecursiveChallenger<F, HCO, H, D>
+where
+    [(); HCO::WIDTH]:,
 {
-    pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>) {
+    pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>)
+    where
+        [(); HCO::WIDTH]:,
+    {
         for v in &openings.batches {
             self.observe_extension_elements(&v.values);
         }

@@ -10,6 +10,7 @@ use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::validate_shape::validate_fri_proof_shape;
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
@@ -60,17 +61,22 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
 
 pub fn verify_fri_proof<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
     openings: &FriOpenings<F, D>,
     challenges: &FriChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
-    proof: &FriProof<F, C::Hasher, D>,
+    initial_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
+    proof: &FriProof<F, HCO, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()> {
-    validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+{
+    validate_fri_proof_shape::<F, HCO, HCI, C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
     let n = params.lde_size();
@@ -91,7 +97,7 @@ pub fn verify_fri_proof<
         .iter()
         .zip(&proof.query_round_proofs)
     {
-        fri_verifier_query_round::<F, C, D>(
+        fri_verifier_query_round::<F, HCO, HCI, C, D>(
             instance,
             challenges,
             &precomputed_reduced_evals,
@@ -107,13 +113,16 @@ pub fn verify_fri_proof<
     Ok(())
 }
 
-fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
+fn fri_verify_initial_proof<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     x_index: usize,
-    proof: &FriInitialTreeProof<F, H>,
-    initial_merkle_caps: &[MerkleCap<F, H>],
-) -> Result<()> {
+    proof: &FriInitialTreeProof<F, HC, H>,
+    initial_merkle_caps: &[MerkleCap<F, HC, H>],
+) -> Result<()>
+where
+    [(); HC::WIDTH]:,
+{
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
-        verify_merkle_proof_to_cap::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
+        verify_merkle_proof_to_cap::<F, HC, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
 
     Ok(())
@@ -121,11 +130,13 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
 
 pub(crate) fn fri_combine_initial<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
-    proof: &FriInitialTreeProof<F, C::Hasher>,
+    proof: &FriInitialTreeProof<F, HCO, C::Hasher>,
     alpha: F::Extension,
     subgroup_x: F,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
@@ -162,20 +173,25 @@ pub(crate) fn fri_combine_initial<
 
 fn fri_verifier_query_round<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
     challenges: &FriChallenges<F, D>,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
-    proof: &FriProof<F, C::Hasher, D>,
+    initial_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
+    proof: &FriProof<F, HCO, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
-    round_proof: &FriQueryRound<F, C::Hasher, D>,
+    round_proof: &FriQueryRound<F, HCO, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()> {
-    fri_verify_initial_proof::<F, C::Hasher>(
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+{
+    fri_verify_initial_proof::<F, HCO, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
@@ -187,7 +203,7 @@ fn fri_verifier_query_round<
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial::<F, C, D>(
+    let mut old_eval = fri_combine_initial::<F, HCO, HCI, C, D>(
         instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
@@ -216,7 +232,7 @@ fn fri_verifier_query_round<
             challenges.fri_betas[i],
         );
 
-        verify_merkle_proof_to_cap::<F, C::Hasher>(
+        verify_merkle_proof_to_cap::<F, HCO, C::Hasher>(
             flatten(evals),
             coset_index,
             &proof.commit_phase_merkle_caps[i],

@@ -7,7 +7,8 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::hash::hashing::HashConfig;
+use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::config::StarkConfig;
@@ -20,18 +21,21 @@ use crate::vars::StarkEvaluationVars;
 
 pub fn verify_stark_proof<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: StarkProofWithPublicInputs<F, HCO, HCI, C, D>,
     config: &StarkConfig,
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); C::Hasher::HASH_SIZE]:,
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
 {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
@@ -41,12 +45,14 @@ where
 
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: StarkProofWithPublicInputs<F, HCO, HCI, C, D>,
     challenges: StarkProofChallenges<F, D>,
     degree_bits: usize,
     config: &StarkConfig,
@@ -54,7 +60,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); C::Hasher::HASH_SIZE]:,
+    [(); HCO::WIDTH]:,
 {
     validate_proof_shape(&stark, &proof_with_pis, config)?;
     check_permutation_options(&stark, &proof_with_pis, &challenges)?;
@@ -130,7 +136,7 @@ where
         .chain(once(proof.quotient_polys_cap))
         .collect_vec();
 
-    verify_fri_proof::<F, C, D>(
+    verify_fri_proof::<F, HCO, HCI, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
@@ -146,17 +152,18 @@ where
     Ok(())
 }
 
-fn validate_proof_shape<F, C, S, const D: usize>(
+fn validate_proof_shape<F, HCO, HCI, C, S, const D: usize>(
     stark: &S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: &StarkProofWithPublicInputs<F, HCO, HCI, C, D>,
     config: &StarkConfig,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
 {
     let StarkProofWithPublicInputs {
         proof,
@@ -234,12 +241,14 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 /// the Stark uses a permutation argument.
 fn check_permutation_options<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     stark: &S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: &StarkProofWithPublicInputs<F, HCO, HCI, C, D>,
     challenges: &StarkProofChallenges<F, D>,
 ) -> Result<()> {
     let options_is_some = [

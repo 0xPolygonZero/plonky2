@@ -11,8 +11,7 @@ use crate::field::types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::SPONGE_WIDTH;
-use crate::hash::poseidon::Poseidon;
+use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -244,13 +243,15 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon_mds::PoseidonMdsGate;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
 
     #[test]
     fn low_degree() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         let gate = PoseidonMdsGate::<F, D>::new();
         test_low_degree(gate)
     }
@@ -259,8 +260,10 @@ mod tests {
     fn eval_fns() -> anyhow::Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         let gate = PoseidonMdsGate::<F, D>::new();
-        test_eval_fns::<F, C, _, D>(gate)
+        test_eval_fns::<F, HCO, HCI, C, _, D>(gate)
     }
 }

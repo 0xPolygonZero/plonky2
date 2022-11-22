@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -8,7 +10,7 @@ use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{PoseidonGoldilocksConfig, PoseidonHashConfig};
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
@@ -23,6 +25,8 @@ use plonky2_evm::Node;
 type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
+type HCO = PoseidonHashConfig;
+type HCI = HCO;
 
 /// Test a simple token transfer to a new address.
 #[test]
@@ -110,7 +114,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    let proof = prove::<F, HCO, HCI, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
     let expected_state_trie_after: HashedPartialTrie = {

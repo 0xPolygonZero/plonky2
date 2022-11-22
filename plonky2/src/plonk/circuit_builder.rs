@@ -28,6 +28,7 @@ use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -434,19 +435,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn constant_merkle_cap<H: Hasher<F, Hash = HashOut<F>>>(
+    pub fn constant_merkle_cap<HC: HashConfig, H: Hasher<F, HC, Hash = HashOut<F>>>(
         &mut self,
-        cap: &MerkleCap<F, H>,
+        cap: &MerkleCap<F, HC, H>,
     ) -> MerkleCapTarget {
         MerkleCapTarget(cap.0.iter().map(|h| self.constant_hash(*h)).collect())
     }
 
-    pub fn constant_verifier_data<C: GenericConfig<D, F = F>>(
+    pub fn constant_verifier_data<HCO, HCI, C: GenericConfig<HCO, HCI, D, F = F>>(
         &mut self,
-        verifier_data: &VerifierOnlyCircuitData<C, D>,
+        verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     ) -> VerifierCircuitTarget
     where
-        C::Hasher: AlgebraicHasher<F>,
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C::Hasher: AlgebraicHasher<F, HCO>,
     {
         VerifierCircuitTarget {
             constants_sigmas_cap: self.constant_merkle_cap(&verifier_data.constants_sigmas_cap),
@@ -737,7 +740,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
+    pub fn build<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+        mut self,
+    ) -> CircuitData<F, HCO, HCI, C, D>
+    where
+        [(); HCO::WIDTH]:,
+        [(); HCI::WIDTH]:,
+    {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         #[cfg(feature = "std")]
         let start = Instant::now();
@@ -748,7 +757,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // those hash wires match the claimed public inputs.
         let num_public_inputs = self.public_inputs.len();
         let public_inputs_hash =
-            self.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
+            self.hash_n_to_hash_no_pad::<HCI, C::InnerHasher>(self.public_inputs.clone());
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
@@ -825,7 +834,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = PolynomialBatch::from_values(
+        let constants_sigmas_commitment = PolynomialBatch::<F, HCO, HCI, C, D>::from_values(
             constants_sigmas_vecs,
             rate_bits,
             PlonkOracle::CONSTANTS_SIGMAS.blinding,
@@ -913,7 +922,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             assert_eq!(goal_data, common, "The expected circuit data passed to cyclic recursion method did not match the actual circuit");
         }
 
-        let prover_only = ProverOnlyCircuitData {
+        let prover_only = ProverOnlyCircuitData::<F, HCO, HCI, C, D> {
             generators: self.generators,
             generator_indices_by_watches,
             constants_sigmas_commitment,
@@ -925,7 +934,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             circuit_digest,
         };
 
-        let verifier_only = VerifierOnlyCircuitData {
+        let verifier_only = VerifierOnlyCircuitData::<HCO, HCI, C, D> {
             constants_sigmas_cap,
             circuit_digest,
         };
@@ -941,16 +950,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
+    pub fn build_prover<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+        self,
+    ) -> ProverCircuitData<F, HCO, HCI, C, D>
+    where
+        [(); HCO::WIDTH]:,
+        [(); HCI::WIDTH]:,
+    {
         // TODO: Can skip parts of this.
-        let circuit_data = self.build();
+        let circuit_data = self.build::<HCO, HCI, C>();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
+    pub fn build_verifier<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+        self,
+    ) -> VerifierCircuitData<F, HCO, HCI, C, D>
+    where
+        [(); HCO::WIDTH]:,
+        [(); HCI::WIDTH]:,
+    {
         // TODO: Can skip parts of this.
-        let circuit_data = self.build();
+        let circuit_data = self.build::<HCO, HCI, C>();
         circuit_data.verifier_data()
     }
 }

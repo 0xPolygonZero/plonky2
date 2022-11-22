@@ -10,9 +10,8 @@ use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon;
-use crate::hash::poseidon::Poseidon;
+use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -510,14 +509,13 @@ mod tests {
     use crate::field::types::Field;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;
-    use crate::hash::hashing::SPONGE_WIDTH;
-    use crate::hash::poseidon::Poseidon;
+    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::wire::Wire;
     use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
 
     #[test]
     fn wire_indices() {
@@ -545,7 +543,9 @@ mod tests {
     fn generated_output() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
 
         let config = CircuitConfig {
             num_wires: 143,
@@ -555,7 +555,7 @@ mod tests {
         type Gate = PoseidonGate<F, D>;
         let gate = Gate::new();
         let row = builder.add_gate(gate, vec![]);
-        let circuit = builder.build_prover::<C>();
+        let circuit = builder.build_prover::<HCO, HCI, C>();
 
         let permutation_inputs = (0..SPONGE_WIDTH)
             .map(F::from_canonical_usize)
@@ -603,8 +603,10 @@ mod tests {
     fn eval_fns() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         let gate = PoseidonGate::<F, 2>::new();
-        test_eval_fns::<F, C, _, D>(gate)
+        test_eval_fns::<F, HCO, HCI, C, _, D>(gate)
     }
 }

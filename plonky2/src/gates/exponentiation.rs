@@ -294,7 +294,7 @@ mod tests {
     use crate::field::types::Sample;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
     use crate::util::log2_ceil;
 
     const MAX_POWER_BITS: usize = 17;
@@ -329,8 +329,10 @@ mod tests {
     fn eval_fns() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<F, C, _, D>(ExponentiationGate::new_from_config(
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        test_eval_fns::<F, HCO, HCI, C, _, D>(ExponentiationGate::new_from_config(
             &CircuitConfig::standard_recursion_config(),
         ))
     }
@@ -339,8 +341,10 @@ mod tests {
     fn test_gate_constraint() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
 
         /// Returns the local wires for an exponentiation gate given the base, power, and power bit
         /// values.

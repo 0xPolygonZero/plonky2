@@ -5,7 +5,8 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::hash::hashing::HashConfig;
+use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table};
@@ -25,9 +26,15 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub fn verify_proof<
+    F: RichField + Extendable<D>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+>(
     all_stark: &AllStark<F, D>,
-    all_proof: AllProof<F, C, D>,
+    all_proof: AllProof<F, HCO, HCI, C, D>,
     config: &StarkConfig,
 ) -> Result<()>
 where
@@ -36,7 +43,8 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
 {
     let AllProofChallenges {
         stark_challenges,
@@ -106,19 +114,21 @@ where
 
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     stark: &S,
-    proof: &StarkProof<F, C, D>,
+    proof: &StarkProof<F, HCO, HCI, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
+    [(); HCO::WIDTH]:,
 {
     log::debug!("Checking proof: {}", type_name::<S>());
     validate_proof_shape(stark, proof, config, ctl_vars.len())?;
@@ -189,7 +199,7 @@ where
         proof.quotient_polys_cap.clone(),
     ];
 
-    verify_fri_proof::<F, C, D>(
+    verify_fri_proof::<F, HCO, HCI, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
@@ -207,18 +217,19 @@ where
     Ok(())
 }
 
-fn validate_proof_shape<F, C, S, const D: usize>(
+fn validate_proof_shape<F, HCO, HCI, C, S, const D: usize>(
     stark: &S,
-    proof: &StarkProof<F, C, D>,
+    proof: &StarkProof<F, HCO, HCI, C, D>,
     config: &StarkConfig,
     num_ctl_zs: usize,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
 {
     let StarkProof {
         trace_cap,

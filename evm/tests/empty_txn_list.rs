@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -5,7 +7,7 @@ use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{PoseidonGoldilocksConfig, PoseidonHashConfig};
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
@@ -19,6 +21,8 @@ use plonky2_evm::Node;
 type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
+type HCO = PoseidonHashConfig;
+type HCI = HCO;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
@@ -60,7 +64,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     // TODO: This is redundant; prove_root below calls this prove method internally.
     // Just keeping it for now because the root proof returned by prove_root doesn't contain public
     // values yet, and we want those for the assertions below.
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
+    let proof = prove::<F, HCO, HCI, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
     assert_eq!(
@@ -90,7 +94,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     verify_proof(&all_stark, proof, &config)?;
 
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(&all_stark, 9..19, &config);
+    let all_circuits = AllRecursiveCircuits::<F, HCO, HCI, C, D>::new(&all_stark, 9..19, &config);
     let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     all_circuits.verify_root(root_proof.clone())?;
 

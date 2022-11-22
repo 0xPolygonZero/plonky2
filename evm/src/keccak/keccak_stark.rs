@@ -607,7 +607,7 @@ mod tests {
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
     use plonky2::timed;
     use plonky2::util::timing::TimingTree;
     use tiny_keccak::keccakf;
@@ -624,7 +624,9 @@ mod tests {
     fn test_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = KeccakStark<F, D>;
 
         let stark = S {
@@ -637,13 +639,15 @@ mod tests {
     fn test_stark_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = KeccakStark<F, D>;
 
         let stark = S {
             f: Default::default(),
         };
-        test_stark_circuit_constraints::<F, C, S, D>(stark)
+        test_stark_circuit_constraints::<F, HCO, HCI, C, S, D>(stark)
     }
 
     #[test]
@@ -652,7 +656,9 @@ mod tests {
 
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = KeccakStark<F, D>;
 
         let stark = S {
@@ -685,7 +691,9 @@ mod tests {
         const NUM_PERMS: usize = 85;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = KeccakStark<F, D>;
         let stark = S::default();
         let config = StarkConfig::standard_fast_config();
@@ -708,7 +716,7 @@ mod tests {
         let trace_commitments = timed!(
             timing,
             "compute trace commitment",
-            PolynomialBatch::<F, C, D>::from_values(
+            PolynomialBatch::<F, HCO, HCI, C, D>::from_values(
                 cloned_trace_poly_values,
                 config.fri_config.rate_bits,
                 false,

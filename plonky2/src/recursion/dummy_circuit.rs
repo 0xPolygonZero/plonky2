@@ -7,6 +7,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
@@ -22,15 +23,19 @@ use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 /// public inputs which encode the cyclic verification key must be set properly, and this method
 /// takes care of that. It also allows the user to specify any other public inputs which should be
 /// set in this base proof.
-pub fn cyclic_base_proof<F, C, const D: usize>(
+pub fn cyclic_base_proof<F, HCO, HCI, C, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
-    verifier_data: &VerifierOnlyCircuitData<C, D>,
+    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     mut nonzero_public_inputs: HashMap<usize, F>,
-) -> ProofWithPublicInputs<F, C, D>
+) -> ProofWithPublicInputs<F, HCO, HCI, C, D>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<C::F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    C::Hasher: AlgebraicHasher<C::F, HCO>,
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
 {
     let pis_len = common_data.num_public_inputs;
     let cap_elements = common_data.config.fri_config.num_cap_elements();
@@ -46,19 +51,29 @@ where
 
     // TODO: A bit wasteful to build a dummy circuit here. We could potentially use a proof that
     // just consists of zeros, apart from public inputs.
-    dummy_proof(&dummy_circuit(common_data), nonzero_public_inputs).unwrap()
+    dummy_proof::<F, HCO, HCI, C, D>(
+        &dummy_circuit::<F, HCO, HCI, C, D>(common_data),
+        nonzero_public_inputs,
+    )
+    .unwrap()
 }
 
 /// Generate a proof for a dummy circuit. The `public_inputs` parameter let the caller specify
 /// certain public inputs (identified by their indices) which should be given specific values.
 /// The rest will default to zero.
-pub(crate) fn dummy_proof<F, C, const D: usize>(
-    circuit: &CircuitData<F, C, D>,
-    nonzero_public_inputs: HashMap<usize, F>,
-) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
-where
+pub(crate) fn dummy_proof<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+>(
+    circuit: &CircuitData<F, HCO, HCI, C, D>,
+    nonzero_public_inputs: HashMap<usize, F>,
+) -> anyhow::Result<ProofWithPublicInputs<F, HCO, HCI, C, D>>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
 {
     let mut pw = PartialWitness::new();
     for i in 0..circuit.common.num_public_inputs {
@@ -71,11 +86,17 @@ where
 /// Generate a circuit matching a given `CommonCircuitData`.
 pub(crate) fn dummy_circuit<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     const D: usize,
 >(
     common_data: &CommonCircuitData<F, D>,
-) -> CircuitData<F, C, D> {
+) -> CircuitData<F, HCO, HCI, C, D>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
+{
     let config = common_data.config.clone();
     assert!(
         !common_data.config.zero_knowledge,
@@ -98,21 +119,26 @@ pub(crate) fn dummy_circuit<
         builder.add_virtual_public_input();
     }
 
-    let circuit = builder.build::<C>();
+    let circuit = builder.build::<HCO, HCI, C>();
     assert_eq!(&circuit.common, common_data);
     circuit
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub(crate) fn dummy_proof_and_vk<C: GenericConfig<D, F = F> + 'static>(
+    pub(crate) fn dummy_proof_and_vk<HCO, HCI, C: GenericConfig<HCO, HCI, D, F = F> + 'static>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<(ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        HCO: HashConfig + 'static,
+        HCI: HashConfig + 'static,
+        C::Hasher: AlgebraicHasher<F, HCO>,
+        [(); HCO::WIDTH]:,
+        [(); HCI::WIDTH]:,
     {
-        let dummy_circuit = dummy_circuit::<F, C, D>(common_data);
-        let dummy_proof_with_pis = dummy_proof(&dummy_circuit, HashMap::new())?;
+        let dummy_circuit = dummy_circuit::<F, HCO, HCI, C, D>(common_data);
+        let dummy_proof_with_pis =
+            dummy_proof::<F, HCO, HCI, C, D>(&dummy_circuit, HashMap::new())?;
         let dummy_proof_with_pis_target = self.add_virtual_proof_with_pis(common_data);
         let dummy_verifier_data_target =
             self.add_virtual_verifier_data(self.config.fri_config.cap_height);
@@ -129,22 +155,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-pub(crate) struct DummyProofGenerator<F, C, const D: usize>
+pub(crate) struct DummyProofGenerator<F, HCO, HCI, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
 {
     pub(crate) proof_with_pis_target: ProofWithPublicInputsTarget<D>,
-    pub(crate) proof_with_pis: ProofWithPublicInputs<F, C, D>,
+    pub(crate) proof_with_pis: ProofWithPublicInputs<F, HCO, HCI, C, D>,
     pub(crate) verifier_data_target: VerifierCircuitTarget,
-    pub(crate) verifier_data: VerifierOnlyCircuitData<C, D>,
+    pub(crate) verifier_data: VerifierOnlyCircuitData<HCO, HCI, C, D>,
 }
 
-impl<F, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, C, D>
+impl<F, HCO, HCI, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, HCO, HCI, C, D>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
+    HCO: HashConfig + 'static,
+    HCI: HashConfig + 'static,
+    C: GenericConfig<HCO, HCI, D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F, HCO>,
 {
     fn dependencies(&self) -> Vec<Target> {
         vec![]

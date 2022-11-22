@@ -9,6 +9,7 @@ use crate::field::types::Field;
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -27,10 +28,10 @@ pub trait WitnessWrite<F: Field> {
             .for_each(|(&t, x)| self.set_target(t, x));
     }
 
-    fn set_cap_target<H: AlgebraicHasher<F>>(
+    fn set_cap_target<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
         &mut self,
         ct: &MerkleCapTarget,
-        value: &MerkleCap<F, H>,
+        value: &MerkleCap<F, HC, H>,
     ) where
         F: RichField,
     {
@@ -71,13 +72,18 @@ pub trait WitnessWrite<F: Field> {
 
     /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
     /// `ProofWithPublicInputs`.
-    fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
+    fn set_proof_with_pis_target<
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
+        const D: usize,
+    >(
         &mut self,
         proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
-        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+        proof_with_pis: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, HCO>,
     {
         let ProofWithPublicInputs {
             proof,
@@ -97,13 +103,18 @@ pub trait WitnessWrite<F: Field> {
     }
 
     /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
+    fn set_proof_target<
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
+        const D: usize,
+    >(
         &mut self,
         proof_target: &ProofTarget<D>,
-        proof: &Proof<F, C, D>,
+        proof: &Proof<F, HCO, HCI, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, HCO>,
     {
         self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
         self.set_cap_target(
@@ -136,13 +147,18 @@ pub trait WitnessWrite<F: Field> {
         }
     }
 
-    fn set_verifier_data_target<C: GenericConfig<D, F = F>, const D: usize>(
+    fn set_verifier_data_target<
+        HCO: HashConfig,
+        HCI: HashConfig,
+        C: GenericConfig<HCO, HCI, D, F = F>,
+        const D: usize,
+    >(
         &mut self,
         vdt: &VerifierCircuitTarget,
-        vd: &VerifierOnlyCircuitData<C, D>,
+        vd: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, HCO>,
     {
         self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap);
         self.set_hash_target(vdt.circuit_digest, vd.circuit_digest);
@@ -224,10 +240,14 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
         }
     }
 
-    fn get_merkle_cap_target<H: Hasher<F>>(&self, cap_target: MerkleCapTarget) -> MerkleCap<F, H>
+    fn get_merkle_cap_target<HC, H: Hasher<F, HC>>(
+        &self,
+        cap_target: MerkleCapTarget,
+    ) -> MerkleCap<F, HC, H>
     where
         F: RichField,
-        H: AlgebraicHasher<F>,
+        HC: HashConfig,
+        H: AlgebraicHasher<F, HC>,
     {
         let cap = cap_target
             .0

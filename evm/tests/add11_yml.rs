@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -8,7 +10,7 @@ use ethereum_types::Address;
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{PoseidonGoldilocksConfig, PoseidonHashConfig};
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
@@ -22,6 +24,8 @@ use plonky2_evm::Node;
 type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
+type HCO = PoseidonHashConfig;
+type HCI = HCO;
 
 /// The `add11_yml` test case from https://github.com/ethereum/tests
 #[test]
@@ -96,7 +100,7 @@ fn add11_yml() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    let proof = prove::<F, HCO, HCI, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
     let beneficiary_account_after = AccountRlp {

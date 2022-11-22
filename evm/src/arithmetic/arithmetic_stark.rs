@@ -171,7 +171,7 @@ mod tests {
     use anyhow::Result;
     use ethereum_types::U256;
     use plonky2::field::types::{Field, PrimeField64};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
@@ -183,7 +183,9 @@ mod tests {
     fn degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = ArithmeticStark<F, D>;
 
         let stark = S {
@@ -196,20 +198,24 @@ mod tests {
     fn circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = ArithmeticStark<F, D>;
 
         let stark = S {
             f: Default::default(),
         };
-        test_stark_circuit_constraints::<F, C, S, D>(stark)
+        test_stark_circuit_constraints::<F, HCO, HCI, C, S, D>(stark)
     }
 
     #[test]
     fn basic_trace() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = ArithmeticStark<F, D>;
 
         let stark = S {
@@ -295,7 +301,9 @@ mod tests {
     fn big_traces() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         type S = ArithmeticStark<F, D>;
 
         let stark = S {

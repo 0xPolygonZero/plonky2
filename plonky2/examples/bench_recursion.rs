@@ -3,6 +3,9 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
+#![feature(generic_const_exprs)]
+#![allow(clippy::upper_case_acronyms)]
+
 use core::num::ParseIntError;
 use core::ops::RangeInclusive;
 use core::str::FromStr;
@@ -11,10 +14,13 @@ use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::config::{
+    AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig,
+};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
@@ -25,9 +31,9 @@ use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
 
-type ProofTuple<F, C, const D: usize> = (
-    ProofWithPublicInputs<F, C, D>,
-    VerifierOnlyCircuitData<C, D>,
+type ProofTuple<F, HCO, HCI, C, const D: usize> = (
+    ProofWithPublicInputs<F, HCO, HCI, C, D>,
+    VerifierOnlyCircuitData<HCO, HCI, C, D>,
     CommonCircuitData<F, D>,
 );
 
@@ -59,10 +65,20 @@ struct Options {
 }
 
 /// Creates a dummy proof which should have `2 ** log2_size` rows.
-fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+fn dummy_proof<
+    F: RichField + Extendable<D>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>> {
+) -> Result<ProofTuple<F, HCO, HCI, C, D>>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
+{
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -77,11 +93,11 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     }
     builder.print_gate_counts(0);
 
-    let data = builder.build::<C>();
+    let data = builder.build::<HCO, HCI, C>();
     let inputs = PartialWitness::new();
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
+    let proof = prove::<F, HCO, HCI, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
     timing.print();
     data.verify(proof.clone())?;
 
@@ -90,16 +106,24 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
 
 fn recursive_proof<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    InnerC: GenericConfig<D, F = F>,
+    HCOO: HashConfig,
+    HCOI: HashConfig,
+    HCIO: HashConfig,
+    HCII: HashConfig,
+    C: GenericConfig<HCOO, HCOI, D, F = F>,
+    InnerC: GenericConfig<HCIO, HCII, D, F = F>,
     const D: usize,
 >(
-    inner: &ProofTuple<F, InnerC, D>,
+    inner: &ProofTuple<F, HCIO, HCII, InnerC, D>,
     config: &CircuitConfig,
     min_degree_bits: Option<usize>,
-) -> Result<ProofTuple<F, C, D>>
+) -> Result<ProofTuple<F, HCOO, HCOI, C, D>>
 where
-    InnerC::Hasher: AlgebraicHasher<F>,
+    InnerC::Hasher: AlgebraicHasher<F, HCIO>,
+    [(); HCOO::WIDTH]:,
+    [(); HCOI::WIDTH]:,
+    [(); HCIO::WIDTH]:,
+    [(); HCII::WIDTH]:,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -107,7 +131,7 @@ where
 
     let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
 
-    builder.verify_proof::<InnerC>(&pt, &inner_data, inner_cd);
+    builder.verify_proof::<HCIO, HCII, InnerC>(&pt, &inner_data, inner_cd);
     builder.print_gate_counts(0);
 
     if let Some(min_degree_bits) = min_degree_bits {
@@ -121,14 +145,14 @@ where
         }
     }
 
-    let data = builder.build::<C>();
+    let data = builder.build::<HCOO, HCOI, C>();
 
     let mut pw = PartialWitness::new();
     pw.set_proof_with_pis_target(&pt, inner_proof);
     pw.set_verifier_data_target(&inner_data, inner_vd);
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove::<F, HCOO, HCOI, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
     timing.print();
 
     data.verify(proof.clone())?;
@@ -137,11 +161,21 @@ where
 }
 
 /// Test serialization and print some size info.
-fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    proof: &ProofWithPublicInputs<F, C, D>,
-    vd: &VerifierOnlyCircuitData<C, D>,
+fn test_serialization<
+    F: RichField + Extendable<D>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
+    const D: usize,
+>(
+    proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
+    vd: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
     cd: &CommonCircuitData<F, D>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
+{
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
     let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
@@ -170,10 +204,12 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+    type HCO = PoseidonHashConfig;
+    type HCI = HCO;
+    type F = <C as GenericConfig<HCO, HCI, D>>::F;
 
     // Start with a dummy proof of specified size
-    let inner = dummy_proof::<F, C, D>(config, log2_inner_size)?;
+    let inner = dummy_proof::<F, HCO, HCI, C, D>(config, log2_inner_size)?;
     let (_, _, cd) = &inner;
     info!(
         "Initial proof degree {} = 2^{}",
@@ -182,7 +218,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     );
 
     // Recursively verify the proof
-    let middle = recursive_proof::<F, C, C, D>(&inner, config, None)?;
+    let middle = recursive_proof::<F, HCO, HCI, HCO, HCI, C, C, D>(&inner, config, None)?;
     let (_, _, cd) = &middle;
     info!(
         "Single recursion proof degree {} = 2^{}",
@@ -191,7 +227,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     );
 
     // Add a second layer of recursion to shrink the proof size further
-    let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
+    let outer = recursive_proof::<F, HCO, HCI, HCO, HCI, C, C, D>(&middle, config, None)?;
     let (proof, vd, cd) = &outer;
     info!(
         "Double recursion proof degree {} = 2^{}",

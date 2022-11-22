@@ -606,7 +606,7 @@ mod tests {
     use crate::field::types::{Field, Sample};
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
 
     #[test]
     fn test_degree_and_wires_minimized() {
@@ -747,9 +747,13 @@ mod tests {
     fn eval_fns() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         for degree in 2..=4 {
-            test_eval_fns::<F, C, _, D>(CosetInterpolationGate::with_max_degree(2, degree))?;
+            test_eval_fns::<F, HCO, HCI, C, _, D>(CosetInterpolationGate::with_max_degree(
+                2, degree,
+            ))?;
         }
         Ok(())
     }
@@ -758,8 +762,10 @@ mod tests {
     fn test_gate_constraint() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(shift: F, values: PolynomialValues<FF>, eval_point: FF) -> Vec<FF> {

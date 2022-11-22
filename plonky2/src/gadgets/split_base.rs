@@ -113,14 +113,16 @@ mod tests {
     use super::*;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_split_base() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -137,7 +139,7 @@ mod tests {
         builder.connect(limbs[3], one);
 
         builder.assert_leading_zeros(xt, 64 - 9);
-        let data = builder.build::<C>();
+        let data = builder.build::<HCO, HCI, C>();
 
         let proof = data.prove(pw)?;
 
@@ -148,7 +150,9 @@ mod tests {
     fn test_base_sum() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type HCO = PoseidonHashConfig;
+        type HCI = HCO;
+        type F = <C as GenericConfig<HCO, HCI, D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -172,7 +176,7 @@ mod tests {
 
         builder.connect(x, y);
 
-        let data = builder.build::<C>();
+        let data = builder.build::<HCO, HCI, C>();
 
         let proof = data.prove(pw)?;
 

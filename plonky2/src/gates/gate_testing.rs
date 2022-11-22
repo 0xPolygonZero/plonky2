@@ -8,6 +8,7 @@ use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::iop::witness::{PartialWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
@@ -88,12 +89,18 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
 
 pub fn test_eval_fns<
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    HCO: HashConfig,
+    HCI: HashConfig,
+    C: GenericConfig<HCO, HCI, D, F = F>,
     G: Gate<F, D>,
     const D: usize,
 >(
     gate: G,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); HCO::WIDTH]:,
+    [(); HCI::WIDTH]:,
+{
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
     let wires_base = F::rand_vec(gate.num_wires());
     let constants_base = F::rand_vec(gate.num_constants());
@@ -157,7 +164,7 @@ pub fn test_eval_fns<
     let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
     pw.set_extension_targets(&evals_t, &evals);
 
-    let data = builder.build::<C>();
+    let data = builder.build::<HCO, HCI, C>();
     let proof = data.prove(pw)?;
-    verify(proof, &data.verifier_only, &data.common)
+    verify::<F, HCO, HCI, C, D>(proof, &data.verifier_only, &data.common)
 }
