@@ -35,7 +35,7 @@ pub struct CyclicRecursionTarget<const D: usize> {
     pub verifier_data: VerifierCircuitTarget,
     pub dummy_proof: ProofWithPublicInputsTarget<D>,
     pub dummy_verifier_data: VerifierCircuitTarget,
-    pub base_case: BoolTarget,
+    pub condition: BoolTarget,
 }
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
@@ -91,12 +91,22 @@ impl VerifierCircuitTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Cyclic recursion gadget.
+    /// If `condition` is true, recursively verify a proof for the same circuit as the one we're
+    /// currently building.
+    ///
+    /// For a typical IVC use case, `condition` will be false for the very first proof in a chain,
+    /// i.e. the base case.
+    ///
+    /// Note that this does not enforce that the inner circuit uses the correct verification key.
+    /// This is not possible to check in this recursive circuit, since we do not know the
+    /// verification key until after we build it. Verifiers must separately call
+    /// `check_cyclic_proof_verifier_data`, in addition to verifying a recursive proof, to check
+    /// that the verification key matches.
+    ///
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn cyclic_recursion<C: GenericConfig<D, F = F>>(
         &mut self,
-        // Flag set to true for the base case of the cycle where we verify a dummy proof to bootstrap the cycle. Set to false otherwise.
-        base_case: BoolTarget,
+        condition: BoolTarget,
         previous_virtual_public_inputs: &[Target],
         common_data: &mut CommonCircuitData<F, D>,
     ) -> Result<CyclicRecursionTarget<D>>
@@ -137,13 +147,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(*x, *y);
         }
 
-        // Verify the dummy proof if `base_case` is set to true, otherwise verify the "real" proof.
+        // Verify the real proof if `condition` is set to true, otherwise verify the dummy proof.
         self.conditionally_verify_proof::<C>(
-            base_case,
-            &dummy_proof,
-            &dummy_verifier_data,
+            condition,
             &proof,
             &verifier_data,
+            &dummy_proof,
+            &dummy_verifier_data,
             common_data,
         );
 
@@ -161,7 +171,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             verifier_data: verifier_data.clone(),
             dummy_proof,
             dummy_verifier_data,
-            base_case,
+            condition,
         })
     }
 }
@@ -182,7 +192,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     if let Some(proof) = cyclic_recursion_data.proof {
-        pw.set_bool_target(cyclic_recursion_data_target.base_case, false);
+        pw.set_bool_target(cyclic_recursion_data_target.condition, true);
         pw.set_proof_with_pis_target(&cyclic_recursion_data_target.proof, proof);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.verifier_data,
@@ -195,7 +205,7 @@ where
         );
     } else {
         let (dummy_proof, dummy_data) = dummy_proof::<F, C, D>(cyclic_recursion_data.common_data)?;
-        pw.set_bool_target(cyclic_recursion_data_target.base_case, true);
+        pw.set_bool_target(cyclic_recursion_data_target.condition, false);
         let mut proof = dummy_proof.clone();
         proof.public_inputs[0..public_inputs.len()].copy_from_slice(public_inputs);
         let pis_len = proof.public_inputs.len();
@@ -231,8 +241,7 @@ where
 }
 
 /// Additional checks to be performed on a cyclic recursive proof in addition to verifying the proof.
-/// Checks that the `base_case` flag is boolean and that the purported verifier data in the public inputs
-/// match the real verifier data.
+/// Checks that the purported verifier data in the public inputs match the real verifier data.
 pub fn check_cyclic_proof_verifier_data<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
