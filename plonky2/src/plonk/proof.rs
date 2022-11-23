@@ -40,7 +40,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
@@ -283,7 +283,7 @@ pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usi
     pub Vec<F::Extension>,
 );
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
