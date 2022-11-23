@@ -337,7 +337,6 @@ mod tests {
         builder.register_public_inputs(&h.elements);
         // Previous counter.
         let old_counter = builder.add_virtual_target();
-        let one = builder.one();
         let new_counter = builder.add_virtual_public_input();
         let old_pis = [
             initial_hash.elements.as_slice(),
@@ -348,16 +347,15 @@ mod tests {
 
         let mut common_data = common_data_for_recursion::<F, C, D>();
 
-        let base_case = builder.add_virtual_bool_target_safe();
+        let condition = builder.add_virtual_bool_target_safe();
         // Add cyclic recursion gadget.
         let cyclic_data_target =
-            builder.cyclic_recursion::<C>(base_case, &old_pis, &mut common_data)?;
+            builder.cyclic_recursion::<C>(condition, &old_pis, &mut common_data)?;
         let input_hash_bis =
-            builder.select_hash(cyclic_data_target.base_case, initial_hash, old_hash);
+            builder.select_hash(cyclic_data_target.condition, old_hash, initial_hash);
         builder.connect_hashes(input_hash, input_hash_bis);
-        let not_base_case = builder.sub(one, cyclic_data_target.base_case.target);
         // New counter is the previous counter +1 if the previous proof wasn't a base case.
-        let new_counter_bis = builder.add(old_counter, not_base_case);
+        let new_counter_bis = builder.add(old_counter, condition.target);
         builder.connect(new_counter, new_counter_bis);
 
         let cyclic_circuit_data = builder.build::<C>();
