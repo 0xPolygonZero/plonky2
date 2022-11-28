@@ -30,6 +30,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/curve/bn254/field_arithmetic/field_macros.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/fp6_mul.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/fp12_mul.asm"),
+        include_str!("asm/curve/bn254/field_arithmetic/frobenius.asm"),
         include_str!("asm/curve/common.asm"),
         include_str!("asm/curve/secp256k1/curve_mul.asm"),
         include_str!("asm/curve/secp256k1/curve_add.asm"),
