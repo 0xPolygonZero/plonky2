@@ -1,87 +1,233 @@
-fn to_byte_checked(n: U256) -> u8 {
-    let res = n.byte(0);
-    assert_eq!(n, res.into());
-    res
-}
+use plonky2::field::types::Field;
 
-fn to_bits<F: Field>(n: u8) -> [F; 8] {
-    let mut res = [F::ZERO; 8];
-    for (i, bit) in res.iter_mut().enumerate() {
-        *bit = F::from_bool(n & (1 << i) != 0);
-    }
-    res
-}
+use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
+use crate::memory::segments::Segment;
+use crate::witness::errors::ProgramError;
+use crate::witness::memory::MemoryState;
+use crate::witness::operation::{
+    generate_binary_logic_op, generate_dup, generate_eq, generate_exit_kernel, generate_iszero,
+    generate_not, generate_swap, generate_syscall, BinaryLogicOp, Operation,
+};
+use crate::witness::state::RegistersState;
+use crate::witness::traces::Traces;
+use crate::witness::util::mem_read_code_with_log_and_fill;
 
-fn decode(state: &State, row: &mut CpuRow) -> (Operation, MemoryLog) {
-    let code_context = if state.is_kernel {
+const KERNEL_CONTEXT: u32 = 0;
+
+fn read_code_memory<F: Field>(
+    registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    row: &mut CpuColumnsView<F>,
+) -> u8 {
+    let code_context = if registers_state.is_kernel {
         KERNEL_CONTEXT
     } else {
-        state.context
+        registers_state.context
     };
     row.code_context = F::from_canonical_u32(code_context);
 
-    let address = (context, Segment::Code as u32, state.program_counter);
-    let mem_contents, mem_log = state.mem_read_with_log(address);
-    let opcode = to_byte_checked(mem_contents);
-    row.opcode_bits = to_bits(address);
+    let address = (
+        code_context,
+        Segment::Code as u32,
+        registers_state.program_counter,
+    );
+    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, memory_state, traces, row);
 
-    let operation = match opcode {
-        0x01 => Operation::NotImplemented,
-        0x02 => Operation::NotImplemented,
-        0x03 => Operation::NotImplemented,
-        0x04 => Operation::NotImplemented,
-        0x06 => Operation::NotImplemented,
-        0x08 => Operation::NotImplemented,
-        0x09 => Operation::NotImplemented,
-        0x0c => Operation::NotImplemented,
-        0x0d => Operation::NotImplemented,
-        0x0e => Operation::NotImplemented,
-        0x10 => Operation::NotImplemented,
-        0x11 => Operation::NotImplemented,
-        0x14 => Operation::Eq,
-        0x15 => Operation::Iszero,
-        0x16 => Operation::BinaryLogic(BinaryLogicOp::And),
-        0x17 => Operation::BinaryLogic(BinaryLogicOp::Or),
-        0x18 => Operation::BinaryLogic(BinaryLogicOp::Xor),
-        0x19 => Operation::Not,
-        0x1a => Operation::Byte,
-        0x1b => Operation::NotImplemented,
-        0x1c => Operation::NotImplemented,
-        0x21 => Operation::NotImplemented,
-        0x49 => Operation::NotImplemented,
-        0x50 => Operation::NotImplemented,
-        0x56 => Operation::Jump,
-        0x57 => Operation::Jumpi,
-        0x58 => Operation::NotImplemented,
-        0x5a => Operation::NotImplemented,
-        0x5b => Operation::NotImplemented,
-        0x5c => Operation::NotImplemented,
-        0x5d => Operation::NotImplemented,
-        0x5e => Operation::NotImplemented,
-        0x5f => Operation::NotImplemented,
-        0x60..0x7f => Operation::NotImplemented,
-        0x80..0x8f => Operation::Dup(opcode & 0xf),
-        0x90..0x9f => Operation::Swap(opcode & 0xf),
-        0xf6 => Operation::NotImplemented,
-        0xf7 => Operation::NotImplemented,
-        0xf8 => Operation::NotImplemented,
-        0xf9 => Operation::ExitKernel,
-        0xfb => Operation::NotImplemented,
-        0xfc => Operation::NotImplemented,
-        _ => Operation::Syscall,
+    traces.push_memory(mem_log);
+
+    opcode
+}
+
+fn decode(registers_state: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+    match (opcode, registers_state.is_kernel) {
+        (0x00, _) => Ok(Operation::Syscall(opcode)),
+        (0x01, _) => Ok(Operation::NotImplemented),
+        (0x02, _) => Ok(Operation::NotImplemented),
+        (0x03, _) => Ok(Operation::NotImplemented),
+        (0x04, _) => Ok(Operation::NotImplemented),
+        (0x05, _) => Ok(Operation::Syscall(opcode)),
+        (0x06, _) => Ok(Operation::NotImplemented),
+        (0x07, _) => Ok(Operation::Syscall(opcode)),
+        (0x08, _) => Ok(Operation::NotImplemented),
+        (0x09, _) => Ok(Operation::NotImplemented),
+        (0x0a, _) => Ok(Operation::Syscall(opcode)),
+        (0x0b, _) => Ok(Operation::Syscall(opcode)),
+        (0x0c, true) => Ok(Operation::NotImplemented),
+        (0x0d, true) => Ok(Operation::NotImplemented),
+        (0x0e, true) => Ok(Operation::NotImplemented),
+        (0x10, _) => Ok(Operation::NotImplemented),
+        (0x11, _) => Ok(Operation::NotImplemented),
+        (0x12, _) => Ok(Operation::Syscall(opcode)),
+        (0x13, _) => Ok(Operation::Syscall(opcode)),
+        (0x14, _) => Ok(Operation::Eq),
+        (0x15, _) => Ok(Operation::Iszero),
+        (0x16, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::And)),
+        (0x17, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::Or)),
+        (0x18, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::Xor)),
+        (0x19, _) => Ok(Operation::Not),
+        (0x1a, _) => Ok(Operation::NotImplemented),
+        (0x1b, _) => Ok(Operation::NotImplemented),
+        (0x1c, _) => Ok(Operation::NotImplemented),
+        (0x1d, _) => Ok(Operation::Syscall(opcode)),
+        (0x20, _) => Ok(Operation::Syscall(opcode)),
+        (0x21, _) => Ok(Operation::NotImplemented),
+        (0x30, _) => Ok(Operation::Syscall(opcode)),
+        (0x31, _) => Ok(Operation::Syscall(opcode)),
+        (0x32, _) => Ok(Operation::Syscall(opcode)),
+        (0x33, _) => Ok(Operation::Syscall(opcode)),
+        (0x34, _) => Ok(Operation::Syscall(opcode)),
+        (0x35, _) => Ok(Operation::Syscall(opcode)),
+        (0x36, _) => Ok(Operation::Syscall(opcode)),
+        (0x37, _) => Ok(Operation::Syscall(opcode)),
+        (0x38, _) => Ok(Operation::Syscall(opcode)),
+        (0x39, _) => Ok(Operation::Syscall(opcode)),
+        (0x3a, _) => Ok(Operation::Syscall(opcode)),
+        (0x3b, _) => Ok(Operation::Syscall(opcode)),
+        (0x3c, _) => Ok(Operation::Syscall(opcode)),
+        (0x3d, _) => Ok(Operation::Syscall(opcode)),
+        (0x3e, _) => Ok(Operation::Syscall(opcode)),
+        (0x3f, _) => Ok(Operation::Syscall(opcode)),
+        (0x40, _) => Ok(Operation::Syscall(opcode)),
+        (0x41, _) => Ok(Operation::Syscall(opcode)),
+        (0x42, _) => Ok(Operation::Syscall(opcode)),
+        (0x43, _) => Ok(Operation::Syscall(opcode)),
+        (0x44, _) => Ok(Operation::Syscall(opcode)),
+        (0x45, _) => Ok(Operation::Syscall(opcode)),
+        (0x46, _) => Ok(Operation::Syscall(opcode)),
+        (0x47, _) => Ok(Operation::Syscall(opcode)),
+        (0x48, _) => Ok(Operation::Syscall(opcode)),
+        (0x49, _) => Ok(Operation::NotImplemented),
+        (0x50, _) => Ok(Operation::NotImplemented),
+        (0x51, _) => Ok(Operation::Syscall(opcode)),
+        (0x52, _) => Ok(Operation::Syscall(opcode)),
+        (0x53, _) => Ok(Operation::Syscall(opcode)),
+        (0x54, _) => Ok(Operation::Syscall(opcode)),
+        (0x55, _) => Ok(Operation::Syscall(opcode)),
+        (0x56, _) => Ok(Operation::NotImplemented),
+        (0x57, _) => Ok(Operation::NotImplemented),
+        (0x58, _) => Ok(Operation::NotImplemented),
+        (0x59, _) => Ok(Operation::Syscall(opcode)),
+        (0x5a, _) => Ok(Operation::NotImplemented),
+        (0x5b, _) => Ok(Operation::NotImplemented),
+        (0x5c, true) => Ok(Operation::NotImplemented),
+        (0x5d, true) => Ok(Operation::NotImplemented),
+        (0x5e, true) => Ok(Operation::NotImplemented),
+        (0x5f, true) => Ok(Operation::NotImplemented),
+        (0x60..=0x7f, _) => Ok(Operation::NotImplemented),
+        (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
+        (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
+        (0xa0, _) => Ok(Operation::Syscall(opcode)),
+        (0xa1, _) => Ok(Operation::Syscall(opcode)),
+        (0xa2, _) => Ok(Operation::Syscall(opcode)),
+        (0xa3, _) => Ok(Operation::Syscall(opcode)),
+        (0xa4, _) => Ok(Operation::Syscall(opcode)),
+        (0xf0, _) => Ok(Operation::Syscall(opcode)),
+        (0xf1, _) => Ok(Operation::Syscall(opcode)),
+        (0xf2, _) => Ok(Operation::Syscall(opcode)),
+        (0xf3, _) => Ok(Operation::Syscall(opcode)),
+        (0xf4, _) => Ok(Operation::Syscall(opcode)),
+        (0xf5, _) => Ok(Operation::Syscall(opcode)),
+        (0xf6, true) => Ok(Operation::NotImplemented),
+        (0xf7, true) => Ok(Operation::NotImplemented),
+        (0xf8, true) => Ok(Operation::NotImplemented),
+        (0xf9, true) => Ok(Operation::ExitKernel),
+        (0xfa, _) => Ok(Operation::Syscall(opcode)),
+        (0xfb, true) => Ok(Operation::NotImplemented),
+        (0xfc, true) => Ok(Operation::NotImplemented),
+        (0xfd, _) => Ok(Operation::Syscall(opcode)),
+        (0xff, _) => Ok(Operation::Syscall(opcode)),
+        _ => Err(ProgramError::InvalidOpcode),
     }
 }
 
-fn op_result() {
-    match op {
-
-    }
+fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
+    let flags = &mut row.op;
+    *match op {
+        Operation::Dup(_) => &mut flags.dup,
+        Operation::Swap(_) => &mut flags.swap,
+        Operation::Iszero => &mut flags.iszero,
+        Operation::Not => &mut flags.not,
+        Operation::Syscall(_) => &mut flags.syscall,
+        Operation::Eq => &mut flags.eq,
+        Operation::ExitKernel => &mut flags.exit_kernel,
+        Operation::BinaryLogic(BinaryLogicOp::And) => &mut flags.and,
+        Operation::BinaryLogic(BinaryLogicOp::Or) => &mut flags.or,
+        Operation::BinaryLogic(BinaryLogicOp::Xor) => &mut flags.xor,
+        Operation::NotImplemented => panic!("operation not implemented"),
+    } = F::ONE;
 }
 
-pub fn transition<F: Field>(state: State) -> (State, Traces<T>) {
-    let mut current_row: CpuColumnsView<F> = [F::ZERO; NUM_CPU_COLUMNS].into();
+fn perform_op<F: Field>(
+    op: Operation,
+    registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let mut new_registers_state = match op {
+        Operation::Dup(n) => generate_dup(n, registers_state, memory_state, traces, row)?,
+        Operation::Swap(n) => generate_swap(n, registers_state, memory_state, traces, row)?,
+        Operation::Iszero => generate_iszero(registers_state, memory_state, traces, row)?,
+        Operation::Not => generate_not(registers_state, memory_state, traces, row)?,
+        Operation::Syscall(opcode) => {
+            generate_syscall(opcode, registers_state, memory_state, traces, row)?
+        }
+        Operation::Eq => generate_eq(registers_state, memory_state, traces, row)?,
+        Operation::ExitKernel => generate_exit_kernel(registers_state, memory_state, traces, row)?,
+        Operation::BinaryLogic(binary_logic_op) => {
+            generate_binary_logic_op(binary_logic_op, registers_state, memory_state, traces, row)?
+        }
+        Operation::NotImplemented => panic!("operation not implemented"),
+    };
 
-    current_row.is_cpu_cycle = F::ONE;
-    
-    let (op, code_mem_log) = decode(&state, &mut current_row);
+    new_registers_state.program_counter += match op {
+        Operation::Syscall(_) | Operation::ExitKernel => 0,
+        _ => 1,
+    };
+
+    Ok(new_registers_state)
+}
+
+fn try_perform_instruction<F: Field>(
+    registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+) -> Result<RegistersState, ProgramError> {
+    let mut row: CpuColumnsView<F> = [F::ZERO; NUM_CPU_COLUMNS].into();
+    row.is_cpu_cycle = F::ONE;
+
+    let opcode = read_code_memory(registers_state, memory_state, traces, &mut row);
+    let op = decode(registers_state, opcode)?;
+    fill_op_flag(op, &mut row);
+
+    perform_op(op, registers_state, memory_state, traces, row)
+}
+
+fn handle_error<F: Field>(
+    _registers_state: RegistersState,
+    _memory_state: &MemoryState,
+    _traces: &mut Traces<F>,
+) -> RegistersState {
+    todo!("constraints for exception handling are not implemented");
+}
+
+pub fn transition<F: Field>(
+    registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+) -> RegistersState {
+    let checkpoint = traces.checkpoint();
+    let result = try_perform_instruction(registers_state, memory_state, traces);
+
+    match result {
+        Ok(new_registers_state) => new_registers_state,
+        Err(_) => {
+            traces.rollback(checkpoint);
+            if registers_state.is_kernel {
+                panic!("exception in kernel mode");
+            }
+            handle_error(registers_state, memory_state, traces)
+        }
+    }
 }

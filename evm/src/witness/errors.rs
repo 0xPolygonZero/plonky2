@@ -1,4 +1,5 @@
-enum ProgramError {
+#[allow(dead_code)]
+pub enum ProgramError {
     OutOfGas,
     InvalidOpcode,
     StackUnderflow,

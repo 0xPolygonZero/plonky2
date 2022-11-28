@@ -6,6 +6,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 
 const LIMB_SIZE: usize = 32;
 const ALL_1_LIMB: u64 = (1 << LIMB_SIZE) - 1;

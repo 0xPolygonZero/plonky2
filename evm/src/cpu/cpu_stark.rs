@@ -126,7 +126,6 @@ impl<F: RichField, const D: usize> CpuStark<F, D> {
         let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
         decode::generate(local_values);
         membus::generate(local_values);
-        simple_logic::generate(local_values);
         stack_bounds::generate(local_values); // Must come after `decode`.
     }
 }

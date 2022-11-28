@@ -4,6 +4,7 @@ use std::mem::{size_of, transmute};
 
 /// General purpose columns, which can have different meanings depending on what CTL or other
 /// operation is occurring at this row.
+#[derive(Clone, Copy)]
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
     keccak: CpuKeccakView<T>,
     arithmetic: CpuArithmeticView<T>,
