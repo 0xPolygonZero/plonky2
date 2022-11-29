@@ -25,10 +25,7 @@ where
 {
     let mut pw = PartialWitness::new();
     for i in 0..circuit.common.num_public_inputs {
-        let pi = nonzero_public_inputs
-            .iter()
-            .find_map(|(j, pi)| (i == *j).then_some(*pi))
-            .unwrap_or_default();
+        let pi = nonzero_public_inputs.get(&i).copied().unwrap_or_default();
         pw.set_target(circuit.prover_only.public_inputs[i], pi);
     }
     circuit.prove(pw)
