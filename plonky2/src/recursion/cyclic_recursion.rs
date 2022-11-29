@@ -298,7 +298,7 @@ mod tests {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
         };
-        builder.verify_proof::<C>(proof, &verifier_data, &data.common);
+        builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
         let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
@@ -308,7 +308,7 @@ mod tests {
             constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
             circuit_digest: builder.add_virtual_hash(),
         };
-        builder.verify_proof::<C>(proof, &verifier_data, &data.common);
+        builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
         while builder.num_gates() < 1 << 12 {
             builder.add_gate(NoopGate, vec![]);
         }

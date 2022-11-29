@@ -143,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ),
         };
 
-        self.verify_proof::<C>(selected_proof, &selected_verifier_data, inner_common_data);
+        self.verify_proof::<C>(&selected_proof, &selected_verifier_data, inner_common_data);
     }
 
     /// Conditionally verify a proof with a new generated dummy proof.

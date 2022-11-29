@@ -105,17 +105,14 @@ where
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-    let mut pw = PartialWitness::new();
     let pt = builder.add_virtual_proof_with_pis::<InnerC>(inner_cd);
-    pw.set_proof_with_pis_target(&pt, inner_proof);
 
     let inner_data = VerifierCircuitTarget {
         constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
         circuit_digest: builder.add_virtual_hash(),
     };
-    pw.set_verifier_data_target(&inner_data, inner_vd);
 
-    builder.verify_proof::<InnerC>(pt, &inner_data, inner_cd);
+    builder.verify_proof::<InnerC>(&pt, &inner_data, inner_cd);
     builder.print_gate_counts(0);
 
     if let Some(min_degree_bits) = min_degree_bits {
@@ -130,6 +127,10 @@ where
     }
 
     let data = builder.build::<C>();
+
+    let mut pw = PartialWitness::new();
+    pw.set_proof_with_pis_target(&pt, inner_proof);
+    pw.set_verifier_data_target(&inner_data, inner_vd);
 
     let mut timing = TimingTree::new("prove", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
