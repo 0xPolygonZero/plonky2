@@ -1,5 +1,6 @@
 use alloc::vec;
 
+use hashbrown::HashMap;
 use plonky2_field::extension::Extendable;
 use plonky2_util::ceil_div_usize;
 
@@ -16,7 +17,7 @@ use crate::plonk::proof::ProofWithPublicInputs;
 /// The rest will default to zero.
 pub(crate) fn dummy_proof<F, C, const D: usize>(
     circuit: &CircuitData<F, C, D>,
-    nonzero_public_inputs: &[(usize, F)],
+    nonzero_public_inputs: HashMap<usize, F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,

@@ -3,6 +3,7 @@
 use alloc::vec;
 
 use anyhow::{ensure, Result};
+use hashbrown::HashMap;
 use itertools::Itertools;
 
 use crate::field::extension::Extendable;
@@ -188,7 +189,7 @@ pub fn set_cyclic_recursion_data_target<
     cyclic_recursion_data_target: &CyclicRecursionTarget<F, C, D>,
     cyclic_recursion_data: &CyclicRecursionData<F, C, D>,
     // Public inputs to set in the base case to seed some initial data.
-    public_inputs: &[(usize, F)],
+    mut public_inputs: HashMap<usize, F>,
 ) -> Result<()>
 where
     C::Hasher: AlgebraicHasher<F>,
@@ -221,7 +222,6 @@ where
 
         // The circuit checks that the verifier data is the same throughout the cycle, so
         // we set the verifier data to the "real" verifier data even though it's unused in the base case.
-        let mut public_inputs = public_inputs.to_vec();
         let verifier_data = &cyclic_recursion_data.verifier_data;
         public_inputs.extend((start_vk_pis..).zip(verifier_data.circuit_digest.elements));
 
@@ -230,14 +230,14 @@ where
             public_inputs.extend((start..).zip(verifier_data.constants_sigmas_cap.0[i].elements));
         }
 
-        let proof = dummy_proof(&cyclic_recursion_data_target.dummy_circuit, &public_inputs)?;
+        let proof = dummy_proof(&cyclic_recursion_data_target.dummy_circuit, public_inputs)?;
         pw.set_proof_with_pis_target(&cyclic_recursion_data_target.proof, &proof);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.verifier_data,
             cyclic_recursion_data.verifier_data,
         );
 
-        let dummy_p = dummy_proof(&cyclic_recursion_data_target.dummy_circuit, &[])?;
+        let dummy_p = dummy_proof(&cyclic_recursion_data_target.dummy_circuit, HashMap::new())?;
         pw.set_proof_with_pis_target(&cyclic_recursion_data_target.dummy_proof, &dummy_p);
         pw.set_verifier_data_target(
             &cyclic_recursion_data_target.dummy_verifier_data,
