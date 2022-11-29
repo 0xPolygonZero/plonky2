@@ -17,7 +17,6 @@ type C = PoseidonGoldilocksConfig;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
-#[ignore] // TODO: Won't work until witness generation logic is finished.
 fn test_empty_txn_list() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
@@ -31,6 +30,8 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         },
         value: vec![1, 2, 3],
     };
+    // TODO: Above trie isn't working yet.
+    let state_trie = PartialTrie::Empty;
     let transactions_trie = PartialTrie::Empty;
     let receipts_trie = PartialTrie::Empty;
     let storage_tries = vec![];
