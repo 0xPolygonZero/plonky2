@@ -272,6 +272,7 @@ where
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use hashbrown::HashMap;
     use itertools::Itertools;
 
     use crate::field::extension::Extendable;
@@ -387,12 +388,12 @@ mod tests {
             common_data: &cyclic_circuit_data.common,
         };
         let initial_hash = [F::ZERO, F::ONE, F::TWO, F::from_canonical_usize(3)];
-        let initial_hash_pis = initial_hash.into_iter().enumerate().collect_vec();
+        let initial_hash_pis = initial_hash.into_iter().enumerate().collect();
         set_cyclic_recursion_data_target(
             &mut pw,
             &cyclic_data_target,
             &cyclic_recursion_data,
-            &initial_hash_pis,
+            initial_hash_pis,
         )?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
@@ -413,7 +414,7 @@ mod tests {
             &mut pw,
             &cyclic_data_target,
             &cyclic_recursion_data,
-            &[],
+            HashMap::new(),
         )?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
@@ -434,7 +435,7 @@ mod tests {
             &mut pw,
             &cyclic_data_target,
             &cyclic_recursion_data,
-            &[],
+            HashMap::new(),
         )?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
