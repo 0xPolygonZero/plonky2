@@ -177,6 +177,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// Set the targets in a `CyclicRecursionTarget` to their corresponding values in a `CyclicRecursionData`.
+/// The `public_inputs` parameter let the caller specify certain public inputs (identified by their
+/// indices) which should be given specific values. The rest will default to zero.
 pub fn set_cyclic_recursion_data_target<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

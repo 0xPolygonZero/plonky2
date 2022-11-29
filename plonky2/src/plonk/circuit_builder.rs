@@ -248,9 +248,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn add_verifier_data_public_inputs(&mut self) {
-        if self.verifier_data_public_input.is_some() {
-            return;
-        }
+        assert!(
+            self.verifier_data_public_input.is_none(),
+            "add_verifier_data_public_inputs only needs to be called once"
+        );
 
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
