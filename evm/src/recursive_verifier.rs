@@ -231,7 +231,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .enumerate()
         {
             builder.verify_proof::<C>(
-                recursive_proof,
+                &recursive_proof,
                 &verifier_data_target,
                 &verifier_data[i].common,
             );
