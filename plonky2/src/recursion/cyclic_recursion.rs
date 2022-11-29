@@ -273,7 +273,6 @@ where
 mod tests {
     use anyhow::Result;
     use hashbrown::HashMap;
-    use itertools::Itertools;
 
     use crate::field::extension::Extendable;
     use crate::field::types::{Field, PrimeField64};

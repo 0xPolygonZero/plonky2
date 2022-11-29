@@ -317,6 +317,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use hashbrown::HashMap;
 
     use super::*;
     use crate::field::types::Sample;
@@ -350,7 +351,7 @@ mod tests {
 
         // Generate dummy proof with the same `CommonCircuitData`.
         let dummy_data = dummy_circuit(&data.common);
-        let dummy_proof = dummy_proof(&dummy_data, &[])?;
+        let dummy_proof = dummy_proof(&dummy_data, HashMap::new())?;
 
         // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
