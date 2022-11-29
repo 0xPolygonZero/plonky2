@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use anyhow::ensure;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::field::goldilocks_field::GoldilocksField;
@@ -25,6 +26,7 @@ impl<F: Field> HashOut<F> {
         elements: [F::ZERO; 4],
     };
 
+    // TODO: Switch to a TryFrom impl.
     pub fn from_vec(elements: Vec<F>) -> Self {
         debug_assert!(elements.len() == 4);
         Self {
@@ -36,6 +38,23 @@ impl<F: Field> HashOut<F> {
         let mut elements = [F::ZERO; 4];
         elements[0..elements_in.len()].copy_from_slice(elements_in);
         Self { elements }
+    }
+}
+
+impl<F: Field> From<[F; 4]> for HashOut<F> {
+    fn from(elements: [F; 4]) -> Self {
+        Self { elements }
+    }
+}
+
+impl<F: Field> TryFrom<&[F]> for HashOut<F> {
+    type Error = anyhow::Error;
+
+    fn try_from(elements: &[F]) -> Result<Self, Self::Error> {
+        ensure!(elements.len() == 4);
+        Ok(Self {
+            elements: elements.try_into().unwrap(),
+        })
     }
 }
 
@@ -97,6 +116,7 @@ pub struct HashOutTarget {
 }
 
 impl HashOutTarget {
+    // TODO: Switch to a TryFrom impl.
     pub fn from_vec(elements: Vec<Target>) -> Self {
         debug_assert!(elements.len() == 4);
         Self {
@@ -108,6 +128,23 @@ impl HashOutTarget {
         let mut elements = [zero; 4];
         elements[0..elements_in.len()].copy_from_slice(elements_in);
         Self { elements }
+    }
+}
+
+impl From<[Target; 4]> for HashOutTarget {
+    fn from(elements: [Target; 4]) -> Self {
+        Self { elements }
+    }
+}
+
+impl TryFrom<&[Target]> for HashOutTarget {
+    type Error = anyhow::Error;
+
+    fn try_from(elements: &[Target]) -> Result<Self, Self::Error> {
+        ensure!(elements.len() == 4);
+        Ok(Self {
+            elements: elements.try_into().unwrap(),
+        })
     }
 }
 
