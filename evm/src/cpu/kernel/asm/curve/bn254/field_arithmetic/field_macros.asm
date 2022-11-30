@@ -588,13 +588,103 @@
     // stack: c * f0, c * f1, c * f2, c * f3, c * f4, c * f5
 %endmacro
 
+/// cost: 
+///
+/// G0 + G1t + G2t^2 = (a+bi) * (F0 + F1t + F2t^2) 
+///                  = (a+bi)F0 + (a+bi)F1t + (a+bi)F2t^2
+///
+/// G0 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
+/// G1 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
+/// G2 = (a+bi)(f2+f2_i) = (af2 - bf2_) + (bf2 + af2_)i
+
+%macro mul_fp2_fp6
+    // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
+    DUP2
+    DUP5
+    MULFP254
+    // stack:       bf0_, a, b, f0, f0_, f1, f1_, f2, f2_
+    DUP2
+    DUP5
+    MULFP254
+    // stack:  af0, bf0_, a, b, f0, f0_, f1, f1_, f2, f2_
+    SUBFP254
+    // stack:         g0, a, b, f0, f0_, f1, f1_, f2, f2_
+    SWAP3
+    // stack:         f0, a, b, g0, f0_, f1, f1_, f2, f2_
+    DUP3
+    MULFP254
+    // stack:        bf0, a, b, g0, f0_, f1, f1_, f2, f2_
+    SWAP1
+    SWAP4
+    // stack:        f0_, bf0, b, g0, a, f1, f1_, f2, f2_
+    DUP5
+    MULFP254
+    // stack:       af0_, bf0, b, g0, a, f1, f1_, f2, f2_
+    ADDFP254
+    // stack:             g0_, b, g0, a, f1, f1_, f2, f2_
+    SWAP3
+    // stack:             a, b, g0, g0_, f1, f1_, f2, f2_
+    DUP2
+    DUP7
+    MULFP254
+    // stack:       bf1_, a, b, g0, g0_, f1, f1_, f2, f2_
+    DUP2
+    DUP7
+    MULFP254
+    // stack:  af1, bf1_, a, b, g0, g0_, f1, f1_, f2, f2_
+    SUBFP254
+    // stack:         g1, a, b, g0, g0_, f1, f1_, f2, f2_
+    SWAP5
+    // stack:         f1, a, b, g0, g0_, g1, f1_, f2, f2_
+    DUP3
+    MULFP254
+    // stack:        bf1, a, b, g0, g0_, g1, f1_, f2, f2_
+    SWAP1
+    SWAP6
+    // stack:        f1_, bf1, b, g0, g0_, g1, a, f2, f2_
+    DUP7
+    MULFP254
+    // stack:       af1_, bf1, b, g0, g0_, g1, a, f2, f2_
+    ADDFP254
+    // stack:             g1_, b, g0, g0_, g1, a, f2, f2_
+    SWAP5
+    // stack:             a, b, g0, g0_, g1, g1_, f2, f2_
+    DUP2
+    DUP9
+    MULFP254
+    // stack:       bf2_, a, b, g0, g0_, g1, g1_, f2, f2_
+    DUP2
+    DUP9
+    MULFP254
+    // stack:  af2, bf2_, a, b, g0, g0_, g1, g1_, f2, f2_
+    SUBFP254
+    // stack:         g2, a, b, g0, g0_, g1, g1_, f2, f2_
+    SWAP7
+    // stack:         f2, a, b, g0, g0_, g1, g1_, g2, f2_
+    SWAP8
+    // stack:         f2_, a, b, g0, g0_, g1, g1_, g2, f2
+    MULFP254
+    // stack:           af2_, b, g0, g0_, g1, g1_, g2, f2
+    SWAP7
+    // stack:           f2, b, g0, g0_, g1, g1_, g2, af2_
+    MULFP254
+    // stack:             bf2, g0, g0_, g1, g1_, g2, af2_
+    SWAP1
+    SWAP6
+    // stack:             af2_, bf2, g0_, g1, g1_, g2, g0
+    ADDFP254
+    // stack:                   g2_, g0_, g1, g1_, g2, g0
+    SWAP5
+    // stack:                   g0, g0_, g1, g1_, g2, g2_
+%endmacro 
+
 /// cost: 1 i9 (9) + 16 dups + 15 swaps + 12 muls + 6 adds/subs = 58
 ///
 /// G0 + G1t + G2t^2 = (a+bi)t * (F0 + F1t + F2t^2) 
 ///                  = (c+di)F2 + (a+bi)F0t + (a+bi)F1t^2
 /// where c+di = (a+bi)(9+i) = (9a-b) + (a+9b)i 
 ///
-/// G0 = (c+di)(f0+f0_i) = (cf2 - df2_) + (df2 + cf2_)i
+/// G0 = (c+di)(f2+f2_i) = (cf2 - df2_) + (df2 + cf2_)i
 /// G1 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 /// G2 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
 
@@ -688,9 +778,9 @@
 ///                  = (c+di)F1 + (c+di)F2t + (a+bi)F0t^2
 /// where c+di = (a+bi)(9+i) = (9a-b) + (a+9b)i 
 ///
-/// G0 = (c+di)(f0+f0_i) = (cf1 - df1_) + (df1 + cf1_)i
-/// G1 = (a+bi)(f0+f0_i) = (cf2 - df2_) + (df2 + cf2_)i
-/// G2 = (a+bi)(f1+f1_i) = (af0 - bf0_) + (bf0 + af0_)i
+/// G0 = (c+di)(f1+f1_i) = (cf1 - df1_) + (df1 + cf1_)i
+/// G1 = (a+bi)(f2+f2_i) = (cf2 - df2_) + (df2 + cf2_)i
+/// G2 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 
 %macro mul_fp2_fp6_sh2
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_

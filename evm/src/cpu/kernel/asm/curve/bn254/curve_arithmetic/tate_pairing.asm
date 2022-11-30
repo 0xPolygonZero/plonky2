@@ -31,7 +31,7 @@ global post_mllr:
     // stack:                     100, out,            tate_mul1, tate_mul2, tate_mul3, retdest
     DUP2
     // stack:                out, 100, out,            tate_mul1, tate_mul2, tate_mul3, retdest
-    %inverse_fp12
+    // %inverse_fp12
     // stack:                     100, out,            tate_mul1, tate_mul2, tate_mul3, retdest  {100: inv}
     DUP2
     // stack:                out, 100, out,            tate_mul1, tate_mul2, tate_mul3, retdest  {100: inv}
@@ -57,7 +57,7 @@ tate_mul2:
     // stack:           100, post_pow, out,                                  tate_mul3, retdest  {100: acc}
     DUP3
     // stack:      out, 100, post_pow, out,                                  tate_mul3, retdest  {100: acc}
-    %jump(power)
+    // %jump(power)
 post_pow: 
     // stack:                     100, out,                                  tate_mul3, retdest  {100: pow}
     DUP2

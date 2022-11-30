@@ -114,7 +114,7 @@ mul_tangent_1:
     // stack:     O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %tangent
     // stack:     line, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    %sparse_store(100)
+    %sparse_store
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     PUSH 100  DUP2
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
@@ -123,7 +123,7 @@ mul_tangent_2:
     // stack: out, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     POP  DUP5  DUP5
     // stack:   O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    %ec_double_bn254
+    // %ec_double_bn254
     // stack: 2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     SWAP5  SWAP1  SWAP6  SWAP1
     // stack: 2*O, retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
@@ -145,7 +145,7 @@ mul_cord:
     // stack:       O, P, Q, mul_cord_1, 0xnm, times, O, P, Q, out
     %cord
     // stack:          line, mul_cord_1, 0xnm, times, O, P, Q, out
-    %sparse_store(100)
+    %sparse_store
     // stack:                mul_cord_1, 0xnm, times, O, P, Q, out
     DUP12
     // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out
@@ -158,8 +158,20 @@ mul_cord_1:
     // stack:        0xnm, times, O  , P, Q, out
     DUP6  DUP6  DUP6  DUP6
     // stack: O , P, 0xnm, times, O  , P, Q, out
-    %ec_add_bn254
+    // %ec_add_bn254
     // stack: O + P, 0xnm, times, O  , P, Q, out
     SWAP4  SWAP1  SWAP5  SWAP1
     // stack:        0xnm, times, O+P, P, Q, out
     %jump(miller_one)
+
+
+%macro sparse_store
+    // stack: g0, G1, G1'
+    PUSH 100  %mstore_kernel_general
+    // stack:     G1, G1'
+    PUSH 102  %mstore_kernel_general
+    PUSH 103  %mstore_kernel_general
+    // stack:         G1'
+    PUSH 108  %mstore_kernel_general
+    PUSH 109  %mstore_kernel_general
+%endmacro

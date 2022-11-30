@@ -143,7 +143,7 @@
     // stack:           ptr
 %endmacro 
 
-%macro frob_fp12_6:
+%macro frob_fp12_6
     // stack:           ptr
     DUP1  %offset_fp6
     // stack:     ptr', ptr

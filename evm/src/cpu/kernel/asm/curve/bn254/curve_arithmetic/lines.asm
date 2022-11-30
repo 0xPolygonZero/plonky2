@@ -6,9 +6,14 @@
 ///         (-3*px**2) * qx, 
 ///         (2*py)     * qy,
 
+%macro tangent
+%endmacro
+
 /// def cord(p1x, p1y, p2x, p2y, qx, qy):
 ///     return
 ///         p1y*p2x - p2y*p1x, 
 ///         (p2y - p1y) * qx, 
 ///         (p1x - p2x) * qy,
-    
+
+%macro cord
+%endmacro
