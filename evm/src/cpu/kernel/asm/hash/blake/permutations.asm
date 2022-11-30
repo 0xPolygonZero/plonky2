@@ -1,3 +1,21 @@
+global permutation_0_constants:
+    BYTES 0
+    BYTES 1
+    BYTES 2
+    BYTES 3
+    BYTES 4
+    BYTES 5
+    BYTES 6
+    BYTES 7
+    BYTES 8
+    BYTES 9
+    BYTES 10
+    BYTES 11
+    BYTES 12
+    BYTES 13
+    BYTES 14
+    BYTES 15
+
 global permutation_1_constants:
     BYTES 14
     BYTES 10
@@ -162,13 +180,15 @@ global permutation_9_constants:
 
 %macro blake_permutation
     // stack: round, i
-    PUSH permutation_1_constants
-    // stack: permutation_1_constants, round, i
+    PUSH permutation_0_constants
+    // stack: permutation_0_constants, round, i
     SWAP1
     // stack: round, permutation_1_constants, i
     %mod_const(10)
+    // stack: round % 10, permutation_1_constants, i
     %mul_const(16)
     ADD
+    // stack: permutation_(round)_constants, i
     ADD
     %mload_kernel_code
 %endmacro

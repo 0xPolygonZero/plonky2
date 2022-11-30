@@ -39,7 +39,7 @@
     XOR
     %rotr_64(32)
     // stack: v[d]' = (v[d] ^ v[a]') >>> 32, v[a]', v[b], v[c], v[d], a, b, c, d, x, y, start
-    %stack (top: 3, vd) -> (top)
+    %stack (top: 4, vd) -> (top)
     // stack: v[d]', v[a]', v[b], v[c], a, b, c, d, x, y, start
     %stack (d, a, b, c) -> (c, d, a, b, d)
     // stack: v[c], v[d]', v[a]', v[b], v[d]', a, b, c, d, x, y, start

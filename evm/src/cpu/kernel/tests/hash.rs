@@ -41,7 +41,9 @@ fn make_random_input() -> Vec<u8> {
 fn make_custom_input() -> Vec<u8> {
     // Hardcode a custom message
     vec![
-        1, 2, 3
+        86, 124, 206, 245, 74, 57, 250, 43, 60, 30, 254, 43, 143, 144, 242, 215, 13, 103, 237, 61,
+        90, 105, 123, 250, 189, 181, 110, 192, 227, 57, 145, 46, 221, 238, 7, 181, 146, 111, 209,
+        150, 31, 157, 229, 126, 206, 105, 37, 17,
     ]
 }
 
@@ -54,62 +56,89 @@ fn make_input_stack(message: Vec<u8>) -> Vec<U256> {
     initial_stack
 }
 
-fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U512) -> Result<()> {
+fn test_hash_256(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U256) -> Result<()> {
     // Make the input.
-    // let message_random = make_random_input();
+    let message_random = make_random_input();
     let message_custom = make_custom_input();
 
-    // dbg!(message_random.clone());
-
     // Hash the message using a standard implementation.
-    // // let expected_random = standard_implementation(message_random.clone());
+    let expected_random = standard_implementation(message_random.clone());
     let expected_custom = standard_implementation(message_custom.clone());
 
-    dbg!(expected_custom);
-
     // Load the message onto the stack.
-    // // let initial_stack_random = make_input_stack(message_random);
+    let initial_stack_random = make_input_stack(message_random);
     let initial_stack_custom = make_input_stack(message_custom);
-
-    // dbg!(initial_stack_random.clone());
 
     // Make the kernel.
     let kernel_function = KERNEL.global_labels[hash_fn_label];
 
     // Run the kernel code.
-    // // let result_random = run_interpreter(kernel_function, initial_stack_random)?;
+    let result_random = run_interpreter(kernel_function, initial_stack_random)?;
     let result_custom = run_interpreter(kernel_function, initial_stack_custom)?;
 
-    dbg!(result_custom.stack());
-
     // Extract the final output.
-    // let actual_random = result_random.stack()[0];
-    let actual_custom_first = result_custom.stack()[0];
-    let actual_custom_second = result_custom.stack()[1];
-    let mut actual_custom = U512::from(actual_custom_first);
-    actual_custom *= U512::from_big_endian(&[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
-    actual_custom += U512::from(actual_custom_second);
-
-    dbg!(actual_custom);
+    let actual_random = result_random.stack()[0];
+    let actual_custom = result_custom.stack()[0];
 
     // Check that the result is correct.
-    // assert_eq!(expected_random, actual_random);
-    // assert_eq!(expected_custom, actual_custom);
+    assert_eq!(expected_random, actual_random);
+    assert_eq!(expected_custom, actual_custom);
 
     Ok(())
 }
 
-// #[test]
-// fn test_sha2() -> Result<()> {
-//     test_hash("sha2", &sha2)
-// }
+fn combine_u256s(hi: U256, lo: U256) -> U512 {
+    let mut result = U512::from(hi);
+    result *= U512::from_big_endian(&[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    result += U512::from(lo);
+    result
+}
 
-// #[test]
-// fn test_ripemd() -> Result<()> {
-//     test_hash("ripemd_stack", &ripemd)
-// }
+fn test_hash_512(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U512) -> Result<()> {
+    // Make the input.
+    let message_random = make_random_input();
+    let message_custom = make_custom_input();
+
+    // Hash the message using a standard implementation.
+    let expected_random = standard_implementation(message_random.clone());
+    let expected_custom = standard_implementation(message_custom.clone());
+
+    // Load the message onto the stack.
+    let initial_stack_random = make_input_stack(message_random);
+    let initial_stack_custom = make_input_stack(message_custom);
+
+    // Make the kernel.
+    let kernel_function = KERNEL.global_labels[hash_fn_label];
+
+    // Run the kernel code.
+    let result_random = run_interpreter(kernel_function, initial_stack_random)?;
+    let result_custom = run_interpreter(kernel_function, initial_stack_custom)?;
+
+    let random_stack = result_random.stack();
+    let custom_stack = result_custom.stack();
+
+    // Extract the final output.
+    let actual_random = combine_u256s(random_stack[0], random_stack[1]);
+    let actual_custom = combine_u256s(custom_stack[0], custom_stack[1]);
+
+    // Check that the result is correct.
+    // assert_eq!(expected_random, actual_random);
+    assert_eq!(expected_custom, actual_custom);
+
+    Ok(())
+}
+
+#[test]
+fn test_sha2() -> Result<()> {
+    test_hash_256("sha2", &sha2)
+}
+
+#[test]
+fn test_ripemd() -> Result<()> {
+    test_hash_256("ripemd_stack", &ripemd)
+}
 
 #[test]
 fn test_blake() -> Result<()> {
-    test_hash("blake", &blake2b)
+    test_hash_512("blake", &blake2b)
 }
