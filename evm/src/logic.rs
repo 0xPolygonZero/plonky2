@@ -72,11 +72,21 @@ pub struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Op {
     And,
     Or,
     Xor,
+}
+
+impl Op {
+    pub(crate) fn result(&self, a: U256, b: U256) -> U256 {
+        match self {
+            Op::And => a & b,
+            Op::Or => a | b,
+            Op::Xor => a ^ b,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -89,17 +99,38 @@ pub(crate) struct Operation {
 
 impl Operation {
     pub(crate) fn new(operator: Op, input0: U256, input1: U256) -> Self {
-        let result = match operator {
-            Op::And => input0 & input1,
-            Op::Or => input0 | input1,
-            Op::Xor => input0 ^ input1,
-        };
+        let result = operator.result(input0, input1);
         Operation {
             operator,
             input0,
             input1,
             result,
         }
+    }
+
+    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
+        let Operation {
+            operator,
+            input0,
+            input1,
+            result,
+        } = self;
+        let mut row = [F::ZERO; NUM_COLUMNS];
+        row[match operator {
+            Op::And => columns::IS_AND,
+            Op::Or => columns::IS_OR,
+            Op::Xor => columns::IS_XOR,
+        }] = F::ONE;
+        for i in 0..256 {
+            row[columns::INPUT0.start + i] = F::from_bool(input0.bit(i));
+            row[columns::INPUT1.start + i] = F::from_bool(input1.bit(i));
+        }
+        let result_limbs: &[u64] = result.as_ref();
+        for (i, &limb) in result_limbs.iter().enumerate() {
+            row[columns::RESULT.start + 2 * i] = F::from_canonical_u32(limb as u32);
+            row[columns::RESULT.start + 2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+        }
+        row
     }
 }
 
@@ -128,40 +159,20 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 
         let mut rows = Vec::with_capacity(padded_len);
         for op in operations {
-            rows.push(Self::generate_row(op));
+            rows.push(op.to_row());
         }
 
         // Pad to a power of two.
         for _ in len..padded_len {
-            rows.push([F::ZERO; columns::NUM_COLUMNS]);
+            rows.push([F::ZERO; NUM_COLUMNS]);
         }
 
         rows
     }
-
-    fn generate_row(operation: Operation) -> [F; columns::NUM_COLUMNS] {
-        let mut row = [F::ZERO; columns::NUM_COLUMNS];
-        match operation.operator {
-            Op::And => row[columns::IS_AND] = F::ONE,
-            Op::Or => row[columns::IS_OR] = F::ONE,
-            Op::Xor => row[columns::IS_XOR] = F::ONE,
-        }
-        for (i, col) in columns::INPUT0.enumerate() {
-            row[col] = F::from_bool(operation.input0.bit(i));
-        }
-        for (i, col) in columns::INPUT1.enumerate() {
-            row[col] = F::from_bool(operation.input1.bit(i));
-        }
-        for (i, col) in columns::RESULT.enumerate() {
-            let bit_range = i * PACKED_LIMB_BITS..(i + 1) * PACKED_LIMB_BITS;
-            row[col] = limb_from_bits_le(bit_range.map(|j| F::from_bool(operation.result.bit(j))));
-        }
-        row
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
-    const COLUMNS: usize = columns::NUM_COLUMNS;
+    const COLUMNS: usize = NUM_COLUMNS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,

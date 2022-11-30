@@ -23,27 +23,27 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
     res
 }
 
-pub fn mem_read_with_log<T: Copy>(
+pub(crate) fn mem_read_with_log<T: Copy>(
     channel: MemoryChannel,
     address: MemoryAddress,
     memory_state: &MemoryState,
     traces: &Traces<T>,
 ) -> (U256, MemoryOp) {
     let val = memory_state.get(address);
-    let op = MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Read);
+    let op = MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Read, val);
     (val, op)
 }
 
-pub fn mem_write_log<T: Copy>(
+pub(crate) fn mem_write_log<T: Copy>(
     channel: MemoryChannel,
     address: MemoryAddress,
     traces: &Traces<T>,
     val: U256,
 ) -> MemoryOp {
-    MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Write(val))
+    MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Write, val)
 }
 
-pub fn mem_read_code_with_log_and_fill<F: Field>(
+pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     address: MemoryAddress,
     memory_state: &MemoryState,
     traces: &Traces<F>,
@@ -57,7 +57,7 @@ pub fn mem_read_code_with_log_and_fill<F: Field>(
     (val_u8, op)
 }
 
-pub fn mem_read_gp_with_log_and_fill<F: Field>(
+pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
     memory_state: &MemoryState,
@@ -75,9 +75,9 @@ pub fn mem_read_gp_with_log_and_fill<F: Field>(
     let channel = &mut row.mem_channels[n];
     channel.used = F::ONE;
     channel.is_read = F::ONE;
-    channel.addr_context = F::from_canonical_u32(address.0);
-    channel.addr_segment = F::from_canonical_u32(address.1);
-    channel.addr_virtual = F::from_canonical_u32(address.2);
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
     for (i, limb) in val_limbs.into_iter().enumerate() {
         channel.value[2 * i] = F::from_canonical_u32(limb as u32);
         channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
@@ -86,7 +86,7 @@ pub fn mem_read_gp_with_log_and_fill<F: Field>(
     (val, op)
 }
 
-pub fn mem_write_gp_log_and_fill<F: Field>(
+pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
     traces: &Traces<F>,
@@ -99,9 +99,9 @@ pub fn mem_write_gp_log_and_fill<F: Field>(
     let channel = &mut row.mem_channels[n];
     channel.used = F::ONE;
     channel.is_read = F::ZERO;
-    channel.addr_context = F::from_canonical_u32(address.0);
-    channel.addr_segment = F::from_canonical_u32(address.1);
-    channel.addr_virtual = F::from_canonical_u32(address.2);
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
     for (i, limb) in val_limbs.into_iter().enumerate() {
         channel.value[2 * i] = F::from_canonical_u32(limb as u32);
         channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
@@ -110,7 +110,7 @@ pub fn mem_write_gp_log_and_fill<F: Field>(
     op
 }
 
-pub fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
+pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     registers_state: &mut RegistersState,
     memory_state: &MemoryState,
     traces: &Traces<F>,
@@ -123,10 +123,10 @@ pub fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     let result = {
         let mut i = 0usize;
         [(); N].map(|_| {
-            let address = (
+            let address = MemoryAddress::new(
                 registers_state.context,
-                Segment::Stack as u32,
-                registers_state.stack_len - 1 - (i as u32),
+                Segment::Stack as usize,
+                registers_state.stack_len - 1 - i,
             );
             let res = mem_read_gp_with_log_and_fill(i, address, memory_state, traces, row);
             i += 1;
@@ -134,12 +134,12 @@ pub fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         })
     };
 
-    registers_state.stack_len -= N as u32;
+    registers_state.stack_len -= N;
 
     Ok(result)
 }
 
-pub fn stack_push_log_and_fill<F: Field>(
+pub(crate) fn stack_push_log_and_fill<F: Field>(
     registers_state: &mut RegistersState,
     traces: &Traces<F>,
     row: &mut CpuColumnsView<F>,
@@ -149,9 +149,9 @@ pub fn stack_push_log_and_fill<F: Field>(
         return Err(ProgramError::StackOverflow);
     }
 
-    let address = (
+    let address = MemoryAddress::new(
         registers_state.context,
-        Segment::Stack as u32,
+        Segment::Stack as usize,
         registers_state.stack_len,
     );
     let res = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 1, address, traces, row, val);

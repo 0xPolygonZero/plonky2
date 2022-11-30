@@ -1,18 +1,19 @@
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
+use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
-use crate::witness::memory::MemoryState;
+use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::operation::{
     generate_binary_logic_op, generate_dup, generate_eq, generate_exit_kernel, generate_iszero,
-    generate_not, generate_swap, generate_syscall, BinaryLogicOp, Operation,
+    generate_not, generate_swap, generate_syscall, Operation,
 };
 use crate::witness::state::RegistersState;
 use crate::witness::traces::Traces;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 
-const KERNEL_CONTEXT: u32 = 0;
+const KERNEL_CONTEXT: usize = 0;
 
 fn read_code_memory<F: Field>(
     registers_state: RegistersState,
@@ -25,11 +26,11 @@ fn read_code_memory<F: Field>(
     } else {
         registers_state.context
     };
-    row.code_context = F::from_canonical_u32(code_context);
+    row.code_context = F::from_canonical_usize(code_context);
 
-    let address = (
+    let address = MemoryAddress::new(
         code_context,
-        Segment::Code as u32,
+        Segment::Code as usize,
         registers_state.program_counter,
     );
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, memory_state, traces, row);
@@ -62,9 +63,9 @@ fn decode(registers_state: RegistersState, opcode: u8) -> Result<Operation, Prog
         (0x13, _) => Ok(Operation::Syscall(opcode)),
         (0x14, _) => Ok(Operation::Eq),
         (0x15, _) => Ok(Operation::Iszero),
-        (0x16, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::And)),
-        (0x17, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::Or)),
-        (0x18, _) => Ok(Operation::BinaryLogic(BinaryLogicOp::Xor)),
+        (0x16, _) => Ok(Operation::BinaryLogic(logic::Op::And)),
+        (0x17, _) => Ok(Operation::BinaryLogic(logic::Op::Or)),
+        (0x18, _) => Ok(Operation::BinaryLogic(logic::Op::Xor)),
         (0x19, _) => Ok(Operation::Not),
         (0x1a, _) => Ok(Operation::NotImplemented),
         (0x1b, _) => Ok(Operation::NotImplemented),
@@ -151,9 +152,9 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Syscall(_) => &mut flags.syscall,
         Operation::Eq => &mut flags.eq,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::BinaryLogic(BinaryLogicOp::And) => &mut flags.and,
-        Operation::BinaryLogic(BinaryLogicOp::Or) => &mut flags.or,
-        Operation::BinaryLogic(BinaryLogicOp::Xor) => &mut flags.xor,
+        Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
+        Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
+        Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
         Operation::NotImplemented => panic!("operation not implemented"),
     } = F::ONE;
 }
@@ -199,6 +200,14 @@ fn try_perform_instruction<F: Field>(
 
     let opcode = read_code_memory(registers_state, memory_state, traces, &mut row);
     let op = decode(registers_state, opcode)?;
+    log::trace!(
+        "Executing {}={:?} at {}",
+        opcode,
+        op,
+        registers_state.program_counter
+    );
+    // TODO: Temporarily slowing down so we can view logs easily.
+    std::thread::sleep(std::time::Duration::from_millis(200));
     fill_op_flag(op, &mut row);
 
     perform_op(op, registers_state, memory_state, traces, row)
@@ -212,7 +221,7 @@ fn handle_error<F: Field>(
     todo!("constraints for exception handling are not implemented");
 }
 
-pub fn transition<F: Field>(
+pub(crate) fn transition<F: Field>(
     registers_state: RegistersState,
     memory_state: &MemoryState,
     traces: &mut Traces<F>,
