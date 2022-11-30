@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use anyhow::Result;
-use plonky2::field::types::{Field, PrimeField};
+use plonky2::field::types::{PrimeField, Sample};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;

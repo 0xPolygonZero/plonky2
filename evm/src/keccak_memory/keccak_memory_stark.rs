@@ -15,8 +15,7 @@ use crate::keccak_memory::columns::*;
 use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::StarkEvaluationTargets;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     Column::singles([COL_CONTEXT, COL_SEGMENT, COL_VIRTUAL, COL_READ_TIMESTAMP]).collect()

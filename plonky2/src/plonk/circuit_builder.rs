@@ -1,16 +1,20 @@
-use std::cmp::max;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cmp::max;
+#[cfg(feature = "std")]
 use std::time::Instant;
 
+use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
-use plonky2_field::cosets::get_unique_coset_shifts;
-use plonky2_field::extension::{Extendable, FieldExtension};
-use plonky2_field::fft::fft_root_table;
-use plonky2_field::polynomial::PolynomialValues;
-use plonky2_field::types::Field;
-use plonky2_util::{log2_ceil, log2_strict};
 
+use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::fft::fft_root_table;
+use crate::field::polynomial::PolynomialValues;
+use crate::field::types::Field;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
@@ -36,7 +40,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
@@ -44,10 +48,15 @@ use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
-use crate::util::{transpose, transpose_poly_values};
+use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
+
+    /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
+    /// needed, but can be used to ensure that proofs for one application are not valid for another.
+    /// Defaults to the empty vector.
+    domain_separator: Option<Vec<F>>,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
@@ -98,6 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
+            domain_separator: None,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
             public_inputs: Vec::new(),
@@ -139,6 +149,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fri_security_bits >= security_bits,
             "FRI params fall short of target security"
         );
+    }
+
+    pub fn set_domain_separator(&mut self, separator: Vec<F>) {
+        assert!(self.domain_separator.is_none());
+        self.domain_separator = Some(separator);
     }
 
     pub fn num_gates(&self) -> usize {
@@ -229,9 +244,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.register_public_input(t);
         t
     }
+
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
     /// WARNING: Do not register any public input after calling this! TODO: relax this
-    pub(crate) fn add_verifier_data_public_input(&mut self) {
+    pub fn add_verifier_data_public_inputs(&mut self) {
+        assert!(
+            self.verifier_data_public_input.is_none(),
+            "add_verifier_data_public_inputs only needs to be called once"
+        );
+
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
@@ -685,12 +706,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// In PLONK's permutation argument, there's a slight chance of division by zero. We can
+    /// mitigate this by randomizing some unused witness elements, so if proving fails with
+    /// division by zero, the next attempt will have an (almost) independent chance of success.
+    /// See https://github.com/mir-protocol/plonky2/issues/456
+    fn randomize_unused_pi_wires(&mut self, pi_gate: usize) {
+        for wire in PublicInputGate::wires_public_inputs_hash().end..self.config.num_wires {
+            self.add_simple_generator(RandomValueGenerator {
+                target: Target::wire(pi_gate, wire),
+            });
+        }
+    }
+
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
+        #[cfg(feature = "std")]
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
         let cap_height = self.config.fri_config.cap_height;
@@ -708,6 +739,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
+        self.randomize_unused_pi_wires(pi_gate);
 
         // Make sure we have enough constant generators. If not, add a `ConstantGate`.
         while self.constants_to_targets.len() > self.constant_generators.len() {
@@ -834,9 +866,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
+        let domain_separator = self.domain_separator.unwrap_or_default();
+        let domain_separator_digest = C::Hasher::hash_pad(&domain_separator);
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_cap.flatten(),
+            domain_separator_digest.to_vec(),
             vec![
                 F::from_canonical_usize(degree_bits),
                 /* Add other circuit data here */
@@ -857,7 +892,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products,
         };
         if let Some(goal_data) = self.goal_common_data {
-            assert_eq!(goal_data, common);
+            assert_eq!(goal_data, common, "The expected circuit data passed to cyclic recursion method did not match the actual circuit");
         }
 
         let prover_only = ProverOnlyCircuitData {
@@ -878,6 +913,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         timing.print();
+        #[cfg(feature = "std")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         CircuitData {
             prover_only,
@@ -887,20 +923,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build();
         circuit_data.verifier_data()

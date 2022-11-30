@@ -202,6 +202,25 @@ impl<'a> Interpreter<'a> {
             rlp.into_iter().map(U256::from).collect();
     }
 
+    pub(crate) fn set_code(&mut self, context: usize, code: Vec<u8>) {
+        assert_ne!(context, 0, "Can't modify kernel code.");
+        while self.memory.context_memory.len() <= context {
+            self.memory
+                .context_memory
+                .push(MemoryContextState::default());
+        }
+        self.memory.context_memory[context].segments[Segment::Code as usize].content =
+            code.into_iter().map(U256::from).collect();
+    }
+
+    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
+        self.memory.context_memory[context].segments[Segment::JumpdestBits as usize]
+            .content
+            .iter()
+            .map(|x| x.bit(0))
+            .collect()
+    }
+
     fn incr(&mut self, n: usize) {
         self.offset += n;
     }
@@ -266,10 +285,10 @@ impl<'a> Interpreter<'a> {
             0x31 => todo!(),                                            // "BALANCE",
             0x32 => todo!(),                                            // "ORIGIN",
             0x33 => todo!(),                                            // "CALLER",
-            0x34 => todo!(),                                            // "CALLVALUE",
-            0x35 => todo!(),                                            // "CALLDATALOAD",
-            0x36 => todo!(),                                            // "CALLDATASIZE",
-            0x37 => todo!(),                                            // "CALLDATACOPY",
+            0x34 => self.run_callvalue(),                               // "CALLVALUE",
+            0x35 => self.run_calldataload(),                            // "CALLDATALOAD",
+            0x36 => self.run_calldatasize(),                            // "CALLDATASIZE",
+            0x37 => self.run_calldatacopy(),                            // "CALLDATACOPY",
             0x38 => todo!(),                                            // "CODESIZE",
             0x39 => todo!(),                                            // "CODECOPY",
             0x3a => todo!(),                                            // "GASPRICE",
@@ -535,6 +554,51 @@ impl<'a> Interpreter<'a> {
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()));
+    }
+
+    fn run_callvalue(&mut self) {
+        self.push(
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::CallValue as usize),
+        )
+    }
+
+    fn run_calldataload(&mut self) {
+        let offset = self.pop().as_usize();
+        let value = U256::from_big_endian(
+            &(0..32)
+                .map(|i| {
+                    self.memory
+                        .mload_general(self.context, Segment::Calldata, offset + i)
+                        .byte(0)
+                })
+                .collect::<Vec<_>>(),
+        );
+        self.push(value);
+    }
+
+    fn run_calldatasize(&mut self) {
+        self.push(
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::CalldataSize as usize),
+        )
+    }
+
+    fn run_calldatacopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let calldata_byte =
+                self.memory
+                    .mload_general(self.context, Segment::Calldata, offset + i);
+            self.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                calldata_byte,
+            );
+        }
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {

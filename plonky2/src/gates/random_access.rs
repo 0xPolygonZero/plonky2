@@ -1,10 +1,14 @@
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::marker::PhantomData;
 
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_field::packed::PackedField;
-use plonky2_field::types::Field;
 
+use crate::field::extension::Extendable;
+use crate::field::packed::PackedField;
+use crate::field::types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -376,19 +380,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use anyhow::Result;
-    use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::Field;
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
-    use crate::gates::gate::Gate;
+    use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::field::types::Sample;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::random_access::RandomAccessGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {
@@ -449,7 +450,7 @@ mod tests {
             .map(|_| F::rand_vec(vec_size))
             .collect::<Vec<_>>();
         let access_indices = (0..num_copies)
-            .map(|_| thread_rng().gen_range(0..vec_size))
+            .map(|_| OsRng.gen_range(0..vec_size))
             .collect::<Vec<_>>();
         let gate = RandomAccessGate::<F, D> {
             bits,

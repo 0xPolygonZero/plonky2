@@ -1,17 +1,22 @@
-use plonky2_field::extension::Extendable;
+use alloc::vec::Vec;
 
+use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn eval_scalar<F: RichField + Extendable<D>>(

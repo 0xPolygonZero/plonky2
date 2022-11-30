@@ -35,8 +35,6 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize)
         IS_LT => u256_sub_br(input0, input1),
         // input1 - input0 == diff + br*2^256
         IS_GT => u256_sub_br(input1, input0),
-        IS_SLT => todo!(),
-        IS_SGT => todo!(),
         _ => panic!("op code not a comparison"),
     };
 
@@ -162,7 +160,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Field;
+    use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
@@ -176,7 +174,7 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
         // if `IS_LT == 0`, then the constraints should be met even if
         // all values are garbage. `eval_packed_generic` handles IS_GT
@@ -201,7 +199,7 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
         const N_ITERS: usize = 1000;
 
         for _ in 0..N_ITERS {

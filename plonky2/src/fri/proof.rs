@@ -1,14 +1,15 @@
-use std::collections::HashMap;
+use alloc::vec;
+use alloc::vec::Vec;
 
+use hashbrown::HashMap;
 use itertools::izip;
-use plonky2_field::extension::{flatten, unflatten, Extendable};
-use plonky2_field::polynomial::PolynomialCoeffs;
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension::{flatten, unflatten, Extendable};
+use crate::field::polynomial::PolynomialCoeffs;
 use crate::fri::FriParams;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
-use crate::hash::hash_types::MerkleCapTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
@@ -111,7 +112,7 @@ pub struct FriProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> 
     pub pow_witness: F,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FriProofTarget<const D: usize> {
     pub commit_phase_merkle_caps: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
@@ -245,10 +246,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> FriProof<F, H, D>
-    where
-        [(); H::HASH_SIZE]:,
-    {
+    ) -> FriProof<F, H, D> {
         let CompressedFriProof {
             commit_phase_merkle_caps,
             query_round_proofs,

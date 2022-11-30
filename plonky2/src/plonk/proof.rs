@@ -1,8 +1,11 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 use anyhow::ensure;
 use maybe_rayon::*;
-use plonky2_field::extension::Extendable;
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension::Extendable;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{
     CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
@@ -18,7 +21,9 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::verifier::verify_with_challenges;
-use crate::util::serialization::Buffer;
+use crate::util::serialization::Write;
+#[cfg(feature = "std")]
+use crate::util::serialization::{Buffer, Read};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -35,7 +40,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
@@ -98,18 +103,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let mut buffer = Buffer::new(Vec::new());
-        buffer.write_proof_with_public_inputs(self)?;
-        Ok(buffer.bytes())
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer
+            .write_proof_with_public_inputs(self)
+            .expect("Writing to a byte-vector cannot fail.");
+        buffer
     }
 
+    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
-        let proof = buffer.read_proof_with_public_inputs(common_data)?;
+        let proof = buffer
+            .read_proof_with_public_inputs(common_data)
+            .map_err(anyhow::Error::msg)?;
         Ok(proof)
     }
 }
@@ -139,10 +149,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> Proof<F, C, D>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> Proof<F, C, D> {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -179,10 +186,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let challenges =
             self.get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
@@ -199,10 +203,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<()>
-    where
-        [(); C::Hasher::HASH_SIZE]:,
-    {
+    ) -> anyhow::Result<()> {
         ensure!(
             self.public_inputs.len() == common_data.num_public_inputs,
             "Number of public inputs doesn't match circuit data."
@@ -232,18 +233,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let mut buffer = Buffer::new(Vec::new());
-        buffer.write_compressed_proof_with_public_inputs(self)?;
-        Ok(buffer.bytes())
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer
+            .write_compressed_proof_with_public_inputs(self)
+            .expect("Writing to a byte-vector cannot fail.");
+        buffer
     }
 
+    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
-        let proof = buffer.read_compressed_proof_with_public_inputs(common_data)?;
+        let proof = buffer
+            .read_compressed_proof_with_public_inputs(common_data)
+            .map_err(anyhow::Error::msg)?;
         Ok(proof)
     }
 }
@@ -277,7 +283,7 @@ pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usi
     pub Vec<F::Extension>,
 );
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
@@ -385,8 +391,8 @@ impl<const D: usize> OpeningSetTarget<D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Field;
 
+    use crate::field::types::Sample;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;

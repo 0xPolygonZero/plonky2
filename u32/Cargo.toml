@@ -3,13 +3,12 @@ name = "plonky2_u32"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-anyhow = "1.0.40"
-rand = "0.8.4"
-num = { version = "0.4", features = [ "rand" ] }
-itertools = "0.10.0"
-plonky2 = { path = "../plonky2" }
-plonky2_util = { path = "../util" }
-plonky2_field = { path = "../field" }
+anyhow = { version = "1.0.40", default-features = false }
+itertools = { version = "0.10.0", default-features = false }
+num = { version = "0.4", default-features = false }
+plonky2 = { path = "../plonky2", default-features = false }
+
+[dev-dependencies]
+plonky2 = { path = "../plonky2", default-features = false, features = ["gate_testing"] }
+rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }

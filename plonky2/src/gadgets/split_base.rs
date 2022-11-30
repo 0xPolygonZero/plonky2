@@ -1,15 +1,18 @@
-use std::borrow::Borrow;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
 
 use itertools::Itertools;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
 
+use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::log_floor;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
@@ -33,6 +36,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
         let bits = bits.map(|b| *b.borrow()).collect_vec();
         let num_bits = bits.len();
+        assert!(
+            num_bits <= log_floor(F::ORDER, 2),
+            "{} bits may overflow the field",
+            num_bits
+        );
         if num_bits == 0 {
             return self.zero();
         }
@@ -99,11 +107,11 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::types::Field;
-    use rand::{thread_rng, Rng};
+    use rand::rngs::OsRng;
+    use rand::Rng;
 
+    use super::*;
     use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
@@ -145,7 +153,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let n = thread_rng().gen_range(0..(1 << 30));
+        let n = OsRng.gen_range(0..(1 << 30));
         let x = builder.constant(F::from_canonical_usize(n));
 
         let zero = builder._false();

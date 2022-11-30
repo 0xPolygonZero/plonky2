@@ -5,3 +5,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rand = { version = "0.8.5", default-features = false, features = ["getrandom"] }

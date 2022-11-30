@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use num::bigint::BigUint;
 
 use crate::types::Field;

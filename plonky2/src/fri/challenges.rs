@@ -1,6 +1,5 @@
-use plonky2_field::extension::Extendable;
-use plonky2_field::polynomial::PolynomialCoeffs;
-
+use crate::field::extension::Extendable;
+use crate::field::polynomial::PolynomialCoeffs;
 use crate::fri::proof::{FriChallenges, FriChallengesTarget};
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
@@ -49,16 +48,8 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
         self.observe_extension_elements(&final_poly.coeffs);
 
-        let fri_pow_response = C::InnerHasher::hash_no_pad(
-            &self
-                .get_hash()
-                .elements
-                .iter()
-                .copied()
-                .chain(Some(pow_witness))
-                .collect::<Vec<_>>(),
-        )
-        .elements[0];
+        self.observe_element(pow_witness);
+        let fri_pow_response = self.get_challenge();
 
         let fri_query_indices = (0..num_fri_queries)
             .map(|_| self.get_challenge().to_canonical_u64() as usize % lde_size)
@@ -105,16 +96,8 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 
         self.observe_extension_elements(&final_poly.0);
 
-        let pow_inputs = self
-            .get_hash(builder)
-            .elements
-            .iter()
-            .copied()
-            .chain(Some(pow_witness))
-            .collect();
-        let fri_pow_response = builder
-            .hash_n_to_hash_no_pad::<C::InnerHasher>(pow_inputs)
-            .elements[0];
+        self.observe_element(pow_witness);
+        let fri_pow_response = self.get_challenge(builder);
 
         let fri_query_indices = (0..num_fri_queries)
             .map(|_| self.get_challenge(builder))
