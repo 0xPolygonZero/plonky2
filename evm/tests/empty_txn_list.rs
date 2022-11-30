@@ -23,14 +23,14 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata::default();
 
-    let state_trie = PartialTrie::Leaf {
-        nibbles: Nibbles {
-            count: 5,
-            packed: 0xABCDE.into(),
-        },
-        value: vec![1, 2, 3],
-    };
-    // TODO: Above trie isn't working yet.
+    // TODO: This trie isn't working yet.
+    // let state_trie = PartialTrie::Leaf {
+    //     nibbles: Nibbles {
+    //         count: 5,
+    //         packed: 0xABCDE.into(),
+    //     },
+    //     value: vec![1, 2, 3],
+    // };
     let state_trie = PartialTrie::Empty;
     let transactions_trie = PartialTrie::Empty;
     let receipts_trie = PartialTrie::Empty;
