@@ -103,7 +103,7 @@
     // stack: s[y_idx], round, start
     %blake_message_addr
     ADD
-    %mload_blake_word
+    %mload_kernel_general
     // stack: m[s[y_idx]], round, start
     PUSH $x_idx
     DUP3
@@ -112,7 +112,7 @@
     // stack: s[x_idx], m[s[y_idx]], round, start
     %blake_message_addr
     ADD
-    %mload_blake_word
+    %mload_kernel_general
     // stack: m[s[x_idx]], m[s[y_idx]], round, start
     %stack (ss: 2, r, s) -> (ss, s, r, s)
     // stack: m[s[x_idx]], m[s[y_idx]], start, round, start

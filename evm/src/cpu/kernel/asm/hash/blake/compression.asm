@@ -162,7 +162,7 @@ compression_loop:
         // stack: cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_block_byte, cur_message_addr, cur_block_byte, ...
-        %mload_blake_word
+        %mload_blake_word_from_bytes
         // stack: m_i, cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_message_addr, m_i, cur_message_addr, cur_block_byte, ...
@@ -209,7 +209,6 @@ compression_loop:
         %mstore_kernel_general
         %increment
     %endrep
-
     // stack: start + 8, invert_if_last_block, t, retdest
     PUSH 0
     // stack: 0, start + 8, invert_if_last_block, t, retdest
@@ -272,36 +271,20 @@ compression_loop:
     // stack: start, retdest
     PUSH 0
     // stack: round=0, start, retdest
-    %rep 1
+    %rep 12
         // stack: round, start, retdest
         %call_blake_g_function(0, 4, 8, 12, 0, 1)
-        // %call_blake_g_function(1, 5, 9, 13, 2, 3)
-        // %call_blake_g_function(2, 6, 10, 14, 4, 5)
-        // %call_blake_g_function(3, 7, 11, 15, 6, 7)
-        // %call_blake_g_function(0, 5, 10, 15, 8, 9)
-        // %call_blake_g_function(1, 6, 11, 12, 10, 11)
-        // %call_blake_g_function(2, 7, 8, 13, 12, 13)
-        // %call_blake_g_function(3, 4, 9, 14, 14, 15)
+        %call_blake_g_function(1, 5, 9, 13, 2, 3)
+        %call_blake_g_function(2, 6, 10, 14, 4, 5)
+        %call_blake_g_function(3, 7, 11, 15, 6, 7)
+        %call_blake_g_function(0, 5, 10, 15, 8, 9)
+        %call_blake_g_function(1, 6, 11, 12, 10, 11)
+        %call_blake_g_function(2, 7, 8, 13, 12, 13)
+        %call_blake_g_function(3, 4, 9, 14, 14, 15)
         // stack: round, start, retdest
         %increment
         // stack: round + 1, start, retdest
     %endrep
-
-
-    %blake_internal_state_addr
-    %add_const(15)
-    %rep 16
-        // stack: addr, ...
-        DUP1
-        // stack: addr, addr, ...
-        %mload_kernel_general
-        // stack: val, addr, ...
-        SWAP1
-        // stack: addr, val, ...
-        %decrement
-    %endrep
-    STOP
-
     // stack: 12, start, retdest
     POP
     POP
