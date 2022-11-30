@@ -115,7 +115,7 @@ fn decode(registers_state: RegistersState, opcode: u8) -> Result<Operation, Prog
         (0x5d, true) => Ok(Operation::NotImplemented),
         (0x5e, true) => Ok(Operation::NotImplemented),
         (0x5f, true) => Ok(Operation::NotImplemented),
-        (0x60..=0x7f, _) => Ok(Operation::NotImplemented),
+        (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
         (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
         (0xa0, _) => Ok(Operation::Syscall(opcode)),
@@ -145,6 +145,7 @@ fn decode(registers_state: RegistersState, opcode: u8) -> Result<Operation, Prog
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
+        Operation::Push(_) => &mut flags.push,
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero => &mut flags.iszero,
@@ -155,7 +156,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
         Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
         Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
-        Operation::NotImplemented => panic!("operation not implemented"),
+        _ => panic!("operation not implemented: {:?}", op),
     } = F::ONE;
 }
 
@@ -179,7 +180,7 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, registers_state, memory_state, traces, row)?
         }
-        Operation::NotImplemented => panic!("operation not implemented"),
+        _ => panic!("operation not implemented: {:?}", op),
     };
 
     new_registers_state.program_counter += match op {

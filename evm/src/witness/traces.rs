@@ -1,6 +1,5 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
-use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::util::timing::TimingTree;
 
@@ -12,7 +11,7 @@ use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
-use crate::{keccak, logic};
+use crate::{arithmetic, keccak, logic};
 
 type ArithmeticRow<T> = [T; NUM_ARITH_COLUMNS];
 
@@ -28,7 +27,7 @@ pub struct TraceCheckpoint {
 pub(crate) struct Traces<T: Copy> {
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
-    pub(crate) arithmetic: Vec<ArithmeticRow<T>>,
+    pub(crate) arithmetic: Vec<arithmetic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
     pub(crate) keccak_memory_inputs: Vec<KeccakMemoryOp>,
@@ -70,12 +69,12 @@ impl<T: Copy> Traces<T> {
         self.cpu.push(val);
     }
 
-    pub fn push_logic(&mut self, val: logic::Operation) {
-        self.logic_ops.push(val);
+    pub fn push_logic(&mut self, op: logic::Operation) {
+        self.logic_ops.push(op);
     }
 
-    pub fn push_arithmetic(&mut self, val: ArithmeticRow<T>) {
-        self.arithmetic.push(val);
+    pub fn push_arithmetic(&mut self, op: arithmetic::Operation) {
+        self.arithmetic.push(op);
     }
 
     pub fn push_memory(&mut self, val: MemoryOp) {

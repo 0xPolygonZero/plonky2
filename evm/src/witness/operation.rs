@@ -5,7 +5,6 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
-use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
@@ -15,9 +14,11 @@ use crate::witness::util::{
     mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill, stack_pop_with_log_and_fill,
     stack_push_log_and_fill,
 };
+use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
+    Push(u8),
     Dup(u8),
     Swap(u8),
     Iszero,
@@ -26,6 +27,8 @@ pub(crate) enum Operation {
     Eq,
     ExitKernel,
     BinaryLogic(logic::Op),
+    BinaryArithmetic(arithmetic::BinaryOperator),
+    TernaryArithmetic(arithmetic::TernaryOperator),
     NotImplemented,
 }
 
