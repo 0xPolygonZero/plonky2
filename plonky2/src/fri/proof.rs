@@ -112,7 +112,7 @@ pub struct FriProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> 
     pub pow_witness: F,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FriProofTarget<const D: usize> {
     pub commit_phase_merkle_caps: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
