@@ -118,7 +118,14 @@ pub(crate) fn generate_pop<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    todo!()
+    if state.registers.stack_len == 0 {
+        return Err(ProgramError::StackUnderflow);
+    }
+
+    state.registers.stack_len -= 1;
+    state.traces.push_memory(log_in0);
+    state.traces.push_cpu(row);
+    Ok(())
 }
 
 pub(crate) fn generate_jump<F: Field>(
@@ -193,7 +200,8 @@ pub(crate) fn generate_push<F: Field>(
     // In any subsequent cycles, we read up to 1 + NUM_GP_CHANNELS bytes.
     for mut addrs_chunk in &addrs.chunks(1 + NUM_GP_CHANNELS) {
         let mut row = CpuColumnsView::default();
-        // TODO: Set other row fields, like push=1?
+        row.is_cpu_cycle = F::ONE;
+        row.op.push = F::ONE;
 
         let first_addr = addrs_chunk.next().unwrap();
         let (_, first_read) = mem_read_code_with_log_and_fill(first_addr, state, &mut row);
