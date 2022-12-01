@@ -7,6 +7,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::memory::segments::Segment;
+use crate::util::u256_saturating_cast_usize;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
@@ -108,6 +109,24 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     traces.push_memory(log_out);
     traces.push_cpu(row);
     Ok(registers_state)
+}
+
+pub(crate) fn generate_prover_input<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    todo!()
+}
+
+pub(crate) fn generate_pop<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    todo!()
 }
 
 pub(crate) fn generate_jump<F: Field>(

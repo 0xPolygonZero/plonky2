@@ -1,8 +1,8 @@
-use std::ops::Mul;
 use std::str::FromStr;
 
-use ethereum_types::{U256, U512};
-use num::BigUint;
+use ethereum_types::U256;
+
+use crate::util::{addmod, mulmod, submod};
 
 mod add;
 mod compare;

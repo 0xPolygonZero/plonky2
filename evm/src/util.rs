@@ -100,7 +100,7 @@ pub(crate) unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U 
     transmute_copy(&value)
 }
 
-fn addmod(x: U256, y: U256, m: U256) -> U256 {
+pub(crate) fn addmod(x: U256, y: U256, m: U256) -> U256 {
     if m.is_zero() {
         return m;
     }
@@ -110,7 +110,7 @@ fn addmod(x: U256, y: U256, m: U256) -> U256 {
     biguint_to_u256((x + y) % m)
 }
 
-fn mulmod(x: U256, y: U256, m: U256) -> U256 {
+pub(crate) fn mulmod(x: U256, y: U256, m: U256) -> U256 {
     if m.is_zero() {
         return m;
     }
@@ -120,7 +120,7 @@ fn mulmod(x: U256, y: U256, m: U256) -> U256 {
     biguint_to_u256(x * y % m)
 }
 
-fn submod(x: U256, y: U256, m: U256) -> U256 {
+pub(crate) fn submod(x: U256, y: U256, m: U256) -> U256 {
     if m.is_zero() {
         return m;
     }
@@ -133,18 +133,18 @@ fn submod(x: U256, y: U256, m: U256) -> U256 {
     biguint_to_u256((x - y) % m)
 }
 
-fn u256_to_biguint(x: U256) -> BigUint {
+pub(crate) fn u256_to_biguint(x: U256) -> BigUint {
     let mut bytes = [0u8; 32];
     x.to_little_endian(&mut bytes);
     BigUint::from_bytes_le(&bytes)
 }
 
-fn biguint_to_u256(x: BigUint) -> U256 {
+pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
     U256::from_little_endian(&bytes)
 }
 
-fn u256_saturating_cast_usize(x: U256) -> usize {
+pub(crate) fn u256_saturating_cast_usize(x: U256) -> usize {
     if x > usize::MAX.into() {
         usize::MAX
     } else {

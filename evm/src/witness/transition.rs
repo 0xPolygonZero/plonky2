@@ -214,8 +214,10 @@ fn perform_op<F: Field>(
             generate_ternary_arithmetic_op(op, registers_state, memory_state, traces, row)?
         }
         Operation::KeccakGeneral => todo!(),
-        Operation::ProverInput => todo!(),
-        Operation::Pop => todo!(),
+        Operation::ProverInput => {
+            generate_prover_input(registers_state, memory_state, traces, row)?
+        }
+        Operation::Pop => generate_pop(registers_state, memory_state, traces, row)?,
         Operation::Jump => generate_jump(registers_state, memory_state, traces, row)?,
         Operation::Jumpi => generate_jumpi(registers_state, memory_state, traces, row)?,
         Operation::Pc => todo!(),
