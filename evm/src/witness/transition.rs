@@ -252,14 +252,7 @@ fn try_perform_instruction<F: Field>(
 
     let opcode = read_code_memory(registers_state, memory_state, traces, &mut row);
     let op = decode(registers_state, opcode)?;
-    log::trace!(
-        "Executing {}={:?} at {}",
-        opcode,
-        op,
-        registers_state.program_counter
-    );
-    // TODO: Temporarily slowing down so we can view logs easily.
-    std::thread::sleep(std::time::Duration::from_millis(10));
+    log::trace!("Executing {:?} at {}", op, registers_state.program_counter);
     fill_op_flag(op, &mut row);
 
     perform_op(op, registers_state, memory_state, traces, row)
