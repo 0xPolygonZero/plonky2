@@ -103,7 +103,7 @@ pub(crate) const MODULAR_OUTPUT: Range<usize> = GENERAL_INPUT_3;
 pub(crate) const MODULAR_QUO_INPUT_LO: Range<usize> = AUX_INPUT_0_LO;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
 pub(crate) const MODULAR_QUO_INPUT_HI: Range<usize> = AUX_INPUT_0_HI;
-pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1;
+pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1.start..AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_2;
 

@@ -108,7 +108,6 @@
 //!   only require 96 columns, or 80 if the output doesn't need to be
 //!   reduced.
 
-use itertools::izip;
 use num::bigint::Sign;
 use num::{BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
@@ -271,21 +270,18 @@ fn generate_modular_op<F: RichField>(
 
     lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
 
-    for (i, lo, j, hi) in izip!(
-        MODULAR_QUO_INPUT_LO,
-        quot_limbs[..N_LIMBS]
-            .iter()
-            .map(|&c| F::from_noncanonical_i64(c)),
-        MODULAR_QUO_INPUT_HI,
-        quot_limbs[N_LIMBS..]
-            .iter()
-            .map(|&c| F::from_noncanonical_i64(c)),
-    ) {
-        lv[i] = lo;
-        nv[j] = hi;
+    // Copy lo and hi halves of quot_limbs into their respective registers
+    for (i, &lo) in MODULAR_QUO_INPUT_LO.zip(&quot_limbs[..N_LIMBS]) {
+        lv[i] = F::from_noncanonical_i64(lo);
+    }
+    for (i, &hi) in MODULAR_QUO_INPUT_HI.zip(&quot_limbs[N_LIMBS..]) {
+        nv[i] = F::from_noncanonical_i64(hi);
     }
 
-    nv[MODULAR_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
+    for (i, &c) in MODULAR_AUX_INPUT.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+        nv[i] = F::from_noncanonical_i64(c);
+    }
+
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
     nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
 }
@@ -396,8 +392,11 @@ fn modular_constr_poly<P: PackedField>(
     pol_add_assign(&mut constr_poly, &output);
 
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
-    let mut aux = read_value::<{ 2 * N_LIMBS }, _>(nv, MODULAR_AUX_INPUT);
-    aux[2 * N_LIMBS - 1] = P::ZEROS; // zero out the MOD_IS_ZERO flag
+    let mut aux = [P::ZEROS; 2 * N_LIMBS];
+    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
+        aux[i] = nv[j];
+    }
+
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
 
@@ -517,8 +516,12 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
-    let mut aux = read_value::<{ 2 * N_LIMBS }, _>(nv, MODULAR_AUX_INPUT);
-    aux[2 * N_LIMBS - 1] = builder.zero_extension();
+    let zero = builder.zero_extension();
+    let mut aux = [zero; 2 * N_LIMBS];
+    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
+        aux[i] = nv[j];
+    }
+
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &t);
@@ -569,6 +572,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
+    use itertools::izip;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
