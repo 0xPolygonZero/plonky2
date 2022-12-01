@@ -355,3 +355,58 @@ pub(crate) fn generate_exit_kernel<F: Field>(
 
     Ok(registers_state)
 }
+
+pub(crate) fn generate_mload_general<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(context, log_in0), (segment, log_in1), (virt, log_in2)] =
+        stack_pop_with_log_and_fill::<3, _>(&mut registers_state, memory_state, traces, &mut row)?;
+
+    // If virt won't fit in a usize, don't try to convert it, just return 0.
+    let val = if virt > usize::MAX.into() {
+        U256::zero()
+    } else {
+        memory_state.get(MemoryAddress {
+            context: context.as_usize(),
+            segment: segment.as_usize(),
+            virt: virt.as_usize(),
+        })
+    };
+
+    let log_out = stack_push_log_and_fill(&mut registers_state, traces, &mut row, val)?;
+
+    traces.push_memory(log_in0);
+    traces.push_memory(log_in1);
+    traces.push_memory(log_in2);
+    traces.push_memory(log_out);
+    traces.push_cpu(row);
+    Ok(registers_state)
+}
+
+pub(crate) fn generate_mstore_general<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(context, log_in0), (segment, log_in1), (virt, log_in2), (val, log_in3)] =
+        stack_pop_with_log_and_fill::<4, _>(&mut registers_state, memory_state, traces, &mut row)?;
+
+    let address = MemoryAddress {
+        context: context.as_usize(),
+        segment: segment.as_usize(),
+        virt: virt.as_usize(),
+    };
+    let log_write = mem_write_gp_log_and_fill(4, address, traces, &mut row, val);
+
+    traces.push_memory(log_in0);
+    traces.push_memory(log_in1);
+    traces.push_memory(log_in2);
+    traces.push_memory(log_in3);
+    traces.push_memory(log_write);
+    traces.push_cpu(row);
+    Ok(registers_state)
+}

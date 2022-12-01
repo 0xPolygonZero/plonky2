@@ -74,6 +74,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     let val_limbs: [u64; 4] = val.0;
 
     let channel = &mut row.mem_channels[n];
+    assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
     channel.is_read = F::ONE;
     channel.addr_context = F::from_canonical_usize(address.context);
@@ -98,6 +99,7 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     let val_limbs: [u64; 4] = val.0;
 
     let channel = &mut row.mem_channels[n];
+    assert_eq!(channel.used, F::ZERO);
     channel.used = F::ONE;
     channel.is_read = F::ZERO;
     channel.addr_context = F::from_canonical_usize(address.context);

@@ -4,11 +4,7 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
-use crate::witness::operation::{
-    generate_binary_arithmetic_op, generate_binary_logic_op, generate_dup, generate_eq,
-    generate_exit_kernel, generate_iszero, generate_not, generate_push, generate_swap,
-    generate_syscall, generate_ternary_arithmetic_op, Operation,
-};
+use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::Traces;
 use crate::witness::util::mem_read_code_with_log_and_fill;
@@ -153,9 +149,9 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero => &mut flags.iszero,
         Operation::Not => &mut flags.not,
+        Operation::Byte => &mut flags.byte,
         Operation::Syscall(_) => &mut flags.syscall,
         Operation::Eq => &mut flags.eq,
-        Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
         Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
         Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
@@ -168,9 +164,25 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.gt,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => &mut flags.shl,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shr,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => &mut flags.addfp254,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => &mut flags.mulfp254,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.subfp254,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
-        _ => panic!("operation not implemented: {:?}", op),
+        Operation::KeccakGeneral => &mut flags.keccak_general,
+        Operation::ProverInput => &mut flags.prover_input,
+        Operation::Pop => &mut flags.pop,
+        Operation::Jump => &mut flags.jump,
+        Operation::Jumpi => &mut flags.jumpi,
+        Operation::Pc => &mut flags.pc,
+        Operation::Gas => &mut flags.gas,
+        Operation::Jumpdest => &mut flags.jumpdest,
+        Operation::GetContext => &mut flags.get_context,
+        Operation::SetContext => &mut flags.set_context,
+        Operation::ConsumeGas => &mut flags.consume_gas,
+        Operation::ExitKernel => &mut flags.exit_kernel,
+        Operation::MloadGeneral => &mut flags.mload_general,
+        Operation::MstoreGeneral => &mut flags.mstore_general,
     } = F::ONE;
 }
 
@@ -187,11 +199,11 @@ fn perform_op<F: Field>(
         Operation::Swap(n) => generate_swap(n, registers_state, memory_state, traces, row)?,
         Operation::Iszero => generate_iszero(registers_state, memory_state, traces, row)?,
         Operation::Not => generate_not(registers_state, memory_state, traces, row)?,
+        Operation::Byte => todo!(),
         Operation::Syscall(opcode) => {
             generate_syscall(opcode, registers_state, memory_state, traces, row)?
         }
         Operation::Eq => generate_eq(registers_state, memory_state, traces, row)?,
-        Operation::ExitKernel => generate_exit_kernel(registers_state, memory_state, traces, row)?,
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, registers_state, memory_state, traces, row)?
         }
@@ -201,7 +213,24 @@ fn perform_op<F: Field>(
         Operation::TernaryArithmetic(op) => {
             generate_ternary_arithmetic_op(op, registers_state, memory_state, traces, row)?
         }
-        _ => panic!("operation not implemented: {:?}", op),
+        Operation::KeccakGeneral => todo!(),
+        Operation::ProverInput => todo!(),
+        Operation::Pop => todo!(),
+        Operation::Jump => todo!(),
+        Operation::Jumpi => todo!(),
+        Operation::Pc => todo!(),
+        Operation::Gas => todo!(),
+        Operation::Jumpdest => todo!(),
+        Operation::GetContext => todo!(),
+        Operation::SetContext => todo!(),
+        Operation::ConsumeGas => todo!(),
+        Operation::ExitKernel => generate_exit_kernel(registers_state, memory_state, traces, row)?,
+        Operation::MloadGeneral => {
+            generate_mload_general(registers_state, memory_state, traces, row)?
+        }
+        Operation::MstoreGeneral => {
+            generate_mstore_general(registers_state, memory_state, traces, row)?
+        }
     };
 
     new_registers_state.program_counter += match op {
@@ -230,7 +259,7 @@ fn try_perform_instruction<F: Field>(
         registers_state.program_counter
     );
     // TODO: Temporarily slowing down so we can view logs easily.
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    std::thread::sleep(std::time::Duration::from_millis(10));
     fill_op_flag(op, &mut row);
 
     perform_op(op, registers_state, memory_state, traces, row)
