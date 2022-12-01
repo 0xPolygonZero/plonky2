@@ -318,10 +318,6 @@ impl<'a> Interpreter<'a> {
             0x59 => self.run_msize(),                                   // "MSIZE",
             0x5a => todo!(),                                            // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
-            0x5c => todo!(),                                            // "GET_STATE_ROOT",
-            0x5d => todo!(),                                            // "SET_STATE_ROOT",
-            0x5e => todo!(),                                            // "GET_RECEIPT_ROOT",
-            0x5f => todo!(),                                            // "SET_RECEIPT_ROOT",
             x if (0x60..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
@@ -830,10 +826,6 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x59 => "MSIZE",
         0x5a => "GAS",
         0x5b => "JUMPDEST",
-        0x5c => "GET_STATE_ROOT",
-        0x5d => "SET_STATE_ROOT",
-        0x5e => "GET_RECEIPT_ROOT",
-        0x5f => "SET_RECEIPT_ROOT",
         0x60 => "PUSH1",
         0x61 => "PUSH2",
         0x62 => "PUSH3",

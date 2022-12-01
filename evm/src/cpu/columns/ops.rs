@@ -41,12 +41,6 @@ pub struct OpsColumnsView<T: Copy> {
     pub pc: T,
     pub gas: T,
     pub jumpdest: T,
-    // TODO: combine GET_STATE_ROOT and SET_STATE_ROOT into one flag
-    pub get_state_root: T,
-    pub set_state_root: T,
-    // TODO: combine GET_RECEIPT_ROOT and SET_RECEIPT_ROOT into one flag
-    pub get_receipt_root: T,
-    pub set_receipt_root: T,
     pub push: T,
     pub dup: T,
     pub swap: T,
