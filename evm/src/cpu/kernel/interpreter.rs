@@ -755,7 +755,6 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
         }
         offset += 1;
     }
-    dbg!(res.clone());
     res
 }
 
