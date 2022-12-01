@@ -123,7 +123,6 @@ pub(crate) fn generate_pop<F: Field>(
     }
 
     state.registers.stack_len -= 1;
-    state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
     Ok(())
 }
