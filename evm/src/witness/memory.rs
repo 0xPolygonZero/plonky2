@@ -98,6 +98,17 @@ impl MemoryState {
         Self { contents }
     }
 
+    pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
+        for &op in ops {
+            let MemoryOp {
+                address, op, value, ..
+            } = op;
+            if op == MemoryOpKind::Write {
+                self.set(address, value);
+            }
+        }
+    }
+
     pub fn get(&self, address: MemoryAddress) -> U256 {
         self.contents
             .get(&address)

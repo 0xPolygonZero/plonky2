@@ -42,12 +42,56 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
 ) -> Result<RegistersState, ProgramError> {
     let [(in0, log_in0), (in1, log_in1)] =
         stack_pop_with_log_and_fill::<2, _>(&mut registers_state, memory_state, traces, &mut row)?;
-    let result = op.result(in0, in1);
-    let log_out = stack_push_log_and_fill(&mut registers_state, traces, &mut row, result)?;
+    let operation = logic::Operation::new(op, in0, in1);
+    let log_out =
+        stack_push_log_and_fill(&mut registers_state, traces, &mut row, operation.result)?;
 
-    traces.push_logic(logic::Operation::new(op, in0, in1));
+    traces.push_logic(operation);
     traces.push_memory(log_in0);
     traces.push_memory(log_in1);
+    traces.push_memory(log_out);
+    traces.push_cpu(row);
+    Ok(registers_state)
+}
+
+pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+    operator: arithmetic::BinaryOperator,
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(input0, log_in0), (input1, log_in1)] =
+        stack_pop_with_log_and_fill::<2, _>(&mut registers_state, memory_state, traces, &mut row)?;
+    let operation = arithmetic::Operation::binary(operator, input0, input1);
+    let log_out =
+        stack_push_log_and_fill(&mut registers_state, traces, &mut row, operation.result())?;
+
+    traces.push_arithmetic(operation);
+    traces.push_memory(log_in0);
+    traces.push_memory(log_in1);
+    traces.push_memory(log_out);
+    traces.push_cpu(row);
+    Ok(registers_state)
+}
+
+pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
+    operator: arithmetic::TernaryOperator,
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(input0, log_in0), (input1, log_in1), (input2, log_in2)] =
+        stack_pop_with_log_and_fill::<3, _>(&mut registers_state, memory_state, traces, &mut row)?;
+    let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
+    let log_out =
+        stack_push_log_and_fill(&mut registers_state, traces, &mut row, operation.result())?;
+
+    traces.push_arithmetic(operation);
+    traces.push_memory(log_in0);
+    traces.push_memory(log_in1);
+    traces.push_memory(log_in2);
     traces.push_memory(log_out);
     traces.push_cpu(row);
     Ok(registers_state)

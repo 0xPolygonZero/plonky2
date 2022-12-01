@@ -5,8 +5,9 @@ use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::operation::{
-    generate_binary_logic_op, generate_dup, generate_eq, generate_exit_kernel, generate_iszero,
-    generate_not, generate_push, generate_swap, generate_syscall, Operation,
+    generate_binary_arithmetic_op, generate_binary_logic_op, generate_dup, generate_eq,
+    generate_exit_kernel, generate_iszero, generate_not, generate_push, generate_swap,
+    generate_syscall, generate_ternary_arithmetic_op, Operation,
 };
 use crate::witness::state::RegistersState;
 use crate::witness::traces::Traces;
@@ -188,6 +189,12 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, registers_state, memory_state, traces, row)?
         }
+        Operation::BinaryArithmetic(op) => {
+            generate_binary_arithmetic_op(op, registers_state, memory_state, traces, row)?
+        }
+        Operation::TernaryArithmetic(op) => {
+            generate_ternary_arithmetic_op(op, registers_state, memory_state, traces, row)?
+        }
         _ => panic!("operation not implemented: {:?}", op),
     };
 
@@ -233,11 +240,12 @@ fn handle_error<F: Field>(
 
 pub(crate) fn transition<F: Field>(
     registers_state: RegistersState,
-    memory_state: &MemoryState,
+    memory_state: &mut MemoryState,
     traces: &mut Traces<F>,
 ) -> RegistersState {
     let checkpoint = traces.checkpoint();
     let result = try_perform_instruction(registers_state, memory_state, traces);
+    memory_state.apply_ops(traces.mem_ops_since(checkpoint));
 
     match result {
         Ok(new_registers_state) => new_registers_state,

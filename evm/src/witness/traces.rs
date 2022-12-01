@@ -4,7 +4,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::util::timing::TimingTree;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
-use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
@@ -61,6 +60,10 @@ impl<T: Copy> Traces<T> {
         self.arithmetic.truncate(checkpoint.arithmetic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
         // TODO others
+    }
+
+    pub fn mem_ops_since(&self, checkpoint: TraceCheckpoint) -> &[MemoryOp] {
+        &self.memory_ops[checkpoint.memory_len..]
     }
 
     pub fn push_cpu(&mut self, val: CpuColumnsView<T>) {

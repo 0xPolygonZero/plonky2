@@ -83,7 +83,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
             break;
         }
 
-        registers_state = transition(registers_state, &memory_state, &mut traces);
+        registers_state = transition(registers_state, &mut memory_state, &mut traces);
     }
 
     let read_metadata = |field| {
