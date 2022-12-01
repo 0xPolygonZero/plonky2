@@ -116,13 +116,9 @@ pub fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec
         }
     }
 
-    #[allow(clippy::needless_range_loop)] // indexing is just more natural here
-    for jj in j..n {
-        unused_table_vals.push(sorted_table[jj]);
-    }
-    for ii in i..n {
-        unused_table_inds.push(ii);
-    }
+    unused_table_vals.extend_from_slice(&sorted_table[j..n]);
+    unused_table_inds.extend(i..n);
+
     for (ind, val) in unused_table_inds.into_iter().zip_eq(unused_table_vals) {
         permuted_table[ind] = val;
     }
