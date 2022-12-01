@@ -4,11 +4,10 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
+use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
-use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind, MemoryState};
-use crate::witness::state::RegistersState;
-use crate::witness::traces::Traces;
+use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 
 fn to_byte_checked(n: U256) -> u8 {
     let res = n.byte(0);
@@ -24,33 +23,55 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
     res
 }
 
-pub(crate) fn mem_read_with_log<T: Copy>(
+/// Peak at the stack item `i`th from the top. If `i=0` this gives the tip.
+pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Option<U256> {
+    if i >= state.registers.stack_len {
+        return None;
+    }
+    Some(state.memory.get(MemoryAddress::new(
+        state.registers.effective_context(),
+        Segment::Stack,
+        state.registers.stack_len - 1 - i,
+    )))
+}
+
+pub(crate) fn mem_read_with_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    memory_state: &MemoryState,
-    traces: &Traces<T>,
+    state: &GenerationState<F>,
 ) -> (U256, MemoryOp) {
-    let val = memory_state.get(address);
-    let op = MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Read, val);
+    let val = state.memory.get(address);
+    let op = MemoryOp::new(
+        channel,
+        state.traces.clock(),
+        address,
+        MemoryOpKind::Read,
+        val,
+    );
     (val, op)
 }
 
-pub(crate) fn mem_write_log<T: Copy>(
+pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    traces: &Traces<T>,
+    state: &mut GenerationState<F>,
     val: U256,
 ) -> MemoryOp {
-    MemoryOp::new(channel, traces.clock(), address, MemoryOpKind::Write, val)
+    MemoryOp::new(
+        channel,
+        state.traces.clock(),
+        address,
+        MemoryOpKind::Write,
+        val,
+    )
 }
 
 pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
     address: MemoryAddress,
-    memory_state: &MemoryState,
-    traces: &Traces<F>,
+    state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> (u8, MemoryOp) {
-    let (val, op) = mem_read_with_log(MemoryChannel::Code, address, memory_state, traces);
+    let (val, op) = mem_read_with_log(MemoryChannel::Code, address, state);
 
     let val_u8 = to_byte_checked(val);
     row.opcode_bits = to_bits_le(val_u8);
@@ -61,16 +82,10 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    memory_state: &MemoryState,
-    traces: &Traces<F>,
+    state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> (U256, MemoryOp) {
-    let (val, op) = mem_read_with_log(
-        MemoryChannel::GeneralPurpose(n),
-        address,
-        memory_state,
-        traces,
-    );
+    let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
     let val_limbs: [u64; 4] = val.0;
 
     let channel = &mut row.mem_channels[n];
@@ -91,11 +106,11 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    traces: &Traces<F>,
+    state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: U256,
 ) -> MemoryOp {
-    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, traces, val);
+    let op = mem_write_log(MemoryChannel::GeneralPurpose(n), address, state, val);
     let val_limbs: [u64; 4] = val.0;
 
     let channel = &mut row.mem_channels[n];
@@ -114,12 +129,10 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
 }
 
 pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
-    registers_state: &mut RegistersState,
-    memory_state: &MemoryState,
-    traces: &Traces<F>,
+    state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<[(U256, MemoryOp); N], ProgramError> {
-    if (registers_state.stack_len as usize) < N {
+    if state.registers.stack_len < N {
         return Err(ProgramError::StackUnderflow);
     }
 
@@ -127,39 +140,38 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         let mut i = 0usize;
         [(); N].map(|_| {
             let address = MemoryAddress::new(
-                registers_state.context,
+                state.registers.effective_context(),
                 Segment::Stack,
-                registers_state.stack_len - 1 - i,
+                state.registers.stack_len - 1 - i,
             );
-            let res = mem_read_gp_with_log_and_fill(i, address, memory_state, traces, row);
+            let res = mem_read_gp_with_log_and_fill(i, address, state, row);
             i += 1;
             res
         })
     };
 
-    registers_state.stack_len -= N;
+    state.registers.stack_len -= N;
 
     Ok(result)
 }
 
 pub(crate) fn stack_push_log_and_fill<F: Field>(
-    registers_state: &mut RegistersState,
-    traces: &Traces<F>,
+    state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: U256,
 ) -> Result<MemoryOp, ProgramError> {
-    if !registers_state.is_kernel && registers_state.stack_len >= MAX_USER_STACK_SIZE {
+    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
         return Err(ProgramError::StackOverflow);
     }
 
     let address = MemoryAddress::new(
-        registers_state.context,
+        state.registers.effective_context(),
         Segment::Stack,
-        registers_state.stack_len,
+        state.registers.stack_len,
     );
-    let res = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 1, address, traces, row, val);
+    let res = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 1, address, state, row, val);
 
-    registers_state.stack_len += 1;
+    state.registers.stack_len += 1;
 
     Ok(res)
 }

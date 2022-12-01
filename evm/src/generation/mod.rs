@@ -13,11 +13,10 @@ use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
-use crate::witness::memory::{MemoryAddress, MemoryState};
-use crate::witness::state::RegistersState;
-use crate::witness::traces::Traces;
+use crate::witness::memory::MemoryAddress;
 use crate::witness::transition::transition;
 
 pub(crate) mod memory;
@@ -65,29 +64,26 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     config: &StarkConfig,
     timing: &mut TimingTree,
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
-    // let mut state = GenerationState::<F>::new(inputs.clone());
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
 
-    let mut memory_state = MemoryState::new(&KERNEL.code);
-    let mut traces = Traces::<F>::default();
-    generate_bootstrap_kernel::<F>(&mut traces);
+    generate_bootstrap_kernel::<F>(&mut state);
 
-    let mut registers_state = RegistersState::default();
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
     let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
-        let pc = registers_state.program_counter as usize;
+        let pc = state.registers.program_counter;
         let in_halt_loop = pc == halt_pc0 || pc == halt_pc1;
-        if in_halt_loop && traces.cpu.len().is_power_of_two() {
+        if in_halt_loop && state.traces.clock().is_power_of_two() {
             break;
         }
 
-        registers_state = transition(registers_state, &mut memory_state, &mut traces);
+        transition(&mut state);
     }
 
     let read_metadata = |field| {
-        memory_state.get(MemoryAddress::new(
+        state.memory.get(MemoryAddress::new(
             0,
             Segment::GlobalMetadata,
             field as usize,
@@ -115,5 +111,8 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         block_metadata: inputs.block_metadata,
     };
 
-    (traces.to_tables(all_stark, config, timing), public_values)
+    (
+        state.traces.to_tables(all_stark, config, timing),
+        public_values,
+    )
 }

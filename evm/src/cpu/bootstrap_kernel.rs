@@ -14,11 +14,11 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
+use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::KECCAK_RATE_U32S;
 use crate::memory::segments::Segment;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
-use crate::witness::traces::Traces;
 use crate::witness::util::mem_write_gp_log_and_fill;
 
 /// We can't process more than `NUM_CHANNELS` bytes per row, since that's all the memory bandwidth
@@ -26,7 +26,7 @@ use crate::witness::util::mem_write_gp_log_and_fill;
 /// want them to fit in a single limb of Keccak input.
 const BYTES_PER_ROW: usize = 4;
 
-pub(crate) fn generate_bootstrap_kernel<F: Field>(traces: &mut Traces<F>) {
+pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     let mut sponge_state = [0u32; 50];
     let mut sponge_input_pos: usize = 0;
 
@@ -47,11 +47,11 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(traces: &mut Traces<F>) {
             let write = mem_write_gp_log_and_fill(
                 channel,
                 address,
-                traces,
+                state,
                 &mut current_cpu_row,
                 byte.into(),
             );
-            traces.push_memory(write);
+            state.traces.push_memory(write);
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
         }
@@ -70,7 +70,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(traces: &mut Traces<F>) {
             keccak.output_limbs = sponge_state.map(F::from_canonical_u32);
         }
 
-        traces.push_cpu(current_cpu_row);
+        state.traces.push_cpu(current_cpu_row);
     }
 }
 

@@ -1,40 +1,29 @@
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
+use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
-use crate::witness::memory::{MemoryAddress, MemoryState};
+use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
-use crate::witness::traces::Traces;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
-const KERNEL_CONTEXT: usize = 0;
-
-fn read_code_memory<F: Field>(
-    registers_state: RegistersState,
-    memory_state: &MemoryState,
-    traces: &mut Traces<F>,
-    row: &mut CpuColumnsView<F>,
-) -> u8 {
-    let code_context = if registers_state.is_kernel {
-        KERNEL_CONTEXT
-    } else {
-        registers_state.context
-    };
+fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
+    let code_context = state.registers.effective_context();
     row.code_context = F::from_canonical_usize(code_context);
 
-    let address = MemoryAddress::new(code_context, Segment::Code, registers_state.program_counter);
-    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, memory_state, traces, row);
+    let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
+    let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, state, row);
 
-    traces.push_memory(mem_log);
+    state.traces.push_memory(mem_log);
 
     opcode
 }
 
-fn decode(registers_state: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
-    match (opcode, registers_state.is_kernel) {
+fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+    match (opcode, registers.is_kernel) {
         (0x00, _) => Ok(Operation::Syscall(opcode)),
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
@@ -187,105 +176,82 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
 }
 
 fn perform_op<F: Field>(
+    state: &mut GenerationState<F>,
     op: Operation,
-    registers_state: RegistersState,
-    memory_state: &MemoryState,
-    traces: &mut Traces<F>,
     row: CpuColumnsView<F>,
-) -> Result<RegistersState, ProgramError> {
-    let mut new_registers_state = match op {
-        Operation::Push(n) => generate_push(n, registers_state, memory_state, traces, row)?,
-        Operation::Dup(n) => generate_dup(n, registers_state, memory_state, traces, row)?,
-        Operation::Swap(n) => generate_swap(n, registers_state, memory_state, traces, row)?,
-        Operation::Iszero => generate_iszero(registers_state, memory_state, traces, row)?,
-        Operation::Not => generate_not(registers_state, memory_state, traces, row)?,
+) -> Result<(), ProgramError> {
+    match op {
+        Operation::Push(n) => generate_push(n, state, row)?,
+        Operation::Dup(n) => generate_dup(n, state, row)?,
+        Operation::Swap(n) => generate_swap(n, state, row)?,
+        Operation::Iszero => generate_iszero(state, row)?,
+        Operation::Not => generate_not(state, row)?,
         Operation::Byte => todo!(),
-        Operation::Syscall(opcode) => {
-            generate_syscall(opcode, registers_state, memory_state, traces, row)?
-        }
-        Operation::Eq => generate_eq(registers_state, memory_state, traces, row)?,
+        Operation::Syscall(opcode) => generate_syscall(opcode, state, row)?,
+        Operation::Eq => generate_eq(state, row)?,
         Operation::BinaryLogic(binary_logic_op) => {
-            generate_binary_logic_op(binary_logic_op, registers_state, memory_state, traces, row)?
+            generate_binary_logic_op(binary_logic_op, state, row)?
         }
-        Operation::BinaryArithmetic(op) => {
-            generate_binary_arithmetic_op(op, registers_state, memory_state, traces, row)?
-        }
-        Operation::TernaryArithmetic(op) => {
-            generate_ternary_arithmetic_op(op, registers_state, memory_state, traces, row)?
-        }
+        Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
+        Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => todo!(),
-        Operation::ProverInput => {
-            generate_prover_input(registers_state, memory_state, traces, row)?
-        }
-        Operation::Pop => generate_pop(registers_state, memory_state, traces, row)?,
-        Operation::Jump => generate_jump(registers_state, memory_state, traces, row)?,
-        Operation::Jumpi => generate_jumpi(registers_state, memory_state, traces, row)?,
+        Operation::ProverInput => generate_prover_input(state, row)?,
+        Operation::Pop => generate_pop(state, row)?,
+        Operation::Jump => generate_jump(state, row)?,
+        Operation::Jumpi => generate_jumpi(state, row)?,
         Operation::Pc => todo!(),
         Operation::Gas => todo!(),
         Operation::Jumpdest => todo!(),
         Operation::GetContext => todo!(),
         Operation::SetContext => todo!(),
         Operation::ConsumeGas => todo!(),
-        Operation::ExitKernel => generate_exit_kernel(registers_state, memory_state, traces, row)?,
-        Operation::MloadGeneral => {
-            generate_mload_general(registers_state, memory_state, traces, row)?
-        }
-        Operation::MstoreGeneral => {
-            generate_mstore_general(registers_state, memory_state, traces, row)?
-        }
+        Operation::ExitKernel => generate_exit_kernel(state, row)?,
+        Operation::MloadGeneral => generate_mload_general(state, row)?,
+        Operation::MstoreGeneral => generate_mstore_general(state, row)?,
     };
 
-    new_registers_state.program_counter += match op {
+    state.registers.program_counter += match op {
         Operation::Syscall(_) | Operation::ExitKernel => 0,
         Operation::Push(n) => n as usize + 2,
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
 
-    Ok(new_registers_state)
+    Ok(())
 }
 
-fn try_perform_instruction<F: Field>(
-    registers_state: RegistersState,
-    memory_state: &MemoryState,
-    traces: &mut Traces<F>,
-) -> Result<RegistersState, ProgramError> {
+fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.is_cpu_cycle = F::ONE;
 
-    let opcode = read_code_memory(registers_state, memory_state, traces, &mut row);
-    let op = decode(registers_state, opcode)?;
-    log::trace!("Executing {:?} at {}", op, registers_state.program_counter);
+    let opcode = read_code_memory(state, &mut row);
+    let op = decode(state.registers, opcode)?;
+    log::trace!("Executing {:?} at {}", op, state.registers.program_counter);
     fill_op_flag(op, &mut row);
 
-    perform_op(op, registers_state, memory_state, traces, row)
+    perform_op(state, op, row)
 }
 
-fn handle_error<F: Field>(
-    _registers_state: RegistersState,
-    _memory_state: &MemoryState,
-    _traces: &mut Traces<F>,
-) -> RegistersState {
-    todo!("constraints for exception handling are not implemented");
+fn handle_error<F: Field>(_state: &mut GenerationState<F>) {
+    todo!("generation for exception handling is not implemented");
 }
 
-pub(crate) fn transition<F: Field>(
-    registers_state: RegistersState,
-    memory_state: &mut MemoryState,
-    traces: &mut Traces<F>,
-) -> RegistersState {
-    let checkpoint = traces.checkpoint();
-    let result = try_perform_instruction(registers_state, memory_state, traces);
-    memory_state.apply_ops(traces.mem_ops_since(checkpoint));
+pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
+    let checkpoint = state.checkpoint();
+    let result = try_perform_instruction(state);
 
     match result {
-        Ok(new_registers_state) => new_registers_state,
+        Ok(()) => {
+            state
+                .memory
+                .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+        }
         Err(_) => {
-            traces.rollback(checkpoint);
-            if registers_state.is_kernel {
+            state.rollback(checkpoint);
+            if state.registers.is_kernel {
                 panic!("exception in kernel mode");
             }
-            handle_error(registers_state, memory_state, traces)
+            handle_error(state)
         }
     }
 }
