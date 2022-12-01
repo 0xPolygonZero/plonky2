@@ -56,7 +56,10 @@ fn make_input_stack(message: Vec<u8>) -> Vec<U256> {
     initial_stack
 }
 
-fn test_hash_256(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U256) -> Result<()> {
+fn test_hash_256(
+    hash_fn_label: &str,
+    standard_implementation: &dyn Fn(Vec<u8>) -> U256,
+) -> Result<()> {
     // Make the input.
     let message_random = make_random_input();
     let message_custom = make_custom_input();
@@ -89,12 +92,18 @@ fn test_hash_256(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) 
 
 fn combine_u256s(hi: U256, lo: U256) -> U512 {
     let mut result = U512::from(hi);
-    result *= U512::from_big_endian(&[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    result *= U512::from_big_endian(&[
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0,
+    ]);
     result += U512::from(lo);
     result
 }
 
-fn test_hash_512(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U512) -> Result<()> {
+fn test_hash_512(
+    hash_fn_label: &str,
+    standard_implementation: &dyn Fn(Vec<u8>) -> U512,
+) -> Result<()> {
     // Make the input.
     let message_random = make_random_input();
     let message_custom = make_custom_input();
