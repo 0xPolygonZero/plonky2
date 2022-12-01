@@ -364,9 +364,7 @@ fn modular_constr_poly<P: PackedField>(
     // and we were given output = out_aux_red
     let is_less_than = P::ONES - mod_is_zero * lv[IS_DIV];
     // NB: output and modulus in lv while out_aux_red and is_less_than
-    // (via mod_is_zero) depend on nv; eval_ext_circuit_lt calls
-    // yield_constr.constraint_transition() for all constraints, so
-    // splitting the input across the two rows is okay.
+    // (via mod_is_zero) depend on nv.
     eval_packed_generic_lt(
         yield_constr,
         filter,
@@ -374,6 +372,7 @@ fn modular_constr_poly<P: PackedField>(
         &modulus,
         out_aux_red,
         is_less_than,
+        true,
     );
     // restore output[0]
     output[0] -= mod_is_zero * lv[IS_DIV];
@@ -497,6 +496,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         &modulus,
         out_aux_red,
         is_less_than,
+        true,
     );
     output[0] =
         builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], output[0]);
