@@ -1,5 +1,6 @@
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -121,6 +122,9 @@ pub(crate) fn generate_keccak_general<F: Field>(
         })
         .collect();
 
+    let hash = keccak(&input);
+    let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
+
     state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
         timestamp: state.traces.clock(),
@@ -131,6 +135,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_push);
     state.traces.push_cpu(row);
     Ok(())
 }
