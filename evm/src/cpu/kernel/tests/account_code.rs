@@ -144,10 +144,9 @@ fn test_extcodecopy() -> Result<()> {
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
-        interpreter.memory.context_memory[interpreter.context].segments
-            [Segment::MainMemory as usize]
+        interpreter.memory.contexts[interpreter.context].segments[Segment::MainMemory as usize]
             .set(i, U256::from(rng.gen::<u8>()));
-        interpreter.memory.context_memory[interpreter.context].segments
+        interpreter.memory.contexts[interpreter.context].segments
             [Segment::KernelAccountCode as usize]
             .set(i, U256::from(rng.gen::<u8>()));
     }
@@ -173,7 +172,7 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.memory.context_memory[interpreter.context].segments
+        let memory = interpreter.memory.contexts[interpreter.context].segments
             [Segment::MainMemory as usize]
             .get(dest_offset + i);
         assert_eq!(

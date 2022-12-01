@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ethereum_types::U256;
 
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -87,24 +85,17 @@ impl MemoryOp {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct MemoryState {
-    contents: HashMap<MemoryAddress, U256>,
+    pub(crate) contexts: Vec<MemoryContextState>,
 }
 
 impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
-        let mut contents = HashMap::new();
-
-        for (i, &byte) in kernel_code.iter().enumerate() {
-            if byte != 0 {
-                let address = MemoryAddress::new(0, Segment::Code, i);
-                let val = byte.into();
-                contents.insert(address, val);
-            }
-        }
-
-        Self { contents }
+        let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
+        let mut result = Self::default();
+        result.contexts[0].segments[Segment::Code as usize].content = code_u256s;
+        result
     }
 
     pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
@@ -119,17 +110,46 @@ impl MemoryState {
     }
 
     pub fn get(&self, address: MemoryAddress) -> U256 {
-        self.contents
-            .get(&address)
-            .copied()
-            .unwrap_or_else(U256::zero)
+        self.contexts[address.context].segments[address.segment].get(address.virt)
     }
 
     pub fn set(&mut self, address: MemoryAddress, val: U256) {
-        if val.is_zero() {
-            self.contents.remove(&address);
-        } else {
-            self.contents.insert(address, val);
+        self.contexts[address.context].segments[address.segment].set(address.virt, val);
+    }
+}
+
+impl Default for MemoryState {
+    fn default() -> Self {
+        Self {
+            // We start with an initial context for the kernel.
+            contexts: vec![MemoryContextState::default()],
         }
+    }
+}
+
+#[derive(Clone, Default, Debug)]
+pub(crate) struct MemoryContextState {
+    /// The content of each memory segment.
+    pub(crate) segments: [MemorySegmentState; Segment::COUNT],
+}
+
+#[derive(Clone, Default, Debug)]
+pub(crate) struct MemorySegmentState {
+    pub(crate) content: Vec<U256>,
+}
+
+impl MemorySegmentState {
+    pub(crate) fn get(&self, virtual_addr: usize) -> U256 {
+        self.content
+            .get(virtual_addr)
+            .copied()
+            .unwrap_or(U256::zero())
+    }
+
+    pub(crate) fn set(&mut self, virtual_addr: usize, value: U256) {
+        if virtual_addr >= self.content.len() {
+            self.content.resize(virtual_addr + 1, U256::zero());
+        }
+        self.content[virtual_addr] = value;
     }
 }

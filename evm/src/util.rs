@@ -45,6 +45,7 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
         .collect()
 }
 
+#[allow(unused)] // TODO: Remove?
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
     u256.0

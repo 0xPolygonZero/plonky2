@@ -464,6 +464,8 @@ pub(crate) mod tests {
     use crate::memory::segments::Segment;
     use crate::memory::NUM_CHANNELS;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
+    use crate::witness::memory::MemoryOpKind::{Read, Write};
 
     pub(crate) fn generate_random_memory_ops<R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp> {
         let mut memory_ops = Vec::new();
@@ -525,10 +527,12 @@ pub(crate) mod tests {
                 memory_ops.push(MemoryOp {
                     filter: true,
                     timestamp,
-                    is_read,
-                    context,
-                    segment,
-                    virt,
+                    address: MemoryAddress {
+                        context,
+                        segment: segment as usize,
+                        virt,
+                    },
+                    op: if is_read { Read } else { Write },
                     value: vals,
                 });
             }

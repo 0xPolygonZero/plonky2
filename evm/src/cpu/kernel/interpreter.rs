@@ -11,43 +11,27 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
-use crate::generation::memory::{MemoryContextState, MemorySegmentState};
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::witness::memory::{MemoryContextState, MemorySegmentState, MemoryState};
 
 type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
-#[derive(Clone, Debug)]
-pub(crate) struct InterpreterMemory {
-    pub(crate) context_memory: Vec<MemoryContextState>,
-}
-
-impl Default for InterpreterMemory {
-    fn default() -> Self {
-        Self {
-            context_memory: vec![MemoryContextState::default()],
-        }
-    }
-}
-
-impl InterpreterMemory {
+impl MemoryState {
     fn with_code_and_stack(code: &[u8], stack: Vec<U256>) -> Self {
-        let mut mem = Self::default();
-        for (i, b) in code.iter().copied().enumerate() {
-            mem.context_memory[0].segments[Segment::Code as usize].set(i, b.into());
-        }
-        mem.context_memory[0].segments[Segment::Stack as usize].content = stack;
+        let mut mem = Self::new(code);
+        mem.contexts[0].segments[Segment::Stack as usize].content = stack;
 
         mem
     }
 
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
-        let value = self.context_memory[context].segments[segment as usize].get(offset);
+        let value = self.contexts[context].segments[segment as usize].get(offset);
         assert!(
             value.bits() <= segment.bit_range(),
             "Value read from memory exceeds expected range of {:?} segment",
@@ -62,7 +46,7 @@ impl InterpreterMemory {
             "Value written to memory exceeds expected range of {:?} segment",
             segment
         );
-        self.context_memory[context].segments[segment as usize].set(offset, value)
+        self.contexts[context].segments[segment as usize].set(offset, value)
     }
 }
 
@@ -71,7 +55,7 @@ pub struct Interpreter<'a> {
     jumpdests: Vec<usize>,
     pub(crate) offset: usize,
     pub(crate) context: usize,
-    pub(crate) memory: InterpreterMemory,
+    pub(crate) memory: MemoryState,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
@@ -123,8 +107,8 @@ impl<'a> Interpreter<'a> {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
             offset: initial_offset,
-            memory: InterpreterMemory::with_code_and_stack(code, initial_stack),
-            generation_state: GenerationState::new(GenerationInputs::default()),
+            memory: MemoryState::with_code_and_stack(code, initial_stack),
+            generation_state: GenerationState::new(GenerationInputs::default(), code),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
@@ -149,7 +133,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn code(&self) -> &MemorySegmentState {
-        &self.memory.context_memory[self.context].segments[Segment::Code as usize]
+        &self.memory.contexts[self.context].segments[Segment::Code as usize]
     }
 
     fn code_slice(&self, n: usize) -> Vec<u8> {
@@ -160,37 +144,36 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
-        self.memory.context_memory[0].segments[Segment::TxnFields as usize].get(field as usize)
+        self.memory.contexts[0].segments[Segment::TxnFields as usize].get(field as usize)
     }
 
     pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
-        self.memory.context_memory[0].segments[Segment::TxnFields as usize]
-            .set(field as usize, value);
+        self.memory.contexts[0].segments[Segment::TxnFields as usize].set(field as usize, value);
     }
 
     pub(crate) fn get_txn_data(&self) -> &[U256] {
-        &self.memory.context_memory[0].segments[Segment::TxnData as usize].content
+        &self.memory.contexts[0].segments[Segment::TxnData as usize].content
     }
 
     pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
-        self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
+        self.memory.contexts[0].segments[Segment::GlobalMetadata as usize].get(field as usize)
     }
 
     pub(crate) fn set_global_metadata_field(&mut self, field: GlobalMetadata, value: U256) {
-        self.memory.context_memory[0].segments[Segment::GlobalMetadata as usize]
+        self.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
             .set(field as usize, value)
     }
 
     pub(crate) fn get_trie_data(&self) -> &[U256] {
-        &self.memory.context_memory[0].segments[Segment::TrieData as usize].content
+        &self.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
     pub(crate) fn get_trie_data_mut(&mut self) -> &mut Vec<U256> {
-        &mut self.memory.context_memory[0].segments[Segment::TrieData as usize].content
+        &mut self.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
-        self.memory.context_memory[0].segments[Segment::RlpRaw as usize]
+        self.memory.contexts[0].segments[Segment::RlpRaw as usize]
             .content
             .iter()
             .map(|x| x.as_u32() as u8)
@@ -198,23 +181,21 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
-        self.memory.context_memory[0].segments[Segment::RlpRaw as usize].content =
+        self.memory.contexts[0].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();
     }
 
     pub(crate) fn set_code(&mut self, context: usize, code: Vec<u8>) {
         assert_ne!(context, 0, "Can't modify kernel code.");
-        while self.memory.context_memory.len() <= context {
-            self.memory
-                .context_memory
-                .push(MemoryContextState::default());
+        while self.memory.contexts.len() <= context {
+            self.memory.contexts.push(MemoryContextState::default());
         }
-        self.memory.context_memory[context].segments[Segment::Code as usize].content =
+        self.memory.contexts[context].segments[Segment::Code as usize].content =
             code.into_iter().map(U256::from).collect();
     }
 
     pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
-        self.memory.context_memory[context].segments[Segment::JumpdestBits as usize]
+        self.memory.contexts[context].segments[Segment::JumpdestBits as usize]
             .content
             .iter()
             .map(|x| x.bit(0))
@@ -226,11 +207,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn stack(&self) -> &[U256] {
-        &self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+        &self.memory.contexts[self.context].segments[Segment::Stack as usize].content
     }
 
     fn stack_mut(&mut self) -> &mut Vec<U256> {
-        &mut self.memory.context_memory[self.context].segments[Segment::Stack as usize].content
+        &mut self.memory.contexts[self.context].segments[Segment::Stack as usize].content
     }
 
     pub(crate) fn push(&mut self, x: U256) {
@@ -548,7 +529,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_callvalue(&mut self) {
         self.push(
-            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+            self.memory.contexts[self.context].segments[Segment::ContextMetadata as usize]
                 .get(ContextMetadata::CallValue as usize),
         )
     }
@@ -569,7 +550,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_calldatasize(&mut self) {
         self.push(
-            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+            self.memory.contexts[self.context].segments[Segment::ContextMetadata as usize]
                 .get(ContextMetadata::CalldataSize as usize),
         )
     }
@@ -596,8 +577,7 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.offset - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let stack = self.stack().to_vec();
-        let output = self.generation_state.prover_input(&stack, prover_input_fn);
+        let output = self.generation_state.prover_input(prover_input_fn);
         self.push(output);
         Ok(())
     }
@@ -661,7 +641,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_msize(&mut self) {
         self.push(
-            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+            self.memory.contexts[self.context].segments[Segment::ContextMetadata as usize]
                 .get(ContextMetadata::MSize as usize),
         )
     }
@@ -952,11 +932,11 @@ mod tests {
         let run = run(&code, 0, vec![], &pis)?;
         assert_eq!(run.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
-            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x27),
+            run.memory.contexts[0].segments[Segment::MainMemory as usize].get(0x27),
             0x42.into()
         );
         assert_eq!(
-            run.memory.context_memory[0].segments[Segment::MainMemory as usize].get(0x1f),
+            run.memory.contexts[0].segments[Segment::MainMemory as usize].get(0x1f),
             0xff.into()
         );
         Ok(())

@@ -408,6 +408,7 @@ mod tests {
     use crate::keccak_sponge::keccak_sponge_stark::{KeccakSpongeOp, KeccakSpongeStark};
     use crate::memory::segments::Segment;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -441,9 +442,11 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            context: 0,
-            segment: Segment::Code,
-            virt: 0,
+            base_address: MemoryAddress {
+                context: 0,
+                segment: Segment::Code as usize,
+                virt: 0,
+            },
             timestamp: 0,
             len: input.len(),
             input,

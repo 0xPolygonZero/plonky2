@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use itertools::Itertools;
-use log::info;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -55,7 +54,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         inputs: Vec<[u64; NUM_INPUTS]>,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
-        info!("{} rows", num_rows);
         let mut rows = Vec::with_capacity(num_rows);
         for input in inputs.iter() {
             rows.extend(self.generate_trace_rows_for_perm(*input));
