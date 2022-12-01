@@ -167,6 +167,14 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
+    pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
+        self.memory.context_memory[0].segments[Segment::KernelGeneral as usize]
+            .content
+            .iter()
+            .cloned()
+            .collect()
+    }
+
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
         self.generation_state.memory.contexts[0].segments[Segment::RlpRaw as usize].content =
             rlp.into_iter().map(U256::from).collect();
@@ -747,6 +755,7 @@ fn find_jumpdests(code: &[u8]) -> Vec<usize> {
         }
         offset += 1;
     }
+    dbg!(res.clone());
     res
 }
 

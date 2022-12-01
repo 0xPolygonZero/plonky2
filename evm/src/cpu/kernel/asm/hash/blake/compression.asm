@@ -1,111 +1,9 @@
-// Load the initial hash value (the IV, but with params XOR'd into the first word).
-%macro blake_initial_hash_value
-    %blake_iv_i(7)
-    %blake_iv_i(6)
-    %blake_iv_i(5)
-    %blake_iv_i(4)
-    %blake_iv_i(3)
-    %blake_iv_i(2)
-    %blake_iv_i(1)
-    // stack: IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
-    PUSH 0x01010040 // params: key = 00, digest_size = 64 = 0x40
-    %blake_iv_i(0)
-    XOR
-    // stack: IV_0 ^ params, IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
-%endmacro
-
-// Address where the working version of the hash value is stored.
-%macro blake_hash_value_addr
-    PUSH 0
-    // stack: 0
-    %mload_kernel_general
-    // stack: num_blocks
-    %mul_const(128)
-    %add_const(2)
-    // stack: num_bytes+2
-%endmacro
-
-// Address where the working version of the compression internal state is stored.
-%macro blake_internal_state_addr
-    %blake_hash_value_addr
-    %add_const(8)
-%endmacro
-
-// Address where the current message block is stored.
-%macro blake_message_addr
-    %blake_internal_state_addr
-    %add_const(16)
-%endmacro
-
-%macro blake_generate_new_hash_value(i)
-    %blake_hash_value_addr
-    %add_const($i)
-    %mload_kernel_general
-    // stack: h_i, ...
-    %blake_internal_state_addr
-    %add_const($i)
-    %mload_kernel_general
-    // stack: v_i, h_i, ...
-    %blake_internal_state_addr
-    %add_const($i)
-    %add_const(8)
-    %mload_kernel_general
-    // stack: v_(i+8), v_i, h_i, ...
-    XOR
-    XOR
-    // stack: h_i' = v_(i+8) ^ v_i ^ h_i, ...
-%endmacro
-
-%macro invert_bytes_blake_word
-    // stack: word, ...
-    DUP1
-    %and_const(0xff)
-    %shl_const(56)
-    SWAP1
-    // stack: word, first_byte, ...
-    DUP1
-    %shr_const(8)
-    %and_const(0xff)
-    %shl_const(48)
-    SWAP1
-    // stack: word, second_byte, first_byte, ...
-    DUP1
-    %shr_const(16)
-    %and_const(0xff)
-    %shl_const(40)
-    SWAP1
-    DUP1
-    %shr_const(24)
-    %and_const(0xff)
-    %shl_const(32)
-    SWAP1
-    DUP1
-    %shr_const(32)
-    %and_const(0xff)
-    %shl_const(24)
-    SWAP1
-    DUP1
-    %shr_const(40)
-    %and_const(0xff)
-    %shl_const(16)
-    SWAP1
-    DUP1
-    %shr_const(48)
-    %and_const(0xff)
-    %shl_const(8)
-    SWAP1
-    %shr_const(56)
-    %and_const(0xff)
-    %rep 7
-        OR
-    %endrep
-%endmacro
-
 global blake_compression:
     // stack: retdest
     PUSH 0
     // stack: cur_block = 0, retdest
     %blake_initial_hash_value
+blake_compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     %blake_hash_value_addr
     // stack: addr, h_0, ..., h_7, cur_block, retdest
@@ -117,8 +15,6 @@ global blake_compression:
     %endrep
     // stack: addr, cur_block, retdest
     POP
-    // stack: cur_block, retdest
-compression_loop:
     // stack: cur_block, retdest
     PUSH 0
     %mload_kernel_general
@@ -140,24 +36,26 @@ compression_loop:
     // stack: is_last_block * num_bytes, cur_block, is_last_block, retdest
     DUP2
     // stack: cur_block, is_last_block * num_bytes, cur_block, is_last_block, retdest
+    %increment
     %mul_const(128)
-    // stack: cur_block * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
+    // stack: (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
     DUP4
-    // stack: is_last_block, cur_block * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
+    // stack: is_last_block, (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
     ISZERO
-    // stack: not_last_block, cur_block * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
+    // stack: not_last_block, (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
     MUL
-    // stack: not_last_block * (cur_block * 128), is_last_block * num_bytes, cur_block, is_last_block, retdest
+    // stack: not_last_block * ((cur_block + 1) * 128), is_last_block * num_bytes, cur_block, is_last_block, retdest
     ADD
-    // stack: t = not_last_block * (cur_block * 128) + is_last_block * num_bytes, cur_block, is_last_block, retdest
+    // stack: t = not_last_block * ((cur_block + 1) * 128) + is_last_block * num_bytes, cur_block, is_last_block, retdest
     SWAP1
     // stack: cur_block, t, is_last_block, retdest
-    // stack: cur_block, t, is_last_block, retdest
+    DUP1
+    // stack: cur_block, cur_block, t, is_last_block, retdest
     %mul_const(128)
     %add_const(2)
-    // stack: cur_block_start_byte, t, is_last_block, retdest
+    // stack: cur_block_start_byte, t, cur_block, is_last_block, retdest
     %blake_message_addr
-    // stack: message_addr, cur_block_start_byte, t, is_last_block, retdest
+    // stack: message_addr, cur_block_start_byte, t, cur_block, is_last_block, retdest
     %rep 16
         // stack: cur_message_addr, cur_block_byte, ...
         DUP2
@@ -177,14 +75,16 @@ compression_loop:
         SWAP1
         // stack: cur_message_addr + 1, cur_block_byte + 8, ...
     %endrep
-    // stack: end_message_addr, end_block_start_byte, t, is_last_block, retdest
+    // stack: end_message_addr, end_block_start_byte, t, cur_block, is_last_block, retdest
     POP
     POP
-    // stack: t, is_last_block, retdest
+    // stack: t, cur_block, is_last_block, retdest
     SWAP1
-    // stack: is_last_block, t, retdest
+    // stack: cur_block, t, is_last_block, retdest
+    SWAP2
+    // stack: is_last_block, t, cur_block, retdest
     %mul_const(0xFFFFFFFFFFFFFFFF)
-    // stack: invert_if_last_block, t, retdest
+    // stack: invert_if_last_block, t, cur_block, retdest
     %blake_hash_value_addr
     %add_const(7)
     %rep 8
@@ -197,11 +97,11 @@ compression_loop:
         // stack: addr, val, ...
         %decrement
     %endrep
-    // stack: addr, h_0, ..., h_7, invert_if_last_block, t, retdest
+    // stack: addr, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
     POP
-    // stack: h_0, ..., h_7, invert_if_last_block, t, retdest
+    // stack: h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
     %blake_internal_state_addr
-    // stack: start, h_0, ..., h_7, invert_if_last_block, t, retdest
+    // stack: start, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
     // First eight words of compression state: current state h_0, ..., h_7.
     %rep 8
         SWAP1
@@ -209,9 +109,9 @@ compression_loop:
         %mstore_kernel_general
         %increment
     %endrep
-    // stack: start + 8, invert_if_last_block, t, retdest
+    // stack: start + 8, invert_if_last_block, t, cur_block, retdest
     PUSH 0
-    // stack: 0, start + 8, invert_if_last_block, t, retdest
+    // stack: 0, start + 8, invert_if_last_block, t, cur_block, retdest
     %rep 4
         // stack: i, loc, ...
         DUP2
@@ -229,21 +129,21 @@ compression_loop:
         SWAP1
         // stack: i + 1, loc + 1,...
     %endrep
-    // stack: 4, start + 12, invert_if_last_block, t, retdest
-    %stack (i, loc, inv, t) -> (t, t, i, loc, inv)
-    // stack: t, t, 4, start + 12, invert_if_last_block, retdest
+    // stack: 4, start + 12, invert_if_last_block, t, cur_block, retdest
+    %stack (i, loc, inv, last, t) -> (t, t, i, loc, inv, last)
+    // stack: t, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     %shr_const(64)
-    // stack: t >> 64, t, 4, start + 12, invert_if_last_block, retdest
+    // stack: t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     SWAP1
-    // stack: t, t >> 64, 4, start + 12, invert_if_last_block, retdest
+    // stack: t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
     PUSH 1
     %shl_const(64)
-    // stack: 1 << 64, t, t >> 64, 4, start + 12, invert_if_last_block, retdest
+    // stack: 1 << 64, t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
     SWAP1
     MOD
-    // stack: t_lo = t % (1 << 64), t_hi = t >> 64, 4, start + 12, invert_if_last_block, retdest
+    // stack: t_lo = t % (1 << 64), t_hi = t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
     %stack (t_lo, t_hi, i, loc, inv) -> (i, loc, t_lo, t_hi, inv, 0)
-    // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, retdest
+    // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, cur_block, retdest
     // XOR the values (t % 2**64, t >> 64, invert_if, 0) into the last four IV values.
     %rep 4
         // stack: i, loc, val, next_val,...
@@ -263,16 +163,16 @@ compression_loop:
         SWAP1
         // stack: i + 1, loc + 1, next_val,...
     %endrep
-    // stack: 8, loc + 16, retdest
+    // stack: 8, loc + 16, cur_block, retdest
     POP
     POP
-    // stack: retdest
+    // stack: cur_block, retdest
     %blake_internal_state_addr
-    // stack: start, retdest
+    // stack: start, cur_block, retdest
     PUSH 0
-    // stack: round=0, start, retdest
+    // stack: round=0, start, cur_block, retdest
     %rep 12
-        // stack: round, start, retdest
+        // stack: round, start, cur_block, retdest
         %call_blake_g_function(0, 4, 8, 12, 0, 1)
         %call_blake_g_function(1, 5, 9, 13, 2, 3)
         %call_blake_g_function(2, 6, 10, 14, 4, 5)
@@ -281,39 +181,75 @@ compression_loop:
         %call_blake_g_function(1, 6, 11, 12, 10, 11)
         %call_blake_g_function(2, 7, 8, 13, 12, 13)
         %call_blake_g_function(3, 4, 9, 14, 14, 15)
-        // stack: round, start, retdest
+        // stack: round, start, cur_block, retdest
         %increment
-        // stack: round + 1, start, retdest
+        // stack: round + 1, start, cur_block, retdest
     %endrep
-    // stack: 12, start, retdest
+    // stack: 12, start, cur_block, retdest
     POP
     POP
-    // stack: retdest
+    // stack: cur_block, retdest
     %blake_generate_new_hash_value(7)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(6)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(5)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(4)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(3)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(2)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(1)
-    %invert_bytes_blake_word
     %blake_generate_new_hash_value(0)
+    // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
+    DUP9
+    // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
+    %increment
+    // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
+    SWAP9
+    // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %increment
+    // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    PUSH 0
+    %mload_kernel_general
+    // stack: num_blocks, cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    EQ
+    // stack: last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %jumpi(blake_compression_end)
+    %jump(blake_compression_loop)
+blake_compression_end:
+    // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    PUSH 0
+    // stack: dummy=0, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    SWAP1
     %invert_bytes_blake_word
-    // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
+    SWAP1
+    SWAP2
+    %invert_bytes_blake_word
+    SWAP2
+    SWAP3
+    %invert_bytes_blake_word
+    SWAP3
+    SWAP4
+    %invert_bytes_blake_word
+    SWAP4
+    SWAP5
+    %invert_bytes_blake_word
+    SWAP5
+    SWAP6
+    %invert_bytes_blake_word
+    SWAP6
+    SWAP7
+    %invert_bytes_blake_word
+    SWAP7
+    SWAP8
+    %invert_bytes_blake_word
+    SWAP8
+    POP
     %shl_const(64)
     OR
     %shl_const(64)
     OR
     %shl_const(64)
     OR
-    // stack: h_0' || h_1' || h_2' || h_3', h_4', h_5', h_6', h_7', retdest
-    %stack (first, second: 4) -> (second, first)
+    // stack: h_0' || h_1' || h_2' || h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %stack (first, second: 4, cur) -> (second, first)
     // stack: h_4', h_5', h_6', h_7', h_0' || h_1' || h_2' || h_3', retdest
     %shl_const(64)
     OR
@@ -324,4 +260,5 @@ compression_loop:
     // stack: hash_second = h_4' || h_5' || h_6' || h_7', hash_first = h_0' || h_1' || h_2' || h_3', retdest
     %stack (second, first, ret) -> (ret, second, first)
     // stack: retdest, hash_first, hash_second
+    STOP
     JUMP
