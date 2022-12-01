@@ -110,6 +110,43 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     Ok(registers_state)
 }
 
+pub(crate) fn generate_jump<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(dst, log_in0)] =
+        stack_pop_with_log_and_fill::<1, _>(&mut registers_state, memory_state, traces, &mut row)?;
+
+    traces.push_memory(log_in0);
+    traces.push_cpu(row);
+    registers_state.program_counter = u256_saturating_cast_usize(dst);
+    // TODO: Set other cols like input0_upper_sum_inv.
+    Ok(registers_state)
+}
+
+pub(crate) fn generate_jumpi<F: Field>(
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let [(dst, log_in0), (cond, log_in1)] =
+        stack_pop_with_log_and_fill::<2, _>(&mut registers_state, memory_state, traces, &mut row)?;
+
+    traces.push_memory(log_in0);
+    traces.push_memory(log_in1);
+    traces.push_cpu(row);
+    registers_state.program_counter = if cond.is_zero() {
+        registers_state.program_counter + 1
+    } else {
+        u256_saturating_cast_usize(dst)
+    };
+    // TODO: Set other cols like input0_upper_sum_inv.
+    Ok(registers_state)
+}
+
 pub(crate) fn generate_push<F: Field>(
     n: u8,
     mut registers_state: RegistersState,

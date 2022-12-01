@@ -216,8 +216,8 @@ fn perform_op<F: Field>(
         Operation::KeccakGeneral => todo!(),
         Operation::ProverInput => todo!(),
         Operation::Pop => todo!(),
-        Operation::Jump => todo!(),
-        Operation::Jumpi => todo!(),
+        Operation::Jump => generate_jump(registers_state, memory_state, traces, row)?,
+        Operation::Jumpi => generate_jumpi(registers_state, memory_state, traces, row)?,
         Operation::Pc => todo!(),
         Operation::Gas => todo!(),
         Operation::Jumpdest => todo!(),
@@ -236,6 +236,7 @@ fn perform_op<F: Field>(
     new_registers_state.program_counter += match op {
         Operation::Syscall(_) | Operation::ExitKernel => 0,
         Operation::Push(n) => n as usize + 2,
+        Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
 

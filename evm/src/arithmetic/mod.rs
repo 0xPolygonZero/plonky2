@@ -128,50 +128,6 @@ impl Operation {
     }
 }
 
-fn addmod(x: U256, y: U256, m: U256) -> U256 {
-    if m.is_zero() {
-        return m;
-    }
-    let x = to_biguint(x);
-    let y = to_biguint(y);
-    let m = to_biguint(m);
-    from_biguint((x + y) % m)
-}
-
-fn mulmod(x: U256, y: U256, m: U256) -> U256 {
-    if m.is_zero() {
-        return m;
-    }
-    let x = to_biguint(x);
-    let y = to_biguint(y);
-    let m = to_biguint(m);
-    from_biguint(x * y % m)
-}
-
-fn submod(x: U256, y: U256, m: U256) -> U256 {
-    if m.is_zero() {
-        return m;
-    }
-    let mut x = to_biguint(x);
-    let y = to_biguint(y);
-    let m = to_biguint(m);
-    while x < y {
-        x += &m;
-    }
-    from_biguint((x - y) % m)
-}
-
-fn to_biguint(x: U256) -> BigUint {
-    let mut bytes = [0u8; 32];
-    x.to_little_endian(&mut bytes);
-    BigUint::from_bytes_le(&bytes)
-}
-
-fn from_biguint(x: BigUint) -> U256 {
-    let bytes = x.to_bytes_le();
-    U256::from_little_endian(&bytes)
-}
-
 fn bn_base_order() -> U256 {
     U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47").unwrap()
 }
