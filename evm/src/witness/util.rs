@@ -3,6 +3,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind, MemoryState};
@@ -125,7 +126,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         [(); N].map(|_| {
             let address = MemoryAddress::new(
                 registers_state.context,
-                Segment::Stack as usize,
+                Segment::Stack,
                 registers_state.stack_len - 1 - i,
             );
             let res = mem_read_gp_with_log_and_fill(i, address, memory_state, traces, row);
@@ -145,13 +146,13 @@ pub(crate) fn stack_push_log_and_fill<F: Field>(
     row: &mut CpuColumnsView<F>,
     val: U256,
 ) -> Result<MemoryOp, ProgramError> {
-    if !registers_state.is_kernel && registers_state.stack_len >= 1024 {
+    if !registers_state.is_kernel && registers_state.stack_len >= MAX_USER_STACK_SIZE {
         return Err(ProgramError::StackOverflow);
     }
 
     let address = MemoryAddress::new(
         registers_state.context,
-        Segment::Stack as usize,
+        Segment::Stack,
         registers_state.stack_len,
     );
     let res = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 1, address, traces, row, val);

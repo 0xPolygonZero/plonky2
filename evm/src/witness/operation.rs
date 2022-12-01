@@ -1,4 +1,5 @@
 use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -11,8 +12,8 @@ use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
 use crate::witness::traces::Traces;
 use crate::witness::util::{
-    mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill, stack_pop_with_log_and_fill,
-    stack_push_log_and_fill,
+    mem_read_code_with_log_and_fill, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
+    stack_pop_with_log_and_fill, stack_push_log_and_fill,
 };
 use crate::{arithmetic, logic};
 
@@ -52,6 +53,66 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     Ok(registers_state)
 }
 
+pub(crate) fn generate_push<F: Field>(
+    n: u8,
+    mut registers_state: RegistersState,
+    memory_state: &MemoryState,
+    traces: &mut Traces<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<RegistersState, ProgramError> {
+    let context = registers_state.effective_context();
+    let num_bytes = n as usize + 1;
+    let initial_offset = registers_state.program_counter + 1;
+    let offsets = initial_offset..initial_offset + num_bytes;
+    let mut addrs = offsets.map(|offset| MemoryAddress::new(context, Segment::Code, offset));
+
+    // First read val without going through `mem_read_with_log` type methods, so we can pass it
+    // to stack_push_log_and_fill.
+    let bytes = (0..num_bytes)
+        .map(|i| {
+            memory_state
+                .get(MemoryAddress::new(
+                    context,
+                    Segment::Code,
+                    initial_offset + i,
+                ))
+                .as_u32() as u8
+        })
+        .collect_vec();
+
+    let val = U256::from_big_endian(&bytes);
+    let write = stack_push_log_and_fill(&mut registers_state, traces, &mut row, val)?;
+
+    // In the first cycle, we read up to NUM_GP_CHANNELS - 1 bytes, leaving the last GP channel
+    // to push the result.
+    for (i, addr) in (&mut addrs).take(NUM_GP_CHANNELS - 1).enumerate() {
+        let (_, read) = mem_read_gp_with_log_and_fill(i, addr, memory_state, traces, &mut row);
+        traces.push_memory(read);
+    }
+    traces.push_memory(write);
+    traces.push_cpu(row);
+
+    // In any subsequent cycles, we read up to 1 + NUM_GP_CHANNELS bytes.
+    for mut addrs_chunk in &addrs.chunks(1 + NUM_GP_CHANNELS) {
+        let mut row = CpuColumnsView::default();
+        // TODO: Set other row fields, like push=1?
+
+        let first_addr = addrs_chunk.next().unwrap();
+        let (_, first_read) =
+            mem_read_code_with_log_and_fill(first_addr, memory_state, traces, &mut row);
+        traces.push_memory(first_read);
+
+        for (i, addr) in addrs_chunk.enumerate() {
+            let (_, read) = mem_read_gp_with_log_and_fill(i, addr, memory_state, traces, &mut row);
+            traces.push_memory(read);
+        }
+
+        traces.push_cpu(row);
+    }
+
+    Ok(registers_state)
+}
+
 pub(crate) fn generate_dup<F: Field>(
     n: u8,
     mut registers_state: RegistersState,
@@ -63,11 +124,7 @@ pub(crate) fn generate_dup<F: Field>(
         .stack_len
         .checked_sub(1 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(
-        registers_state.context,
-        Segment::Stack as usize,
-        other_addr_lo,
-    );
+    let other_addr = MemoryAddress::new(registers_state.context, Segment::Stack, other_addr_lo);
 
     let (val, log_in) =
         mem_read_gp_with_log_and_fill(0, other_addr, memory_state, traces, &mut row);
@@ -90,11 +147,7 @@ pub(crate) fn generate_swap<F: Field>(
         .stack_len
         .checked_sub(2 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(
-        registers_state.context,
-        Segment::Stack as usize,
-        other_addr_lo,
-    );
+    let other_addr = MemoryAddress::new(registers_state.context, Segment::Stack, other_addr_lo);
 
     let [(in0, log_in0)] =
         stack_pop_with_log_and_fill::<1, _>(&mut registers_state, memory_state, traces, &mut row)?;
@@ -163,21 +216,21 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr_addr = handler_jumptable_addr + (opcode as usize);
     let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
         0,
-        MemoryAddress::new(0, Segment::Code as usize, handler_addr_addr),
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
         memory_state,
         traces,
         &mut row,
     );
     let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
         1,
-        MemoryAddress::new(0, Segment::Code as usize, handler_addr_addr + 1),
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
         memory_state,
         traces,
         &mut row,
     );
     let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
         2,
-        MemoryAddress::new(0, Segment::Code as usize, handler_addr_addr + 2),
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
         memory_state,
         traces,
         &mut row,

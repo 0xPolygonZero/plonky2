@@ -17,7 +17,7 @@ use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::keccak_sponge::columns::KECCAK_RATE_U32S;
 use crate::memory::segments::Segment;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-use crate::witness::memory::{MemoryAddress, MemoryState};
+use crate::witness::memory::MemoryAddress;
 use crate::witness::traces::Traces;
 use crate::witness::util::mem_write_gp_log_and_fill;
 
@@ -26,10 +26,7 @@ use crate::witness::util::mem_write_gp_log_and_fill;
 /// want them to fit in a single limb of Keccak input.
 const BYTES_PER_ROW: usize = 4;
 
-pub(crate) fn generate_bootstrap_kernel<F: Field>(
-    memory: &mut MemoryState,
-    traces: &mut Traces<F>,
-) {
+pub(crate) fn generate_bootstrap_kernel<F: Field>(traces: &mut Traces<F>) {
     let mut sponge_state = [0u32; 50];
     let mut sponge_input_pos: usize = 0;
 
@@ -46,7 +43,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         let mut packed_bytes: u32 = 0;
         for (channel, (addr, &byte)) in chunk.enumerate() {
-            let address = MemoryAddress::new(0, Segment::Code as usize, addr);
+            let address = MemoryAddress::new(0, Segment::Code, addr);
             let write = mem_write_gp_log_and_fill(
                 channel,
                 address,
@@ -54,7 +51,6 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(
                 &mut current_cpu_row,
                 byte.into(),
             );
-            memory.set(address, byte.into());
             traces.push_memory(write);
 
             packed_bytes = (packed_bytes << 8) | byte as u32;

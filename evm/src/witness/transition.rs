@@ -1,17 +1,17 @@
 use plonky2::field::types::Field;
 
-use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
-use crate::logic;
+use crate::cpu::columns::CpuColumnsView;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::operation::{
     generate_binary_logic_op, generate_dup, generate_eq, generate_exit_kernel, generate_iszero,
-    generate_not, generate_swap, generate_syscall, Operation,
+    generate_not, generate_push, generate_swap, generate_syscall, Operation,
 };
 use crate::witness::state::RegistersState;
 use crate::witness::traces::Traces;
 use crate::witness::util::mem_read_code_with_log_and_fill;
+use crate::{arithmetic, logic};
 
 const KERNEL_CONTEXT: usize = 0;
 
@@ -28,11 +28,7 @@ fn read_code_memory<F: Field>(
     };
     row.code_context = F::from_canonical_usize(code_context);
 
-    let address = MemoryAddress::new(
-        code_context,
-        Segment::Code as usize,
-        registers_state.program_counter,
-    );
+    let address = MemoryAddress::new(code_context, Segment::Code, registers_state.program_counter);
     let (opcode, mem_log) = mem_read_code_with_log_and_fill(address, memory_state, traces, row);
 
     traces.push_memory(mem_log);
@@ -156,6 +152,17 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
         Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
         Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add) => &mut flags.add,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => &mut flags.mul,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.sub,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => &mut flags.div,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt) => &mut flags.lt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.gt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => &mut flags.shl,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shr,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
         _ => panic!("operation not implemented: {:?}", op),
     } = F::ONE;
 }
@@ -168,6 +175,7 @@ fn perform_op<F: Field>(
     row: CpuColumnsView<F>,
 ) -> Result<RegistersState, ProgramError> {
     let mut new_registers_state = match op {
+        Operation::Push(n) => generate_push(n, registers_state, memory_state, traces, row)?,
         Operation::Dup(n) => generate_dup(n, registers_state, memory_state, traces, row)?,
         Operation::Swap(n) => generate_swap(n, registers_state, memory_state, traces, row)?,
         Operation::Iszero => generate_iszero(registers_state, memory_state, traces, row)?,
@@ -185,6 +193,7 @@ fn perform_op<F: Field>(
 
     new_registers_state.program_counter += match op {
         Operation::Syscall(_) | Operation::ExitKernel => 0,
+        Operation::Push(n) => n as usize + 2,
         _ => 1,
     };
 
@@ -196,7 +205,7 @@ fn try_perform_instruction<F: Field>(
     memory_state: &MemoryState,
     traces: &mut Traces<F>,
 ) -> Result<RegistersState, ProgramError> {
-    let mut row: CpuColumnsView<F> = [F::ZERO; NUM_CPU_COLUMNS].into();
+    let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.is_cpu_cycle = F::ONE;
 
     let opcode = read_code_memory(registers_state, memory_state, traces, &mut row);

@@ -11,5 +11,5 @@ mod modfp254;
 mod shift;
 pub(crate) mod simple_logic;
 mod stack;
-mod stack_bounds;
+pub(crate) mod stack_bounds;
 mod syscalls;

@@ -12,6 +12,8 @@ pub enum MemoryChannel {
 
 use MemoryChannel::{Code, GeneralPurpose};
 
+use crate::memory::segments::Segment;
+
 impl MemoryChannel {
     pub fn index(&self) -> usize {
         match *self {
@@ -32,10 +34,10 @@ pub struct MemoryAddress {
 }
 
 impl MemoryAddress {
-    pub(crate) fn new(context: usize, segment: usize, virt: usize) -> Self {
+    pub(crate) fn new(context: usize, segment: Segment, virt: usize) -> Self {
         Self {
             context,
-            segment,
+            segment: segment as usize,
             virt,
         }
     }
@@ -87,7 +89,7 @@ impl MemoryState {
 
         for (i, &byte) in kernel_code.iter().enumerate() {
             if byte != 0 {
-                let address = MemoryAddress::new(0, 0, i);
+                let address = MemoryAddress::new(0, Segment::Code, i);
                 let val = byte.into();
                 contents.insert(address, val);
             }

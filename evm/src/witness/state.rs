@@ -8,6 +8,16 @@ pub struct RegistersState {
     pub context: usize,
 }
 
+impl RegistersState {
+    pub(crate) fn effective_context(&self) -> usize {
+        if self.is_kernel {
+            0
+        } else {
+            self.context
+        }
+    }
+}
+
 impl Default for RegistersState {
     fn default() -> Self {
         Self {

@@ -67,9 +67,9 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
     // let mut state = GenerationState::<F>::new(inputs.clone());
 
-    let mut memory_state = MemoryState::default();
+    let mut memory_state = MemoryState::new(&KERNEL.code);
     let mut traces = Traces::<F>::default();
-    generate_bootstrap_kernel::<F>(&mut memory_state, &mut traces);
+    generate_bootstrap_kernel::<F>(&mut traces);
 
     let mut registers_state = RegistersState::default();
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
@@ -89,7 +89,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let read_metadata = |field| {
         memory_state.get(MemoryAddress::new(
             0,
-            Segment::GlobalMetadata as usize,
+            Segment::GlobalMetadata,
             field as usize,
         ))
     };

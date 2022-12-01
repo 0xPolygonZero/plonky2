@@ -13,8 +13,6 @@ use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, keccak, logic};
 
-type ArithmeticRow<T> = [T; NUM_ARITH_COLUMNS];
-
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
     pub(self) cpu_len: usize,

@@ -12,6 +12,7 @@ pub(crate) mod columns;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
+    Add,
     Mul,
     Sub,
     Div,
@@ -25,7 +26,6 @@ pub(crate) enum BinaryOperator {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TernaryOperator {
     AddMod,
-    SubMod,
     MulMod,
 }
 
