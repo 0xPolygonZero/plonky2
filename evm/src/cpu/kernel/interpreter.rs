@@ -169,7 +169,8 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
         self.memory.context_memory[0].segments[Segment::KernelGeneral as usize]
-            .content.to_vec()
+            .content
+            .to_vec()
     }
 
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
