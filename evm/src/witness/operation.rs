@@ -7,6 +7,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::memory::segments::Segment;
 use crate::util::u256_saturating_cast_usize;
 use crate::witness::errors::ProgramError;
@@ -96,6 +97,40 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_out);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_keccak_general<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
+        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let len = len.as_usize();
+
+    let mut base_address = MemoryAddress::new_u256s(context, segment, base_virt);
+    let input = (0..len)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt.saturating_add(i),
+                ..base_address
+            };
+            let val = state.memory.get(address);
+            val.as_u32() as u8
+        })
+        .collect();
+
+    state.traces.push_keccak_sponge(KeccakSpongeOp {
+        base_address,
+        timestamp: state.traces.clock(),
+        len,
+        input,
+    });
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -285,6 +320,26 @@ pub(crate) fn generate_not<F: Field>(
     Ok(())
 }
 
+pub(crate) fn generate_byte<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(i, log_in0), (x, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+
+    let byte = if i < 32.into() {
+        x.byte(i.as_usize())
+    } else {
+        0
+    };
+    let log_out = stack_push_log_and_fill(state, &mut row, byte.into())?;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
 pub(crate) fn generate_iszero<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -395,17 +450,9 @@ pub(crate) fn generate_mload_general<F: Field>(
     let [(context, log_in0), (segment, log_in1), (virt, log_in2)] =
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
 
-    // If virt won't fit in a usize, don't try to convert it, just return 0.
-    let val = if virt > usize::MAX.into() {
-        U256::zero()
-    } else {
-        state.memory.get(MemoryAddress {
-            context: context.as_usize(),
-            segment: segment.as_usize(),
-            virt: virt.as_usize(),
-        })
-    };
-
+    let val = state
+        .memory
+        .get(MemoryAddress::new_u256s(context, segment, virt));
     let log_out = stack_push_log_and_fill(state, &mut row, val)?;
 
     state.traces.push_memory(log_in0);

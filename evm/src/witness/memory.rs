@@ -13,6 +13,7 @@ pub enum MemoryChannel {
 use MemoryChannel::{Code, GeneralPurpose};
 
 use crate::memory::segments::Segment;
+use crate::util::u256_saturating_cast_usize;
 
 impl MemoryChannel {
     pub fn index(&self) -> usize {
@@ -39,6 +40,14 @@ impl MemoryAddress {
             context,
             segment: segment as usize,
             virt,
+        }
+    }
+
+    pub(crate) fn new_u256s(context: U256, segment: U256, virt: U256) -> Self {
+        Self {
+            context: u256_saturating_cast_usize(context),
+            segment: u256_saturating_cast_usize(segment),
+            virt: u256_saturating_cast_usize(virt),
         }
     }
 }

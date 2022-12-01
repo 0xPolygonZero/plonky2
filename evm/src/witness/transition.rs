@@ -1,13 +1,15 @@
+use itertools::Itertools;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
-use crate::witness::util::mem_read_code_with_log_and_fill;
+use crate::witness::util::{mem_read_code_with_log_and_fill, stack_peek};
 use crate::{arithmetic, logic};
 
 fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
@@ -186,7 +188,7 @@ fn perform_op<F: Field>(
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        Operation::Byte => todo!(),
+        Operation::Byte => generate_byte(state, row)?,
         Operation::Syscall(opcode) => generate_syscall(opcode, state, row)?,
         Operation::Eq => generate_eq(state, row)?,
         Operation::BinaryLogic(binary_logic_op) => {
@@ -194,7 +196,7 @@ fn perform_op<F: Field>(
         }
         Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
         Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
-        Operation::KeccakGeneral => todo!(),
+        Operation::KeccakGeneral => generate_keccak_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
@@ -226,7 +228,15 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     let opcode = read_code_memory(state, &mut row);
     let op = decode(state.registers, opcode)?;
-    log::trace!("Executing {:?} at {}", op, state.registers.program_counter);
+    let pc = state.registers.program_counter;
+
+    log::trace!("Executing {:?} at {}", op, KERNEL.offset_name(pc));
+    log::trace!(
+        "Stack: {:?}",
+        (0..state.registers.stack_len)
+            .map(|i| stack_peek(state, i).unwrap())
+            .collect_vec()
+    );
     fill_op_flag(op, &mut row);
 
     perform_op(state, op, row)
@@ -246,11 +256,11 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
                 .memory
                 .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
         }
-        Err(_) => {
-            state.rollback(checkpoint);
+        Err(e) => {
             if state.registers.is_kernel {
-                panic!("exception in kernel mode");
+                panic!("exception in kernel mode: {:?}", e);
             }
+            state.rollback(checkpoint);
             handle_error(state)
         }
     }

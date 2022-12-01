@@ -62,6 +62,18 @@ impl Kernel {
         padded_code.resize(padded_len, 0);
         padded_code
     }
+
+    /// Get a string representation of the current offset for debugging purposes.
+    pub(crate) fn offset_name(&self, offset: usize) -> String {
+        self.offset_label(offset)
+            .unwrap_or_else(|| offset.to_string())
+    }
+
+    pub(crate) fn offset_label(&self, offset: usize) -> Option<String> {
+        self.global_labels
+            .iter()
+            .find_map(|(k, v)| (*v == offset).then(|| k.clone()))
+    }
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]

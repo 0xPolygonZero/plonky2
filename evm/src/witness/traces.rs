@@ -78,8 +78,12 @@ impl<T: Copy> Traces<T> {
         self.arithmetic.push(op);
     }
 
-    pub fn push_memory(&mut self, val: MemoryOp) {
-        self.memory_ops.push(val);
+    pub fn push_memory(&mut self, op: MemoryOp) {
+        self.memory_ops.push(op);
+    }
+
+    pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
+        self.keccak_sponge_ops.push(op);
     }
 
     pub fn clock(&self) -> usize {

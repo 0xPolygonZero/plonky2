@@ -12,10 +12,10 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cross_table_lookup::Column;
 use crate::keccak::keccak_stark::NUM_INPUTS;
 use crate::keccak_memory::columns::*;
-use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     Column::singles([COL_CONTEXT, COL_SEGMENT, COL_VIRTUAL, COL_READ_TIMESTAMP]).collect()
@@ -67,10 +67,8 @@ pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
 /// Information about a Keccak memory operation needed for witness generation.
 #[derive(Debug)]
 pub(crate) struct KeccakMemoryOp {
-    // The address at which we will read inputs and write outputs.
-    pub(crate) context: usize,
-    pub(crate) segment: Segment,
-    pub(crate) virt: usize,
+    /// The base address at which we will read inputs and write outputs.
+    pub(crate) address: MemoryAddress,
 
     /// The timestamp at which inputs should be read from memory.
     /// Outputs will be written at the following timestamp.
@@ -131,9 +129,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
     fn generate_row_for_op(&self, op: KeccakMemoryOp) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[COL_IS_REAL] = F::ONE;
-        row[COL_CONTEXT] = F::from_canonical_usize(op.context);
-        row[COL_SEGMENT] = F::from_canonical_usize(op.segment as usize);
-        row[COL_VIRTUAL] = F::from_canonical_usize(op.virt);
+        row[COL_CONTEXT] = F::from_canonical_usize(op.address.context);
+        row[COL_SEGMENT] = F::from_canonical_usize(op.address.segment as usize);
+        row[COL_VIRTUAL] = F::from_canonical_usize(op.address.virt);
         row[COL_READ_TIMESTAMP] = F::from_canonical_usize(op.read_timestamp);
         for i in 0..25 {
             let input_u64 = op.input[i];

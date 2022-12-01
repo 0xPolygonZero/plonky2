@@ -355,18 +355,12 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    /// Get a string representation of the current offset for debugging purposes.
     fn offset_name(&self) -> String {
-        self.offset_label()
-            .unwrap_or_else(|| self.offset.to_string())
+        KERNEL.offset_name(self.offset)
     }
 
     fn offset_label(&self) -> Option<String> {
-        // TODO: Not sure we should use KERNEL? Interpreter is more general in other places.
-        KERNEL
-            .global_labels
-            .iter()
-            .find_map(|(k, v)| (*v == self.offset).then(|| k.clone()))
+        KERNEL.offset_label(self.offset)
     }
 
     fn run_stop(&mut self) {
