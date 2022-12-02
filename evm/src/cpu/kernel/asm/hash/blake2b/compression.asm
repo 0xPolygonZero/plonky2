@@ -111,7 +111,8 @@ compression_loop:
     // Store the initial 16 values of the internal state.
     %blake2b_internal_state_addr
     // stack: start, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
-    // First eight words of internal state: current state h_0, ..., h_7.
+
+    // First eight words of the internal state: current hash value h_0, ..., h_7.
     %rep 8
         SWAP1
         DUP2
@@ -119,6 +120,8 @@ compression_loop:
         %increment
     %endrep
     // stack: start + 8, invert_if_last_block, t, cur_block, retdest
+
+    // Next four values of the internal state: first four IV values.
     PUSH 0
     // stack: 0, start + 8, invert_if_last_block, t, cur_block, retdest
     %rep 4
@@ -153,7 +156,9 @@ compression_loop:
     // stack: t_lo = t % (1 << 64), t_hi = t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
     %stack (t_lo, t_hi, i, loc, inv) -> (i, loc, t_lo, t_hi, inv, 0)
     // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, cur_block, retdest
-    // XOR the values (t % 2**64, t >> 64, invert_if, 0) into the last four IV values.
+
+    // Last four values of the internal state: last four IV values, XOR'd with
+    // the values (t % 2**64, t >> 64, invert_if, 0).
     %rep 4
         // stack: i, loc, val, next_val,...
         %stack (i, loc, val) -> (i, val, loc, i, loc)
