@@ -74,11 +74,17 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
     let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 
+    let mut already_in_halt_loop = false;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
         let in_halt_loop = pc == halt_pc0 || pc == halt_pc1;
-        if in_halt_loop && state.traces.clock().is_power_of_two() {
+        if in_halt_loop && !already_in_halt_loop {
+            log::info!("CPU halted after {} cycles", state.traces.clock());
+        }
+        already_in_halt_loop |= in_halt_loop;
+        if already_in_halt_loop && state.traces.clock().is_power_of_two() {
+            log::info!("CPU trace padded to {} cycles", state.traces.clock());
             break;
         }
 

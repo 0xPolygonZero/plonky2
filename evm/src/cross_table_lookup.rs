@@ -611,16 +611,15 @@ pub(crate) fn verify_cross_table_lookups<
                 .product::<F>();
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             let challenge = challenges.challenges[i % config.num_challenges];
-            let combined_default = default
-                .as_ref()
-                .map(|default| challenge.combine(default.iter()))
-                .unwrap_or(F::ONE);
 
-            ensure!(
-                looking_zs_prod
-                    == looked_z * combined_default.exp_u64(looking_degrees_sum - looked_degree),
-                "Cross-table lookup verification failed."
-            );
+            if let Some(default) = default.as_ref() {
+                let combined_default = challenge.combine(default.iter());
+                ensure!(
+                    looking_zs_prod
+                        == looked_z * combined_default.exp_u64(looking_degrees_sum - looked_degree),
+                    "Cross-table lookup verification failed."
+                );
+            }
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
