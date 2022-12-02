@@ -9,6 +9,7 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
     arithmetic: CpuArithmeticView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
+    push: CpuPushView<T>,
     shift: CpuShiftView<T>,
 }
 
@@ -51,6 +52,16 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn jumps_mut(&mut self) -> &mut CpuJumpsView<T> {
         unsafe { &mut self.jumps }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn push(&self) -> &CpuPushView<T> {
+        unsafe { &self.push }
+    }
+
+    // SAFETY: Each view is a valid interpretation of the underlying array.
+    pub(crate) fn push_mut(&mut self) -> &mut CpuPushView<T> {
+        unsafe { &mut self.push }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -153,6 +164,13 @@ pub(crate) struct CpuJumpsView<T: Copy> {
     /// (`input0[0]` is not `JUMPDEST` that is not in an immediate while we are in user mode, or
     /// `input0[1..7]` is nonzero) and `input1` is nonzero.
     pub(crate) should_trap: T,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct CpuPushView<T: Copy> {
+    pub(crate) rem_bytes: T,
+    pub(crate) next_pc: T,
+    pub(crate) higher_limbs: [T; 11],
 }
 
 #[derive(Copy, Clone)]

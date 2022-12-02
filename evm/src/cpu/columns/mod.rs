@@ -40,6 +40,9 @@ pub struct CpuColumnsView<T: Copy> {
     /// Lets us re-use columns in non-cycle rows.
     pub is_cpu_cycle: T,
 
+    /// Filter. 1 if the row corresponds to a continuation of the PUSH instruction and 0 otherwise.
+    pub is_push_cont: T,
+
     /// If CPU cycle: Current context.
     // TODO: this is currently unconstrained
     pub context: T,
