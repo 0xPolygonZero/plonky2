@@ -35,6 +35,7 @@ pub(crate) fn eval_packed_generic_are_equal<P, I, J>(
     is_op: P,
     larger: I,
     smaller: J,
+    is_two_row_op: bool,
 ) -> P
 where
     P: PackedField,
@@ -47,7 +48,11 @@ where
     for (a, b) in larger.zip(smaller) {
         // t should be either 0 or 2^LIMB_BITS
         let t = cy + a - b;
-        yield_constr.constraint(is_op * t * (overflow - t));
+        if is_two_row_op {
+            yield_constr.constraint_transition(is_op * t * (overflow - t));
+        } else {
+            yield_constr.constraint(is_op * t * (overflow - t));
+        }
         // cy <-- 0 or 1
         // NB: this is multiplication by a constant, so doesn't
         // increase the degree of the constraint.
@@ -62,6 +67,7 @@ pub(crate) fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     is_op: ExtensionTarget<D>,
     larger: I,
     smaller: J,
+    is_two_row_op: bool,
 ) -> ExtensionTarget<D>
 where
     F: RichField + Extendable<D>,
@@ -87,7 +93,11 @@ where
         let t2 = builder.mul_extension(t, t1);
 
         let filtered_limb_constraint = builder.mul_extension(is_op, t2);
-        yield_constr.constraint(builder, filtered_limb_constraint);
+        if is_two_row_op {
+            yield_constr.constraint_transition(builder, filtered_limb_constraint);
+        } else {
+            yield_constr.constraint(builder, filtered_limb_constraint);
+        }
 
         cy = builder.mul_const_extension(overflow_inv, t);
     }
@@ -125,6 +135,7 @@ pub fn eval_packed_generic<P: PackedField>(
         is_add,
         output_computed,
         output_limbs.iter().copied(),
+        false,
     );
 }
 
@@ -155,6 +166,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         is_add,
         output_computed.into_iter(),
         output_limbs.iter().copied(),
+        false,
     );
 }
 
