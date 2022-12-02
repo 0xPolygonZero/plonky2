@@ -22,9 +22,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
     let hex_constants = MISC_CONSTANTS
         .iter()
         .chain(EC_CONSTANTS.iter())
-        .chain(HASH_CONSTANTS.iter());
+        .chain(HASH_CONSTANTS.iter())
+        .cloned();
     for (name, value) in hex_constants {
-        c.insert(name.clone().into(), U256::from_big_endian(value));
+        c.insert(name.into(), U256::from_big_endian(&value));
     }
 
     for (name, value) in GAS_CONSTANTS {
