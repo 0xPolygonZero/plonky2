@@ -57,6 +57,7 @@ pub fn eval_packed_generic<P: PackedField>(
         is_sub,
         output_limbs.iter().copied(),
         output_computed,
+        false,
     );
 }
 
@@ -87,6 +88,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         is_sub,
         output_limbs.iter().copied(),
         output_computed.into_iter(),
+        false,
     );
 }
 

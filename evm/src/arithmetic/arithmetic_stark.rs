@@ -17,7 +17,11 @@ pub struct ArithmeticStark<F, const D: usize> {
 }
 
 impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
-    pub fn generate(&self, local_values: &mut [F; columns::NUM_ARITH_COLUMNS]) {
+    pub fn generate(
+        &self,
+        local_values: &mut [F; columns::NUM_ARITH_COLUMNS],
+        next_values: &mut [F; columns::NUM_ARITH_COLUMNS],
+    ) {
         // Check that at most one operation column is "one" and that the
         // rest are "zero".
         assert_eq!(
@@ -47,17 +51,17 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         } else if local_values[columns::IS_GT].is_one() {
             compare::generate(local_values, columns::IS_GT);
         } else if local_values[columns::IS_ADDMOD].is_one() {
-            modular::generate(local_values, columns::IS_ADDMOD);
+            modular::generate(local_values, next_values, columns::IS_ADDMOD);
         } else if local_values[columns::IS_SUBMOD].is_one() {
-            modular::generate(local_values, columns::IS_SUBMOD);
+            modular::generate(local_values, next_values, columns::IS_SUBMOD);
         } else if local_values[columns::IS_MULMOD].is_one() {
-            modular::generate(local_values, columns::IS_MULMOD);
+            modular::generate(local_values, next_values, columns::IS_MULMOD);
         } else if local_values[columns::IS_MOD].is_one() {
-            modular::generate(local_values, columns::IS_MOD);
+            modular::generate(local_values, next_values, columns::IS_MOD);
         } else if local_values[columns::IS_DIV].is_one() {
-            modular::generate(local_values, columns::IS_DIV);
+            modular::generate(local_values, next_values, columns::IS_DIV);
         } else {
-            todo!("the requested operation has not yet been implemented");
+            panic!("the requested operation should not be handled by the arithmetic table");
         }
     }
 }
@@ -74,11 +78,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         P: PackedField<Scalar = FE>,
     {
         let lv = vars.local_values;
+        let nv = vars.next_values;
         add::eval_packed_generic(lv, yield_constr);
         sub::eval_packed_generic(lv, yield_constr);
         mul::eval_packed_generic(lv, yield_constr);
         compare::eval_packed_generic(lv, yield_constr);
-        modular::eval_packed_generic(lv, yield_constr);
+        modular::eval_packed_generic(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -88,11 +93,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let lv = vars.local_values;
+        let nv = vars.next_values;
         add::eval_ext_circuit(builder, lv, yield_constr);
         sub::eval_ext_circuit(builder, lv, yield_constr);
         mul::eval_ext_circuit(builder, lv, yield_constr);
         compare::eval_ext_circuit(builder, lv, yield_constr);
-        modular::eval_ext_circuit(builder, lv, yield_constr);
+        modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {

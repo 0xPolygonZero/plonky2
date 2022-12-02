@@ -57,16 +57,27 @@ pub(crate) fn eval_packed_generic_lt<P: PackedField>(
     input1: &[P],
     aux: &[P],
     output: P,
+    is_two_row_op: bool,
 ) {
     debug_assert!(input0.len() == N_LIMBS && input1.len() == N_LIMBS && aux.len() == N_LIMBS);
 
     // Verify (input0 < input1) == output by providing aux such that
     // input0 - input1 == aux + output*2^256.
     let lhs_limbs = input0.iter().zip(input1).map(|(&a, &b)| a - b);
-    let cy = eval_packed_generic_are_equal(yield_constr, is_op, aux.iter().copied(), lhs_limbs);
+    let cy = eval_packed_generic_are_equal(
+        yield_constr,
+        is_op,
+        aux.iter().copied(),
+        lhs_limbs,
+        is_two_row_op,
+    );
     // We don't need to check that cy is 0 or 1, since output has
     // already been checked to be 0 or 1.
-    yield_constr.constraint(is_op * (cy - output));
+    if is_two_row_op {
+        yield_constr.constraint_transition(is_op * (cy - output));
+    } else {
+        yield_constr.constraint(is_op * (cy - output));
+    }
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -88,8 +99,8 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_cmp = is_lt + is_gt;
     eval_packed_generic_check_is_one_bit(yield_constr, is_cmp, output);
 
-    eval_packed_generic_lt(yield_constr, is_lt, input0, input1, aux, output);
-    eval_packed_generic_lt(yield_constr, is_gt, input1, input0, aux, output);
+    eval_packed_generic_lt(yield_constr, is_lt, input0, input1, aux, output, false);
+    eval_packed_generic_lt(yield_constr, is_gt, input1, input0, aux, output, false);
 }
 
 fn eval_ext_circuit_check_is_one_bit<F: RichField + Extendable<D>, const D: usize>(
@@ -112,6 +123,7 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     input1: &[ExtensionTarget<D>],
     aux: &[ExtensionTarget<D>],
     output: ExtensionTarget<D>,
+    is_two_row_op: bool,
 ) {
     debug_assert!(input0.len() == N_LIMBS && input1.len() == N_LIMBS && aux.len() == N_LIMBS);
 
@@ -131,10 +143,11 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
         is_op,
         aux.iter().copied(),
         lhs_limbs.into_iter(),
+        is_two_row_op,
     );
     let good_output = builder.sub_extension(cy, output);
     let filter = builder.mul_extension(is_op, good_output);
-    yield_constr.constraint(builder, filter);
+    yield_constr.constraint_transition(builder, filter);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -153,8 +166,26 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cmp = builder.add_extension(is_lt, is_gt);
     eval_ext_circuit_check_is_one_bit(builder, yield_constr, is_cmp, output);
 
-    eval_ext_circuit_lt(builder, yield_constr, is_lt, input0, input1, aux, output);
-    eval_ext_circuit_lt(builder, yield_constr, is_gt, input1, input0, aux, output);
+    eval_ext_circuit_lt(
+        builder,
+        yield_constr,
+        is_lt,
+        input0,
+        input1,
+        aux,
+        output,
+        false,
+    );
+    eval_ext_circuit_lt(
+        builder,
+        yield_constr,
+        is_gt,
+        input1,
+        input0,
+        aux,
+        output,
+        false,
+    );
 }
 
 #[cfg(test)]
