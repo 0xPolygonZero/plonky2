@@ -3,7 +3,7 @@ global blake_compression:
     PUSH 0
     // stack: cur_block = 0, retdest
     %blake_initial_hash_value
-blake_compression_loop:
+compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     %blake_hash_value_addr
     // stack: addr, h_0, ..., h_7, cur_block, retdest
@@ -211,9 +211,9 @@ blake_compression_loop:
     // stack: num_blocks, cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     EQ
     // stack: last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %jumpi(blake_compression_end)
-    %jump(blake_compression_loop)
-blake_compression_end:
+    %jumpi(compression_end)
+    %jump(compression_loop)
+compression_end:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     PUSH 0
     // stack: dummy=0, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
@@ -260,5 +260,4 @@ blake_compression_end:
     // stack: hash_second = h_4' || h_5' || h_6' || h_7', hash_first = h_0' || h_1' || h_2' || h_3', retdest
     %stack (second, first, ret) -> (ret, second, first)
     // stack: retdest, hash_first, hash_second
-    STOP
     JUMP

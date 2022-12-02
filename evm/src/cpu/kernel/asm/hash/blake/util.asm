@@ -15,47 +15,33 @@
     // stack: (hi << 32) | lo
 %endmacro
 
+// Invert the order of the four bytes in a word.
+%macro invert_four_byte_word
+    // stack: word
+    %mul_const(0x1000000010000000100)
+    %and_const(0xff0000ff00ff00000000ff0000)
+    %mod_const(0xffffffffffff)
+    // stack: word_inverted
+%endmacro
+
+// Invert the order of the eight bytes in a Blake word.
 %macro invert_bytes_blake_word
-    // stack: word, ...
+    // stack: word
     DUP1
-    %and_const(0xff)
-    %shl_const(56)
+    // stack: word, word
+    %and_const(0xffffffff)
+    // stack: word_lo, word
     SWAP1
-    // stack: word, first_byte, ...
-    DUP1
-    %shr_const(8)
-    %and_const(0xff)
-    %shl_const(48)
-    SWAP1
-    // stack: word, second_byte, first_byte, ...
-    DUP1
-    %shr_const(16)
-    %and_const(0xff)
-    %shl_const(40)
-    SWAP1
-    DUP1
-    %shr_const(24)
-    %and_const(0xff)
-    %shl_const(32)
-    SWAP1
-    DUP1
+    // stack: word, word_lo
     %shr_const(32)
-    %and_const(0xff)
-    %shl_const(24)
+    // stack: word_hi, word_lo
+    %invert_four_byte_word
+    // stack: word_hi_inverted, word_lo
     SWAP1
-    DUP1
-    %shr_const(40)
-    %and_const(0xff)
-    %shl_const(16)
-    SWAP1
-    DUP1
-    %shr_const(48)
-    %and_const(0xff)
-    %shl_const(8)
-    SWAP1
-    %shr_const(56)
-    %and_const(0xff)
-    %rep 7
-        OR
-    %endrep
+    // stack: word_lo, word_hi_inverted
+    %invert_four_byte_word
+    // stack: word_lo_inverted, word_hi_inverted
+    %shl_const(32)
+    OR
+    // stack: word_inverted
 %endmacro
