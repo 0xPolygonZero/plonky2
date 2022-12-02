@@ -144,6 +144,6 @@ fn test_ripemd() -> Result<()> {
 }
 
 #[test]
-fn test_blake() -> Result<()> {
-    test_hash_512("blake", &blake2b)
+fn test_blake2b() -> Result<()> {
+    test_hash_512("blake2b", &blake2b)
 }

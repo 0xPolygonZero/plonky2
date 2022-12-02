@@ -1,5 +1,5 @@
 // Load a 64-bit word from kernel general memory.
-%macro mload_blake_word_from_bytes
+%macro mload_blake2b_word_from_bytes
     // stack: offset
     DUP1
     %mload_kernel_general_u32_LE
@@ -25,7 +25,7 @@
 %endmacro
 
 // Invert the order of the eight bytes in a Blake word.
-%macro invert_bytes_blake_word
+%macro invert_bytes_blake2b_word
     // stack: word
     DUP1
     // stack: word, word

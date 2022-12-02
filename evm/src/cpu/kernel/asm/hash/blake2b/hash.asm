@@ -1,13 +1,13 @@
-%macro blake_generate_new_hash_value(i)
-    %blake_hash_value_addr
+%macro blake2b_generate_new_hash_value(i)
+    %blake2b_hash_value_addr
     %add_const($i)
     %mload_kernel_general
     // stack: h_i, ...
-    %blake_internal_state_addr
+    %blake2b_internal_state_addr
     %add_const($i)
     %mload_kernel_general
     // stack: v_i, h_i, ...
-    %blake_internal_state_addr
+    %blake2b_internal_state_addr
     %add_const($i)
     %add_const(8)
     %mload_kernel_general

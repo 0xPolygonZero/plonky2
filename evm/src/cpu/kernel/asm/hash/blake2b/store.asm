@@ -1,7 +1,7 @@
-global blake:
-    %jump(blake_store)
+global blake2b:
+    %jump(blake2b_store)
 
-global blake_store:
+global blake2b_store:
     // stack: num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
     DUP1
     // stack: num_bytes, num_bytes, x[0], x[1], ..., x[num_bytes - 1], retdest
@@ -42,4 +42,4 @@ store_end:
     // stack: addr, counter, retdest
     %pop2
     // stack: retdest
-    %jump(blake_compression)
+    %jump(blake2b_compression)

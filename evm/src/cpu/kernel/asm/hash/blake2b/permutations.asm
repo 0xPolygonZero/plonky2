@@ -178,7 +178,7 @@ global permutation_9_constants:
     BYTES 13
     BYTES 0
 
-%macro blake_permutation
+%macro blake2b_permutation
     // stack: round, i
     PUSH permutation_0_constants
     // stack: permutation_0_constants, round, i
