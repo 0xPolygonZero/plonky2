@@ -55,7 +55,10 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         block_metadata,
     };
 
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut TimingTree::default())?;
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    timing.print();
+
     assert_eq!(
         proof.public_values.trie_roots_before.state_root,
         state_trie_root

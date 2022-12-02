@@ -77,6 +77,7 @@ impl TernaryOperator {
 }
 
 #[derive(Debug)]
+#[allow(unused)] // TODO: Should be used soon.
 pub(crate) enum Operation {
     BinaryOperation {
         operator: BinaryOperator,

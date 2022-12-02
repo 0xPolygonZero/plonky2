@@ -136,26 +136,27 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
-        yield_constr: &mut ConstraintConsumer<P>,
+        _yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // TODO: Some failing constraints temporarily disabled.
-        // let local_values = vars.local_values.borrow();
-        // let next_values = vars.next_values.borrow();
-        // bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
-        // control_flow::eval_packed_generic(local_values, next_values, yield_constr);
-        // decode::eval_packed_generic(local_values, yield_constr);
-        // dup_swap::eval_packed(local_values, yield_constr);
-        // jumps::eval_packed(local_values, next_values, yield_constr);
-        // membus::eval_packed(local_values, yield_constr);
-        // modfp254::eval_packed(local_values, yield_constr);
-        // shift::eval_packed(local_values, yield_constr);
-        // simple_logic::eval_packed(local_values, yield_constr);
-        // stack::eval_packed(local_values, yield_constr);
-        // stack_bounds::eval_packed(local_values, yield_constr);
-        // syscalls::eval_packed(local_values, next_values, yield_constr);
+        let local_values = vars.local_values.borrow();
+        let next_values = vars.next_values.borrow();
+        // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
+        let mut dummy_yield_constr = ConstraintConsumer::new(vec![], P::ZEROS, P::ZEROS, P::ZEROS);
+        bootstrap_kernel::eval_bootstrap_kernel(vars, &mut dummy_yield_constr);
+        control_flow::eval_packed_generic(local_values, next_values, &mut dummy_yield_constr);
+        decode::eval_packed_generic(local_values, &mut dummy_yield_constr);
+        dup_swap::eval_packed(local_values, &mut dummy_yield_constr);
+        jumps::eval_packed(local_values, next_values, &mut dummy_yield_constr);
+        membus::eval_packed(local_values, &mut dummy_yield_constr);
+        modfp254::eval_packed(local_values, &mut dummy_yield_constr);
+        shift::eval_packed(local_values, &mut dummy_yield_constr);
+        simple_logic::eval_packed(local_values, &mut dummy_yield_constr);
+        stack::eval_packed(local_values, &mut dummy_yield_constr);
+        stack_bounds::eval_packed(local_values, &mut dummy_yield_constr);
+        syscalls::eval_packed(local_values, next_values, &mut dummy_yield_constr);
     }
 
     fn eval_ext_circuit(

@@ -121,11 +121,11 @@ impl<T: Copy> Traces<T> {
         let Traces {
             cpu,
             logic_ops,
-            arithmetic,
+            arithmetic: _, // TODO
             memory_ops,
             keccak_inputs,
             keccak_memory_inputs,
-            keccak_sponge_ops,
+            keccak_sponge_ops: _, // TODO
         } = self;
 
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
