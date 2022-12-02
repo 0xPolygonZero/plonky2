@@ -110,7 +110,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = len.as_usize();
 
-    let mut base_address = MemoryAddress::new_u256s(context, segment, base_virt);
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt);
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -156,7 +156,7 @@ pub(crate) fn generate_prover_input<F: Field>(
 
 pub(crate) fn generate_pop<F: Field>(
     state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
+    row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     if state.registers.stack_len == 0 {
         return Err(ProgramError::StackUnderflow);

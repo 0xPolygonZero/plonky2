@@ -43,19 +43,6 @@ pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
-// TODO: Remove
-// #[derive(Clone, Debug)]
-// pub(crate) struct MemoryOp {
-//     /// true if this is an actual memory operation, or false if it's a padding row.
-//     pub filter: bool,
-//     pub timestamp: usize,
-//     pub is_read: bool,
-//     pub context: usize,
-//     pub segment: Segment,
-//     pub virt: usize,
-//     pub value: U256,
-// }
-
 impl MemoryOp {
     /// Generate a row for a given memory operation. Note that this does not generate columns which
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.

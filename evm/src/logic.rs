@@ -138,12 +138,13 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
         operations: Vec<Operation>,
+        min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         let trace_rows = timed!(
             timing,
             "generate trace rows",
-            self.generate_trace_rows(operations)
+            self.generate_trace_rows(operations, min_rows)
         );
         let trace_polys = timed!(
             timing,
@@ -153,9 +154,13 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
         trace_polys
     }
 
-    fn generate_trace_rows(&self, operations: Vec<Operation>) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_trace_rows(
+        &self,
+        operations: Vec<Operation>,
+        min_rows: usize,
+    ) -> Vec<[F; NUM_COLUMNS]> {
         let len = operations.len();
-        let padded_len = len.next_power_of_two();
+        let padded_len = len.max(min_rows).next_power_of_two();
 
         let mut rows = Vec::with_capacity(padded_len);
         for op in operations {

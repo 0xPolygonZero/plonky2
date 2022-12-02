@@ -242,6 +242,7 @@ mod tests {
     fn make_logic_trace<R: Rng>(
         num_rows: usize,
         logic_stark: &LogicStark<F, D>,
+        config: &StarkConfig,
         rng: &mut R,
     ) -> Vec<PolynomialValues<F>> {
         let all_ops = [logic::Op::And, logic::Op::Or, logic::Op::Xor];
@@ -253,7 +254,11 @@ mod tests {
                 Operation::new(op, input0, input1)
             })
             .collect();
-        logic_stark.generate_trace(ops, &mut TimingTree::default())
+        logic_stark.generate_trace(
+            ops,
+            config.fri_config.num_cap_elements(),
+            &mut TimingTree::default(),
+        )
     }
 
     fn make_memory_trace<R: Rng>(
@@ -705,7 +710,8 @@ mod tests {
 
         let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
         let keccak_memory_trace = make_keccak_memory_trace(&all_stark.keccak_memory_stark, config);
-        let logic_trace = make_logic_trace(num_logic_rows, &all_stark.logic_stark, &mut rng);
+        let logic_trace =
+            make_logic_trace(num_logic_rows, &all_stark.logic_stark, config, &mut rng);
         let mem_trace = make_memory_trace(num_memory_ops, &all_stark.memory_stark, &mut rng);
         let mut memory_trace = mem_trace.0;
         let num_memory_ops = mem_trace.1;

@@ -99,6 +99,7 @@ impl<T: Copy> Traces<T> {
     where
         T: RichField + Extendable<D>,
     {
+        let cap_elements = config.fri_config.num_cap_elements();
         let Traces {
             cpu,
             logic_ops,
@@ -114,10 +115,12 @@ impl<T: Copy> Traces<T> {
         let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs, timing);
         let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(
             keccak_memory_inputs,
-            config.fri_config.num_cap_elements(),
+            cap_elements,
             timing,
         );
-        let logic_trace = all_stark.logic_stark.generate_trace(logic_ops, timing);
+        let logic_trace = all_stark
+            .logic_stark
+            .generate_trace(logic_ops, cap_elements, timing);
         let memory_trace = all_stark.memory_stark.generate_trace(memory_ops, timing);
 
         [
