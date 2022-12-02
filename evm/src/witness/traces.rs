@@ -1,3 +1,6 @@
+use std::mem::size_of;
+
+use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -6,6 +9,7 @@ use plonky2::util::timing::TimingTree;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
+use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
@@ -80,6 +84,20 @@ impl<T: Copy> Traces<T> {
 
     pub fn push_memory(&mut self, op: MemoryOp) {
         self.memory_ops.push(op);
+    }
+
+    pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
+        self.keccak_inputs.push(input);
+    }
+
+    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES]) {
+        let chunks = input
+            .chunks(size_of::<u64>())
+            .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+            .collect_vec()
+            .try_into()
+            .unwrap();
+        self.push_keccak(chunks);
     }
 
     pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {

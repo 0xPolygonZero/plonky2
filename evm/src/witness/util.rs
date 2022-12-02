@@ -136,19 +136,15 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         return Err(ProgramError::StackUnderflow);
     }
 
-    let result = {
-        let mut i = 0usize;
-        [(); N].map(|_| {
-            let address = MemoryAddress::new(
-                state.registers.effective_context(),
-                Segment::Stack,
-                state.registers.stack_len - 1 - i,
-            );
-            let res = mem_read_gp_with_log_and_fill(i, address, state, row);
-            i += 1;
-            res
-        })
-    };
+    let result = std::array::from_fn(|i| {
+        let address = MemoryAddress::new(
+            state.registers.effective_context(),
+            Segment::Stack,
+            state.registers.stack_len - 1 - i,
+        );
+        let res = mem_read_gp_with_log_and_fill(i, address, state, row);
+        res
+    });
 
     state.registers.stack_len -= N;
 

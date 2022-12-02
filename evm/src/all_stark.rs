@@ -8,7 +8,7 @@ use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
@@ -78,7 +78,20 @@ pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_memory()]
+    let mut ctls = vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_memory()];
+    // TODO: Some CTLs temporarily disabled while we get them working.
+    disable_ctl(&mut ctls[0]);
+    disable_ctl(&mut ctls[1]);
+    disable_ctl(&mut ctls[2]);
+    disable_ctl(&mut ctls[3]);
+    ctls
+}
+
+fn disable_ctl<F: Field>(ctl: &mut CrossTableLookup<F>) {
+    for table in &mut ctl.looking_tables {
+        table.filter_column = Some(Column::zero());
+    }
+    ctl.looked_table.filter_column = Some(Column::zero());
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {

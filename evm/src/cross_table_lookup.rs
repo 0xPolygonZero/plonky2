@@ -145,7 +145,7 @@ impl<F: Field> Column<F> {
 pub struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
-    filter_column: Option<Column<F>>,
+    pub(crate) filter_column: Option<Column<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
@@ -160,8 +160,8 @@ impl<F: Field> TableWithColumns<F> {
 
 #[derive(Clone)]
 pub struct CrossTableLookup<F: Field> {
-    looking_tables: Vec<TableWithColumns<F>>,
-    looked_table: TableWithColumns<F>,
+    pub(crate) looking_tables: Vec<TableWithColumns<F>>,
+    pub(crate) looked_table: TableWithColumns<F>,
     /// Default value if filters are not used.
     default: Option<Vec<F>>,
 }
@@ -248,6 +248,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
         default,
     } in cross_table_lookups
     {
+        log::debug!("Processing CTL for {:?}", looked_table.table);
         for &challenge in &challenges.challenges {
             let zs_looking = looking_tables.iter().map(|table| {
                 partial_products(

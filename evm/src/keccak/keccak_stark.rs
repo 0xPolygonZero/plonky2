@@ -38,6 +38,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter<F: Field>() -> Column<F> {
+    // TODO: Also need to filter out padding rows somehow.
     Column::single(reg_step(NUM_ROUNDS - 1))
 }
 

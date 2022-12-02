@@ -230,14 +230,14 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     let op = decode(state.registers, opcode)?;
     let pc = state.registers.program_counter;
 
-    log::trace!("Cycle {}", state.traces.clock());
-    log::trace!("Executing {:?} at {}", op, KERNEL.offset_name(pc));
+    log::trace!("\nCycle {}", state.traces.clock());
     log::trace!(
         "Stack: {:?}",
         (0..state.registers.stack_len)
             .map(|i| stack_peek(state, i).unwrap())
             .collect_vec()
     );
+    log::trace!("Executing {:?} at {}", op, KERNEL.offset_name(pc));
     fill_op_flag(op, &mut row);
 
     perform_op(state, op, row)
