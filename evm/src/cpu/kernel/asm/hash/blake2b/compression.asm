@@ -5,6 +5,8 @@ global blake2b_compression:
     %blake2b_initial_hash_value
 compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
+    
+    // Store the hash values.
     %blake2b_hash_value_addr
     // stack: addr, h_0, ..., h_7, cur_block, retdest
     %rep 8
@@ -13,6 +15,7 @@ compression_loop:
         %mstore_kernel_general
         %increment
     %endrep
+
     // stack: addr, cur_block, retdest
     POP
     // stack: cur_block, retdest
@@ -30,6 +33,8 @@ compression_loop:
     PUSH 1
     %mload_kernel_general
     // stack: num_bytes, cur_block, is_last_block, retdest
+
+    // Calculate t counter value.
     DUP3
     // stack: is_last_block, num_bytes, cur_block, is_last_block, retdest
     MUL
@@ -54,6 +59,8 @@ compression_loop:
     %mul_const(128)
     %add_const(2)
     // stack: cur_block_start_byte, t, cur_block, is_last_block, retdest
+
+    // Copy the message from the input space to the message working space.
     %blake2b_message_addr
     // stack: message_addr, cur_block_start_byte, t, cur_block, is_last_block, retdest
     %rep 16
@@ -100,9 +107,11 @@ compression_loop:
     // stack: addr, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
     POP
     // stack: h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
+
+    // Store the initial 16 values of the internal state.
     %blake2b_internal_state_addr
     // stack: start, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
-    // First eight words of compression state: current state h_0, ..., h_7.
+    // First eight words of internal state: current state h_0, ..., h_7.
     %rep 8
         SWAP1
         DUP2
@@ -171,6 +180,8 @@ compression_loop:
     // stack: start, cur_block, retdest
     PUSH 0
     // stack: round=0, start, cur_block, retdest
+
+    // Run 12 rounds of G functions.
     %rep 12
         // stack: round, start, cur_block, retdest
         %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
@@ -188,6 +199,8 @@ compression_loop:
     // stack: 12, start, cur_block, retdest
     POP
     POP
+
+    // Finalize hash value.
     // stack: cur_block, retdest
     %blake2b_generate_new_hash_value(7)
     %blake2b_generate_new_hash_value(6)
@@ -217,6 +230,8 @@ compression_end:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     PUSH 0
     // stack: dummy=0, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+
+    // Invert the bytes of each hash value.
     SWAP1
     %invert_bytes_blake2b_word
     SWAP1
@@ -242,6 +257,8 @@ compression_end:
     %invert_bytes_blake2b_word
     SWAP8
     POP
+
+    // Combine hash values.
     %shl_const(64)
     OR
     %shl_const(64)
