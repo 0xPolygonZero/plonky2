@@ -220,12 +220,17 @@ mod tests {
     fn make_keccak_trace<R: Rng>(
         num_keccak_perms: usize,
         keccak_stark: &KeccakStark<F, D>,
+        config: &StarkConfig,
         rng: &mut R,
     ) -> Vec<PolynomialValues<F>> {
         let keccak_inputs = (0..num_keccak_perms)
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
-        keccak_stark.generate_trace(keccak_inputs, &mut TimingTree::default())
+        keccak_stark.generate_trace(
+            keccak_inputs,
+            config.fri_config.num_cap_elements(),
+            &mut TimingTree::default(),
+        )
     }
 
     fn make_keccak_memory_trace(
@@ -708,7 +713,8 @@ mod tests {
         let mut rng = thread_rng();
         let num_keccak_perms = 2;
 
-        let keccak_trace = make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, &mut rng);
+        let keccak_trace =
+            make_keccak_trace(num_keccak_perms, &all_stark.keccak_stark, config, &mut rng);
         let keccak_memory_trace = make_keccak_memory_trace(&all_stark.keccak_memory_stark, config);
         let logic_trace =
             make_logic_trace(num_logic_rows, &all_stark.logic_stark, config, &mut rng);

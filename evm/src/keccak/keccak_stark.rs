@@ -49,11 +49,14 @@ pub struct KeccakStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// Generate the rows of the trace. Note that this does not generate the permuted columns used
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
-    pub(crate) fn generate_trace_rows(
+    fn generate_trace_rows(
         &self,
         inputs: Vec<[u64; NUM_INPUTS]>,
+        min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
+        let num_rows = (inputs.len() * NUM_ROUNDS)
+            .max(min_rows)
+            .next_power_of_two();
         let mut rows = Vec::with_capacity(num_rows);
         for input in inputs.iter() {
             rows.extend(self.generate_trace_rows_for_perm(*input));
@@ -202,13 +205,14 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     pub fn generate_trace(
         &self,
         inputs: Vec<[u64; NUM_INPUTS]>,
+        min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
         // Generate the witness, except for permuted columns in the lookup argument.
         let trace_rows = timed!(
             timing,
             "generate trace rows",
-            self.generate_trace_rows(inputs)
+            self.generate_trace_rows(inputs, min_rows)
         );
         let trace_polys = timed!(
             timing,
@@ -596,7 +600,7 @@ mod tests {
             f: Default::default(),
         };
 
-        let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()]);
+        let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()], 8);
         let last_row = rows[NUM_ROUNDS - 1];
         let output = (0..NUM_INPUTS)
             .map(|i| {
@@ -635,7 +639,7 @@ mod tests {
         let trace_poly_values = timed!(
             timing,
             "generate trace",
-            stark.generate_trace(input.try_into().unwrap(), &mut timing)
+            stark.generate_trace(input.try_into().unwrap(), 8, &mut timing)
         );
 
         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,

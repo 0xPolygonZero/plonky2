@@ -112,7 +112,10 @@ impl<T: Copy> Traces<T> {
 
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
-        let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs, timing);
+        let keccak_trace =
+            all_stark
+                .keccak_stark
+                .generate_trace(keccak_inputs, cap_elements, timing);
         let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(
             keccak_memory_inputs,
             cap_elements,
