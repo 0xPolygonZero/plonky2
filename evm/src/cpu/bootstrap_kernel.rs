@@ -65,6 +65,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         // buffer, so it's time to absorb.
         if sponge_input_pos == 0 {
             current_cpu_row.is_keccak = F::ONE;
+            // TODO: Push sponge_state to Keccak inputs in traces.
             keccakf_u32s(&mut sponge_state);
             let keccak = current_cpu_row.general.keccak_mut();
             keccak.output_limbs = sponge_state.map(F::from_canonical_u32);
