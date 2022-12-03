@@ -108,7 +108,7 @@ impl Operation {
         }
     }
 
-    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let Operation {
             operator,
             input0,
@@ -164,7 +164,7 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 
         let mut rows = Vec::with_capacity(padded_len);
         for op in operations {
-            rows.push(op.to_row());
+            rows.push(op.into_row());
         }
 
         // Pad to a power of two.

@@ -62,7 +62,7 @@ pub struct MemoryOp {
     pub filter: bool,
     pub timestamp: usize,
     pub address: MemoryAddress,
-    pub op: MemoryOpKind,
+    pub kind: MemoryOpKind,
     pub value: U256,
 }
 
@@ -71,7 +71,7 @@ impl MemoryOp {
         channel: MemoryChannel,
         clock: usize,
         address: MemoryAddress,
-        op: MemoryOpKind,
+        kind: MemoryOpKind,
         value: U256,
     ) -> Self {
         let timestamp = clock * NUM_CHANNELS + channel.index();
@@ -79,7 +79,7 @@ impl MemoryOp {
             filter: true,
             timestamp,
             address,
-            op,
+            kind,
             value,
         }
     }
@@ -101,9 +101,12 @@ impl MemoryState {
     pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
         for &op in ops {
             let MemoryOp {
-                address, op, value, ..
+                address,
+                kind,
+                value,
+                ..
             } = op;
-            if op == MemoryOpKind::Write {
+            if kind == MemoryOpKind::Write {
                 self.set(address, value);
             }
         }

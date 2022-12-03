@@ -102,7 +102,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let tables = timed!(
         timing,
         "convert trace data to tables",
-        state.traces.to_tables(all_stark, config, timing)
+        state.traces.into_tables(all_stark, config, timing)
     );
     (tables, public_values)
 }

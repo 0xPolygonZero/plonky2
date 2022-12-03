@@ -396,7 +396,7 @@ pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"] as usize;
+    let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
     let handler_addr_addr = handler_jumptable_addr + (opcode as usize);
     let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
         0,

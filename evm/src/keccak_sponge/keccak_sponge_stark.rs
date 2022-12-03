@@ -294,7 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
         row.context = F::from_canonical_usize(op.base_address.context);
-        row.segment = F::from_canonical_usize(op.base_address.segment as usize);
+        row.segment = F::from_canonical_usize(op.base_address.segment);
         row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.len);

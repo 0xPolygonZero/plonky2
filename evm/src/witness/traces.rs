@@ -108,7 +108,7 @@ impl<T: Copy> Traces<T> {
         self.cpu.len()
     }
 
-    pub fn to_tables<const D: usize>(
+    pub fn into_tables<const D: usize>(
         self,
         all_stark: &AllStark<T, D>,
         config: &StarkConfig,

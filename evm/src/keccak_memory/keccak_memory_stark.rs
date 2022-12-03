@@ -130,7 +130,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakMemoryStark<F, D> {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[COL_IS_REAL] = F::ONE;
         row[COL_CONTEXT] = F::from_canonical_usize(op.address.context);
-        row[COL_SEGMENT] = F::from_canonical_usize(op.address.segment as usize);
+        row[COL_SEGMENT] = F::from_canonical_usize(op.address.segment);
         row[COL_VIRTUAL] = F::from_canonical_usize(op.address.virt);
         row[COL_READ_TIMESTAMP] = F::from_canonical_usize(op.read_timestamp);
         for i in 0..25 {

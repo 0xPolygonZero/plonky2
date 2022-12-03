@@ -142,8 +142,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
             Segment::Stack,
             state.registers.stack_len - 1 - i,
         );
-        let res = mem_read_gp_with_log_and_fill(i, address, state, row);
-        res
+        mem_read_gp_with_log_and_fill(i, address, state, row)
     });
 
     state.registers.stack_len -= N;

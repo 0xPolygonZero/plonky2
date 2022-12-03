@@ -48,11 +48,11 @@ impl MemoryOp {
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
     /// It also does not generate columns such as `COUNTER`, which are generated later, after the
     /// trace has been transposed into column-major form.
-    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
-        row[IS_READ] = F::from_bool(self.op == Read);
+        row[IS_READ] = F::from_bool(self.kind == Read);
         let MemoryAddress {
             context,
             segment,
@@ -76,7 +76,7 @@ fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
             if curr.address.context != next.address.context {
                 next.address.context - curr.address.context - 1
             } else if curr.address.segment != next.address.segment {
-                next.address.segment as usize - curr.address.segment as usize - 1
+                next.address.segment - curr.address.segment - 1
             } else if curr.address.virt != next.address.virt {
                 next.address.virt - curr.address.virt - 1
             } else {
@@ -146,7 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
         let mut trace_rows = memory_ops
             .into_par_iter()
-            .map(|op| op.to_row())
+            .map(|op| op.into_row())
             .collect::<Vec<_>>();
         generate_first_change_flags_and_rc(trace_rows.as_mut_slice());
         trace_rows
@@ -170,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
         let to_pad = num_ops_padded - num_ops;
 
-        let last_op = memory_ops.last().expect("No memory ops?").clone();
+        let last_op = *memory_ops.last().expect("No memory ops?");
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             memory_ops.push(MemoryOp {
                 filter: false,
                 timestamp: last_op.timestamp + i + 1,
-                op: Read,
+                kind: Read,
                 ..last_op
             });
         }
@@ -519,7 +519,7 @@ pub(crate) mod tests {
                         segment: segment as usize,
                         virt,
                     },
-                    op: if is_read { Read } else { Write },
+                    kind: if is_read { Read } else { Write },
                     value: vals,
                 });
             }
