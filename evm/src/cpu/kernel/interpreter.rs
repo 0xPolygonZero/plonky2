@@ -235,7 +235,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
-        let opcode = self.code().get(self.generation_state.registers.program_counter).byte(0);
+        let opcode = self
+            .code()
+            .get(self.generation_state.registers.program_counter)
+            .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
         match opcode {
@@ -335,7 +338,10 @@ impl<'a> Interpreter<'a> {
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
 
-        if self.debug_offsets.contains(&self.generation_state.registers.program_counter) {
+        if self
+            .debug_offsets
+            .contains(&self.generation_state.registers.program_counter)
+        {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
