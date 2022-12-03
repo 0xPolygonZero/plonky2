@@ -5,20 +5,16 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
-use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
-use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::memory::segments::Segment;
 use crate::util::u256_saturating_cast_usize;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{
-    mem_read_code_with_log_and_fill, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
-    stack_pop_with_log_and_fill, stack_push_log_and_fill,
+    keccak_sponge_log, mem_read_code_with_log_and_fill, mem_read_gp_with_log_and_fill,
+    mem_write_gp_log_and_fill, stack_pop_with_log_and_fill, stack_push_log_and_fill,
 };
 use crate::{arithmetic, logic};
 
@@ -109,6 +105,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    row.is_keccak_sponge = F::ONE;
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = len.as_usize();
@@ -128,33 +125,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     let hash = keccak(&input);
     let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
 
-    let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
-    let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
-    for block in input_blocks.by_ref() {
-        sponge_state[..KECCAK_RATE_BYTES].copy_from_slice(block);
-        state.traces.push_keccak_bytes(sponge_state);
-        keccakf_u8s(&mut sponge_state);
-    }
-
-    let final_inputs = input_blocks.remainder();
-    sponge_state[..final_inputs.len()].copy_from_slice(final_inputs);
-    // pad10*1 rule
-    sponge_state[final_inputs.len()..KECCAK_RATE_BYTES].fill(0);
-    if final_inputs.len() == KECCAK_RATE_BYTES - 1 {
-        // Both 1s are placed in the same byte.
-        sponge_state[final_inputs.len()] = 0b10000001;
-    } else {
-        sponge_state[final_inputs.len()] = 1;
-        sponge_state[KECCAK_RATE_BYTES - 1] = 0b10000000;
-    }
-    state.traces.push_keccak_bytes(sponge_state);
-
-    state.traces.push_keccak_sponge(KeccakSpongeOp {
-        base_address,
-        timestamp: state.traces.clock(),
-        len,
-        input,
-    });
+    keccak_sponge_log(state, base_address, input);
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);

@@ -20,34 +20,28 @@ use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub fn ctl_data_keccak<F: Field>() -> Vec<Column<F>> {
-    let keccak = COL_MAP.general.keccak();
-    let mut res: Vec<_> = Column::singles(keccak.input_limbs).collect();
-    res.extend(Column::singles(keccak.output_limbs));
-    res
-}
-
-pub fn ctl_data_keccak_memory<F: Field>() -> Vec<Column<F>> {
+pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
-    // GP channel 2: stack[-3] = virtual
+    // GP channel 2: stack[-3] = virt
+    // GP channel 3: stack[-4] = len
+    // GP channel 4: pushed = outputs
     let context = Column::single(COL_MAP.mem_channels[0].value[0]);
     let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
     let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
+    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
-    let clock = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
-    vec![context, segment, virt, clock]
+    let mut cols = vec![context, segment, virt, len, timestamp];
+    cols.extend(COL_MAP.mem_channels[3].value.map(Column::single));
+    cols
 }
 
-pub fn ctl_filter_keccak<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_keccak)
-}
-
-pub fn ctl_filter_keccak_memory<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_keccak_memory)
+pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.is_keccak_sponge)
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {

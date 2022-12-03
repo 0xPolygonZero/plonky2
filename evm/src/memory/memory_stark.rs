@@ -439,97 +439,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::collections::{HashMap, HashSet};
-
     use anyhow::Result;
-    use ethereum_types::U256;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::prelude::SliceRandom;
-    use rand::Rng;
 
-    use crate::memory::memory_stark::{MemoryOp, MemoryStark};
-    use crate::memory::segments::Segment;
-    use crate::memory::NUM_CHANNELS;
+    use crate::memory::memory_stark::MemoryStark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
-    use crate::witness::memory::MemoryAddress;
-    use crate::witness::memory::MemoryOpKind::{Read, Write};
-
-    pub(crate) fn generate_random_memory_ops<R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp> {
-        let mut memory_ops = Vec::new();
-
-        let mut current_memory_values: HashMap<(usize, Segment, usize), U256> = HashMap::new();
-        let num_cycles = num_ops / 2;
-        for clock in 0..num_cycles {
-            let mut used_indices = HashSet::new();
-            let mut new_writes_this_cycle = HashMap::new();
-            let mut has_read = false;
-            for _ in 0..2 {
-                let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
-                while used_indices.contains(&channel_index) {
-                    channel_index = rng.gen_range(0..NUM_CHANNELS);
-                }
-                used_indices.insert(channel_index);
-
-                let is_read = if clock == 0 {
-                    false
-                } else {
-                    !has_read && rng.gen()
-                };
-                has_read = has_read || is_read;
-
-                let (context, segment, virt, vals) = if is_read {
-                    let written: Vec<_> = current_memory_values.keys().collect();
-                    let &(mut context, mut segment, mut virt) =
-                        written[rng.gen_range(0..written.len())];
-                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                        (context, segment, virt) = *written[rng.gen_range(0..written.len())];
-                    }
-
-                    let &vals = current_memory_values
-                        .get(&(context, segment, virt))
-                        .unwrap();
-
-                    (context, segment, virt, vals)
-                } else {
-                    // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
-                    // test larger address values.
-                    let mut context = rng.gen_range(0..40);
-                    let segments = [Segment::Code, Segment::Stack, Segment::MainMemory];
-                    let mut segment = *segments.choose(rng).unwrap();
-                    let mut virt = rng.gen_range(0..20);
-                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                        context = rng.gen_range(0..40);
-                        segment = *segments.choose(rng).unwrap();
-                        virt = rng.gen_range(0..20);
-                    }
-
-                    let val = U256(rng.gen());
-
-                    new_writes_this_cycle.insert((context, segment, virt), val);
-
-                    (context, segment, virt, val)
-                };
-
-                let timestamp = clock * NUM_CHANNELS + channel_index;
-                memory_ops.push(MemoryOp {
-                    filter: true,
-                    timestamp,
-                    address: MemoryAddress {
-                        context,
-                        segment: segment as usize,
-                        virt,
-                    },
-                    kind: if is_read { Read } else { Write },
-                    value: vals,
-                });
-            }
-            for (k, v) in new_writes_this_cycle {
-                current_memory_values.insert(k, v);
-            }
-        }
-
-        memory_ops
-    }
 
     #[test]
     fn test_stark_degree() -> Result<()> {

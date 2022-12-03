@@ -22,7 +22,6 @@ impl From<Vec<String>> for ProverInputFn {
 }
 
 impl<F: Field> GenerationState<F> {
-    #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[0].as_str() {
             "end_of_txns" => self.run_end_of_txns(),
