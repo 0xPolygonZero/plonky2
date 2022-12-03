@@ -116,6 +116,7 @@ pub struct CpuStark<F, const D: usize> {
 }
 
 impl<F: RichField, const D: usize> CpuStark<F, D> {
+    // TODO: Remove?
     pub fn generate(&self, local_values: &mut [F; NUM_CPU_COLUMNS]) {
         let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
         decode::generate(local_values);

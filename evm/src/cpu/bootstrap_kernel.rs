@@ -24,6 +24,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
         cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
@@ -38,6 +39,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     }
 
     let mut final_cpu_row = CpuColumnsView::default();
+    final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
