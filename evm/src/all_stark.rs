@@ -11,7 +11,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES};
+use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark;
 use crate::keccak_sponge::keccak_sponge_stark::{num_logic_ctls, KeccakSpongeStark};
 use crate::logic;
