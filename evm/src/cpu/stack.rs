@@ -61,19 +61,15 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     byte: BASIC_BINARY_OP,
     shl: BASIC_BINARY_OP,
     shr: BASIC_BINARY_OP,
-    keccak_general: None,   // TODO
-    prover_input: None,     // TODO
-    pop: None,              // TODO
-    jump: None,             // TODO
-    jumpi: None,            // TODO
-    pc: None,               // TODO
-    gas: None,              // TODO
-    jumpdest: None,         // TODO
-    get_state_root: None,   // TODO
-    set_state_root: None,   // TODO
-    get_receipt_root: None, // TODO
-    set_receipt_root: None, // TODO
-    push: None,             // TODO
+    keccak_general: None, // TODO
+    prover_input: None,   // TODO
+    pop: None,            // TODO
+    jump: None,           // TODO
+    jumpi: None,          // TODO
+    pc: None,             // TODO
+    gas: None,            // TODO
+    jumpdest: None,       // TODO
+    push: None,           // TODO
     dup: None,
     swap: None,
     get_context: None,    // TODO

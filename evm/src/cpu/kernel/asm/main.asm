@@ -1,8 +1,9 @@
 global main:
     // First, initialise the shift table
     %shift_table_init
+
     // Second, load all MPT data from the prover.
-    PUSH txn_loop
+    PUSH hash_initial_tries
     %jump(load_all_mpts)
 
 hash_initial_tries:

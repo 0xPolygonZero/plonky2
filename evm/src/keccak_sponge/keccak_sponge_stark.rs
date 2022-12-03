@@ -18,10 +18,10 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
 use crate::keccak_sponge::columns::*;
-use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryAddress;
 
 #[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
@@ -144,10 +144,8 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
 /// Information about a Keccak sponge operation needed for witness generation.
 #[derive(Debug)]
 pub(crate) struct KeccakSpongeOp {
-    // The address at which inputs are read.
-    pub(crate) context: usize,
-    pub(crate) segment: Segment,
-    pub(crate) virt: usize,
+    /// The base address at which inputs are read.
+    pub(crate) base_address: MemoryAddress,
 
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
@@ -295,9 +293,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         already_absorbed_bytes: usize,
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
-        row.context = F::from_canonical_usize(op.context);
-        row.segment = F::from_canonical_usize(op.segment as usize);
-        row.virt = F::from_canonical_usize(op.virt);
+        row.context = F::from_canonical_usize(op.base_address.context);
+        row.segment = F::from_canonical_usize(op.base_address.segment);
+        row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
         row.len = F::from_canonical_usize(op.len);
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
@@ -410,6 +408,7 @@ mod tests {
     use crate::keccak_sponge::keccak_sponge_stark::{KeccakSpongeOp, KeccakSpongeStark};
     use crate::memory::segments::Segment;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -443,9 +442,11 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            context: 0,
-            segment: Segment::Code,
-            virt: 0,
+            base_address: MemoryAddress {
+                context: 0,
+                segment: Segment::Code as usize,
+                virt: 0,
+            },
             timestamp: 0,
             len: input.len(),
             input,

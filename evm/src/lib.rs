@@ -2,6 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::field_reassign_with_default)]
 #![feature(let_chains)]
 #![feature(generic_const_exprs)]
 
@@ -29,3 +30,4 @@ pub mod util;
 pub mod vanishing_poly;
 pub mod vars;
 pub mod verifier;
+pub mod witness;

@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::{ensure, Result};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -122,6 +124,7 @@ where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    log::debug!("Checking proof: {}", type_name::<S>());
     validate_proof_shape(&stark, proof, config, ctl_vars.len())?;
     let StarkOpeningSet {
         local_values,

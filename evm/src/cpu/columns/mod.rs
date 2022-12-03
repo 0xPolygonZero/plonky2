@@ -6,6 +6,8 @@ use std::fmt::Debug;
 use std::mem::{size_of, transmute};
 use std::ops::{Index, IndexMut};
 
+use plonky2::field::types::Field;
+
 use crate::cpu::columns::general::CpuGeneralColumnsView;
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
@@ -31,7 +33,7 @@ pub struct MemoryChannelView<T: Copy> {
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
@@ -81,6 +83,12 @@ pub struct CpuColumnsView<T: Copy> {
 
 // `u8` is guaranteed to have a `size_of` of 1.
 pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+
+impl<F: Field> Default for CpuColumnsView<F> {
+    fn default() -> Self {
+        Self::from([F::ZERO; NUM_CPU_COLUMNS])
+    }
+}
 
 impl<T: Copy> From<[T; NUM_CPU_COLUMNS]> for CpuColumnsView<T> {
     fn from(value: [T; NUM_CPU_COLUMNS]) -> Self {
