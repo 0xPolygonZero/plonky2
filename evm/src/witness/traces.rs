@@ -9,8 +9,7 @@ use plonky2::util::timing::TimingTree;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
-use crate::keccak_memory::columns::KECCAK_WIDTH_BYTES;
-use crate::keccak_memory::keccak_memory_stark::KeccakMemoryOp;
+use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
@@ -31,7 +30,6 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic: Vec<arithmetic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
-    pub(crate) keccak_memory_inputs: Vec<KeccakMemoryOp>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
 }
 
@@ -43,7 +41,6 @@ impl<T: Copy> Traces<T> {
             arithmetic: vec![],
             memory_ops: vec![],
             keccak_inputs: vec![],
-            keccak_memory_inputs: vec![],
             keccak_sponge_ops: vec![],
         }
     }
@@ -124,8 +121,7 @@ impl<T: Copy> Traces<T> {
             arithmetic: _, // TODO
             memory_ops,
             keccak_inputs,
-            keccak_memory_inputs,
-            keccak_sponge_ops: _, // TODO
+            keccak_sponge_ops,
         } = self;
 
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
@@ -134,11 +130,10 @@ impl<T: Copy> Traces<T> {
             all_stark
                 .keccak_stark
                 .generate_trace(keccak_inputs, cap_elements, timing);
-        let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(
-            keccak_memory_inputs,
-            cap_elements,
-            timing,
-        );
+        let keccak_sponge_trace =
+            all_stark
+                .keccak_sponge_stark
+                .generate_trace(keccak_sponge_ops, cap_elements, timing);
         let logic_trace = all_stark
             .logic_stark
             .generate_trace(logic_ops, cap_elements, timing);
@@ -147,7 +142,7 @@ impl<T: Copy> Traces<T> {
         [
             cpu_trace,
             keccak_trace,
-            keccak_memory_trace,
+            keccak_sponge_trace,
             logic_trace,
             memory_trace,
         ]

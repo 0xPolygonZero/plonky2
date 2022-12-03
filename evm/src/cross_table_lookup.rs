@@ -694,6 +694,7 @@ pub(crate) mod testutils {
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
     /// Check that the provided traces and cross-table lookups are consistent.
+    #[allow(unused)] // TODO: used later?
     pub(crate) fn check_ctls<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         cross_table_lookups: &[CrossTableLookup<F>],

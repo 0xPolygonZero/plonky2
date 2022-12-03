@@ -24,7 +24,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
@@ -49,7 +49,7 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
@@ -71,7 +71,7 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
@@ -132,12 +132,12 @@ where
         &mut challenger,
         timing,
     )?;
-    let keccak_memory_proof = prove_single_table(
-        &all_stark.keccak_memory_stark,
+    let keccak_sponge_proof = prove_single_table(
+        &all_stark.keccak_sponge_stark,
         config,
-        &trace_poly_values[Table::KeccakMemory as usize],
-        &trace_commitments[Table::KeccakMemory as usize],
-        &ctl_data_per_table[Table::KeccakMemory as usize],
+        &trace_poly_values[Table::KeccakSponge as usize],
+        &trace_commitments[Table::KeccakSponge as usize],
+        &ctl_data_per_table[Table::KeccakSponge as usize],
         &mut challenger,
         timing,
     )?;
@@ -163,7 +163,7 @@ where
     let stark_proofs = [
         cpu_proof,
         keccak_proof,
-        keccak_memory_proof,
+        keccak_sponge_proof,
         logic_proof,
         memory_proof,
     ];

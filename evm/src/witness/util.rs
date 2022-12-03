@@ -2,9 +2,12 @@ use ethereum_types::U256;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
+use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
@@ -169,4 +172,41 @@ pub(crate) fn stack_push_log_and_fill<F: Field>(
     state.registers.stack_len += 1;
 
     Ok(res)
+}
+
+pub(crate) fn keccak_sponge_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    input: Vec<u8>,
+) {
+    let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
+    let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
+    for block in input_blocks.by_ref() {
+        sponge_state[..KECCAK_RATE_BYTES].copy_from_slice(block);
+        state.traces.push_keccak_bytes(sponge_state);
+        // TODO: Also push logic rows for XORs.
+        // TODO: Also push memory read rows.
+        keccakf_u8s(&mut sponge_state);
+    }
+
+    let final_inputs = input_blocks.remainder();
+    sponge_state[..final_inputs.len()].copy_from_slice(final_inputs);
+    // pad10*1 rule
+    sponge_state[final_inputs.len()..KECCAK_RATE_BYTES].fill(0);
+    if final_inputs.len() == KECCAK_RATE_BYTES - 1 {
+        // Both 1s are placed in the same byte.
+        sponge_state[final_inputs.len()] = 0b10000001;
+    } else {
+        sponge_state[final_inputs.len()] = 1;
+        sponge_state[KECCAK_RATE_BYTES - 1] = 0b10000000;
+    }
+    state.traces.push_keccak_bytes(sponge_state);
+    // TODO: Also push logic rows for XORs.
+    // TODO: Also push memory read rows.
+
+    state.traces.push_keccak_sponge(KeccakSpongeOp {
+        base_address,
+        timestamp: state.traces.clock(),
+        input,
+    });
 }
