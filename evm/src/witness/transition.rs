@@ -225,6 +225,10 @@ fn perform_op<F: Field>(
 fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.is_cpu_cycle = F::ONE;
+    row.context = F::from_canonical_usize(state.registers.context);
+    row.program_counter = F::from_canonical_usize(state.registers.program_counter);
+    row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
+    row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
     let opcode = read_code_memory(state, &mut row);
     let op = decode(state.registers, opcode)?;

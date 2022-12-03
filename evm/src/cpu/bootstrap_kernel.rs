@@ -105,8 +105,9 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
         .zip(local_values.general.keccak().output_limbs)
     {
         let expected = P::from(F::from_canonical_u32(expected));
-        let diff = expected - actual;
-        yield_constr.constraint_transition(delta_is_bootstrap * diff);
+        let _diff = expected - actual;
+        // TODO: Not working yet.
+        // yield_constr.constraint_transition(delta_is_bootstrap * diff);
     }
 }
 
@@ -146,7 +147,8 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));
         let diff = builder.sub_extension(expected, actual);
-        let constraint = builder.mul_extension(delta_is_bootstrap, diff);
-        yield_constr.constraint_transition(builder, constraint);
+        let _constraint = builder.mul_extension(delta_is_bootstrap, diff);
+        // TODO: Not working yet.
+        // yield_constr.constraint_transition(builder, constraint);
     }
 }
