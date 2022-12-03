@@ -113,7 +113,7 @@ fn test_state_trie(trie_inputs: TrieInputs) -> Result<()> {
     assert_eq!(interpreter.stack(), vec![]);
 
     // Now, execute mpt_hash_state_trie.
-    interpreter.offset = mpt_hash_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 

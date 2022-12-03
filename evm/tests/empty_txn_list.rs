@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
+use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+use eth_trie_utils::partial_trie::PartialTrie;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -18,6 +19,8 @@ type C = PoseidonGoldilocksConfig;
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
 fn test_empty_txn_list() -> anyhow::Result<()> {
+    init_logger();
+
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
 
@@ -52,7 +55,10 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         block_metadata,
     };
 
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut TimingTree::default())?;
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    timing.print();
+
     assert_eq!(
         proof.public_values.trie_roots_before.state_root,
         state_trie_root
@@ -79,4 +85,8 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     );
 
     verify_proof(all_stark, proof, &config)
+}
+
+fn init_logger() {
+    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
 }

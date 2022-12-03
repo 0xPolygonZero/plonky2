@@ -18,6 +18,8 @@ use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::KECCAK_RATE_U32S;
 use crate::memory::segments::Segment;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryAddress;
+use crate::witness::util::mem_write_gp_log_and_fill;
 
 /// We can't process more than `NUM_CHANNELS` bytes per row, since that's all the memory bandwidth
 /// we have. We also can't process more than 4 bytes (or the number of bytes in a `u32`), since we
@@ -35,30 +37,41 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         .enumerate()
         .chunks(BYTES_PER_ROW)
     {
-        state.current_cpu_row.is_bootstrap_kernel = F::ONE;
+        let mut current_cpu_row = CpuColumnsView::default();
+        current_cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         let mut packed_bytes: u32 = 0;
         for (channel, (addr, &byte)) in chunk.enumerate() {
-            state.set_mem_cpu_current(channel, Segment::Code, addr, byte.into());
+            let address = MemoryAddress::new(0, Segment::Code, addr);
+            let write = mem_write_gp_log_and_fill(
+                channel,
+                address,
+                state,
+                &mut current_cpu_row,
+                byte.into(),
+            );
+            state.traces.push_memory(write);
 
             packed_bytes = (packed_bytes << 8) | byte as u32;
         }
 
         sponge_state[sponge_input_pos] = packed_bytes;
-        let keccak = state.current_cpu_row.general.keccak_mut();
+        let keccak = current_cpu_row.general.keccak_mut();
         keccak.input_limbs = sponge_state.map(F::from_canonical_u32);
-        state.commit_cpu_row();
 
         sponge_input_pos = (sponge_input_pos + 1) % KECCAK_RATE_U32S;
         // If we just crossed a multiple of KECCAK_RATE_LIMBS, then we've filled the Keccak input
         // buffer, so it's time to absorb.
         if sponge_input_pos == 0 {
-            state.current_cpu_row.is_keccak = F::ONE;
+            current_cpu_row.is_keccak = F::ONE;
+            // TODO: Push sponge_state to Keccak inputs in traces.
             keccakf_u32s(&mut sponge_state);
-            let keccak = state.current_cpu_row.general.keccak_mut();
+            let keccak = current_cpu_row.general.keccak_mut();
             keccak.output_limbs = sponge_state.map(F::from_canonical_u32);
         }
+
+        state.traces.push_cpu(current_cpu_row);
     }
 }
 

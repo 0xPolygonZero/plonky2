@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ethereum_types::U256;
 
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -11,6 +9,9 @@ pub enum MemoryChannel {
 }
 
 use MemoryChannel::{Code, GeneralPurpose};
+
+use crate::memory::segments::Segment;
+use crate::util::u256_saturating_cast_usize;
 
 impl MemoryChannel {
     pub fn index(&self) -> usize {
@@ -24,19 +25,45 @@ impl MemoryChannel {
     }
 }
 
-pub type MemoryAddress = (u32, u32, u32);
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct MemoryAddress {
+    pub(crate) context: usize,
+    pub(crate) segment: usize,
+    pub(crate) virt: usize,
+}
 
-#[derive(Clone, Copy, Debug)]
+impl MemoryAddress {
+    pub(crate) fn new(context: usize, segment: Segment, virt: usize) -> Self {
+        Self {
+            context,
+            segment: segment as usize,
+            virt,
+        }
+    }
+
+    pub(crate) fn new_u256s(context: U256, segment: U256, virt: U256) -> Self {
+        Self {
+            context: u256_saturating_cast_usize(context),
+            segment: u256_saturating_cast_usize(segment),
+            virt: u256_saturating_cast_usize(virt),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MemoryOpKind {
     Read,
-    Write(U256),
+    Write,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryOp {
-    pub timestamp: u64,
+    /// true if this is an actual memory operation, or false if it's a padding row.
+    pub filter: bool,
+    pub timestamp: usize,
     pub address: MemoryAddress,
-    pub op: MemoryOpKind,
+    pub kind: MemoryOpKind,
+    pub value: U256,
 }
 
 impl MemoryOp {
@@ -44,49 +71,88 @@ impl MemoryOp {
         channel: MemoryChannel,
         clock: usize,
         address: MemoryAddress,
-        op: MemoryOpKind,
+        kind: MemoryOpKind,
+        value: U256,
     ) -> Self {
-        let timestamp = (clock * NUM_CHANNELS + channel.index()) as u64;
+        let timestamp = clock * NUM_CHANNELS + channel.index();
         MemoryOp {
+            filter: true,
             timestamp,
             address,
-            op,
+            kind,
+            value,
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryState {
-    contents: HashMap<MemoryAddress, U256>,
+    pub(crate) contexts: Vec<MemoryContextState>,
 }
 
 impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
-        let mut contents = HashMap::new();
+        let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
+        let mut result = Self::default();
+        result.contexts[0].segments[Segment::Code as usize].content = code_u256s;
+        result
+    }
 
-        for (i, &byte) in kernel_code.iter().enumerate() {
-            if byte != 0 {
-                let address = (0, 0, i as u32);
-                let val = byte.into();
-                contents.insert(address, val);
+    pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
+        for &op in ops {
+            let MemoryOp {
+                address,
+                kind,
+                value,
+                ..
+            } = op;
+            if kind == MemoryOpKind::Write {
+                self.set(address, value);
             }
         }
-
-        Self { contents }
     }
 
     pub fn get(&self, address: MemoryAddress) -> U256 {
-        self.contents
-            .get(&address)
-            .copied()
-            .unwrap_or_else(U256::zero)
+        self.contexts[address.context].segments[address.segment].get(address.virt)
     }
 
     pub fn set(&mut self, address: MemoryAddress, val: U256) {
-        if val.is_zero() {
-            self.contents.remove(&address);
-        } else {
-            self.contents.insert(address, val);
+        self.contexts[address.context].segments[address.segment].set(address.virt, val);
+    }
+}
+
+impl Default for MemoryState {
+    fn default() -> Self {
+        Self {
+            // We start with an initial context for the kernel.
+            contexts: vec![MemoryContextState::default()],
         }
+    }
+}
+
+#[derive(Clone, Default, Debug)]
+pub(crate) struct MemoryContextState {
+    /// The content of each memory segment.
+    pub(crate) segments: [MemorySegmentState; Segment::COUNT],
+}
+
+#[derive(Clone, Default, Debug)]
+pub(crate) struct MemorySegmentState {
+    pub(crate) content: Vec<U256>,
+}
+
+impl MemorySegmentState {
+    pub(crate) fn get(&self, virtual_addr: usize) -> U256 {
+        self.content
+            .get(virtual_addr)
+            .copied()
+            .unwrap_or(U256::zero())
+    }
+
+    pub(crate) fn set(&mut self, virtual_addr: usize, value: U256) {
+        if virtual_addr >= self.content.len() {
+            self.content.resize(virtual_addr + 1, U256::zero());
+        }
+        self.content[virtual_addr] = value;
     }
 }

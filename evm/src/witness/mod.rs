@@ -1,7 +1,7 @@
 mod errors;
-mod memory;
+pub(crate) mod memory;
 mod operation;
-mod state;
-mod traces;
+pub(crate) mod state;
+pub(crate) mod traces;
 pub mod transition;
-mod util;
+pub(crate) mod util;

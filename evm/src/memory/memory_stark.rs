@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use ethereum_types::U256;
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -20,11 +19,12 @@ use crate::memory::columns::{
     COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
-use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryOpKind::Read;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -43,31 +43,24 @@ pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct MemoryOp {
-    /// true if this is an actual memory operation, or false if it's a padding row.
-    pub filter: bool,
-    pub timestamp: usize,
-    pub is_read: bool,
-    pub context: usize,
-    pub segment: Segment,
-    pub virt: usize,
-    pub value: U256,
-}
-
 impl MemoryOp {
     /// Generate a row for a given memory operation. Note that this does not generate columns which
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
     /// It also does not generate columns such as `COUNTER`, which are generated later, after the
     /// trace has been transposed into column-major form.
-    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
-        row[IS_READ] = F::from_bool(self.is_read);
-        row[ADDR_CONTEXT] = F::from_canonical_usize(self.context);
-        row[ADDR_SEGMENT] = F::from_canonical_usize(self.segment as usize);
-        row[ADDR_VIRTUAL] = F::from_canonical_usize(self.virt);
+        row[IS_READ] = F::from_bool(self.kind == Read);
+        let MemoryAddress {
+            context,
+            segment,
+            virt,
+        } = self.address;
+        row[ADDR_CONTEXT] = F::from_canonical_usize(context);
+        row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
+        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         for j in 0..VALUE_LIMBS {
             row[value_limb(j)] = F::from_canonical_u32((self.value >> (j * 32)).low_u32());
         }
@@ -80,12 +73,12 @@ fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
         .iter()
         .tuple_windows()
         .map(|(curr, next)| {
-            if curr.context != next.context {
-                next.context - curr.context - 1
-            } else if curr.segment != next.segment {
-                next.segment as usize - curr.segment as usize - 1
-            } else if curr.virt != next.virt {
-                next.virt - curr.virt - 1
+            if curr.address.context != next.address.context {
+                next.address.context - curr.address.context - 1
+            } else if curr.address.segment != next.address.segment {
+                next.address.segment - curr.address.segment - 1
+            } else if curr.address.virt != next.address.virt {
+                next.address.virt - curr.address.virt - 1
             } else {
                 next.timestamp - curr.timestamp - 1
             }
@@ -140,13 +133,20 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
     fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
-        memory_ops.sort_by_key(|op| (op.context, op.segment, op.virt, op.timestamp));
+        memory_ops.sort_by_key(|op| {
+            (
+                op.address.context,
+                op.address.segment,
+                op.address.virt,
+                op.timestamp,
+            )
+        });
 
         Self::pad_memory_ops(&mut memory_ops);
 
         let mut trace_rows = memory_ops
             .into_par_iter()
-            .map(|op| op.to_row())
+            .map(|op| op.into_row())
             .collect::<Vec<_>>();
         generate_first_change_flags_and_rc(trace_rows.as_mut_slice());
         trace_rows
@@ -170,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
         let to_pad = num_ops_padded - num_ops;
 
-        let last_op = memory_ops.last().expect("No memory ops?").clone();
+        let last_op = *memory_ops.last().expect("No memory ops?");
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             memory_ops.push(MemoryOp {
                 filter: false,
                 timestamp: last_op.timestamp + i + 1,
-                is_read: true,
+                kind: Read,
                 ..last_op
             });
         }
@@ -451,6 +451,8 @@ pub(crate) mod tests {
     use crate::memory::segments::Segment;
     use crate::memory::NUM_CHANNELS;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
+    use crate::witness::memory::MemoryOpKind::{Read, Write};
 
     pub(crate) fn generate_random_memory_ops<R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp> {
         let mut memory_ops = Vec::new();
@@ -512,10 +514,12 @@ pub(crate) mod tests {
                 memory_ops.push(MemoryOp {
                     filter: true,
                     timestamp,
-                    is_read,
-                    context,
-                    segment,
-                    virt,
+                    address: MemoryAddress {
+                        context,
+                        segment: segment as usize,
+                        virt,
+                    },
+                    kind: if is_read { Read } else { Write },
                     value: vals,
                 });
             }
