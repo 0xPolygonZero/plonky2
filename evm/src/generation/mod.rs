@@ -24,7 +24,7 @@ use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::transition::transition;
 
-pub(crate) mod mpt;
+pub mod mpt;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;

@@ -490,12 +490,10 @@ impl<'a> Interpreter<'a> {
     fn run_byte(&mut self) {
         let i = self.pop();
         let x = self.pop();
-        let result = if i > 32.into() {
-            0
+        let result = if i < 32.into() {
+            x.byte(31 - i.as_usize())
         } else {
-            let mut bytes = [0; 32];
-            x.to_big_endian(&mut bytes);
-            bytes[i.as_usize()]
+            0
         };
         self.push(result.into());
     }

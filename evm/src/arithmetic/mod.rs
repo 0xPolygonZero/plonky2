@@ -33,11 +33,23 @@ pub(crate) enum BinaryOperator {
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
-            BinaryOperator::Add => input0 + input1,
-            BinaryOperator::Mul => input0 * input1,
-            BinaryOperator::Sub => input0 - input1,
-            BinaryOperator::Div => input0 / input1,
-            BinaryOperator::Mod => input0 % input1,
+            BinaryOperator::Add => input0.overflowing_add(input1).0,
+            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::Sub => input0.overflowing_sub(input1).0,
+            BinaryOperator::Div => {
+                if input1.is_zero() {
+                    U256::zero()
+                } else {
+                    input0 / input1
+                }
+            }
+            BinaryOperator::Mod => {
+                if input1.is_zero() {
+                    U256::zero()
+                } else {
+                    input0 % input1
+                }
+            }
             BinaryOperator::Lt => {
                 if input0 < input1 {
                     U256::one()
@@ -52,8 +64,20 @@ impl BinaryOperator {
                     U256::zero()
                 }
             }
-            BinaryOperator::Shl => input0 << input1,
-            BinaryOperator::Shr => input0 >> input1,
+            BinaryOperator::Shl => {
+                if input0 > 255.into() {
+                    U256::zero()
+                } else {
+                    input1 << input0
+                }
+            }
+            BinaryOperator::Shr => {
+                if input0 > 255.into() {
+                    U256::zero()
+                } else {
+                    input1 >> input0
+                }
+            }
             BinaryOperator::AddFp254 => addmod(input0, input1, bn_base_order()),
             BinaryOperator::MulFp254 => mulmod(input0, input1, bn_base_order()),
             BinaryOperator::SubFp254 => submod(input0, input1, bn_base_order()),

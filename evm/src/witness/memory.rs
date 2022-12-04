@@ -48,6 +48,10 @@ impl MemoryAddress {
             virt: u256_saturating_cast_usize(virt),
         }
     }
+
+    pub(crate) fn increment(&mut self) {
+        self.virt = self.virt.saturating_add(1);
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

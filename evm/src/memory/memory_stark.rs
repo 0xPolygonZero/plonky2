@@ -80,7 +80,7 @@ fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
             } else if curr.address.virt != next.address.virt {
                 next.address.virt - curr.address.virt - 1
             } else {
-                next.timestamp - curr.timestamp - 1
+                next.timestamp - curr.timestamp
             }
         })
         .max()
@@ -124,7 +124,7 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
         } else if virtual_first_change {
             next_virt - virt - F::ONE
         } else {
-            next_timestamp - timestamp - F::ONE
+            next_timestamp - timestamp
         };
     }
 }
@@ -283,7 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
-            + address_unchanged * (next_timestamp - timestamp - one);
+            + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
@@ -394,10 +394,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(diff, one)
         };
         let virtual_range_check = builder.mul_extension(virtual_first_change, virtual_diff);
-        let timestamp_diff = {
-            let diff = builder.sub_extension(next_timestamp, timestamp);
-            builder.sub_extension(diff, one)
-        };
+        let timestamp_diff = builder.sub_extension(next_timestamp, timestamp);
         let timestamp_range_check = builder.mul_extension(address_unchanged, timestamp_diff);
 
         let computed_range_check = {
