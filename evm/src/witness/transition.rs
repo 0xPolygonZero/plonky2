@@ -219,6 +219,12 @@ fn perform_op<F: Field>(
         _ => 1,
     };
 
+    if let Some(label) = KERNEL.offset_label(state.registers.program_counter) {
+        if !label.starts_with("halt_pc") {
+            log::debug!("At {label}");
+        }
+    }
+
     Ok(())
 }
 

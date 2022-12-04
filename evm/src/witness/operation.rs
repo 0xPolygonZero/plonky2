@@ -72,7 +72,24 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     let [(input0, log_in0), (input1, log_in1)] =
         stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, input0, input1);
+
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
+
+    if operator == arithmetic::BinaryOperator::Shl || operator == arithmetic::BinaryOperator::Shr {
+        const LOOKUP_CHANNEL: usize = 2;
+        let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0.low_u32() as usize);
+        if input0.bits() <= 32 {
+            let (_, read) =
+                mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);
+            state.traces.push_memory(read);
+        } else {
+            // The shift constraints still expect the address to be set, even though no read will occur.
+            let mut channel = &mut row.mem_channels[LOOKUP_CHANNEL];
+            channel.addr_context = F::from_canonical_usize(lookup_addr.context);
+            channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
+            channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
+        }
+    }
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
@@ -121,6 +138,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
             val.as_u32() as u8
         })
         .collect_vec();
+    log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
     let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;

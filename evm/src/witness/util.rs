@@ -3,11 +3,12 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
+use crate::logic;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
@@ -174,39 +175,76 @@ pub(crate) fn stack_push_log_and_fill<F: Field>(
     Ok(res)
 }
 
+fn xor_into_sponge<F: Field>(
+    state: &mut GenerationState<F>,
+    sponge_state: &mut [u8; KECCAK_WIDTH_BYTES],
+    block: &[u8; KECCAK_RATE_BYTES],
+) {
+    for i in (0..KECCAK_RATE_BYTES).step_by(32) {
+        let range = i..KECCAK_RATE_BYTES.min(i + 32);
+        let lhs = U256::from_little_endian(&sponge_state[range.clone()]);
+        let rhs = U256::from_little_endian(&block[range]);
+        state
+            .traces
+            .push_logic(logic::Operation::new(logic::Op::Xor, lhs, rhs));
+    }
+    for i in 0..KECCAK_RATE_BYTES {
+        sponge_state[i] ^= block[i];
+    }
+}
+
 pub(crate) fn keccak_sponge_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: MemoryAddress,
     input: Vec<u8>,
 ) {
+    let clock = state.traces.clock();
+
+    let mut address = base_address;
     let mut input_blocks = input.chunks_exact(KECCAK_RATE_BYTES);
     let mut sponge_state = [0u8; KECCAK_WIDTH_BYTES];
     for block in input_blocks.by_ref() {
-        sponge_state[..KECCAK_RATE_BYTES].copy_from_slice(block);
+        for &byte in block {
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::Code,
+                clock,
+                address,
+                MemoryOpKind::Read,
+                byte.into(),
+            ));
+            address.increment();
+        }
+        xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
         state.traces.push_keccak_bytes(sponge_state);
-        // TODO: Also push logic rows for XORs.
-        // TODO: Also push memory read rows.
         keccakf_u8s(&mut sponge_state);
     }
 
-    let final_inputs = input_blocks.remainder();
-    sponge_state[..final_inputs.len()].copy_from_slice(final_inputs);
-    // pad10*1 rule
-    sponge_state[final_inputs.len()..KECCAK_RATE_BYTES].fill(0);
-    if final_inputs.len() == KECCAK_RATE_BYTES - 1 {
-        // Both 1s are placed in the same byte.
-        sponge_state[final_inputs.len()] = 0b10000001;
-    } else {
-        sponge_state[final_inputs.len()] = 1;
-        sponge_state[KECCAK_RATE_BYTES - 1] = 0b10000000;
+    for &byte in input_blocks.remainder() {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Read,
+            byte.into(),
+        ));
+        address.increment();
     }
+    let mut final_block = [0u8; KECCAK_RATE_BYTES];
+    final_block[..input_blocks.remainder().len()].copy_from_slice(input_blocks.remainder());
+    // pad10*1 rule
+    if input_blocks.remainder().len() == KECCAK_RATE_BYTES - 1 {
+        // Both 1s are placed in the same byte.
+        final_block[input_blocks.remainder().len()] = 0b10000001;
+    } else {
+        final_block[input_blocks.remainder().len()] = 1;
+        final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
+    }
+    xor_into_sponge(state, &mut sponge_state, &final_block);
     state.traces.push_keccak_bytes(sponge_state);
-    // TODO: Also push logic rows for XORs.
-    // TODO: Also push memory read rows.
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
-        timestamp: state.traces.clock(),
+        timestamp: clock * NUM_CHANNELS,
         input,
     });
 }

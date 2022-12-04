@@ -9,11 +9,11 @@ use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
-pub(crate) struct AccountRlp {
-    pub(crate) nonce: U256,
-    pub(crate) balance: U256,
-    pub(crate) storage_root: H256,
-    pub(crate) code_hash: H256,
+pub struct AccountRlp {
+    pub nonce: U256,
+    pub balance: U256,
+    pub storage_root: H256,
+    pub code_hash: H256,
 }
 
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {

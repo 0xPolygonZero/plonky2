@@ -24,7 +24,7 @@ use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::transition::transition;
 
-pub(crate) mod mpt;
+pub mod mpt;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
@@ -73,6 +73,11 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state));
+
+    log::info!(
+        "Trace lengths (before padding): {:?}",
+        state.traces.checkpoint()
+    );
 
     let read_metadata = |field| {
         state.memory.get(MemoryAddress::new(
