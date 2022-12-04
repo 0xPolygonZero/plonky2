@@ -1,16 +1,9 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
-// All integers must be under a given length bound.
+// All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Return a >= b.
-global ge_bignum:
+global ge_bignum_bounded:
     // stack: length, a_start_loc, b_start_loc, retdest
-    %stack (lens: 2) -> (lens, lens)
-    GT
-    %jumpi(greater)
-    %stack (lens: 2) -> (lens, lens)
-    LT
-    %jumpi(less)
-    // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
     %stack (lens: 2, locs: 2) -> (locs, lens)
     // stack: a_start_loc, b_start_loc, a_len, b_len, retdest
     DUP3
@@ -102,7 +95,7 @@ equal:
     JUMP
 
 // Replaces a with a + b, leaving b unchanged.
-global add_bignum:
+global add_bignum_bounded:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
     %stack (al, bl, a, b) -> (0, 0, a, b, bl)
     // stack: carry=0, i=0, a_start_loc, b_start_loc, n=b_len, retdest
@@ -208,7 +201,7 @@ increment_end:
 
 // Replaces a with a - b, leaving b unchanged.
 // Assumes a >= b.
-global sub_bignum:
+global sub_bignum_bounded:
     // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
     %stack (al, bl, a, b) -> (0, 0, a, b, bl)
     // stack: borrow=0, i=0, a_start_loc, b_start_loc, n=b_len, retdest

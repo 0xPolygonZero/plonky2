@@ -35,7 +35,7 @@ pub(crate) fn u256_to_le_limbs(x: U256) -> [u128; 2] {
     let lower = u128::from_le_bytes(lower_bytes);
     let upper_bytes: [u8; 16] = bytes[16..].try_into().unwrap();
     let upper = u128::from_le_bytes(upper_bytes);
-    
+
     [lower, upper]
 }
 
