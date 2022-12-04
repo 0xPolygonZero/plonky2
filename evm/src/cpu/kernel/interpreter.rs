@@ -159,12 +159,6 @@ impl<'a> Interpreter<'a> {
         &mut self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
-    pub(crate) fn get_memory_segment(&self, segment: Segment) -> Vec<U256> {
-        self.generation_state.memory.contexts[0].segments[segment as usize]
-            .content
-            .to_vec()
-    }
-
     pub(crate) fn get_memory_segment_bytes(&self, segment: Segment) -> Vec<u8> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
@@ -175,10 +169,6 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
         self.get_memory_segment_bytes(Segment::RlpRaw)
-    }
-
-    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
-        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
     }
 
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
