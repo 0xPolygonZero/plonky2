@@ -74,6 +74,8 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state));
 
+    log::info!("Trace lengths (before padding): {:?}", state.traces.checkpoint());
+
     let read_metadata = |field| {
         state.memory.get(MemoryAddress::new(
             0,

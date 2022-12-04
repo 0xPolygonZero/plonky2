@@ -18,6 +18,8 @@ use crate::{arithmetic, keccak, logic};
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
     pub(self) cpu_len: usize,
+    pub(self) keccak_len: usize,
+    pub(self) keccak_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) arithmetic_len: usize,
     pub(self) memory_len: usize,
@@ -48,19 +50,22 @@ impl<T: Copy> Traces<T> {
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             cpu_len: self.cpu.len(),
+            keccak_len: self.keccak_inputs.len(),
+            keccak_sponge_len: self.keccak_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             arithmetic_len: self.arithmetic.len(),
             memory_len: self.memory_ops.len(),
-            // TODO others
         }
     }
 
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.cpu.truncate(checkpoint.cpu_len);
+        self.keccak_inputs.truncate(checkpoint.keccak_len);
+        self.keccak_sponge_ops
+            .truncate(checkpoint.keccak_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.arithmetic.truncate(checkpoint.arithmetic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
-        // TODO others
     }
 
     pub fn mem_ops_since(&self, checkpoint: TraceCheckpoint) -> &[MemoryOp] {
