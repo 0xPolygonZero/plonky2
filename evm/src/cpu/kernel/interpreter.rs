@@ -159,23 +159,35 @@ impl<'a> Interpreter<'a> {
         &mut self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
-    pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
-        self.generation_state.memory.contexts[0].segments[Segment::RlpRaw as usize]
+    pub(crate) fn get_memory_segment(&self, segment: Segment) -> Vec<U256> {
+        self.generation_state.memory.contexts[0].segments[segment as usize]
+            .content
+            .to_vec()
+    }
+
+    pub(crate) fn get_memory_segment_bytes(&self, segment: Segment) -> Vec<u8> {
+        self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
             .iter()
             .map(|x| x.as_u32() as u8)
             .collect()
     }
 
-    pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
-        self.memory.context_memory[0].segments[Segment::KernelGeneral as usize]
-            .content
-            .to_vec()
+    pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
+        self.get_memory_segment_bytes(Segment::RlpRaw)
+    }
+
+    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
+    }
+
+    pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content =
+            memory.into_iter().map(U256::from).collect();
     }
 
     pub(crate) fn set_rlp_memory(&mut self, rlp: Vec<u8>) {
-        self.generation_state.memory.contexts[0].segments[Segment::RlpRaw as usize].content =
-            rlp.into_iter().map(U256::from).collect();
+        self.set_memory_segment_bytes(Segment::RlpRaw, rlp)
     }
 
     pub(crate) fn set_code(&mut self, context: usize, code: Vec<u8>) {
