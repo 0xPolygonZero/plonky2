@@ -1,6 +1,7 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
@@ -386,22 +387,26 @@ impl<'a> Interpreter<'a> {
     // TODO: 107 is hardcoded as a dummy prime for testing
     // should be changed to the proper implementation prime
 
+    fn bn_base_order_() -> U256 {
+        U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47").unwrap()
+    }
+
     fn run_addfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push((x + y) % 107);
+        self.push((x + y) % Self::bn_base_order_());
     }
 
     fn run_mulfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from(x.full_mul(y) % 107).unwrap());
+        self.push(U256::try_from(x.full_mul(y) % Self::bn_base_order_()).unwrap());
     }
 
     fn run_subfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push((U256::from(107) + x - y) % 107);
+        self.push((Self::bn_base_order_() + x - y) % Self::bn_base_order_());
     }
 
     fn run_div(&mut self) {
