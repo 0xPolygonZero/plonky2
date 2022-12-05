@@ -208,7 +208,7 @@
 
 %macro froby1_3
     PUSH 0x4f1de41b3d1766fa9f30e6dec26094f0fdf31bf98ff2631380cab2baaa586de
-    PUSH 0x856e078b755ef0abaff1c77959f25ac805ffd3d5d6942d37b746ee87bdcfb6d,
+    PUSH 0x856e078b755ef0abaff1c77959f25ac805ffd3d5d6942d37b746ee87bdcfb6d
     %mul_fp2
 %endmacro
 
