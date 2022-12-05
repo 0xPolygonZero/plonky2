@@ -112,9 +112,7 @@ mul_tangent_1:
     // stack:        Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP10  DUP10
     // stack:     O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    %tangent
-    // stack:     line, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    %sparse_store
+    %store_tangent
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     PUSH 100  DUP2
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
@@ -133,7 +131,7 @@ mul_tangent_2:
 
 
 /// def mul_cord()
-///     line = cord(O, P, Q)
+///     line = cord(P, O, Q)
 ///     out = mul_fp12_sparse(out, line)
 ///     O += P
 
@@ -141,18 +139,20 @@ mul_cord:
     // stack:                            0xnm, times, O, P, Q, out
     PUSH mul_cord_1
     // stack:                mul_cord_1, 0xnm, times, O, P, Q, out
-    DUP11  DUP11  DUP11  DUP11  DUP11  DUP11  DUP11  DUP11
-    // stack:       O, P, Q, mul_cord_1, 0xnm, times, O, P, Q, out
-    %cord
-    // stack:          line, mul_cord_1, 0xnm, times, O, P, Q, out
-    %sparse_store
-    // stack:                mul_cord_1, 0xnm, times, O, P, Q, out
+    DUP11  DUP11  DUP11  DUP11
+    // stack:             Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    DUP9  DUP9
+    // stack:          O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    DUP13  DUP13
+    // stack:       P, O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    %store_cord 
+    // stack:                mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     DUP12
-    // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     PUSH 100
-    // stack:      100, out, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:      100, out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     DUP2
-    // stack: out, 100, out, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack: out, 100, out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     %jump(mul_fp12_sparse)
 mul_cord_1:
     // stack:        0xnm, times, O  , P, Q, out
@@ -161,17 +161,101 @@ mul_cord_1:
     // %ec_add_bn254
     // stack: O + P, 0xnm, times, O  , P, Q, out
     SWAP4  SWAP1  SWAP5  SWAP1
-    // stack:        0xnm, times, O+P, P, Q, out
-    %jump(miller_one)
+    // stack:     O, 0xnm, times, O+P, P, Q, out
+    %pop2  %jump(miller_one)
 
 
-%macro sparse_store
-    // stack: g0, G1, G1'
+/// def store_cord(p1x, p1y, p2x, p2y, qx, qy):
+///     return sparse_store(
+///         p1y*p2x - p2y*p1x, 
+///         (p2y - p1y) * qx, 
+///         (p1x - p2x) * qy,
+///     )
+
+%macro store_cord
+    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    DUP1  DUP5  MULFP254
+    // stack:           p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    DUP3  DUP5  MULFP254
+    // stack: p1y*p2x , p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    SUBFP254
+    // stack: p1y*p2x - p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     PUSH 100  %mstore_kernel_general
-    // stack:     G1, G1'
-    PUSH 102  %mstore_kernel_general
-    PUSH 103  %mstore_kernel_general
-    // stack:         G1'
+    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    SWAP3
+    // stack:                    p2y , p1y, p2x , p1x, qx, qx_, qy, qy_
+    SUBFP254
+    // stack:                    p2y - p1y, p2x , p1x, qx, qx_, qy, qy_
+    SWAP2
+    // stack:                    p1x , p2x, p2y - p1y, qx, qx_, qy, qy_
+    SUBFP254
+    // stack:                    p1x - p2x, p2y - p1y, qx, qx_, qy, qy_
+    SWAP4
+    // stack:                    qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
+    DUP5  MULFP254
+    // stack:         (p1x - p2x)qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
     PUSH 108  %mstore_kernel_general
+    // stack:                        p2y - p1y, qx, qx_, p1x - p2x, qy_
+    SWAP1
+    // stack:                        qx, p2y - p1y, qx_, p1x - p2x, qy_
+    DUP2  MULFP254
+    // stack:             (p2y - p1y)qx, p2y - p1y, qx_, p1x - p2x, qy_
+    PUSH 102  %mstore_kernel_general
+    // stack:                            p2y - p1y, qx_, p1x - p2x, qy_
+    MULFP254
+    // stack:                            (p2y - p1y)qx_, p1x - p2x, qy_
+    PUSH 103  %mstore_kernel_general
+    // stack:                                            p1x - p2x, qy_
+    MULFP254
+    // stack:                                            (p1x - p2x)qy_
+    PUSH 109  %mstore_kernel_general
+%endmacro
+
+
+/// def store_tangent(px, py, qx, qy):
+///     return sparse_store(
+///         py**2 - 9, 
+///         (-3px**2) * qx, 
+///         (2py)     * qy,
+///     )
+
+%macro store_tangent
+    // stack:                px, py, qx, qx_, qy, qy_
+    PUSH 9
+    // stack:             9, px, py, qx, qx_, qy, qy_
+    DUP3
+    // stack:        py , 9, px, py, qx, qx_, qy, qy_
+    DUP1  MULFP254
+    // stack:     py**2 , 9, px, py, qx, qx_, qy, qy_
+    SUBFP254
+    // stack:     py**2 - 9, px, py, qx, qx_, qy, qy_
+    PUSH 100  %mstore_kernel_general
+    // stack:                px, py, qx, qx_, qy, qy_
+    DUP1  MULFP254
+    // stack:             px**2, py, qx, qx_, qy, qy_
+    PUSH 3  MULFP254
+    // stack:           3*px**2, py, qx, qx_, qy, qy_
+    PUSH 0  SUBFP254
+    // stack:          -3*px**2, py, qx, qx_, qy, qy_
+    SWAP2
+    // stack:           qx, py, -3px**2, qx_, qy, qy_
+    DUP3  MULFP254
+    // stack: (-3*px**2)qx, py, -3px**2, qx_, qy, qy_ 
+    PUSH 102  %mstore_kernel_general
+    // stack:               py, -3px**2, qx_, qy, qy_ 
+    PUSH 2  MULFP254
+    // stack:              2py, -3px**2, qx_, qy, qy_ 
+    SWAP3 
+    // stack:              qy, -3px**2, qx_, 2py, qy_ 
+    DUP4  MULFP254
+    // stack:         (2py)qy, -3px**2, qx_, 2py, qy_ 
+    PUSH 108  %mstore_kernel_general
+    // stack:                  -3px**2, qx_, 2py, qy_ 
+    MULFP254
+    // stack:                  (-3px**2)qx_, 2py, qy_ 
+    PUSH 103  %mstore_kernel_general
+    // stack:                                2py, qy_ 
+    MULFP254
+    // stack:                                (2py)qy_ 
     PUSH 109  %mstore_kernel_general
 %endmacro
