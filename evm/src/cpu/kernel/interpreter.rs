@@ -283,7 +283,7 @@ impl<'a> Interpreter<'a> {
             0x3a => todo!(),                                            // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
-            0x3d => todo!(),                                            // "RETURNDATASIZE",
+            0x3d => self.run_returndatasize(),                          // "RETURNDATASIZE",
             0x3e => todo!(),                                            // "RETURNDATACOPY",
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
@@ -323,7 +323,7 @@ impl<'a> Interpreter<'a> {
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
-            0xf3 => todo!(),                                            // "RETURN",
+            0xf3 => self.run_return(),                                  // "RETURN",
             0xf4 => todo!(),                                            // "DELEGATECALL",
             0xf5 => todo!(),                                            // "CREATE2",
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
@@ -639,16 +639,12 @@ impl<'a> Interpreter<'a> {
                 })
                 .collect::<Vec<_>>(),
         );
-        dbg!(offset, value);
         self.push(value);
     }
 
     fn run_mstore(&mut self) {
         let offset = self.pop().as_usize();
         let value = self.pop();
-        if offset <= 448 + 33 && offset + 32 > 448 {
-            println!("YOO {} {}", offset, value);
-        }
         let mut bytes = [0; 32];
         value.to_big_endian(&mut bytes);
         for (i, byte) in (0..32).zip(bytes) {
@@ -670,7 +666,6 @@ impl<'a> Interpreter<'a> {
 
     fn run_jump(&mut self) {
         let x = self.pop();
-        dbg!(x);
         self.jump_to(x.as_usize());
     }
 
@@ -712,7 +707,6 @@ impl<'a> Interpreter<'a> {
 
     fn run_push(&mut self, num_bytes: u8) {
         let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
-        dbg!(x);
         self.incr(num_bytes as usize);
         self.push(x);
     }
@@ -726,6 +720,11 @@ impl<'a> Interpreter<'a> {
         ensure!(len > n as usize);
         self.stack_mut().swap(len - 1, len - n as usize - 1);
         Ok(())
+    }
+
+    fn run_return(&mut self) {
+        let mem = &self.memory.context_memory[self.context].segments[Segment::MainMemory as usize];
+        println!("{:?}", mem);
     }
 
     fn run_get_context(&mut self) {
