@@ -47,7 +47,7 @@ tate_mul1:
     DUP2
     // stack:           out, 100, out, out,                       tate_mul2, tate_mul3, retdest  {100: inv}
     %frob_fp12_2
-    // stack:                100, out, out,                       tate_mul2, tate_mul3, retdest  {100: inv}
+    // stack:                100, out, out,                       tate_mul2, tate_mul3, retdest  {100: inv} 
     %jump(mul_fp12)
 tate_mul2: 
     // stack:                          out,                                  tate_mul3, retdest  {100: acc}
