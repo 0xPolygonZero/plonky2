@@ -613,6 +613,13 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn run_returndatasize(&mut self) {
+        self.push(
+            self.memory.context_memory[self.context].segments[Segment::ContextMetadata as usize]
+                .get(ContextMetadata::ReturndataSize as usize),
+        )
+    }
+
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
         let prover_input_fn = self
             .prover_inputs_map
