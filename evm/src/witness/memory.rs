@@ -87,6 +87,25 @@ impl MemoryOp {
             value,
         }
     }
+
+    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize) -> Self {
+        Self {
+            filter: false,
+            timestamp,
+            address,
+            kind: MemoryOpKind::Read,
+            value: U256::zero(),
+        }
+    }
+
+    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
+        (
+            self.address.context,
+            self.address.segment,
+            self.address.virt,
+            self.timestamp,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
