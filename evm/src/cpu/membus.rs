@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
-pub const NUM_GP_CHANNELS: usize = 4;
+pub const NUM_GP_CHANNELS: usize = 5;
 
 pub mod channel_indices {
     use std::ops::Range;

@@ -8,6 +8,7 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
+use crate::witness::util::stack_peek;
 
 /// Prover input function represented as a scoped function name.
 /// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
@@ -21,14 +22,13 @@ impl From<Vec<String>> for ProverInputFn {
 }
 
 impl<F: Field> GenerationState<F> {
-    #[allow(unused)] // TODO: Should be used soon.
-    pub(crate) fn prover_input(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
+    pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[0].as_str() {
             "end_of_txns" => self.run_end_of_txns(),
-            "ff" => self.run_ff(stack, input_fn),
+            "ff" => self.run_ff(input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
-            "account_code" => self.run_account_code(stack, input_fn),
+            "account_code" => self.run_account_code(input_fn),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -44,10 +44,10 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// Finite field operations.
-    fn run_ff(&self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
+    fn run_ff(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
         let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
-        let x = *stack.last().expect("Empty stack");
+        let x = stack_peek(self, 0).expect("Empty stack");
         field.op(op, x)
     }
 
@@ -66,22 +66,21 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// Account code.
-    fn run_account_code(&mut self, stack: &[U256], input_fn: &ProverInputFn) -> U256 {
+    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> U256 {
         match input_fn.0[1].as_str() {
             "length" => {
                 // Return length of code.
                 // stack: codehash, ...
-                let codehash = stack.last().expect("Empty stack");
-                self.inputs.contract_code[&H256::from_uint(codehash)]
+                let codehash = stack_peek(self, 0).expect("Empty stack");
+                self.inputs.contract_code[&H256::from_uint(&codehash)]
                     .len()
                     .into()
             }
             "get" => {
                 // Return `code[i]`.
                 // stack: i, code_length, codehash, ...
-                let stacklen = stack.len();
-                let i = stack[stacklen - 1].as_usize();
-                let codehash = stack[stacklen - 3];
+                let i = stack_peek(self, 0).expect("Unexpected stack").as_usize();
+                let codehash = stack_peek(self, 2).expect("Unexpected stack");
                 self.inputs.contract_code[&H256::from_uint(&codehash)][i].into()
             }
             _ => panic!("Invalid prover input function."),

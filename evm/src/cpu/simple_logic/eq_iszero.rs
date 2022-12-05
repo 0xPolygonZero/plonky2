@@ -1,34 +1,29 @@
+use ethereum_types::U256;
 use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
-pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let input0 = lv.mem_channels[0].value;
-
-    let eq_filter = lv.op.eq.to_canonical_u64();
-    let iszero_filter = lv.op.iszero.to_canonical_u64();
-    assert!(eq_filter <= 1);
-    assert!(iszero_filter <= 1);
-    assert!(eq_filter + iszero_filter <= 1);
-
-    if eq_filter + iszero_filter == 0 {
-        return;
+fn limbs(x: U256) -> [u32; 8] {
+    let mut res = [0; 8];
+    let x_u64: [u64; 4] = x.0;
+    for i in 0..4 {
+        res[2 * i] = x_u64[i] as u32;
+        res[2 * i + 1] = (x_u64[i] >> 32) as u32;
     }
+    res
+}
 
-    let input1 = &mut lv.mem_channels[1].value;
-    if iszero_filter != 0 {
-        for limb in input1.iter_mut() {
-            *limb = F::ZERO;
-        }
-    }
+pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsView<F>) {
+    let val0_limbs = limbs(val0).map(F::from_canonical_u32);
+    let val1_limbs = limbs(val1).map(F::from_canonical_u32);
 
-    let input1 = lv.mem_channels[1].value;
-    let num_unequal_limbs = izip!(input0, input1)
+    let num_unequal_limbs = izip!(val0_limbs, val1_limbs)
         .map(|(limb0, limb1)| (limb0 != limb1) as usize)
         .sum();
     let equal = num_unequal_limbs == 0;
@@ -40,7 +35,7 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     }
 
     // Form `diff_pinv`.
-    // Let `diff = input0 - input1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
+    // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
     // Then `diff @ x = num_unequal_limbs`, where `@` denotes the dot product. We set
     // `diff_pinv = num_unequal_limbs^-1 * x` if `num_unequal_limbs != 0` and 0 otherwise. We have
     // `diff @ diff_pinv = 1 - equal` as desired.
@@ -48,7 +43,7 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     let num_unequal_limbs_inv = F::from_canonical_usize(num_unequal_limbs)
         .try_inverse()
         .unwrap_or(F::ZERO);
-    for (limb_pinv, limb0, limb1) in izip!(logic.diff_pinv.iter_mut(), input0, input1) {
+    for (limb_pinv, limb0, limb1) in izip!(logic.diff_pinv.iter_mut(), val0_limbs, val1_limbs) {
         *limb_pinv = (limb0 - limb1).try_inverse().unwrap_or(F::ZERO) * num_unequal_limbs_inv;
     }
 }

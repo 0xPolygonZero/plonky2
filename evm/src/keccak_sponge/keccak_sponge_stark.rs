@@ -18,12 +18,11 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
 use crate::keccak_sponge::columns::*;
-use crate::memory::segments::Segment;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryAddress;
 
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     let outputs = Column::singles(&cols.updated_state_u32s[..8]);
@@ -31,14 +30,13 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         cols.context,
         cols.segment,
         cols.virt,
-        cols.timestamp,
         cols.len,
+        cols.timestamp,
     ])
     .chain(outputs)
     .collect()
 }
 
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     Column::singles(
@@ -52,7 +50,6 @@ pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
     .collect()
 }
 
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
@@ -81,14 +78,18 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
+pub(crate) fn num_logic_ctls() -> usize {
+    const U8S_PER_CTL: usize = 32;
+    ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
+}
+
 /// CTL for performing the `i`th logic CTL. Since we need to do 136 byte XORs, and the logic CTL can
 /// XOR 32 bytes per CTL, there are 5 such CTLs.
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     const U32S_PER_CTL: usize = 8;
     const U8S_PER_CTL: usize = 32;
 
-    debug_assert!(i < ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL));
+    debug_assert!(i < num_logic_ctls());
     let cols = KECCAK_SPONGE_COL_MAP;
 
     let mut res = vec![
@@ -111,7 +112,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
             .chunks(size_of::<u32>())
             .map(|chunk| Column::le_bytes(chunk))
             .chain(repeat(Column::zero()))
-            .take(U8S_PER_CTL),
+            .take(U32S_PER_CTL),
     );
 
     // The output contains the XOR'd rate part.
@@ -124,14 +125,12 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our final-block rows, since those contain the final
     // sponge output.
     Column::single(KECCAK_SPONGE_COL_MAP.is_final_block)
 }
 
-#[allow(unused)] // TODO: Should be used soon.
 /// CTL filter for reading the `i`th byte of input from memory.
 pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     // We perform the `i`th read if either
@@ -141,26 +140,26 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i..]))
 }
 
+pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
+    let cols = KECCAK_SPONGE_COL_MAP;
+    Column::sum([cols.is_full_input_block, cols.is_final_block])
+}
+
 /// Information about a Keccak sponge operation needed for witness generation.
 #[derive(Debug)]
 pub(crate) struct KeccakSpongeOp {
-    // The address at which inputs are read.
-    pub(crate) context: usize,
-    pub(crate) segment: Segment,
-    pub(crate) virt: usize,
+    /// The base address at which inputs are read.
+    pub(crate) base_address: MemoryAddress,
 
     /// The timestamp at which inputs are read.
     pub(crate) timestamp: usize,
-
-    /// The length of the input, in bytes.
-    pub(crate) len: usize,
 
     /// The input that was read.
     pub(crate) input: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Default)]
-pub(crate) struct KeccakSpongeStark<F, const D: usize> {
+pub struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 
@@ -261,7 +260,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         sponge_state: [u32; KECCAK_WIDTH_U32S],
         final_inputs: &[u8],
     ) -> KeccakSpongeColumnsView<F> {
-        assert_eq!(already_absorbed_bytes + final_inputs.len(), op.len);
+        assert_eq!(already_absorbed_bytes + final_inputs.len(), op.input.len());
 
         let mut row = KeccakSpongeColumnsView {
             is_final_block: F::ONE,
@@ -295,11 +294,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         already_absorbed_bytes: usize,
         mut sponge_state: [u32; KECCAK_WIDTH_U32S],
     ) {
-        row.context = F::from_canonical_usize(op.context);
-        row.segment = F::from_canonical_usize(op.segment as usize);
-        row.virt = F::from_canonical_usize(op.virt);
+        row.context = F::from_canonical_usize(op.base_address.context);
+        row.segment = F::from_canonical_usize(op.base_address.segment);
+        row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
-        row.len = F::from_canonical_usize(op.len);
+        row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
 
         row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
@@ -410,6 +409,7 @@ mod tests {
     use crate::keccak_sponge::keccak_sponge_stark::{KeccakSpongeOp, KeccakSpongeStark};
     use crate::memory::segments::Segment;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+    use crate::witness::memory::MemoryAddress;
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -443,11 +443,12 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            context: 0,
-            segment: Segment::Code,
-            virt: 0,
+            base_address: MemoryAddress {
+                context: 0,
+                segment: Segment::Code as usize,
+                virt: 0,
+            },
             timestamp: 0,
-            len: input.len(),
             input,
         };
         let stark = S::default();

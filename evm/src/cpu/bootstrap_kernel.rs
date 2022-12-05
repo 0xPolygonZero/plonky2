@@ -13,53 +13,47 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::keccak_util::keccakf_u32s;
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
-use crate::keccak_sponge::columns::KECCAK_RATE_U32S;
 use crate::memory::segments::Segment;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-
-/// We can't process more than `NUM_CHANNELS` bytes per row, since that's all the memory bandwidth
-/// we have. We also can't process more than 4 bytes (or the number of bytes in a `u32`), since we
-/// want them to fit in a single limb of Keccak input.
-const BYTES_PER_ROW: usize = 4;
+use crate::witness::memory::MemoryAddress;
+use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
-    let mut sponge_state = [0u32; 50];
-    let mut sponge_input_pos: usize = 0;
-
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
-    for chunk in &KERNEL
-        .padded_code()
-        .iter()
-        .enumerate()
-        .chunks(BYTES_PER_ROW)
-    {
-        state.current_cpu_row.is_bootstrap_kernel = F::ONE;
+    for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
+        let mut cpu_row = CpuColumnsView::default();
+        cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
-        let mut packed_bytes: u32 = 0;
         for (channel, (addr, &byte)) in chunk.enumerate() {
-            state.set_mem_cpu_current(channel, Segment::Code, addr, byte.into());
-
-            packed_bytes = (packed_bytes << 8) | byte as u32;
+            let address = MemoryAddress::new(0, Segment::Code, addr);
+            let write =
+                mem_write_gp_log_and_fill(channel, address, state, &mut cpu_row, byte.into());
+            state.traces.push_memory(write);
         }
 
-        sponge_state[sponge_input_pos] = packed_bytes;
-        let keccak = state.current_cpu_row.general.keccak_mut();
-        keccak.input_limbs = sponge_state.map(F::from_canonical_u32);
-        state.commit_cpu_row();
-
-        sponge_input_pos = (sponge_input_pos + 1) % KECCAK_RATE_U32S;
-        // If we just crossed a multiple of KECCAK_RATE_LIMBS, then we've filled the Keccak input
-        // buffer, so it's time to absorb.
-        if sponge_input_pos == 0 {
-            state.current_cpu_row.is_keccak = F::ONE;
-            keccakf_u32s(&mut sponge_state);
-            let keccak = state.current_cpu_row.general.keccak_mut();
-            keccak.output_limbs = sponge_state.map(F::from_canonical_u32);
-        }
+        state.traces.push_cpu(cpu_row);
     }
+
+    let mut final_cpu_row = CpuColumnsView::default();
+    final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    final_cpu_row.is_bootstrap_kernel = F::ONE;
+    final_cpu_row.is_keccak_sponge = F::ONE;
+    // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
+    final_cpu_row.mem_channels[0].value[0] = F::ZERO;
+    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
+    final_cpu_row.mem_channels[2].value[0] = F::ZERO;
+    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(state.traces.clock());
+    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
+    state.traces.push_cpu(final_cpu_row);
+    keccak_sponge_log(
+        state,
+        MemoryAddress::new(0, Segment::Code, 0),
+        KERNEL.code.clone(),
+    );
 }
 
 pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
@@ -77,19 +71,25 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     let delta_is_bootstrap = next_is_bootstrap - local_is_bootstrap;
     yield_constr.constraint_transition(delta_is_bootstrap * (delta_is_bootstrap + P::ONES));
 
-    // TODO: Constraints to enforce that, if IS_BOOTSTRAP_KERNEL,
-    // - If CLOCK is a multiple of KECCAK_RATE_LIMBS, activate the Keccak CTL, and ensure the output
-    //   is copied to the next row (besides the first limb which will immediately be overwritten).
-    // - Otherwise, ensure that the Keccak input is copied to the next row (besides the next limb).
-    // - The next limb we add to the buffer is also written to memory.
+    // If this is a bootloading row and the i'th memory channel is used, it must have the right
+    // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
+    let code_segment = F::from_canonical_usize(Segment::Code as usize);
+    for (i, channel) in local_values.mem_channels.iter().enumerate() {
+        let filter = local_is_bootstrap * channel.used;
+        yield_constr.constraint(filter * channel.addr_context);
+        yield_constr.constraint(filter * (channel.addr_segment - code_segment));
+        let expected_virt = local_values.clock * F::from_canonical_usize(NUM_GP_CHANNELS)
+            + F::from_canonical_usize(i);
+        yield_constr.constraint(filter * (channel.addr_virtual - expected_virt));
+    }
 
-    // If IS_BOOTSTRAP_KERNEL changed (from 1 to 0), check that
-    // - the clock is a multiple of KECCAK_RATE_LIMBS (TODO)
+    // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
+    // - all memory channels are disabled (TODO)
     // - the current kernel hash matches a precomputed one
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
-        .zip(local_values.general.keccak().output_limbs)
+        .zip(local_values.mem_channels.last().unwrap().value)
     {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
@@ -117,19 +117,35 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
         builder.mul_add_extension(delta_is_bootstrap, delta_is_bootstrap, delta_is_bootstrap);
     yield_constr.constraint_transition(builder, constraint);
 
-    // TODO: Constraints to enforce that, if IS_BOOTSTRAP_KERNEL,
-    // - If CLOCK is a multiple of KECCAK_RATE_LIMBS, activate the Keccak CTL, and ensure the output
-    //   is copied to the next row (besides the first limb which will immediately be overwritten).
-    // - Otherwise, ensure that the Keccak input is copied to the next row (besides the next limb).
-    // - The next limb we add to the buffer is also written to memory.
+    // If this is a bootloading row and the i'th memory channel is used, it must have the right
+    // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
+    let code_segment =
+        builder.constant_extension(F::Extension::from_canonical_usize(Segment::Code as usize));
+    for (i, channel) in local_values.mem_channels.iter().enumerate() {
+        let filter = builder.mul_extension(local_is_bootstrap, channel.used);
+        let constraint = builder.mul_extension(filter, channel.addr_context);
+        yield_constr.constraint(builder, constraint);
 
-    // If IS_BOOTSTRAP_KERNEL changed (from 1 to 0), check that
-    // - the clock is a multiple of KECCAK_RATE_LIMBS (TODO)
+        let segment_diff = builder.sub_extension(channel.addr_segment, code_segment);
+        let constraint = builder.mul_extension(filter, segment_diff);
+        yield_constr.constraint(builder, constraint);
+
+        let i_ext = builder.constant_extension(F::Extension::from_canonical_usize(i));
+        let num_gp_channels_f = F::from_canonical_usize(NUM_GP_CHANNELS);
+        let expected_virt =
+            builder.mul_const_add_extension(num_gp_channels_f, local_values.clock, i_ext);
+        let virt_diff = builder.sub_extension(channel.addr_virtual, expected_virt);
+        let constraint = builder.mul_extension(filter, virt_diff);
+        yield_constr.constraint(builder, constraint);
+    }
+
+    // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
+    // - all memory channels are disabled (TODO)
     // - the current kernel hash matches a precomputed one
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
-        .zip(local_values.general.keccak().output_limbs)
+        .zip(local_values.mem_channels.last().unwrap().value)
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));
         let diff = builder.sub_extension(expected, actual);

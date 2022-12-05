@@ -1,6 +1,6 @@
 pub(crate) mod bootstrap_kernel;
 pub(crate) mod columns;
-mod control_flow;
+pub(crate) mod control_flow;
 pub mod cpu_stark;
 pub(crate) mod decode;
 mod dup_swap;
@@ -9,7 +9,7 @@ pub mod kernel;
 pub(crate) mod membus;
 mod modfp254;
 mod shift;
-mod simple_logic;
+pub(crate) mod simple_logic;
 mod stack;
-mod stack_bounds;
+pub(crate) mod stack_bounds;
 mod syscalls;

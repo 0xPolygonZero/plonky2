@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use ethereum_types::U256;
 use itertools::Itertools;
 use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -20,11 +19,12 @@ use crate::memory::columns::{
     COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
-use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryOpKind::Read;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -43,31 +43,24 @@ pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct MemoryOp {
-    /// true if this is an actual memory operation, or false if it's a padding row.
-    pub filter: bool,
-    pub timestamp: usize,
-    pub is_read: bool,
-    pub context: usize,
-    pub segment: Segment,
-    pub virt: usize,
-    pub value: U256,
-}
-
 impl MemoryOp {
     /// Generate a row for a given memory operation. Note that this does not generate columns which
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
     /// It also does not generate columns such as `COUNTER`, which are generated later, after the
     /// trace has been transposed into column-major form.
-    fn to_row<F: Field>(&self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
-        row[IS_READ] = F::from_bool(self.is_read);
-        row[ADDR_CONTEXT] = F::from_canonical_usize(self.context);
-        row[ADDR_SEGMENT] = F::from_canonical_usize(self.segment as usize);
-        row[ADDR_VIRTUAL] = F::from_canonical_usize(self.virt);
+        row[IS_READ] = F::from_bool(self.kind == Read);
+        let MemoryAddress {
+            context,
+            segment,
+            virt,
+        } = self.address;
+        row[ADDR_CONTEXT] = F::from_canonical_usize(context);
+        row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
+        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         for j in 0..VALUE_LIMBS {
             row[value_limb(j)] = F::from_canonical_u32((self.value >> (j * 32)).low_u32());
         }
@@ -80,14 +73,14 @@ fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
         .iter()
         .tuple_windows()
         .map(|(curr, next)| {
-            if curr.context != next.context {
-                next.context - curr.context - 1
-            } else if curr.segment != next.segment {
-                next.segment as usize - curr.segment as usize - 1
-            } else if curr.virt != next.virt {
-                next.virt - curr.virt - 1
+            if curr.address.context != next.address.context {
+                next.address.context - curr.address.context - 1
+            } else if curr.address.segment != next.address.segment {
+                next.address.segment - curr.address.segment - 1
+            } else if curr.address.virt != next.address.virt {
+                next.address.virt - curr.address.virt - 1
             } else {
-                next.timestamp - curr.timestamp - 1
+                next.timestamp - curr.timestamp
             }
         })
         .max()
@@ -131,7 +124,7 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
         } else if virtual_first_change {
             next_virt - virt - F::ONE
         } else {
-            next_timestamp - timestamp - F::ONE
+            next_timestamp - timestamp
         };
     }
 }
@@ -140,13 +133,20 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
     fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
-        memory_ops.sort_by_key(|op| (op.context, op.segment, op.virt, op.timestamp));
+        memory_ops.sort_by_key(|op| {
+            (
+                op.address.context,
+                op.address.segment,
+                op.address.virt,
+                op.timestamp,
+            )
+        });
 
         Self::pad_memory_ops(&mut memory_ops);
 
         let mut trace_rows = memory_ops
             .into_par_iter()
-            .map(|op| op.to_row())
+            .map(|op| op.into_row())
             .collect::<Vec<_>>();
         generate_first_change_flags_and_rc(trace_rows.as_mut_slice());
         trace_rows
@@ -170,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
         let to_pad = num_ops_padded - num_ops;
 
-        let last_op = memory_ops.last().expect("No memory ops?").clone();
+        let last_op = *memory_ops.last().expect("No memory ops?");
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             memory_ops.push(MemoryOp {
                 filter: false,
                 timestamp: last_op.timestamp + i + 1,
-                is_read: true,
+                kind: Read,
                 ..last_op
             });
         }
@@ -283,7 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let computed_range_check = context_first_change * (next_addr_context - addr_context - one)
             + segment_first_change * (next_addr_segment - addr_segment - one)
             + virtual_first_change * (next_addr_virtual - addr_virtual - one)
-            + address_unchanged * (next_timestamp - timestamp - one);
+            + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
@@ -394,10 +394,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(diff, one)
         };
         let virtual_range_check = builder.mul_extension(virtual_first_change, virtual_diff);
-        let timestamp_diff = {
-            let diff = builder.sub_extension(next_timestamp, timestamp);
-            builder.sub_extension(diff, one)
-        };
+        let timestamp_diff = builder.sub_extension(next_timestamp, timestamp);
         let timestamp_range_check = builder.mul_extension(address_unchanged, timestamp_diff);
 
         let computed_range_check = {
@@ -439,93 +436,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::collections::{HashMap, HashSet};
-
     use anyhow::Result;
-    use ethereum_types::U256;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::prelude::SliceRandom;
-    use rand::Rng;
 
-    use crate::memory::memory_stark::{MemoryOp, MemoryStark};
-    use crate::memory::segments::Segment;
-    use crate::memory::NUM_CHANNELS;
+    use crate::memory::memory_stark::MemoryStark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
-
-    pub(crate) fn generate_random_memory_ops<R: Rng>(num_ops: usize, rng: &mut R) -> Vec<MemoryOp> {
-        let mut memory_ops = Vec::new();
-
-        let mut current_memory_values: HashMap<(usize, Segment, usize), U256> = HashMap::new();
-        let num_cycles = num_ops / 2;
-        for clock in 0..num_cycles {
-            let mut used_indices = HashSet::new();
-            let mut new_writes_this_cycle = HashMap::new();
-            let mut has_read = false;
-            for _ in 0..2 {
-                let mut channel_index = rng.gen_range(0..NUM_CHANNELS);
-                while used_indices.contains(&channel_index) {
-                    channel_index = rng.gen_range(0..NUM_CHANNELS);
-                }
-                used_indices.insert(channel_index);
-
-                let is_read = if clock == 0 {
-                    false
-                } else {
-                    !has_read && rng.gen()
-                };
-                has_read = has_read || is_read;
-
-                let (context, segment, virt, vals) = if is_read {
-                    let written: Vec<_> = current_memory_values.keys().collect();
-                    let &(mut context, mut segment, mut virt) =
-                        written[rng.gen_range(0..written.len())];
-                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                        (context, segment, virt) = *written[rng.gen_range(0..written.len())];
-                    }
-
-                    let &vals = current_memory_values
-                        .get(&(context, segment, virt))
-                        .unwrap();
-
-                    (context, segment, virt, vals)
-                } else {
-                    // TODO: with taller memory table or more padding (to enable range-checking bigger diffs),
-                    // test larger address values.
-                    let mut context = rng.gen_range(0..40);
-                    let segments = [Segment::Code, Segment::Stack, Segment::MainMemory];
-                    let mut segment = *segments.choose(rng).unwrap();
-                    let mut virt = rng.gen_range(0..20);
-                    while new_writes_this_cycle.contains_key(&(context, segment, virt)) {
-                        context = rng.gen_range(0..40);
-                        segment = *segments.choose(rng).unwrap();
-                        virt = rng.gen_range(0..20);
-                    }
-
-                    let val = U256(rng.gen());
-
-                    new_writes_this_cycle.insert((context, segment, virt), val);
-
-                    (context, segment, virt, val)
-                };
-
-                let timestamp = clock * NUM_CHANNELS + channel_index;
-                memory_ops.push(MemoryOp {
-                    filter: true,
-                    timestamp,
-                    is_read,
-                    context,
-                    segment,
-                    virt,
-                    value: vals,
-                });
-            }
-            for (k, v) in new_writes_this_cycle {
-                current_memory_values.insert(k, v);
-            }
-        }
-
-        memory_ops
-    }
 
     #[test]
     fn test_stark_degree() -> Result<()> {

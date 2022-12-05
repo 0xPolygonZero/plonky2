@@ -244,9 +244,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.register_public_input(t);
         t
     }
+
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
     /// WARNING: Do not register any public input after calling this! TODO: relax this
-    pub(crate) fn add_verifier_data_public_input(&mut self) {
+    pub fn add_verifier_data_public_inputs(&mut self) {
+        assert!(
+            self.verifier_data_public_input.is_none(),
+            "add_verifier_data_public_inputs only needs to be called once"
+        );
+
         let verifier_data = VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
             circuit_digest: self.add_virtual_hash(),
@@ -886,7 +892,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products,
         };
         if let Some(goal_data) = self.goal_common_data {
-            assert_eq!(goal_data, common);
+            assert_eq!(goal_data, common, "The expected circuit data passed to cyclic recursion method did not match the actual circuit");
         }
 
         let prover_only = ProverOnlyCircuitData {

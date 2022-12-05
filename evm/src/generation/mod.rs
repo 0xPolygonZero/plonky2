@@ -4,24 +4,27 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{Address, BigEndianHash, H256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
-use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
+use GlobalMetadata::{
+    ReceiptTrieRootDigestAfter, ReceiptTrieRootDigestBefore, StateTrieRootDigestAfter,
+    StateTrieRootDigestBefore, TransactionTrieRootDigestAfter, TransactionTrieRootDigestBefore,
+};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
-use crate::cpu::columns::NUM_CPU_COLUMNS;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::memory::NUM_CHANNELS;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
-use crate::util::trace_rows_to_poly_values;
+use crate::witness::memory::MemoryAddress;
+use crate::witness::transition::transition;
 
-pub(crate) mod memory;
-pub(crate) mod mpt;
+pub mod mpt;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
@@ -65,69 +68,35 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     config: &StarkConfig,
     timing: &mut TimingTree,
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
-    let mut state = GenerationState::<F>::new(inputs.clone());
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
 
     generate_bootstrap_kernel::<F>(&mut state);
 
-    for txn in &inputs.signed_txns {
-        generate_txn(&mut state, txn);
-    }
+    timed!(timing, "simulate CPU", simulate_cpu(&mut state));
 
-    // TODO: Pad to a power of two, ending in the `halt` kernel function.
+    log::info!(
+        "Trace lengths (before padding): {:?}",
+        state.traces.checkpoint()
+    );
 
-    let cpu_rows = state.cpu_rows.len();
-    let mem_end_timestamp = cpu_rows * NUM_CHANNELS;
-    let mut read_metadata = |field| {
-        state.get_mem(
+    let read_metadata = |field| {
+        state.memory.get(MemoryAddress::new(
             0,
             Segment::GlobalMetadata,
             field as usize,
-            mem_end_timestamp,
-        )
+        ))
     };
 
     let trie_roots_before = TrieRoots {
-        state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestBefore)),
-        transactions_root: H256::from_uint(&read_metadata(
-            GlobalMetadata::TransactionTrieRootDigestBefore,
-        )),
-        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptTrieRootDigestBefore)),
+        state_root: H256::from_uint(&read_metadata(StateTrieRootDigestBefore)),
+        transactions_root: H256::from_uint(&read_metadata(TransactionTrieRootDigestBefore)),
+        receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestBefore)),
     };
     let trie_roots_after = TrieRoots {
-        state_root: H256::from_uint(&read_metadata(GlobalMetadata::StateTrieRootDigestAfter)),
-        transactions_root: H256::from_uint(&read_metadata(
-            GlobalMetadata::TransactionTrieRootDigestAfter,
-        )),
-        receipts_root: H256::from_uint(&read_metadata(GlobalMetadata::ReceiptTrieRootDigestAfter)),
+        state_root: H256::from_uint(&read_metadata(StateTrieRootDigestAfter)),
+        transactions_root: H256::from_uint(&read_metadata(TransactionTrieRootDigestAfter)),
+        receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestAfter)),
     };
-
-    let GenerationState {
-        cpu_rows,
-        current_cpu_row,
-        memory,
-        keccak_inputs,
-        keccak_memory_inputs,
-        logic_ops,
-        ..
-    } = state;
-    assert_eq!(current_cpu_row, [F::ZERO; NUM_CPU_COLUMNS].into());
-
-    let cpu_trace = trace_rows_to_poly_values(cpu_rows);
-    let keccak_trace = all_stark.keccak_stark.generate_trace(keccak_inputs, timing);
-    let keccak_memory_trace = all_stark.keccak_memory_stark.generate_trace(
-        keccak_memory_inputs,
-        config.fri_config.num_cap_elements(),
-        timing,
-    );
-    let logic_trace = all_stark.logic_stark.generate_trace(logic_ops, timing);
-    let memory_trace = all_stark.memory_stark.generate_trace(memory.log, timing);
-    let traces = [
-        cpu_trace,
-        keccak_trace,
-        keccak_memory_trace,
-        logic_trace,
-        memory_trace,
-    ];
 
     let public_values = PublicValues {
         trie_roots_before,
@@ -135,9 +104,32 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         block_metadata: inputs.block_metadata,
     };
 
-    (traces, public_values)
+    let tables = timed!(
+        timing,
+        "convert trace data to tables",
+        state.traces.into_tables(all_stark, config, timing)
+    );
+    (tables, public_values)
 }
 
-fn generate_txn<F: Field>(_state: &mut GenerationState<F>, _signed_txn: &[u8]) {
-    // TODO
+fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>) {
+    let halt_pc0 = KERNEL.global_labels["halt_pc0"];
+    let halt_pc1 = KERNEL.global_labels["halt_pc1"];
+
+    let mut already_in_halt_loop = false;
+    loop {
+        // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
+        let pc = state.registers.program_counter;
+        let in_halt_loop = pc == halt_pc0 || pc == halt_pc1;
+        if in_halt_loop && !already_in_halt_loop {
+            log::info!("CPU halted after {} cycles", state.traces.clock());
+        }
+        already_in_halt_loop |= in_halt_loop;
+        if already_in_halt_loop && state.traces.clock().is_power_of_two() {
+            log::info!("CPU trace padded to {} cycles", state.traces.clock());
+            break;
+        }
+
+        transition(state);
+    }
 }

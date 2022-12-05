@@ -164,7 +164,7 @@ fn test_state_trie(mut state_trie: PartialTrie, k: Nibbles, mut account: Account
     assert_eq!(interpreter.stack(), vec![]);
 
     // Next, execute mpt_insert_state_trie.
-    interpreter.offset = mpt_insert_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
     if trie_data.is_empty() {
         // In the assembly we skip over 0, knowing trie_data[0] = 0 by default.
@@ -194,7 +194,7 @@ fn test_state_trie(mut state_trie: PartialTrie, k: Nibbles, mut account: Account
     );
 
     // Now, execute mpt_hash_state_trie.
-    interpreter.offset = mpt_hash_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
