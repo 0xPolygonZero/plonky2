@@ -83,7 +83,7 @@ global ec_add_valid_points:
     // stack: x0, x1, y0 - y1, x0, y0, x1, y1, retdest
     %submod
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
-    %moddiv
+    %divfp254
     // stack: lambda, x0, y0, x1, y1, retdest
     %jump(ec_add_valid_points_with_lambda)
 
@@ -201,7 +201,7 @@ ec_add_equal_points:
     // stack: 3/2 * x0^2, x0, y0, x1, y1, retdest
     DUP3
     // stack: y0, 3/2 * x0^2, x0, y0, x1, y1, retdest
-    %moddiv
+    %divfp254
     // stack: lambda, x0, y0, x1, y1, retdest
     %jump(ec_add_valid_points_with_lambda)
 
