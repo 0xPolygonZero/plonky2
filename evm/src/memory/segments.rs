@@ -42,10 +42,12 @@ pub(crate) enum Segment {
     WnafB = 18,
     WnafC = 19,
     WnafD = 20,
+    EcdsaTableQ = 21,
+    EcdsaTableG = 22,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 21;
+    pub(crate) const COUNT: usize = 23;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -70,6 +72,8 @@ impl Segment {
             Self::WnafB,
             Self::WnafC,
             Self::WnafD,
+            Self::EcdsaTableQ,
+            Self::EcdsaTableG,
         ]
     }
 
@@ -97,6 +101,8 @@ impl Segment {
             Segment::WnafB => "SEGMENT_KERNEL_WNAF_B",
             Segment::WnafC => "SEGMENT_KERNEL_WNAF_C",
             Segment::WnafD => "SEGMENT_KERNEL_WNAF_D",
+            Segment::EcdsaTableQ => "SEGMENT_KERNEL_ECDSA_TABLE_Q",
+            Segment::EcdsaTableG => "SEGMENT_KERNEL_ECDSA_TABLE_G",
         }
     }
 
@@ -124,6 +130,8 @@ impl Segment {
             Segment::WnafB => 8,
             Segment::WnafC => 8,
             Segment::WnafD => 8,
+            Segment::EcdsaTableQ => 256,
+            Segment::EcdsaTableG => 256,
         }
     }
 }
