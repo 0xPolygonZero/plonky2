@@ -118,15 +118,16 @@ mul_tangent_1:
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     %jump(mul_fp12_sparse)
 mul_tangent_2:
-    // stack: out, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    POP  DUP5  DUP5
-    // stack:   O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    // %ec_double_bn254
-    // stack: 2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    SWAP5  SWAP1  SWAP6  SWAP1
-    // stack: 2*O, retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
-    %pop2
-    // stack:      retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
+    // stack:             out, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    POP  PUSH after_double
+    // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    DUP5  DUP5
+    // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    %jump(ec_double)
+after_double:
+    // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    SWAP5  POP  SWAP5  POP
+    // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
     JUMP
 
 
@@ -155,14 +156,17 @@ mul_cord:
     // stack: out, 100, out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     %jump(mul_fp12_sparse)
 mul_cord_1:
-    // stack:        0xnm, times, O  , P, Q, out
-    DUP6  DUP6  DUP6  DUP6
-    // stack: O , P, 0xnm, times, O  , P, Q, out
-    // %ec_add_bn254
-    // stack: O + P, 0xnm, times, O  , P, Q, out
-    SWAP4  SWAP1  SWAP5  SWAP1
-    // stack:     O, 0xnm, times, O+P, P, Q, out
-    %pop2  %jump(miller_one)
+    // stack:                   0xnm, times, O  , P, Q, out
+    PUSH after_add
+    // stack:        after_add, 0xnm, times, O  , P, Q, out
+    DUP7  DUP7  DUP7  DUP7
+    // stack: O , P, after_add, 0xnm, times, O  , P, Q, out
+    %jump(ec_add_valid_points)
+after_add:
+    // stack:            O + P, 0xnm, times, O  , P, Q, out
+    SWAP4  POP  SWAP4  POP
+    // stack:                   0xnm, times, O+P, P, Q, out
+    %jump(miller_one)
 
 
 /// def store_cord(p1x, p1y, p2x, p2y, qx, qy):
