@@ -388,7 +388,8 @@ impl<'a> Interpreter<'a> {
     // should be changed to the proper implementation prime
 
     fn bn_base_order_() -> U256 {
-        U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47").unwrap()
+        U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47")
+            .unwrap()
     }
 
     fn run_addfp254(&mut self) {
