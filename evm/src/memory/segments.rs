@@ -38,10 +38,14 @@ pub(crate) enum Segment {
     /// A table of values 2^i for i=0..255 for use with shift
     /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
     ShiftTable = 16,
+    WnafA = 17,
+    WnafB = 18,
+    WnafC = 19,
+    WnafD = 20,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 17;
+    pub(crate) const COUNT: usize = 21;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -62,6 +66,10 @@ impl Segment {
             Self::TrieEncodedChild,
             Self::TrieEncodedChildLen,
             Self::ShiftTable,
+            Self::WnafA,
+            Self::WnafB,
+            Self::WnafC,
+            Self::WnafD,
         ]
     }
 
@@ -85,6 +93,10 @@ impl Segment {
             Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
             Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
+            Segment::WnafA => "SEGMENT_KERNEL_WNAF_A",
+            Segment::WnafB => "SEGMENT_KERNEL_WNAF_B",
+            Segment::WnafC => "SEGMENT_KERNEL_WNAF_C",
+            Segment::WnafD => "SEGMENT_KERNEL_WNAF_D",
         }
     }
 
@@ -108,6 +120,10 @@ impl Segment {
             Segment::TrieEncodedChild => 256,
             Segment::TrieEncodedChildLen => 6,
             Segment::ShiftTable => 256,
+            Segment::WnafA => 8,
+            Segment::WnafB => 8,
+            Segment::WnafC => 8,
+            Segment::WnafD => 8,
         }
     }
 }

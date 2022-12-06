@@ -235,7 +235,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_opcode(&mut self) -> anyhow::Result<()> {
         let opcode = self.code().get(self.offset).byte(0);
-        println!("{} {}", opcode, get_mnemonic(opcode));
+        // println!("{} {}", opcode, get_mnemonic(opcode));
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
         match opcode {
@@ -730,8 +730,15 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_return(&mut self) {
-        let mem = &self.memory.context_memory[self.context].segments[Segment::MainMemory as usize];
-        println!("{:?}", mem);
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let byte = self
+                .memory
+                .mload_general(self.context, Segment::MainMemory, offset + i);
+            self.memory
+                .mstore_general(self.context, Segment::Returndata, i, byte);
+        }
     }
 
     fn run_get_context(&mut self) {

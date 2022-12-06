@@ -144,3 +144,26 @@ repeated_double_3:
 repeated_double_4:
     %stack (x, y, retdest) -> (retdest, x, y)
     JUMP
+
+wnaf:
+    // stack: s, retdest
+    PUSH 0
+    SWAP1
+    // stack: s, o, retdest
+wnaf_loop:
+    DUP1 ISZERO %jumpi(wnaf_end)
+    // stack: s, o, retdest
+    DUP1
+
+wnaf_end:
+    // stack: s, o, retdest
+    %pop2 JUMP
+
+global trailing_zeros0:
+    PUSH 0 %jump(yo)
+global trailing_zeros1:
+    PUSH 0 %jump(yo)
+global trailing_zeros2:
+    PUSH 1 %jump(yo)
+
+yo:
