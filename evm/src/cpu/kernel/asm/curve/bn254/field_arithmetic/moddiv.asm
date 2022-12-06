@@ -1,4 +1,4 @@
-/// Division modulo 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, the BN254 base field order
+/// Division modulo the BN254 prime
 
 // Returns y * (x^-1) where the inverse is taken modulo N
 %macro divfp254
