@@ -438,4 +438,35 @@ mod secp {
 
         Ok(())
     }
+
+    #[test]
+    fn test_wnaf() -> Result<()> {
+        let wnaf = KERNEL.global_labels["wnaf"];
+
+        let initial_stack = u256ify(["0xdeadbeef", "0x26f18ec289486b2a70830f6286a31015", "0x11"])?;
+
+        let mut int = Interpreter::new(&KERNEL.code, wnaf, initial_stack, &KERNEL.prover_inputs);
+        int.run()?;
+
+        dbg!(int.stack());
+
+        let mut yo = Vec::new();
+        for i in 0..128 {
+            // println!("{}", int.memory.mload_general(0, Segment::WnafA, i));
+            yo.push(int.memory.mload_general(0, Segment::WnafA, i));
+        }
+
+        let mut nafa = vec![
+            21, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 13, 0, 0, 0, 0,
+            0, 0, 0, 5, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 7, 0, 0, 0, 0, 21, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 9,
+            0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 25, 0, 0, 0,
+            0, 25, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 1, 0, 0,
+        ];
+        nafa.reverse();
+        let nafa: Vec<_> = nafa.into_iter().map(|x| x.into()).collect();
+        assert_eq!(yo, nafa);
+
+        Ok(())
+    }
 }
