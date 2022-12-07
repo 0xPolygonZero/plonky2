@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ethereum_types::U256;
-use itertools::izip;
+use itertools::{izip, Itertools};
 use keccak_hash::keccak;
 use log::debug;
 
@@ -28,6 +28,7 @@ pub struct Kernel {
     pub(crate) code_hash: [u32; 8],
 
     pub(crate) global_labels: HashMap<String, usize>,
+    pub(crate) ordered_labels: Vec<String>,
 
     /// Map from `PROVER_INPUT` offsets to their corresponding `ProverInputFn`.
     pub(crate) prover_inputs: HashMap<usize, ProverInputFn>,
@@ -43,18 +44,30 @@ impl Kernel {
         let code_hash = std::array::from_fn(|i| {
             u32::from_le_bytes(std::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
         });
+        let ordered_labels = global_labels
+            .keys()
+            .cloned()
+            .sorted_by_key(|label| global_labels[label])
+            .collect();
         Self {
             code,
             code_hash,
             global_labels,
+            ordered_labels,
             prover_inputs,
         }
     }
 
     /// Get a string representation of the current offset for debugging purposes.
     pub(crate) fn offset_name(&self, offset: usize) -> String {
-        self.offset_label(offset)
-            .unwrap_or_else(|| offset.to_string())
+        match self
+            .ordered_labels
+            .binary_search_by_key(&offset, |label| self.global_labels[label])
+        {
+            Ok(idx) => self.ordered_labels[idx].clone(),
+            Err(0) => offset.to_string(),
+            Err(idx) => format!("{}, below {}", offset, self.ordered_labels[idx - 1]),
+        }
     }
 
     pub(crate) fn offset_label(&self, offset: usize) -> Option<String> {

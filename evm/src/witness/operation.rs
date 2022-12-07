@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
@@ -20,9 +21,6 @@ use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
-    Push(u8),
-    Dup(u8),
-    Swap(u8),
     Iszero,
     Not,
     Byte,
@@ -39,6 +37,9 @@ pub(crate) enum Operation {
     Pc,
     Gas,
     Jumpdest,
+    Push(u8),
+    Dup(u8),
+    Swap(u8),
     GetContext,
     SetContext,
     ConsumeGas,
@@ -190,6 +191,10 @@ pub(crate) fn generate_jump<F: Field>(
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
     state.registers.program_counter = u256_saturating_cast_usize(dst);
+    log::debug!(
+        "Jumping to {}",
+        KERNEL.offset_name(state.registers.program_counter)
+    );
     // TODO: Set other cols like input0_upper_sum_inv.
     Ok(())
 }
@@ -206,9 +211,44 @@ pub(crate) fn generate_jumpi<F: Field>(
     state.registers.program_counter = if cond.is_zero() {
         state.registers.program_counter + 1
     } else {
-        u256_saturating_cast_usize(dst)
+        let dst_usize = u256_saturating_cast_usize(dst);
+        log::debug!(
+            "Jumping to {}",
+            KERNEL.offset_name(state.registers.program_counter)
+        );
+        dst_usize
     };
     // TODO: Set other cols like input0_upper_sum_inv.
+    Ok(())
+}
+
+pub(crate) fn generate_jumpdest<F: Field>(
+    state: &mut GenerationState<F>,
+    row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_get_context<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let ctx = state.registers.context.into();
+    let write = stack_push_log_and_fill(state, &mut row, ctx)?;
+    state.traces.push_memory(write);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_set_context<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(ctx, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
+    state.registers.context = ctx.as_usize();
+    state.traces.push_memory(log_in);
+    state.traces.push_cpu(row);
     Ok(())
 }
 
@@ -386,7 +426,9 @@ pub(crate) fn generate_syscall<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
-    let handler_addr_addr = handler_jumptable_addr + (opcode as usize);
+    let handler_addr_addr =
+        handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
+    assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
     let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
         0,
         MemoryAddress::new(0, Segment::Code, handler_addr_addr),
@@ -409,11 +451,12 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr.as_usize();
 
-    let syscall_info = U256::from(state.registers.program_counter)
+    let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32);
     let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
     state.registers.program_counter = new_program_counter;
+    log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
     state.registers.is_kernel = true;
 
     state.traces.push_memory(log_in0);
@@ -448,14 +491,19 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let [(kexit_info, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let kexit_info_u64: [u64; 4] = kexit_info.0;
-    let program_counter = kexit_info_u64[0] as usize;
-    let is_kernel_mode_val = (kexit_info_u64[1] >> 32) as u32;
+    let kexit_info_u64 = kexit_info.0[0];
+    let program_counter = kexit_info_u64 as u32 as usize;
+    let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
 
     state.registers.program_counter = program_counter;
     state.registers.is_kernel = is_kernel_mode;
+    log::debug!(
+        "Exiting to {}, is_kernel={}",
+        KERNEL.offset_name(program_counter),
+        is_kernel_mode
+    );
 
     state.traces.push_memory(log_in);
     state.traces.push_cpu(row);
