@@ -388,7 +388,7 @@ mod secp {
             "0xb7c52588d95c3b9aa25b0403f1eef75702e84bb7597aabe663b82f6f04ef2777",
         ])?;
 
-        let table_p = u256ify([
+        let table_q = u256ify([
             "0xf212ceb1de39d4f60b913e04990ac959c43369da9a6bac46f0e55e4298228aff",
             "0x1573e3e020286de02eed0ab499ea314b9e7a037b6c1ac9ff73dd27f8b59eef1",
             "0x55c63d63f7302880d113baf54f8e2e954df5a2c2b9c266c88aaedb712bb01581",
@@ -427,9 +427,9 @@ mod secp {
             int.memory
                 .mstore_general(0, Segment::EcdsaTableG, i, table_g[i]);
         }
-        for i in 0..table_p.len() {
+        for i in 0..table_q.len() {
             int.memory
-                .mstore_general(0, Segment::EcdsaTableQ, i, table_p[i]);
+                .mstore_general(0, Segment::EcdsaTableQ, i, table_q[i]);
         }
 
         int.run()?;
@@ -466,6 +466,129 @@ mod secp {
         nafa.reverse();
         let nafa: Vec<_> = nafa.into_iter().map(|x| x.into()).collect();
         assert_eq!(yo, nafa);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_precomputation() -> Result<()> {
+        let precompute = KERNEL.global_labels["precompute_table"];
+
+        let initial_stack = u256ify([
+            "0xdeadbeef",
+            "0x1573e3e020286de02eed0ab499ea314b9e7a037b6c1ac9ff73dd27f8b59eef1",
+            "0xf212ceb1de39d4f60b913e04990ac959c43369da9a6bac46f0e55e4298228aff",
+        ])?;
+
+        let mut int = Interpreter::new(
+            &KERNEL.code,
+            precompute,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        );
+        int.run()?;
+
+        let mut yo = Vec::new();
+        for i in 0..32 {
+            // println!("{}", int.memory.mload_general(0, Segment::WnafA, i));
+            yo.push(int.memory.mload_general(0, Segment::EcdsaTableQ, i));
+        }
+
+        let table_q = u256ify([
+            "0xf212ceb1de39d4f60b913e04990ac959c43369da9a6bac46f0e55e4298228aff",
+            "0x1573e3e020286de02eed0ab499ea314b9e7a037b6c1ac9ff73dd27f8b59eef1",
+            "0x55c63d63f7302880d113baf54f8e2e954df5a2c2b9c266c88aaedb712bb01581",
+            "0xc57ff9008c37ebe8ec5d68e952fbd7543beabdbd167709a836fc618afb37283",
+            "0x6f997fb77607bc634239dbfa14dae2b6275e4d34c125e5ee51e394b7d3a18880",
+            "0x98bcc0293806b124b557f0826a7acceac7e62f27677e1678095517859e58bfbd",
+            "0x25a9449724c67d31fce7a5239ab11b426e00eb77410e7b3037255f1b9a1310d3",
+            "0x32d5fb4fa3b1ea97d885ce8b8a5f3a93b1c805fc3229ecb2c68e9af28610df8",
+            "0x937b2082d0eb3a48980c3b54501aa0fbad83f4ba483f0db0d066dc22d2696e95",
+            "0xd264218db2a9722580462c97c8c0b713f45e629164b63f9b606fa1f394fbd25f",
+            "0xcd31547d57cb9ccd04d1bfb1af4cb34be177a69fb950eccd7ca4e98e95234224",
+            "0x68562d0a4a43e1977442b4040238c2c9940ffb418f852ee02d23d776b3a79693",
+            "0x32502c66fc24b4b4df2fca84c6cd5263e88d501bc1cc1ae5839cec2397911b62",
+            "0x6fd903106aeadd4ad9f92c0c0f07c7565a7cd8d8dce9f4e35f01d8d0453b3157",
+            "0x380dcffa86348ab8e14b6d77263e047cc5c38f27f06dff220bffd2d5d0a32d99",
+            "0x39191a3a732fcb00da927ecb5b53cbfe6c2d2bebf7a65acfead1442411989e77",
+            "0x380dcffa86348ab8e14b6d77263e047cc5c38f27f06dff220bffd2d5d0a32d99",
+            "0xc6e6e5c58cd034ff256d8134a4ac340193d2d4140859a530152ebbdaee675db8",
+            "0x32502c66fc24b4b4df2fca84c6cd5263e88d501bc1cc1ae5839cec2397911b62",
+            "0x9026fcef951522b52606d3f3f0f838a9a583272723160b1ca0fe272ebac4cad8",
+            "0xcd31547d57cb9ccd04d1bfb1af4cb34be177a69fb950eccd7ca4e98e95234224",
+            "0x97a9d2f5b5bc1e688bbd4bfbfdc73d366bf004be707ad11fd2dc28884c58659c",
+            "0x937b2082d0eb3a48980c3b54501aa0fbad83f4ba483f0db0d066dc22d2696e95",
+            "0x2d9bde724d568dda7fb9d368373f48ec0ba19d6e9b49c0649f905e0b6b0429d0",
+            "0x25a9449724c67d31fce7a5239ab11b426e00eb77410e7b3037255f1b9a1310d3",
+            "0xfcd2a04b05c4e1568277a317475a0c56c4e37fa03cdd6134d397164fd79eee37",
+            "0x6f997fb77607bc634239dbfa14dae2b6275e4d34c125e5ee51e394b7d3a18880",
+            "0x67433fd6c7f94edb4aa80f7d958533153819d0d89881e987f6aae87961a73c72",
+            "0x55c63d63f7302880d113baf54f8e2e954df5a2c2b9c266c88aaedb712bb01581",
+            "0xf3a8006ff73c8141713a29716ad0428abc4154242e988f657c9039e6504c89ac",
+            "0xf212ceb1de39d4f60b913e04990ac959c43369da9a6bac46f0e55e4298228aff",
+            "0xfea8c1c1fdfd7921fd112f54b6615ceb46185fc8493e536008c22d7f74a60d3e",
+        ])?;
+
+        assert_eq!(yo, table_q);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_precomputation_base_point() -> Result<()> {
+        let precompute = KERNEL.global_labels["precompute_table_base_point"];
+
+        let initial_stack = u256ify(["0xdeadbeef"])?;
+
+        let mut int = Interpreter::new(
+            &KERNEL.code,
+            precompute,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        );
+        int.run()?;
+
+        let mut yo = Vec::new();
+        for i in 0..32 {
+            yo.push(int.memory.mload_general(0, Segment::EcdsaTableG, i));
+        }
+
+        let table_g = u256ify([
+            "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
+            "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "0x388f7b0f632de8140fe337e62a37f3566500a99934c2231b6cb9fd7584b8e672",
+            "0x2f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4",
+            "0xd8ac222636e5e3d6d4dba9dda6c9c426f788271bab0d6840dca87d3aa6ac62d6",
+            "0x5cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc",
+            "0x6aebca40ba255960a3178d6d861a54dba813d0b813fde7b5a5082628087264da",
+            "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe",
+            "0xcc338921b0a7d9fd64380971763b61e9add888a4375f8e0f05cc262ac64f9c37",
+            "0x774ae7f858a9411e5ef4246b70c65aac5649980be5c17891bbec17895da008cb",
+            "0xd984a032eb6b5e190243dd56d7b7b365372db1e2dff9d6a8301d74c9c953c61b",
+            "0xf28773c2d975288bc7d1d205c3748651b075fbc6610e58cddeeddf8f19405aa8",
+            "0xab0902e8d880a89758212eb65cdaf473a1a06da521fa91f29b5cb52db03ed81",
+            "0xd7924d4f7d43ea965a465ae3095ff41131e5946f3c85f79e44adbcf8e27e080e",
+            "0x581e2872a86c72a683842ec228cc6defea40af2bd896d3a5c504dc9ff6a26b58",
+            "0xd7924d4f7d43ea965a465ae3095ff41131e5946f3c85f79e44adbcf8e27e080e",
+            "0xa7e1d78d57938d597c7bd13dd733921015bf50d427692c5a3afb235f095d90d7",
+            "0xf28773c2d975288bc7d1d205c3748651b075fbc6610e58cddeeddf8f19405aa8",
+            "0xf54f6fd17277f5768a7ded149a3250b8c5e5f925ade056e0d64a34ac24fc0eae",
+            "0x774ae7f858a9411e5ef4246b70c65aac5649980be5c17891bbec17895da008cb",
+            "0x267b5fcd1494a1e6fdbc22a928484c9ac8d24e1d20062957cfe28b3536ac3614",
+            "0xacd484e2f0c7f65309ad178a9f559abde09796974c57e714c35f110dfc27ccbe",
+            "0x33cc76de4f5826029bc7f68e89c49e165227775bc8a071f0fa33d9d439b05ff8",
+            "0x5cbdf0646e5db4eaa398f365f2ea7a0e3d419b7e0330e39ce92bddedcac4f9bc",
+            "0x951435bf45daa69f5ce8729279e5ab2457ec2f47ec02184a5af7d9d6f78d9755",
+            "0x2f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4",
+            "0x2753ddd9c91a1c292b24562259363bd90877d8e454f297bf235782c459539959",
+            "0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+            "0xc77084f09cd217ebf01cc819d5c80ca99aff5666cb3ddce4934602897b4715bd",
+            "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "0xb7c52588d95c3b9aa25b0403f1eef75702e84bb7597aabe663b82f6f04ef2777",
+        ])?;
+
+        assert_eq!(yo, table_g);
 
         Ok(())
     }
