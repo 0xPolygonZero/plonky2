@@ -2,20 +2,12 @@ global wnaf:
     // stack: segment, n, retdest
     PUSH 0
 wnaf_loop:
-    // stack: o, segment, n, retdest
-    PUSH wnaf_loop_contd DUP4
-    // stack: n, wnaf_loop_contd, o, segment, n, retdest
+    %stack (o, segment, n, retdest) -> (n, wnaf_loop_contd, o, segment, retdest)
     %jump(trailing_zeros)
 wnaf_loop_contd:
-    // stack: i, o, segment, n, retdest
-    DUP1 SWAP2
-    // stack: o, i, i, segment, n, retdest
+    %stack (n, i, o, segment, retdest) -> (o, i, n, segment, retdest)
     ADD
-    // stack: o, i, segment, n, retdest
-    SWAP3 SWAP1
-    // stack: i, n, segment, o, retdest
-    SHR
-    // stack: n, segment, o, retdest
+    %stack (o, n, segment, retdest) -> (n, segment, o, retdest)
     DUP1 %and_const(31) SWAP1
     PUSH 16 DUP3 GT
     // stack: m>16, n, m, segment, o, retdest
@@ -50,5 +42,5 @@ trailing_zeros_loop:
     // stack: count, x, retdest
     %jump(trailing_zeros_loop)
 trailing_zeros_end:
-    %stack (count, x, retdest) -> (retdest, count)
+    %stack (count, x, retdest) -> (retdest, x, count)
     JUMP
