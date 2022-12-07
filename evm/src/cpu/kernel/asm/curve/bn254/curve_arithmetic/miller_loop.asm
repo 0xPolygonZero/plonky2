@@ -5,7 +5,7 @@
 /// def miller_init():
 ///     out = 1
 ///     O = P
-///     times = 62
+///     times = 61
 ///
 /// def miller_loop():
 ///     while times:
@@ -26,9 +26,9 @@
 ///     mul_tangent()
 
 /// Note: miller_data was defined by
-/// (1) taking the binary expansion of the BN254 prime p
-/// (2) popping the head and appending a 0:
-///     exp = bin(p)[1:-1] + [0]
+/// (1) taking the binary expansion of N254, the size of the elliptic curve
+/// (2) popping the first and last elements, then appending a 0:
+///     exp = bin(N254)[1:-1] + [0]
 /// (3) counting the lengths of runs of 1s then 0s in exp, e.g.
 ///     exp = 1100010011110 => EXP = [(2,3), (1,2), (4,1)]
 /// (4) encoding each pair (n,m) as 0xnm:
@@ -46,13 +46,13 @@ global miller_init:
     // stack:        P, Q, out, retdest
     DUP2  DUP2
     // stack:     O, P, Q, out, retdest
-    PUSH 62
-    // stack: 62, O, P, Q, out, retdest
+    PUSH 61
+    // stack: 61, O, P, Q, out, retdest
 miller_loop:
     // stack:          times  , O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:  break?, times  , O, P, Q, out, retdest
-    %jumpi(miller_end)
+    %jumpi(miller_final)
     // stack:          times  , O, P, Q, out, retdest
     %sub_const(1)
     // stack:          times-1, O, P, Q, out, retdest
@@ -61,6 +61,11 @@ miller_loop:
     %mload_kernel_code(miller_data)
     // stack:    0xnm, times-1, O, P, Q, out, retdest
     %jump(miller_one)
+miller_final:
+    // stack:     0, O, P, Q, out, retdest
+    PUSH 28
+    // stack: 28, 0, O, P, Q, out, retdest
+    %jump(miller_zero_final)
 miller_end:
     // stack: times, O, P, Q, out, retdest
     %pop3  %pop3  %pop3
@@ -85,6 +90,18 @@ miller_zero:
     DUP1  ISZERO
     // stack:       skip?, m  , times, O, P, Q, out, retdest
     %jumpi(miller_loop)
+    // stack:              m  , times, O, P, Q, out, retdest
+    %sub_const(1)
+    // stack:              m-1, times, O, P, Q, out, retdest
+    PUSH miller_zero
+    // stack: miller_zero, m-1, times, O, P, Q, out, retdest
+    %jump(mul_tangent)
+
+miller_zero_final:
+    // stack:              m  , times, O, P, Q, out, retdest
+    DUP1  ISZERO
+    // stack:       skip?, m  , times, O, P, Q, out, retdest
+    %jumpi(miller_end)
     // stack:              m  , times, O, P, Q, out, retdest
     %sub_const(1)
     // stack:              m-1, times, O, P, Q, out, retdest
