@@ -70,7 +70,7 @@ miller_end:
 
 miller_one:
     // stack:               0xnm, times, O, P, Q, out, retdest
-    DUP1  %gt_const(0x10) 
+    DUP1  %lt_const(0x10) 
     // stack:        skip?, 0xnm, times, O, P, Q, out, retdest
     %jumpi(miller_zero)
     // stack:               0xnm, times, O, P, Q, out, retdest
