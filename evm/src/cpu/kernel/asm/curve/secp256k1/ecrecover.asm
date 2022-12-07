@@ -1,3 +1,27 @@
+global ecrecover_fast:
+    // stack: a, b, c, d, Qx, Qy, retdest
+    PUSH ecrecover_after_precompute_base %jump(precompute_table_base_point)
+ecrecover_after_precompute_base:
+    // stack: a, b, c, d, Qx, Qy, retdest
+    PUSH ecrecover_after_a SWAP1 PUSH @SEGMENT_KERNEL_WNAF_A %jump(wnaf)
+ecrecover_after_a:
+    // stack: b, c, d, Qx, Qy, retdest
+    PUSH ecrecover_after_b SWAP1 PUSH @SEGMENT_KERNEL_WNAF_B %jump(wnaf)
+ecrecover_after_b:
+    // stack: c, d, Qx, Qy, retdest
+    PUSH ecrecover_after_c SWAP1 PUSH @SEGMENT_KERNEL_WNAF_C %jump(wnaf)
+ecrecover_after_c:
+    // stack: d, Qx, Qy, retdest
+    PUSH ecrecover_after_d SWAP1 PUSH @SEGMENT_KERNEL_WNAF_D %jump(wnaf)
+ecrecover_after_d:
+    %stack (Qx, Qy, retdest) -> (Qx, Qy, ecrecover_after_precompute, retdest)
+    %jump(precompute_table)
+ecrecover_after_precompute:
+    // stack: retdest
+    %jump(ecdsa_msm)
+    %stack (accx, accy, retdest) -> (retdest, accx, accy)
+    JUMP
+
 // ecrecover precompile.
 global ecrecover:
     // stack: hash, v, r, s, retdest

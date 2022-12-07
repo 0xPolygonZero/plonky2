@@ -592,4 +592,27 @@ mod secp {
 
         Ok(())
     }
+
+    #[test]
+    fn test_ecdsa_fast() -> Result<()> {
+        let ecdsa = KERNEL.global_labels["ecrecover_fast"];
+
+        let initial_stack = u256ify([
+            "0xdeadbeef",
+            "0x1573e3e020286de02eed0ab499ea314b9e7a037b6c1ac9ff73dd27f8b59eef1",
+            "0xf212ceb1de39d4f60b913e04990ac959c43369da9a6bac46f0e55e4298228aff",
+            "0x16a7689c947f8f6377707f5eea4e68f4",
+            "0x3901add51f9494ef755ca0ca11e542d3",
+            "0xfb7e0739d20d087af257d61247539d8",
+            "0x26f18ec289486b2a70830f6286a31015",
+        ])?;
+
+        let mut int = Interpreter::new(&KERNEL.code, ecdsa, initial_stack, &KERNEL.prover_inputs);
+
+        int.run()?;
+
+        dbg!(int.stack());
+
+        Ok(())
+    }
 }
