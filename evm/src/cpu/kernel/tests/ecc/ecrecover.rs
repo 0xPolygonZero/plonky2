@@ -26,14 +26,24 @@ fn test_invalid_ecrecover(hash: &str, v: &str, r: &str, s: &str) -> Result<()> {
 }
 
 #[test]
-fn test_yo() -> Result<()> {
-    test_valid_ecrecover(
-        "0x55f77e8909b1f1c9531c4a309bb2d40388e9ed4b87830c8f90363c6b36255fb9",
-        "0x1b",
-        "0xd667c5a20fa899b253924099e10ae92998626718585b8171eb98de468bbebc",
-        "0x58351f48ce34bf134ee611fb5bf255a5733f0029561d345a7d46bfa344b60ac0",
-        "0x67f3c0Da351384838d7F7641AB0fCAcF853E1844",
-    )
+fn test_ecrecover_real_block() -> Result<()> {
+    let f = include_str!("ecrecover_test_data");
+    let convert_v = |v| match v {
+        // TODO: do this properly.
+        "0" => "0x1b",
+        "1" => "0x1c",
+        "37" => "0x1b",
+        "38" => "0x1c",
+        _ => panic!("Invalid v."),
+    };
+    for line in f.lines() {
+        if line.starts_with("//") {
+            continue; // Comments
+        }
+        let line = line.split_whitespace().collect::<Vec<_>>();
+        test_valid_ecrecover(line[4], convert_v(line[0]), line[1], line[2], line[3])?;
+    }
+    Ok(())
 }
 
 #[test]

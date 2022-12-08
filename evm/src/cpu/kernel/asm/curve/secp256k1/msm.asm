@@ -28,7 +28,7 @@ msm_loop_add_d:
 msm_loop_contd:
     %stack (accx, accy, i, retdest) -> (i, accx, accy, retdest)
     DUP1
-    %eq_const(128) %jumpi(msm_end)
+    %eq_const(129) %jumpi(msm_end)
     %increment
     //stack: i+1, accx, accy, retdest
     %stack (i, accx, accy, retdest) -> (accx, accy, msm_loop, i, retdest)
