@@ -36,10 +36,7 @@ fn test_ecrecover_real_block() -> Result<()> {
         "38" => "0x1c",
         _ => panic!("Invalid v."),
     };
-    for line in f.lines() {
-        if line.starts_with("//") {
-            continue; // Comments
-        }
+    for line in f.lines().filter(|s| !s.starts_with("//")) {
         let line = line.split_whitespace().collect::<Vec<_>>();
         test_valid_ecrecover(line[4], convert_v(line[0]), line[1], line[2], line[3])?;
     }

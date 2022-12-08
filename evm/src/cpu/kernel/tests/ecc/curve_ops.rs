@@ -358,10 +358,7 @@ mod secp {
         let glv = KERNEL.global_labels["glv"];
 
         let f = include_str!("glv_test_data");
-        for line in f.lines() {
-            if line.starts_with("//") {
-                continue; // Comments
-            }
+        for line in f.lines().filter(|s| !s.starts_with("//")) {
             let mut line = line
                 .split_whitespace()
                 .map(|s| U256::from_str_radix(s, 10).unwrap())
