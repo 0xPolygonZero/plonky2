@@ -125,11 +125,12 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(state: &mut Genera
             log::info!("CPU halted after {} cycles", state.traces.clock());
         }
         already_in_halt_loop |= in_halt_loop;
+
+        transition(state);
+
         if already_in_halt_loop && state.traces.clock().is_power_of_two() {
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
             break;
         }
-
-        transition(state);
     }
 }

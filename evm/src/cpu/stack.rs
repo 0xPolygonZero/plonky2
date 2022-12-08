@@ -72,12 +72,20 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     push: None,           // TODO
     dup: None,
     swap: None,
-    get_context: None,    // TODO
-    set_context: None,    // TODO
-    consume_gas: None,    // TODO
-    exit_kernel: None,    // TODO
-    mload_general: None,  // TODO
-    mstore_general: None, // TODO
+    get_context: None, // TODO
+    set_context: None, // TODO
+    consume_gas: None, // TODO
+    exit_kernel: None, // TODO
+    mload_general: Some(StackBehavior {
+        num_pops: 3,
+        pushes: true,
+        disable_other_channels: false,
+    }),
+    mstore_general: Some(StackBehavior {
+        num_pops: 4,
+        pushes: false,
+        disable_other_channels: false,
+    }),
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
