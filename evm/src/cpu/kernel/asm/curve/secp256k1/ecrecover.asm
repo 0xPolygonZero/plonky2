@@ -1,4 +1,4 @@
-global ecrecover_fast:
+ecdsa_msm_with_glv:
     // stack: a, b, Qx, Qy, retdest
     PUSH ecrecover_after_precompute_base %jump(precompute_table_base_point)
 ecrecover_after_precompute_base:
@@ -99,71 +99,13 @@ ecrecover_valid_input:
     // stack: s, r^(-1), y, hash, x, r^(-1), retdest
     %mulmodn_secp_scalar
     // stack: u1, y, hash, x, r^(-1), retdest
-
-
-    // Compute (X,Y) = u1 * (x,y)
-    PUSH ecrecover_with_first_point
-    // stack: ecrecover_with_first_point, u1, y, hash, x, r^(-1), retdest
-    SWAP1
-    // stack: u1, ecrecover_with_first_point, y, hash, x, r^(-1), retdest
-    SWAP2
-    // stack: y, ecrecover_with_first_point, u1, hash, x, r^(-1), retdest
-    SWAP1
-    // stack: ecrecover_with_first_point, y, u1, hash, x, r^(-1), retdest
-    SWAP3
-    // stack: hash, y, u1, ecrecover_with_first_point, x, r^(-1), retdest
-    SWAP4
-    // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
-    %jump(ec_mul_valid_point_secp)
-
-// ecrecover precompile.
-// Assumption: (X,Y) = u1 * P. Result is (X,Y) + u2*GENERATOR
-ecrecover_with_first_point:
-    // stack: X, Y, hash, r^(-1), retdest
-    %secp_scalar
-    // stack: p, X, Y, hash, r^(-1), retdest
-    SWAP1
-    // stack: X, p, Y, hash, r^(-1), retdest
-    SWAP4
-    // stack: r^(-1), p, Y, hash, X, retdest
-    SWAP2
-    // stack: Y, p, r^(-1), hash, X, retdest
-    SWAP3
-    // stack: hash, p, r^(-1), Y, X, retdest
-
+    // // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
     // Compute u2 = -hash * r^(-1)
-    MOD
-    // stack: hash%p, r^(-1), Y, X, retdest
     %secp_scalar
-    // stack: p, hash%p, r^(-1), Y, X, retdest
-    SUB
-    // stack: -hash, r^(-1), Y, X, retdest
-    %mulmodn_secp_scalar
-    // stack: u2, Y, X, retdest
-
-    // Compute u2 * GENERATOR and chain the call to `ec_mul` with a call to `ec_add` to compute PUBKEY = (X,Y) + u2 * GENERATOR,
-    // and a call to `pubkey_to_addr` to get the final result `KECCAK256(PUBKEY)[-20:]`.
-    PUSH pubkey_to_addr
-    // stack: pubkey_to_addr, u2, Y, X, retdest
-    SWAP3
-    // stack: X, u2, Y, pubkey_to_addr, retdest
-    PUSH ec_add_valid_points_secp
-    // stack: ec_add_valid_points_secp, X, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    PUSH 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 // x-coordinate of generator
-    // stack: Gx, X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    PUSH 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 // y-coordinate of generator
-    // stack: Gy, X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, Gy, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP4
-    // stack: u2, Gy, Gx, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
-    SWAP2
-    // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
-    %jump(ec_mul_valid_point_secp)
+    %stack (p, u1, y, hash, x, rinv, retdest) -> (hash, p, p, rinv, p, u1, x, y, pubkey_to_addr, retdest)
+    MOD SWAP1 SUB MULMOD
+    // stack: u2, u1, x, y, pubkey_to_addr, retdest
+    %jump(ecdsa_msm_with_glv)
 
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
