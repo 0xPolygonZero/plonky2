@@ -1,14 +1,28 @@
 global ecrecover_fast:
-    // stack: a, b, c, d, Qx, Qy, retdest
+    // stack: a, b, Qx, Qy, retdest
     PUSH ecrecover_after_precompute_base %jump(precompute_table_base_point)
 ecrecover_after_precompute_base:
-    // stack: a, b, c, d, Qx, Qy, retdest
+    // stack
+    %stack (a, b, Qx, Qy, retdest) -> (a, ecrecover_after_glv_a, b, Qx, Qy, retdest)
+    %jump(glv)
+ecrecover_after_glv_a:
+    // stack: a1neg, a0, a1, b, Qx, Qy, retdest
+    // a = a0 - s*a1 if a1neg==0 else a0 + s*a1 if a1neg==1
+    %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G, 1337)
+    // stack: a0, a1, b, Qx, Qy, retdest
     PUSH ecrecover_after_a SWAP1 PUSH @SEGMENT_KERNEL_WNAF_A %jump(wnaf)
 ecrecover_after_a:
-    // stack: b, c, d, Qx, Qy, retdest
+    // stack: a1, b, Qx, Qy, retdest
     PUSH ecrecover_after_b SWAP1 PUSH @SEGMENT_KERNEL_WNAF_B %jump(wnaf)
 ecrecover_after_b:
-    // stack: c, d, Qx, Qy, retdest
+    // stack: b, Qx, Qy, retdest
+    %stack (b, Qx, Qy, retdest) -> (b, ecrecover_after_glv_b, Qx, Qy, retdest)
+    %jump(glv)
+ecrecover_after_glv_b:
+    // stack: b1neg, b0, b1, Qx, Qy, retdest
+    // a = a0 - s*a1 if a1neg==0 else a0 + s*a1 if a1neg==1
+    %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q, 1337)
+    // stack: b0, b1, Qx, Qy, retdest
     PUSH ecrecover_after_c SWAP1 PUSH @SEGMENT_KERNEL_WNAF_C %jump(wnaf)
 ecrecover_after_c:
     // stack: d, Qx, Qy, retdest

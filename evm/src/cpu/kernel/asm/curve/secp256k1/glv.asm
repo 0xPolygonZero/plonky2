@@ -38,7 +38,7 @@ global glv:
     SWAP2 DUP1 %jumpi(underflowed)
     %stack (underflow, k, x, n, k2) -> (k, x, n, k2, underflow)
     addmod
-    %stack (k1, k2, underflow, retdest) -> (retdest, k1, k2, underflow)
+    %stack (k1, k2, underflow, retdest) -> (retdest, underflow, k1, k2)
     JUMP
 
 underflowed:
@@ -46,7 +46,7 @@ underflowed:
     %stack (u, k, x, n, k2) -> (n, x, k, n, k2, u)
     // TODO: Use SUBMOD here
     SUB ADDMOD
-    %stack (k1, k2, underflow, retdest) -> (retdest, k1, k2, underflow)
+    %stack (k1, k2, underflow, retdest) -> (retdest, underflow, k1, k2)
     JUMP
 
 %macro sub_check_underflow
