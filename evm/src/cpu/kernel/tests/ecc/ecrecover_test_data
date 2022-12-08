@@ -18,7 +18,7 @@
 //             typed_tx.sighash()
 //         ));
 //     }
-//     let mut f = File::create("/tmp/faa").expect("Unable to create");
+//     let mut f = File::create("ecrecover_test_data").expect("Unable to create");
 //     f.write_all(ans.as_bytes()).expect("Unable to write");
 //     Ok(())
 // }
