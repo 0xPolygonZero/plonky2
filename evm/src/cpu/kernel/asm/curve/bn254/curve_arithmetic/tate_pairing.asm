@@ -27,10 +27,12 @@ global tate:
     %jump(miller_init)
 global post_mllr:
     // stack:                          out,            tate_mul1, tate_mul2, tate_mul3, retdest
+    DUP1 
+    // stack:                     out, out,            tate_mul1, tate_mul2, tate_mul3, retdest
     PUSH 100 
-    // stack:                     100, out,            tate_mul1, tate_mul2, tate_mul3, retdest
+    // stack:                100, out, out,            tate_mul1, tate_mul2, tate_mul3, retdest
     DUP2
-    // stack:                out, 100, out,            tate_mul1, tate_mul2, tate_mul3, retdest
+    // stack:           out, 100, out, out,            tate_mul1, tate_mul2, tate_mul3, retdest
     // %inverse_fp12
     // stack:                     100, out,            tate_mul1, tate_mul2, tate_mul3, retdest  {100: inv}
     DUP2

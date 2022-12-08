@@ -865,3 +865,96 @@
     SWAP1
     // stack:                   g0, g0_, g1, g1_, g2, g2_
 %endmacro
+
+%macro load_fp12
+    // stack:                                                          ptr
+    DUP1  %add_const(10)
+    // stack:                                                   ind10, ptr
+    %mload_kernel_general
+    // stack:                                                     x10, ptr
+    DUP2  %add_const(9)
+    // stack:                                              ind09, x10, ptr
+    %mload_kernel_general
+    // stack:                                                x09, x10, ptr
+    DUP3  %add_const(8)
+    // stack:                                         ind08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                                           x08, x09, x10, ptr
+    DUP4  %add_const(7)
+    // stack:                                    ind07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                                      x07, x08, x09, x10, ptr
+    DUP5  %add_const(6)
+    // stack:                               ind06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                                 x06, x07, x08, x09, x10, ptr
+    DUP6  %add_const(5)
+    // stack:                          ind05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                            x05, x06, x07, x08, x09, x10, ptr
+    DUP7  %add_const(4)
+    // stack:                     ind04, x05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                       x04, x05, x06, x07, x08, x09, x10, ptr
+    DUP8  %add_const(3)
+    // stack:                ind03, x04, x05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:                  x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    DUP9  %add_const(2)
+    // stack:           ind02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:             x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    DUP10  %add_const(1)
+    // stack:      ind01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:        x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    DUP11  %add_const(11)
+    // stack: ind11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    %mload_kernel_general
+    // stack:   x11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    SWAP11
+    // stack: ind00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
+    %mload_kernel_general
+    // stack:   x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
+%endmacro
+
+%macro assert_eq_unit_fp12
+    // stack:      ptr
+    DUP1                 %mload_kernel_code
+    // stack: x00, ptr
+    %assert_eq_const(1)
+    // stack:      ptr 
+    DUP1  %add_const(01)  %mload_kernel_code
+    // stack: x01, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(02)  %mload_kernel_code
+    // stack: x02, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(03)  %mload_kernel_code
+    // stack: x03, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(04)  %mload_kernel_code
+    // stack: x04, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(05)  %mload_kernel_code
+    // stack: x05, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(06)  %mload_kernel_code
+    // stack: x06, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(07)  %mload_kernel_code
+    // stack: x07, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(08)  %mload_kernel_code
+    // stack: x08, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(09)  %mload_kernel_code
+    // stack: x09, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(10)  %mload_kernel_code
+    // stack: x10, ptr
+    %assert_eq_const(0)
+    DUP1  %add_const(11)  %mload_kernel_code
+    // stack: x11, ptr
+    %assert_eq_const(0)
+%endmacro
