@@ -14,7 +14,7 @@ wnaf_loop_contd:
     %mul_const(32) ADD
     // stack: n, m, segment, o, retdest
     DUP2 SWAP1 SUB
-    %stack (n, m, segment, o, retdest) -> (127, o, m, o, segment, n, retdest)
+    %stack (n, m, segment, o, retdest) -> (128, o, m, o, segment, n, retdest)
     SUB
     %stack (i, m, o, segment, n, retdest) -> (0, segment, i, m, o, segment, n, retdest)
     MSTORE_GENERAL

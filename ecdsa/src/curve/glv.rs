@@ -39,30 +39,18 @@ pub fn decompose_secp256k1_scalar(
     k: Secp256K1Scalar,
 ) -> (Secp256K1Scalar, Secp256K1Scalar, bool, bool) {
     let p = Secp256K1Scalar::order();
-    let g1 = Ratio::new(MINUS_B1.to_canonical_biguint() << 256, p.clone())
-        .round()
-        .to_integer();
-    let g2 = Ratio::new(B2.to_canonical_biguint() << 256, p.clone())
-        .round()
-        .to_integer();
-    let c1_biguint = (g2 * k.to_canonical_biguint()) >> 256;
-    let c2_biguint = (g1 * k.to_canonical_biguint()) >> 256;
-    // dbg!(&c1_biguint);
-    // dbg!(&c2_biguint);
-    // let c1_biguint = Ratio::new(
-    //     B2.to_canonical_biguint() * k.to_canonical_biguint(),
-    //     p.clone(),
-    // )
-    // .round()
-    // .to_integer();
-    // let c2_biguint = Ratio::new(
-    //     MINUS_B1.to_canonical_biguint() * k.to_canonical_biguint(),
-    //     p.clone(),
-    // )
-    // .round()
-    // .to_integer();
-    // dbg!(&c1_biguint);
-    // dbg!(&c2_biguint);
+    let c1_biguint = Ratio::new(
+        B2.to_canonical_biguint() * k.to_canonical_biguint(),
+        p.clone(),
+    )
+    .round()
+    .to_integer();
+    let c2_biguint = Ratio::new(
+        MINUS_B1.to_canonical_biguint() * k.to_canonical_biguint(),
+        p.clone(),
+    )
+    .round()
+    .to_integer();
     let c1 = Secp256K1Scalar::from_noncanonical_biguint(c1_biguint);
     let c2 = Secp256K1Scalar::from_noncanonical_biguint(c2_biguint);
 
@@ -128,6 +116,7 @@ mod tests {
         let one = Secp256K1Scalar::ONE;
         let m1 = if k1_neg { -one } else { one };
         let m2 = if k2_neg { -one } else { one };
+        dbg!(k, k1, k2);
 
         assert!(k1 * m1 + GLV_S * k2 * m2 == k);
 
@@ -136,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_glv_mul() -> Result<()> {
-        for _ in 0..1_000_000 {
+        for _ in 0..1_000 {
             let k = Secp256K1Scalar::rand();
 
             let p = CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE;
