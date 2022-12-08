@@ -1,5 +1,6 @@
 global wnaf:
     // stack: segment, n, retdest
+    %secp_scalar DUP3 MOD ISZERO %jumpi(wnaf_zero_scalar)
     PUSH 0
 wnaf_loop:
     %stack (o, segment, n, retdest) -> (n, wnaf_loop_contd, o, segment, retdest)
@@ -26,6 +27,10 @@ wnaf_loop_contd:
 wnaf_end:
     // stack: o, segment, n, retdest
     %pop3 JUMP
+
+wnaf_zero_scalar:
+    // stack: segment, n, retdest
+    %pop2 JUMP
 
 
 
