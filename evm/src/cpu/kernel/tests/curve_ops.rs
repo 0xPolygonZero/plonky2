@@ -615,4 +615,53 @@ mod secp {
 
         Ok(())
     }
+
+    #[test]
+    fn test_yo_glv() -> Result<()> {
+        let glv = KERNEL.global_labels["glv"];
+
+        let initial_stack = u256ify([
+            "0xdeadbeef",
+            // "0xd221e175ed6b35c103bcef5763d9db3c30f9f399dbfa8858a9286a3eba3c46f",
+            "0x17486adede77df0b3ef3f6016403ce21f5f20e210d6b9f8dfdace14025edeac2",
+        ])?;
+
+        let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+
+        int.run()?;
+
+        dbg!(int.stack());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_yo_glv_verif() -> Result<()> {
+        let glv = KERNEL.global_labels["glv"];
+
+        let f = include_str!("out");
+        let mut lines = f.lines();
+        while let Some(k) = lines.next() {
+            let k = U256::from_str_radix(k, 10)?;
+            let res = lines.next().unwrap();
+            let mut res = res
+                .split_whitespace()
+                .map(|s| U256::from_str_radix(s, 10).unwrap())
+                .collect::<Vec<_>>();
+            res.reverse();
+
+            let mut initial_stack = u256ify(["0xdeadbeef"])?;
+            initial_stack.push(k);
+
+            let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+
+            int.run()?;
+
+            // dbg!(int.stack());
+            // dbg!(res);
+            assert_eq!(res, int.stack());
+        }
+
+        Ok(())
+    }
 }
