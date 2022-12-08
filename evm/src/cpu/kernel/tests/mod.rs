@@ -1,8 +1,7 @@
 mod account_code;
 mod balance;
 mod core;
-mod curve_ops;
-mod ecrecover;
+mod ecc;
 mod exp;
 mod fields;
 mod hash;
