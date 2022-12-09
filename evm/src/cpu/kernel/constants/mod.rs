@@ -19,9 +19,8 @@ pub(crate) mod txn_fields;
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
-    let hex_constants = MISC_CONSTANTS
+    let hex_constants = EC_CONSTANTS
         .iter()
-        .chain(EC_CONSTANTS.iter())
         .chain(HASH_CONSTANTS.iter())
         .cloned();
     for (name, value) in hex_constants {
@@ -54,15 +53,12 @@ pub fn evm_constants() -> HashMap<String, U256> {
     c
 }
 
-const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
-    // 2^64
+const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
+    // Hash of an empty string: keccak(b'').hex()
     (
-        "BLAKE_WORD_SIZE",
-        hex!("0000000000000000000000000000000000000000000000010000000000000000"),
+        "EMPTY_STRING_HASH",
+        hex!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
     ),
-];
-
-const HASH_CONSTANTS: [(&str, [u8; 32]); 1] = [
     // Hash of an empty node: keccak(rlp.encode(b'')).hex()
     (
         "EMPTY_NODE_HASH",
