@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
@@ -68,7 +69,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.print();
+    timing.filter(Duration::from_millis(100)).print();
 
     let expected_state_trie_after = {
         let sender_account_after = AccountRlp {
