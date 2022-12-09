@@ -187,7 +187,7 @@ pubkey_to_addr:
 %endmacro
 
 %macro secp_scalar
-    PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+    PUSH @SECP_SCALAR
 %endmacro
 
 // Return u256::MAX which is used to indicate the input was invalid.

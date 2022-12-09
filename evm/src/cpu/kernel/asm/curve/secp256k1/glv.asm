@@ -9,7 +9,7 @@ global glv:
     // -(q1+q2) = -(k.b1.a1-k.b2.a2) = k2
     // k1 - k2\lambda = k
     // push group modulus n onto stack
-    PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 dup1 dup1
+    PUSH @SECP_SCALAR dup1 dup1
     // we need to calculate k*b1. We require a full-width 512 bit multiplication,
     // see https://medium.com/wicketh/mathemagic-full-multiply-27650fec525d
     PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff // -1 n n n k
@@ -23,7 +23,7 @@ global glv:
     sub sub // top = (mm - bottom - (m < bottom)) n n n k
     PUSH 0x3086d221a7d46bcde86c90e49284eb15 mulmod // q2 n n k
 
-    PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+    PUSH @SECP_SCALAR
     PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff // -1 n q2 n n k
     PUSH 0x3086d221a7d46bcde86c90e49284eb15 dup7 mulmod // mm n q2 n n k
     PUSH 0x3086d221a7d46bcde86c90e49284eb15 dup7 mul    // bottom mm n q2 n n k
@@ -32,7 +32,7 @@ global glv:
     PUSH 0xfffffffffffffffffffffffffffffffdd66b5e10ae3a1813507ddee3c5765c7e mulmod // q1 q2 n n k
     add %sub_check_underflow      // k2 underflow n k
     swap3                   // k underflow n k2
-    PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 // n k underflow n k2
+    PUSH @SECP_SCALAR // n k underflow n k2
     dup5 PUSH 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72 // s k2 n k underflow n k2
     mulmod // (s*k2)%n k underflow n k2
     SWAP2 DUP1 %jumpi(underflowed)

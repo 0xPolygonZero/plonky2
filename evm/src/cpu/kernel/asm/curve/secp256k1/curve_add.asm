@@ -215,30 +215,15 @@ retself:
 
 // Push the order of the Secp256k1 scalar field.
 %macro secp_base
-    PUSH 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+    PUSH @SECP_BASE
 %endmacro
 
-// Modular subtraction. Subtraction x-y underflows iff x<x-y, so can be computed as N*(x<x-y) + x-y.
+// Modular subtraction.
+// TODO: Use SUBMOD when it's ready
 %macro submod_secp_base
     // stack: x, y
-    SWAP1
-    // stack: y, x
-    DUP2
-    // stack: x, y, x
-    SUB
-    // stack: x - y, x
-    DUP1
-    // stack: x - y, x - y, x
-    SWAP2
-    // stack: x, x - y, x - y
-    LT
-    // stack: x < x - y, x - y
-    %secp_base
-    // stack: N, x < x - y, x - y
-    MUL
-    // stack: N * (x < x - y), x - y
-    ADD
-    // (x-y) % N
+    %stack (x, y) -> (@SECP_BASE, y, x, @SECP_BASE)
+    SUB ADDMOD
 %endmacro
 
 // Check if (x,y) is a valid curve point.
