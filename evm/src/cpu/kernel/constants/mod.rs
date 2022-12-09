@@ -19,10 +19,7 @@ pub(crate) mod txn_fields;
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
-    let hex_constants = EC_CONSTANTS
-        .iter()
-        .chain(HASH_CONSTANTS.iter())
-        .cloned();
+    let hex_constants = EC_CONSTANTS.iter().chain(HASH_CONSTANTS.iter()).cloned();
     for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
