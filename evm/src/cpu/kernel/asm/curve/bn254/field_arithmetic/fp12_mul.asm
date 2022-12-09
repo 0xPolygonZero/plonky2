@@ -173,7 +173,7 @@ ret_3:
     // stack:                 out, sh(f'g') + fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %store_fp6
     // stack:                                     inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    POP  SWAP1  JUMP
+    %pop2  JUMP
 
 
 //////////////////////////////////////
@@ -303,7 +303,7 @@ global mul_fp12_sparse:
     // stack:                          out', G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
     %store_fp6
     // stack:                                                                    inA, inB, out
-    %pop2  SWAP1  JUMP
+    %pop3  JUMP
 
 /// global mul_fp12_sparse_fast:
 ///    // stack:                                                            inA, inB, out
@@ -447,4 +447,4 @@ post_sq2:
     // stack:                                out, ff + sh(f'f'), inp, out
     %store_fp6
     // stack:                                                    inp, out
-    POP  SWAP1  JUMP
+    %pop2  JUMP

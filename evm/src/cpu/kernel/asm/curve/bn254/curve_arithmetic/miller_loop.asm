@@ -70,7 +70,7 @@ miller_end:
     // stack: times, O, P, Q, out, retdest
     %pop3  %pop3  %pop3
     // stack:                 out, retdest
-    %jump(post_mllr)
+    SWAP1  %jump(post_mllr)
 
 
 miller_one:
