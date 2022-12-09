@@ -3,7 +3,40 @@
 // Given scalar `k ∈ Secp256k1::ScalarField`, return `u, k1, k2` with `k1,k2 < 2^129` and such that
 // `k = k1 - s*k2` if `u==0` otherwise `k = k1 + s*k2`, where `s` is the scalar value representing the endomorphism.
 // In the comments below, N means @SECP_SCALAR
-// TODO: write proof that outputs are <=129-bit
+//
+// Z3 proof that the resulting `k1, k2` satisfy `k1>0`, `k1 < 2^129` and `|k2| < 2^129`.
+// ```python
+// from z3 import Solver, Int, Or, unsat
+// q = 115792089237316195423570985008687907852837564279074904382605163141518161494337
+// glv_s = 37718080363155996902926221483475020450927657555482586988616620542887997980018
+// g1 = 303414439467246543595250775667605759172
+// g2 = 64502973549206556628585045361533709077
+// b2 = 64502973549206556628585045361533709077
+// b1 = -303414439467246543595250775667605759171
+// k = Int("k")
+// c1 = Int("c1")
+// c2 = Int("c2")
+// s = Solver()
+//
+// c2p = -c2
+// s.add(k < q)
+// s.add(0 < k)
+// s.add(c1 * (2**256) <= g2 * k)
+// s.add((c1 + 1) * (2**256) > g2 * k)
+// s.add(c2p * (2**256) <= g1 * k)
+// s.add((c2p + 1) * (2**256) > g1 * k)
+//
+// q1 = c1 * b1
+// q2 = c2 * b2
+//
+// k2 = q2 - q1
+// k2L = (glv_s * k2) % q
+// k1 = k - k2L
+// s.add(k1 >= 0)
+//
+// s.add(Or((k2 >= 2**129), (-k2 >= 2**129), (k1 >= 2**129)))
+// assert s.check() == unsat
+// ```
 global glv_decompose:
     // stack: k, retdest
     PUSH @SECP_SCALAR DUP1 DUP1
