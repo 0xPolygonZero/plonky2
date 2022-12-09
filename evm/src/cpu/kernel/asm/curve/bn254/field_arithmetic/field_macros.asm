@@ -934,39 +934,39 @@
     // stack:           ind01, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                       x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(02)
+    DUP9   %add_const(02)
     // stack:                ind02, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                            x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(03)
+    DUP8   %add_const(03)
     // stack:                     ind03, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                 x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(04)
+    DUP7   %add_const(04)
     // stack:                          ind04, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                      x05, x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(05)
+    DUP6   %add_const(05)
     // stack:                               ind05, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                           x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(06)
+    DUP5   %add_const(06)
     // stack:                                    ind06, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                x07, x08, x09, ptr, x11
-    DUP10  %add_const(07)
+    DUP4   %add_const(07)
     // stack:                                         ind07, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                     x08, x09, ptr, x11
-    DUP10  %add_const(08)
+    DUP3   %add_const(08)
     // stack:                                              ind08, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                          x09, ptr, x11
-    DUP10  %add_const(09)
+    DUP2   %add_const(09)
     // stack:                                                   ind09, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                               ptr, x11
-           %add_const(11)
+    %add_const(11)
     // stack:                                                             ind11, x11
     %mstore_kernel_general
     // stack:                                                            
