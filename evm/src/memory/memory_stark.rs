@@ -120,10 +120,13 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
     fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
+        // fill_gaps expects an ordered list of operations.
         memory_ops.sort_by_key(MemoryOp::sorting_key);
         Self::fill_gaps(&mut memory_ops);
+
         Self::pad_memory_ops(&mut memory_ops);
 
+        // fill_gaps may have added operations at the end which break the order, so sort again.
         memory_ops.sort_by_key(MemoryOp::sorting_key);
 
         let mut trace_rows = memory_ops
