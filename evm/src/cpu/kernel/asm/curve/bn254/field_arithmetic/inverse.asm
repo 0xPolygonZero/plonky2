@@ -44,7 +44,7 @@ global inverse_fp12:
     // stack:             inv, f^-1, inv, f, ptr, inv, retdest
     %store_fp12
     // stack:                        inv, f, ptr, inv, retdest
-    %stack (inv, f: 12) -> ()
+    POP %pop4 %pop4 %pop4
     // stack:                                ptr, inv, retdest 
     PUSH 200  PUSH check_inv 
     // stack:                check_inv, 200, ptr, inv, retdest 
@@ -53,7 +53,7 @@ global inverse_fp12:
     %jump(mul_fp12)
 global check_inv:
     // stack:                           200, ptr, inv, retdest
-    %assert_eq_unit_fp12
+    %assert_eq_fp12_unit
     // stack:                                ptr, inv, retdest
     POP  SWAP1  
     // stack:                                     retdest, inv

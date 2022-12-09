@@ -918,7 +918,61 @@
     // stack:   x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
 %endmacro
 
-%macro assert_eq_unit_fp12
+%macro store_fp12
+    // stack:        ptr, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
+    SWAP11
+    // stack:        x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP12  %add_const(10)
+    // stack: ind10, x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:             x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP11
+    // stack:      ind00, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                  x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(01)
+    // stack:           ind01, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                       x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(02)
+    // stack:                ind02, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                            x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(03)
+    // stack:                     ind03, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                 x04, x05, x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(04)
+    // stack:                          ind04, x04, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                      x05, x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(05)
+    // stack:                               ind05, x05, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                           x06, x07, x08, x09, ptr, x11
+    DUP10  %add_const(06)
+    // stack:                                    ind06, x06, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                                x07, x08, x09, ptr, x11
+    DUP10  %add_const(07)
+    // stack:                                         ind07, x07, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                                     x08, x09, ptr, x11
+    DUP10  %add_const(08)
+    // stack:                                              ind08, x08, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                                          x09, ptr, x11
+    DUP10  %add_const(09)
+    // stack:                                                   ind09, x09, ptr, x11
+    %mstore_kernel_general
+    // stack:                                                               ptr, x11
+           %add_const(11)
+    // stack:                                                             ind11, x11
+    %mstore_kernel_general
+    // stack:                                                            
+%endmacro
+
+%macro assert_eq_fp12_unit
     // stack:      ptr
     DUP1                 %mload_kernel_code
     // stack: x00, ptr
