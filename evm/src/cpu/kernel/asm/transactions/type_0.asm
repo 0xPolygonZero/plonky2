@@ -127,7 +127,92 @@ parse_r:
     %mstore_txn_field(@TXN_FIELD_S)
     // stack: retdest
 
-    // TODO: Write the signed txn data to memory, where it can be hashed and
-    // checked against the signature.
+type_0_compute_signed_data:
+    // If a chain_id is present in v, the signed data is
+    //     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data, chain_id, 0, 0]))
+    // otherwise, it is
+    //     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data]))
 
+    %mload_txn_field(@TXN_FIELD_NONCE)
+    // stack: nonce, retdest
+    PUSH 9 // We start at 9 to leave room to prepend the largest possible RLP list header.
+    // stack: rlp_pos, nonce, retdest
+    %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    %mload_txn_field(@TXN_FIELD_TO)
+    SWAP1 %encode_rlp_160
+    // stack: rlp_pos, retdest
+
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    // Encode txn data.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    PUSH 0 // ADDR.virt
+    PUSH @SEGMENT_TXN_DATA
+    PUSH 0 // ADDR.context
+    // stack: ADDR: 3, len, rlp_pos, retdest
+    PUSH after_serializing_txn_data
+    // stack: after_serializing_txn_data, ADDR: 3, len, rlp_pos, retdest
+    SWAP5
+    // stack: rlp_pos, ADDR: 3, len, after_serializing_txn_data, retdest
+    %jump(encode_rlp_string)
+
+after_serializing_txn_data:
+    // stack: rlp_pos, retdest
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID_PRESENT)
+    ISZERO %jumpi(finish_rlp_list)
+    // stack: rlp_pos, retdest
+
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID)
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    PUSH 0
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+    PUSH 0
+    SWAP1 %encode_rlp_scalar
+    // stack: rlp_pos, retdest
+
+finish_rlp_list:
+    %prepend_rlp_list_prefix
+    // stack: start_pos, rlp_len, retdest
+    PUSH @SEGMENT_RLP_RAW
+    PUSH 0 // context
+    // stack: ADDR: 3, rlp_len, retdest
+    KECCAK_GENERAL
+    // stack: hash, retdest
+
+    %mload_txn_field(@TXN_FIELD_S)
+    %mload_txn_field(@TXN_FIELD_R)
+    %mload_txn_field(@TXN_FIELD_Y_PARITY) %add_const(27) // ecrecover interprets v as y_parity + 27
+
+    PUSH store_origin
+    // stack: store_origin, v, r, s, hash, retdest
+    SWAP4
+    // stack: hash, v, r, s, store_origin, retdest
+    %jump(ecrecover)
+
+store_origin:
+    // stack: address, retdest
+    // If ecrecover returned u256::MAX, that indicates failure.
+    DUP1
+    %eq_const(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    %jumpi(panic)
+
+    // stack: address, retdest
+    %mstore_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: retdest
     %jump(process_normalized_txn)

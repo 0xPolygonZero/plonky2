@@ -142,14 +142,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let mut dummy_yield_constr = ConstraintConsumer::new(vec![], P::ZEROS, P::ZEROS, P::ZEROS);
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
-        decode::eval_packed_generic(local_values, yield_constr);
+        decode::eval_packed_generic(local_values, &mut dummy_yield_constr);
         dup_swap::eval_packed(local_values, yield_constr);
         jumps::eval_packed(local_values, next_values, &mut dummy_yield_constr);
         membus::eval_packed(local_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, yield_constr);
+        stack::eval_packed(local_values, &mut dummy_yield_constr);
         stack_bounds::eval_packed(local_values, &mut dummy_yield_constr);
         syscalls::eval_packed(local_values, next_values, yield_constr);
     }
@@ -168,14 +168,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             RecursiveConstraintConsumer::new(zero, vec![], zero, zero, zero);
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        decode::eval_ext_circuit(builder, local_values, yield_constr);
+        decode::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, &mut dummy_yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         syscalls::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }
