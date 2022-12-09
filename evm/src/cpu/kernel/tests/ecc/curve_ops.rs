@@ -210,13 +210,18 @@ mod secp {
     fn test_wnaf() -> Result<()> {
         let wnaf = KERNEL.global_labels["wnaf"];
 
-        let initial_stack = u256ify(["0xdeadbeef", "0x1302837587eede977d2814a6906d59bea", "0x11"])?;
+        let mut initial_stack = u256ify(["0xdeadbeef", "0x1302837587eede977d2814a6906d59bea"])?;
+        initial_stack.push((Segment::WnafA as usize).into());
         let mut int = Interpreter::new(&KERNEL.code, wnaf, initial_stack, &KERNEL.prover_inputs);
         int.run()?;
 
         let mut computed_wnaf = Vec::new();
         for i in 0..130 {
-            computed_wnaf.push(int.memory.mload_general(0, Segment::WnafA, i));
+            computed_wnaf.push(
+                int.generation_state
+                    .memory
+                    .mload_general(0, Segment::WnafA, i),
+            );
         }
 
         let mut wnaf = vec![
@@ -252,7 +257,11 @@ mod secp {
 
         let mut computed_table = Vec::new();
         for i in 0..32 {
-            computed_table.push(int.memory.mload_general(0, Segment::EcdsaTableQ, i));
+            computed_table.push(int.generation_state.memory.mload_general(
+                0,
+                Segment::EcdsaTableQ,
+                i,
+            ));
         }
 
         let table = u256ify([
@@ -310,7 +319,11 @@ mod secp {
 
         let mut computed_table = Vec::new();
         for i in 0..32 {
-            computed_table.push(int.memory.mload_general(0, Segment::EcdsaTableG, i));
+            computed_table.push(int.generation_state.memory.mload_general(
+                0,
+                Segment::EcdsaTableG,
+                i,
+            ));
         }
 
         let table = u256ify([
@@ -355,7 +368,7 @@ mod secp {
 
     #[test]
     fn test_glv_verify_data() -> Result<()> {
-        let glv = KERNEL.global_labels["glv"];
+        let glv = KERNEL.global_labels["glv_decompose"];
 
         let f = include_str!("glv_test_data");
         for line in f.lines().filter(|s| !s.starts_with("//")) {

@@ -1,3 +1,25 @@
+// Computes the MSM `a*G + b*Q` used in ECDSA, see `ecdsa_msm_with_glv` in `ecrecover.asm`.
+// Assumes wNAF expansion of `a0, a1, b0, b1` and precomputed tables for `G, Q` are in memory.
+// Classic windowed MSM algorithm otherwise.
+// Python code (without precomputed tables):
+// def ecdsa_msm(nafs, points):
+//     ans = O
+//     n = len(nafs[0])
+//     assert len(nafs) == len(points)
+//     assert all(len(naf) == n for naf in nafs)
+//     for i in range(n):
+//         ss = [naf[-i-1] for naf in nafs]
+//         assert all((x==0) or (x%2) for x in ss)
+//         for x,point in zip(ss, points):
+//             if x:
+//                 if x > 15:
+//                     ans -= (32-x)*point
+//                 else:
+//                     ans += x*point
+//
+//         if i < n-1:
+//             ans *= 2
+//     return ans
 global ecdsa_msm:
     // stack: retdest
     PUSH 0 PUSH 0 PUSH 0
@@ -96,13 +118,13 @@ global msm_loop_add_d_nonzero:
     DUP1
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
     PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
-    %stack (a1neg, Gy, w) -> (115792089237316195423570985008687907853269984665640564039457584007908834671663, Gy, a1neg, a1neg, Gy, w)
+    %stack (a1neg, Gy, w) -> (@SECP_BASE, Gy, a1neg, a1neg, Gy, w)
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
     SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
     //stack: Gx, Gy
-    PUSH 115792089237316195423570985008687907853269984665640564039457584007908834671663
+    PUSH @SECP_BASE
     SWAP1
-    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee
+    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee // GLV beta
     MULMOD
 %endmacro
 
@@ -121,12 +143,12 @@ global msm_loop_add_d_nonzero:
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
     //stack: Qy, w
     PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    %stack (b1neg, Qy, w) -> (115792089237316195423570985008687907853269984665640564039457584007908834671663, Qy, b1neg, b1neg, Qy, w)
+    %stack (b1neg, Qy, w) -> (@SECP_BASE, Qy, b1neg, b1neg, Qy, w)
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
     SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
     //stack: Qx, Qy
-    PUSH 115792089237316195423570985008687907853269984665640564039457584007908834671663
+    PUSH @SECP_BASE
     SWAP1
-    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee
+    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee // GLV beta
     MULMOD
 %endmacro

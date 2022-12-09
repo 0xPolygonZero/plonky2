@@ -45,18 +45,18 @@ pub fn decompose_secp256k1_scalar(
     )
     .round()
     .to_integer();
+    let c1 = Secp256K1Scalar::from_noncanonical_biguint(c1_biguint);
     let c2_biguint = Ratio::new(
         MINUS_B1.to_canonical_biguint() * k.to_canonical_biguint(),
         p.clone(),
     )
     .round()
     .to_integer();
-    let c1 = Secp256K1Scalar::from_noncanonical_biguint(c1_biguint);
     let c2 = Secp256K1Scalar::from_noncanonical_biguint(c2_biguint);
 
     let k1_raw = k - c1 * A1 - c2 * A2;
     let k2_raw = c1 * MINUS_B1 - c2 * B2;
-    assert!(k1_raw + GLV_S * k2_raw == k);
+    debug_assert!(k1_raw + GLV_S * k2_raw == k);
 
     let two = BigUint::from_slice(&[2]);
     let k1_neg = k1_raw.to_canonical_biguint() > p.clone() / two.clone();
@@ -116,7 +116,6 @@ mod tests {
         let one = Secp256K1Scalar::ONE;
         let m1 = if k1_neg { -one } else { one };
         let m2 = if k2_neg { -one } else { one };
-        dbg!(k, k1, k2);
 
         assert!(k1 * m1 + GLV_S * k2 * m2 == k);
 
@@ -125,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_glv_mul() -> Result<()> {
-        for _ in 0..1_000 {
+        for _ in 0..20 {
             let k = Secp256K1Scalar::rand();
 
             let p = CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE;

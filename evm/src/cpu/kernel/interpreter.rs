@@ -24,7 +24,7 @@ type F = GoldilocksField;
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 impl MemoryState {
-    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+    pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         let value = self.contexts[context].segments[segment as usize].get(offset);
         assert!(
             value.bits() <= segment.bit_range(),

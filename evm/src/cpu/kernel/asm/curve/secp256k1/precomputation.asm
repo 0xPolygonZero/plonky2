@@ -1,3 +1,6 @@
+// Precompute a table of multiples of the Secp256k1 point `Q = (Qx, Qy)`.
+// Let `(Qxi, Qyi) = i * Q`, then store in the `SEGMENT_KERNEL_ECDSA_TABLE_Q` segment of memory the values
+// `i-1 => Qxi`, `i => Qyi if i < 16 else -Qy(32-i)` for `i in range(1, 32, 2)`.
 global precompute_table:
     // stack: Qx, Qy, retdest
     PUSH precompute_table_contd DUP3 DUP3
@@ -13,9 +16,7 @@ global precompute_table_loop:
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
     DUP1 PUSH 32 SUB PUSH 1 DUP2 SUB
     // stack: 31-i, 32-i, i, Qx2, Qy2, Qx, Qy, retdest
-    DUP7
-    PUSH 115792089237316195423570985008687907853269984665640564039457584007908834671663
-    SUB
+    DUP7 PUSH @SECP_BASE SUB
     %stack (Qyy, iii, ii, i, Qx2, Qy2, Qx, Qy, retdest) -> (iii, Qx, ii, Qyy, i, Qx2, Qy2, Qx, Qy, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
@@ -28,12 +29,13 @@ precompute_table_loop_contd:
     %stack (Qx, Qy, i, Qx2, Qy2, retdest) -> (i, Qx2, Qy2, Qx, Qy, retdest)
     %jump(precompute_table_loop)
 
-
 precompute_table_end:
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
     %pop5 JUMP
 
 
+// Same as if the `precompute_table` above was called on the base point, but with values hardcoded.
+// TODO: Could be called only once in a tx execution after the bootstrapping phase for example.
 global precompute_table_base_point:
     // stack: retdest
     PUSH 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 PUSH 0 %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
