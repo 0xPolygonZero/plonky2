@@ -113,5 +113,5 @@ fn eth_to_wei(eth: U256) -> U256 {
 }
 
 fn init_logger() {
-    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 }
