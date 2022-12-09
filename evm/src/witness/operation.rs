@@ -518,14 +518,19 @@ pub(crate) fn generate_mload_general<F: Field>(
     let [(context, log_in0), (segment, log_in1), (virt, log_in2)] =
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
 
-    let val = state
-        .memory
-        .get(MemoryAddress::new_u256s(context, segment, virt));
+    let (val, log_read) = mem_read_gp_with_log_and_fill(
+        3,
+        MemoryAddress::new_u256s(context, segment, virt),
+        state,
+        &mut row,
+    );
+
     let log_out = stack_push_log_and_fill(state, &mut row, val)?;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_read);
     state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())
