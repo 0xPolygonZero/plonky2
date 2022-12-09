@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 37] = [
+const NATIVE_INSTRUCTIONS: [usize; 33] = [
     COL_MAP.op.add,
     COL_MAP.op.mul,
     COL_MAP.op.sub,
@@ -37,10 +37,6 @@ const NATIVE_INSTRUCTIONS: [usize; 37] = [
     COL_MAP.op.pc,
     COL_MAP.op.gas,
     COL_MAP.op.jumpdest,
-    COL_MAP.op.get_state_root,
-    COL_MAP.op.set_state_root,
-    COL_MAP.op.get_receipt_root,
-    COL_MAP.op.set_receipt_root,
     // not PUSH (need to increment by more than 1)
     COL_MAP.op.dup,
     COL_MAP.op.swap,
@@ -53,7 +49,7 @@ const NATIVE_INSTRUCTIONS: [usize; 37] = [
     // not SYSCALL (performs a jump)
 ];
 
-fn get_halt_pcs<F: Field>() -> (F, F) {
+pub(crate) fn get_halt_pcs<F: Field>() -> (F, F) {
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
     let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 
@@ -61,6 +57,12 @@ fn get_halt_pcs<F: Field>() -> (F, F) {
         F::from_canonical_usize(halt_pc0),
         F::from_canonical_usize(halt_pc1),
     )
+}
+
+pub(crate) fn get_start_pc<F: Field>() -> F {
+    let start_pc = KERNEL.global_labels["main"];
+
+    F::from_canonical_usize(start_pc)
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -89,8 +91,7 @@ pub fn eval_packed_generic<P: PackedField>(
     //  - execution is in kernel mode, and
     //  - the stack is empty.
     let is_last_noncpu_cycle = (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle;
-    let pc_diff =
-        nv.program_counter - P::Scalar::from_canonical_usize(KERNEL.global_labels["main"]);
+    let pc_diff = nv.program_counter - get_start_pc::<P::Scalar>();
     yield_constr.constraint_transition(is_last_noncpu_cycle * pc_diff);
     yield_constr.constraint_transition(is_last_noncpu_cycle * (nv.is_kernel_mode - P::ONES));
     yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
@@ -142,9 +143,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
 
         // Start at `main`.
-        let main = builder.constant_extension(F::Extension::from_canonical_usize(
-            KERNEL.global_labels["main"],
-        ));
+        let main = builder.constant_extension(get_start_pc::<F>().into());
         let pc_diff = builder.sub_extension(nv.program_counter, main);
         let pc_constr = builder.mul_extension(is_last_noncpu_cycle, pc_diff);
         yield_constr.constraint_transition(builder, pc_constr);

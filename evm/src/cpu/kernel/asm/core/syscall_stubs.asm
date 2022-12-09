@@ -7,7 +7,6 @@ global sys_signextend:
 global sys_slt:
 global sys_sgt:
 global sys_sar:
-global sys_keccak256:
 global sys_address:
 global sys_balance:
 global sys_origin:
@@ -33,9 +32,6 @@ global sys_gaslimit:
 global sys_chainid:
 global sys_selfbalance:
 global sys_basefee:
-global sys_mload:
-global sys_mstore:
-global sys_mstore8:
 global sys_sload:
 global sys_sstore:
 global sys_msize:

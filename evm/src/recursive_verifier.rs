@@ -27,7 +27,7 @@ use crate::cross_table_lookup::{
     CtlCheckVarsTarget,
 };
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
@@ -231,7 +231,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .enumerate()
         {
             builder.verify_proof::<C>(
-                recursive_proof,
+                &recursive_proof,
                 &verifier_data_target,
                 &verifier_data[i].common,
             );
@@ -332,7 +332,7 @@ pub fn all_verifier_data_recursive_stark_proof<
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
@@ -356,9 +356,9 @@ where
             circuit_config,
         ),
         verifier_data_recursive_stark_proof(
-            Table::KeccakMemory,
-            all_stark.keccak_memory_stark,
-            degree_bits[Table::KeccakMemory as usize],
+            Table::KeccakSponge,
+            all_stark.keccak_sponge_stark,
+            degree_bits[Table::KeccakSponge as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
@@ -534,10 +534,10 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
         ),
         add_virtual_stark_proof(
             builder,
-            &all_stark.keccak_memory_stark,
+            &all_stark.keccak_sponge_stark,
             config,
-            degree_bits[Table::KeccakMemory as usize],
-            nums_ctl_zs[Table::KeccakMemory as usize],
+            degree_bits[Table::KeccakSponge as usize],
+            nums_ctl_zs[Table::KeccakSponge as usize],
         ),
         add_virtual_stark_proof(
             builder,
@@ -853,7 +853,7 @@ pub(crate) mod tests {
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget};
     use crate::keccak::keccak_stark::KeccakStark;
-    use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
+    use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
     use crate::logic::LogicStark;
     use crate::memory::memory_stark::MemoryStark;
     use crate::permutation::{GrandProductChallenge, GrandProductChallengeSet};
@@ -866,6 +866,7 @@ pub(crate) mod tests {
 
     /// Recursively verify a Stark proof.
     /// Outputs the recursive proof and the associated verifier data.
+    #[allow(unused)] // TODO: used later?
     fn recursively_verify_stark_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -965,6 +966,7 @@ pub(crate) mod tests {
     }
 
     /// Recursively verify every Stark proof in an `AllProof`.
+    #[allow(unused)] // TODO: used later?
     pub fn recursively_verify_all_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -978,7 +980,7 @@ pub(crate) mod tests {
     where
         [(); CpuStark::<F, D>::COLUMNS]:,
         [(); KeccakStark::<F, D>::COLUMNS]:,
-        [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+        [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
         [(); LogicStark::<F, D>::COLUMNS]:,
         [(); MemoryStark::<F, D>::COLUMNS]:,
         [(); C::Hasher::HASH_SIZE]:,
@@ -1013,9 +1015,9 @@ pub(crate) mod tests {
                 )?
                 .0,
                 recursively_verify_stark_proof(
-                    Table::KeccakMemory,
-                    all_stark.keccak_memory_stark,
-                    &all_proof.stark_proofs[Table::KeccakMemory as usize],
+                    Table::KeccakSponge,
+                    all_stark.keccak_sponge_stark,
+                    &all_proof.stark_proofs[Table::KeccakSponge as usize],
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[2],

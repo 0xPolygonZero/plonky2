@@ -2,6 +2,7 @@ use std::mem::{size_of, transmute_copy, ManuallyDrop};
 
 use ethereum_types::{H160, H256, U256};
 use itertools::Itertools;
+use num::BigUint;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -44,6 +45,7 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
         .collect()
 }
 
+#[allow(unused)] // TODO: Remove?
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
     u256.0
@@ -97,4 +99,56 @@ pub(crate) unsafe fn transmute_no_compile_time_size_checks<T, U>(value: T) -> U 
     let value = ManuallyDrop::new(value);
     // Copy the bit pattern. The original value is no longer safe to use.
     transmute_copy(&value)
+}
+
+pub(crate) fn addmod(x: U256, y: U256, m: U256) -> U256 {
+    if m.is_zero() {
+        return m;
+    }
+    let x = u256_to_biguint(x);
+    let y = u256_to_biguint(y);
+    let m = u256_to_biguint(m);
+    biguint_to_u256((x + y) % m)
+}
+
+pub(crate) fn mulmod(x: U256, y: U256, m: U256) -> U256 {
+    if m.is_zero() {
+        return m;
+    }
+    let x = u256_to_biguint(x);
+    let y = u256_to_biguint(y);
+    let m = u256_to_biguint(m);
+    biguint_to_u256(x * y % m)
+}
+
+pub(crate) fn submod(x: U256, y: U256, m: U256) -> U256 {
+    if m.is_zero() {
+        return m;
+    }
+    let mut x = u256_to_biguint(x);
+    let y = u256_to_biguint(y);
+    let m = u256_to_biguint(m);
+    while x < y {
+        x += &m;
+    }
+    biguint_to_u256((x - y) % m)
+}
+
+pub(crate) fn u256_to_biguint(x: U256) -> BigUint {
+    let mut bytes = [0u8; 32];
+    x.to_little_endian(&mut bytes);
+    BigUint::from_bytes_le(&bytes)
+}
+
+pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
+    let bytes = x.to_bytes_le();
+    U256::from_little_endian(&bytes)
+}
+
+pub(crate) fn u256_saturating_cast_usize(x: U256) -> usize {
+    if x > usize::MAX.into() {
+        usize::MAX
+    } else {
+        x.as_usize()
+    }
 }

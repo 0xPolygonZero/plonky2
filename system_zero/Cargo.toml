@@ -23,4 +23,4 @@ name = "lookup_permuted_cols"
 harness = false
 
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
-jemallocator = "0.3.2"
+jemallocator = "0.5.0"

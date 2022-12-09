@@ -27,7 +27,7 @@ fn mpt_read() -> Result<()> {
     assert_eq!(interpreter.stack(), vec![]);
 
     // Now, execute mpt_read on the state trie.
-    interpreter.offset = mpt_read;
+    interpreter.generation_state.registers.program_counter = mpt_read;
     interpreter.push(0xdeadbeefu32.into());
     interpreter.push(0xABCDEFu64.into());
     interpreter.push(6.into());

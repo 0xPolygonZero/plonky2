@@ -16,7 +16,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
-        proof_with_pis: ProofWithPublicInputsTarget<D>,
+        proof_with_pis: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         self.verify_proof_with_challenges::<C>(
-            proof_with_pis.proof,
+            &proof_with_pis.proof,
             public_inputs_hash,
             challenges,
             inner_verifier_data,
@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     fn verify_proof_with_challenges<C: GenericConfig<D, F = F>>(
         &mut self,
-        proof: ProofTarget<D>,
+        proof: &ProofTarget<D>,
         public_inputs_hash: HashOutTarget,
         challenges: ProofChallengesTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
@@ -106,9 +106,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let merkle_caps = &[
             inner_verifier_data.constants_sigmas_cap.clone(),
-            proof.wires_cap,
-            proof.plonk_zs_partial_products_cap,
-            proof.quotient_polys_cap,
+            proof.wires_cap.clone(),
+            proof.plonk_zs_partial_products_cap.clone(),
+            proof.quotient_polys_cap.clone(),
         ];
 
         let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
@@ -376,7 +376,7 @@ mod tests {
         );
         pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
 
-        builder.verify_proof::<InnerC>(pt, &inner_data, &inner_cd);
+        builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

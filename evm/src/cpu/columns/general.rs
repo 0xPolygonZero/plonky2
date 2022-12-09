@@ -4,8 +4,8 @@ use std::mem::{size_of, transmute};
 
 /// General purpose columns, which can have different meanings depending on what CTL or other
 /// operation is occurring at this row.
+#[derive(Clone, Copy)]
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
-    keccak: CpuKeccakView<T>,
     arithmetic: CpuArithmeticView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
@@ -13,16 +13,6 @@ pub(crate) union CpuGeneralColumnsView<T: Copy> {
 }
 
 impl<T: Copy> CpuGeneralColumnsView<T> {
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn keccak(&self) -> &CpuKeccakView<T> {
-        unsafe { &self.keccak }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn keccak_mut(&mut self) -> &mut CpuKeccakView<T> {
-        unsafe { &mut self.keccak }
-    }
-
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn arithmetic(&self) -> &CpuArithmeticView<T> {
         unsafe { &self.arithmetic }
@@ -91,12 +81,6 @@ impl<T: Copy> BorrowMut<[T; NUM_SHARED_COLUMNS]> for CpuGeneralColumnsView<T> {
     fn borrow_mut(&mut self) -> &mut [T; NUM_SHARED_COLUMNS] {
         unsafe { transmute(self) }
     }
-}
-
-#[derive(Copy, Clone)]
-pub(crate) struct CpuKeccakView<T: Copy> {
-    pub(crate) input_limbs: [T; 50],
-    pub(crate) output_limbs: [T; 50],
 }
 
 #[derive(Copy, Clone)]
