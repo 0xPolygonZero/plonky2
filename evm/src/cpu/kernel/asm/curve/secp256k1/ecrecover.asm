@@ -204,7 +204,7 @@ pubkey_to_addr:
 // Return u256::MAX which is used to indicate the input was invalid.
 %macro ecrecover_invalid_input
     // stack: retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    PUSH @U256_MAX
     // stack: u256::MAX, retdest
     SWAP1
     // stack: retdest, u256::MAX

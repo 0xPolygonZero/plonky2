@@ -8,13 +8,13 @@ global glv_decompose:
     // stack: k, retdest
     PUSH @SECP_SCALAR DUP1 DUP1
     // Compute c2 which is the top 256 bits of k*g1. Use asm from https://medium.com/wicketh/mathemagic-full-multiply-27650fec525d.
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    PUSH @U256_MAX
     // stack: -1, N, N, N, k, retdest
-    PUSH 0xe4437ed6010e88286f547fa90abfe4c4 DUP6
+    PUSH @SECP_GLV_MINUS_G1 DUP6
     // stack: k, g1, -1, N, N, N, k, retdest
     MULMOD
     // stack: (k * g1 % -1), N, N, N, k, retdest
-    PUSH 0xe4437ed6010e88286f547fa90abfe4c4 DUP6
+    PUSH @SECP_GLV_MINUS_G1 DUP6
     // stack: k, g1, (k * g1 % -1), N, N, N, k, retdest
     MUL
     // stack: bottom = (k * g1), (k * g1 % -1), N, N, N, k, retdest
@@ -22,24 +22,24 @@ global glv_decompose:
     // stack: (k * g1 % -1), bottom, bottom, (k * g1 % -1), N, N, N, k, retdest
     LT SWAP2 SUB SUB
     // stack: c2, N, N, N, k, retdest
-    PUSH 0x3086d221a7d46bcde86c90e49284eb15 MULMOD
+    PUSH @SECP_GLV_B2 MULMOD
     // stack: q2=c2*b2, N, N, k, retdest
 
     // Use the same trick to compute c1 = top 256 bits of g2*k.
-    PUSH @SECP_SCALAR PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-    PUSH 0x3086d221a7d46bcde86c90e49284eb15 DUP7 MULMOD
-    PUSH 0x3086d221a7d46bcde86c90e49284eb15 DUP7 MUL
+    PUSH @SECP_SCALAR PUSH @U256_MAX
+    PUSH @SECP_GLV_G2 DUP7 MULMOD
+    PUSH @SECP_GLV_G2 DUP7 MUL
     DUP1 DUP3 LT
     SWAP2 SUB SUB
     // stack: c1, N, q2, N, N, k, retdest
-    PUSH 0xfffffffffffffffffffffffffffffffdd66b5e10ae3a1813507ddee3c5765c7e MULMOD
+    PUSH @SECP_GLV_B1 MULMOD
     // stack: q1, q2, N, N, k, retdest
 
     // We compute k2 = q1 + q2 - N, but we check for underflow and return N-q1-q2 instead if there is one,
     // along with a flag `underflow` set to 1 if there is an underflow, 0 otherwise.
     ADD %sub_check_underflow
     // stack: k2, underflow, N, k, retdest
-    SWAP3 PUSH @SECP_SCALAR DUP5 PUSH 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72
+    SWAP3 PUSH @SECP_SCALAR DUP5 PUSH @SECP_GLV_S
     // stack: s, k2, N, k, underflow, N, k2, retdest
     MULMOD
     // stack: s *k2, k, underflow, N, k2, retdest

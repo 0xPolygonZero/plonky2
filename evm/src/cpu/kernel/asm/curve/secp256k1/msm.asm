@@ -124,7 +124,7 @@ global msm_loop_add_d_nonzero:
     //stack: Gx, Gy
     PUSH @SECP_BASE
     SWAP1
-    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee // GLV beta
+    PUSH @SECP_GLV_BETA
     MULMOD
 %endmacro
 
@@ -149,6 +149,6 @@ global msm_loop_add_d_nonzero:
     //stack: Qx, Qy
     PUSH @SECP_BASE
     SWAP1
-    PUSH 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee // GLV beta
+    PUSH @SECP_GLV_BETA
     MULMOD
 %endmacro
