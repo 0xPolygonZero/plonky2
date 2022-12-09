@@ -32,9 +32,8 @@
 // k2 = q2 - q1
 // k2L = (glv_s * k2) % q
 // k1 = k - k2L
-// s.add(k1 >= 0)
 //
-// s.add(Or((k2 >= 2**129), (-k2 >= 2**129), (k1 >= 2**129)))
+// s.add(Or((k2 >= 2**129), (-k2 >= 2**129), (k1 >= 2**129), (k1 < 0)))
 // assert s.check() == unsat
 // ```
 global glv_decompose:
