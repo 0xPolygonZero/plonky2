@@ -1,3 +1,20 @@
+// wNAF expansion with w=5.
+// Stores the reversed expansion of the given scalar in memory at the given segment and offsets 0..130.
+// Should be called with scalars of bit length <= 129, which is the case when using GLV.
+// Pseudo-code:
+// def wnaf(n):
+//     ans = [0 for _ in range(130)]
+//     o = 0
+//     while n != 0:
+//         i = n.trailing_zero_bits()
+//         o += i
+//         n >>= i
+//         m = n & 31
+//         ans[o] = m
+//         if m > 16:
+//             ne += 32
+//         ne -= m
+//     return ans
 global wnaf:
     // stack: segment, n, retdest
     %secp_scalar DUP3 MOD ISZERO %jumpi(wnaf_zero_scalar)
@@ -34,6 +51,7 @@ wnaf_zero_scalar:
 
 
 
+// Number of trailing zeros computed with a simple loop and returning the scalar without its lsb zeros.
 trailing_zeros:
     // stack: x, retdest
     PUSH 0
