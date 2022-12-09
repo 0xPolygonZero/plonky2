@@ -117,17 +117,17 @@ miller_zero_final:
 ///     O += O
 
 mul_tangent:
-    // stack:                                         retdest, 0xnm, times, O, P, Q, out
-    PUSH mul_tangent_2  PUSH mul_tangent_1
-    // stack:           mul_tangent_1, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    DUP13  DUP1
-    // stack: out, out, mul_tangent_1, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
+    // stack:                                                   retdest, 0xnm, times, O, P, Q, out
+    PUSH mul_tangent_2  DUP12  PUSH mul_tangent_1
+    // stack:           mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
+    DUP2  DUP1
+    // stack: out, out, mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %jump(square_fp12)
 mul_tangent_1:
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    DUP12  DUP12  DUP12  DUP12
+    DUP13  DUP13  DUP13  DUP13
     // stack:        Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    DUP10  DUP10
+    DUP11  DUP11
     // stack:     O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %store_tangent
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
@@ -135,10 +135,10 @@ mul_tangent_1:
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     %jump(mul_fp12_sparse)
 mul_tangent_2:
-    // stack:             out, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    POP  PUSH after_double
+    // stack:                  retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    PUSH after_double
     // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    DUP5  DUP5
+    DUP6  DUP6
     // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     %jump(ec_double)
 after_double:
