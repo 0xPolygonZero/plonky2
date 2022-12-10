@@ -190,11 +190,8 @@ pub(crate) fn generate_jump<F: Field>(
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
+    // TODO: First check if it's a valid JUMPDEST
     state.registers.program_counter = u256_saturating_cast_usize(dst);
-    log::debug!(
-        "Jumping to {}",
-        KERNEL.offset_name(state.registers.program_counter)
-    );
     // TODO: Set other cols like input0_upper_sum_inv.
     Ok(())
 }
@@ -211,12 +208,8 @@ pub(crate) fn generate_jumpi<F: Field>(
     state.registers.program_counter = if cond.is_zero() {
         state.registers.program_counter + 1
     } else {
-        let dst_usize = u256_saturating_cast_usize(dst);
-        log::debug!(
-            "Jumping to {}",
-            KERNEL.offset_name(state.registers.program_counter)
-        );
-        dst_usize
+        // TODO: First check if it's a valid JUMPDEST
+        u256_saturating_cast_usize(dst)
     };
     // TODO: Set other cols like input0_upper_sum_inv.
     Ok(())
