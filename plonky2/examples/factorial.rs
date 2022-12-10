@@ -35,7 +35,7 @@ fn main() -> Result<()> {
     let proof = data.prove(pw)?;
 
     println!(
-        "Factorial starting at {} is {}!",
+        "Factorial starting at {} is {}",
         proof.public_inputs[0], proof.public_inputs[1]
     );
 
