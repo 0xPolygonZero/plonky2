@@ -108,7 +108,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
 fn eth_to_wei(eth: U256) -> U256 {
     // 1 ether = 10^18 wei.
-    eth * (U256::from(10u8) << 18)
+    eth * U256::from(10).pow(18.into())
 }
 
 fn init_logger() {
