@@ -4,6 +4,7 @@ use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
+use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
@@ -131,18 +132,32 @@ impl<T: Copy> Traces<T> {
 
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
-        let keccak_trace =
+        let keccak_trace = timed!(
+            timing,
+            "generate Keccak trace",
             all_stark
                 .keccak_stark
-                .generate_trace(keccak_inputs, cap_elements, timing);
-        let keccak_sponge_trace =
+                .generate_trace(keccak_inputs, cap_elements, timing)
+        );
+        let keccak_sponge_trace = timed!(
+            timing,
+            "generate Keccak sponge trace",
             all_stark
                 .keccak_sponge_stark
-                .generate_trace(keccak_sponge_ops, cap_elements, timing);
-        let logic_trace = all_stark
-            .logic_stark
-            .generate_trace(logic_ops, cap_elements, timing);
-        let memory_trace = all_stark.memory_stark.generate_trace(memory_ops, timing);
+                .generate_trace(keccak_sponge_ops, cap_elements, timing)
+        );
+        let logic_trace = timed!(
+            timing,
+            "generate logic trace",
+            all_stark
+                .logic_stark
+                .generate_trace(logic_ops, cap_elements, timing)
+        );
+        let memory_trace = timed!(
+            timing,
+            "generate memory trace",
+            all_stark.memory_stark.generate_trace(memory_ops, timing)
+        );
 
         [
             cpu_trace,
