@@ -64,8 +64,16 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     keccak_general: None, // TODO
     prover_input: None,   // TODO
     pop: None,            // TODO
-    jump: None,           // TODO
-    jumpi: None,          // TODO
+    jump: Some(StackBehavior {
+        num_pops: 1,
+        pushes: false,
+        disable_other_channels: false,
+    }),
+    jumpi: Some(StackBehavior {
+        num_pops: 2,
+        pushes: false,
+        disable_other_channels: false,
+    }),
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
@@ -79,7 +87,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     get_context: None, // TODO
     set_context: None, // TODO
     consume_gas: None, // TODO
-    exit_kernel: None, // TODO
+    exit_kernel: Some(StackBehavior {
+        num_pops: 1,
+        pushes: false,
+        disable_other_channels: true,
+    }),
     mload_general: Some(StackBehavior {
         num_pops: 3,
         pushes: true,
