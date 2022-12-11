@@ -67,9 +67,7 @@ global add_bignum:
     %decrement
     // stack: b_end_loc, b_len, a_end_loc, retdest
     SWAP1
-    // stack: b_len, b_end_loc, a_end_loc, retdest
-    %increment
-    // stack: n, b_end_loc, a_end_loc, retdest
+    // stack: n=b_len, b_end_loc, a_end_loc, retdest
     SWAP2
     // stack: a_end_loc, b_end_loc, n, retdest
     %stack () -> (0, 0)
@@ -89,6 +87,7 @@ add_loop:
     // stack: a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     %stack (val) -> (val, 256, 256, val)
     // stack: a[i] + b[i] + carry, 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
+    STOP
     DIV
     // stack: (a[i] + b[i] + carry) // 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     SWAP2
@@ -114,7 +113,7 @@ add_loop:
     DUP5
     DUP3
     // stack: i + 1, n, carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
-    GT
+    EQ
     %not_bool
     %jumpi(add_loop)
 add_end:
@@ -127,7 +126,6 @@ add_end:
 increment_loop:
     // stack: cur_loc, retdest
     DUP1
-    STOP
     %mload_kernel_general
     // stack: val, cur_loc, retdest
     %increment
@@ -194,9 +192,7 @@ global sub_bignum:
     %decrement
     // stack: b_end_loc, b_len, a_end_loc, retdest
     SWAP1
-    // stack: b_len, b_end_loc, a_end_loc, retdest
-    %increment
-    // stack: n, b_end_loc, a_end_loc, retdest
+    // stack: n=b_len, b_end_loc, a_end_loc, retdest
     SWAP2
     // stack: a_end_loc, b_end_loc, n, retdest
     %stack () -> (0, 0)
@@ -232,7 +228,7 @@ sub_loop:
     DUP5
     DUP3
     // stack: i + 1, n, borrow_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
-    GT
+    EQ
     NOT
     %jumpi(sub_loop)
 sub_end:
@@ -246,7 +242,6 @@ decrement_loop:
     // If borrow = 1, we need to subtract 1 from the prior limb of a.
     // stack: cur_loc, retdest
     DUP1
-    STOP
     %mload_kernel_general
     // stack: val, cur_loc, retdest
     %decrement
@@ -260,13 +255,14 @@ decrement_loop:
     // stack: cur_loc - 1, val-1, retdest
     SWAP1
     // stack: val-1, cur_loc - 1, retdest
-    %eq_const(-1)
+    %increment
+    %eq_const(0)
     NOT
     %jumpi(decrement_end)
     // stack: cur_loc - 1, retdest
     PUSH 255
     DUP2
-    // stack: cur_loc - 1, 255, cur_loc - 1, retdest
+    // stack: cur_loc - 1, 0, cur_loc - 1, retdest
     %mstore_kernel_general
     %jump(decrement_loop)
 decrement_end:
