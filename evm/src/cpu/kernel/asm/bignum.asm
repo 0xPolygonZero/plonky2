@@ -87,14 +87,13 @@ add_loop:
     // stack: a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     %stack (val) -> (val, 256, 256, val)
     // stack: a[i] + b[i] + carry, 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
-    STOP
     DIV
     // stack: (a[i] + b[i] + carry) // 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     SWAP2
     // stack: a[i] + b[i] + carry, 256, (a[i] + b[i] + carry) // 256, i, a_i_loc, b_i_loc, n, retdest
     MOD
     // stack: c[i] = (a[i] + b[i] + carry) % 256, carry_new = (a[i] + b[i] + carry) // 256, i, a_i_loc, b_i_loc, n, retdest
-    DUP3
+    DUP4
     // stack: a_i_loc, c[i], carry_new, i, a_i_loc, b_i_loc, n, retdest
     %mstore_kernel_general
     // stack: carry_new, i, a_i_loc, b_i_loc, n, retdest
@@ -117,6 +116,7 @@ add_loop:
     %not_bool
     %jumpi(add_loop)
 add_end:
+    STOP
     // stack: carry_new, i + 1, a_i_loc - 1, b_i_loc - 1, n, retdest
     %stack (c, i, a, b, n) -> (c, a)
     // stack: carry_new, a_i_loc - 1, retdest

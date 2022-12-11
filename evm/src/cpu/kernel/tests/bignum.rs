@@ -4,7 +4,6 @@ use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::exp;
 
 fn to_be_limbs(x: U256) -> Vec<u8> {
     let mut cur = x;
@@ -21,7 +20,7 @@ fn to_be_limbs(x: U256) -> Vec<u8> {
 
 fn gen_u256_limbs<R: Rng>(rng: &mut R, num_bits: usize) -> [u64; 4] {
     let remaining = num_bits % 64;
-    let top_limb: u64 = rng.gen_range(0..(1<<remaining));
+    let top_limb: u64 = rng.gen_range(0..(1 << remaining));
     if num_bits < 64 {
         [top_limb, 0, 0, 0]
     } else if num_bits < 128 {
@@ -55,15 +54,13 @@ fn gen_range_u256(max: U256) -> U256 {
 fn test_add_bignum() -> Result<()> {
     let max = U256([0, 0, 0, 1u64 << 6]);
     let a: U256 = gen_range_u256(max);
-    let b: U256 = gen_range_u256(max);
+    let b: U256 = gen_range_u256(a - 1);
     let sum = a + b;
-    
+
     let a_limbs = to_be_limbs(a);
     let b_limbs = to_be_limbs(b);
 
-    let mut expected_sum = to_be_limbs(sum);
-
-    dbg!(a, b, sum, a_limbs.clone(), b_limbs.clone(), expected_sum.clone());
+    let expected_sum = to_be_limbs(sum);
 
     let a_len = a_limbs.len().into();
     let b_len = b_limbs.len().into();
@@ -81,11 +78,8 @@ fn test_add_bignum() -> Result<()> {
 
     interpreter.run()?;
 
-    dbg!(interpreter.stack());
-
     let new_memory = interpreter.get_kernel_general_memory();
     let actual_sum: Vec<u8> = new_memory[..expected_sum.len()].into();
-    dbg!(actual_sum.clone(), expected_sum.clone());
     assert_eq!(actual_sum, expected_sum);
 
     Ok(())
