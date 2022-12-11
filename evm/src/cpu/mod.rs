@@ -9,6 +9,7 @@ pub mod kernel;
 pub(crate) mod membus;
 mod memio;
 mod modfp254;
+mod pc;
 mod shift;
 pub(crate) mod simple_logic;
 mod stack;

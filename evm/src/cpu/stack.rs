@@ -66,7 +66,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     pop: None,            // TODO
     jump: None,           // TODO
     jumpi: None,          // TODO
-    pc: None,             // TODO
+    pc: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
     gas: None,            // TODO
     jumpdest: None,       // TODO
     push: None,           // TODO
