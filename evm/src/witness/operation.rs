@@ -215,6 +215,16 @@ pub(crate) fn generate_jumpi<F: Field>(
     Ok(())
 }
 
+pub(crate) fn generate_pc<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let write = stack_push_log_and_fill(state, &mut row, state.registers.program_counter.into())?;
+    state.traces.push_memory(write);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
 pub(crate) fn generate_jumpdest<F: Field>(
     state: &mut GenerationState<F>,
     row: CpuColumnsView<F>,
