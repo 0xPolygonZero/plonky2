@@ -144,11 +144,3 @@ pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
     U256::from_little_endian(&bytes)
 }
-
-pub(crate) fn u256_saturating_cast_usize(x: U256) -> usize {
-    if x > usize::MAX.into() {
-        usize::MAX
-    } else {
-        x.as_usize()
-    }
-}
