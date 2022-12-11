@@ -71,9 +71,9 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: true,
         disable_other_channels: true,
     }),
-    gas: None,            // TODO
-    jumpdest: None,       // TODO
-    push: None,           // TODO
+    gas: None,      // TODO
+    jumpdest: None, // TODO
+    push: None,     // TODO
     dup: None,
     swap: None,
     get_context: None, // TODO

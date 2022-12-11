@@ -11,8 +11,8 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, memio, modfp254, shift,
-    simple_logic, stack, stack_bounds, syscalls, pc,
+    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, memio, modfp254, pc, shift,
+    simple_logic, stack, stack_bounds, syscalls,
 };
 use crate::cross_table_lookup::Column;
 use crate::memory::segments::Segment;

@@ -1,11 +1,11 @@
 use plonky2::field::extension::Extendable;
-use plonky2::field::packed::PackedField;use plonky2::hash::hash_types::RichField;
+use plonky2::field::packed::PackedField;
+use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
