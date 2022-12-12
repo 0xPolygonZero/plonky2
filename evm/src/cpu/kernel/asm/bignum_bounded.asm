@@ -31,7 +31,6 @@ ge_loop:
     %mload_kernel_general
     SWAP1
     // stack: a[i], b[i], i, a_i_loc, b_i_loc, retdest
-    STOP
     %stack (vals: 2) -> (vals, vals)
     GT
     %jumpi(greater)
