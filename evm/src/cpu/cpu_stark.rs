@@ -11,8 +11,8 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, control_flow, decode, dup_swap, jumps, membus, modfp254, shift, simple_logic,
-    stack, stack_bounds, syscalls,
+    bootstrap_kernel, contextops, control_flow, decode, dup_swap, jumps, membus, memio, modfp254,
+    pc, shift, simple_logic, stack, stack_bounds, syscalls,
 };
 use crate::cross_table_lookup::Column;
 use crate::memory::segments::Segment;
@@ -141,15 +141,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
         let mut dummy_yield_constr = ConstraintConsumer::new(vec![], P::ZEROS, P::ZEROS, P::ZEROS);
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
+        contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
-        decode::eval_packed_generic(local_values, yield_constr);
+        decode::eval_packed_generic(local_values, &mut dummy_yield_constr);
         dup_swap::eval_packed(local_values, yield_constr);
-        jumps::eval_packed(local_values, next_values, &mut dummy_yield_constr);
+        jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
+        memio::eval_packed(local_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
+        pc::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, yield_constr);
+        stack::eval_packed(local_values, &mut dummy_yield_constr);
         stack_bounds::eval_packed(local_values, &mut dummy_yield_constr);
         syscalls::eval_packed(local_values, next_values, yield_constr);
     }
@@ -167,15 +170,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let mut dummy_yield_constr =
             RecursiveConstraintConsumer::new(zero, vec![], zero, zero, zero);
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
+        contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        decode::eval_ext_circuit(builder, local_values, yield_constr);
+        decode::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
-        jumps::eval_ext_circuit(builder, local_values, next_values, &mut dummy_yield_constr);
+        jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
+        memio::eval_ext_circuit(builder, local_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
+        pc::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
         syscalls::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }

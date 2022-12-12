@@ -5,11 +5,11 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::util::u256_saturating_cast_usize;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{
@@ -20,9 +20,6 @@ use crate::{arithmetic, logic};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Operation {
-    Push(u8),
-    Dup(u8),
-    Swap(u8),
     Iszero,
     Not,
     Byte,
@@ -39,6 +36,9 @@ pub(crate) enum Operation {
     Pc,
     Gas,
     Jumpdest,
+    Push(u8),
+    Dup(u8),
+    Swap(u8),
     GetContext,
     SetContext,
     ConsumeGas,
@@ -186,11 +186,37 @@ pub(crate) fn generate_jump<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let [(dst, log_in0)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
+    let dst: u32 = dst
+        .try_into()
+        .map_err(|_| ProgramError::InvalidJumpDestination)?;
+
+    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
+        NUM_GP_CHANNELS - 1,
+        MemoryAddress::new(state.registers.context, Segment::JumpdestBits, dst as usize),
+        state,
+        &mut row,
+    );
+    if state.registers.is_kernel {
+        // Don't actually do the read, just set the address, etc.
+        let mut channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
+        channel.used = F::ZERO;
+        channel.value[0] = F::ONE;
+
+        row.mem_channels[1].value[0] = F::ONE;
+    } else {
+        if jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpDestination);
+        }
+        state.traces.push_memory(jumpdest_bit_log);
+    }
+
+    // Extra fields required by the constraints.
+    row.general.jumps_mut().should_jump = F::ONE;
+    row.general.jumps_mut().cond_sum_pinv = F::ONE;
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
-    state.registers.program_counter = u256_saturating_cast_usize(dst);
-    // TODO: Set other cols like input0_upper_sum_inv.
+    state.registers.program_counter = dst as usize;
     Ok(())
 }
 
@@ -200,15 +226,92 @@ pub(crate) fn generate_jumpi<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(dst, log_in0), (cond, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
 
+    let should_jump = !cond.is_zero();
+    if should_jump {
+        row.general.jumps_mut().should_jump = F::ONE;
+        let cond_sum_u64 = cond
+            .0
+            .into_iter()
+            .map(|limb| ((limb as u32) as u64) + (limb >> 32))
+            .sum();
+        let cond_sum = F::from_canonical_u64(cond_sum_u64);
+        row.general.jumps_mut().cond_sum_pinv = cond_sum.inverse();
+
+        let dst: u32 = dst
+            .try_into()
+            .map_err(|_| ProgramError::InvalidJumpiDestination)?;
+        state.registers.program_counter = dst as usize;
+    } else {
+        row.general.jumps_mut().should_jump = F::ZERO;
+        row.general.jumps_mut().cond_sum_pinv = F::ZERO;
+        state.registers.program_counter += 1;
+    }
+
+    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
+        NUM_GP_CHANNELS - 1,
+        MemoryAddress::new(
+            state.registers.context,
+            Segment::JumpdestBits,
+            dst.low_u32() as usize,
+        ),
+        state,
+        &mut row,
+    );
+    if !should_jump || state.registers.is_kernel {
+        // Don't actually do the read, just set the address, etc.
+        let mut channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
+        channel.used = F::ZERO;
+        channel.value[0] = F::ONE;
+    } else {
+        if jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpiDestination);
+        }
+        state.traces.push_memory(jumpdest_bit_log);
+    }
+
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
-    state.registers.program_counter = if cond.is_zero() {
-        state.registers.program_counter + 1
-    } else {
-        u256_saturating_cast_usize(dst)
-    };
-    // TODO: Set other cols like input0_upper_sum_inv.
+    Ok(())
+}
+
+pub(crate) fn generate_pc<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let write = stack_push_log_and_fill(state, &mut row, state.registers.program_counter.into())?;
+    state.traces.push_memory(write);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_jumpdest<F: Field>(
+    state: &mut GenerationState<F>,
+    row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_get_context<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let ctx = state.registers.context.into();
+    let write = stack_push_log_and_fill(state, &mut row, ctx)?;
+    state.traces.push_memory(write);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_set_context<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(ctx, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
+    state.registers.context = ctx.as_usize();
+    state.traces.push_memory(log_in);
+    state.traces.push_cpu(row);
     Ok(())
 }
 
@@ -386,7 +489,9 @@ pub(crate) fn generate_syscall<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
-    let handler_addr_addr = handler_jumptable_addr + (opcode as usize);
+    let handler_addr_addr =
+        handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
+    assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
     let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
         0,
         MemoryAddress::new(0, Segment::Code, handler_addr_addr),
@@ -409,11 +514,12 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr.as_usize();
 
-    let syscall_info = U256::from(state.registers.program_counter)
+    let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32);
     let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
     state.registers.program_counter = new_program_counter;
+    log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
     state.registers.is_kernel = true;
 
     state.traces.push_memory(log_in0);
@@ -448,14 +554,19 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let [(kexit_info, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let kexit_info_u64: [u64; 4] = kexit_info.0;
-    let program_counter = kexit_info_u64[0] as usize;
-    let is_kernel_mode_val = (kexit_info_u64[1] >> 32) as u32;
+    let kexit_info_u64 = kexit_info.0[0];
+    let program_counter = kexit_info_u64 as u32 as usize;
+    let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
 
     state.registers.program_counter = program_counter;
     state.registers.is_kernel = is_kernel_mode;
+    log::debug!(
+        "Exiting to {}, is_kernel={}",
+        KERNEL.offset_name(program_counter),
+        is_kernel_mode
+    );
 
     state.traces.push_memory(log_in);
     state.traces.push_cpu(row);
@@ -470,14 +581,19 @@ pub(crate) fn generate_mload_general<F: Field>(
     let [(context, log_in0), (segment, log_in1), (virt, log_in2)] =
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
 
-    let val = state
-        .memory
-        .get(MemoryAddress::new_u256s(context, segment, virt));
+    let (val, log_read) = mem_read_gp_with_log_and_fill(
+        3,
+        MemoryAddress::new_u256s(context, segment, virt),
+        state,
+        &mut row,
+    );
+
     let log_out = stack_push_log_and_fill(state, &mut row, val)?;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_read);
     state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())

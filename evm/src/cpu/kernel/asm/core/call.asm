@@ -45,7 +45,9 @@ global delegate_call:
         -> (0, 0, value, sender, self, address, gas)
     %jump(call_common)
 
-call_common:
+// Pre stack: static, should_transfer_value, value, sender, address, code_addr, gas, args_offset, args_size, ret_offset, ret_size, retdest
+// Post stack: success, leftover_gas
+global call_common:
     // stack: static, should_transfer_value, value, sender, address, code_addr, gas, args_offset, args_size, ret_offset, ret_size, retdest
     %create_context
     // Store the static flag in metadata.
@@ -108,3 +110,4 @@ after_call:
     // stack: new_ctx, ret_offset, ret_size, retdest
     // TODO: Set RETURNDATA.
     // TODO: Return to caller w/ EXIT_KERNEL.
+    // TODO: Return leftover gas

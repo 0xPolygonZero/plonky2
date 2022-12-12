@@ -11,7 +11,6 @@ pub enum MemoryChannel {
 use MemoryChannel::{Code, GeneralPurpose};
 
 use crate::memory::segments::Segment;
-use crate::util::u256_saturating_cast_usize;
 
 impl MemoryChannel {
     pub fn index(&self) -> usize {
@@ -42,10 +41,17 @@ impl MemoryAddress {
     }
 
     pub(crate) fn new_u256s(context: U256, segment: U256, virt: U256) -> Self {
+        assert!(context.bits() <= 32, "context too large: {}", context);
+        assert!(
+            segment < Segment::COUNT.into(),
+            "segment too large: {}",
+            segment
+        );
+        assert!(virt.bits() <= 32, "virt too large: {}", virt);
         Self {
-            context: u256_saturating_cast_usize(context),
-            segment: u256_saturating_cast_usize(segment),
-            virt: u256_saturating_cast_usize(virt),
+            context: context.as_usize(),
+            segment: segment.as_usize(),
+            virt: virt.as_usize(),
         }
     }
 
@@ -87,6 +93,25 @@ impl MemoryOp {
             value,
         }
     }
+
+    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize) -> Self {
+        Self {
+            filter: false,
+            timestamp,
+            address,
+            kind: MemoryOpKind::Read,
+            value: U256::zero(),
+        }
+    }
+
+    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
+        (
+            self.address.context,
+            self.address.segment,
+            self.address.virt,
+            self.timestamp,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -117,10 +142,27 @@ impl MemoryState {
     }
 
     pub fn get(&self, address: MemoryAddress) -> U256 {
-        self.contexts[address.context].segments[address.segment].get(address.virt)
+        let segment = Segment::all()[address.segment];
+        let val = self.contexts[address.context].segments[address.segment].get(address.virt);
+        assert!(
+            val.bits() <= segment.bit_range(),
+            "Value {} exceeds {:?} range of {} bits",
+            val,
+            segment,
+            segment.bit_range()
+        );
+        val
     }
 
     pub fn set(&mut self, address: MemoryAddress, val: U256) {
+        let segment = Segment::all()[address.segment];
+        assert!(
+            val.bits() <= segment.bit_range(),
+            "Value {} exceeds {:?} range of {} bits",
+            val,
+            segment,
+            segment.bit_range()
+        );
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 }

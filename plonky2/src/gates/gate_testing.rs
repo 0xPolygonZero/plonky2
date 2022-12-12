@@ -8,7 +8,7 @@ use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::iop::witness::{PartialWitness, Witness};
+use crate::iop::witness::{PartialWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::GenericConfig;

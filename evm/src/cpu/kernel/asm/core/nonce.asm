@@ -5,6 +5,7 @@
 global get_nonce:
     // stack: address, retdest
     // TODO: Replace with actual implementation.
+    POP
     JUMP
 
 // Convenience macro to call get_nonce and return where we left off.

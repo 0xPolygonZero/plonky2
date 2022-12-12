@@ -8,7 +8,20 @@ global encode_rlp_scalar:
     %gt_const(0x7f)
     %jumpi(encode_rlp_scalar_medium)
 
-    // This is the "small" case, where the value is its own encoding.
+    // Else, if scalar != 0, this is the "small" case, where the value is its own encoding.
+    DUP2 %jumpi(encode_rlp_scalar_small)
+
+    // scalar = 0, so BE(scalar) is the empty string, which RLP encodes as a single byte 0x80.
+    // stack: pos, scalar, retdest
+    %stack (pos, scalar) -> (pos, 0x80, pos)
+    %mstore_rlp
+    // stack: pos, retdest
+    %increment
+    // stack: pos', retdest
+    SWAP1
+    JUMP
+
+encode_rlp_scalar_small:
     // stack: pos, scalar, retdest
     %stack (pos, scalar) -> (pos, scalar, pos)
     // stack: pos, scalar, pos, retdest
@@ -127,14 +140,8 @@ encode_rlp_multi_byte_string_prefix_large:
     // stack: pos, len_of_len, str_len, retdest
     %increment
     // stack: pos', len_of_len, str_len, retdest
-    %stack (pos, len_of_len, str_len)
-        -> (pos, str_len, len_of_len,
-            encode_rlp_multi_byte_string_prefix_large_done_writing_len)
+    %stack (pos, len_of_len, str_len) -> (pos, str_len, len_of_len)
     %jump(mstore_unpacking_rlp)
-encode_rlp_multi_byte_string_prefix_large_done_writing_len:
-    // stack: pos'', retdest
-    SWAP1
-    JUMP
 
 %macro encode_rlp_multi_byte_string_prefix
     %stack (pos, str_len) -> (pos, str_len, %%after)

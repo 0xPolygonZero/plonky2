@@ -16,6 +16,17 @@ pub struct AccountRlp {
     pub code_hash: H256,
 }
 
+impl Default for AccountRlp {
+    fn default() -> Self {
+        Self {
+            nonce: U256::zero(),
+            balance: U256::zero(),
+            storage_root: PartialTrie::Empty.calc_hash(),
+            code_hash: keccak([]),
+        }
+    }
+}
+
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut inputs = all_mpt_prover_inputs(trie_inputs);
     inputs.reverse();

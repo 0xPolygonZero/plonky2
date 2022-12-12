@@ -46,6 +46,7 @@ jobs:
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Cprefer-dynamic=y
           CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
 
   lints:
     name: Formatting and Clippy

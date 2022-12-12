@@ -8,7 +8,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::wire::Wire;
-use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::plonk::vars::{

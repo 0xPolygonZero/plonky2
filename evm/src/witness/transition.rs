@@ -113,6 +113,10 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xa2, _) => Ok(Operation::Syscall(opcode)),
         (0xa3, _) => Ok(Operation::Syscall(opcode)),
         (0xa4, _) => Ok(Operation::Syscall(opcode)),
+        (0xa5, _) => panic!(
+            "Kernel panic at {}",
+            KERNEL.offset_name(registers.program_counter)
+        ),
         (0xf0, _) => Ok(Operation::Syscall(opcode)),
         (0xf1, _) => Ok(Operation::Syscall(opcode)),
         (0xf2, _) => Ok(Operation::Syscall(opcode)),
@@ -128,7 +132,10 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xfc, true) => Ok(Operation::MstoreGeneral),
         (0xfd, _) => Ok(Operation::Syscall(opcode)),
         (0xff, _) => Ok(Operation::Syscall(opcode)),
-        _ => Err(ProgramError::InvalidOpcode),
+        _ => {
+            log::warn!("Invalid opcode: {}", opcode);
+            Err(ProgramError::InvalidOpcode)
+        }
     }
 }
 
@@ -201,11 +208,11 @@ fn perform_op<F: Field>(
         Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
         Operation::Jumpi => generate_jumpi(state, row)?,
-        Operation::Pc => todo!(),
+        Operation::Pc => generate_pc(state, row)?,
         Operation::Gas => todo!(),
-        Operation::Jumpdest => todo!(),
-        Operation::GetContext => todo!(),
-        Operation::SetContext => todo!(),
+        Operation::Jumpdest => generate_jumpdest(state, row)?,
+        Operation::GetContext => generate_get_context(state, row)?,
+        Operation::SetContext => generate_set_context(state, row)?,
         Operation::ConsumeGas => todo!(),
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
@@ -218,12 +225,6 @@ fn perform_op<F: Field>(
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
-
-    if let Some(label) = KERNEL.offset_label(state.registers.program_counter) {
-        if !label.starts_with("halt_pc") {
-            log::debug!("At {label}");
-        }
-    }
 
     Ok(())
 }
@@ -239,19 +240,39 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     let opcode = read_code_memory(state, &mut row);
     let op = decode(state.registers, opcode)?;
-    let pc = state.registers.program_counter;
 
-    log::trace!("\nCycle {}", state.traces.clock());
-    log::trace!(
-        "Stack: {:?}",
+    log_instruction(state, op);
+
+    fill_op_flag(op, &mut row);
+
+    perform_op(state, op, row)
+}
+
+fn log_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+    let pc = state.registers.program_counter;
+    let is_interesting_offset = KERNEL
+        .offset_label(pc)
+        .filter(|label| !label.starts_with("halt_pc"))
+        .is_some();
+    let level = if is_interesting_offset {
+        log::Level::Debug
+    } else {
+        log::Level::Trace
+    };
+    log::log!(
+        level,
+        "Cycle {}, pc={}, instruction={:?}, stack={:?}",
+        state.traces.clock(),
+        KERNEL.offset_name(pc),
+        op,
         (0..state.registers.stack_len)
             .map(|i| stack_peek(state, i).unwrap())
             .collect_vec()
     );
-    log::trace!("Executing {:?} at {}", op, KERNEL.offset_name(pc));
-    fill_op_flag(op, &mut row);
 
-    perform_op(state, op, row)
+    if state.registers.is_kernel && pc >= KERNEL.code.len() {
+        panic!("Kernel PC is out of range: {}", pc);
+    }
 }
 
 fn handle_error<F: Field>(_state: &mut GenerationState<F>) {
@@ -270,7 +291,8 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
         }
         Err(e) => {
             if state.registers.is_kernel {
-                panic!("exception in kernel mode: {:?}", e);
+                let offset_name = KERNEL.offset_name(state.registers.program_counter);
+                panic!("exception in kernel mode at {}: {:?}", offset_name, e);
             }
             state.rollback(checkpoint);
             handle_error(state)
