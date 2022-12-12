@@ -279,7 +279,9 @@ fn generate_modular_op<F: RichField>(
     }
 
     for (i, &c) in MODULAR_AUX_INPUT.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
-        nv[i] = F::from_noncanonical_i64(c);
+        // we store the unsigned offset value c + 2^20.
+        assert!(AUX_COEFF_ABS_MAX + c >= 0 && c <= AUX_COEFF_ABS_MAX);
+        nv[i] = F::from_canonical_u64((c + AUX_COEFF_ABS_MAX) as u64);
     }
 
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
@@ -394,7 +396,9 @@ fn modular_constr_poly<P: PackedField>(
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
     let mut aux = [P::ZEROS; 2 * N_LIMBS];
     for (i, j) in MODULAR_AUX_INPUT.enumerate() {
-        aux[i] = nv[j];
+        // MODULAR_AUX_INPUT elements were offset by 2^20 in
+        // generation, so we undo that here.
+        aux[i] = nv[j] - P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
     }
 
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
@@ -518,8 +522,10 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 
     let zero = builder.zero_extension();
     let mut aux = [zero; 2 * N_LIMBS];
+    let coeff_abs_max =
+        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
     for (i, j) in MODULAR_AUX_INPUT.enumerate() {
-        aux[i] = nv[j];
+        aux[i] = builder.sub_extension(nv[j], coeff_abs_max);
     }
 
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));

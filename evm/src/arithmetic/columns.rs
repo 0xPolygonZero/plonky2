@@ -68,6 +68,11 @@ const AUX_INPUT_1: Range<usize> = AUX_INPUT_0_HI.end..AUX_INPUT_0_HI.end + 2 * N
 // half after the auxiliary input columns.
 const AUX_INPUT_2: Range<usize> = AUX_INPUT_1.end..AUX_INPUT_1.end + N_LIMBS;
 
+// Each element c of {MUL,MODULAR}_AUX_INPUT is -2^20 <= c <= 2^20;
+// this value is used as an offset so that everything is positive in
+// the range checks.
+pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
+
 // ADD takes 3 * N_LIMBS = 48 columns
 pub(crate) const ADD_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const ADD_INPUT_1: Range<usize> = GENERAL_INPUT_1;

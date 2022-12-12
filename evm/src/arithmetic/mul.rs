@@ -96,7 +96,11 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
     aux_limbs[N_LIMBS - 1] = -cy;
 
-    lv[MUL_AUX_INPUT].copy_from_slice(&aux_limbs.map(|c| F::from_noncanonical_i64(c)));
+    for (i, &c) in MUL_AUX_INPUT.zip(&aux_limbs) {
+        // we store the unsigned offset value c + 2^20
+        assert!(AUX_COEFF_ABS_MAX + c >= 0 && c <= AUX_COEFF_ABS_MAX);
+        lv[i] = F::from_canonical_u64((c + AUX_COEFF_ABS_MAX) as u64);
+    }
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -112,7 +116,10 @@ pub fn eval_packed_generic<P: PackedField>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
+    // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
+    // that here
+    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT)
+        .map(|c| c - P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -154,7 +161,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
+    let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
+    let coeff_abs_max =
+        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
+    for c in aux_limbs.iter_mut() {
+        *c = builder.sub_extension(*c, coeff_abs_max);
+    }
 
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
