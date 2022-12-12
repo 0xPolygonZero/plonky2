@@ -41,7 +41,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::types::Sample;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -54,7 +54,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::standard_recursion_config();
-        let mut pw = PartialWitness::new();
+        let mut pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());

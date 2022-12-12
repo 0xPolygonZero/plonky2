@@ -191,7 +191,7 @@ mod tests {
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gates::noop::NoopGate;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
     use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};

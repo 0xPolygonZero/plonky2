@@ -9,7 +9,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::generator::{GeneratedValues, WitnessGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::wire::Wire;
-use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::vars::{
