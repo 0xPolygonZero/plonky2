@@ -19,7 +19,11 @@ pub(crate) mod txn_fields;
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
-    let hex_constants = EC_CONSTANTS.iter().chain(HASH_CONSTANTS.iter()).cloned();
+    let hex_constants = MISC_CONSTANTS
+        .iter()
+        .chain(EC_CONSTANTS.iter())
+        .chain(HASH_CONSTANTS.iter()).
+        cloned();
     for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
@@ -49,6 +53,14 @@ pub fn evm_constants() -> HashMap<String, U256> {
     );
     c
 }
+
+const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
+    // Base for 
+    (
+        "BIGNUM_LIMB_BASE",
+        hex!("0000000000000000000000000000000100000000000000000000000000000000"),
+    ),
+];
 
 const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     // Hash of an empty string: keccak(b'').hex()
