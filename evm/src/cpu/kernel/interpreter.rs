@@ -191,7 +191,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
-        self.generation_state.memory.contexts[0].segments[Segment::RlpRaw as usize].content =
+        self.generation_state.memory.contexts[0].segments[segment as usize].content =
             memory;
     }
 
