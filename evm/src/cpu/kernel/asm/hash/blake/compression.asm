@@ -1,14 +1,14 @@
 %macro blake_initial_state
-    %blake_iv(7)
-    %blake_iv(6)
-    %blake_iv(5)
-    %blake_iv(4)
-    %blake_iv(3)
-    %blake_iv(2)
-    %blake_iv(1)
+    %blake_iv_i(7)
+    %blake_iv_i(6)
+    %blake_iv_i(5)
+    %blake_iv_i(4)
+    %blake_iv_i(3)
+    %blake_iv_i(2)
+    %blake_iv_i(1)
     // stack: IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
     PUSH 0x01010040 // params: key = 00, digest_size = 64 = 0x40
-    %blake_iv(0)
+    %blake_iv_i(0)
     XOR
     // stack: IV_0 ^ params, IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
 %endmacro
@@ -19,7 +19,8 @@
     %mload_kernel_general
     // stack: num_blocks
     %mul_const(128)
-    // stack: num_bytes
+    %increment
+    // stack: num_bytes+1
 %endmacro
 
 %macro blake_message_addr
@@ -30,7 +31,7 @@
 global blake_compression:
     %blake_initial_state
     // stack: t_0, t_1, h_0, h_1, h_2, h_3, h_4, h_5, h_6, h_7
-    %stack: () -> (0, 0, 0)
+    %stack () -> (0, 0, 0)
     // stack: cur_block = 0, t_0 = 0, t_1 = 0, h_0, h_1, h_2, h_3, h_4, h_5, h_6, h_7
 
 

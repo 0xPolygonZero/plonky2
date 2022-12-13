@@ -1,4 +1,4 @@
-permutation_1_constants:
+global permutation_1_constants:
     BYTES 14
     BYTES 10
     BYTES 4
@@ -16,7 +16,7 @@ permutation_1_constants:
     BYTES 5
     BYTES 3
 
-permutation_2_constants:
+global permutation_2_constants:
     BYTES 11
     BYTES 8
     BYTES 12
@@ -34,7 +34,7 @@ permutation_2_constants:
     BYTES 9
     BYTES 4
 
-permutation_3_constants:
+global permutation_3_constants:
     BYTES 7
     BYTES 9
     BYTES 3
@@ -52,7 +52,7 @@ permutation_3_constants:
     BYTES 15
     BYTES 8
 
-permutation_4_constants:
+global permutation_4_constants:
     BYTES 9
     BYTES 0
     BYTES 5
@@ -70,7 +70,7 @@ permutation_4_constants:
     BYTES 3
     BYTES 13
 
-permutation_5_constants:
+global permutation_5_constants:
     BYTES 2
     BYTES 12
     BYTES 6
@@ -88,7 +88,7 @@ permutation_5_constants:
     BYTES 1
     BYTES 9
 
-permutation_6_constants:
+global permutation_6_constants:
     BYTES 12
     BYTES 5
     BYTES 1
@@ -106,7 +106,7 @@ permutation_6_constants:
     BYTES 8
     BYTES 11
 
-permutation_7_constants:
+global permutation_7_constants:
     BYTES 13
     BYTES 11
     BYTES 7
@@ -124,7 +124,7 @@ permutation_7_constants:
     BYTES 2
     BYTES 10
 
-permutation_8_constants:
+global permutation_8_constants:
     BYTES 6
     BYTES 15
     BYTES 14
@@ -142,7 +142,7 @@ permutation_8_constants:
     BYTES 10
     BYTES 5
 
-permutation_9_constants:
+global permutation_9_constants:
     BYTES 10
     BYTES 2
     BYTES 8

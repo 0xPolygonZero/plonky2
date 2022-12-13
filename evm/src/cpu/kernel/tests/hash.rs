@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use blake::{hash as blake_hash};
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};
@@ -21,6 +22,13 @@ fn ripemd(input: Vec<u8>) -> U256 {
     let mut hasher = Ripemd160::new();
     hasher.update(input);
     U256::from(&hasher.finalize()[..])
+}
+
+/// Standard Blake implementation.
+fn blake(input: Vec<u8>) -> U256 {
+    let mut result = [0; 32];
+    blake_hash(256, &input, &mut result).unwrap();
+    U256::from(result)
 }
 
 fn make_random_input() -> Vec<u8> {
@@ -87,4 +95,9 @@ fn test_sha2() -> Result<()> {
 #[test]
 fn test_ripemd() -> Result<()> {
     test_hash("ripemd_stack", &ripemd)
+}
+
+#[test]
+fn test_blake() -> Result<()> {
+    test_hash("blake", &blake)
 }
