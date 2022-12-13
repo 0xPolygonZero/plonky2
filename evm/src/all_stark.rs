@@ -76,6 +76,18 @@ pub enum Table {
 
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
+impl Table {
+    pub(crate) fn all() -> [Self; NUM_TABLES] {
+        [
+            Self::Cpu,
+            Self::Keccak,
+            Self::KeccakSponge,
+            Self::Logic,
+            Self::Memory,
+        ]
+    }
+}
+
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     let mut ctls = vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_sponge()];
     // TODO: Some CTLs temporarily disabled while we get them working.

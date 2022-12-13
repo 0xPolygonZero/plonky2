@@ -15,7 +15,7 @@ use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
-use crate::witness::memory::{MemoryContextState, MemorySegmentState, MemoryState};
+use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
 use crate::witness::util::stack_peek;
 
 type F = GoldilocksField;
@@ -25,22 +25,11 @@ const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 impl MemoryState {
     pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
-        let value = self.contexts[context].segments[segment as usize].get(offset);
-        assert!(
-            value.bits() <= segment.bit_range(),
-            "Value read from memory exceeds expected range of {:?} segment",
-            segment
-        );
-        value
+        self.get(MemoryAddress::new(context, segment, offset))
     }
 
     fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
-        assert!(
-            value.bits() <= segment.bit_range(),
-            "Value written to memory exceeds expected range of {:?} segment",
-            segment
-        );
-        self.contexts[context].segments[segment as usize].set(offset, value)
+        self.set(MemoryAddress::new(context, segment, offset), value);
     }
 }
 
@@ -736,13 +725,6 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        assert!(
-            value.bits() <= segment.bit_range(),
-            "Value {} exceeds {:?} range of {} bits",
-            value,
-            segment,
-            segment.bit_range()
-        );
         self.generation_state
             .memory
             .mstore_general(context, segment, offset, value);

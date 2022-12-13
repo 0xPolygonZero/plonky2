@@ -208,7 +208,7 @@ fn perform_op<F: Field>(
         Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
         Operation::Jumpi => generate_jumpi(state, row)?,
-        Operation::Pc => todo!(),
+        Operation::Pc => generate_pc(state, row)?,
         Operation::Gas => todo!(),
         Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,

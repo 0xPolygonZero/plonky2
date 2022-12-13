@@ -40,7 +40,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
@@ -247,7 +247,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
     /// WARNING: Do not register any public input after calling this! TODO: relax this
-    pub fn add_verifier_data_public_inputs(&mut self) {
+    pub fn add_verifier_data_public_inputs(&mut self) -> VerifierCircuitTarget {
         assert!(
             self.verifier_data_public_input.is_none(),
             "add_verifier_data_public_inputs only needs to be called once"
@@ -263,7 +263,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
         }
 
-        self.verifier_data_public_input = Some(verifier_data);
+        self.verifier_data_public_input = Some(verifier_data.clone());
+        verifier_data
     }
 
     /// Adds a gate to the circuit, and returns its index.
@@ -434,6 +435,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         cap: &MerkleCap<F, H>,
     ) -> MerkleCapTarget {
         MerkleCapTarget(cap.0.iter().map(|h| self.constant_hash(*h)).collect())
+    }
+
+    pub fn constant_verifier_data<C: GenericConfig<D, F = F>>(
+        &mut self,
+        verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> VerifierCircuitTarget
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        VerifierCircuitTarget {
+            constants_sigmas_cap: self.constant_merkle_cap(&verifier_data.constants_sigmas_cap),
+            circuit_digest: self.constant_hash(verifier_data.circuit_digest),
+        }
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns

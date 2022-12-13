@@ -2,6 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension::Extendable;
@@ -145,6 +146,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(x.elements[i], y.elements[i]);
         }
     }
+
+    pub fn connect_merkle_caps(&mut self, x: &MerkleCapTarget, y: &MerkleCapTarget) {
+        for (h0, h1) in x.0.iter().zip_eq(&y.0) {
+            self.connect_hashes(*h0, *h1);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +163,7 @@ mod tests {
     use super::*;
     use crate::field::types::Field;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

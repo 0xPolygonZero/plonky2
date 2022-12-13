@@ -68,25 +68,6 @@ impl MemoryOp {
     }
 }
 
-fn get_max_range_check(memory_ops: &[MemoryOp]) -> usize {
-    memory_ops
-        .iter()
-        .tuple_windows()
-        .map(|(curr, next)| {
-            if curr.address.context != next.address.context {
-                next.address.context - curr.address.context - 1
-            } else if curr.address.segment != next.address.segment {
-                next.address.segment - curr.address.segment - 1
-            } else if curr.address.virt != next.address.virt {
-                next.address.virt - curr.address.virt - 1
-            } else {
-                next.timestamp - curr.timestamp
-            }
-        })
-        .max()
-        .unwrap_or(0)
-}
-
 /// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
 pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NUM_COLUMNS]]) {
     let num_ops = trace_rows.len();
@@ -126,6 +107,12 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
         } else {
             next_timestamp - timestamp
         };
+
+        assert!(
+            row[RANGE_CHECK].to_canonical_u64() < num_ops as u64,
+            "Range check of {} is too large. Bug in fill_gaps?",
+            row[RANGE_CHECK]
+        );
     }
 }
 
@@ -133,16 +120,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
     fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
-        memory_ops.sort_by_key(|op| {
-            (
-                op.address.context,
-                op.address.segment,
-                op.address.virt,
-                op.timestamp,
-            )
-        });
+        // fill_gaps expects an ordered list of operations.
+        memory_ops.sort_by_key(MemoryOp::sorting_key);
+        Self::fill_gaps(&mut memory_ops);
 
         Self::pad_memory_ops(&mut memory_ops);
+
+        // fill_gaps may have added operations at the end which break the order, so sort again.
+        memory_ops.sort_by_key(MemoryOp::sorting_key);
 
         let mut trace_rows = memory_ops
             .into_par_iter()
@@ -164,26 +149,64 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
     }
 
-    fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp>) {
-        let num_ops = memory_ops.len();
-        let max_range_check = get_max_range_check(memory_ops);
-        let num_ops_padded = num_ops.max(max_range_check + 1).next_power_of_two();
-        let to_pad = num_ops_padded - num_ops;
+    /// This memory STARK orders rows by `(context, segment, virt, timestamp)`. To enforce the
+    /// ordering, it range checks the delta of the first field that changed.
+    ///
+    /// This method adds some dummy operations to ensure that none of these range checks will be too
+    /// large, i.e. that they will all be smaller than the number of rows, allowing them to be
+    /// checked easily with a single lookup.
+    ///
+    /// For example, say there are 32 memory operations, and a particular address is accessed at
+    /// timestamps 20 and 100. 80 would fail the range check, so this method would add two dummy
+    /// reads to the same address, say at timestamps 50 and 80.
+    fn fill_gaps(memory_ops: &mut Vec<MemoryOp>) {
+        let max_rc = memory_ops.len().next_power_of_two() - 1;
+        for (mut curr, next) in memory_ops.clone().into_iter().tuple_windows() {
+            if curr.address.context != next.address.context
+                || curr.address.segment != next.address.segment
+            {
+                // We won't bother to check if there's a large context gap, because there can't be
+                // more than 500 contexts or so, as explained here:
+                // https://notes.ethereum.org/@vbuterin/proposals_to_adjust_memory_gas_costs
+                // Similarly, the number of possible segments is a small constant, so any gap must
+                // be small. max_rc will always be much larger, as just bootloading the kernel will
+                // trigger thousands of memory operations.
+            } else if curr.address.virt != next.address.virt {
+                while next.address.virt - curr.address.virt - 1 > max_rc {
+                    let mut dummy_address = curr.address;
+                    dummy_address.virt += max_rc + 1;
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0);
+                    memory_ops.push(dummy_read);
+                    curr = dummy_read;
+                }
+            } else {
+                while next.timestamp - curr.timestamp > max_rc {
+                    let dummy_read =
+                        MemoryOp::new_dummy_read(curr.address, curr.timestamp + max_rc);
+                    memory_ops.push(dummy_read);
+                    curr = dummy_read;
+                }
+            }
+        }
+    }
 
+    fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp>) {
         let last_op = *memory_ops.last().expect("No memory ops?");
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
         // - We change its filter to 0 to indicate that this is a dummy operation.
-        // - We increment its timestamp in order to pass the ordering check.
-        // - We make sure it's a read, sine dummy operations must be reads.
-        for i in 0..to_pad {
-            memory_ops.push(MemoryOp {
-                filter: false,
-                timestamp: last_op.timestamp + i + 1,
-                kind: Read,
-                ..last_op
-            });
+        // - We make sure it's a read, since dummy operations must be reads.
+        let padding_op = MemoryOp {
+            filter: false,
+            kind: Read,
+            ..last_op
+        };
+
+        let num_ops = memory_ops.len();
+        let num_ops_padded = num_ops.next_power_of_two();
+        for _ in num_ops..num_ops_padded {
+            memory_ops.push(padding_op);
         }
     }
 

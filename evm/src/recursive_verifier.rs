@@ -18,7 +18,7 @@ use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
-use crate::all_stark::{AllStark, Table, NUM_TABLES};
+use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -162,7 +162,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         builder: &mut CircuitBuilder<F, D>,
         recursive_all_proof_target: RecursiveAllProofTargetWithData<D>,
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
-        cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
     ) where
         [(); C::Hasher::HASH_SIZE]:,
@@ -219,7 +218,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits());
         verify_cross_table_lookups_circuit::<F, C, D>(
             builder,
-            cross_table_lookups,
+            all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_last),
             degrees_bits,
             ctl_challenges,
@@ -842,7 +841,7 @@ pub(crate) mod tests {
     use plonky2::hash::hash_types::RichField;
     use plonky2::hash::hashing::SPONGE_WIDTH;
     use plonky2::iop::challenger::RecursiveChallenger;
-    use plonky2::iop::witness::{PartialWitness, Witness};
+    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData};
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};

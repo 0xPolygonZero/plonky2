@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::PartialTrie;
@@ -49,7 +50,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.print();
+    timing.filter(Duration::from_millis(100)).print();
 
     assert_eq!(
         proof.public_values.trie_roots_before.state_root,
@@ -80,5 +81,5 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 }
 
 fn init_logger() {
-    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 }

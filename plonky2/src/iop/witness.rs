@@ -17,70 +17,8 @@ use crate::plonk::circuit_data::{VerifierCircuitTarget, VerifierOnlyCircuitData}
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
-/// A witness holds information on the values of targets in a circuit.
-pub trait Witness<F: Field> {
-    fn try_get_target(&self, target: Target) -> Option<F>;
-
+pub trait WitnessWrite<F: Field> {
     fn set_target(&mut self, target: Target, value: F);
-
-    fn get_target(&self, target: Target) -> F {
-        self.try_get_target(target).unwrap()
-    }
-
-    fn get_targets(&self, targets: &[Target]) -> Vec<F> {
-        targets.iter().map(|&t| self.get_target(t)).collect()
-    }
-
-    fn get_extension_target<const D: usize>(&self, et: ExtensionTarget<D>) -> F::Extension
-    where
-        F: RichField + Extendable<D>,
-    {
-        F::Extension::from_basefield_array(
-            self.get_targets(&et.to_target_array()).try_into().unwrap(),
-        )
-    }
-
-    fn get_extension_targets<const D: usize>(&self, ets: &[ExtensionTarget<D>]) -> Vec<F::Extension>
-    where
-        F: RichField + Extendable<D>,
-    {
-        ets.iter()
-            .map(|&et| self.get_extension_target(et))
-            .collect()
-    }
-
-    fn get_bool_target(&self, target: BoolTarget) -> bool {
-        let value = self.get_target(target.target);
-        if value.is_zero() {
-            return false;
-        }
-        if value.is_one() {
-            return true;
-        }
-        panic!("not a bool")
-    }
-
-    fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
-        HashOut {
-            elements: self.get_targets(&ht.elements).try_into().unwrap(),
-        }
-    }
-
-    fn get_wire(&self, wire: Wire) -> F {
-        self.get_target(Target::Wire(wire))
-    }
-
-    fn try_get_wire(&self, wire: Wire) -> Option<F> {
-        self.try_get_target(Target::Wire(wire))
-    }
-
-    fn contains(&self, target: Target) -> bool {
-        self.try_get_target(target).is_some()
-    }
-
-    fn contains_all(&self, targets: &[Target]) -> bool {
-        targets.iter().all(|&t| self.contains(t))
-    }
 
     fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
         ht.elements
@@ -239,6 +177,70 @@ pub trait Witness<F: Field> {
     }
 }
 
+/// A witness holds information on the values of targets in a circuit.
+pub trait Witness<F: Field>: WitnessWrite<F> {
+    fn try_get_target(&self, target: Target) -> Option<F>;
+
+    fn get_target(&self, target: Target) -> F {
+        self.try_get_target(target).unwrap()
+    }
+
+    fn get_targets(&self, targets: &[Target]) -> Vec<F> {
+        targets.iter().map(|&t| self.get_target(t)).collect()
+    }
+
+    fn get_extension_target<const D: usize>(&self, et: ExtensionTarget<D>) -> F::Extension
+    where
+        F: RichField + Extendable<D>,
+    {
+        F::Extension::from_basefield_array(
+            self.get_targets(&et.to_target_array()).try_into().unwrap(),
+        )
+    }
+
+    fn get_extension_targets<const D: usize>(&self, ets: &[ExtensionTarget<D>]) -> Vec<F::Extension>
+    where
+        F: RichField + Extendable<D>,
+    {
+        ets.iter()
+            .map(|&et| self.get_extension_target(et))
+            .collect()
+    }
+
+    fn get_bool_target(&self, target: BoolTarget) -> bool {
+        let value = self.get_target(target.target);
+        if value.is_zero() {
+            return false;
+        }
+        if value.is_one() {
+            return true;
+        }
+        panic!("not a bool")
+    }
+
+    fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
+        HashOut {
+            elements: self.get_targets(&ht.elements).try_into().unwrap(),
+        }
+    }
+
+    fn get_wire(&self, wire: Wire) -> F {
+        self.get_target(Target::Wire(wire))
+    }
+
+    fn try_get_wire(&self, wire: Wire) -> Option<F> {
+        self.try_get_target(Target::Wire(wire))
+    }
+
+    fn contains(&self, target: Target) -> bool {
+        self.try_get_target(target).is_some()
+    }
+
+    fn contains_all(&self, targets: &[Target]) -> bool {
+        targets.iter().all(|&t| self.contains(t))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MatrixWitness<F: Field> {
     pub(crate) wire_values: Vec<Vec<F>>,
@@ -263,20 +265,22 @@ impl<F: Field> PartialWitness<F> {
     }
 }
 
-impl<F: Field> Witness<F> for PartialWitness<F> {
-    fn try_get_target(&self, target: Target) -> Option<F> {
-        self.target_values.get(&target).copied()
-    }
-
+impl<F: Field> WitnessWrite<F> for PartialWitness<F> {
     fn set_target(&mut self, target: Target, value: F) {
         let opt_old_value = self.target_values.insert(target, value);
         if let Some(old_value) = opt_old_value {
             assert_eq!(
-                old_value, value,
-                "Target {:?} was set twice with different values",
-                target
+                value, old_value,
+                "Target {:?} was set twice with different values: {} != {}",
+                target, old_value, value
             );
         }
+    }
+}
+
+impl<F: Field> Witness<F> for PartialWitness<F> {
+    fn try_get_target(&self, target: Target) -> Option<F> {
+        self.target_values.get(&target).copied()
     }
 }
 
@@ -308,8 +312,8 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
         if let Some(old_value) = *rep_value {
             assert_eq!(
                 value, old_value,
-                "Partition containing {:?} was set twice with different values",
-                target
+                "Partition containing {:?} was set twice with different values: {} != {}",
+                target, old_value, value
             );
             None
         } else {
@@ -337,13 +341,15 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
     }
 }
 
+impl<'a, F: Field> WitnessWrite<F> for PartitionWitness<'a, F> {
+    fn set_target(&mut self, target: Target, value: F) {
+        self.set_target_returning_rep(target, value);
+    }
+}
+
 impl<'a, F: Field> Witness<F> for PartitionWitness<'a, F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
         let rep_index = self.representative_map[self.target_index(target)];
         self.values[rep_index]
-    }
-
-    fn set_target(&mut self, target: Target, value: F) {
-        self.set_target_returning_rep(target, value);
     }
 }
