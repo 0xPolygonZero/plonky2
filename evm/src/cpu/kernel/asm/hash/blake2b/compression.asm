@@ -67,7 +67,7 @@ compression_loop:
         // stack: cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_block_byte, cur_message_addr, cur_block_byte, ...
-        %mload_blake2b_word_from_bytes
+        %mload_kernel_general_u64_LE
         // stack: m_i, cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_message_addr, m_i, cur_message_addr, cur_block_byte, ...
@@ -233,35 +233,40 @@ compression_loop:
     %jump(compression_loop)
 compression_end:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    PUSH 0
-    // stack: dummy=0, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
 
     // Invert the bytes of each hash value.
+    %reverse_bytes_u64_blake
+    // stack: h_0'', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP1
-    %invert_bytes_blake2b_word
-    SWAP1
+    // stack: h_1', h_0'', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_1'', h_0'', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP2
-    %invert_bytes_blake2b_word
-    SWAP2
+    // stack: h_2', h_0'', h_1'', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_2'', h_0'', h_1'', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP3
-    %invert_bytes_blake2b_word
-    SWAP3
+    // stack: h_3', h_0'', h_1'', h_2'', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_3'', h_0'', h_1'', h_2'', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP4
-    %invert_bytes_blake2b_word
-    SWAP4
+    // stack: h_4', h_0'', h_1'', h_2'', h_3'', h_5', h_6', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_4'', h_0'', h_1'', h_2'', h_3'', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP5
-    %invert_bytes_blake2b_word
-    SWAP5
+    // stack: h_5', h_0'', h_1'', h_2'', h_3'', h_4'', h_6', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_5'', h_0'', h_1'', h_2'', h_3'', h_4'', h_6', h_7', cur_block + 1, retdest
     SWAP6
-    %invert_bytes_blake2b_word
-    SWAP6
+    // stack: h_6', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_7', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_6'', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_7', cur_block + 1, retdest
     SWAP7
-    %invert_bytes_blake2b_word
-    SWAP7
-    SWAP8
-    %invert_bytes_blake2b_word
-    SWAP8
-    POP
+    // stack: h_7', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', cur_block + 1, retdest
+    %reverse_bytes_u64_blake
+    // stack: h_7'', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', cur_block + 1, retdest
+    %stack (h_7, h_s: 7) -> (h_s, h_7)
+    // stack: h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', h_7'', cur_block + 1, retdest
 
     // Combine hash values.
     %shl_const(64)
@@ -270,16 +275,16 @@ compression_end:
     OR
     %shl_const(64)
     OR
-    // stack: h_0' || h_1' || h_2' || h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    // stack: h_0'' || h_1'' || h_2'' || h_3'', h_4'', h_5'', h_6'', h_7'', cur_block + 1, retdest
     %stack (first, second: 4, cur) -> (second, first)
-    // stack: h_4', h_5', h_6', h_7', h_0' || h_1' || h_2' || h_3', retdest
+    // stack: h_4'', h_5'', h_6'', h_7'', h_0'' || h_1'' || h_2'' || h_3'', retdest
     %shl_const(64)
     OR
     %shl_const(64)
     OR
     %shl_const(64)
     OR
-    // stack: hash_second = h_4' || h_5' || h_6' || h_7', hash_first = h_0' || h_1' || h_2' || h_3', retdest
+    // stack: hash_second = h_4'' || h_5'' || h_6'' || h_7'', hash_first = h_0'' || h_1'' || h_2'' || h_3'', retdest
     %stack (second, first, ret) -> (ret, second, first)
     // stack: retdest, hash_first, hash_second
     JUMP

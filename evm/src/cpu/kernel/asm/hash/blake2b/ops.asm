@@ -1,7 +1,3 @@
-%macro as_u64
-    %and_const(0xffffffffffffffff)
-%endmacro
-
 // 64-bit right rotation
 %macro rotr_64(rot)
     // stack: value

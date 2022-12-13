@@ -47,7 +47,6 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/hash/blake2b/ops.asm"),
         include_str!("asm/hash/blake2b/permutations.asm"),
         include_str!("asm/hash/blake2b/store.asm"),
-        include_str!("asm/hash/blake2b/util.asm"),
         include_str!("asm/hash/ripemd/box.asm"),
         include_str!("asm/hash/ripemd/compression.asm"),
         include_str!("asm/hash/ripemd/constants.asm"),

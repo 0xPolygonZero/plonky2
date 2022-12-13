@@ -58,10 +58,7 @@ fn make_input_stack(message: Vec<u8>) -> Vec<U256> {
 
 fn combine_u256s(hi: U256, lo: U256) -> U512 {
     let mut result = U512::from(hi);
-    result *= U512::from_big_endian(&[
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0,
-    ]);
+    result <<= 256;
     result += U512::from(lo);
     result
 }
