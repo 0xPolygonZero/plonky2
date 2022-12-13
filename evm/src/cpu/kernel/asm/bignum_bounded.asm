@@ -1,7 +1,7 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
- Return a >= b.
+// Return a >= b.
 global ge_bignum_bounded:
     // stack: length, a_start_loc, b_start_loc, retdest
     SWAP1
@@ -163,6 +163,27 @@ increment_end:
     // retdest
     JUMP
 
+%macro subtract_limb
+    // stack: a_i, b_i, borrow
+    DUP3
+    DUP2
+    SUB
+    // stack: a_i - borrow, a_i, b_i, borrow
+    DUP3
+    // stack: b_i, a_i - borrow, a_i, b_i, borrow
+    GT
+    // stack: borrow_new, a_i, b_i, borrow
+    DUP1
+    PUSH @BIGNUM_LIMB_BASE
+    MUL
+    // stack: to_add, borrow_new, a_i, b_i, borrow
+    %stack (t, bn, other: 3) -> (t, other, bn)
+    // stack: to_add, a_i, b_i, borrow, borrow_new
+    ADD
+    SUB
+    SUB
+    // stack: c_i, borrow_new
+%endmacro
 
 // Replaces a with a - b, leaving b unchanged.
 // Assumes a >= b.
