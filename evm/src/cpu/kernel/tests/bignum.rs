@@ -30,8 +30,7 @@ fn test_ge_bignum_bounded() -> Result<()> {
     let ge_bignum = KERNEL.global_labels["ge_bignum_bounded"];
 
     // Test with a > b.
-    let mut initial_stack: Vec<U256> =
-        vec![length, a_start_loc, b_start_loc, retdest];
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
     initial_stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory.clone());
