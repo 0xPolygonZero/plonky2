@@ -13,12 +13,12 @@ global permutation_1_constants:
 global permutation_2_constants:
     BYTES 11, 8, 12, 0
     BYTES 5, 2, 15, 13
-    BYTES 10, 4, 3, 6
+    BYTES 10, 14, 3, 6
     BYTES 7, 1, 9, 4
 
 global permutation_3_constants:
     BYTES 7, 9, 3, 1
-    BYTES 13, 2, 11, 14
+    BYTES 13, 12, 11, 14
     BYTES 2, 6, 5, 10
     BYTES 4, 0, 15, 8
 
@@ -29,14 +29,14 @@ global permutation_4_constants:
     BYTES 6, 8, 3, 13
 
 global permutation_5_constants:
-    BYTES 2, 2, 6, 10
-    BYTES 0, 1, 8, 3
-    BYTES 4, 3, 7, 5
-    BYTES 15, 4, 1, 9
+    BYTES 2, 12, 6, 10
+    BYTES 0, 11, 8, 3
+    BYTES 4, 13, 7, 5
+    BYTES 15, 14, 1, 9
 
 global permutation_6_constants:
     BYTES 12, 5, 1, 15
-    BYTES 14, 3, 4, 10
+    BYTES 14, 13, 4, 10
     BYTES 0, 7, 6, 3
     BYTES 9, 2, 8, 11
 

@@ -235,35 +235,35 @@ compression_end:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
 
     // Invert the bytes of each hash value.
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_0'', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP1
     // stack: h_1', h_0'', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_1'', h_0'', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP2
     // stack: h_2', h_0'', h_1'', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_2'', h_0'', h_1'', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP3
     // stack: h_3', h_0'', h_1'', h_2'', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_3'', h_0'', h_1'', h_2'', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP4
     // stack: h_4', h_0'', h_1'', h_2'', h_3'', h_5', h_6', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_4'', h_0'', h_1'', h_2'', h_3'', h_5', h_6', h_7', cur_block + 1, retdest
     SWAP5
     // stack: h_5', h_0'', h_1'', h_2'', h_3'', h_4'', h_6', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_5'', h_0'', h_1'', h_2'', h_3'', h_4'', h_6', h_7', cur_block + 1, retdest
     SWAP6
     // stack: h_6', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_7', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_6'', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_7', cur_block + 1, retdest
     SWAP7
     // stack: h_7', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', cur_block + 1, retdest
-    %reverse_bytes_u64_blake
+    %reverse_bytes_u64
     // stack: h_7'', h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', cur_block + 1, retdest
     %stack (h_7, h_s: 7) -> (h_s, h_7)
     // stack: h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', h_7'', cur_block + 1, retdest
