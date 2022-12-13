@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use ethereum_types::U256;
+use blake2::Blake2b512;
+use ethereum_types::{U256, U512};
 use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
@@ -21,6 +22,13 @@ fn ripemd(input: Vec<u8>) -> U256 {
     let mut hasher = Ripemd160::new();
     hasher.update(input);
     U256::from(&hasher.finalize()[..])
+}
+
+/// Standard Blake2b implementation.
+fn blake2b(input: Vec<u8>) -> U512 {
+    let mut hasher = Blake2b512::new();
+    hasher.update(input);
+    U512::from(&hasher.finalize()[..])
 }
 
 fn make_random_input() -> Vec<u8> {
@@ -48,7 +56,17 @@ fn make_input_stack(message: Vec<u8>) -> Vec<U256> {
     initial_stack
 }
 
-fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U256) -> Result<()> {
+fn combine_u256s(hi: U256, lo: U256) -> U512 {
+    let mut result = U512::from(hi);
+    result <<= 256;
+    result += U512::from(lo);
+    result
+}
+
+fn prepare_test<T>(
+    hash_fn_label: &str,
+    standard_implementation: &dyn Fn(Vec<u8>) -> T,
+) -> Result<(T, T, Vec<U256>, Vec<U256>)> {
     // Make the input.
     let message_random = make_random_input();
     let message_custom = make_custom_input();
@@ -68,9 +86,42 @@ fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U
     let result_random = run_interpreter(kernel_function, initial_stack_random)?;
     let result_custom = run_interpreter(kernel_function, initial_stack_custom)?;
 
+    Ok((
+        expected_random,
+        expected_custom,
+        result_random.stack().to_vec(),
+        result_custom.stack().to_vec(),
+    ))
+}
+
+fn test_hash_256(
+    hash_fn_label: &str,
+    standard_implementation: &dyn Fn(Vec<u8>) -> U256,
+) -> Result<()> {
+    let (expected_random, expected_custom, random_stack, custom_stack) =
+        prepare_test(hash_fn_label, standard_implementation).unwrap();
+
     // Extract the final output.
-    let actual_random = result_random.stack()[0];
-    let actual_custom = result_custom.stack()[0];
+    let actual_random = random_stack[0];
+    let actual_custom = custom_stack[0];
+
+    // Check that the result is correct.
+    assert_eq!(expected_random, actual_random);
+    assert_eq!(expected_custom, actual_custom);
+
+    Ok(())
+}
+
+fn test_hash_512(
+    hash_fn_label: &str,
+    standard_implementation: &dyn Fn(Vec<u8>) -> U512,
+) -> Result<()> {
+    let (expected_random, expected_custom, random_stack, custom_stack) =
+        prepare_test(hash_fn_label, standard_implementation).unwrap();
+
+    // Extract the final output.
+    let actual_random = combine_u256s(random_stack[0], random_stack[1]);
+    let actual_custom = combine_u256s(custom_stack[0], custom_stack[1]);
 
     // Check that the result is correct.
     assert_eq!(expected_random, actual_random);
@@ -81,10 +132,15 @@ fn test_hash(hash_fn_label: &str, standard_implementation: &dyn Fn(Vec<u8>) -> U
 
 #[test]
 fn test_sha2() -> Result<()> {
-    test_hash("sha2", &sha2)
+    test_hash_256("sha2", &sha2)
 }
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    test_hash("ripemd_stack", &ripemd)
+    test_hash_256("ripemd_stack", &ripemd)
+}
+
+#[test]
+fn test_blake2b() -> Result<()> {
+    test_hash_512("blake2b", &blake2b)
 }
