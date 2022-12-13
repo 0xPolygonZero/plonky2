@@ -1,7 +1,7 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
-// All integers must be under a given length bound, and are padded with leading zeroes.
+ All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Return a >= b.
+ Return a >= b.
 global ge_bignum_bounded:
     // stack: length, a_start_loc, b_start_loc, retdest
     SWAP1
@@ -79,7 +79,7 @@ less:
     SWAP1
     JUMP
 
-// Replaces a with a + b, leaving b unchanged.
+ Replaces a with a + b, leaving b unchanged.
 global add_bignum_bounded:
     // stack: length, a_start_loc, b_start_loc, retdest
     %stack (l, a, b) -> (0, 0, a, b, l)
@@ -164,80 +164,80 @@ increment_end:
     JUMP
 
 
-//// Replaces a with a - b, leaving b unchanged.
-//// Assumes a >= b.
-//global sub_bignum_bounded:
-//    // stack: a_len, b_len, a_start_loc, b_start_loc, retdest
-//    %stack (al, bl, a, b) -> (0, 0, a, b, bl)
-//    // stack: borrow=0, i=0, a_start_loc, b_start_loc, n=b_len, retdest
-//sub_loop:
-//    // stack: borrow, i, a_i_loc, b_i_loc, n, retdest
-//    DUP4
-//    %mload_kernel_general
-//    // stack: b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
-//    DUP4
-//    %mload_kernel_general
-//    // stack: a[i], b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
-//    %subtract_limb
-//    // stack: c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
-//    DUP4
-//    // stack: a_i_loc, c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
-//    %mstore_kernel_general
-//    // stack: borrow_new, i, a_i_loc, b_i_loc, n, retdest
-//    %stack (bn, i, a, b) -> (a, b, bn, i)
-//    // stack: a_i_loc, b_i_loc, borrow_new, i, n, retdest
-//    %increment
-//    SWAP1
-//    %increment
-//    SWAP1
-//    %stack (a, b, bn, i) -> (bn, i, a, b)
-//    // stack: borrow_new, i, a_i_loc + 1, b_i_loc + 1, n, retdest
-//    SWAP1
-//    %increment
-//    SWAP1
-//    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
-//    DUP5
-//    DUP3
-//    // stack: i + 1, n, borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
-//    EQ
-//    ISZERO
-//    %jumpi(sub_loop)
-//sub_end:
-//    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
-//    %stack (bn, i, a, b, n) -> (bn, a)
-//    // stack: borrow_new, a_i_loc + 1, retdest
-//    // If borrow = 0, no need to decrement.
-//    ISZERO
-//    %jumpi(decrement_end)
-//decrement_loop:
-//    // If borrow = 1, we need to subtract 1 from the prior limb of a.
-//    // stack: cur_loc, retdest
-//    DUP1
-//    %mload_kernel_general
-//    // stack: val, cur_loc, retdest
-//    %decrement
-//    // stack: val-1, cur_loc, retdest
-//    %stack (v, l) -> (l, v, l, v)
-//    DUP2
-//    // stack: cur_loc, val-1, cur_loc, val-1, retdest
-//    %mstore_kernel_general
-//    // stack: cur_loc, val-1, retdest
-//    %increment
-//    // stack: cur_loc + 1, val-1, retdest
-//    SWAP1
-//    // stack: val-1, cur_loc + 1, retdest
-//    %increment
-//    %eq_const(0)
-//    NOT
-//    %jumpi(decrement_end)
-//    // stack: cur_loc + 1, retdest
-//    PUSH 255
-//    DUP2
-//    // stack: cur_loc + 1, 0, cur_loc + 1, retdest
-//    %mstore_kernel_general
-//    %jump(decrement_loop)
-//decrement_end:
-//    // cur_loc, retdest
-//    POP
-//    // retdest
-//    JUMP
+// Replaces a with a - b, leaving b unchanged.
+// Assumes a >= b.
+global sub_bignum_bounded:
+    // stack: length, a_start_loc, b_start_loc, retdest
+    %stack (l, a, b) -> (0, 0, a, b, l)
+    // stack: borrow=0, i=0, a_start_loc, b_start_loc, length, retdest
+sub_loop:
+    // stack: borrow, i, a_i_loc, b_i_loc, length, retdest
+    DUP4
+    %mload_kernel_general
+    // stack: b[i], borrow, i, a_i_loc, b_i_loc, length, retdest
+    DUP4
+    %mload_kernel_general
+    // stack: a[i], b[i], borrow, i, a_i_loc, b_i_loc, length, retdest
+    %subtract_limb
+    // stack: c[i], borrow_new, i, a_i_loc, b_i_loc, length, retdest
+    DUP4
+    // stack: a_i_loc, c[i], borrow_new, i, a_i_loc, b_i_loc, length, retdest
+    %mstore_kernel_general
+    // stack: borrow_new, i, a_i_loc, b_i_loc, length, retdest
+    %stack (bn, i, a, b) -> (a, b, bn, i)
+    // stack: a_i_loc, b_i_loc, borrow_new, i, length, retdest
+    %increment
+    SWAP1
+    %increment
+    SWAP1
+    %stack (a, b, bn, i) -> (bn, i, a, b)
+    // stack: borrow_new, i, a_i_loc + 1, b_i_loc + 1, length, retdest
+    SWAP1
+    %increment
+    SWAP1
+    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    DUP5
+    DUP3
+    // stack: i + 1, length, borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    EQ
+    ISZERO
+    %jumpi(sub_loop)
+sub_end:
+    // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    %stack (bn, i, a, b, n) -> (bn, a)
+    // stack: borrow_new, a_i_loc + 1, retdest
+    // If borrow = 0, no need to decrement.
+    ISZERO
+    %jumpi(decrement_end)
+decrement_loop:
+    // If borrow = 1, we need to subtract 1 from the prior limb of a.
+    // stack: cur_loc, retdest
+    DUP1
+    %mload_kernel_general
+    // stack: val, cur_loc, retdest
+    %decrement
+    // stack: val-1, cur_loc, retdest
+    %stack (v, l) -> (l, v, l, v)
+    DUP2
+    // stack: cur_loc, val-1, cur_loc, val-1, retdest
+    %mstore_kernel_general
+    // stack: cur_loc, val-1, retdest
+    %increment
+    // stack: cur_loc + 1, val-1, retdest
+    SWAP1
+    // stack: val-1, cur_loc + 1, retdest
+    %increment
+    %eq_const(0)
+    NOT
+    %jumpi(decrement_end)
+    // stack: cur_loc + 1, retdest
+    PUSH 255
+    DUP2
+    // stack: cur_loc + 1, 0, cur_loc + 1, retdest
+    %mstore_kernel_general
+    %jump(decrement_loop)
+decrement_end:
+    // cur_loc, retdest
+    POP
+    // retdest
+    JUMP
