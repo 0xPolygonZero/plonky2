@@ -24,8 +24,6 @@ fn test_ge_bignum_bounded() -> Result<()> {
     let a_start_loc = 0.into();
     let b_start_loc = a_limbs.len().into();
 
-    dbg!(memory.clone());
-
     let retdest = 0xDEADBEEFu32.into();
     let ge_bignum = KERNEL.global_labels["ge_bignum_bounded"];
 
@@ -37,8 +35,8 @@ fn test_ge_bignum_bounded() -> Result<()> {
     interpreter.run()?;
     dbg!(interpreter.stack());
     dbg!(interpreter.get_kernel_general_memory());
-    let _result = interpreter.stack()[0];
-    // assert_eq!(result, U256::one());
+    let result = interpreter.stack()[0];
+    assert_eq!(result, U256::one());
 
     // Swap a and b, to test the less-than case.
     let mut initial_stack: Vec<U256> = vec![length, b_start_loc, a_start_loc, retdest];
