@@ -60,7 +60,7 @@ fn test_add_bignum() -> Result<()> {
     let a_limbs = u256_to_le_limbs(a);
     let b_limbs = u256_to_le_limbs(b);
     let expected_sum: Vec<U256> = u256_to_le_limbs(sum).iter().map(|&x| x.into()).collect();
-    
+
     let length = a_limbs.len().max(b_limbs.len()).into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]

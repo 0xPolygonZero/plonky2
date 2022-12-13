@@ -22,8 +22,8 @@ pub fn evm_constants() -> HashMap<String, U256> {
     let hex_constants = MISC_CONSTANTS
         .iter()
         .chain(EC_CONSTANTS.iter())
-        .chain(HASH_CONSTANTS.iter()).
-        cloned();
+        .chain(HASH_CONSTANTS.iter())
+        .cloned();
     for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
@@ -55,7 +55,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
 }
 
 const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
-    // Base for 
+    // Base for limbs used in bignum arithmetic.
     (
         "BIGNUM_LIMB_BASE",
         hex!("0000000000000000000000000000000100000000000000000000000000000000"),
