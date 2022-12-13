@@ -168,7 +168,7 @@ impl<'a> Interpreter<'a> {
         &mut self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
-    pub(crate) fn get_memory_segment(&self, segment: Segment) -> Vec<U256> {
+    pub(crate) fn get_memory_segment(&self, _segment: Segment) -> Vec<U256> {
         self.generation_state.memory.contexts[0].segments[Segment::RlpRaw as usize]
             .content
             .clone()

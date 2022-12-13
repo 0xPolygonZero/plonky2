@@ -36,8 +36,8 @@ fn test_ge_bignum_bounded() -> Result<()> {
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
     dbg!(interpreter.stack().clone());
-    dbg!(interpreter.get_kernel_general_memory().clone());
-    let result = interpreter.stack()[0];
+    dbg!(interpreter.get_kernel_general_memory());
+    let _result = interpreter.stack()[0];
     // assert_eq!(result, U256::one());
 
     // Swap a and b, to test the less-than case.
