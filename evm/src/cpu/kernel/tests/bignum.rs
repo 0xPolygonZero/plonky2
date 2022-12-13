@@ -81,7 +81,7 @@ fn test_add_bignum() -> Result<()> {
 
     interpreter.run()?;
 
-    dbg!(interpreter.stack().clone());
+    dbg!(interpreter.stack());
 
     let new_memory = interpreter.get_kernel_general_memory();
     dbg!(new_memory.clone());
