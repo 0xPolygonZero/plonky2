@@ -335,3 +335,13 @@
     OR
     // stack: word_inverted
 %endmacro
+
+// Combine four big-endian u64s into a u256.
+%macro u64s_to_u256
+    // stack: a, b, c, d
+    %rep 3
+        %shl_const(64)
+        OR
+    %endrep
+    // stack: a || b || c || d
+%endmacro

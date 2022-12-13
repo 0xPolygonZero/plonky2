@@ -269,21 +269,11 @@ compression_end:
     // stack: h_0'', h_1'', h_2'', h_3'', h_4'', h_5'', h_6'', h_7'', cur_block + 1, retdest
 
     // Combine hash values.
-    %shl_const(64)
-    OR
-    %shl_const(64)
-    OR
-    %shl_const(64)
-    OR
+    %u64s_to_u256
     // stack: h_0'' || h_1'' || h_2'' || h_3'', h_4'', h_5'', h_6'', h_7'', cur_block + 1, retdest
     %stack (first, second: 4, cur) -> (second, first)
     // stack: h_4'', h_5'', h_6'', h_7'', h_0'' || h_1'' || h_2'' || h_3'', retdest
-    %shl_const(64)
-    OR
-    %shl_const(64)
-    OR
-    %shl_const(64)
-    OR
+    %u64s_to_u256
     // stack: hash_second = h_4'' || h_5'' || h_6'' || h_7'', hash_first = h_0'' || h_1'' || h_2'' || h_3'', retdest
     %stack (second, first, ret) -> (ret, second, first)
     // stack: retdest, hash_first, hash_second
