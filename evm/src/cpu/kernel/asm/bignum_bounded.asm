@@ -1,5 +1,5 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
- All integers must be under a given length bound, and are padded with leading zeroes.
+// All integers must be under a given length bound, and are padded with leading zeroes.
 
  Return a >= b.
 global ge_bignum_bounded:
@@ -79,7 +79,7 @@ less:
     SWAP1
     JUMP
 
- Replaces a with a + b, leaving b unchanged.
+// Replaces a with a + b, leaving b unchanged.
 global add_bignum_bounded:
     // stack: length, a_start_loc, b_start_loc, retdest
     %stack (l, a, b) -> (0, 0, a, b, l)
