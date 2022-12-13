@@ -18,8 +18,6 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-pub(crate) const LIMB_BASE: U256 = U256([0, 0, 1, 0]);
-
 pub(crate) fn u256ify<'a>(hexes: impl IntoIterator<Item = &'a str>) -> Result<Vec<U256>> {
     Ok(hexes
         .into_iter()

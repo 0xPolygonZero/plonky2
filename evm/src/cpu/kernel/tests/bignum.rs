@@ -35,7 +35,7 @@ fn test_ge_bignum_bounded() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
-    dbg!(interpreter.stack().clone());
+    dbg!(interpreter.stack());
     dbg!(interpreter.get_kernel_general_memory());
     let _result = interpreter.stack()[0];
     // assert_eq!(result, U256::one());
