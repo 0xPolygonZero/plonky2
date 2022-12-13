@@ -18,6 +18,8 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
+pub(crate) const LIMB_BASE: U256 = U256([0, 0, 1, 0]);
+
 pub(crate) fn u256ify<'a>(hexes: impl IntoIterator<Item = &'a str>) -> Result<Vec<U256>> {
     Ok(hexes
         .into_iter()
@@ -25,10 +27,16 @@ pub(crate) fn u256ify<'a>(hexes: impl IntoIterator<Item = &'a str>) -> Result<Ve
         .collect::<Result<Vec<_>, _>>()?)
 }
 
-pub(crate) fn u256_to_le_limbs(x: U256) -> Vec<u8> {
-    let mut limbs = vec![0; 32];
-    x.to_little_endian(&mut limbs);
-    limbs
+pub(crate) fn u256_to_le_limbs(x: U256) -> [u128; 2] {
+    let mut bytes = vec![0; 32];
+    x.to_little_endian(&mut bytes);
+
+    let lower_bytes: [u8; 16] = bytes[..16].try_into().unwrap();
+    let lower = u128::from_le_bytes(lower_bytes);
+    let upper_bytes: [u8; 16] = bytes[16..].try_into().unwrap();
+    let upper = u128::from_le_bytes(upper_bytes);
+    
+    [lower, upper]
 }
 
 fn gen_u256_limbs<R: Rng>(rng: &mut R, num_bits: usize) -> [u64; 4] {

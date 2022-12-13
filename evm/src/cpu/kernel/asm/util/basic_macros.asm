@@ -50,14 +50,6 @@
     %endrep
 %endmacro
 
-%macro not_bool
-    // stack: b
-    PUSH 1
-    // stack: 1, b
-    SUB
-    // stack: 1 - b
-%endmacro
-
 %macro and_const(c)
     // stack: input, ...
     PUSH $c

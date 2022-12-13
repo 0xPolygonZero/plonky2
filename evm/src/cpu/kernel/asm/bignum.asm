@@ -1,4 +1,5 @@
-// Arithmetic on little-endian integers represented with one-byte limbs.
+// Arithmetic on little-endian integers represented with 128-bit limbs.
+// Addresses 
 
 // Return a >= b.
 global ge_bignum:
@@ -46,11 +47,8 @@ eq_loop:
     GT
     %jumpi(greater)
     // stack: a[i], b[i], a_i_loc, b_i_loc, a_len-i-1, b_len-i-1, retdest
-    %stack (vals: 2) -> (vals, vals)
     LT
     %jumpi(less)
-    // stack: a[i], b[i], a_i_loc, b_i_loc, a_len-i-1, b_len-i-1, retdest
-    %stack (vals: 2) -> ()
     // stack: a_i_loc, b_i_loc, a_len-i-1, b_len-i-1, retdest
     %decrement
     SWAP1
@@ -111,24 +109,22 @@ global add_bignum:
 add_loop:
     // stack: carry, i, a_i_loc, b_i_loc, n, retdest
     DUP4
+    %mload_kernel_general
+    // stack: b[i], carry, i, a_i_loc, b_i_loc, n, retdest
     DUP4
-    // stack: a_i_loc, b_i_loc, carry, i, a_i_loc, b_i_loc, n, retdest
     %mload_kernel_general
-    SWAP1
-    %mload_kernel_general
-    SWAP1
     // stack: a[i], b[i], carry, i, a_i_loc, b_i_loc, n, retdest
     ADD
     ADD
     // stack: a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
-    %stack (val) -> (val, 256, 256, val)
-    // stack: a[i] + b[i] + carry, 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
+    %stack (val) -> (val, @LIMB_BASE, @LIMB_BASE, val)
+    // stack: a[i] + b[i] + carry, 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     DIV
-    // stack: (a[i] + b[i] + carry) // 256, 256, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
+    // stack: (a[i] + b[i] + carry) // 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, n, retdest
     SWAP2
-    // stack: a[i] + b[i] + carry, 256, (a[i] + b[i] + carry) // 256, i, a_i_loc, b_i_loc, n, retdest
+    // stack: a[i] + b[i] + carry, 2^128, (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, n, retdest
     MOD
-    // stack: c[i] = (a[i] + b[i] + carry) % 256, carry_new = (a[i] + b[i] + carry) // 256, i, a_i_loc, b_i_loc, n, retdest
+    // stack: c[i] = (a[i] + b[i] + carry) % 2^128, carry_new = (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, n, retdest
     DUP4
     // stack: a_i_loc, c[i], carry_new, i, a_i_loc, b_i_loc, n, retdest
     %mstore_kernel_general
@@ -149,10 +145,9 @@ add_loop:
     DUP3
     // stack: i + 1, n, carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     EQ
-    %not_bool
+    ISZERO
     %jumpi(add_loop)
 add_end:
-    STOP
     // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     %stack (c, i, a, b, n) -> (c, a)
     // stack: carry_new, a_i_loc + 1, retdest
@@ -166,7 +161,6 @@ increment_loop:
     // stack: val, cur_loc, retdest
     %increment
     // stack: val+1, cur_loc, retdest
-    %stack (v, l) -> (l, v, l, v)
     DUP2
     // stack: cur_loc, val+1, cur_loc, val+1, retdest
     %mstore_kernel_general
@@ -175,8 +169,8 @@ increment_loop:
     // stack: cur_loc + 1, val+1, retdest
     SWAP1
     // stack: val+1, cur_loc + 1, retdest
-    %eq_const(256)
-    NOT
+    %eq_const(@LIMB_BASE)
+    ISZERO
     %jumpi(increment_end)
     // stack: cur_loc + 1, retdest
     PUSH 0
@@ -201,7 +195,7 @@ increment_end:
     GT
     // stack: borrow_new, a_i, b_i, borrow
     DUP1
-    PUSH 256
+    PUSH @LIMB_BASE
     MUL
     // stack: to_add, borrow_new, a_i, b_i, borrow
     %stack (t, bn, other: 3) -> (t, other, bn)
@@ -221,12 +215,10 @@ global sub_bignum:
 sub_loop:
     // stack: borrow, i, a_i_loc, b_i_loc, n, retdest
     DUP4
+    %mload_kernel_general
+    // stack: b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
     DUP4
-    // stack: a_i_loc, b_i_loc, borrow, i, a_i_loc, b_i_loc, n, retdest
     %mload_kernel_general
-    SWAP1
-    %mload_kernel_general
-    SWAP1
     // stack: a[i], b[i], borrow, i, a_i_loc, b_i_loc, n, retdest
     %subtract_limb
     // stack: c[i], borrow_new, i, a_i_loc, b_i_loc, n, retdest
@@ -250,7 +242,7 @@ sub_loop:
     DUP3
     // stack: i + 1, n, borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest
     EQ
-    %not_bool
+    ISZERO
     %jumpi(sub_loop)
 sub_end:
     // stack: borrow_new, i + 1, a_i_loc + 1, b_i_loc + 1, n, retdest

@@ -727,14 +727,10 @@ impl<'a> Interpreter<'a> {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
-<<<<<<< HEAD
         let value = self
             .generation_state
             .memory
             .mload_general(context, segment, offset);
-=======
-        let value = self.memory.mload_general(context, segment, offset);
->>>>>>> 159d2a98 (fixes and cleanup)
         assert!(value.bits() <= segment.bit_range());
         self.push(value);
     }
