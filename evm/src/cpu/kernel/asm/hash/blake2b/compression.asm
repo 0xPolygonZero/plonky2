@@ -42,7 +42,7 @@ compression_loop:
     DUP2
     // stack: cur_block, is_last_block * num_bytes, cur_block, is_last_block, retdest
     %increment
-    %mul_const(128)
+    %block_size
     // stack: (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
     DUP4
     // stack: is_last_block, (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
@@ -56,7 +56,7 @@ compression_loop:
     // stack: cur_block, t, is_last_block, retdest
     DUP1
     // stack: cur_block, cur_block, t, is_last_block, retdest
-    %mul_const(128)
+    %block_size
     %add_const(2)
     // stack: cur_block_start_byte, t, cur_block, is_last_block, retdest
 

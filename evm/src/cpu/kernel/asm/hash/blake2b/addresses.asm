@@ -20,7 +20,7 @@
     // stack: 0
     %mload_kernel_general
     // stack: num_blocks
-    %mul_const(128)
+    %block_size
     %add_const(2)
     // stack: num_bytes+2
 %endmacro
@@ -35,4 +35,9 @@
 %macro blake2b_message_addr
     %blake2b_internal_state_addr
     %add_const(16)
+%endmacro
+
+// Block size is 128 bytes.
+%macro block_size
+    %mul_const(128)
 %endmacro
