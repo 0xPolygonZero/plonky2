@@ -289,17 +289,17 @@
     DUP1
     PUSH 28
     BYTE
-    // stack:                a, abcd
+    // stack:           a, abcd
     DUP2
     PUSH 29
     BYTE
     %shl_const(8)
-    // stack:            b0, a, abcd 
+    // stack:       b0, a, abcd 
     DUP3
     PUSH 30
     BYTE
     %shl_const(16)
-    // stack:       c00, b0, a, abcd
+    // stack:  c00, b0, a, abcd
     SWAP3
     PUSH 31
     BYTE
@@ -310,3 +310,7 @@
     OR
     // stack: dcba
 %endmacro
+
+01 00 00 00 01 00 00 00 01 00
+ff 00 00 ff 00 ff 00 00 00 00 ff 00 00
+ff ff ff ff ff ff
