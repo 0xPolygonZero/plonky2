@@ -4,7 +4,7 @@ mod bn {
     use ethereum_types::U256;
 
     use crate::cpu::kernel::aggregator::KERNEL;
-    use crate::cpu::kernel::interpreter::run_interpreter;
+    use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
     use crate::cpu::kernel::tests::u256ify;
 
     #[test]
@@ -127,6 +127,31 @@ mod bn {
         ])?;
         let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_glv_verify_data() -> Result<()> {
+        let glv = KERNEL.global_labels["bn_glv_decompose"];
+
+        let f = include_str!("bnout");
+        for line in f.lines().filter(|s| !s.starts_with("//")) {
+            let mut line = line
+                .split_whitespace()
+                .map(|s| U256::from_str_radix(s, 10).unwrap())
+                .collect::<Vec<_>>();
+            let k = line.remove(0);
+            line.reverse();
+
+            let mut initial_stack = u256ify(["0xdeadbeef"])?;
+            initial_stack.push(k);
+            let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+            int.run()?;
+
+            line.push(U256::zero());
+            assert_eq!(line, int.stack());
+        }
 
         Ok(())
     }

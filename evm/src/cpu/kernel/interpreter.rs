@@ -23,6 +23,13 @@ type F = GoldilocksField;
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
+const BN_BASE: U256 = U256([
+    4332616871279656263,
+    10917124144477883021,
+    13281191951274694749,
+    3486998266802970665,
+]);
+
 impl MemoryState {
     pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         self.get(MemoryAddress::new(context, segment, offset))
@@ -376,19 +383,19 @@ impl<'a> Interpreter<'a> {
     fn run_addfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push((x + y) % 107);
+        self.push((x + y) % BN_BASE);
     }
 
     fn run_mulfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from(x.full_mul(y) % 107).unwrap());
+        self.push(U256::try_from(x.full_mul(y) % BN_BASE).unwrap());
     }
 
     fn run_subfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push((U256::from(107) + x - y) % 107);
+        self.push((U256::from(107) + x - y) % BN_BASE);
     }
 
     fn run_div(&mut self) {
