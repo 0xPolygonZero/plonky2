@@ -62,7 +62,7 @@ const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     ),
 ];
 
-const EC_CONSTANTS: [(&str, [u8; 32]); 10] = [
+const EC_CONSTANTS: [(&str, [u8; 32]); 17] = [
     (
         "U256_MAX",
         hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
@@ -70,6 +70,34 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 10] = [
     (
         "BN_BASE",
         hex!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),
+    ),
+    (
+        "BN_SCALAR",
+        hex!("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001"),
+    ),
+    (
+        "BN_GLV_BETA",
+        hex!("000000000000000059e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe"),
+    ),
+    (
+        "BN_GLV_S",
+        hex!("0000000000000000b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd"),
+    ),
+    (
+        "BN_GLV_MINUS_G1",
+        hex!("000000000000000000000000000000024ccef014a773d2cf7a7bd9d4391eb18d"),
+    ),
+    (
+        "BN_GLV_G2",
+        hex!("000000000000000000000000000000000000000000000002d91d232ec7e0b3d7"),
+    ),
+    (
+        "BN_GLV_B1",
+        hex!("30644e72e131a029b85045b68181585cb8e665ff8b011694c1d039a872b0eed9"),
+    ),
+    (
+        "BN_GLV_B2",
+        hex!("00000000000000000000000000000000000000000000000089d3256894d213e3"),
     ),
     (
         "SECP_BASE",
