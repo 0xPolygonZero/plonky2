@@ -385,12 +385,10 @@ impl<'a> Interpreter<'a> {
         self.push(x.overflowing_sub(y).0);
     }
 
-    // TODO: 107 is hardcoded as a dummy prime for testing
-    // should be changed to the proper implementation prime
-
     fn run_addfp254(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
+        let x = self.pop() % BN_BASE;
+        let y = self.pop() % BN_BASE;
+        // BN_BASE is 254-bit so addition can't overflow
         self.push((x + y) % BN_BASE);
     }
 
@@ -401,9 +399,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_subfp254(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push((U256::from(107) + x - y) % BN_BASE);
+        let x = self.pop() % BN_BASE;
+        let y = self.pop() % BN_BASE;
+        // BN_BASE is 254-bit so addition can't overflow
+        self.push((x + (BN_BASE - y)) % BN_BASE);
     }
 
     fn run_div(&mut self) {
