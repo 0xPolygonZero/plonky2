@@ -69,9 +69,9 @@ global bn_glv_decompose:
 
     // We compute k2 = q1 + q2 - N, but we check for underflow and return N-q1-q2 instead if there is one,
     // along with a flag `underflow` set to 1 if there is an underflow, 0 otherwise.
-    ADD SUB
-    // stack: k2, N, k, retdest
-    SWAP2 PUSH @BN_SCALAR DUP5 PUSH @BN_GLV_S
+    ADD %sub_check_underflow
+    // stack: k2, underflow, N, k, retdest
+    SWAP3 PUSH @BN_SCALAR DUP5 PUSH @BN_GLV_S
     // stack: s, k2, N, k, underflow, N, k2, retdest
     MULMOD
     // stack: s*k2, k, underflow, N, k2, retdest
@@ -90,14 +90,4 @@ underflowed:
     %stack (k1, k2, underflow, retdest) -> (retdest, underflow, k1, k2)
     JUMP
 
-%macro bn_sub_check_underflow
-    // stack: x, y
-    DUP2 DUP2 LT
-    // stack: x<y, x, y
-    DUP1 ISZERO DUP2 DUP4 DUP6 SUB MUL
-    // stack: (y-x)*(x<y), x>=y, x<y, x, y
-    %stack (a, b, c, x, y) -> (x, y, b, a, c)
-    SUB MUL ADD
-    // stack: x-y if x>=y else y-x, x<y
-%endmacro
 

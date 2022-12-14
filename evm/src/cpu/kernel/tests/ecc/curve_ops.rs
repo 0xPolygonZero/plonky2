@@ -149,7 +149,6 @@ mod bn {
             let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
             int.run()?;
 
-            line.push(U256::zero());
             assert_eq!(line, int.stack());
         }
 
