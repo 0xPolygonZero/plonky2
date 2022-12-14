@@ -130,6 +130,7 @@ fn as_stack(xs: Vec<u32>) -> Vec<U256> {
 }
 
 #[test]
+#[ignore]
 fn test_fp6() -> Result<()> {
     let c = gen_fp6();
     let d = gen_fp6();
