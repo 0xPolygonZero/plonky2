@@ -209,11 +209,12 @@ ec_add_equal_points:
 // Assumption: (x0,y0) is a valid point.
 // Standard doubling formula.
 global ec_double:
-    // stack: x0, y0, retdest
-    DUP2
-    // stack: y0, x0, y0, retdest
-    DUP2
-    // stack: x0, y0, x0, y0, retdest
+    // stack: x, y, retdest
+    DUP2 DUP2 %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, retdest
+    %jumpi(ec_double_retself)
+    DUP2 DUP2
+    // stack: x, y, x, y, retdest
     %jump(ec_add_equal_points)
 
 // Push the order of the BN254 base field.

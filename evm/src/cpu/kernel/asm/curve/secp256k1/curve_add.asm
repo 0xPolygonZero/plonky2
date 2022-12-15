@@ -204,12 +204,12 @@ global ec_double_secp:
     // stack: x, y, retdest
     DUP2 DUP2 %ec_isidentity
     // stack: (x,y)==(0,0), x, y, retdest
-    %jumpi(retself)
+    %jumpi(ec_double_retself)
     DUP2 DUP2
     // stack: x, y, x, y, retdest
     %jump(ec_add_equal_points)
 
-retself:
+global ec_double_retself:
     %stack (x, y, retdest) -> (retdest, x, y)
     JUMP
 

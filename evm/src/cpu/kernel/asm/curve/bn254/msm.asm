@@ -25,27 +25,15 @@ global bn_msm:
     PUSH 0 PUSH 0 PUSH 0
 global bn_msm_loop:
     // stack: accx, accy, i, retdest
-    DUP3 %mload_wnaf_a
+    DUP3 %bn_mload_wnaf_a
     // stack: w, accx, accy, i, retdest
-    DUP1 %jumpi(msm_loop_add_a_nonzero)
+    DUP1 %jumpi(bn_msm_loop_add_a_nonzero)
     POP
 msm_loop_add_b:
     //stack: accx, accy, i, retdest
-    DUP3 %mload_wnaf_b
+    DUP3 %bn_mload_wnaf_b
     // stack: w, accx, accy, i, retdest
-    DUP1 %jumpi(msm_loop_add_b_nonzero)
-    POP
-msm_loop_add_c:
-    //stack: accx, accy, i, retdest
-    DUP3 %mload_wnaf_c
-    // stack: w, accx, accy, i, retdest
-    DUP1 %jumpi(msm_loop_add_c_nonzero)
-    POP
-msm_loop_add_d:
-    //stack: accx, accy, i, retdest
-    DUP3 %mload_wnaf_d
-    // stack: w, accx, accy, i, retdest
-    DUP1 %jumpi(msm_loop_add_d_nonzero)
+    DUP1 %jumpi(bn_msm_loop_add_b_nonzero)
     POP
 msm_loop_contd:
     %stack (accx, accy, i, retdest) -> (i, accx, accy, retdest)
@@ -53,102 +41,55 @@ msm_loop_contd:
     %eq_const(129) %jumpi(msm_end)
     %increment
     //stack: i+1, accx, accy, retdest
-    %stack (i, accx, accy, retdest) -> (accx, accy, msm_loop, i, retdest)
-    %jump(ec_double_secp)
+    %stack (i, accx, accy, retdest) -> (accx, accy, bn_msm_loop, i, retdest)
+    %jump(ec_double)
 
 msm_end:
     %stack (i, accx, accy, retdest) -> (retdest, accx, accy)
     JUMP
 
-global bn_msm_loop_add_a_nonzero:
+bn_msm_loop_add_a_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_b, i, retdest)
-    %mload_point_a
+    %bn_mload_point_a
     // stack: px, py, accx, accy, msm_loop_add_b, i, retdest
-    %jump(ec_add_valid_points_secp)
+    %jump(ec_add_valid_points)
 
-global bn_msm_loop_add_b_nonzero:
-    %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_c, i, retdest)
-    %mload_point_b
-    // stack: px, py, accx, accy, msm_loop_add_c, i, retdest
-    %jump(ec_add_valid_points_secp)
-
-global bn_msm_loop_add_c_nonzero:
-    %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_d, i, retdest)
-    %mload_point_c
-    // stack: px, py, accx, accy, msm_loop_add_d, i, retdest
-    %jump(ec_add_valid_points_secp)
-
-global bn_msm_loop_add_d_nonzero:
+bn_msm_loop_add_b_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_contd, i, retdest)
-    %mload_point_d
+    %bn_mload_point_b
     // stack: px, py, accx, accy, msm_loop_contd, i, retdest
-    %jump(ec_add_valid_points_secp)
+    %jump(ec_add_valid_points)
 
 %macro bn_mload_wnaf_a
     // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_WNAF_A)
+    %mload_kernel(@SEGMENT_KERNEL_BN_WNAF_A)
 %endmacro
 
 %macro bn_mload_wnaf_b
     // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_WNAF_B)
-%endmacro
-
-%macro bn_mload_wnaf_c
-    // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_WNAF_C)
-%endmacro
-
-%macro bn_mload_wnaf_d
-    // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_WNAF_D)
+    %mload_kernel(@SEGMENT_KERNEL_BN_WNAF_B)
 %endmacro
 
 %macro bn_mload_point_a
     // stack: w
     DUP1
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+    %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
     //stack: Gy, w
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
     //stack: Gx, Gy
 %endmacro
 
 %macro bn_mload_point_b
     // stack: w
     DUP1
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
-    PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
-    %stack (a1neg, Gy, w) -> (@SECP_BASE, Gy, a1neg, a1neg, Gy, w)
+    %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %stack (a1neg, Gy, w) -> (@BN_BASE, Gy, a1neg, a1neg, Gy, w)
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
     //stack: Gx, Gy
-    PUSH @SECP_BASE
+    PUSH @BN_BASE
     SWAP1
-    PUSH @SECP_GLV_BETA
-    MULMOD
-%endmacro
-
-%macro bn_mload_point_c
-    // stack: w
-    DUP1
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    //stack: Qy, w
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    //stack: Qx, Qy
-%endmacro
-
-%macro bn_mload_point_d
-    // stack: w
-    DUP1
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    //stack: Qy, w
-    PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    %stack (b1neg, Qy, w) -> (@SECP_BASE, Qy, b1neg, b1neg, Qy, w)
-    SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
-    //stack: Qx, Qy
-    PUSH @SECP_BASE
-    SWAP1
-    PUSH @SECP_GLV_BETA
+    PUSH @BN_GLV_BETA
     MULMOD
 %endmacro
