@@ -74,8 +74,8 @@ global glv_decompose:
     SWAP3 PUSH @SECP_SCALAR DUP5 PUSH @SECP_GLV_S
     // stack: s, k2, N, k, underflow, N, k2, retdest
     MULMOD
-    // stack: s *k2, k, underflow, N, k2, retdest
-    // Need to return `k + s*k2` if no underflowed occur, otherwise return `k - s*k2` which is done in the `underflowed` fn.
+    // stack: s*k2, k, underflow, N, k2, retdest
+    // Need to return `k + s*k2` if no underflow occur, otherwise return `k - s*k2` which is done in the `underflowed` fn.
     SWAP2 DUP1 %jumpi(underflowed)
     %stack (underflow, k, x, N, k2) -> (k, x, N, k2, underflow)
     ADDMOD

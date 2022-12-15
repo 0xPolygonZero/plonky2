@@ -17,6 +17,7 @@ global precompute_table_loop:
     DUP1 PUSH 32 SUB PUSH 1 DUP2 SUB
     // stack: 31-i, 32-i, i, Qx2, Qy2, Qx, Qy, retdest
     DUP7 PUSH @SECP_BASE SUB
+    // TODO: Could maybe avoid storing Qx a second time here, not sure if it would be more efficient.
     %stack (Qyy, iii, ii, i, Qx2, Qy2, Qx, Qy, retdest) -> (iii, Qx, ii, Qyy, i, Qx2, Qy2, Qx, Qy, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q)
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
