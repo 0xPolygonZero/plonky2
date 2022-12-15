@@ -270,14 +270,7 @@ fn generate_modular_op<F: RichField>(
 
     lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
 
-    // Copy lo and hi halves of quot_limbs into their respective registers
-    for (i, &lo) in MODULAR_QUO_INPUT_LO.zip(&quot_limbs[..N_LIMBS]) {
-        lv[i] = F::from_noncanonical_i64(lo);
-    }
-    for (i, &hi) in MODULAR_QUO_INPUT_HI.zip(&quot_limbs[N_LIMBS..]) {
-        nv[i] = F::from_noncanonical_i64(hi);
-    }
-
+    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
     for (i, &c) in MODULAR_AUX_INPUT.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
         // we store the unsigned offset value c + 2^20.
         assert!(AUX_COEFF_ABS_MAX + c >= 0 && c <= AUX_COEFF_ABS_MAX);
@@ -324,9 +317,6 @@ fn modular_constr_poly<P: PackedField>(
     range_check_error!(MODULAR_INPUT_0, 16);
     range_check_error!(MODULAR_INPUT_1, 16);
     range_check_error!(MODULAR_MODULUS, 16);
-    range_check_error!(MODULAR_QUO_INPUT_LO, 16);
-    range_check_error!(MODULAR_QUO_INPUT_HI, 16);
-    range_check_error!(MODULAR_AUX_INPUT, 20, signed);
     range_check_error!(MODULAR_OUTPUT, 16);
 
     let mut modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
@@ -378,8 +368,7 @@ fn modular_constr_poly<P: PackedField>(
     // prod = q(x) * m(x)
     let quot = {
         let mut quot = [P::default(); 2 * N_LIMBS];
-        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
-        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot.copy_from_slice(&lv[MODULAR_QUO_INPUT]);
         quot
     };
 
@@ -506,8 +495,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let quot = {
         let zero = builder.zero_extension();
         let mut quot = [zero; 2 * N_LIMBS];
-        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
-        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot.copy_from_slice(&lv[MODULAR_QUO_INPUT]);
         quot
     };
 
