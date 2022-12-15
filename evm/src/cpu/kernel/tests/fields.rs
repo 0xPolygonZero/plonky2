@@ -138,10 +138,6 @@ fn gen_fp12_sparse() -> [[[U256; 2]; 3]; 2] {
     sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
 }
 
-fn as_stack(xs: Vec<U256>) -> Vec<U256> {
-    xs.iter().map(|&x| U256::from(x)).rev().collect()
-}
-
 fn make_initial_stack(
     in1: usize,
     in2: usize,
@@ -169,8 +165,9 @@ fn make_initial_stack(
     input.extend(vec![U256::from(in2)]);
     input.extend(g1);
     input.extend(vec![in2, out, in1]);
+    input.reverse();
 
-    as_stack(input)
+    input
 }
 
 #[test]
