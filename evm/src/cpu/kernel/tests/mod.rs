@@ -1,10 +1,10 @@
 mod account_code;
 mod balance;
+mod bn254_field;
 mod core;
 mod curve_ops;
 mod ecrecover;
 mod exp;
-mod bn254_field;
 mod hash;
 mod mpt;
 mod packing;

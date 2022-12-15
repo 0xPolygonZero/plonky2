@@ -21,6 +21,15 @@ fn sub_fp(x: U256, y: U256) -> U256 {
     (BN_BASE + x - y) % BN_BASE
 }
 
+fn neg_fp(x: U256) -> U256 {
+    (BN_BASE - x) % BN_BASE
+}
+
+fn conj_fp2(a: [U256; 2]) -> [U256; 2] {
+    let [a, a_] = a;
+    [a, neg_fp(a_)]
+}
+
 fn add_fp2(a: [U256; 2], b: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
@@ -51,10 +60,8 @@ fn mul_fp2(a: [U256; 2], b: [U256; 2]) -> [U256; 2] {
 
 fn i9(a: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
-    [
-        sub_fp(mul_fp(U256::from(9), a), a_),
-        add_fp(a, mul_fp(U256::from(9), a_)),
-    ]
+    let nine = U256::from(9);
+    [sub_fp(mul_fp(nine, a), a_), add_fp(a, mul_fp(nine, a_))]
 }
 
 fn add_fp6(c: [[U256; 2]; 3], d: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
@@ -106,8 +113,11 @@ fn sh(c: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
 
 fn sparse_embed(x: [U256; 5]) -> [[[U256; 2]; 3]; 2] {
     let [g0, g1, g1_, g2, g2_] = x;
-    let z = U256::from(0);
-    [[[g0, z], [g1, g1_], [z, z]], [[z, z], [g2, g2_], [z, z]]]
+    let zero = U256::from(0);
+    [
+        [[g0, zero], [g1, g1_], [zero, zero]],
+        [[zero, zero], [g2, g2_], [zero, zero]],
+    ]
 }
 
 fn mul_fp12(f: [[[U256; 2]; 3]; 2], g: [[[U256; 2]; 3]; 2]) -> [[[U256; 2]; 3]; 2] {
@@ -139,18 +149,19 @@ fn gen_fp12_sparse() -> [[[U256; 2]; 3]; 2] {
 }
 
 fn make_initial_stack(
+    in0: usize,
     in1: usize,
-    in2: usize,
     out: usize,
     f0: [[U256; 2]; 3],
     f1: [[U256; 2]; 3],
     g0: [[U256; 2]; 3],
     g1: [[U256; 2]; 3],
+    mul_label: &str,
 ) -> Vec<U256> {
     // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
 
+    let in0 = U256::from(in0);
     let in1 = U256::from(in1);
-    let in2 = U256::from(in2);
     let out = U256::from(out);
 
     let f0: Vec<U256> = f0.into_iter().flatten().collect();
@@ -158,100 +169,116 @@ fn make_initial_stack(
     let g0: Vec<U256> = g0.into_iter().flatten().collect();
     let g1: Vec<U256> = g1.into_iter().flatten().collect();
 
+    let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
+    let mul_dest = U256::from(KERNEL.global_labels[mul_label]);
+
     let mut input = f0;
-    input.extend(vec![in1]);
+    input.extend(vec![in0]);
     input.extend(f1);
     input.extend(g0);
-    input.extend(vec![in2]);
+    input.extend(vec![in1]);
     input.extend(g1);
-    input.extend(vec![in2, out, in1, out]);
+    input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
     input.reverse();
 
     input
 }
 
+fn make_expected_output(f: [[[U256; 2]; 3]; 2], g: [[[U256; 2]; 3]; 2]) -> Vec<U256> {
+    mul_fp12(f, g)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .rev()
+        .collect()
+}
+
 #[test]
-fn test_fp12() -> Result<()> {
-    let in1 = 64;
-    let in2 = 76;
+fn test_mul_fp12() -> Result<()> {
+    let in0 = 64;
+    let in1 = 76;
     let out = 88;
 
     let f0 = gen_fp6();
     let f1 = gen_fp6();
     let g0 = gen_fp6();
     let g1 = gen_fp6();
+    let [h0, h1] = gen_fp12_sparse();
 
-    let initial_offset = KERNEL.global_labels["test_mul_fp12"];
-    let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, g0, g1);
-    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
+    let test_mul = KERNEL.global_labels["test_mul_fp12"];
 
-    let expected: Vec<U256> = mul_fp12([f0, f1], [g0, g1])
-        .into_iter()
-        .flatten()
-        .flatten()
-        .rev()
-        .collect();
+    let normal: Vec<U256> = make_initial_stack(in0, in1, out, f0, f1, g0, g1, "mul_fp12");
+    let sparse: Vec<U256> = make_initial_stack(in0, in1, out, f0, f1, h0, h1, "mul_fp12_sparse");
+    let square: Vec<U256> = make_initial_stack(in0, in1, out, f0, f1, f0, f1, "square_fp12_test");
 
-    assert_eq!(final_stack, expected);
+    let out_normal: Vec<U256> = run_interpreter(test_mul, normal)?.stack().to_vec();
+    let out_sparse: Vec<U256> = run_interpreter(test_mul, sparse)?.stack().to_vec();
+    let out_square: Vec<U256> = run_interpreter(test_mul, square)?.stack().to_vec();
 
-    Ok(())
-}
+    let exp_normal: Vec<U256> = make_expected_output([f0, f1], [g0, g1]);
+    let exp_sparse: Vec<U256> = make_expected_output([f0, f1], [h0, h1]);
+    let exp_square: Vec<U256> = make_expected_output([f0, f1], [f0, f1]);
 
-#[test]
-#[ignore]
-fn test_fp12_sparse() -> Result<()> {
-    let in1 = 64;
-    let in2 = 76;
-    let out = 88;
-
-    let f0 = gen_fp6();
-    let f1 = gen_fp6();
-    let [g0, g1] = gen_fp12_sparse();
-
-    let initial_offset = KERNEL.global_labels["test_mul_fp12"];
-    let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, g0, g1);
-    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
-
-    let expected: Vec<U256> = mul_fp12([f0, f1], [g0, g1])
-        .into_iter()
-        .flatten()
-        .flatten()
-        .rev()
-        .collect();
-
-    assert_eq!(final_stack, expected);
+    assert_eq!(out_normal, exp_normal);
+    assert_eq!(out_sparse, exp_sparse);
+    assert_eq!(out_square, exp_square);
 
     Ok(())
 }
 
-#[test]
-#[ignore]
-fn test_fp12_square() -> Result<()> {
-    let in1 = 64;
-    let in2 = 76;
-    let out = 88;
+// #[test]
+// #[ignore]
+// fn test_fp12_sparse() -> Result<()> {
+//     let in1 = 64;
+//     let in2 = 76;
+//     let out = 88;
 
-    let f0 = gen_fp6();
-    let f1 = gen_fp6();
+//     let f0 = gen_fp6();
+//     let f1 = gen_fp6();
+//     let [g0, g1] = gen_fp12_sparse();
 
-    let initial_offset = KERNEL.global_labels["test_mul_fp12"];
-    let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, f0, f1);
-    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
+//     let initial_offset = KERNEL.global_labels["test_mul_fp12"];
+//     let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, g0, g1);
+//     let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
+//         .stack()
+//         .to_vec();
 
-    let expected: Vec<U256> = mul_fp12([f0, f1], [f0, f1])
-        .into_iter()
-        .flatten()
-        .flatten()
-        .rev()
-        .collect();
+//     let expected: Vec<U256> = mul_fp12([f0, f1], [g0, g1])
+//         .into_iter()
+//         .flatten()
+//         .flatten()
+//         .rev()
+//         .collect();
 
-    assert_eq!(final_stack, expected);
+//     assert_eq!(final_stack, expected);
 
-    Ok(())
-}
+//     Ok(())
+// }
+
+// #[test]
+// #[ignore]
+// fn test_fp12_square() -> Result<()> {
+//     let in1 = 64;
+//     let in2 = 76;
+//     let out = 88;
+
+//     let f0 = gen_fp6();
+//     let f1 = gen_fp6();
+
+//     let initial_offset = KERNEL.global_labels["test_mul_fp12"];
+//     let initial_stack: Vec<U256> = make_initial_stack(in1, in2, out, f0, f1, f0, f1);
+//     let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
+//         .stack()
+//         .to_vec();
+
+//     let expected: Vec<U256> = mul_fp12([f0, f1], [f0, f1])
+//         .into_iter()
+//         .flatten()
+//         .flatten()
+//         .rev()
+//         .collect();
+
+//     assert_eq!(final_stack, expected);
+
+//     Ok(())
+// }

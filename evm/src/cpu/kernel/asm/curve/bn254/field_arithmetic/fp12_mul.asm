@@ -2,36 +2,28 @@
 
 /// cost: 220
 global test_mul_fp12:
-    // stack:      f, inA , f', g, inB , g', inB, out, inA
+    // stack:      f, inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     DUP7
-    // stack: inA, f, inA , f', g, inB , g', inB, out, inA
+    // stack: inA, f, inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     %store_fp6
-    // stack:         inA , f', g, inB , g', inB, out, inA
+    // stack:         inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     %offset_fp6
-    // stack:         inA', f', g, inB , g', inB, out, inA
+    // stack:         inA', f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     %store_fp6
-    // stack:                   g, inB , g', inB, out, inA
+    // stack:                   g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     DUP7
-    // stack:              inB, g, inB , g', inB, out, inA
+    // stack:              inB, g, inB , g', mul_dest, inA, inB, out, ret_stack, out
     %store_fp6
-    // stack:                      inB , g', inB, out, inA
+    // stack:                      inB , g', mul_dest, inA, inB, out, ret_stack, out
     %offset_fp6
-    // stack:                      inB', g', inB, out, inA
+    // stack:                      inB', g', mul_dest, inA, inB, out, ret_stack, out
     %store_fp6
-    // stack:                                inB, out, inA
-    PUSH ret_stack
-    // stack:                     ret_stack, inB, out, inA
-    SWAP3
-    // stack:                           inA, inB, out, ret_stack
-    %jump(mul_fp12)
-ret_stack:
+    // stack:                                mul_dest, inA, inB, out, ret_stack, out
+    JUMP
+global ret_stack:
     // stack: out
     %load_fp12
     %jump(0xdeadbeef)
-
-square_fp12_test:
-    POP
-    %jump(square_fp12)
 
 
 ///////////////////////////////////////
@@ -386,6 +378,10 @@ global mul_fp12_sparse:
 ///     {inp: f, inp: f', out: h, out': h'}
 ///
 /// f, f' consist of six elements on the stack
+
+global square_fp12_test:
+    POP
+    %jump(square_fp12)
 
 global square_fp12:
     // stack:                                                    inp, out
