@@ -118,7 +118,7 @@ impl<'a> Interpreter<'a> {
         let mut tot = 0;
         for i in 0..0x100 {
             if self.opcode_count[i] > 0 {
-                tot = tot + self.opcode_count[i];
+                tot += self.opcode_count[i];
                 println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
             }
         }

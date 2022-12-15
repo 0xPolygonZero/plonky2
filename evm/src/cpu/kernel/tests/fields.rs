@@ -162,7 +162,7 @@ fn make_initial_stack(
     input.extend(vec![in1]);
     input.extend(f1);
     input.extend(g0);
-    input.extend(vec![U256::from(in2)]);
+    input.extend(vec![in2]);
     input.extend(g1);
     input.extend(vec![in2, out, in1]);
     input.reverse();
