@@ -23,7 +23,7 @@
 global ecdsa_msm:
     // stack: retdest
     PUSH 0 PUSH 0 PUSH 0
-global msm_loop:
+msm_loop:
     // stack: accx, accy, i, retdest
     DUP3 %mload_wnaf_a
     // stack: w, accx, accy, i, retdest
@@ -60,25 +60,25 @@ msm_end:
     %stack (i, accx, accy, retdest) -> (retdest, accx, accy)
     JUMP
 
-global msm_loop_add_a_nonzero:
+msm_loop_add_a_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_b, i, retdest)
     %mload_point_a
     // stack: px, py, accx, accy, msm_loop_add_b, i, retdest
     %jump(ec_add_valid_points_secp)
 
-global msm_loop_add_b_nonzero:
+msm_loop_add_b_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_c, i, retdest)
     %mload_point_b
     // stack: px, py, accx, accy, msm_loop_add_c, i, retdest
     %jump(ec_add_valid_points_secp)
 
-global msm_loop_add_c_nonzero:
+msm_loop_add_c_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_d, i, retdest)
     %mload_point_c
     // stack: px, py, accx, accy, msm_loop_add_d, i, retdest
     %jump(ec_add_valid_points_secp)
 
-global msm_loop_add_d_nonzero:
+msm_loop_add_d_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_contd, i, retdest)
     %mload_point_d
     // stack: px, py, accx, accy, msm_loop_contd, i, retdest

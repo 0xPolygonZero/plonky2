@@ -225,6 +225,7 @@ mod bn {
 
 #[cfg(test)]
 mod secp {
+    use std::str::FromStr;
 
     use anyhow::Result;
     use ethereum_types::U256;
@@ -303,6 +304,10 @@ mod secp {
 
         let mut initial_stack = u256ify(["0xdeadbeef", "0x1302837587eede977d2814a6906d59bea"])?;
         initial_stack.push((Segment::WnafA as usize).into());
+        initial_stack.push(
+            U256::from_str("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")
+                .unwrap(),
+        );
         let mut int = Interpreter::new(&KERNEL.code, wnaf, initial_stack, &KERNEL.prover_inputs);
         int.run()?;
 

@@ -91,10 +91,10 @@ ecdsa_after_glv_a:
     // Store a1neg at this (otherwise unused) location. Will be used later in the MSM.
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G, 1337)
     // stack: a0, a1, b, Qx, Qy, retdest
-    PUSH ecdsa_after_a0 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_A %jump(wnaf)
+    PUSH ecdsa_after_a0 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_A %secp_scalar %jump(wnaf)
 ecdsa_after_a0:
     // stack: a1, b, Qx, Qy, retdest
-    PUSH ecdsa_after_a1 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_B %jump(wnaf)
+    PUSH ecdsa_after_a1 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_B %secp_scalar %jump(wnaf)
 ecdsa_after_a1:
     // stack: b, Qx, Qy, retdest
     %stack (b, Qx, Qy, retdest) -> (b, ecdsa_after_glv_b, Qx, Qy, retdest)
@@ -104,10 +104,10 @@ ecdsa_after_glv_b:
     // Store b1neg at this (otherwise unused) location. Will be used later in the MSM.
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_Q, 1337)
     // stack: b0, b1, Qx, Qy, retdest
-    PUSH ecdsa_after_b0 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_C %jump(wnaf)
+    PUSH ecdsa_after_b0 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_C %secp_scalar %jump(wnaf)
 ecdsa_after_b0:
     // stack: d, Qx, Qy, retdest
-    PUSH ecdsa_after_b1 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_D %jump(wnaf)
+    PUSH ecdsa_after_b1 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_D %secp_scalar %jump(wnaf)
 ecdsa_after_b1:
     %stack (Qx, Qy, retdest) -> (Qx, Qy, ecdsa_after_precompute, retdest)
     %jump(precompute_table)
