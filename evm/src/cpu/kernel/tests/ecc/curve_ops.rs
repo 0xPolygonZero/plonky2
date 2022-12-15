@@ -136,7 +136,7 @@ mod bn {
     fn test_glv_verify_data() -> Result<()> {
         let glv = KERNEL.global_labels["bn_glv_decompose"];
 
-        let f = include_str!("bnout");
+        let f = include_str!("bn_glv_test_data");
         for line in f.lines().filter(|s| !s.starts_with("//")) {
             let mut line = line
                 .split_whitespace()

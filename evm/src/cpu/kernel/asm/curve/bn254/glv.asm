@@ -1,18 +1,20 @@
 // Inspired by https://github.com/AztecProtocol/weierstrudel/blob/master/huff_modules/endomorphism.huff
-// See also Sage code in evm/src/cpu/kernel/tests/ecc/glv_test_data
-// Given scalar `k ∈ Bn254::ScalarField`, return `u, k1, k2` with `k1,k2 < 2^129` and such that
+// See also Sage code in evm/src/cpu/kernel/tests/ecc/bn_glv_test_data
+// Given scalar `k ∈ Bn254::ScalarField`, return `u, k1, k2` with `k1,k2 < 2^127` and such that
 // `k = k1 - s*k2` if `u==0` otherwise `k = k1 + s*k2`, where `s` is the scalar value representing the endomorphism.
 // In the comments below, N means @BN_SCALAR
 //
-// Z3 proof that the resulting `k1, k2` satisfy `k1>0`, `k1 < 2^129` and `|k2| < 2^129`.
+// Z3 proof that the resulting `k1, k2` satisfy `k1>0`, `k1 < 2^127` and `|k2| < 2^127`.
 // ```python
 // from z3 import Solver, Int, Or, unsat
-// q = 115792089237316195423570985008687907852837564279074904382605163141518161494337
-// glv_s = 37718080363155996902926221483475020450927657555482586988616620542887997980018
-// g1 = 303414439467246543595250775667605759172
-// g2 = 64502973549206556628585045361533709077
-// b2 = 64502973549206556628585045361533709077
-// b1 = -303414439467246543595250775667605759171
+// q = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+// glv_s = 0xB3C4D79D41A917585BFC41088D8DAAA78B17EA66B99C90DD
+//
+// b2 = 0x89D3256894D213E3
+// b1 = -0x6F4D8248EEB859FC8211BBEB7D4F1128
+//
+// g1 = 0x24CCEF014A773D2CF7A7BD9D4391EB18D
+// g2 = 0x2D91D232EC7E0B3D7
 // k = Int("k")
 // c1 = Int("c1")
 // c2 = Int("c2")
@@ -32,8 +34,10 @@
 // k2 = q2 - q1
 // k2L = (glv_s * k2) % q
 // k1 = k - k2L
+// k2 = -k2
 //
-// s.add(Or((k2 >= 2**129), (-k2 >= 2**129), (k1 >= 2**129), (k1 < 0)))
+// s.add(Or((k2 >= 2**127), (-k2 >= 2**127), (k1 >= 2**127), (k1 < 0)))
+//
 // assert s.check() == unsat
 // ```
 global bn_glv_decompose:

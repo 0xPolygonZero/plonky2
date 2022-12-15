@@ -342,18 +342,6 @@ impl<'a> Interpreter<'a> {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
-            if &label == "ec_mul_after_glv" {
-                println!("{:?}", self.stack());
-            }
-            if &label == "ec_mul_after_a" {
-                println!("{:?}", self.stack());
-            }
-            if &label == "ec_mul_after_b" {
-                println!("{:?}", self.stack());
-            }
-            if &label == "ec_mul_end" {
-                println!("{:?}", self.stack());
-            }
         }
 
         Ok(())

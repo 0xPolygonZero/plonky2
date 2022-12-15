@@ -145,8 +145,8 @@ impl Segment {
             Segment::WnafD => 8,
             Segment::EcdsaTableQ => 256,
             Segment::EcdsaTableG => 256,
-            Segment::BnWnafA => 256,
-            Segment::BnWnafB => 256,
+            Segment::BnWnafA => 8,
+            Segment::BnWnafB => 8,
             Segment::BnTableQ => 256,
         }
     }

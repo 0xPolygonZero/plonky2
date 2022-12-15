@@ -1,25 +1,6 @@
-// Computes the MSM `a*G + b*Q` used in ECDSA, see `ecdsa_msm_with_glv` in `ecrecover.asm`.
-// Assumes wNAF expansion of `a0, a1, b0, b1` and precomputed tables for `G, Q` are in memory.
-// Classic windowed MSM algorithm otherwise.
-// Python code (without precomputed tables):
-// def ecdsa_msm(nafs, points):
-//     ans = O
-//     n = len(nafs[0])
-//     assert len(nafs) == len(points)
-//     assert all(len(naf) == n for naf in nafs)
-//     for i in range(n):
-//         ss = [naf[-i-1] for naf in nafs]
-//         assert all((x==0) or (x%2) for x in ss)
-//         for x,point in zip(ss, points):
-//             if x:
-//                 if x > 15:
-//                     ans -= (32-x)*point
-//                 else:
-//                     ans += x*point
-//
-//         if i < n-1:
-//             ans *= 2
-//     return ans
+// Computes the multiplication `a*G` using a standard MSM with the GLV decomposition of `a`.
+// Essentially the same algorithm as in `evm/src/cpu/kernel/asm/curve/secp256k1/msm.asm`,
+// see there for a detailed description.
 global bn_msm:
     // stack: retdest
     PUSH 0 PUSH 0 PUSH 0
