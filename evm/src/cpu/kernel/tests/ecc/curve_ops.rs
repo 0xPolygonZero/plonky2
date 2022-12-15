@@ -6,6 +6,7 @@ mod bn {
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
     use crate::cpu::kernel::tests::u256ify;
+    use crate::memory::segments::Segment;
 
     #[test]
     fn test_ec_ops() -> Result<()> {
@@ -151,6 +152,72 @@ mod bn {
 
             assert_eq!(line, int.stack());
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_precomputation() -> Result<()> {
+        let precompute = KERNEL.global_labels["bn_precompute_table"];
+
+        let initial_stack = u256ify([
+            "0xdeadbeef",
+            "0x10d7cf0621b6e42c1dbb421f5ef5e1936ca6a87b38198d1935be31e28821d171",
+            "0x11b7d55f16aaac07de9a0ed8ac2e8023570dbaa78571fc95e553c4b3ba627689",
+        ])?;
+        let mut int = Interpreter::new(
+            &KERNEL.code,
+            precompute,
+            initial_stack,
+            &KERNEL.prover_inputs,
+        );
+        int.run()?;
+
+        let mut computed_table = Vec::new();
+        for i in 0..32 {
+            computed_table.push(
+                int.generation_state
+                    .memory
+                    .mload_general(0, Segment::BnTableQ, i),
+            );
+        }
+
+        let table = u256ify([
+            "0x11b7d55f16aaac07de9a0ed8ac2e8023570dbaa78571fc95e553c4b3ba627689",
+            "0x10d7cf0621b6e42c1dbb421f5ef5e1936ca6a87b38198d1935be31e28821d171",
+            "0x1565e5587d8566239c23219bc0e1d1d267d19100c3869d0c55b1e3ea4532304e",
+            "0x19fd9b572558479df062632562113e4d9a3eb655698ee3be9a5350ed23e690ee",
+            "0x19469e55e27021c0af1310ad266cdf1d9eef6942c80afe9c7b517acf16a2a3e1",
+            "0x226ec29db9339d7ffb1bc3260f1ca008b804f78553d316c37203118466bb5f5a",
+            "0x10a16b4786bd1717a031a1948010593173d36ab35535641c9fe41802d639b435",
+            "0x294fe34d7ec9024c96cfde58311b9ee394ff9f8735d882005fcf0d28709b459d",
+            "0x300f58e61d4ab1872f6b5fad517c6df1b23468fcfa81154786ec230cb0df6d20",
+            "0x12ff1d200127d2ba7a0171cadbe0f729fc5acbe95565cc57f07c9fa42c001390",
+            "0x1045a28c9a35a17b63da593c0137ac08a1fda78430b71755941d3dc501b35272",
+            "0x2a3f4d91b58179451ec177f599d7eaf79e2555f169fd3e5d2af314600fad299",
+            "0x21de5680f03b262f53d3252d5ca71bbc5f2c9ff5483fb63abaea1ee7e9cede1d",
+            "0x144249d3fc4c82327845a38ea51181acb374ab30a1e7ea0f13bc8a8b04d96411",
+            "0x2ba4ce4289de377397878c1195e21a1d573b02d9463f5c454ec50bdf11aee512",
+            "0x259a447b42bab48e07388baece550607bc0a8a88e1ea224eba94c6bed08e470e",
+            "0x2ba4ce4289de377397878c1195e21a1d573b02d9463f5c454ec50bdf11aee512",
+            "0xaca09f79e76eb9bb117ba07b32c5255db76e0088687a83e818bc55807eeb639",
+            "0x21de5680f03b262f53d3252d5ca71bbc5f2c9ff5483fb63abaea1ee7e9cede1d",
+            "0x1c22049ee4e51df7400aa227dc6fd6b0e40cbf60c689e07e2864018bd3a39936",
+            "0x1045a28c9a35a17b63da593c0137ac08a1fda78430b71755941d3dc501b35272",
+            "0x2dc05999c5d9889566642e3727e3d9ae1d9f153251d1f6a769715ad0d7822aae",
+            "0x300f58e61d4ab1872f6b5fad517c6df1b23468fcfa81154786ec230cb0df6d20",
+            "0x1d653152e009cd6f3e4ed3eba5a061339b269ea8130bfe354ba3ec72ac7ce9b7",
+            "0x10a16b4786bd1717a031a1948010593173d36ab35535641c9fe41802d639b435",
+            "0x7146b2562689ddd2180675e5065b97a0281cb0a3299488cdc517eee67e1b7aa",
+            "0x19469e55e27021c0af1310ad266cdf1d9eef6942c80afe9c7b517acf16a2a3e1",
+            "0xdf58bd527fe02a9bd3482907264b854df7c730c149eb3c9ca1d7a9271c19ded",
+            "0x1565e5587d8566239c23219bc0e1d1d267d19100c3869d0c55b1e3ea4532304e",
+            "0x1666b31bbbd9588bc7ede2911f701a0ffd42b43bfee2e6cea1cd3b29b4966c59",
+            "0x11b7d55f16aaac07de9a0ed8ac2e8023570dbaa78571fc95e553c4b3ba627689",
+            "0x1f8c7f6cbf7abbfd9a950397228b76ca2adac21630583d7406625a34505b2bd6",
+        ])?;
+
+        assert_eq!(computed_table, table);
 
         Ok(())
     }
