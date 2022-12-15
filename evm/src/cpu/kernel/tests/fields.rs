@@ -199,7 +199,8 @@ fn test_fp12() -> Result<()> {
     Ok(())
 }
 
-// #[test]
+#[test]
+#[ignore]
 fn test_fp12_sparse() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
@@ -227,7 +228,8 @@ fn test_fp12_sparse() -> Result<()> {
     Ok(())
 }
 
-// #[test]
+#[test]
+#[ignore]
 fn test_fp12_square() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
