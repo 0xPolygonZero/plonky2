@@ -66,7 +66,7 @@
 %endmacro
 
 
-/// def Fp12_frob_n(f, f'):
+/// def frob_fp12_n(f, f'):
 ///     g  =             frob_fp6(n, f )
 ///     g' = FROB_z[n] * frob_fp6(n, f')
 ///     return g, g'
