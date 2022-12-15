@@ -23,17 +23,10 @@ global test_mul_fp12:
     // stack:                     ret_stack, inB, out, inA
     SWAP3
     // stack:                           inA, inB, out, ret_stack
-    %jump(square_fp12_test)
+    %jump(mul_fp12)
 ret_stack:
-    // stack:          out
-    DUP1  %offset_fp6
-    // stack:    out', out
-    %load_fp6
-    // stack:      h', out
-    DUP7
-    // stack: out, h', out
-    %load_fp6
-    // stack:   h, h', out
+    // stack: out
+    %load_fp12
     %jump(0xdeadbeef)
 
 square_fp12_test:

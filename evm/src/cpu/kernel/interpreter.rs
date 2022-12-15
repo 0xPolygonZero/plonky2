@@ -1,7 +1,6 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
@@ -25,7 +24,7 @@ type F = GoldilocksField;
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 /// Order of the BN254 base field.
-const BN_BASE: U256 = U256([
+pub const BN_BASE: U256 = U256([
     4332616871279656263,
     10917124144477883021,
     13281191951274694749,

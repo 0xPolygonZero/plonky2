@@ -3,49 +3,44 @@ use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::interpreter::run_interpreter;
+use crate::cpu::kernel::interpreter::{run_interpreter, BN_BASE};
 
-// TODO: 107 is hardcoded as a dummy prime for testing
-// should be changed to the proper implementation prime
-// once the run_{add, mul, sub}fp254 fns are implemented
-const P254: u32 = 107;
-
-fn add_fp(x: u32, y: u32) -> u32 {
-    (x + y) % P254
+fn add_fp(x: U256, y: U256) -> U256 {
+    (x + y) % BN_BASE
 }
 
-fn add3_fp(x: u32, y: u32, z: u32) -> u32 {
-    (x + y + z) % P254
+fn add3_fp(x: U256, y: U256, z: U256) -> U256 {
+    (x + y + z) % BN_BASE
 }
 
-fn mul_fp(x: u32, y: u32) -> u32 {
-    (x * y) % P254
+fn mul_fp(x: U256, y: U256) -> U256 {
+    U256::try_from(x.full_mul(y) % BN_BASE).unwrap()
 }
 
-fn sub_fp(x: u32, y: u32) -> u32 {
-    (P254 + x - y) % P254
+fn sub_fp(x: U256, y: U256) -> U256 {
+    (BN_BASE + x - y) % BN_BASE
 }
 
-fn add_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
+fn add_fp2(a: [U256; 2], b: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     [add_fp(a, b), add_fp(a_, b_)]
 }
 
-fn add3_fp2(a: [u32; 2], b: [u32; 2], c: [u32; 2]) -> [u32; 2] {
+fn add3_fp2(a: [U256; 2], b: [U256; 2], c: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     let [c, c_] = c;
     [add3_fp(a, b, c), add3_fp(a_, b_, c_)]
 }
 
-fn sub_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
+fn sub_fp2(a: [U256; 2], b: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     [sub_fp(a, b), sub_fp(a_, b_)]
 }
 
-fn mul_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
+fn mul_fp2(a: [U256; 2], b: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
     let [b, b_] = b;
     [
@@ -54,12 +49,15 @@ fn mul_fp2(a: [u32; 2], b: [u32; 2]) -> [u32; 2] {
     ]
 }
 
-fn i9(a: [u32; 2]) -> [u32; 2] {
+fn i9(a: [U256; 2]) -> [U256; 2] {
     let [a, a_] = a;
-    [sub_fp(mul_fp(9, a), a_), add_fp(a, mul_fp(9, a_))]
+    [
+        sub_fp(mul_fp(U256::from(9), a), a_),
+        add_fp(a, mul_fp(U256::from(9), a_)),
+    ]
 }
 
-fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+fn add_fp6(c: [[U256; 2]; 3], d: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
     let [c0, c1, c2] = c;
     let [d0, d1, d2] = d;
 
@@ -69,7 +67,7 @@ fn add_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     [e0, e1, e2]
 }
 
-fn sub_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+fn sub_fp6(c: [[U256; 2]; 3], d: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
     let [c0, c1, c2] = c;
     let [d0, d1, d2] = d;
 
@@ -79,7 +77,7 @@ fn sub_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     [e0, e1, e2]
 }
 
-fn mul_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+fn mul_fp6(c: [[U256; 2]; 3], d: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
     let [c0, c1, c2] = c;
     let [d0, d1, d2] = d;
 
@@ -101,17 +99,18 @@ fn mul_fp6(c: [[u32; 2]; 3], d: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
     ]
 }
 
-fn sh(c: [[u32; 2]; 3]) -> [[u32; 2]; 3] {
+fn sh(c: [[U256; 2]; 3]) -> [[U256; 2]; 3] {
     let [c0, c1, c2] = c;
     [i9(c2), c0, c1]
 }
 
-fn sparse_embed(x: [u32; 5]) -> [[[u32; 2]; 3]; 2] {
+fn sparse_embed(x: [U256; 5]) -> [[[U256; 2]; 3]; 2] {
     let [g0, g1, g1_, g2, g2_] = x;
-    [[[g0, 0], [g1, g1_], [0, 0]], [[0, 0], [g2, g2_], [0, 0]]]
+    let z = U256::from(0);
+    [[[g0, z], [g1, g1_], [z, z]], [[z, z], [g2, g2_], [z, z]]]
 }
 
-fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] {
+fn mul_fp12(f: [[[U256; 2]; 3]; 2], g: [[[U256; 2]; 3]; 2]) -> [[[U256; 2]; 3]; 2] {
     let [f0, f1] = f;
     let [g0, g1] = g;
 
@@ -121,80 +120,60 @@ fn mul_fp12(f: [[[u32; 2]; 3]; 2], g: [[[u32; 2]; 3]; 2]) -> [[[u32; 2]; 3]; 2] 
     [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
 }
 
-fn gen_fp6() -> [[u32; 2]; 3] {
+fn gen_fp() -> U256 {
     let mut rng = thread_rng();
+    let x64 = rng.gen::<u64>();
+    U256([x64, x64, x64, x64]) % BN_BASE
+}
+
+fn gen_fp6() -> [[U256; 2]; 3] {
     [
-        [rng.gen_range(0..P254), rng.gen_range(0..P254)],
-        [rng.gen_range(0..P254), rng.gen_range(0..P254)],
-        [rng.gen_range(0..P254), rng.gen_range(0..P254)],
+        [gen_fp(), gen_fp()],
+        [gen_fp(), gen_fp()],
+        [gen_fp(), gen_fp()],
     ]
 }
 
-fn gen_fp12_sparse() -> [[[u32; 2]; 3]; 2] {
-    let mut rng = thread_rng();
-    sparse_embed([
-        rng.gen_range(0..P254),
-        rng.gen_range(0..P254),
-        rng.gen_range(0..P254),
-        rng.gen_range(0..P254),
-        rng.gen_range(0..P254),
-    ])
+fn gen_fp12_sparse() -> [[[U256; 2]; 3]; 2] {
+    sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
 }
 
-fn as_stack(xs: Vec<u32>) -> Vec<U256> {
+fn as_stack(xs: Vec<U256>) -> Vec<U256> {
     xs.iter().map(|&x| U256::from(x)).rev().collect()
 }
 
-#[test]
-#[ignore]
-fn test_fp6() -> Result<()> {
-    let c = gen_fp6();
-    let d = gen_fp6();
-
-    let mut input: Vec<u32> = [c, d].into_iter().flatten().flatten().collect();
-    input.push(0xdeadbeef);
-
-    let initial_offset = KERNEL.global_labels["mul_fp6"];
-    let initial_stack: Vec<U256> = as_stack(input);
-    let final_stack: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
-
-    let output: Vec<u32> = mul_fp6(c, d).into_iter().flatten().collect();
-    let expected = as_stack(output);
-
-    assert_eq!(final_stack, expected);
-
-    Ok(())
-}
-
 fn make_initial_stack(
-    in1: u32,
-    in2: u32,
-    out: u32,
-    f0: [[u32; 2]; 3],
-    f1: [[u32; 2]; 3],
-    g0: [[u32; 2]; 3],
-    g1: [[u32; 2]; 3],
+    in1: usize,
+    in2: usize,
+    out: usize,
+    f0: [[U256; 2]; 3],
+    f1: [[U256; 2]; 3],
+    g0: [[U256; 2]; 3],
+    g1: [[U256; 2]; 3],
 ) -> Vec<U256> {
     // stack: in0, f, in0', f', in1, g, in1', g', in1, out, in0, out
-    let f0: Vec<u32> = f0.into_iter().flatten().collect();
-    let f1: Vec<u32> = f1.into_iter().flatten().collect();
-    let g0: Vec<u32> = g0.into_iter().flatten().collect();
-    let g1: Vec<u32> = g1.into_iter().flatten().collect();
+
+    let in1 = U256::from(in1);
+    let in2 = U256::from(in2);
+    let out = U256::from(out);
+
+    let f0: Vec<U256> = f0.into_iter().flatten().collect();
+    let f1: Vec<U256> = f1.into_iter().flatten().collect();
+    let g0: Vec<U256> = g0.into_iter().flatten().collect();
+    let g1: Vec<U256> = g1.into_iter().flatten().collect();
 
     let mut input = f0;
     input.extend(vec![in1]);
     input.extend(f1);
     input.extend(g0);
-    input.extend(vec![in2]);
+    input.extend(vec![U256::from(in2)]);
     input.extend(g1);
     input.extend(vec![in2, out, in1]);
 
     as_stack(input)
 }
 
-// #[test]
+#[test]
 fn test_fp12() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
@@ -211,13 +190,12 @@ fn test_fp12() -> Result<()> {
         .stack()
         .to_vec();
 
-    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1])
+    let expected: Vec<U256> = mul_fp12([f0, f1], [g0, g1])
         .into_iter()
         .flatten()
         .flatten()
+        .rev()
         .collect();
-    output.extend(vec![out]);
-    let expected = as_stack(output);
 
     assert_eq!(final_stack, expected);
 
@@ -240,20 +218,19 @@ fn test_fp12_sparse() -> Result<()> {
         .stack()
         .to_vec();
 
-    let mut output: Vec<u32> = mul_fp12([f0, f1], [g0, g1])
+    let expected: Vec<U256> = mul_fp12([f0, f1], [g0, g1])
         .into_iter()
         .flatten()
         .flatten()
+        .rev()
         .collect();
-    output.extend(vec![out]);
-    let expected = as_stack(output);
 
     assert_eq!(final_stack, expected);
 
     Ok(())
 }
 
-#[test]
+// #[test]
 fn test_fp12_square() -> Result<()> {
     let in1 = 64;
     let in2 = 76;
@@ -268,13 +245,12 @@ fn test_fp12_square() -> Result<()> {
         .stack()
         .to_vec();
 
-    let mut output: Vec<u32> = mul_fp12([f0, f1], [f0, f1])
+    let expected: Vec<U256> = mul_fp12([f0, f1], [f0, f1])
         .into_iter()
         .flatten()
         .flatten()
+        .rev()
         .collect();
-    output.extend(vec![out]);
-    let expected = as_stack(output);
 
     assert_eq!(final_stack, expected);
 
