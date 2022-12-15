@@ -1,24 +1,11 @@
 /// Note: uncomment this to test
 
-/// cost: 220
 global test_mul_fp12:
-    // stack:      f, inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    DUP7
-    // stack: inA, f, inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    %store_fp6
-    // stack:         inA , f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    %offset_fp6
-    // stack:         inA', f', g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    %store_fp6
-    // stack:                   g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    DUP7
-    // stack:              inB, g, inB , g', mul_dest, inA, inB, out, ret_stack, out
-    %store_fp6
-    // stack:                      inB , g', mul_dest, inA, inB, out, ret_stack, out
-    %offset_fp6
-    // stack:                      inB', g', mul_dest, inA, inB, out, ret_stack, out
-    %store_fp6
-    // stack:                                mul_dest, inA, inB, out, ret_stack, out
+    // stack: inA, f, f', inB, g, g', mul_dest, inA, inB, out, ret_stack, out
+    %store_fp12
+    // stack:             inB, g, g', mul_dest, inA, inB, out, ret_stack, out
+    %store_fp12
+    // stack:                         mul_dest, inA, inB, out, ret_stack, out
     JUMP
 global ret_stack:
     // stack: out
