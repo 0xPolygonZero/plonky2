@@ -263,20 +263,25 @@ fn generate_modular_op<F: RichField>(
     // Higher order terms of the product must be zero for valid quot and modulus:
     debug_assert!(&prod[2 * N_LIMBS..].iter().all(|&x| x == 0i64));
 
+    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
     // constr_poly must be zero when evaluated at x = β :=
     // 2^LIMB_BITS, hence it's divisible by (x - β). `aux_limbs` is
     // the result of removing that root.
-    let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
+    let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
 
-    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
-
-    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
-    for (i, &c) in MODULAR_AUX_INPUT.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+    for c in aux_limbs.iter_mut() {
         // we store the unsigned offset value c + 2^20.
-        assert!(AUX_COEFF_ABS_MAX + c >= 0 && c <= AUX_COEFF_ABS_MAX);
-        nv[i] = F::from_canonical_u64((c + AUX_COEFF_ABS_MAX) as u64);
+        *c += AUX_COEFF_ABS_MAX;
     }
+    debug_assert!(aux_limbs.iter().all(|&c| c.abs() <= 2 * AUX_COEFF_ABS_MAX));
 
+    for (i, &c) in MODULAR_AUX_INPUT_LO.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+        nv[i] = F::from_canonical_u16(c as u16);
+    }
+    for (i, &c) in MODULAR_AUX_INPUT_HI.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+        nv[i] = F::from_canonical_u16((c >> 16) as u16);
+    }
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
     nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
 }
@@ -382,15 +387,21 @@ fn modular_constr_poly<P: PackedField>(
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign(&mut constr_poly, &output);
 
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
+    let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
+
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
     let mut aux = [P::ZEROS; 2 * N_LIMBS];
-    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
+    for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
         // MODULAR_AUX_INPUT elements were offset by 2^20 in
         // generation, so we undo that here.
-        aux[i] = nv[j] - P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
+        *c = nv[i] - offset;
+    }
+    // add high 16-bits of aux input
+    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_HI) {
+        *c += base * nv[j];
     }
 
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
 
     constr_poly
@@ -508,12 +519,16 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
+    let offset =
+        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
     let zero = builder.zero_extension();
     let mut aux = [zero; 2 * N_LIMBS];
-    let coeff_abs_max =
-        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
-    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
-        aux[i] = builder.sub_extension(nv[j], coeff_abs_max);
+    for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
+        *c = builder.sub_extension(nv[i], offset);
+    }
+    let base = F::from_canonical_u64(1u64 << LIMB_BITS);
+    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
+        *c = builder.mul_const_add_extension(base, nv[j], *c);
     }
 
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));

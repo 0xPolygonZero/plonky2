@@ -101,7 +101,7 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
         *c += AUX_COEFF_ABS_MAX;
     }
 
-    debug_assert!(aux_limbs.iter().all(|&c| c.abs() <= AUX_COEFF_ABS_MAX));
+    debug_assert!(aux_limbs.iter().all(|&c| c.abs() <= 2 * AUX_COEFF_ABS_MAX));
 
     lv[MUL_AUX_INPUT_LO].copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16(c as u16)));
     lv[MUL_AUX_INPUT_HI]

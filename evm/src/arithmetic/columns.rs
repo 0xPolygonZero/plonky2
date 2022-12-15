@@ -111,7 +111,7 @@ pub(crate) const MODULAR_QUO_INPUT: Range<usize> = GENERAL_INPUT_4_DBL;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_0;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.start;
-pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1.start + 1..AUX_INPUT_1.end;
+pub(crate) const MODULAR_AUX_INPUT_LO: Range<usize> = AUX_INPUT_1.start + 1..AUX_INPUT_1.end;
 pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_INPUT_2;
 
 #[allow(unused)] // TODO: Will be used when hooking into the CPU
