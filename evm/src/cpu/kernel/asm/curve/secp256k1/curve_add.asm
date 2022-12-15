@@ -209,10 +209,6 @@ global ec_double_secp:
     // stack: x, y, x, y, retdest
     %jump(ec_add_equal_points)
 
-global ec_double_retself:
-    %stack (x, y, retdest) -> (retdest, x, y)
-    JUMP
-
 // Push the order of the Secp256k1 scalar field.
 %macro secp_base
     PUSH @SECP_BASE

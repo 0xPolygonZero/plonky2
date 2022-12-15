@@ -9,3 +9,7 @@ global ret_zero_ec_mul:
     SWAP2
     // stack: retdest, 0, 0
     JUMP
+
+global ec_double_retself:
+    %stack (x, y, retdest) -> (retdest, x, y)
+    JUMP

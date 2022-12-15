@@ -48,8 +48,7 @@ msm_loop_add_d:
     DUP1 %jumpi(msm_loop_add_d_nonzero)
     POP
 msm_loop_contd:
-    %stack (accx, accy, i, retdest) -> (i, accx, accy, retdest)
-    DUP1
+    %stack (accx, accy, i, retdest) -> (i, i, accx, accy, retdest)
     %eq_const(129) %jumpi(msm_end)
     %increment
     //stack: i+1, accx, accy, retdest

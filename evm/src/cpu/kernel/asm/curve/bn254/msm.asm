@@ -17,8 +17,8 @@ msm_loop_add_b:
     DUP1 %jumpi(bn_msm_loop_add_b_nonzero)
     POP
 msm_loop_contd:
-    %stack (accx, accy, i, retdest) -> (i, accx, accy, retdest)
-    DUP1
+    %stack (accx, accy, i, retdest) -> (i, i, accx, accy, retdest)
+    // TODO: the GLV scalars for the BN curve are 127-bit, so could use 127 here. But this would require modifying `wnaf.asm`. Not sure it's worth it...
     %eq_const(129) %jumpi(msm_end)
     %increment
     //stack: i+1, accx, accy, retdest
