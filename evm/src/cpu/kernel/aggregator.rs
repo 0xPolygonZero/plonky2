@@ -28,6 +28,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/curve/bn254/curve_arithmetic/curve_add.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/curve_mul.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/miller_loop.asm"),
+        include_str!("asm/curve/bn254/curve_arithmetic/power.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/tate_pairing.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/inverse.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/field_macros.asm"),
