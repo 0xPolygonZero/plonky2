@@ -96,11 +96,16 @@ pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
     aux_limbs[N_LIMBS - 1] = -cy;
 
-    for (i, &c) in MUL_AUX_INPUT.zip(&aux_limbs) {
+    for c in aux_limbs.iter_mut() {
         // we store the unsigned offset value c + 2^20
-        assert!(AUX_COEFF_ABS_MAX + c >= 0 && c <= AUX_COEFF_ABS_MAX);
-        lv[i] = F::from_canonical_u64((c + AUX_COEFF_ABS_MAX) as u64);
+        *c += AUX_COEFF_ABS_MAX;
     }
+
+    debug_assert!(aux_limbs.iter().all(|&c| c.abs() <= AUX_COEFF_ABS_MAX));
+
+    lv[MUL_AUX_INPUT_LO].copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16(c as u16)));
+    lv[MUL_AUX_INPUT_HI]
+        .copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16((c >> 16) as u16)));
 }
 
 pub fn eval_packed_generic<P: PackedField>(
@@ -110,16 +115,25 @@ pub fn eval_packed_generic<P: PackedField>(
     range_check_error!(MUL_INPUT_0, 16);
     range_check_error!(MUL_INPUT_1, 16);
     range_check_error!(MUL_OUTPUT, 16);
-    range_check_error!(MUL_AUX_INPUT, 20);
+
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let is_mul = lv[IS_MUL];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
-    // that here
-    let aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT)
-        .map(|c| c - P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
+
+    let aux_limbs = {
+        // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
+        // that here
+        let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
+        let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT_LO);
+        let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
+        for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
+            *lo += hi * base - offset;
+        }
+        aux_limbs
+    };
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be
@@ -140,7 +154,6 @@ pub fn eval_packed_generic<P: PackedField>(
     pol_sub_assign(&mut constr_poly, &output_limbs);
 
     // This subtracts (x - β) * s(x) from constr_poly.
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_sub_assign(&mut constr_poly, &pol_adjoin_root(aux_limbs, base));
 
     // At this point constr_poly holds the coefficients of the
@@ -161,12 +174,19 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
-    let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT);
-    let coeff_abs_max =
-        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
-    for c in aux_limbs.iter_mut() {
-        *c = builder.sub_extension(*c, coeff_abs_max);
-    }
+
+    let aux_limbs = {
+        let base = F::from_canonical_u64(1 << LIMB_BITS);
+        let offset =
+            builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
+        let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT_LO);
+        let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
+        for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
+            //*lo = lo + hi * base - offset;
+            *lo = builder.arithmetic_extension(-F::ONE, base, offset, hi, *lo);
+        }
+        aux_limbs
+    };
 
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);

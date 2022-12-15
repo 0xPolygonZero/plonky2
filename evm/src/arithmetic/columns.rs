@@ -56,7 +56,7 @@ const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_L
 const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
 const GENERAL_INPUT_2: Range<usize> = GENERAL_INPUT_1.end..GENERAL_INPUT_1.end + N_LIMBS;
 const GENERAL_INPUT_3: Range<usize> = GENERAL_INPUT_2.end..GENERAL_INPUT_2.end + N_LIMBS;
-const AUX_INPUT_0_LO: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
+const GENERAL_INPUT_4: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
 
 // The auxiliary input columns overlap the general input columns
 // because they correspond to the values in the second row for modular
@@ -87,7 +87,8 @@ pub(crate) const SUB_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_INPUT_2;
-pub(crate) const MUL_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
+pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = GENERAL_INPUT_3;
+pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = GENERAL_INPUT_4;
 
 // LT and GT take 4 * N_LIMBS = 64 columns
 pub(crate) const CMP_INPUT_0: Range<usize> = GENERAL_INPUT_0;
@@ -105,7 +106,7 @@ pub(crate) const MODULAR_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MODULAR_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MODULAR_MODULUS: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MODULAR_OUTPUT: Range<usize> = GENERAL_INPUT_3;
-pub(crate) const MODULAR_QUO_INPUT_LO: Range<usize> = AUX_INPUT_0_LO;
+pub(crate) const MODULAR_QUO_INPUT_LO: Range<usize> = GENERAL_INPUT_4;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
 pub(crate) const MODULAR_QUO_INPUT_HI: Range<usize> = AUX_INPUT_0_HI;
 pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1.start..AUX_INPUT_1.end - 1;
