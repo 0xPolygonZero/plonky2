@@ -61,8 +61,8 @@ const GENERAL_INPUT_4: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end +
 // The auxiliary input columns overlap the general input columns
 // because they correspond to the values in the second row for modular
 // operations.
-const AUX_INPUT_0_HI: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
-const AUX_INPUT_1: Range<usize> = AUX_INPUT_0_HI.end..AUX_INPUT_0_HI.end + 2 * N_LIMBS;
+const AUX_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
+const AUX_INPUT_1: Range<usize> = AUX_INPUT_0.end..AUX_INPUT_0.end + 2 * N_LIMBS;
 // These auxiliary input columns are awkwardly split across two rows,
 // with the first half after the general input columns and the second
 // half after the auxiliary input columns.
@@ -108,7 +108,7 @@ pub(crate) const MODULAR_MODULUS: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MODULAR_OUTPUT: Range<usize> = GENERAL_INPUT_3;
 pub(crate) const MODULAR_QUO_INPUT_LO: Range<usize> = GENERAL_INPUT_4;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
-pub(crate) const MODULAR_QUO_INPUT_HI: Range<usize> = AUX_INPUT_0_HI;
+pub(crate) const MODULAR_QUO_INPUT_HI: Range<usize> = AUX_INPUT_0;
 pub(crate) const MODULAR_AUX_INPUT: Range<usize> = AUX_INPUT_1.start..AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.end - 1;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_2;
