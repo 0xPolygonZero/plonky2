@@ -13,14 +13,16 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::cpu::membus::{NUM_GP_CHANNELS};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
+use crate::witness::transition::check_ctls;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
-pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
+pub(crate) fn generate_bootstrap_kernel<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>) {
+    let checkpoint = state.checkpoint().traces;
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
@@ -43,17 +45,19 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    final_cpu_row.mem_channels[0].value[0] = F::ZERO;
-    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    final_cpu_row.mem_channels[2].value[0] = F::ZERO;
-    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(state.traces.clock());
+    final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
+    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
+    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
+    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
     final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
-    state.traces.push_cpu(final_cpu_row);
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
+    state.traces.push_cpu(final_cpu_row);
+    log::info!("Bootstrapping took {} cycles", state.traces.clock());
+    check_ctls(state, checkpoint); // TODO
 }
 
 pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(

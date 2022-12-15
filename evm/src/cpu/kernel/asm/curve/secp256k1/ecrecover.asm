@@ -142,11 +142,14 @@ pubkey_to_addr:
     // stack: 0x40, retdest
     PUSH 0
     // stack: 0, 0x40, retdest
+global debug_pubkey_to_addr_pre_hash:
     KECCAK256
+global debug_pubkey_to_addr_got_hash:
     // stack: hash, retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffff
     // stack: 2^160-1, hash, retdest
     AND
+global debug_pubkey_to_addr_got_addr:
     // stack: address, retdest
     SWAP1
     // stack: retdest, address

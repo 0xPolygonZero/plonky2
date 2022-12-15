@@ -129,11 +129,11 @@ load_code_loop:
     %jump(load_code_loop)
 
 // Check that the hash of the loaded code equals `codehash`.
-load_code_check:
+global load_code_check:
     // stack: i, code_length, codehash, ctx, segment, retdest
     %stack (i, code_length, codehash, ctx, segment, retdest)
         -> (ctx, segment, 0, code_length, codehash, retdest, code_length)
-    KECCAK_GENERAL
+    %keccak_general_be
     // stack: shouldbecodehash, codehash, retdest, code_length
     %assert_eq
     JUMP

@@ -1,10 +1,28 @@
+global keccak_general_be:
+    // stack: addr: 3, len, retdest
+    KECCAK_GENERAL
+    %reverse_bytes_u256
+    // stack: hash_be, retdest
+    SWAP1
+    JUMP
+
+%macro keccak_general_be
+    %stack (addr: 3, len) -> (addr, len, %%after)
+    %jump(keccak_general_be)
+%%after:
+%endmacro
+
+%macro keccak_general_le
+    KECCAK_GENERAL
+%endmacro
+
 global sys_keccak256:
     // stack: kexit_info, offset, len
     %stack (kexit_info, offset, len) -> (offset, len, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
     // stack: ADDR: 3, len, kexit_info
-    KECCAK_GENERAL
+    %keccak_general_be
     // stack: hash, kexit_info
     SWAP1
     EXIT_KERNEL

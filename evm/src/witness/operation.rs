@@ -56,6 +56,7 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     let operation = logic::Operation::new(op, in0, in1);
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result)?;
 
+    // log::info!("CPU push_logic");
     state.traces.push_logic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
@@ -138,10 +139,9 @@ pub(crate) fn generate_keccak_general<F: Field>(
             val.as_u32() as u8
         })
         .collect_vec();
-    log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
+    let log_push = stack_push_log_and_fill(state, &mut row, U256::from_little_endian(&hash.0))?;
 
     keccak_sponge_log(state, base_address, input);
 

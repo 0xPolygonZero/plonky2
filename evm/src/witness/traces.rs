@@ -18,12 +18,12 @@ use crate::{arithmetic, keccak, logic};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
-    pub(self) cpu_len: usize,
-    pub(self) keccak_len: usize,
-    pub(self) keccak_sponge_len: usize,
-    pub(self) logic_len: usize,
+    pub(crate) cpu_len: usize,
+    pub(crate) keccak_len: usize,
+    pub(crate) keccak_sponge_len: usize,
+    pub(crate) logic_len: usize,
     pub(self) arithmetic_len: usize,
-    pub(self) memory_len: usize,
+    pub(crate) memory_len: usize,
 }
 
 #[derive(Debug)]

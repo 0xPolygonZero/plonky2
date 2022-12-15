@@ -40,7 +40,7 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     let storage_tries_by_state_key = trie_inputs
         .storage_tries
         .iter()
-        .map(|(address, storage_trie)| (Nibbles::from(keccak(address)), storage_trie))
+        .map(|(address, storage_trie)| (Nibbles::from_bytes_be(keccak(address).as_bytes()).unwrap(), storage_trie))
         .collect();
 
     mpt_prover_inputs_state_trie(
@@ -166,7 +166,8 @@ pub(crate) fn mpt_prover_inputs_state_trie(
             prover_inputs.push(nonce);
             prover_inputs.push(balance);
             mpt_prover_inputs(storage_trie, prover_inputs, &parse_storage_value);
-            prover_inputs.push(code_hash.into_uint());
+            prover_inputs.push(U256::from_big_endian(&code_hash.0));
+            // prover_inputs.push(U256::from_little_endian(&code_hash.0));
         }
     }
 }

@@ -89,7 +89,7 @@ impl Op {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Operation {
     operator: Op,
     input0: U256,
@@ -154,7 +154,7 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
         trace_polys
     }
 
-    fn generate_trace_rows(
+    pub(crate) fn generate_trace_rows(
         &self,
         operations: Vec<Operation>,
         min_rows: usize,

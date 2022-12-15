@@ -1,4 +1,6 @@
+use std::mem::size_of;
 use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -184,6 +186,7 @@ fn xor_into_sponge<F: Field>(
         let range = i..KECCAK_RATE_BYTES.min(i + 32);
         let lhs = U256::from_little_endian(&sponge_state[range.clone()]);
         let rhs = U256::from_little_endian(&block[range]);
+        // log::info!("Keccak push_logic");
         state
             .traces
             .push_logic(logic::Operation::new(logic::Op::Xor, lhs, rhs));
@@ -198,6 +201,7 @@ pub(crate) fn keccak_sponge_log<F: Field>(
     base_address: MemoryAddress,
     input: Vec<u8>,
 ) {
+    log::info!("Hashing {:?}", &input);
     let clock = state.traces.clock();
 
     let mut address = base_address;

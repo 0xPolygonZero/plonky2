@@ -27,13 +27,13 @@ mpt_hash_hash_rlp:
         // context, segment, offset, value, len, retdest
         -> (0, @SEGMENT_RLP_RAW, 0, result, result_len, mpt_hash_hash_rlp_after_unpacking)
     %jump(mstore_unpacking)
-mpt_hash_hash_rlp_after_unpacking:
+global mpt_hash_hash_rlp_after_unpacking:
     // stack: result_len, retdest
     PUSH 0 // offset
     PUSH @SEGMENT_RLP_RAW // segment
     PUSH 0 // context
     // stack: result_addr: 3, result_len, retdest
-    KECCAK_GENERAL
+    %keccak_general_be
     // stack: hash, retdest
     SWAP1
     JUMP
@@ -71,7 +71,7 @@ global encode_or_hash_node:
 encode_or_hash_concrete_node:
     %stack (node_type, node_ptr, encode_value) -> (node_type, node_ptr, encode_value, maybe_hash_node)
     %jump(encode_node)
-maybe_hash_node:
+global maybe_hash_node:
     // stack: result_ptr, result_len, retdest
     DUP2 %lt_const(32)
     %jumpi(pack_small_rlp)
@@ -81,7 +81,7 @@ maybe_hash_node:
     PUSH @SEGMENT_RLP_RAW // segment
     PUSH 0 // context
     // stack: result_addr: 3, result_len, retdest
-    KECCAK_GENERAL
+    %keccak_general_be
     %stack (hash, retdest) -> (retdest, hash, 32)
     JUMP
 pack_small_rlp:

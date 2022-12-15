@@ -33,8 +33,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
-    let sender_nibbles = Nibbles::from(sender_state_key);
-    let to_nibbles = Nibbles::from(to_state_key);
+    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes())?;
+    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes())?;
     let value = U256::from(100u32);
 
     let sender_account_before = AccountRlp {

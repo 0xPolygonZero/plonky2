@@ -121,6 +121,7 @@ load_mpt_leaf:
     PROVER_INPUT(mpt) // read num_nibbles
     %append_to_trie_data
     PROVER_INPUT(mpt) // read packed_nibbles
+global debug_got_packed_nibbles: JUMPDEST // PANIC
     %append_to_trie_data
     // stack: node_ptr, load_value, retdest
     // We save value_ptr_ptr = get_trie_data_size, then increment trie_data_size

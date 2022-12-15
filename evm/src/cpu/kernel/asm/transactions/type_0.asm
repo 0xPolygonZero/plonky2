@@ -186,13 +186,13 @@ after_serializing_txn_data:
     SWAP1 %encode_rlp_scalar
     // stack: rlp_pos, retdest
 
-finish_rlp_list:
+global finish_rlp_list:
     %prepend_rlp_list_prefix
     // stack: start_pos, rlp_len, retdest
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context
     // stack: ADDR: 3, rlp_len, retdest
-    KECCAK_GENERAL
+    %keccak_general_le // TODO: Should be BE?
     // stack: hash, retdest
 
     %mload_txn_field(@TXN_FIELD_S)
@@ -205,7 +205,7 @@ finish_rlp_list:
     // stack: hash, v, r, s, store_origin, retdest
     %jump(ecrecover)
 
-store_origin:
+global store_origin:
     // stack: address, retdest
     // If ecrecover returned u256::MAX, that indicates failure.
     DUP1

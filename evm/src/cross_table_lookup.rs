@@ -248,9 +248,10 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
         default,
     } in cross_table_lookups
     {
-        log::debug!("Processing CTL for {:?}", looked_table.table);
+        log::info!("Processing CTL for {:?}", looked_table.table);
         for &challenge in &challenges.challenges {
             let zs_looking = looking_tables.iter().map(|table| {
+                // log::info!("LOOKING partial_products");
                 partial_products(
                     &trace_poly_values[table.table as usize],
                     &table.columns,
@@ -258,6 +259,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                     challenge,
                 )
             });
+            // log::info!("LOOKED partial_products");
             let z_looked = partial_products(
                 &trace_poly_values[looked_table.table as usize],
                 &looked_table.columns,
@@ -269,23 +271,9 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                 zs_looking
                     .clone()
                     .map(|z| *z.values.last().unwrap())
+                    // .inspect(|last| log::info!("Looking last {}", last))
                     .product::<F>(),
                 *z_looked.values.last().unwrap()
-                    * default
-                        .as_ref()
-                        .map(|default| {
-                            challenge.combine(default).exp_u64(
-                                looking_tables
-                                    .iter()
-                                    .map(|table| {
-                                        trace_poly_values[table.table as usize][0].len() as u64
-                                    })
-                                    .sum::<u64>()
-                                    - trace_poly_values[looked_table.table as usize][0].len()
-                                        as u64,
-                            )
-                        })
-                        .unwrap_or(F::ONE)
             );
 
             for (table, z) in looking_tables.iter().zip(zs_looking) {
@@ -331,6 +319,7 @@ fn partial_products<F: Field>(
                 .iter()
                 .map(|c| c.eval_table(trace, i))
                 .collect::<Vec<_>>();
+            // log::info!("Evals {:?}", &evals);
             partial_prod *= challenge.combine(evals.iter());
         } else {
             assert_eq!(filter, F::ZERO, "Non-binary filter?")

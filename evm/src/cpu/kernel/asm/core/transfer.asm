@@ -42,6 +42,7 @@ global transfer_eth_failure:
 global deduct_eth:
     // stack: addr, amount, retdest
     %mpt_read_state_trie
+global debug_deduct_eth_a:
     // stack: account_ptr, amount, retdest
     DUP1 ISZERO %jumpi(panic) // If the account pointer is null, return 0.
     %add_const(1)
@@ -100,6 +101,7 @@ global add_eth_new_account:
     PUSH 0 %append_to_trie_data // storage root pointer
     PUSH @EMPTY_STRING_HASH %append_to_trie_data // code hash
     // stack: addr, new_account_ptr, retdest
+global debug_add_eth_new_account_addr_to_state_key:
     %addr_to_state_key
     // stack: key, new_account_ptr, retdest
     %jump(mpt_insert_state_trie)

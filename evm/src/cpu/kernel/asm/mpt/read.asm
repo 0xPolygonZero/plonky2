@@ -4,6 +4,7 @@
 global mpt_read_state_trie:
     // stack: addr, retdest
     %addr_to_state_key
+global debug_got_state_key:
     // stack: key, retdest
     PUSH 64 // num_nibbles
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT) // node_ptr
@@ -41,6 +42,7 @@ global mpt_read:
 
     // There's still the MPT_NODE_HASH case, but if we hit a hash node,
     // it means the prover failed to provide necessary Merkle data, so panic.
+global debug_mpt_read_unknown:
     PANIC
 
 mpt_read_empty:
@@ -49,7 +51,7 @@ mpt_read_empty:
         -> (retdest, 0)
     JUMP
 
-mpt_read_branch:
+global mpt_read_branch:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     POP
     // stack: node_payload_ptr, num_nibbles, key, retdest
@@ -71,7 +73,7 @@ mpt_read_branch:
     // stack: child_ptr, num_nibbles, key, retdest
     %jump(mpt_read) // recurse
 
-mpt_read_branch_end_of_key:
+global mpt_read_branch_end_of_key:
     %stack (node_payload_ptr, num_nibbles, key, retdest) -> (node_payload_ptr, retdest)
     // stack: node_payload_ptr, retdest
     %add_const(16) // skip over the 16 child nodes
@@ -81,7 +83,7 @@ mpt_read_branch_end_of_key:
     SWAP1
     JUMP
 
-mpt_read_extension:
+global mpt_read_extension:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     %stack (node_type, node_payload_ptr, num_nibbles, key)
         -> (num_nibbles, key, node_payload_ptr)
@@ -103,7 +105,7 @@ mpt_read_extension:
     // Not found; return 0.
     %stack (key_part, future_nibbles, node_payload_ptr, retdest) -> (retdest, 0)
     JUMP
-mpt_read_extension_found:
+global mpt_read_extension_found:
     // stack: key_part, future_nibbles, key, node_payload_ptr, retdest
     DUP2 %mul_const(4) SHL // key_part_shifted = (key_part << (future_nibbles * 4))
     // stack: key_part_shifted, future_nibbles, key, node_payload_ptr, retdest
@@ -118,13 +120,14 @@ mpt_read_extension_found:
     // stack: child_ptr, future_nibbles, key, retdest
     %jump(mpt_read) // recurse
 
-mpt_read_leaf:
+global mpt_read_leaf:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     POP
     // stack: node_payload_ptr, num_nibbles, key, retdest
     DUP1 %mload_trie_data
     // stack: node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
     DUP2 %increment %mload_trie_data
+global have_node_key:
     // stack: node_key, node_num_nibbles, node_payload_ptr, num_nibbles, key, retdest
     SWAP3
     // stack: num_nibbles, node_num_nibbles, node_payload_ptr, node_key, key, retdest
@@ -138,7 +141,7 @@ mpt_read_leaf:
     // Not found; return 0.
     %stack (node_payload_ptr, retdest) -> (retdest, 0)
     JUMP
-mpt_read_leaf_found:
+global mpt_read_leaf_found:
     // stack: node_payload_ptr, retdest
     %add_const(2) // The value pointer is located after num_nibbles and the key.
     // stack: value_ptr_ptr, retdest

@@ -83,6 +83,12 @@ pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
         .unwrap()
 }
 
+pub(crate) fn u256_to_h256_le(u256: U256) -> H256 {
+    let mut buf = [0; 32];
+    u256.to_little_endian(&mut buf);
+    H256(buf)
+}
+
 pub(crate) const fn indices_arr<const N: usize>() -> [usize; N] {
     let mut indices_arr = [0; N];
     let mut i = 0;

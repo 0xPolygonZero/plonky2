@@ -21,6 +21,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
+use crate::util::u256_to_h256_le;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::transition::transition;
 
@@ -70,7 +71,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 ) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
 
-    generate_bootstrap_kernel::<F>(&mut state);
+    generate_bootstrap_kernel::<F, D>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state));
 
@@ -88,14 +89,14 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     };
 
     let trie_roots_before = TrieRoots {
-        state_root: H256::from_uint(&read_metadata(StateTrieRootDigestBefore)),
-        transactions_root: H256::from_uint(&read_metadata(TransactionTrieRootDigestBefore)),
-        receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestBefore)),
+        state_root: u256_to_h256_le(read_metadata(StateTrieRootDigestBefore)),
+        transactions_root: u256_to_h256_le(read_metadata(TransactionTrieRootDigestBefore)),
+        receipts_root: u256_to_h256_le(read_metadata(ReceiptTrieRootDigestBefore)),
     };
     let trie_roots_after = TrieRoots {
-        state_root: H256::from_uint(&read_metadata(StateTrieRootDigestAfter)),
-        transactions_root: H256::from_uint(&read_metadata(TransactionTrieRootDigestAfter)),
-        receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestAfter)),
+        state_root: u256_to_h256_le(read_metadata(StateTrieRootDigestAfter)),
+        transactions_root: u256_to_h256_le(read_metadata(TransactionTrieRootDigestAfter)),
+        receipts_root: u256_to_h256_le(read_metadata(ReceiptTrieRootDigestAfter)),
     };
 
     let public_values = PublicValues {
@@ -113,6 +114,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 }
 
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>) {
+    log::info!("LABELS: {:?}", KERNEL.global_labels);
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
     let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 

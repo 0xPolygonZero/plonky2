@@ -1,7 +1,10 @@
+use std::borrow::Borrow;
 use itertools::Itertools;
+use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
-use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -11,6 +14,9 @@ use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
 use crate::witness::util::{mem_read_code_with_log_and_fill, stack_peek};
 use crate::{arithmetic, logic};
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
+use crate::logic::LogicStark;
+use crate::witness::traces::TraceCheckpoint;
 
 fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
     let code_context = state.registers.effective_context();
@@ -279,12 +285,13 @@ fn handle_error<F: Field>(_state: &mut GenerationState<F>) {
     todo!("generation for exception handling is not implemented");
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
+pub(crate) fn transition<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>) {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state);
 
     match result {
         Ok(()) => {
+            check_ctls(state, checkpoint.traces);
             state
                 .memory
                 .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
@@ -298,4 +305,53 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
             handle_error(state)
         }
     }
+}
+
+pub(crate) fn check_ctls<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>, checkpoint: TraceCheckpoint) {
+    let cpu_rows = &state.traces.cpu[checkpoint.cpu_len..];
+    // assert_eq!(cpu_rows.len(), 1);
+    let cpu_row = &cpu_rows[0];
+
+    let keccak_rows = &state.traces.keccak_inputs[checkpoint.keccak_len..];
+    let keccak_sponge_rows = &state.traces.keccak_sponge_ops[checkpoint.keccak_sponge_len..];
+    let logic_rows = &state.traces.logic_ops[checkpoint.logic_len..];
+    let memory_rows = &state.traces.memory_ops[checkpoint.memory_len..];
+
+    let mut looking_logic = vec![];
+    let cpu_row: &[F; NUM_CPU_COLUMNS] = cpu_row.borrow();
+    let cpu_logic_filter = crate::cpu::cpu_stark::ctl_filter_logic().eval(cpu_row);
+    if cpu_logic_filter.is_one() {
+        looking_logic.push(crate::cpu::cpu_stark::ctl_data_logic().iter().map(|col| {
+            col.eval(cpu_row)
+        }).collect_vec());
+    }
+
+    let keccak_sponge_rows = KeccakSpongeStark::default().generate_trace_rows(keccak_sponge_rows.to_vec(), 0);
+    for row in &keccak_sponge_rows {
+        let filter: F = crate::keccak_sponge::keccak_sponge_stark::ctl_looking_logic_filter().eval(row);
+        if filter.is_one() {
+            for i in 0..5 {
+                looking_logic.push(crate::keccak_sponge::keccak_sponge_stark::ctl_looking_logic(i).iter().map(|col| col.eval(row)).collect_vec());
+            }
+        }
+    }
+
+    let mut looked_logic = vec![];
+    let logic_rows = LogicStark::<F, D>::default().generate_trace_rows(logic_rows.to_vec(), 0);
+    for row in &logic_rows {
+        let filter: F = crate::logic::ctl_filter().eval(row);
+        if filter.is_one() {
+            looked_logic.push(crate::logic::ctl_data().iter().map(|col| col.eval(row)).collect_vec());
+        }
+    }
+
+    looking_logic.sort_by_key(|row| row.iter().map(|x| x.to_canonical_u64()).collect_vec());
+    looked_logic.sort_by_key(|row| row.iter().map(|x| x.to_canonical_u64()).collect_vec());
+    if !looking_logic.is_empty() {
+        // log::info!("Looking {:?}", &looking_logic);
+    }
+    if !looked_logic.is_empty() {
+        // log::info!("Looked {:?}", &looked_logic);
+    }
+    assert_eq!(looking_logic, looked_logic);
 }

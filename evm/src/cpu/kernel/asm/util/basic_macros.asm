@@ -336,6 +336,45 @@
     // stack: word_inverted
 %endmacro
 
+%macro reverse_bytes_u256
+    // stack: x
+    %rep 31
+        DUP1
+    %endrep
+    PUSH  0 BYTE
+    PUSH  1 BYTE %shl_const(8  ) ADD
+    PUSH  2 BYTE %shl_const(16 ) ADD
+    PUSH  3 BYTE %shl_const(24 ) ADD
+    PUSH  4 BYTE %shl_const(32 ) ADD
+    PUSH  5 BYTE %shl_const(40 ) ADD
+    PUSH  6 BYTE %shl_const(48 ) ADD
+    PUSH  7 BYTE %shl_const(56 ) ADD
+    PUSH  8 BYTE %shl_const(64 ) ADD
+    PUSH  9 BYTE %shl_const(72 ) ADD
+    PUSH 10 BYTE %shl_const(80 ) ADD
+    PUSH 11 BYTE %shl_const(88 ) ADD
+    PUSH 12 BYTE %shl_const(96 ) ADD
+    PUSH 13 BYTE %shl_const(104) ADD
+    PUSH 14 BYTE %shl_const(112) ADD
+    PUSH 15 BYTE %shl_const(120) ADD
+    PUSH 16 BYTE %shl_const(128) ADD
+    PUSH 17 BYTE %shl_const(136) ADD
+    PUSH 18 BYTE %shl_const(144) ADD
+    PUSH 19 BYTE %shl_const(152) ADD
+    PUSH 20 BYTE %shl_const(160) ADD
+    PUSH 21 BYTE %shl_const(168) ADD
+    PUSH 22 BYTE %shl_const(176) ADD
+    PUSH 23 BYTE %shl_const(184) ADD
+    PUSH 24 BYTE %shl_const(192) ADD
+    PUSH 25 BYTE %shl_const(200) ADD
+    PUSH 26 BYTE %shl_const(208) ADD
+    PUSH 27 BYTE %shl_const(216) ADD
+    PUSH 28 BYTE %shl_const(224) ADD
+    PUSH 29 BYTE %shl_const(232) ADD
+    PUSH 30 BYTE %shl_const(240) ADD
+    PUSH 31 BYTE %shl_const(248) ADD
+%endmacro
+
 // Combine four big-endian u64s into a u256.
 %macro u64s_to_u256
     // stack: a, b, c, d
