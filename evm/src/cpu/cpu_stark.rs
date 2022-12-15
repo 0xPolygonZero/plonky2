@@ -10,6 +10,7 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, jumps, membus, memio, modfp254,
     pc, shift, simple_logic, stack, stack_bounds, syscalls,
@@ -36,7 +37,7 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(COL_MAP.mem_channels[3].value.map(Column::single));
+    cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
     cols
 }
 
@@ -48,7 +49,9 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor]).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[0].value));
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
+    res.extend(Column::singles(
+        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
+    ));
     res
 }
 

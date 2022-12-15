@@ -41,7 +41,7 @@ pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     Column::singles(
         [
-            cols.original_rate_u32s.as_slice(),
+            cols.xored_rate_u32s.as_slice(),
             &cols.original_capacity_u32s,
             &cols.updated_state_u32s,
         ]
@@ -140,13 +140,19 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i..]))
 }
 
+/// CTL filter for looking at XORs in the logic table.
+pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Column<F> {
+    let cols = KECCAK_SPONGE_COL_MAP;
+    Column::sum([cols.is_full_input_block, cols.is_final_block])
+}
+
 pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
     Column::sum([cols.is_full_input_block, cols.is_final_block])
 }
 
 /// Information about a Keccak sponge operation needed for witness generation.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct KeccakSpongeOp {
     /// The base address at which inputs are read.
     pub(crate) base_address: MemoryAddress,
@@ -192,13 +198,15 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let num_rows = operations.len().max(min_rows).next_power_of_two();
-        operations
-            .into_iter()
-            .flat_map(|op| self.generate_rows_for_op(op))
-            .chain(repeat(self.generate_padding_row()))
-            .take(num_rows)
-            .collect()
+        let mut rows = vec![];
+        for op in operations {
+            rows.extend(self.generate_rows_for_op(op));
+        }
+        let padded_rows = rows.len().max(min_rows).next_power_of_two();
+        for _ in rows.len()..padded_rows {
+            rows.push(self.generate_padding_row());
+        }
+        rows
     }
 
     fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
