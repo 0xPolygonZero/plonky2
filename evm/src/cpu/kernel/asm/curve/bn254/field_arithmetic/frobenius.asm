@@ -1,3 +1,41 @@
+global test_frob_fp12_1:
+    // stack: ptr, f, ptr
+    %store_fp12
+    // stack:         ptr
+    %frob_fp12_1
+    // stack:         ptr
+    %load_fp12
+    %jump(0xdeadbeef)
+
+global test_frob_fp12_2:
+    // stack: ptr, f, ptr
+    %store_fp12
+    // stack:         ptr 
+    DUP1
+    // stack:    ptr, ptr
+    %frob_fp12_2_
+    // stack:         ptr
+    %load_fp12
+    %jump(0xdeadbeef)
+
+global test_frob_fp12_3:
+    // stack: ptr, f, ptr
+    %store_fp12
+    // stack:         ptr
+    %frob_fp12_3
+    // stack:         ptr
+    %load_fp12
+    %jump(0xdeadbeef)
+
+global test_frob_fp12_6:
+    // stack: ptr, f, ptr
+    %store_fp12
+    // stack:         ptr
+    %frob_fp12_6
+    // stack:         ptr
+    %load_fp12
+    %jump(0xdeadbeef)
+
 /// let Z` denote the complex conjugate of Z
 
 /// def frob_fp6_n(C0, C1, C2):
@@ -91,13 +129,14 @@
     // stack:       f', ptr
     %frobz_1
     // stack:       g', ptr
-    DUP1  %offset_fp6
+    DUP7  %offset_fp6
     // stack: ptr', g', ptr
     %store_fp6
     // stack:           ptr
 %endmacro 
 
-%macro frob_fp12_2
+// Note: this is the only one with distinct input and output pointers
+%macro frob_fp12_2_
     // stack:           ptr , out
     DUP1
     // stack:      ptr, ptr , out
@@ -115,7 +154,7 @@
     // stack:             f', out
     %frobz_2
     // stack:             g', out
-    DUP1  %offset_fp6
+    DUP7  %offset_fp6
     // stack:       out', g', out
     %store_fp6
     // stack:                 out
@@ -139,11 +178,11 @@
     // stack:       f', ptr
     %frobz_3
     // stack:       g', ptr
-    DUP1  %offset_fp6
+    DUP7  %offset_fp6
     // stack: ptr', g', ptr
     %store_fp6
     // stack:           ptr
-%endmacro 
+%endmacro
 
 %macro frob_fp12_6
     // stack:           ptr

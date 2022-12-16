@@ -150,6 +150,10 @@ fn gen_fp6() -> Fp6 {
     ]
 }
 
+fn gen_fp12() -> Fp12 {
+    [gen_fp6(), gen_fp6()]
+}
+
 fn gen_fp12_sparse() -> Fp12 {
     sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
 }
@@ -303,16 +307,22 @@ fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
     let _c1 = conj_fp2(c1);
     let _c2 = conj_fp2(c2);
 
+    let n = n % 6;
+    let frob_t1 = frob_t1(n);
+    let frob_t2 = frob_t2(n);
+
     if n % 2 != 0 {
-        [_c0, mul_fp2(frob_t1(n), _c1), mul_fp2(frob_t2(n), _c2)]
+        [_c0, mul_fp2(frob_t1, _c1), mul_fp2(frob_t2, _c2)]
     } else {
-        [c0, mul_fp2(frob_t1(n), c1), mul_fp2(frob_t2(n), c2)]
+        [c0, mul_fp2(frob_t1, c1), mul_fp2(frob_t2, c2)]
     }
 }
+
 fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let [f0, f1] = f;
     let zero = U256::from(0);
     let scale = [frob_z(n), [zero, zero], [zero, zero]];
+
     [frob_fp6(n, f0), mul_fp6(scale, frob_fp6(n, f1))]
 }
 
@@ -320,10 +330,8 @@ fn make_mul_stack(
     in0: usize,
     in1: usize,
     out: usize,
-    f0: Fp6,
-    f1: Fp6,
-    g0: Fp6,
-    g1: Fp6,
+    f: Fp12,
+    g: Fp12,
     mul_label: &str,
 ) -> Vec<U256> {
     // stack: in0, f, f', in1, g, g', mul_dest, in0, in1, out, ret_stack, out
@@ -332,20 +340,16 @@ fn make_mul_stack(
     let in1 = U256::from(in1);
     let out = U256::from(out);
 
-    let f0: Vec<U256> = f0.into_iter().flatten().collect();
-    let f1: Vec<U256> = f1.into_iter().flatten().collect();
-    let g0: Vec<U256> = g0.into_iter().flatten().collect();
-    let g1: Vec<U256> = g1.into_iter().flatten().collect();
+    let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
+    let g: Vec<U256> = g.into_iter().flatten().flatten().collect();
 
     let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
     let mul_dest = U256::from(KERNEL.global_labels[mul_label]);
 
     let mut input = vec![in0];
-    input.extend(f0);
-    input.extend(f1);
+    input.extend(f);
     input.extend(vec![in1]);
-    input.extend(g0);
-    input.extend(g1);
+    input.extend(g);
     input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
     input.reverse();
 
@@ -367,29 +371,76 @@ fn test_mul_fp12() -> Result<()> {
     let in1 = 76;
     let out = 88;
 
-    let f0 = gen_fp6();
-    let f1 = gen_fp6();
-    let g0 = gen_fp6();
-    let g1 = gen_fp6();
-    let [h0, h1] = gen_fp12_sparse();
+    let f: Fp12 = gen_fp12();
+    let g: Fp12 = gen_fp12();
+    let h: Fp12 = gen_fp12_sparse();
 
     let test_mul = KERNEL.global_labels["test_mul_fp12"];
 
-    let normal: Vec<U256> = make_mul_stack(in0, in1, out, f0, f1, g0, g1, "mul_fp12");
-    let sparse: Vec<U256> = make_mul_stack(in0, in1, out, f0, f1, h0, h1, "mul_fp12_sparse");
-    let square: Vec<U256> = make_mul_stack(in0, in1, out, f0, f1, f0, f1, "square_fp12_test");
+    let normal: Vec<U256> = make_mul_stack(in0, in1, out, f, g, "mul_fp12");
+    let sparse: Vec<U256> = make_mul_stack(in0, in1, out, f, h, "mul_fp12_sparse");
+    let square: Vec<U256> = make_mul_stack(in0, in1, out, f, f, "square_fp12_test");
 
     let out_normal: Vec<U256> = run_interpreter(test_mul, normal)?.stack().to_vec();
     let out_sparse: Vec<U256> = run_interpreter(test_mul, sparse)?.stack().to_vec();
     let out_square: Vec<U256> = run_interpreter(test_mul, square)?.stack().to_vec();
 
-    let exp_normal: Vec<U256> = make_mul_expected([f0, f1], [g0, g1]);
-    let exp_sparse: Vec<U256> = make_mul_expected([f0, f1], [h0, h1]);
-    let exp_square: Vec<U256> = make_mul_expected([f0, f1], [f0, f1]);
+    let exp_normal: Vec<U256> = make_mul_expected(f, g);
+    let exp_sparse: Vec<U256> = make_mul_expected(f, h);
+    let exp_square: Vec<U256> = make_mul_expected(f, f);
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
     assert_eq!(out_square, exp_square);
+
+    Ok(())
+}
+
+fn make_frob_stack(f: Fp12) -> Vec<U256> {
+    let ptr = U256::from(100);
+    let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
+    let mut input = vec![ptr];
+    input.extend(f);
+    input.extend(vec![ptr]);
+    input.reverse();
+
+    input
+}
+
+fn make_frob_expected(n: usize, f: Fp12) -> Vec<U256> {
+    frob_fp12(n, f)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .rev()
+        .collect()
+}
+
+#[test]
+fn test_frob_fp12() -> Result<()> {
+    let f: Fp12 = gen_fp12();
+
+    let test_frob1 = KERNEL.global_labels["test_frob_fp12_1"];
+    let test_frob2 = KERNEL.global_labels["test_frob_fp12_2"];
+    let test_frob3 = KERNEL.global_labels["test_frob_fp12_3"];
+    let test_frob6 = KERNEL.global_labels["test_frob_fp12_6"];
+
+    let stack = make_frob_stack(f);
+
+    let out_frob1: Vec<U256> = run_interpreter(test_frob1, stack.clone())?.stack().to_vec();
+    let out_frob2: Vec<U256> = run_interpreter(test_frob2, stack.clone())?.stack().to_vec();
+    let out_frob3: Vec<U256> = run_interpreter(test_frob3, stack.clone())?.stack().to_vec();
+    let out_frob6: Vec<U256> = run_interpreter(test_frob6, stack)?.stack().to_vec();
+
+    let exp_frob1: Vec<U256> = make_frob_expected(1, f);
+    let exp_frob2: Vec<U256> = make_frob_expected(2, f);
+    let exp_frob3: Vec<U256> = make_frob_expected(3, f);
+    let exp_frob6: Vec<U256> = make_frob_expected(6, f);
+
+    assert_eq!(out_frob1, exp_frob1);
+    assert_eq!(out_frob2, exp_frob2);
+    assert_eq!(out_frob3, exp_frob3);
+    assert_eq!(out_frob6, exp_frob6);
 
     Ok(())
 }

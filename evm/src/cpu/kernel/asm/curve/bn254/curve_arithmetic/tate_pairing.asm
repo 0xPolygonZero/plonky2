@@ -5,7 +5,7 @@
 ///     out = frob_fp12_6(out)
 ///     out = mul_fp12(out, inv)
 ///
-///     acc = frob_fp12_2(out)
+///     acc = frob_fp12_2_(out)
 ///     out = mul_fp12(out, acc)
 ///
 ///     pow = fast_exp(out)
@@ -51,7 +51,7 @@ tate_mul1:
     // stack:      100, out, tate_mul2, out, retdest  {100: inv}       
     DUP2
     // stack: out, 100, out, tate_mul2, out, retdest  {100: inv}
-    %frob_fp12_2
+    %frob_fp12_2_
     // stack: out, 100, out, tate_mul2, out, retdest  {100: inv} 
     %jump(mul_fp12)
 tate_mul2: 

@@ -12,7 +12,7 @@
 ///     y0  = y0^{-1}
 ///     y1 *= y0 * (y2**2)
 ///     y1  = frob_fp12_1(y1)
-///     y2  = frob_fp12_2(y2)
+///     y2  = frob_fp12_2_(y2)
 ///     return y2 * y1 * y0 
 
 global power:
@@ -59,7 +59,7 @@ power_return_4:
     // stack:                                out, retdest  {236: y0, 212: y1, 224: y2}
     PUSH 224  DUP1
     // stack:                      224, 224, out, retdest  {236: y0, 212: y1, 224: y2}
-    %frob_fp12_2
+    %frob_fp12_2_
     // stack:                           224, out, retdest  {236: y0, 212: y1, 224: y2}
     POP
     // stack:                                out, retdest  {236: y0, 212: y1, 224: y2}
