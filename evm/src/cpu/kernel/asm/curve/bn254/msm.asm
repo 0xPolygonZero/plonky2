@@ -69,8 +69,6 @@ bn_msm_loop_add_b_nonzero:
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
     SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
     //stack: Gx, Gy
-    PUSH @BN_BASE
-    SWAP1
     PUSH @BN_GLV_BETA
-    MULMOD
+    MULFP254
 %endmacro
