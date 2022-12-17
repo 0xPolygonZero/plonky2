@@ -16,13 +16,13 @@
 ///     return y2 * y1 * y0 
 
 global power:
-    // stack:                                                            sqr, out, retdest
+    // stack:                                                       sqr, out, retdest
     PUSH 1  DUP1  DUP1
-    // stack:                                                   1, 1, 1, sqr, out, retdest
+    // stack:                                              1, 1, 1, sqr, out, retdest
     %mstore_kernel_general(200)  %mstore_kernel_general(212)  %mstore_kernel_general(224)
-    // stack:                                                            sqr, out, retdest  {200: y0, 212: y1, 224: y2}
+    // stack:                                                       sqr, out, retdest  {200: y0, 212: y1, 224: y2}
     PUSH power_loop_2  PUSH power_loop_1  PUSH power_return    
-    // stack:                  power_return, power_loop_1, power_loop_2, sqr, out, retdest  {200: y0, 212: y1, 224: y2}
+    // stack:             power_return, power_loop_1, power_loop_2, sqr, out, retdest  {200: y0, 212: y1, 224: y2}
     SWAP3
     // stack:             sqr, power_loop_1, power_loop_2, power_return, out, retdest  {200: y0, 212: y1, 224: y2}
     PUSH 65  PUSH 62  PUSH 65

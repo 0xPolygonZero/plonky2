@@ -7,27 +7,68 @@ use rand::{thread_rng, Rng};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::{run_interpreter, BN_BASE};
 
+type Fp = U256;
 type Fp2 = [U256; 2];
 type Fp6 = [Fp2; 3];
 type Fp12 = [Fp6; 2];
 
-fn add_fp(x: U256, y: U256) -> U256 {
+const zero: Fp = U256::from(0);
+
+fn embed_fp2(x: Fp) -> Fp2 {
+    [x, zero]
+}
+
+fn embed_fp2_fp6(a: Fp2) -> Fp6 {
+    [a, embed_fp2(zero), embed_fp2(zero)]
+}
+
+fn embed_fp6(x: Fp) -> Fp6 {
+    embed_fp2_fp6(embed_fp2(x))
+}
+
+fn embed_fp12(x: Fp) -> Fp12 {
+    [embed_fp6(x), embed_fp6(zero)]
+}
+
+fn gen_fp() -> Fp {
+    let rng = thread_rng();
+    let x64 = rng.gen::<u64>();
+    U256([x64, x64, x64, x64]) % BN_BASE
+}
+
+fn gen_fp6() -> Fp6 {
+    [
+        [gen_fp(), gen_fp()],
+        [gen_fp(), gen_fp()],
+        [gen_fp(), gen_fp()],
+    ]
+}
+
+fn gen_fp12() -> Fp12 {
+    [gen_fp6(), gen_fp6()]
+}
+
+fn gen_fp12_sparse() -> Fp12 {
+    sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
+}
+
+fn add_fp(x: Fp, y: Fp) -> Fp {
     (x + y) % BN_BASE
 }
 
-fn add3_fp(x: U256, y: U256, z: U256) -> U256 {
+fn add3_fp(x: Fp, y: Fp, z: Fp) -> Fp {
     (x + y + z) % BN_BASE
 }
 
-fn mul_fp(x: U256, y: U256) -> U256 {
+fn mul_fp(x: Fp, y: Fp) -> Fp {
     U256::try_from(x.full_mul(y) % BN_BASE).unwrap()
 }
 
-fn sub_fp(x: U256, y: U256) -> U256 {
+fn sub_fp(x: Fp, y: Fp) -> Fp {
     (BN_BASE + x - y) % BN_BASE
 }
 
-fn neg_fp(x: U256) -> U256 {
+fn neg_fp(x: Fp) -> Fp {
     (BN_BASE - x) % BN_BASE
 }
 
@@ -119,10 +160,9 @@ fn sh(c: Fp6) -> Fp6 {
 
 fn sparse_embed(x: [U256; 5]) -> Fp12 {
     let [g0, g1, g1_, g2, g2_] = x;
-    let zero = U256::from(0);
     [
-        [[g0, zero], [g1, g1_], [zero, zero]],
-        [[zero, zero], [g2, g2_], [zero, zero]],
+        [embed_fp2(g0), [g1, g1_], embed_fp2(zero)],
+        [embed_fp2(zero), [g2, g2_], embed_fp2(zero)],
     ]
 }
 
@@ -134,28 +174,6 @@ fn mul_fp12(f: Fp12, g: Fp12) -> Fp12 {
     let h1 = mul_fp6(f1, g1);
     let h01 = mul_fp6(add_fp6(f0, f1), add_fp6(g0, g1));
     [add_fp6(h0, sh(h1)), sub_fp6(h01, add_fp6(h0, h1))]
-}
-
-fn gen_fp() -> U256 {
-    let mut rng = thread_rng();
-    let x64 = rng.gen::<u64>();
-    U256([x64, x64, x64, x64]) % BN_BASE
-}
-
-fn gen_fp6() -> Fp6 {
-    [
-        [gen_fp(), gen_fp()],
-        [gen_fp(), gen_fp()],
-        [gen_fp(), gen_fp()],
-    ]
-}
-
-fn gen_fp12() -> Fp12 {
-    [gen_fp6(), gen_fp6()]
-}
-
-fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
 }
 
 fn frob_t1(n: usize) -> Fp2 {
@@ -320,10 +338,201 @@ fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
 
 fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let [f0, f1] = f;
-    let zero = U256::from(0);
-    let scale = [frob_z(n), [zero, zero], [zero, zero]];
+    let scale = embed_fp2_fp6(frob_z(n));
 
     [frob_fp6(n, f0), mul_fp6(scale, frob_fp6(n, f1))]
+}
+
+const EXPS4: [(bool, bool, bool); 65] = [
+    (True, True, True),
+    (True, True, False),
+    (True, True, True),
+    (True, True, True),
+    (False, False, False),
+    (False, False, True),
+    (True, False, True),
+    (False, True, False),
+    (True, False, True),
+    (True, True, False),
+    (True, False, True),
+    (False, True, False),
+    (True, True, False),
+    (True, True, False),
+    (True, True, False),
+    (False, True, False),
+    (False, True, False),
+    (False, False, True),
+    (True, False, True),
+    (True, True, False),
+    (False, True, False),
+    (True, True, False),
+    (True, True, False),
+    (True, True, False),
+    (False, False, True),
+    (False, False, True),
+    (True, False, True),
+    (True, False, True),
+    (True, True, False),
+    (True, False, False),
+    (True, True, False),
+    (False, True, False),
+    (True, True, False),
+    (True, False, False),
+    (False, True, False),
+    (False, False, False),
+    (True, False, False),
+    (True, False, False),
+    (True, False, True),
+    (False, False, True),
+    (False, True, True),
+    (False, False, True),
+    (False, True, True),
+    (False, True, True),
+    (False, False, False),
+    (True, True, True),
+    (True, False, True),
+    (True, False, True),
+    (False, True, True),
+    (True, False, True),
+    (False, True, True),
+    (False, True, True),
+    (True, True, False),
+    (True, True, False),
+    (True, True, False),
+    (True, False, False),
+    (False, False, True),
+    (True, False, False),
+    (False, False, True),
+    (True, False, True),
+    (True, True, False),
+    (True, True, True),
+    (False, True, True),
+    (False, True, False),
+    (True, True, True),
+];
+
+const EXPS2: [(bool, bool); 62] = [
+    (True, False),
+    (True, True),
+    (False, False),
+    (True, False),
+    (True, False),
+    (True, True),
+    (True, False),
+    (True, True),
+    (True, False),
+    (False, True),
+    (False, True),
+    (True, True),
+    (True, True),
+    (False, False),
+    (True, True),
+    (False, False),
+    (False, False),
+    (False, True),
+    (False, True),
+    (True, True),
+    (True, True),
+    (True, True),
+    (False, True),
+    (True, True),
+    (False, False),
+    (True, True),
+    (True, False),
+    (True, True),
+    (False, False),
+    (True, True),
+    (True, True),
+    (True, False),
+    (False, False),
+    (False, True),
+    (False, False),
+    (True, True),
+    (False, True),
+    (False, False),
+    (True, False),
+    (False, True),
+    (False, True),
+    (True, False),
+    (False, True),
+    (False, False),
+    (False, False),
+    (False, False),
+    (False, True),
+    (True, False),
+    (True, True),
+    (False, True),
+    (True, True),
+    (True, False),
+    (False, True),
+    (False, False),
+    (True, False),
+    (False, True),
+    (True, False),
+    (True, True),
+    (True, False),
+    (True, True),
+    (False, True),
+    (True, True),
+];
+
+const EXPS0: [(bool, bool); 65] = [
+    False, False, True, False, False, True, True, False, True, False, True, True, True, False,
+    True, False, False, False, True, False, False, True, False, True, False, True, True, False,
+    False, False, False, False, True, False, True, False, True, True, True, False, False, True,
+    True, True, True, False, True, False, True, True, False, False, True, False, False, False,
+    True, True, True, True, False, False, True, True, False,
+];
+
+fn fast_exp(f: Fp12) -> Fp12 {
+    let mut sq: Fp12 = f;
+    let mut y0: Fp12 = embed_fp12(U256::from(1));
+    let mut y2: Fp12 = embed_fp12(U256::from(1));
+    let mut y4: Fp12 = embed_fp12(U256::from(1));
+
+    for (a, b, c) in EXPS4 {
+        if a {
+            y4 = mul_fp12(y4, sq);
+        }
+        if b {
+            y2 = mul_fp12(y2, sq);
+        }
+        if c {
+            y0 = mul_fp12(y0, sq);
+        }
+        sq = mul_fp12(sq, sq);
+    }
+    y4 = mul_fp12(y4, y4);
+
+    for (a, b) in EXPS2 {
+        if a {
+            y2 = mul_fp12(y2, sq);
+        }
+        if b {
+            y0 = mul_fp12(y0, sq);
+        }
+        sq = mul_fp12(sq, sq);
+    }
+    y2 = mul_fp12(y2, y2);
+
+    for a in EXPS0 {
+        if a {
+            y0 = mul_fp12(y0, sq);
+        }
+        sq = mul_fp12(sq, sq);
+    }
+    y0 = mul_fp12(y0, y0);
+
+    // TODO: y0 = inv_fp12(y0);
+
+    y4 = mul_fp12(y4, y2);
+    y4 = mul_fp12(y4, y2);
+    y4 = mul_fp12(y4, y0);
+
+    y4 = frob_fp12(1, y4);
+    y2 = frob_fp12(2, y2);
+
+    mul_fp12(mul_fp12(y4, y2), y0)
 }
 
 fn make_mul_stack(
@@ -352,7 +561,6 @@ fn make_mul_stack(
     input.extend(g);
     input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
     input.reverse();
-
     input
 }
 
@@ -403,7 +611,6 @@ fn make_frob_stack(f: Fp12) -> Vec<U256> {
     input.extend(f);
     input.extend(vec![ptr]);
     input.reverse();
-
     input
 }
 
