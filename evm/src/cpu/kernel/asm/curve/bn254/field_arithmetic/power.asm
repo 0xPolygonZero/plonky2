@@ -1,3 +1,9 @@
+global test_power:
+    // stack: sqr, f, sqr, out, ret_stack, out
+    %store_fp12
+    // stack:         sqr, out, ret_stack, out
+    %jump(power)
+
 /// def power(square):
 ///     power_init()
 ///     power_loop_0()

@@ -12,14 +12,14 @@ type Fp2 = [U256; 2];
 type Fp6 = [Fp2; 3];
 type Fp12 = [Fp6; 2];
 
-const zero: Fp = U256::from(0);
+const ZERO: Fp = U256([0, 0, 0, 0]);
 
 fn embed_fp2(x: Fp) -> Fp2 {
-    [x, zero]
+    [x, ZERO]
 }
 
 fn embed_fp2_fp6(a: Fp2) -> Fp6 {
-    [a, embed_fp2(zero), embed_fp2(zero)]
+    [a, embed_fp2(ZERO), embed_fp2(ZERO)]
 }
 
 fn embed_fp6(x: Fp) -> Fp6 {
@@ -27,11 +27,11 @@ fn embed_fp6(x: Fp) -> Fp6 {
 }
 
 fn embed_fp12(x: Fp) -> Fp12 {
-    [embed_fp6(x), embed_fp6(zero)]
+    [embed_fp6(x), embed_fp6(ZERO)]
 }
 
 fn gen_fp() -> Fp {
-    let rng = thread_rng();
+    let mut rng = thread_rng();
     let x64 = rng.gen::<u64>();
     U256([x64, x64, x64, x64]) % BN_BASE
 }
@@ -161,8 +161,8 @@ fn sh(c: Fp6) -> Fp6 {
 fn sparse_embed(x: [U256; 5]) -> Fp12 {
     let [g0, g1, g1_, g2, g2_] = x;
     [
-        [embed_fp2(g0), [g1, g1_], embed_fp2(zero)],
-        [embed_fp2(zero), [g2, g2_], embed_fp2(zero)],
+        [embed_fp2(g0), [g1, g1_], embed_fp2(ZERO)],
+        [embed_fp2(ZERO), [g2, g2_], embed_fp2(ZERO)],
     ]
 }
 
@@ -650,4 +650,17 @@ fn test_frob_fp12() -> Result<()> {
     assert_eq!(out_frob6, exp_frob6);
 
     Ok(())
+}
+
+fn make_power_stack(f: Fp12) -> Vec<U256> {
+    let sqr = U256::from(100);
+    let out = U256::from(300);
+    let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
+    let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
+
+    let mut input = vec![sqr];
+    input.extend(f);
+    input.extend(vec![sqr, out, ret_stack, out]);
+    input.reverse();
+    input
 }
