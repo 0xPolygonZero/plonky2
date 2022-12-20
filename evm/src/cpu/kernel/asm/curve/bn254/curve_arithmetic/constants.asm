@@ -7,7 +7,7 @@ global miller_data:
     BYTES 0x11, 0x17, 0x21, 0x23, 0x12, 0x34, 0x11, 0x32
     BYTES 0x32, 0x12, 0x13, 0x22, 0x15
 
-global power_data_0:
+global power_data_4:
     BYTES 111, 010, 011, 111, 110, 101, 001, 100, 001, 100
     BYTES 110, 110, 110, 011, 011, 101, 011, 101, 101, 111
     BYTES 000, 011, 011, 001, 011, 001, 101, 100, 100, 000
@@ -16,7 +16,7 @@ global power_data_0:
     BYTES 110, 110, 110, 010, 101, 110, 101, 010, 101, 001
     BYTES 000, 111, 111, 110, 111
 
-global power_data_1:
+global power_data_2:
     BYTES 11, 01, 11, 10, 11, 10, 01, 10, 00, 01
     BYTES 10, 11, 01, 11, 10, 01, 00, 00, 00, 01
     BYTES 10, 01, 01, 10, 00, 01, 11, 00, 01, 00
@@ -25,7 +25,7 @@ global power_data_1:
     BYTES 11, 01, 01, 10, 11, 10, 11, 10, 10, 00
     BYTES 11, 10
 
-global power_data_2:
+global power_data_0:
     BYTES 0, 1, 1, 0, 0, 1, 1, 1, 1, 0
     BYTES 0, 0, 1, 0, 0, 1, 1, 0, 1, 0
     BYTES 1, 1, 1, 1, 0, 0, 1, 1, 1, 0

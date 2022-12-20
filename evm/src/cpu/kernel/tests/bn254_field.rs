@@ -540,9 +540,9 @@ const EXPS0: [bool; 65] = [
 
 fn fast_exp(f: Fp12) -> Fp12 {
     let mut sq: Fp12 = f;
-    let mut y0: Fp12 = embed_fp12(U256::from(1));
-    let mut y2: Fp12 = embed_fp12(U256::from(1));
-    let mut y4: Fp12 = embed_fp12(U256::from(1));
+    let mut y0: Fp12 = embed_fp12(U256::one());
+    let mut y2: Fp12 = embed_fp12(U256::one());
+    let mut y4: Fp12 = embed_fp12(U256::one());
 
     for (a, b, c) in EXPS4 {
         if a {
@@ -556,7 +556,7 @@ fn fast_exp(f: Fp12) -> Fp12 {
         }
         sq = mul_fp12(sq, sq);
     }
-    y4 = mul_fp12(y4, y4);
+    y4 = mul_fp12(y4, sq);
 
     for (a, b) in EXPS2 {
         if a {
@@ -567,7 +567,7 @@ fn fast_exp(f: Fp12) -> Fp12 {
         }
         sq = mul_fp12(sq, sq);
     }
-    y2 = mul_fp12(y2, y2);
+    y2 = mul_fp12(y2, sq);
 
     for a in EXPS0 {
         if a {
@@ -575,8 +575,12 @@ fn fast_exp(f: Fp12) -> Fp12 {
         }
         sq = mul_fp12(sq, sq);
     }
-    y0 = mul_fp12(y0, y0);
+    y0 = mul_fp12(y0, sq);
 
+    println!("y0: {:#?}", y0);
+    println!("y2: {:#?}", y2);
+    println!("y4: {:#?}", y4);
+    
     y0 = inv_fp12(y0);
 
     y4 = mul_fp12(y4, y2);
