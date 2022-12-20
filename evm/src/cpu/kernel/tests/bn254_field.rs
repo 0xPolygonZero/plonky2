@@ -385,6 +385,7 @@ fn inv_fp6(c: Fp6) -> Fp6 {
 }
 
 fn inv_fp12(f: Fp12) -> Fp12 {
+    let [f0, f1] = f;
     let a = mul_fp12(frob_fp12(1, f), frob_fp12(7, f))[0];
     let b = mul_fp6(a, frob_fp6(2, a));
     let c = mul_fp6(b, frob_fp6(4, a))[0];
@@ -393,7 +394,7 @@ fn inv_fp12(f: Fp12) -> Fp12 {
     let d = mul_fp2(embed_fp2(i), c);
     let [g0, g1, g2] = frob_fp6(1, b);
     let e = [mul_fp2(d, g0), mul_fp2(d, g1), mul_fp2(d, g2)];
-    [mul_fp6(e, f[0]), neg_fp6(mul_fp6(e, f[1]))]
+    [mul_fp6(e, f0), neg_fp6(mul_fp6(e, f1))]
 }
 
 const EXPS4: [(bool, bool, bool); 65] = [
@@ -576,7 +577,7 @@ fn fast_exp(f: Fp12) -> Fp12 {
     }
     y0 = mul_fp12(y0, y0);
 
-    // TODO: y0 = inv_fp12(y0);
+    y0 = inv_fp12(y0);
 
     y4 = mul_fp12(y4, y2);
     y4 = mul_fp12(y4, y2);
@@ -657,28 +658,6 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_inv_fp12() -> Result<()> {
-    let ptr = U256::from(100);
-    let inv = U256::from(200);
-    let f: Vec<U256> = gen_fp12().into_iter().flatten().flatten().collect();
-
-    let initial_offset = KERNEL.global_labels["test_inverse_fp12"];
-
-    let mut initial_stack = vec![ptr];
-    initial_stack.extend(f);
-    initial_stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
-    initial_stack.reverse();
-
-    let output: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
-        .stack()
-        .to_vec();
-
-    assert_eq!(output, vec![]);
-
-    Ok(())
-}
-
 fn make_frob_stack(f: Fp12) -> Vec<U256> {
     let ptr = U256::from(100);
     let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
@@ -723,6 +702,32 @@ fn test_frob_fp12() -> Result<()> {
     assert_eq!(out_frob2, exp_frob2);
     assert_eq!(out_frob3, exp_frob3);
     assert_eq!(out_frob6, exp_frob6);
+
+    Ok(())
+}
+
+fn make_inv_stack(f: Fp12) -> Vec<U256> {
+    let ptr = U256::from(100);
+    let inv = U256::from(200);
+    let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
+
+    let mut input = vec![ptr];
+    input.extend(f);
+    input.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
+    input.reverse();
+    input
+}
+
+#[test]
+fn test_inv_fp12() -> Result<()> {
+    let f: Fp12 = gen_fp12();
+
+    let test_inv = KERNEL.global_labels["test_inverse_fp12"];
+    let stack = make_inv_stack(f);
+
+    let output: Vec<U256> = run_interpreter(test_inv, stack)?.stack().to_vec();
+
+    assert_eq!(output, vec![]);
 
     Ok(())
 }

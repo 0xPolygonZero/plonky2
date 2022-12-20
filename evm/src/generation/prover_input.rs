@@ -255,8 +255,6 @@ impl EvmField {
             [[f6, f7], [f8, f9], [f10, f11]],
         ];
 
-        println!("STACK_: {:#?}", f);
-
         let g = inv_fp12(f);
 
         [
