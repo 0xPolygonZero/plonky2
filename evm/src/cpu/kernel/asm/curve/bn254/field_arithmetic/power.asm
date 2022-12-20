@@ -1,4 +1,4 @@
-global test_power:
+global test_pow:
     // stack: ptr, f, ptr, out, ret_stack, out
     %store_fp12
     // stack:         ptr, out, ret_stack, out
@@ -39,7 +39,7 @@ power_return:
     // stack:                                out, retdest  {200: y0, 212: y1, 224: y2}
     PUSH power_return_1  PUSH 236  PUSH 200
     // stack:      200, 236, power_return_1, out, retdest  {200: y0, 212: y1, 224: y2}
-    %jump(inverse_fp12)
+    %jump(inv_fp12)
 power_return_1:
     // stack:                                out, retdest  {236: y0, 212: y1, 224: y2}
     PUSH power_return_2  PUSH 248  PUSH 224

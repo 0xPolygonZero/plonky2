@@ -722,7 +722,7 @@ fn make_inv_stack(f: Fp12) -> Vec<U256> {
 fn test_inv_fp12() -> Result<()> {
     let f: Fp12 = gen_fp12();
 
-    let test_inv = KERNEL.global_labels["test_inverse_fp12"];
+    let test_inv = KERNEL.global_labels["test_inv_fp12"];
     let stack = make_inv_stack(f);
 
     let output: Vec<U256> = run_interpreter(test_inv, stack)?.stack().to_vec();
@@ -732,7 +732,7 @@ fn test_inv_fp12() -> Result<()> {
     Ok(())
 }
 
-fn make_power_stack(f: Fp12) -> Vec<U256> {
+fn make_pow_stack(f: Fp12) -> Vec<U256> {
     let ptr = U256::from(300);
     let out = U256::from(400);
     let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
@@ -743,4 +743,27 @@ fn make_power_stack(f: Fp12) -> Vec<U256> {
     input.extend(vec![ptr, out, ret_stack, out]);
     input.reverse();
     input
+}
+
+fn make_pow_expected(f: Fp12) -> Vec<U256> {
+    fast_exp(f)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .rev()
+        .collect()
+}
+
+fn test_pow_fp12() -> Result<()> {
+    let f: Fp12 = gen_fp12();
+
+    let test_pow = KERNEL.global_labels["test_pow"];
+    let stack = make_pow_stack(f);
+
+    let output: Vec<U256> = run_interpreter(test_pow, stack)?.stack().to_vec();
+    let expected: Vec<U256> = make_pow_expected(f);
+
+    assert_eq!(output, expected);
+
+    Ok(())
 }

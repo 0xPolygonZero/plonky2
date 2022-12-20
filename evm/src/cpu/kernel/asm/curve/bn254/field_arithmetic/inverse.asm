@@ -22,13 +22,13 @@
 %endmacro
 
 
-global test_inverse_fp12:
+global test_inv_fp12:
     // stack:                        ptr, f, ptr, inv, retdest
     %store_fp12
     // stack:                                ptr, inv, retdest
-    %jump(inverse_fp12)
+    %jump(inv_fp12)
 
-global inverse_fp12:
+global inv_fp12:
     // stack:                 ptr, inv, retdest
     DUP1  %load_fp12
     // stack:              f, ptr, inv, retdest

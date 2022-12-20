@@ -1,7 +1,7 @@
 /// def tate(P : [Fp; 2], Q: [Fp2; 2]) -> Fp12:
 ///     out = miller_loop(P, Q)
 ///
-///     inv = inverse_fp12(out)
+///     inv = inv_fp12(out)
 ///     out = frob_fp12_6(out)
 ///     out = mul_fp12(out, inv)
 ///
@@ -27,7 +27,7 @@ global post_mllr:
     // stack:            100, tate_inv, out, retdest
     DUP3 
     // stack:       out, 100, tate_inv, out, retdest
-    %jump(inverse_fp12)
+    %jump(inv_fp12)
 tate_inv:
     // stack:                           out, retdest  {100: inv}
     PUSH tate_mul1
