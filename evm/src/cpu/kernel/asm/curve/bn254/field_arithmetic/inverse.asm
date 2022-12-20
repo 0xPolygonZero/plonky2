@@ -21,6 +21,7 @@
     // stack:           x^-1
 %endmacro
 
+
 global test_inverse_fp12:
     // stack:                        ptr, f, ptr, inv, retdest
     %store_fp12
@@ -28,11 +29,31 @@ global test_inverse_fp12:
     %jump(inverse_fp12)
 
 global inverse_fp12:
-    // stack:                                ptr, inv, retdest
+    // stack:                 ptr, inv, retdest
     DUP1  %load_fp12
-    // stack:                             f, ptr, inv, retdest
+    // stack:              f, ptr, inv, retdest
     DUP14
-    // stack:                        inv, f, ptr, inv, retdest
+    // stack:         inv, f, ptr, inv, retdest
+    %prover_inv_fp12
+    // stack:   f^-1, inv, f, ptr, inv, retdest
+    DUP13  %store_fp12
+    // stack:         inv, f, ptr, inv, retdest
+    POP  %pop4  %pop4  %pop4
+    // stack:                 ptr, inv, retdest
+    PUSH 100  PUSH check_inv
+    // stack: check_inv, 100, ptr, inv, retdest 
+    SWAP3  SWAP1  SWAP2
+    // stack: ptr, inv, 100, check_inv, retdest 
+    %jump(mul_fp12)
+global check_inv:
+    // stack:        retdest
+    PUSH 100  %load_fp12
+    // stack: unit?, retdest
+    %assert_eq_unit_fp12
+    // stack:        retdest
+    JUMP
+
+%macro prover_inv_fp12
     PROVER_INPUT(ffe::bn254_base::ext_inv11)
     PROVER_INPUT(ffe::bn254_base::ext_inv10)
     PROVER_INPUT(ffe::bn254_base::ext_inv9)
@@ -45,22 +66,9 @@ global inverse_fp12:
     PROVER_INPUT(ffe::bn254_base::ext_inv2)
     PROVER_INPUT(ffe::bn254_base::ext_inv1)
     PROVER_INPUT(ffe::bn254_base::ext_inv0)
-    // stack:                  f^-1, inv, f, ptr, inv, retdest
-    DUP13
-    // stack:             inv, f^-1, inv, f, ptr, inv, retdest
-    %store_fp12
-    // stack:                        inv, f, ptr, inv, retdest
-    POP %pop4 %pop4 %pop4
-    // stack:                                ptr, inv, retdest 
-    PUSH 200  PUSH check_inv 
-    // stack:                check_inv, 200, ptr, inv, retdest 
-    DUP2  DUP5  DUP5
-    // stack: ptr, inv, 200, check_inv, 200, ptr, inv, retdest 
-    %jump(mul_fp12)
-global check_inv:
-    // stack:                           200, ptr, inv, retdest
-    %load_fp12
-    // stack:                         unit?, ptr, inv, retdest
+%endmacro
+
+%macro assert_eq_unit_fp12
     %assert_eq_const(1)
     %assert_eq_const(0)
     %assert_eq_const(0)
@@ -73,7 +81,4 @@ global check_inv:
     %assert_eq_const(0)
     %assert_eq_const(0)
     %assert_eq_const(0)
-    // stack:                                ptr, inv, retdest
-    %pop2
-    // stack:                                          retdest
-    JUMP
+%endmacro

@@ -707,8 +707,8 @@ fn test_frob_fp12() -> Result<()> {
 }
 
 fn make_inv_stack(f: Fp12) -> Vec<U256> {
-    let ptr = U256::from(100);
-    let inv = U256::from(200);
+    let ptr = U256::from(200);
+    let inv = U256::from(300);
     let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
 
     let mut input = vec![ptr];
