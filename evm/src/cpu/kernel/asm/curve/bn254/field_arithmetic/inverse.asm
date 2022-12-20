@@ -21,9 +21,15 @@
     // stack:           x^-1
 %endmacro
 
+global test_inverse_fp12:
+    // stack:                        ptr, f, ptr, inv, retdest
+    %store_fp12
+    // stack:                                ptr, inv, retdest
+    %jump(inverse_fp12)
+
 global inverse_fp12:
     // stack:                                ptr, inv, retdest
-    // DUP1  %load_fp12
+    DUP1  %load_fp12
     // stack:                             f, ptr, inv, retdest
     DUP14
     // stack:                        inv, f, ptr, inv, retdest
@@ -40,9 +46,6 @@ global inverse_fp12:
     PROVER_INPUT(ffe::bn254_base::ext_inv1)
     PROVER_INPUT(ffe::bn254_base::ext_inv0)
     // stack:                  f^-1, inv, f, ptr, inv, retdest
-
-    %jump(0xdeadbeef)
-
     DUP13
     // stack:             inv, f^-1, inv, f, ptr, inv, retdest
     %store_fp12
@@ -56,11 +59,21 @@ global inverse_fp12:
     %jump(mul_fp12)
 global check_inv:
     // stack:                           200, ptr, inv, retdest
-    %assert_eq_fp12_unit
+    %load_fp12
+    // stack:                         unit?, ptr, inv, retdest
+    %assert_eq_const(1)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
+    %assert_eq_const(0)
     // stack:                                ptr, inv, retdest
     %pop2
     // stack:                                          retdest
-    %jump(0xdeadbeef)
-    // SWAP1  
-    // stack:                                     retdest, inv
-    // JUMP
+    JUMP

@@ -237,7 +237,6 @@ impl EvmField {
     }
 
     fn ext_inv(&self, xs: Vec<U256>, offset: usize) -> [U256; 12] {
-
         let f0 = xs.clone().into_iter().nth(offset).unwrap();
         let f1 = xs.clone().into_iter().nth(offset + 1).unwrap();
         let f2 = xs.clone().into_iter().nth(offset + 2).unwrap();
@@ -261,8 +260,8 @@ impl EvmField {
         let g = inv_fp12(f);
 
         [
-            g[0][0][0], g[0][0][1], g[0][1][0], g[0][1][1], g[0][2][0], g[0][2][1], 
-            g[1][0][0], g[1][0][1], g[1][1][0], g[1][1][1], g[1][2][0], g[1][2][1],
+            g[0][0][0], g[0][0][1], g[0][1][0], g[0][1][1], g[0][2][0], g[0][2][1], g[1][0][0],
+            g[1][0][1], g[1][1][0], g[1][1][1], g[1][2][0], g[1][2][1],
         ]
     }
 

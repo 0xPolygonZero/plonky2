@@ -661,27 +661,20 @@ fn test_mul_fp12() -> Result<()> {
 fn test_inv_fp12() -> Result<()> {
     let ptr = U256::from(100);
     let inv = U256::from(200);
+    let f: Vec<U256> = gen_fp12().into_iter().flatten().flatten().collect();
 
-    let f: Fp12 = gen_fp12();
-    let flat_f: Vec<U256> = f.into_iter().flatten().flatten().collect();
-    let mut stack: Vec<U256> = flat_f.clone();
-    stack.extend(vec![ptr, inv]);
-    stack.reverse();
+    let initial_offset = KERNEL.global_labels["test_inverse_fp12"];
 
-    let g = inv_fp12(f);
-    let one = mul_fp12(f, g);
-    println!("ONE? {:#?}", one);
+    let mut initial_stack = vec![ptr];
+    initial_stack.extend(f);
+    initial_stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
+    initial_stack.reverse();
 
-    let mut expected: Vec<U256> = g.into_iter().flatten().flatten().collect();
-    expected.extend(vec![inv]);
-    expected.extend(flat_f);
-    expected.extend(vec![ptr, inv]);
-    expected.reverse();
+    let output: Vec<U256> = run_interpreter(initial_offset, initial_stack)?
+        .stack()
+        .to_vec();
 
-    let initial_offset = KERNEL.global_labels["inverse_fp12"];
-    let output: Vec<U256> = run_interpreter(initial_offset, stack)?.stack().to_vec();
-
-    assert_eq!(output, expected);
+    assert_eq!(output, vec![]);
 
     Ok(())
 }
