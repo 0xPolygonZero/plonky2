@@ -754,6 +754,7 @@ fn make_pow_expected(f: Fp12) -> Vec<U256> {
         .collect()
 }
 
+#[test]
 fn test_pow_fp12() -> Result<()> {
     let f: Fp12 = gen_fp12();
 
