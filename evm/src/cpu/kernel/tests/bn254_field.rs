@@ -733,14 +733,14 @@ fn test_inv_fp12() -> Result<()> {
 }
 
 fn make_power_stack(f: Fp12) -> Vec<U256> {
-    let sqr = U256::from(100);
-    let out = U256::from(300);
+    let ptr = U256::from(300);
+    let out = U256::from(400);
     let f: Vec<U256> = f.into_iter().flatten().flatten().collect();
     let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
 
-    let mut input = vec![sqr];
+    let mut input = vec![ptr];
     input.extend(f);
-    input.extend(vec![sqr, out, ret_stack, out]);
+    input.extend(vec![ptr, out, ret_stack, out]);
     input.reverse();
     input
 }

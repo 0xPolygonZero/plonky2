@@ -971,3 +971,9 @@
     %mstore_kernel_general
     // stack:                                                            
 %endmacro
+
+global ret_stack:
+    // stack: out
+    %load_fp12
+    %jump(0xdeadbeef)
+    

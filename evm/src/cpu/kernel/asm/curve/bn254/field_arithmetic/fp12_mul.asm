@@ -7,11 +7,6 @@ global test_mul_fp12:
     %store_fp12
     // stack:                         mul_dest, inA, inB, out, ret_stack, out
     JUMP
-global ret_stack:
-    // stack: out
-    %load_fp12
-    %jump(0xdeadbeef)
-
 
 ///////////////////////////////////////
 ///// GENERAL FP12 MULTIPLICATION /////
