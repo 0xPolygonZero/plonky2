@@ -418,4 +418,5 @@ post_sq2:
     // stack:                                out, ff + sh(f'f'), inp, out
     %store_fp6
     // stack:                                                    inp, out
-    %pop2  JUMP
+    %pop2
+    JUMP

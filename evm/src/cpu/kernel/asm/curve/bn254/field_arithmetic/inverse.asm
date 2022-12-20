@@ -23,9 +23,9 @@
 
 
 global test_inv_fp12:
-    // stack:                        ptr, f, ptr, inv, retdest
+    // stack: ptr, f, ptr, inv, retdest
     %store_fp12
-    // stack:                                ptr, inv, retdest
+    // stack:         ptr, inv, retdest
     %jump(inv_fp12)
 
 global inv_fp12:
