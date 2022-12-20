@@ -974,7 +974,7 @@
 
 %macro assert_eq_fp12_unit
     // stack:      ptr
-    DUP1                 %mload_kernel_code
+    DUP1                  %mload_kernel_code
     // stack: x00, ptr
     %assert_eq_const(1)
     // stack:      ptr 

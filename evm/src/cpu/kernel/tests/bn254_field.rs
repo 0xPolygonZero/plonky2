@@ -96,6 +96,10 @@ fn sub_fp2(a: Fp2, b: Fp2) -> Fp2 {
     [sub_fp(a, b), sub_fp(a_, b_)]
 }
 
+fn neg_fp2(a: Fp2) -> Fp2 {
+    sub_fp2(embed_fp2(ZERO), a)
+}
+
 fn mul_fp2(a: Fp2, b: Fp2) -> Fp2 {
     let [a, a_] = a;
     let [b, b_] = b;
@@ -129,6 +133,10 @@ fn sub_fp6(c: Fp6, d: Fp6) -> Fp6 {
     let e1 = sub_fp2(c1, d1);
     let e2 = sub_fp2(c2, d2);
     [e0, e1, e2]
+}
+
+fn neg_fp6(a: Fp6) -> Fp6 {
+    sub_fp6(embed_fp6(ZERO), a)
 }
 
 fn mul_fp6(c: Fp6, d: Fp6) -> Fp6 {
@@ -341,6 +349,51 @@ fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let scale = embed_fp2_fp6(frob_z(n));
 
     [frob_fp6(n, f0), mul_fp6(scale, frob_fp6(n, f1))]
+}
+
+fn exp_fp(x: Fp, e: U256) -> Fp {
+    let mut current = x;
+    let mut product = U256::one();
+
+    for j in 0..256 {
+        if e.bit(j) {
+            product = U256::try_from(product.full_mul(current) % BN_BASE).unwrap();
+        }
+        current = U256::try_from(current.full_mul(current) % BN_BASE).unwrap();
+    }
+    product
+}
+
+fn inv_fp(x: Fp) -> Fp {
+    exp_fp(x, BN_BASE - 2)
+}
+
+fn inv_fp2(a: Fp2) -> Fp2 {
+    let [a0, a1] = a;
+    let norm = inv_fp(mul_fp(a0, a0) + mul_fp(a1, a1));
+    [mul_fp(norm, a0), neg_fp(mul_fp(norm, a1))]
+}
+
+fn inv_fp6(c: Fp6) -> Fp6 {
+    let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
+    let e = mul_fp6(b, frob_fp6(5, c))[0];
+    let n = mul_fp2(e, conj_fp2(e))[0];
+    let i = inv_fp(n);
+    let d = mul_fp2(embed_fp2(i), e);
+    let [f0, f1, f2] = frob_fp6(1, b);
+    [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
+}
+
+fn inv_fp12(f: Fp12) -> Fp12 {
+    let a = mul_fp12(frob_fp12(1, f), frob_fp12(7, f))[0];
+    let b = mul_fp6(a, frob_fp6(2, a));
+    let c = mul_fp6(b, frob_fp6(4, a))[0];
+    let n = mul_fp2(c, conj_fp2(c))[0];
+    let i = inv_fp(n);
+    let d = mul_fp2(embed_fp2(i), c);
+    let [g0, g1, g2] = frob_fp6(1, b);
+    let e = [mul_fp2(d, g0), mul_fp2(d, g1), mul_fp2(d, g2)];
+    [mul_fp6(e, f[0]), neg_fp6(mul_fp6(e, f[1]))]
 }
 
 const EXPS4: [(bool, bool, bool); 65] = [
@@ -600,6 +653,35 @@ fn test_mul_fp12() -> Result<()> {
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
     assert_eq!(out_square, exp_square);
+
+    Ok(())
+}
+
+#[test]
+fn test_inv_fp12() -> Result<()> {
+    let ptr = U256::from(100);
+    let inv = U256::from(200);
+
+    let f: Fp12 = gen_fp12();
+    let flat_f: Vec<U256> = f.into_iter().flatten().flatten().collect();
+    let mut stack: Vec<U256> = flat_f.clone();
+    stack.extend(vec![ptr, inv]);
+    stack.reverse();
+
+    let g = inv_fp12(f);
+    let one = mul_fp12(f, g);
+    println!("ONE? {:#?}", one);
+
+    let mut expected: Vec<U256> = g.into_iter().flatten().flatten().collect();
+    expected.extend(vec![inv]);
+    expected.extend(flat_f);
+    expected.extend(vec![ptr, inv]);
+    expected.reverse();
+
+    let initial_offset = KERNEL.global_labels["inverse_fp12"];
+    let output: Vec<U256> = run_interpreter(initial_offset, stack)?.stack().to_vec();
+
+    assert_eq!(output, expected);
 
     Ok(())
 }
