@@ -7,6 +7,8 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use crate::bn254::BN_BASE;
+
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -22,14 +24,6 @@ type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
-
-/// Order of the BN254 base field.
-pub const BN_BASE: U256 = U256([
-    4332616871279656263,
-    10917124144477883021,
-    13281191951274694749,
-    3486998266802970665,
-]);
 
 impl MemoryState {
     fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
