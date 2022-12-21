@@ -40,6 +40,9 @@ global test_miller:
     // stack:            ptr, out, retdest
     %jump(miller_init)
 
+global return_point:
+
+
 global miller_init:
     // stack:         ptr, out, retdest
     PUSH 1
@@ -74,9 +77,9 @@ miller_final:
     %jump(miller_zero_final)
 miller_end:
     // stack: times, O, P, Q, out, retdest
-    %pop3  %pop3  %pop3
+    POP  %pop2  %pop2  %pop4
     // stack:                 out, retdest
-    SWAP1  %jump(post_mllr)
+    SWAP1  JUMP 
 
 
 miller_one:

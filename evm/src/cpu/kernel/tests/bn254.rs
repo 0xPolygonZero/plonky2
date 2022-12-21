@@ -576,7 +576,7 @@ fn fast_exp(f: Fp12) -> Fp12 {
         sq = mul_fp12(sq, sq);
     }
     y0 = mul_fp12(y0, sq);
-    
+
     y0 = inv_fp12(y0);
 
     y4 = mul_fp12(y4, y2);
@@ -744,12 +744,7 @@ fn make_pow_stack(f: Fp12) -> Vec<U256> {
 }
 
 fn make_pow_expected(f: Fp12) -> Vec<U256> {
-    fast_exp(f)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .rev()
-        .collect()
+    fast_exp(f).into_iter().flatten().flatten().rev().collect()
 }
 
 #[test]
@@ -761,6 +756,110 @@ fn test_pow_fp12() -> Result<()> {
 
     let output: Vec<U256> = run_interpreter(test_pow, stack)?.stack().to_vec();
     let expected: Vec<U256> = make_pow_expected(f);
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+fn make_miller_stack(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
+    let ptr = U256::from(300);
+    let out = U256::from(400);
+
+    let p: Vec<U256> = p.into_iter().collect();
+    let q: Vec<U256> = q.into_iter().flatten().collect();
+
+    let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
+
+    let mut input = vec![ptr];
+    input.extend(p);
+    input.extend(q);
+    input.extend(vec![ptr, out, ret_stack]);
+    input.reverse();
+    input
+}
+
+#[test]
+fn test_miller() -> Result<()> {
+    let p = [U256::from(1), U256::from(2)];
+    let q = [
+        [
+            U256::from_str(
+                "10857046999023057135944570762232829481370756359578518086990519993285655852781",
+            )
+            .unwrap(),
+            U256::from_str(
+                "11559732032986387107991004021392285783925812861821192530917403151452391805634",
+            )
+            .unwrap(),
+        ],
+        [
+            U256::from_str(
+                "8495653923123431417604973247489272438418190587263600148770280649306958101930",
+            )
+            .unwrap(),
+            U256::from_str(
+                "4082367875863433681332203403145435568316851327593401208105741076214120093531",
+            )
+            .unwrap(),
+        ],
+    ];
+
+    let test_mill = KERNEL.global_labels["test_miller"];
+    let stack = make_miller_stack(p, q);
+
+    let output: Vec<U256> = run_interpreter(test_mill, stack)?.stack().to_vec();
+    let mut expected: Vec<U256> = vec![
+        U256::from_str(
+            "5408068458366290097693809645929734991458199404659878659553047611146680628954",
+        )
+        .unwrap(),
+        U256::from_str(
+            "7708764853296235550302896633598331924671113766219240748172066028946006022854",
+        )
+        .unwrap(),
+        U256::from_str(
+            "17700926755167371005308910210965003607045179123434251133647055306492170438120",
+        )
+        .unwrap(),
+        U256::from_str(
+            "154397549418641559307524478611787574224314011122269053905755152919215659778",
+        )
+        .unwrap(),
+        U256::from_str(
+            "1984170487336525780293932330785856524432038724373274488958019302386252559231",
+        )
+        .unwrap(),
+        U256::from_str(
+            "3314362000193010715052769662421751145025288853014347901929084743686925091033",
+        )
+        .unwrap(),
+        U256::from_str(
+            "5969572836535217971378806448005698172042029600478282326636924294386246370693",
+        )
+        .unwrap(),
+        U256::from_str(
+            "18564243080196493066086408717287862863335702133957524699743268830525148172506",
+        )
+        .unwrap(),
+        U256::from_str(
+            "17269266067816704782247017427200956927940055030199138534350116254357612253048",
+        )
+        .unwrap(),
+        U256::from_str(
+            "9740411817590043771488498441210821606869449023601574073310485764683435152587",
+        )
+        .unwrap(),
+        U256::from_str(
+            "12727712035316870814661734054996728204626079181372322293888505805399715437139",
+        )
+        .unwrap(),
+        U256::from_str(
+            "20210469749439596480915120057935665765860695731536556057113952828024130849369",
+        )
+        .unwrap(),
+    ];
+    expected.reverse();
 
     assert_eq!(output, expected);
 

@@ -1,6 +1,6 @@
 mod account_code;
 mod balance;
-mod bn254_field;
+mod bn254;
 mod core;
 mod curve_ops;
 mod ecrecover;
