@@ -52,9 +52,9 @@ global miller_init:
     // stack:        P, Q, out, retdest
     DUP2  DUP2
     // stack:     O, P, Q, out, retdest
-    PUSH 61
-    // stack: 61, O, P, Q, out, retdest
-miller_loop:
+    PUSH 53
+    // stack: 53, O, P, Q, out, retdest
+global miller_loop:
     // stack:          times  , O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:  break?, times  , O, P, Q, out, retdest
@@ -67,6 +67,10 @@ miller_loop:
     %mload_kernel_code(miller_data)
     // stack:    0xnm, times-1, O, P, Q, out, retdest
     %jump(miller_one)
+
+miller_loop_pop:
+    POP  %jump(miller_loop)
+    
 miller_final:
     // stack:     0, O, P, Q, out, retdest
     PUSH 28
@@ -95,7 +99,7 @@ miller_zero:
     // stack:              m  , times, O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:       skip?, m  , times, O, P, Q, out, retdest
-    %jumpi(miller_loop)
+    %jumpi(miller_loop_pop)
     // stack:              m  , times, O, P, Q, out, retdest
     %sub_const(1)
     // stack:              m-1, times, O, P, Q, out, retdest
@@ -104,15 +108,15 @@ miller_zero:
     %jump(mul_tangent)
 
 miller_zero_final:
-    // stack:              m  , times, O, P, Q, out, retdest
+    // stack:                    m  , times, O, P, Q, out, retdest
     DUP1  ISZERO
-    // stack:       skip?, m  , times, O, P, Q, out, retdest
+    // stack:             skip?, m  , times, O, P, Q, out, retdest
     %jumpi(miller_end)
-    // stack:              m  , times, O, P, Q, out, retdest
+    // stack:                    m  , times, O, P, Q, out, retdest
     %sub_const(1)
-    // stack:              m-1, times, O, P, Q, out, retdest
-    PUSH miller_zero
-    // stack: miller_zero, m-1, times, O, P, Q, out, retdest
+    // stack:                    m-1, times, O, P, Q, out, retdest
+    PUSH miller_zero_final
+    // stack: miller_zero_final, m-1, times, O, P, Q, out, retdest
     %jump(mul_tangent)
 
 
