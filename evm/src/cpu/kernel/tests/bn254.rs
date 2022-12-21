@@ -49,7 +49,7 @@ fn gen_fp12() -> Fp12 {
 }
 
 fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed([gen_fp(), gen_fp(), gen_fp(), gen_fp(), gen_fp()])
+    sparse_embed(gen_fp(), [gen_fp(), gen_fp()], [gen_fp(), gen_fp()])
 }
 
 fn add_fp(x: Fp, y: Fp) -> Fp {
@@ -166,11 +166,10 @@ fn sh(c: Fp6) -> Fp6 {
     [i9(c2), c0, c1]
 }
 
-fn sparse_embed(x: [U256; 5]) -> Fp12 {
-    let [g0, g1, g1_, g2, g2_] = x;
+fn sparse_embed(g0: Fp, g1: Fp2, g2: Fp2) -> Fp12 {
     [
-        [embed_fp2(g0), [g1, g1_], embed_fp2(ZERO)],
-        [embed_fp2(ZERO), [g2, g2_], embed_fp2(ZERO)],
+        [embed_fp2(g0), g1, embed_fp2(ZERO)],
+        [embed_fp2(ZERO), g2, embed_fp2(ZERO)],
     ]
 }
 
@@ -777,6 +776,110 @@ fn make_miller_stack(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
     input.extend(vec![ptr, out, ret_stack]);
     input.reverse();
     input
+}
+
+fn store_tangent(p: [Fp; 2], q: [Fp2; 2]) -> Fp12 {
+    let [px, py] = p;
+    let [qx, qy] = q;
+
+    let cx = neg_fp(mul_fp(U256::from(3), mul_fp(px, px)));
+    let cy = mul_fp(U256::from(2), py);
+
+    sparse_embed(
+        sub_fp(mul_fp(py, py), U256::from(9)),
+        mul_fp2(embed_fp2(cx), qx),
+        mul_fp2(embed_fp2(cy), qy),
+    )
+}
+
+fn store_cord(p1: [Fp; 2], p2: [Fp; 2], q: [Fp2; 2]) -> Fp12 {
+    let [p1x, p1y] = p1;
+    let [p2x, p2y] = p2;
+    let [qx, qy] = q;
+
+    let cx = sub_fp(p2y,p1y);
+    let cy = sub_fp(p1x,p2x);
+
+    sparse_embed(
+        sub_fp(mul_fp(p1y, p2x), mul_fp(p2y, p1x)),
+        mul_fp2(embed_fp2(cx), qx),
+        mul_fp2(embed_fp2(cy), qy),
+    )
+}
+
+fn make_tan_stack(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
+    let p: Vec<U256> = p.into_iter().collect();
+    let q: Vec<U256> = q.into_iter().flatten().collect();
+
+    let mut input = p;
+    input.extend(q);
+    input.reverse();
+    input
+}
+
+fn make_tan_expected(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
+    store_tangent(p, q)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .rev()
+        .collect()
+}
+
+#[test]
+fn test_store_tangent() -> Result<()> {
+    let p = [gen_fp(), gen_fp()];
+    let q = [[gen_fp(), gen_fp()], [gen_fp(), gen_fp()]];
+
+    let expected = make_tan_expected(p, q);
+
+    let stack = make_tan_stack(p, q);
+    let test_tan = KERNEL.global_labels["test_store_tangent"];
+
+    let output: Vec<U256> = run_interpreter(test_tan, stack)?.stack().to_vec();
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+fn make_cord_stack(p1: [Fp; 2], p2: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
+    let p1: Vec<U256> = p1.into_iter().collect();
+    let p2: Vec<U256> = p2.into_iter().collect();
+    let q: Vec<U256> = q.into_iter().flatten().collect();
+
+    let mut input = p1;
+    input.extend(p2);
+    input.extend(q);
+    input.reverse();
+    input
+}
+
+fn make_cord_expected(p1: [Fp; 2],p2: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
+    store_cord(p1, p2, q)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .rev()
+        .collect()
+}
+
+#[test]
+fn test_store_cord() -> Result<()> {
+    let p1 = [gen_fp(), gen_fp()];
+    let p2 = [gen_fp(), gen_fp()];
+    let q = [[gen_fp(), gen_fp()], [gen_fp(), gen_fp()]];
+
+    let expected = make_cord_expected(p1, p2, q);
+
+    let stack = make_cord_stack(p1, p2, q);
+    let test_cord = KERNEL.global_labels["test_store_cord"];
+
+    let output: Vec<U256> = run_interpreter(test_cord, stack)?.stack().to_vec();
+
+    assert_eq!(output, expected);
+
+    Ok(())
 }
 
 #[test]

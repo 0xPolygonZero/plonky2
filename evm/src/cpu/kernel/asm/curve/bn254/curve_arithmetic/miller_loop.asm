@@ -196,6 +196,12 @@ after_add:
     %jump(miller_one)
 
 
+global test_store_cord:
+    // stack: p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    %store_cord
+    // stack:
+    %check(100)
+
 /// def store_cord(p1x, p1y, p2x, p2y, qx, qy):
 ///     return sparse_store(
 ///         p1y*p2x - p2y*p1x, 
@@ -243,6 +249,12 @@ after_add:
 %endmacro
 
 
+global test_store_tangent:
+    // stack: px, py, qx, qx_, qy, qy_
+    %store_tangent
+    // stack:
+    %check(100)
+
 /// def store_tangent(px, py, qx, qy):
 ///     return sparse_store(
 ///         py**2 - 9, 
@@ -251,42 +263,42 @@ after_add:
 ///     )
 
 %macro store_tangent
-    // stack:                px, py, qx, qx_, qy, qy_
+    // stack:                px, py, qx, qx_,  qy, qy_
     PUSH 9
-    // stack:             9, px, py, qx, qx_, qy, qy_
+    // stack:             9, px, py, qx, qx_,  qy, qy_
     DUP3
-    // stack:        py , 9, px, py, qx, qx_, qy, qy_
+    // stack:        py , 9, px, py, qx, qx_,  qy, qy_
     DUP1  MULFP254
-    // stack:     py**2 , 9, px, py, qx, qx_, qy, qy_
+    // stack:     py**2 , 9, px, py, qx, qx_,  qy, qy_
     SUBFP254
-    // stack:     py**2 - 9, px, py, qx, qx_, qy, qy_
+    // stack:     py**2 - 9, px, py, qx, qx_,  qy, qy_
     %mstore_kernel_general(100)
-    // stack:                px, py, qx, qx_, qy, qy_
+    // stack:                px, py, qx, qx_,  qy, qy_
     DUP1  MULFP254
-    // stack:             px**2, py, qx, qx_, qy, qy_
+    // stack:             px**2, py, qx, qx_,  qy, qy_
     PUSH 3  MULFP254
-    // stack:           3*px**2, py, qx, qx_, qy, qy_
+    // stack:           3*px**2, py, qx, qx_,  qy, qy_
     PUSH 0  SUBFP254
-    // stack:          -3*px**2, py, qx, qx_, qy, qy_
+    // stack:          -3*px**2, py, qx, qx_,  qy, qy_
     SWAP2
-    // stack:           qx, py, -3px**2, qx_, qy, qy_
+    // stack:           qx, py, -3px**2, qx_,  qy, qy_
     DUP3  MULFP254
-    // stack: (-3*px**2)qx, py, -3px**2, qx_, qy, qy_ 
+    // stack: (-3*px**2)qx, py, -3px**2, qx_,  qy, qy_ 
     %mstore_kernel_general(102)
-    // stack:               py, -3px**2, qx_, qy, qy_ 
+    // stack:               py, -3px**2, qx_,  qy, qy_ 
     PUSH 2  MULFP254
-    // stack:              2py, -3px**2, qx_, qy, qy_ 
+    // stack:              2py, -3px**2, qx_,  qy, qy_ 
     SWAP3 
-    // stack:              qy, -3px**2, qx_, 2py, qy_ 
+    // stack:               qy, -3px**2, qx_, 2py, qy_ 
     DUP4  MULFP254
-    // stack:         (2py)qy, -3px**2, qx_, 2py, qy_ 
+    // stack:          (2py)qy, -3px**2, qx_, 2py, qy_ 
     %mstore_kernel_general(108)
-    // stack:                  -3px**2, qx_, 2py, qy_ 
+    // stack:                   -3px**2, qx_, 2py, qy_ 
     MULFP254
-    // stack:                  (-3px**2)qx_, 2py, qy_ 
+    // stack:                  (-3px**2)*qx_, 2py, qy_ 
     %mstore_kernel_general(103)
-    // stack:                                2py, qy_ 
+    // stack:                                 2py, qy_ 
     MULFP254
-    // stack:                                (2py)qy_ 
+    // stack:                                (2py)*qy_ 
     %mstore_kernel_general(109)
 %endmacro
