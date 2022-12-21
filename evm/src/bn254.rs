@@ -254,7 +254,7 @@ fn inv_fp6(c: Fp6) -> Fp6 {
     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
 }
 
-fn inv_fp12(f: Fp12) -> Fp12 {
+pub fn inv_fp12(f: Fp12) -> Fp12 {
     let [f0, f1] = f;
     let a = mul_fp12(frob_fp12(1, f), frob_fp12(7, f))[0];
     let b = mul_fp6(a, frob_fp6(2, a));
