@@ -70,16 +70,16 @@ global miller_loop:
 
 miller_loop_pop:
     POP  %jump(miller_loop)
-    
+
 miller_final:
     // stack:     0, O, P, Q, out, retdest
     PUSH 28
     // stack: 28, 0, O, P, Q, out, retdest
     %jump(miller_zero_final)
 miller_end:
-    // stack: times, O, P, Q, out, retdest
-    POP  %pop2  %pop2  %pop4
-    // stack:                 out, retdest
+    // stack: m, times, O, P, Q, out, retdest
+    %pop2  %pop2  %pop2  %pop4
+    // stack:                    out, retdest
     SWAP1  JUMP 
 
 
