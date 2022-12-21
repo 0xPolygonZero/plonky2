@@ -579,14 +579,9 @@ fn fast_exp(f: Fp12) -> Fp12 {
     
     y0 = inv_fp12(y0);
 
-    // println!("y0: {:#?}", y0);
-    // println!("y4: {:#?}", y4);
-
     y4 = mul_fp12(y4, y2);
     y4 = mul_fp12(y4, y2);
     y4 = mul_fp12(y4, y0);
-
-    println!("y4: {:#?}", y4);
 
     y4 = frob_fp12(1, y4);
     y2 = frob_fp12(2, y2);
@@ -602,8 +597,6 @@ fn make_mul_stack(
     g: Fp12,
     mul_label: &str,
 ) -> Vec<U256> {
-    // stack: in0, f, f', in1, g, g', mul_dest, in0, in1, out, ret_stack, out
-
     let in0 = U256::from(in0);
     let in1 = U256::from(in1);
     let out = U256::from(out);

@@ -34,6 +34,12 @@
 /// (4) encoding each pair (n,m) as 0xnm:
 ///     miller_data = [(0x10)n + m for (n,m) in EXP]
 
+global test_miller:
+    // stack: ptr, P, Q, ptr, out, retdest
+    %store_fp6
+    // stack:            ptr, out, retdest
+    %jump(miller_init)
+
 global miller_init:
     // stack:         ptr, out, retdest
     PUSH 1
