@@ -40,9 +40,6 @@ global test_miller:
     // stack:            ptr, out, retdest
     %jump(miller_init)
 
-global return_point:
-
-
 global miller_init:
     // stack:         ptr, out, retdest
     PUSH 1
@@ -126,8 +123,8 @@ miller_zero_final:
 ///     O += O
 
 mul_tangent:
-    // stack:                                                   retdest, 0xnm, times, O, P, Q, out
-    PUSH mul_tangent_2  DUP12  PUSH mul_tangent_1
+    // stack:                                              retdest, 0xnm, times, O, P, Q, out
+    PUSH mul_tangent_2  DUP13  PUSH mul_tangent_1
     // stack:           mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP2  DUP1
     // stack: out, out, mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
