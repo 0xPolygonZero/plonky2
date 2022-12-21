@@ -576,16 +576,17 @@ fn fast_exp(f: Fp12) -> Fp12 {
         sq = mul_fp12(sq, sq);
     }
     y0 = mul_fp12(y0, sq);
-
-    println!("y0: {:#?}", y0);
-    println!("y2: {:#?}", y2);
-    println!("y4: {:#?}", y4);
     
     y0 = inv_fp12(y0);
+
+    // println!("y0: {:#?}", y0);
+    // println!("y4: {:#?}", y4);
 
     y4 = mul_fp12(y4, y2);
     y4 = mul_fp12(y4, y2);
     y4 = mul_fp12(y4, y0);
+
+    println!("y4: {:#?}", y4);
 
     y4 = frob_fp12(1, y4);
     y2 = frob_fp12(2, y2);

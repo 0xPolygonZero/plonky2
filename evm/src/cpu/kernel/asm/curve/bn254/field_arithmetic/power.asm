@@ -32,25 +32,24 @@ global power:
     %jump(power_loop_4)
 
 power_return:
-    %check(224)
     // stack:                                out, retdest  {200: y0, 212: y2, 224: y4}
     PUSH power_return_1  PUSH 236  PUSH 200
     // stack:      200, 236, power_return_1, out, retdest  {200: y0, 212: y2, 224: y4}
     %jump(inv_fp12)
 power_return_1:
     // stack:                                out, retdest  {236: y0, 212: y2, 224: y4}
-    PUSH power_return_2  PUSH 248  PUSH 212
-    // stack:      212, 248, power_return_2, out, retdest  {236: y0, 212: y2, 224: y4}
-    %jump(square_fp12)
+    PUSH power_return_2  PUSH 224  DUP1  PUSH 212
+    // stack: 212, 224, 224, power_return_2, out, retdest  {236: y0, 212: y2, 224: y4}
+    %jump(mul_fp12)
 power_return_2: 
-    // stack:                                out, retdest  {236: y0, 212: y2, 224: y4, 248: y2^2}
-    PUSH power_return_3  PUSH 248  PUSH 212  PUSH 248
-    // stack: 248, 236, 248, power_return_3, out, retdest  {236: y0, 212: y2, 224: y4, 248: y2^2}
+    // stack:                                out, retdest  {236: y0, 212: y2, 224: y4}
+    PUSH power_return_3  PUSH 224  DUP1  PUSH 212
+    // stack: 212, 224, 224, power_return_3, out, retdest  {236: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_return_3:
-    // stack:                                out, retdest  {236: y0, 212: y2, 224: y4, 248: y0*y2^2}
-    PUSH power_return_4  PUSH 224  PUSH 248 PUSH 224
-    // stack: 224, 248, 224, power_return_4, out, retdest  {236: y0, 212: y2, 224: y4, 248: y0*y2^2}
+    // stack:                                out, retdest  {236: y0, 212: y2, 224: y4}
+    PUSH power_return_4  PUSH 224  DUP1  PUSH 236
+    // stack: 236, 224, 224, power_return_4, out, retdest  {236: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_return_4:
     // stack:                                out, retdest  {236: y0, 212: y2, 224: y4}
@@ -229,9 +228,7 @@ power_loop_0_end:
     // stack: 200, ptr, 200, power_return
     %jump(mul_fp12)
 
-
 %macro check(lbl)
     PUSH $lbl
     %jump(ret_stack)
 %endmacro
-
