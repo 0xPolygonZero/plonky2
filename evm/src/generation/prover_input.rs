@@ -1,10 +1,9 @@
 use std::str::FromStr;
 
-use crate::bn254::inv_fp12;
-
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
+use crate::bn254::{fp12_to_array, inv_fp12, vec_to_fp12};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
@@ -239,30 +238,8 @@ impl EvmField {
     }
 
     fn ext_inv(&self, xs: Vec<U256>, offset: usize) -> [U256; 12] {
-        let f0 = xs.clone().into_iter().nth(offset).unwrap();
-        let f1 = xs.clone().into_iter().nth(offset + 1).unwrap();
-        let f2 = xs.clone().into_iter().nth(offset + 2).unwrap();
-        let f3 = xs.clone().into_iter().nth(offset + 3).unwrap();
-        let f4 = xs.clone().into_iter().nth(offset + 4).unwrap();
-        let f5 = xs.clone().into_iter().nth(offset + 5).unwrap();
-        let f6 = xs.clone().into_iter().nth(offset + 6).unwrap();
-        let f7 = xs.clone().into_iter().nth(offset + 7).unwrap();
-        let f8 = xs.clone().into_iter().nth(offset + 8).unwrap();
-        let f9 = xs.clone().into_iter().nth(offset + 9).unwrap();
-        let f10 = xs.clone().into_iter().nth(offset + 10).unwrap();
-        let f11 = xs.clone().into_iter().nth(offset + 11).unwrap();
-
-        let f = [
-            [[f0, f1], [f2, f3], [f4, f5]],
-            [[f6, f7], [f8, f9], [f10, f11]],
-        ];
-
-        let g = inv_fp12(f);
-
-        [
-            g[0][0][0], g[0][0][1], g[0][1][0], g[0][1][1], g[0][2][0], g[0][2][1], g[1][0][0],
-            g[1][0][1], g[1][1][0], g[1][1][1], g[1][2][0], g[1][2][1],
-        ]
+        let vec: Vec<U256> = xs[offset..].to_vec();
+        fp12_to_array(inv_fp12(vec_to_fp12(vec)))
     }
 
     fn ext_inv0(&self, xs: Vec<U256>) -> U256 {

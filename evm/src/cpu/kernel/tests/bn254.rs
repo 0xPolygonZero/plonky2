@@ -4,17 +4,13 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254::{
-    frob_fp12, gen_curve_point, gen_fp12, gen_fp12_sparse, gen_twisted_curve_point, mul_fp12,
-    power, Fp, Fp12, Fp2,
+    fp12_to_vec, frob_fp12, gen_curve_point, gen_fp12, gen_fp12_sparse, gen_twisted_curve_point,
+    mul_fp12, power, store_cord, store_tangent, Curve, Fp12, TwistedCurve,
 };
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
-fn fp12_as_stack_input(f: Fp12) -> Vec<U256> {
-    f.into_iter().flatten().flatten().collect()
-}
-
-fn fp12_as_stack_output(f: Fp12) -> Vec<U256> {
+fn fp12_as_stack(f: Fp12) -> Vec<U256> {
     f.into_iter().flatten().flatten().rev().collect()
 }
 
@@ -34,9 +30,9 @@ fn make_mul_stack(
     let mul_dest = U256::from(KERNEL.global_labels[mul_label]);
 
     let mut input = vec![in0];
-    input.extend(fp12_as_stack_input(f));
+    input.extend(fp12_to_vec(f));
     input.extend(vec![in1]);
-    input.extend(fp12_as_stack_input(g));
+    input.extend(fp12_to_vec(g));
     input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
     input.reverse();
     input
@@ -62,9 +58,9 @@ fn test_mul_fp12() -> Result<()> {
     let out_sparse: Vec<U256> = run_interpreter(test_mul, sparse)?.stack().to_vec();
     let out_square: Vec<U256> = run_interpreter(test_mul, square)?.stack().to_vec();
 
-    let exp_normal: Vec<U256> = fp12_as_stack_output(mul_fp12(f, g));
-    let exp_sparse: Vec<U256> = fp12_as_stack_output(mul_fp12(f, h));
-    let exp_square: Vec<U256> = fp12_as_stack_output(mul_fp12(f, f));
+    let exp_normal: Vec<U256> = fp12_as_stack(mul_fp12(f, g));
+    let exp_sparse: Vec<U256> = fp12_as_stack(mul_fp12(f, h));
+    let exp_square: Vec<U256> = fp12_as_stack(mul_fp12(f, f));
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
@@ -84,7 +80,7 @@ fn test_frob_fp12() -> Result<()> {
     let test_frob6 = KERNEL.global_labels["test_frob_fp12_6"];
 
     let mut stack = vec![ptr];
-    stack.extend(fp12_as_stack_input(f));
+    stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr]);
     stack.reverse();
 
@@ -93,10 +89,10 @@ fn test_frob_fp12() -> Result<()> {
     let out_frob3: Vec<U256> = run_interpreter(test_frob3, stack.clone())?.stack().to_vec();
     let out_frob6: Vec<U256> = run_interpreter(test_frob6, stack)?.stack().to_vec();
 
-    let exp_frob1: Vec<U256> = fp12_as_stack_output(frob_fp12(1, f));
-    let exp_frob2: Vec<U256> = fp12_as_stack_output(frob_fp12(2, f));
-    let exp_frob3: Vec<U256> = fp12_as_stack_output(frob_fp12(3, f));
-    let exp_frob6: Vec<U256> = fp12_as_stack_output(frob_fp12(6, f));
+    let exp_frob1: Vec<U256> = fp12_as_stack(frob_fp12(1, f));
+    let exp_frob2: Vec<U256> = fp12_as_stack(frob_fp12(2, f));
+    let exp_frob3: Vec<U256> = fp12_as_stack(frob_fp12(3, f));
+    let exp_frob6: Vec<U256> = fp12_as_stack(frob_fp12(6, f));
 
     assert_eq!(out_frob1, exp_frob1);
     assert_eq!(out_frob2, exp_frob2);
@@ -116,7 +112,7 @@ fn test_inv_fp12() -> Result<()> {
     let test_inv = KERNEL.global_labels["test_inv_fp12"];
 
     let mut stack = vec![ptr];
-    stack.extend(fp12_as_stack_input(f));
+    stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
     stack.reverse();
 
@@ -138,12 +134,61 @@ fn test_pow_fp12() -> Result<()> {
     let test_pow = KERNEL.global_labels["test_pow"];
 
     let mut stack = vec![ptr];
-    stack.extend(fp12_as_stack_input(f));
+    stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr, out, ret_stack, out]);
     stack.reverse();
 
     let output: Vec<U256> = run_interpreter(test_pow, stack)?.stack().to_vec();
-    let expected: Vec<U256> = fp12_as_stack_output(power(f));
+    let expected: Vec<U256> = fp12_as_stack(power(f));
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_store_tangent() -> Result<()> {
+    let p: Curve = gen_curve_point();
+    let q: TwistedCurve = gen_twisted_curve_point();
+
+    let p_: Vec<U256> = p.into_iter().collect();
+    let q_: Vec<U256> = q.into_iter().flatten().collect();
+
+    let test_tan = KERNEL.global_labels["test_store_tangent"];
+
+    let mut stack = p_;
+    stack.extend(q_);
+    stack.reverse();
+
+    let output: Vec<U256> = run_interpreter(test_tan, stack)?.stack().to_vec();
+
+    let expected = fp12_as_stack(store_tangent(p, q));
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_store_cord() -> Result<()> {
+    let p1: Curve = gen_curve_point();
+    let p2: Curve = gen_curve_point();
+    let q: TwistedCurve = gen_twisted_curve_point();
+
+    let p1_: Vec<U256> = p1.into_iter().collect();
+    let p2_: Vec<U256> = p2.into_iter().collect();
+    let q_: Vec<U256> = q.into_iter().flatten().collect();
+
+    let mut stack = p1_;
+    stack.extend(p2_);
+    stack.extend(q_);
+    stack.reverse();
+
+    let test_cord = KERNEL.global_labels["test_store_cord"];
+
+    let output: Vec<U256> = run_interpreter(test_cord, stack)?.stack().to_vec();
+
+    let expected = fp12_as_stack(store_cord(p1, p2, q));
 
     assert_eq!(output, expected);
 
@@ -165,110 +210,6 @@ fn test_pow_fp12() -> Result<()> {
 //     input.extend(vec![ptr, out, ret_stack]);
 //     input.reverse();
 //     input
-// }
-
-// fn store_tangent(p: [Fp; 2], q: [Fp2; 2]) -> Fp12 {
-//     let [px, py] = p;
-//     let [qx, qy] = q;
-
-//     let cx = neg_fp(mul_fp(U256::from(3), mul_fp(px, px)));
-//     let cy = mul_fp(U256::from(2), py);
-
-//     sparse_embed(
-//         sub_fp(mul_fp(py, py), U256::from(9)),
-//         mul_fp2(embed_fp2(cx), qx),
-//         mul_fp2(embed_fp2(cy), qy),
-//     )
-// }
-
-// fn store_cord(p1: [Fp; 2], p2: [Fp; 2], q: [Fp2; 2]) -> Fp12 {
-//     let [p1x, p1y] = p1;
-//     let [p2x, p2y] = p2;
-//     let [qx, qy] = q;
-
-//     let cx = sub_fp(p2y, p1y);
-//     let cy = sub_fp(p1x, p2x);
-
-//     sparse_embed(
-//         sub_fp(mul_fp(p1y, p2x), mul_fp(p2y, p1x)),
-//         mul_fp2(embed_fp2(cx), qx),
-//         mul_fp2(embed_fp2(cy), qy),
-//     )
-// }
-
-// fn make_tan_stack(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
-//     let p: Vec<U256> = p.into_iter().collect();
-//     let q: Vec<U256> = q.into_iter().flatten().collect();
-
-//     let mut input = p;
-//     input.extend(q);
-//     input.reverse();
-//     input
-// }
-
-// fn make_tan_expected(p: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
-//     store_tangent(p, q)
-//         .into_iter()
-//         .flatten()
-//         .flatten()
-//         .rev()
-//         .collect()
-// }
-
-// #[test]
-// fn test_store_tangent() -> Result<()> {
-//     let p = [gen_fp(), gen_fp()];
-//     let q = [[gen_fp(), gen_fp()], [gen_fp(), gen_fp()]];
-
-//     let expected = make_tan_expected(p, q);
-
-//     let stack = make_tan_stack(p, q);
-//     let test_tan = KERNEL.global_labels["test_store_tangent"];
-
-//     let output: Vec<U256> = run_interpreter(test_tan, stack)?.stack().to_vec();
-
-//     assert_eq!(output, expected);
-
-//     Ok(())
-// }
-
-// fn make_cord_stack(p1: [Fp; 2], p2: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
-//     let p1: Vec<U256> = p1.into_iter().collect();
-//     let p2: Vec<U256> = p2.into_iter().collect();
-//     let q: Vec<U256> = q.into_iter().flatten().collect();
-
-//     let mut input = p1;
-//     input.extend(p2);
-//     input.extend(q);
-//     input.reverse();
-//     input
-// }
-
-// fn make_cord_expected(p1: [Fp; 2], p2: [Fp; 2], q: [Fp2; 2]) -> Vec<U256> {
-//     store_cord(p1, p2, q)
-//         .into_iter()
-//         .flatten()
-//         .flatten()
-//         .rev()
-//         .collect()
-// }
-
-// #[test]
-// fn test_store_cord() -> Result<()> {
-//     let p1 = gen_curve_point();
-//     let p2 = gen_curve_point();
-//     let q = gen_twisted_curve_point();
-
-//     let expected = make_cord_expected(p1, p2, q);
-
-//     let stack = make_cord_stack(p1, p2, q);
-//     let test_cord = KERNEL.global_labels["test_store_cord"];
-
-//     let output: Vec<U256> = run_interpreter(test_cord, stack)?.stack().to_vec();
-
-//     assert_eq!(output, expected);
-
-//     Ok(())
 // }
 
 // #[test]

@@ -15,6 +15,35 @@ pub type Fp2 = [U256; 2];
 pub type Fp6 = [Fp2; 3];
 pub type Fp12 = [Fp6; 2];
 
+pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
+    f.into_iter().flatten().flatten().collect()
+}
+
+pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
+    let [[[f0, f1], [f2, f3], [f4, f5]], [[f6, f7], [f8, f9], [f10, f11]]] = f;
+    [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]
+}
+
+pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
+    let f0 = xs.clone().into_iter().nth(0).unwrap();
+    let f1 = xs.clone().into_iter().nth(1).unwrap();
+    let f2 = xs.clone().into_iter().nth(2).unwrap();
+    let f3 = xs.clone().into_iter().nth(3).unwrap();
+    let f4 = xs.clone().into_iter().nth(4).unwrap();
+    let f5 = xs.clone().into_iter().nth(5).unwrap();
+    let f6 = xs.clone().into_iter().nth(6).unwrap();
+    let f7 = xs.clone().into_iter().nth(7).unwrap();
+    let f8 = xs.clone().into_iter().nth(8).unwrap();
+    let f9 = xs.clone().into_iter().nth(9).unwrap();
+    let f10 = xs.clone().into_iter().nth(10).unwrap();
+    let f11 = xs.clone().into_iter().nth(11).unwrap();
+
+    [
+        [[f0, f1], [f2, f3], [f4, f5]],
+        [[f6, f7], [f8, f9], [f10, f11]],
+    ]
+}
+
 pub type Curve = [Fp; 2];
 pub type TwistedCurve = [Fp2; 2];
 
@@ -601,3 +630,32 @@ const EXPS0: [bool; 65] = [
     true, true, true, false, true, false, true, true, false, false, true, false, false, false,
     true, true, true, true, false, false, true, true, false,
 ];
+
+pub fn store_tangent(p: Curve, q: TwistedCurve) -> Fp12 {
+    let [px, py] = p;
+    let [qx, qy] = q;
+
+    let cx = neg_fp(mul_fp(U256::from(3), mul_fp(px, px)));
+    let cy = mul_fp(U256::from(2), py);
+
+    sparse_embed(
+        sub_fp(mul_fp(py, py), U256::from(9)),
+        mul_fp2(embed_fp2(cx), qx),
+        mul_fp2(embed_fp2(cy), qy),
+    )
+}
+
+pub fn store_cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+    let [p1x, p1y] = p1;
+    let [p2x, p2y] = p2;
+    let [qx, qy] = q;
+
+    let cx = sub_fp(p2y, p1y);
+    let cy = sub_fp(p1x, p2x);
+
+    sparse_embed(
+        sub_fp(mul_fp(p1y, p2x), mul_fp(p2y, p1x)),
+        mul_fp2(embed_fp2(cx), qx),
+        mul_fp2(embed_fp2(cy), qy),
+    )
+}
