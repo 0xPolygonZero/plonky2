@@ -10,6 +10,18 @@ use crate::bn254::{
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
+fn make_label(lbl: &str) -> U256 {
+    U256::from(KERNEL.global_labels[lbl])
+}
+
+fn make_stack(vecs: Vec<Vec<U256>>) -> Vec<U256> {
+    let mut stack = vec![];
+    for vec in vecs {
+        stack.extend(vec)
+    }
+    stack
+}
+
 fn get_output(lbl: &str, stack: Vec<U256>) -> Vec<U256> {
     let label = KERNEL.global_labels[lbl];
     let mut input = stack;
@@ -19,42 +31,36 @@ fn get_output(lbl: &str, stack: Vec<U256>) -> Vec<U256> {
     output
 }
 
-fn make_mul_stack(
-    in0: usize,
-    in1: usize,
-    out: usize,
-    f: Fp12,
-    g: Fp12,
-    mul_label: &str,
-) -> Vec<U256> {
-    let in0 = U256::from(in0);
-    let in1 = U256::from(in1);
-    let out = U256::from(out);
+fn make_mul_stack(f: Fp12, g: Fp12, mul_label: &str) -> Vec<U256> {
+    let in0 = U256::from(64);
+    let in1 = U256::from(76);
+    let out = U256::from(88);
 
-    let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
-    let mul_dest = U256::from(KERNEL.global_labels[mul_label]);
-
-    let mut input = vec![in0];
-    input.extend(fp12_to_vec(f));
-    input.extend(vec![in1]);
-    input.extend(fp12_to_vec(g));
-    input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
-    input
+    make_stack(vec![
+        vec![in0],
+        fp12_to_vec(f),
+        vec![in1],
+        fp12_to_vec(g),
+        vec![
+            make_label(mul_label),
+            in0,
+            in1,
+            out,
+            make_label("ret_stack"),
+            out,
+        ],
+    ])
 }
 
 #[test]
 fn test_mul_fp12() -> Result<()> {
-    let in0 = 64;
-    let in1 = 76;
-    let out = 88;
-
     let f: Fp12 = gen_fp12();
     let g: Fp12 = gen_fp12();
     let h: Fp12 = gen_fp12_sparse();
 
-    let normal: Vec<U256> = make_mul_stack(in0, in1, out, f, g, "mul_fp12");
-    let sparse: Vec<U256> = make_mul_stack(in0, in1, out, f, h, "mul_fp12_sparse");
-    let square: Vec<U256> = make_mul_stack(in0, in1, out, f, f, "square_fp12_test");
+    let normal: Vec<U256> = make_mul_stack(f, g, "mul_fp12");
+    let sparse: Vec<U256> = make_mul_stack(f, h, "mul_fp12_sparse");
+    let square: Vec<U256> = make_mul_stack(f, f, "square_fp12_test");
 
     let out_normal: Vec<U256> = get_output("test_mul_fp12", normal);
     let out_sparse: Vec<U256> = get_output("test_mul_fp12", sparse);
@@ -74,11 +80,10 @@ fn test_mul_fp12() -> Result<()> {
 #[test]
 fn test_frob_fp12() -> Result<()> {
     let ptr = U256::from(100);
+
     let f: Fp12 = gen_fp12();
 
-    let mut stack = vec![ptr];
-    stack.extend(fp12_to_vec(f));
-    stack.extend(vec![ptr]);
+    let stack = make_stack(vec![vec![ptr], fp12_to_vec(f), vec![ptr]]);
 
     let out_frob1: Vec<U256> = get_output("test_frob_fp12_1", stack.clone());
     let out_frob2: Vec<U256> = get_output("test_frob_fp12_2", stack.clone());
@@ -123,11 +128,11 @@ fn test_pow_fp12() -> Result<()> {
 
     let f: Fp12 = gen_fp12();
 
-    let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
-
-    let mut stack = vec![ptr];
-    stack.extend(fp12_to_vec(f));
-    stack.extend(vec![ptr, out, ret_stack, out]);
+    let stack = make_stack(vec![
+        vec![ptr],
+        fp12_to_vec(f),
+        vec![ptr, out, make_label("ret_stack"), out],
+    ]);
 
     let output: Vec<U256> = get_output("test_pow", stack);
     let expected: Vec<U256> = fp12_to_vec(power(f));
@@ -147,12 +152,8 @@ fn test_line() -> Result<()> {
     let p2_: Vec<U256> = p2.to_vec();
     let q_: Vec<U256> = q.into_iter().flatten().collect();
 
-    let mut tan_stack = p1_.clone();
-    tan_stack.extend(q_.clone());
-
-    let mut cord_stack = p1_;
-    cord_stack.extend(p2_);
-    cord_stack.extend(q_);
+    let tan_stack = make_stack(vec![p1_.clone(), q_.clone()]);
+    let cord_stack = make_stack(vec![p1_, p2_, q_]);
 
     let output_tan: Vec<U256> = get_output("test_tangent", tan_stack);
     let output_cord: Vec<U256> = get_output("test_cord", cord_stack);
