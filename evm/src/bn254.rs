@@ -631,7 +631,7 @@ const EXPS0: [bool; 65] = [
     true, true, true, true, false, false, true, true, false,
 ];
 
-pub fn store_tangent(p: Curve, q: TwistedCurve) -> Fp12 {
+pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let [px, py] = p;
     let [qx, qy] = q;
 
@@ -645,7 +645,7 @@ pub fn store_tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     )
 }
 
-pub fn store_cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let [p1x, p1y] = p1;
     let [p2x, p2y] = p2;
     let [qx, qy] = q;

@@ -205,18 +205,18 @@ impl EvmField {
 
     fn extop(&self, op: FieldExtOp, xs: Vec<U256>) -> U256 {
         match op {
-            FieldExtOp::ExtInv0 => self.ext_inv0(xs),
-            FieldExtOp::ExtInv1 => self.ext_inv1(xs),
-            FieldExtOp::ExtInv2 => self.ext_inv2(xs),
-            FieldExtOp::ExtInv3 => self.ext_inv3(xs),
-            FieldExtOp::ExtInv4 => self.ext_inv4(xs),
-            FieldExtOp::ExtInv5 => self.ext_inv5(xs),
-            FieldExtOp::ExtInv6 => self.ext_inv6(xs),
-            FieldExtOp::ExtInv7 => self.ext_inv7(xs),
-            FieldExtOp::ExtInv8 => self.ext_inv8(xs),
-            FieldExtOp::ExtInv9 => self.ext_inv9(xs),
-            FieldExtOp::ExtInv10 => self.ext_inv10(xs),
-            FieldExtOp::ExtInv11 => self.ext_inv11(xs),
+            FieldExtOp::ExtInv0 => self.ext_inv_component(0, xs),
+            FieldExtOp::ExtInv1 => self.ext_inv_component(1, xs),
+            FieldExtOp::ExtInv2 => self.ext_inv_component(2, xs),
+            FieldExtOp::ExtInv3 => self.ext_inv_component(3, xs),
+            FieldExtOp::ExtInv4 => self.ext_inv_component(4, xs),
+            FieldExtOp::ExtInv5 => self.ext_inv_component(5, xs),
+            FieldExtOp::ExtInv6 => self.ext_inv_component(6, xs),
+            FieldExtOp::ExtInv7 => self.ext_inv_component(7, xs),
+            FieldExtOp::ExtInv8 => self.ext_inv_component(8, xs),
+            FieldExtOp::ExtInv9 => self.ext_inv_component(9, xs),
+            FieldExtOp::ExtInv10 => self.ext_inv_component(10, xs),
+            FieldExtOp::ExtInv11 => self.ext_inv_component(11, xs),
         }
     }
 
@@ -242,52 +242,8 @@ impl EvmField {
         fp12_to_array(inv_fp12(vec_to_fp12(vec)))
     }
 
-    fn ext_inv0(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 12)[0]
-    }
-
-    fn ext_inv1(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 11)[1]
-    }
-
-    fn ext_inv2(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 10)[2]
-    }
-
-    fn ext_inv3(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 9)[3]
-    }
-
-    fn ext_inv4(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 8)[4]
-    }
-
-    fn ext_inv5(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 7)[5]
-    }
-
-    fn ext_inv6(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 6)[6]
-    }
-
-    fn ext_inv7(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 5)[7]
-    }
-
-    fn ext_inv8(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 4)[8]
-    }
-
-    fn ext_inv9(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 3)[9]
-    }
-
-    fn ext_inv10(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 2)[10]
-    }
-
-    fn ext_inv11(&self, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 1)[11]
+    fn ext_inv_component(&self, n: usize, xs: Vec<U256>) -> U256 {
+        Self::ext_inv(&self, xs, 12 - n)[n]
     }
 }
 

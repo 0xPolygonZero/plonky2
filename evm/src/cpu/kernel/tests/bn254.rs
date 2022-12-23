@@ -4,14 +4,19 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254::{
-    fp12_to_vec, frob_fp12, gen_curve_point, gen_fp12, gen_fp12_sparse, gen_twisted_curve_point,
-    mul_fp12, power, store_cord, store_tangent, Curve, Fp12, TwistedCurve,
+    cord, fp12_to_vec, frob_fp12, gen_curve_point, gen_fp12, gen_fp12_sparse,
+    gen_twisted_curve_point, mul_fp12, power, tangent, Curve, Fp12, TwistedCurve,
 };
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
-fn fp12_as_stack(f: Fp12) -> Vec<U256> {
-    f.into_iter().flatten().flatten().rev().collect()
+fn get_output(lbl: &str, stack: Vec<U256>) -> Vec<U256> {
+    let label = KERNEL.global_labels[lbl];
+    let mut input = stack;
+    input.reverse();
+    let mut output = run_interpreter(label, input).unwrap().stack().to_vec();
+    output.reverse();
+    output
 }
 
 fn make_mul_stack(
@@ -34,7 +39,6 @@ fn make_mul_stack(
     input.extend(vec![in1]);
     input.extend(fp12_to_vec(g));
     input.extend(vec![mul_dest, in0, in1, out, ret_stack, out]);
-    input.reverse();
     input
 }
 
@@ -48,19 +52,17 @@ fn test_mul_fp12() -> Result<()> {
     let g: Fp12 = gen_fp12();
     let h: Fp12 = gen_fp12_sparse();
 
-    let test_mul = KERNEL.global_labels["test_mul_fp12"];
-
     let normal: Vec<U256> = make_mul_stack(in0, in1, out, f, g, "mul_fp12");
     let sparse: Vec<U256> = make_mul_stack(in0, in1, out, f, h, "mul_fp12_sparse");
     let square: Vec<U256> = make_mul_stack(in0, in1, out, f, f, "square_fp12_test");
 
-    let out_normal: Vec<U256> = run_interpreter(test_mul, normal)?.stack().to_vec();
-    let out_sparse: Vec<U256> = run_interpreter(test_mul, sparse)?.stack().to_vec();
-    let out_square: Vec<U256> = run_interpreter(test_mul, square)?.stack().to_vec();
+    let out_normal: Vec<U256> = get_output("test_mul_fp12", normal);
+    let out_sparse: Vec<U256> = get_output("test_mul_fp12", sparse);
+    let out_square: Vec<U256> = get_output("test_mul_fp12", square);
 
-    let exp_normal: Vec<U256> = fp12_as_stack(mul_fp12(f, g));
-    let exp_sparse: Vec<U256> = fp12_as_stack(mul_fp12(f, h));
-    let exp_square: Vec<U256> = fp12_as_stack(mul_fp12(f, f));
+    let exp_normal: Vec<U256> = fp12_to_vec(mul_fp12(f, g));
+    let exp_sparse: Vec<U256> = fp12_to_vec(mul_fp12(f, h));
+    let exp_square: Vec<U256> = fp12_to_vec(mul_fp12(f, f));
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
@@ -74,25 +76,19 @@ fn test_frob_fp12() -> Result<()> {
     let ptr = U256::from(100);
     let f: Fp12 = gen_fp12();
 
-    let test_frob1 = KERNEL.global_labels["test_frob_fp12_1"];
-    let test_frob2 = KERNEL.global_labels["test_frob_fp12_2"];
-    let test_frob3 = KERNEL.global_labels["test_frob_fp12_3"];
-    let test_frob6 = KERNEL.global_labels["test_frob_fp12_6"];
-
     let mut stack = vec![ptr];
     stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr]);
-    stack.reverse();
 
-    let out_frob1: Vec<U256> = run_interpreter(test_frob1, stack.clone())?.stack().to_vec();
-    let out_frob2: Vec<U256> = run_interpreter(test_frob2, stack.clone())?.stack().to_vec();
-    let out_frob3: Vec<U256> = run_interpreter(test_frob3, stack.clone())?.stack().to_vec();
-    let out_frob6: Vec<U256> = run_interpreter(test_frob6, stack)?.stack().to_vec();
+    let out_frob1: Vec<U256> = get_output("test_frob_fp12_1", stack.clone());
+    let out_frob2: Vec<U256> = get_output("test_frob_fp12_2", stack.clone());
+    let out_frob3: Vec<U256> = get_output("test_frob_fp12_3", stack.clone());
+    let out_frob6: Vec<U256> = get_output("test_frob_fp12_6", stack);
 
-    let exp_frob1: Vec<U256> = fp12_as_stack(frob_fp12(1, f));
-    let exp_frob2: Vec<U256> = fp12_as_stack(frob_fp12(2, f));
-    let exp_frob3: Vec<U256> = fp12_as_stack(frob_fp12(3, f));
-    let exp_frob6: Vec<U256> = fp12_as_stack(frob_fp12(6, f));
+    let exp_frob1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
+    let exp_frob2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
+    let exp_frob3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
+    let exp_frob6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
 
     assert_eq!(out_frob1, exp_frob1);
     assert_eq!(out_frob2, exp_frob2);
@@ -109,14 +105,11 @@ fn test_inv_fp12() -> Result<()> {
 
     let f: Fp12 = gen_fp12();
 
-    let test_inv = KERNEL.global_labels["test_inv_fp12"];
-
     let mut stack = vec![ptr];
     stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
-    stack.reverse();
 
-    let output: Vec<U256> = run_interpreter(test_inv, stack)?.stack().to_vec();
+    let output: Vec<U256> = get_output("test_inv_fp12", stack);
 
     assert_eq!(output, vec![]);
 
@@ -131,38 +124,13 @@ fn test_pow_fp12() -> Result<()> {
     let f: Fp12 = gen_fp12();
 
     let ret_stack = U256::from(KERNEL.global_labels["ret_stack"]);
-    let test_pow = KERNEL.global_labels["test_pow"];
 
     let mut stack = vec![ptr];
     stack.extend(fp12_to_vec(f));
     stack.extend(vec![ptr, out, ret_stack, out]);
-    stack.reverse();
 
-    let output: Vec<U256> = run_interpreter(test_pow, stack)?.stack().to_vec();
-    let expected: Vec<U256> = fp12_as_stack(power(f));
-
-    assert_eq!(output, expected);
-
-    Ok(())
-}
-
-#[test]
-fn test_store_tangent() -> Result<()> {
-    let p: Curve = gen_curve_point();
-    let q: TwistedCurve = gen_twisted_curve_point();
-
-    let p_: Vec<U256> = p.into_iter().collect();
-    let q_: Vec<U256> = q.into_iter().flatten().collect();
-
-    let test_tan = KERNEL.global_labels["test_store_tangent"];
-
-    let mut stack = p_;
-    stack.extend(q_);
-    stack.reverse();
-
-    let output: Vec<U256> = run_interpreter(test_tan, stack)?.stack().to_vec();
-
-    let expected = fp12_as_stack(store_tangent(p, q));
+    let output: Vec<U256> = get_output("test_pow", stack);
+    let expected: Vec<U256> = fp12_to_vec(power(f));
 
     assert_eq!(output, expected);
 
@@ -170,27 +138,30 @@ fn test_store_tangent() -> Result<()> {
 }
 
 #[test]
-fn test_store_cord() -> Result<()> {
+fn test_line() -> Result<()> {
     let p1: Curve = gen_curve_point();
     let p2: Curve = gen_curve_point();
     let q: TwistedCurve = gen_twisted_curve_point();
 
-    let p1_: Vec<U256> = p1.into_iter().collect();
-    let p2_: Vec<U256> = p2.into_iter().collect();
+    let p1_: Vec<U256> = p1.to_vec();
+    let p2_: Vec<U256> = p2.to_vec();
     let q_: Vec<U256> = q.into_iter().flatten().collect();
 
-    let mut stack = p1_;
-    stack.extend(p2_);
-    stack.extend(q_);
-    stack.reverse();
+    let mut tan_stack = p1_.clone();
+    tan_stack.extend(q_.clone());
 
-    let test_cord = KERNEL.global_labels["test_store_cord"];
+    let mut cord_stack = p1_;
+    cord_stack.extend(p2_);
+    cord_stack.extend(q_);
 
-    let output: Vec<U256> = run_interpreter(test_cord, stack)?.stack().to_vec();
+    let output_tan: Vec<U256> = get_output("test_tangent", tan_stack);
+    let output_cord: Vec<U256> = get_output("test_cord", cord_stack);
 
-    let expected = fp12_as_stack(store_cord(p1, p2, q));
+    let expected_tan = fp12_to_vec(tangent(p1, q));
+    let expected_cord = fp12_to_vec(cord(p1, p2, q));
 
-    assert_eq!(output, expected);
+    assert_eq!(output_tan, expected_tan);
+    assert_eq!(output_cord, expected_cord);
 
     Ok(())
 }

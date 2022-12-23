@@ -139,7 +139,7 @@ mul_tangent_1:
     // stack:        Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP11  DUP11
     // stack:     O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    %store_tangent
+    %tangent
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     PUSH 100  DUP2
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
@@ -173,7 +173,7 @@ mul_cord:
     // stack:          O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
     DUP13  DUP13
     // stack:       P, O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
-    %store_cord 
+    %cord 
     // stack:                mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     DUP12
     // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
@@ -196,20 +196,20 @@ after_add:
     %jump(miller_one)
 
 
-global test_store_cord:
+global test_cord:
     // stack: p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    %store_cord
+    %cord
     // stack:
     %check(100)
 
-/// def store_cord(p1x, p1y, p2x, p2y, qx, qy):
+/// def cord(p1x, p1y, p2x, p2y, qx, qy):
 ///     return sparse_store(
 ///         p1y*p2x - p2y*p1x, 
 ///         (p2y - p1y) * qx, 
 ///         (p1x - p2x) * qy,
 ///     )
 
-%macro store_cord
+%macro cord
     // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     DUP1  DUP5  MULFP254
     // stack:           p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
@@ -249,20 +249,20 @@ global test_store_cord:
 %endmacro
 
 
-global test_store_tangent:
+global test_tangent:
     // stack: px, py, qx, qx_, qy, qy_
-    %store_tangent
+    %tangent
     // stack:
     %check(100)
 
-/// def store_tangent(px, py, qx, qy):
+/// def tangent(px, py, qx, qy):
 ///     return sparse_store(
 ///         py**2 - 9, 
 ///         (-3px**2) * qx, 
 ///         (2py)     * qy,
 ///     )
 
-%macro store_tangent
+%macro tangent
     // stack:                px, py, qx, qx_,  qy, qy_
     PUSH 9
     // stack:             9, px, py, qx, qx_,  qy, qy_
