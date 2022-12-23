@@ -243,7 +243,7 @@ impl EvmField {
     }
 
     fn ext_inv_component(&self, n: usize, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(&self, xs, 12 - n)[n]
+        Self::ext_inv(self, xs, 12 - n)[n]
     }
 }
 

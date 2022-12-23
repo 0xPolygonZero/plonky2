@@ -25,7 +25,7 @@ pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
 }
 
 pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
-    let f0 = xs.clone().into_iter().nth(0).unwrap();
+    let f0 = xs.clone().into_iter().next().unwrap();
     let f1 = xs.clone().into_iter().nth(1).unwrap();
     let f2 = xs.clone().into_iter().nth(2).unwrap();
     let f3 = xs.clone().into_iter().nth(3).unwrap();
@@ -36,7 +36,7 @@ pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
     let f8 = xs.clone().into_iter().nth(8).unwrap();
     let f9 = xs.clone().into_iter().nth(9).unwrap();
     let f10 = xs.clone().into_iter().nth(10).unwrap();
-    let f11 = xs.clone().into_iter().nth(11).unwrap();
+    let f11 = xs.into_iter().nth(11).unwrap();
 
     [
         [[f0, f1], [f2, f3], [f4, f5]],
@@ -137,10 +137,6 @@ fn sub_fp2(a: Fp2, b: Fp2) -> Fp2 {
     let [a, a_] = a;
     let [b, b_] = b;
     [sub_fp(a, b), sub_fp(a_, b_)]
-}
-
-fn neg_fp2(a: Fp2) -> Fp2 {
-    sub_fp2(embed_fp2(ZERO), a)
 }
 
 fn mul_fp2(a: Fp2, b: Fp2) -> Fp2 {
@@ -267,21 +263,21 @@ fn inv_fp(x: Fp) -> Fp {
     exp_fp(x, BN_BASE - 2)
 }
 
-fn inv_fp2(a: Fp2) -> Fp2 {
-    let [a0, a1] = a;
-    let norm = inv_fp(mul_fp(a0, a0) + mul_fp(a1, a1));
-    [mul_fp(norm, a0), neg_fp(mul_fp(norm, a1))]
-}
+// fn inv_fp2(a: Fp2) -> Fp2 {
+//     let [a0, a1] = a;
+//     let norm = inv_fp(mul_fp(a0, a0) + mul_fp(a1, a1));
+//     [mul_fp(norm, a0), neg_fp(mul_fp(norm, a1))]
+// }
 
-fn inv_fp6(c: Fp6) -> Fp6 {
-    let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
-    let e = mul_fp6(b, frob_fp6(5, c))[0];
-    let n = mul_fp2(e, conj_fp2(e))[0];
-    let i = inv_fp(n);
-    let d = mul_fp2(embed_fp2(i), e);
-    let [f0, f1, f2] = frob_fp6(1, b);
-    [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
-}
+// fn inv_fp6(c: Fp6) -> Fp6 {
+//     let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
+//     let e = mul_fp6(b, frob_fp6(5, c))[0];
+//     let n = mul_fp2(e, conj_fp2(e))[0];
+//     let i = inv_fp(n);
+//     let d = mul_fp2(embed_fp2(i), e);
+//     let [f0, f1, f2] = frob_fp6(1, b);
+//     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
+// }
 
 pub fn inv_fp12(f: Fp12) -> Fp12 {
     let [f0, f1] = f;
