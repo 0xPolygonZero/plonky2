@@ -160,13 +160,7 @@ mul_tangent_2:
 after_double:
     // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     SWAP5  POP  SWAP5  POP
-
     // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
-
-    %pop3  %pop2  %pop2  %pop4
-    %load_fp12
-    %jump(0xdeadbeef)
-
     JUMP
 
 

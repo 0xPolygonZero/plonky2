@@ -686,8 +686,7 @@ fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
 fn curve_add(p: Curve, q: Curve) -> Curve {
     if p == q {
         curve_double(p)
-    }
-    else { 
+    } else {
         third_point(cord_slope(p, q), p, q)
     }
 }
