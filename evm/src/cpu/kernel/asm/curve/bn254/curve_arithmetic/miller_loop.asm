@@ -126,6 +126,12 @@ miller_zero_final:
 ///     out = mul_fp12_sparse(out, line)
 ///     O += O
 
+global test_mul_tan:
+    // stack: out, f, retdest, 0xnm, times, O, P, Q, out
+    %store_fp12
+    // stack:         retdest, 0xnm, times, O, P, Q, out
+    %jump(mul_tangent)
+
 mul_tangent:
     // stack:                                              retdest, 0xnm, times, O, P, Q, out
     PUSH mul_tangent_2  DUP13  PUSH mul_tangent_1
@@ -154,7 +160,13 @@ mul_tangent_2:
 after_double:
     // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     SWAP5  POP  SWAP5  POP
+
     // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
+
+    %pop3  %pop2  %pop2  %pop4
+    %load_fp12
+    %jump(0xdeadbeef)
+
     JUMP
 
 
@@ -162,6 +174,12 @@ after_double:
 ///     line = cord(P, O, Q)
 ///     out = mul_fp12_sparse(out, line)
 ///     O += P
+
+global test_mul_cord:
+    // stack: out, f, 0xnm, times, O, P, Q, out
+    %store_fp12
+    // stack:         0xnm, times, O, P, Q, out
+    %jump(mul_cord)
 
 mul_cord:
     // stack:                            0xnm, times, O, P, Q, out
@@ -195,12 +213,6 @@ after_add:
     // stack:                   0xnm, times, O+P, P, Q, out
     %jump(miller_one)
 
-
-global test_cord:
-    // stack: p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    %cord
-    // stack:
-    %check(100)
 
 /// def cord(p1x, p1y, p2x, p2y, qx, qy):
 ///     return sparse_store(
@@ -248,12 +260,6 @@ global test_cord:
     %mstore_kernel_general(109)
 %endmacro
 
-
-global test_tangent:
-    // stack: px, py, qx, qx_, qy, qy_
-    %tangent
-    // stack:
-    %check(100)
 
 /// def tangent(px, py, qx, qy):
 ///     return sparse_store(

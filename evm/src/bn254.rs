@@ -115,6 +115,27 @@ fn neg_fp(x: Fp) -> Fp {
     (BN_BASE - x) % BN_BASE
 }
 
+fn exp_fp(x: Fp, e: U256) -> Fp {
+    let mut current = x;
+    let mut product = U256::one();
+
+    for j in 0..256 {
+        if e.bit(j) {
+            product = U256::try_from(product.full_mul(current) % BN_BASE).unwrap();
+        }
+        current = U256::try_from(current.full_mul(current) % BN_BASE).unwrap();
+    }
+    product
+}
+
+fn inv_fp(x: Fp) -> Fp {
+    exp_fp(x, BN_BASE - 2)
+}
+
+fn div_fp(x: Fp, y: Fp) -> Fp {
+    mul_fp(x, inv_fp(y))
+}
+
 fn conj_fp2(a: Fp2) -> Fp2 {
     let [a, a_] = a;
     [a, neg_fp(a_)]
@@ -244,23 +265,6 @@ pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let scale = embed_fp2_fp6(frob_z(n));
 
     [frob_fp6(n, f0), mul_fp6(scale, frob_fp6(n, f1))]
-}
-
-fn exp_fp(x: Fp, e: U256) -> Fp {
-    let mut current = x;
-    let mut product = U256::one();
-
-    for j in 0..256 {
-        if e.bit(j) {
-            product = U256::try_from(product.full_mul(current) % BN_BASE).unwrap();
-        }
-        current = U256::try_from(current.full_mul(current) % BN_BASE).unwrap();
-    }
-    product
-}
-
-fn inv_fp(x: Fp) -> Fp {
-    exp_fp(x, BN_BASE - 2)
 }
 
 // fn inv_fp2(a: Fp2) -> Fp2 {
@@ -654,4 +658,70 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
         mul_fp2(embed_fp2(cx), qx),
         mul_fp2(embed_fp2(cy), qy),
     )
+}
+
+fn tangent_slope(p: Curve) -> Fp {
+    let [px, py] = p;
+    let num = mul_fp(mul_fp(px, px), U256::from(3));
+    let denom = mul_fp(py, U256::from(2));
+    div_fp(num, denom)
+}
+
+fn cord_slope(p: Curve, q: Curve) -> Fp {
+    let [px, py] = p;
+    let [qx, qy] = q;
+    let num = sub_fp(qy, py);
+    let denom = sub_fp(qx, px);
+    div_fp(num, denom)
+}
+
+fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
+    let [px, py] = p;
+    let [qx, _] = q;
+    let ox = sub_fp(mul_fp(m, m), add_fp(px, qx));
+    let oy = sub_fp(mul_fp(m, sub_fp(px, ox)), py);
+    [ox, oy]
+}
+
+fn curve_add(p: Curve, q: Curve) -> Curve {
+    if p == q {
+        curve_double(p)
+    }
+    else { 
+        third_point(cord_slope(p, q), p, q)
+    }
+}
+
+fn curve_double(p: Curve) -> Curve {
+    third_point(tangent_slope(p), p, p)
+}
+
+const EXP: [usize; 253] = [
+    1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1,
+    0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1,
+    1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0,
+    0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1,
+    0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1,
+    1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0,
+    0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
+    let mut o = p;
+    let mut acc = embed_fp12(U256::one());
+    let mut line;
+
+    for i in EXP {
+        acc = mul_fp12(acc, acc);
+        line = tangent(o, q);
+        acc = mul_fp12(line, acc);
+        o = curve_double(o);
+        if i != 0 {
+            line = cord(p, o, q);
+            acc = mul_fp12(line, acc);
+            o = curve_add(p, o);
+        }
+    }
+    acc
 }
