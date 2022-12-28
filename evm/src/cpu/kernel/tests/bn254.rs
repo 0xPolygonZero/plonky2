@@ -4,8 +4,8 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254::{
-    fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, miller_loop, mul_fp12, power, Curve, Fp12,
-    TwistedCurve,
+    curve_generator, fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, miller_loop, mul_fp12,
+    power, tate, twisted_curve_generator, Curve, Fp12, TwistedCurve,
 };
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
@@ -110,9 +110,11 @@ fn test_inv_fp12() -> Result<()> {
 
     let f: Fp12 = gen_fp12();
 
-    let mut stack = vec![ptr];
-    stack.extend(fp12_to_vec(f));
-    stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
+    let stack = make_stack(vec![
+        vec![ptr],
+        fp12_to_vec(f),
+        vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()],
+    ]);
 
     let output: Vec<U256> = get_output("test_inv_fp12", stack);
 
@@ -142,36 +144,40 @@ fn test_power() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_miller() -> Result<()> {
+fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
     let ptr = U256::from(300);
     let out = U256::from(400);
-
-    let p: Curve = [U256::one(), U256::from(2)];
-    let q: TwistedCurve = [
-        [
-            U256::from_str("0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed")
-                .unwrap(),
-            U256::from_str("0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2")
-                .unwrap(),
-        ],
-        [
-            U256::from_str("0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa")
-                .unwrap(),
-            U256::from_str("0x90689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b")
-                .unwrap(),
-        ],
-    ];
 
     let p_: Vec<U256> = p.into_iter().collect();
     let q_: Vec<U256> = q.into_iter().flatten().collect();
 
     let ret_stack = make_label("ret_stack");
 
-    let initial_stack = make_stack(vec![vec![ptr], p_, q_, vec![ptr, out, ret_stack]]);
+    make_stack(vec![vec![ptr], p_, q_, vec![ptr, out, ret_stack, out]])
+}
 
-    let output = get_output("test_miller", initial_stack);
+#[test]
+fn test_miller() -> Result<()> {
+    let p: Curve = curve_generator();
+    let q: TwistedCurve = twisted_curve_generator();
+
+    let stack = make_tate_stack(p, q);
+    let output = get_output("test_miller", stack);
     let expected = fp12_to_vec(miller_loop(p, q));
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+#[test]
+fn test_tate() -> Result<()> {
+    let p: Curve = curve_generator();
+    let q: TwistedCurve = twisted_curve_generator();
+
+    let stack = make_tate_stack(p, q);
+    let output = get_output("test_tate", stack);
+    let expected = fp12_to_vec(tate(p, q));
 
     assert_eq!(output, expected);
 

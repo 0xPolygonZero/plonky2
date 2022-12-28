@@ -227,8 +227,3 @@ power_loop_0_end:
     PUSH 200  PUSH power_return  SWAP2  DUP2 
     // stack: 200, ptr, 200, power_return
     %jump(mul_fp12)
-
-%macro check(lbl)
-    PUSH $lbl
-    %jump(ret_stack)
-%endmacro

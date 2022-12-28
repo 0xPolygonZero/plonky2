@@ -972,6 +972,105 @@
     // stack:                                                            
 %endmacro
 
+%macro move_fp12
+    // stack:              ptr, ptr'
+    DUP1  
+    // stack:       ind00, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x00, ptr, ptr'
+    DUP3
+    // stack: ind00', x00, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(1)
+    // stack:       ind01, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x01, ptr, ptr'
+    DUP3  %add_const(1)
+    // stack: ind01', x01, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(2)
+    // stack:       ind02, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x02, ptr, ptr'
+    DUP3  %add_const(2)
+    // stack: ind02', x02, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(3)
+    // stack:       ind03, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x03, ptr, ptr'
+    DUP3  %add_const(3)
+    // stack: ind03', x03, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(4)
+    // stack:       ind04, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x04, ptr, ptr'
+    DUP3  %add_const(4)
+    // stack: ind04', x04, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(5)
+    // stack:       ind05, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x05, ptr, ptr'
+    DUP3  %add_const(5)
+    // stack: ind05', x05, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(6)
+    // stack:       ind06, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x06, ptr, ptr'
+    DUP3  %add_const(6)
+    // stack: ind06', x06, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(7)
+    // stack:       ind07, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x07, ptr, ptr'
+    DUP3  %add_const(7)
+    // stack: ind07', x07, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(8)
+    // stack:       ind08, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x08, ptr, ptr'
+    DUP3  %add_const(8)
+    // stack: ind08', x08, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(9)
+    // stack:       ind09, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x09, ptr, ptr'
+    DUP3  %add_const(9)
+    // stack: ind09', x09, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    DUP1  %add_const(10)
+    // stack:       ind10, ptr, ptr'
+    %mload_kernel_general
+    // stack:         x10, ptr, ptr'
+    DUP3  %add_const(10)
+    // stack: ind10', x10, ptr, ptr'
+    %mstore_kernel_general
+    // stack:              ptr, ptr'
+    %add_const(11)
+    // stack:            ind11, ptr'
+    %mload_kernel_general
+    // stack:              x11, ptr'
+    DUP2  %add_const(11)
+    // stack:      ind11', x11, ptr'
+    %mstore_kernel_general
+%endmacro
+
 global ret_stack:
     // stack: out
     %load_fp12

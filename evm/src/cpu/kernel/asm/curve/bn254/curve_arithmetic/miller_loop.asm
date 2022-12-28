@@ -78,9 +78,9 @@ miller_final:
     %jump(miller_zero_final)
 miller_end:
     // stack: m, times, O, P, Q, out, retdest
-    %pop2  %pop2  %pop2  %pop4
+    %pop2  %pop2  %pop2  %pop4  POP
     // stack:                    out, retdest
-    SWAP1  JUMP 
+    JUMP 
 
 
 miller_one:
@@ -126,12 +126,6 @@ miller_zero_final:
 ///     out = mul_fp12_sparse(out, line)
 ///     O += O
 
-global test_mul_tan:
-    // stack: out, f, retdest, 0xnm, times, O, P, Q, out
-    %store_fp12
-    // stack:         retdest, 0xnm, times, O, P, Q, out
-    %jump(mul_tangent)
-
 mul_tangent:
     // stack:                                              retdest, 0xnm, times, O, P, Q, out
     PUSH mul_tangent_2  DUP13  PUSH mul_tangent_1
@@ -168,12 +162,6 @@ after_double:
 ///     line = cord(P, O, Q)
 ///     out = mul_fp12_sparse(out, line)
 ///     O += P
-
-global test_mul_cord:
-    // stack: out, f, 0xnm, times, O, P, Q, out
-    %store_fp12
-    // stack:         0xnm, times, O, P, Q, out
-    %jump(mul_cord)
 
 mul_cord:
     // stack:                            0xnm, times, O, P, Q, out

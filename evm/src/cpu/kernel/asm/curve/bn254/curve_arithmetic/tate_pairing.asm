@@ -1,25 +1,35 @@
-/// def tate(P : [Fp; 2], Q: [Fp2; 2]) -> Fp12:
+/// def tate(P: Curve, Q: TwistedCurve) -> Fp12:
 ///     out = miller_loop(P, Q)
 ///
 ///     inv = inv_fp12(out)
-///     out = frob_fp12_6(out)
+///     out = frob_fp12(6, out)
 ///     out = mul_fp12(out, inv)
 ///
-///     acc = frob_fp12_2_(out)
+///     acc = frob_fp12(2, out)
 ///     out = mul_fp12(out, acc)
 ///
-///     pow = fast_exp(out)
-///     out = frob_fp12_3(out) 
+///     pow = power(out)
+///     out = frob_fp12(3, out) 
 ///     out = mul_fp12(out, pow)
 ///
 ///     return out
 
+global test_tate:
+    // stack: ptr, P, Q, ptr, out, retdest
+    %store_fp6
+    // stack:            ptr, out, retdest
+    %jump(tate)
+
 global tate:
-    // stack:           ptr, out,            retdest
-    PUSH post_mllr   SWAP2   SWAP1
-    // stack:           ptr, out, post_mllr, retdest
+    // stack:                      ptr, out, retdest
+    DUP2
+    // stack:                 out, ptr, out, retdest
+    PUSH post_mllr
+    // stack:      post_mllr, out, ptr, out, retdest
+    SWAP2
+    // stack:      ptr, out, post_mllr, out, retdest
     %jump(miller_init)
-global post_mllr:
+global post_mllr:    
     // stack:                           out, retdest
     PUSH tate_inv
     // stack:                 tate_inv, out, retdest
@@ -30,6 +40,8 @@ global post_mllr:
     %jump(inv_fp12)
 tate_inv:
     // stack:                           out, retdest  {100: inv}
+    %frob_fp12_6
+    // stack:                           out, retdest  {100: inv}
     PUSH tate_mul1
     // stack:                tate_mul1, out, retdest  {100: inv}
     DUP2
@@ -37,8 +49,6 @@ tate_inv:
     PUSH 100 
     // stack:      100, out, tate_mul1, out, retdest  {100: inv}
     DUP2
-    // stack: out, 100, out, tate_mul1, out, retdest  {100: inv}
-    %frob_fp12_6
     // stack: out, 100, out, tate_mul1, out, retdest  {100: inv}
     %jump(mul_fp12)
 tate_mul1:
@@ -52,7 +62,9 @@ tate_mul1:
     DUP2
     // stack: out, 100, out, tate_mul2, out, retdest  {100: inv}
     %frob_fp12_2_
-    // stack: out, 100, out, tate_mul2, out, retdest  {100: inv} 
+    // stack:      100, out, tate_mul2, out, retdest  {100: acc} 
+    DUP2
+    // stack: out, 100, out, tate_mul2, out, retdest  {100: acc}
     %jump(mul_fp12)
 tate_mul2: 
     // stack:                           out, retdest  {100: acc}
@@ -60,8 +72,12 @@ tate_mul2:
     // stack:                 post_pow, out, retdest  {100: acc}
     PUSH 100
     // stack:            100, post_pow, out, retdest  {100: acc}
-    DUP3
-    // stack:       out, 100, post_pow, out, retdest  {100: acc}
+    PUSH 300
+    // stack:       300, 100, post_pow, out, retdest  {100: acc}
+    DUP4
+    // stack:  out, 300, 100, post_pow, out, retdest  {100: acc}
+    %move_fp12
+    // stack:       300, 100, post_pow, out, retdest  {100: acc, 300: out}
     %jump(power)
 post_pow: 
     // stack:                           out, retdest  {100: pow}

@@ -40,14 +40,14 @@ global inv_fp12:
     // stack:         inv, f, ptr, inv, retdest
     POP  %pop4  %pop4  %pop4
     // stack:                 ptr, inv, retdest
-    PUSH 100  PUSH check_inv
-    // stack: check_inv, 100, ptr, inv, retdest 
+    PUSH 50  PUSH check_inv
+    // stack: check_inv, 50, ptr, inv, retdest 
     SWAP3  SWAP1  SWAP2
-    // stack: ptr, inv, 100, check_inv, retdest 
+    // stack: ptr, inv, 50, check_inv, retdest 
     %jump(mul_fp12)
 global check_inv:
     // stack:        retdest
-    PUSH 100  %load_fp12
+    PUSH 50  %load_fp12
     // stack: unit?, retdest
     %assert_eq_unit_fp12
     // stack:        retdest

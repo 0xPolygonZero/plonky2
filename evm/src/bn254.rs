@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use itertools::Itertools;
 use ethereum_types::U256;
+use itertools::Itertools;
 use rand::{thread_rng, Rng};
 
 pub const BN_BASE: U256 = U256([
@@ -37,6 +37,27 @@ pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
 
 pub type Curve = [Fp; 2];
 pub type TwistedCurve = [Fp2; 2];
+
+pub fn curve_generator() -> Curve {
+    [U256::one(), U256::from(2)]
+}
+
+pub fn twisted_curve_generator() -> TwistedCurve {
+    [
+        [
+            U256::from_str("0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed")
+                .unwrap(),
+            U256::from_str("0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2")
+                .unwrap(),
+        ],
+        [
+            U256::from_str("0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa")
+                .unwrap(),
+            U256::from_str("0x90689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b")
+                .unwrap(),
+        ],
+    ]
+}
 
 const ZERO: Fp = U256([0, 0, 0, 0]);
 
@@ -707,6 +728,18 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     acc
 }
 
-// pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
+pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
+    let mut out = miller_loop(p, q);
 
-// }
+    let inv = inv_fp12(out);
+    out = frob_fp12(6, out);
+    out = mul_fp12(out, inv);
+
+    let acc = frob_fp12(2, out);
+    out = mul_fp12(out, acc);
+
+    let pow = power(out);
+    out = frob_fp12(3, out);
+
+    mul_fp12(out, pow)
+}
