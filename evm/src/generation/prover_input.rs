@@ -205,18 +205,18 @@ impl EvmField {
 
     fn extop(&self, op: FieldExtOp, xs: Vec<U256>) -> U256 {
         match op {
-            FieldExtOp::ExtInv0 => self.ext_inv_component(0, xs),
-            FieldExtOp::ExtInv1 => self.ext_inv_component(1, xs),
-            FieldExtOp::ExtInv2 => self.ext_inv_component(2, xs),
-            FieldExtOp::ExtInv3 => self.ext_inv_component(3, xs),
-            FieldExtOp::ExtInv4 => self.ext_inv_component(4, xs),
-            FieldExtOp::ExtInv5 => self.ext_inv_component(5, xs),
-            FieldExtOp::ExtInv6 => self.ext_inv_component(6, xs),
-            FieldExtOp::ExtInv7 => self.ext_inv_component(7, xs),
-            FieldExtOp::ExtInv8 => self.ext_inv_component(8, xs),
-            FieldExtOp::ExtInv9 => self.ext_inv_component(9, xs),
-            FieldExtOp::ExtInv10 => self.ext_inv_component(10, xs),
-            FieldExtOp::ExtInv11 => self.ext_inv_component(11, xs),
+            FieldExtOp::ExtInv0 => self.ext_inv(0, xs),
+            FieldExtOp::ExtInv1 => self.ext_inv(1, xs),
+            FieldExtOp::ExtInv2 => self.ext_inv(2, xs),
+            FieldExtOp::ExtInv3 => self.ext_inv(3, xs),
+            FieldExtOp::ExtInv4 => self.ext_inv(4, xs),
+            FieldExtOp::ExtInv5 => self.ext_inv(5, xs),
+            FieldExtOp::ExtInv6 => self.ext_inv(6, xs),
+            FieldExtOp::ExtInv7 => self.ext_inv(7, xs),
+            FieldExtOp::ExtInv8 => self.ext_inv(8, xs),
+            FieldExtOp::ExtInv9 => self.ext_inv(9, xs),
+            FieldExtOp::ExtInv10 => self.ext_inv(10, xs),
+            FieldExtOp::ExtInv11 => self.ext_inv(11, xs),
         }
     }
 
@@ -237,13 +237,11 @@ impl EvmField {
         modexp(x, q, n)
     }
 
-    fn ext_inv(&self, xs: Vec<U256>, offset: usize) -> [U256; 12] {
+    fn ext_inv(&self, n: usize, xs: Vec<U256>) -> U256 {
+        let offset = 12 - n;
         let vec: Vec<U256> = xs[offset..].to_vec();
-        fp12_to_array(inv_fp12(vec_to_fp12(vec)))
-    }
-
-    fn ext_inv_component(&self, n: usize, xs: Vec<U256>) -> U256 {
-        Self::ext_inv(self, xs, 12 - n)[n]
+        let f = fp12_to_array(inv_fp12(vec_to_fp12(vec)));
+        f[n]
     }
 }
 
