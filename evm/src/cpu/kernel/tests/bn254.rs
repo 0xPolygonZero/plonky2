@@ -4,8 +4,8 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254::{
-    cord, fp12_to_vec, frob_fp12, gen_curve_point, gen_fp12, gen_fp12_sparse,
-    gen_twisted_curve_point, miller_loop, mul_fp12, power, tangent, Curve, Fp12, TwistedCurve,
+    fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, miller_loop, mul_fp12, power, Curve, Fp12,
+    TwistedCurve,
 };
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;

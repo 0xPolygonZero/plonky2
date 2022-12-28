@@ -75,14 +75,6 @@ fn gen_fp2() -> Fp2 {
     [gen_fp(), gen_fp()]
 }
 
-pub fn gen_curve_point() -> Curve {
-    gen_fp2()
-}
-
-pub fn gen_twisted_curve_point() -> TwistedCurve {
-    [gen_fp2(), gen_fp2()]
-}
-
 fn gen_fp6() -> Fp6 {
     [gen_fp2(), gen_fp2(), gen_fp2()]
 }
@@ -410,21 +402,21 @@ fn frob_z(n: usize) -> Fp2 {
     }
 }
 
-// fn inv_fp2(a: Fp2) -> Fp2 {
-//     let [a0, a1] = a;
-//     let norm = inv_fp(mul_fp(a0, a0) + mul_fp(a1, a1));
-//     [mul_fp(norm, a0), neg_fp(mul_fp(norm, a1))]
-// }
+pub fn inv_fp2(a: Fp2) -> Fp2 {
+    let [a0, a1] = a;
+    let norm = inv_fp(mul_fp(a0, a0) + mul_fp(a1, a1));
+    [mul_fp(norm, a0), neg_fp(mul_fp(norm, a1))]
+}
 
-// fn inv_fp6(c: Fp6) -> Fp6 {
-//     let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
-//     let e = mul_fp6(b, frob_fp6(5, c))[0];
-//     let n = mul_fp2(e, conj_fp2(e))[0];
-//     let i = inv_fp(n);
-//     let d = mul_fp2(embed_fp2(i), e);
-//     let [f0, f1, f2] = frob_fp6(1, b);
-//     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
-// }
+pub fn inv_fp6(c: Fp6) -> Fp6 {
+    let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
+    let e = mul_fp6(b, frob_fp6(5, c))[0];
+    let n = mul_fp2(e, conj_fp2(e))[0];
+    let i = inv_fp(n);
+    let d = mul_fp2(embed_fp2(i), e);
+    let [f0, f1, f2] = frob_fp6(1, b);
+    [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
+}
 
 pub fn inv_fp12(f: Fp12) -> Fp12 {
     let [f0, f1] = f;
