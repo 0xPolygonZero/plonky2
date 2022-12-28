@@ -297,19 +297,158 @@ pub fn inv_fp12(f: Fp12) -> Fp12 {
 }
 
 pub fn power(f: Fp12) -> Fp12 {
+    const EXPS4: [(usize, usize, usize); 65] = [
+        (1, 1, 1),
+        (1, 1, 0),
+        (1, 1, 1),
+        (1, 1, 1),
+        (0, 0, 0),
+        (0, 0, 1),
+        (1, 0, 1),
+        (0, 1, 0),
+        (1, 0, 1),
+        (1, 1, 0),
+        (1, 0, 1),
+        (0, 1, 0),
+        (1, 1, 0),
+        (1, 1, 0),
+        (1, 1, 0),
+        (0, 1, 0),
+        (0, 1, 0),
+        (0, 0, 1),
+        (1, 0, 1),
+        (1, 1, 0),
+        (0, 1, 0),
+        (1, 1, 0),
+        (1, 1, 0),
+        (1, 1, 0),
+        (0, 0, 1),
+        (0, 0, 1),
+        (1, 0, 1),
+        (1, 0, 1),
+        (1, 1, 0),
+        (1, 0, 0),
+        (1, 1, 0),
+        (0, 1, 0),
+        (1, 1, 0),
+        (1, 0, 0),
+        (0, 1, 0),
+        (0, 0, 0),
+        (1, 0, 0),
+        (1, 0, 0),
+        (1, 0, 1),
+        (0, 0, 1),
+        (0, 1, 1),
+        (0, 0, 1),
+        (0, 1, 1),
+        (0, 1, 1),
+        (0, 0, 0),
+        (1, 1, 1),
+        (1, 0, 1),
+        (1, 0, 1),
+        (0, 1, 1),
+        (1, 0, 1),
+        (0, 1, 1),
+        (0, 1, 1),
+        (1, 1, 0),
+        (1, 1, 0),
+        (1, 1, 0),
+        (1, 0, 0),
+        (0, 0, 1),
+        (1, 0, 0),
+        (0, 0, 1),
+        (1, 0, 1),
+        (1, 1, 0),
+        (1, 1, 1),
+        (0, 1, 1),
+        (0, 1, 0),
+        (1, 1, 1),
+    ];
+
+    const EXPS2: [(usize, usize); 62] = [
+        (1, 0),
+        (1, 1),
+        (0, 0),
+        (1, 0),
+        (1, 0),
+        (1, 1),
+        (1, 0),
+        (1, 1),
+        (1, 0),
+        (0, 1),
+        (0, 1),
+        (1, 1),
+        (1, 1),
+        (0, 0),
+        (1, 1),
+        (0, 0),
+        (0, 0),
+        (0, 1),
+        (0, 1),
+        (1, 1),
+        (1, 1),
+        (1, 1),
+        (0, 1),
+        (1, 1),
+        (0, 0),
+        (1, 1),
+        (1, 0),
+        (1, 1),
+        (0, 0),
+        (1, 1),
+        (1, 1),
+        (1, 0),
+        (0, 0),
+        (0, 1),
+        (0, 0),
+        (1, 1),
+        (0, 1),
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (0, 1),
+        (1, 0),
+        (0, 1),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (0, 1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (1, 1),
+        (1, 0),
+        (0, 1),
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (1, 0),
+        (1, 1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (1, 1),
+    ];
+
+    const EXPS0: [usize; 65] = [
+        0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0,
+        0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1,
+        0, 0, 1, 1, 0,
+    ];
+
     let mut sq: Fp12 = f;
     let mut y0: Fp12 = embed_fp12(U256::one());
     let mut y2: Fp12 = embed_fp12(U256::one());
     let mut y4: Fp12 = embed_fp12(U256::one());
 
     for (a, b, c) in EXPS4 {
-        if a {
+        if a != 0 {
             y4 = mul_fp12(y4, sq);
         }
-        if b {
+        if b != 0 {
             y2 = mul_fp12(y2, sq);
         }
-        if c {
+        if c != 0 {
             y0 = mul_fp12(y0, sq);
         }
         sq = mul_fp12(sq, sq);
@@ -317,10 +456,10 @@ pub fn power(f: Fp12) -> Fp12 {
     y4 = mul_fp12(y4, sq);
 
     for (a, b) in EXPS2 {
-        if a {
+        if a != 0 {
             y2 = mul_fp12(y2, sq);
         }
-        if b {
+        if b != 0 {
             y0 = mul_fp12(y0, sq);
         }
         sq = mul_fp12(sq, sq);
@@ -328,7 +467,7 @@ pub fn power(f: Fp12) -> Fp12 {
     y2 = mul_fp12(y2, sq);
 
     for a in EXPS0 {
-        if a {
+        if a != 0 {
             y0 = mul_fp12(y0, sq);
         }
         sq = mul_fp12(sq, sq);
@@ -490,147 +629,6 @@ fn frob_z(n: usize) -> Fp2 {
     }
 }
 
-const EXPS4: [(bool, bool, bool); 65] = [
-    (true, true, true),
-    (true, true, false),
-    (true, true, true),
-    (true, true, true),
-    (false, false, false),
-    (false, false, true),
-    (true, false, true),
-    (false, true, false),
-    (true, false, true),
-    (true, true, false),
-    (true, false, true),
-    (false, true, false),
-    (true, true, false),
-    (true, true, false),
-    (true, true, false),
-    (false, true, false),
-    (false, true, false),
-    (false, false, true),
-    (true, false, true),
-    (true, true, false),
-    (false, true, false),
-    (true, true, false),
-    (true, true, false),
-    (true, true, false),
-    (false, false, true),
-    (false, false, true),
-    (true, false, true),
-    (true, false, true),
-    (true, true, false),
-    (true, false, false),
-    (true, true, false),
-    (false, true, false),
-    (true, true, false),
-    (true, false, false),
-    (false, true, false),
-    (false, false, false),
-    (true, false, false),
-    (true, false, false),
-    (true, false, true),
-    (false, false, true),
-    (false, true, true),
-    (false, false, true),
-    (false, true, true),
-    (false, true, true),
-    (false, false, false),
-    (true, true, true),
-    (true, false, true),
-    (true, false, true),
-    (false, true, true),
-    (true, false, true),
-    (false, true, true),
-    (false, true, true),
-    (true, true, false),
-    (true, true, false),
-    (true, true, false),
-    (true, false, false),
-    (false, false, true),
-    (true, false, false),
-    (false, false, true),
-    (true, false, true),
-    (true, true, false),
-    (true, true, true),
-    (false, true, true),
-    (false, true, false),
-    (true, true, true),
-];
-
-const EXPS2: [(bool, bool); 62] = [
-    (true, false),
-    (true, true),
-    (false, false),
-    (true, false),
-    (true, false),
-    (true, true),
-    (true, false),
-    (true, true),
-    (true, false),
-    (false, true),
-    (false, true),
-    (true, true),
-    (true, true),
-    (false, false),
-    (true, true),
-    (false, false),
-    (false, false),
-    (false, true),
-    (false, true),
-    (true, true),
-    (true, true),
-    (true, true),
-    (false, true),
-    (true, true),
-    (false, false),
-    (true, true),
-    (true, false),
-    (true, true),
-    (false, false),
-    (true, true),
-    (true, true),
-    (true, false),
-    (false, false),
-    (false, true),
-    (false, false),
-    (true, true),
-    (false, true),
-    (false, false),
-    (true, false),
-    (false, true),
-    (false, true),
-    (true, false),
-    (false, true),
-    (false, false),
-    (false, false),
-    (false, false),
-    (false, true),
-    (true, false),
-    (true, true),
-    (false, true),
-    (true, true),
-    (true, false),
-    (false, true),
-    (false, false),
-    (true, false),
-    (false, true),
-    (true, false),
-    (true, true),
-    (true, false),
-    (true, true),
-    (false, true),
-    (true, true),
-];
-
-const EXPS0: [bool; 65] = [
-    false, false, true, false, false, true, true, false, true, false, true, true, true, false,
-    true, false, false, false, true, false, false, true, false, true, false, true, true, false,
-    false, false, false, false, true, false, true, false, true, true, true, false, false, true,
-    true, true, true, false, true, false, true, true, false, false, true, false, false, false,
-    true, true, true, true, false, false, true, true, false,
-];
-
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let [px, py] = p;
     let [qx, qy] = q;
@@ -697,14 +695,15 @@ fn curve_double(p: Curve) -> Curve {
 
 pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     const EXP: [usize; 253] = [
-        1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1,
-        0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1,
-        1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0,
-        0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1,
-        0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1,
-        1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0,
-        0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1,
+        1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0,
+        1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0,
+        1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0,
+        1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0,
+        1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0,
+        0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0,
+        1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ];
 
     let mut o = p;

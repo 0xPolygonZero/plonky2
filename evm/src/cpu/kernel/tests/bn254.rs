@@ -122,7 +122,7 @@ fn test_inv_fp12() -> Result<()> {
 }
 
 #[test]
-fn test_pow_fp12() -> Result<()> {
+fn test_power() -> Result<()> {
     let ptr = U256::from(300);
     let out = U256::from(400);
 
@@ -138,31 +138,6 @@ fn test_pow_fp12() -> Result<()> {
     let expected: Vec<U256> = fp12_to_vec(power(f));
 
     assert_eq!(output, expected);
-
-    Ok(())
-}
-
-#[test]
-fn test_line() -> Result<()> {
-    let p1: Curve = gen_curve_point();
-    let p2: Curve = gen_curve_point();
-    let q: TwistedCurve = gen_twisted_curve_point();
-
-    let p1_: Vec<U256> = p1.to_vec();
-    let p2_: Vec<U256> = p2.to_vec();
-    let q_: Vec<U256> = q.into_iter().flatten().collect();
-
-    let tan_stack = make_stack(vec![p1_.clone(), q_.clone()]);
-    let cord_stack = make_stack(vec![p1_, p2_, q_]);
-
-    let output_tan: Vec<U256> = get_output("test_tangent", tan_stack);
-    let output_cord: Vec<U256> = get_output("test_cord", cord_stack);
-
-    let expected_tan = fp12_to_vec(tangent(p1, q));
-    let expected_cord = fp12_to_vec(cord(p1, p2, q));
-
-    assert_eq!(output_tan, expected_tan);
-    assert_eq!(output_cord, expected_cord);
 
     Ok(())
 }

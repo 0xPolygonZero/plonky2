@@ -250,7 +250,7 @@ after_add:
     %mstore_kernel_general(103)
     // stack:                                            p1x - p2x, qy_
     MULFP254
-    // stack:                                            (p1x - p2x)qy_
+    // stack:                                           (p1x - p2x)*qy_
     %mstore_kernel_general(109)
 %endmacro
 
