@@ -29,10 +29,10 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
-    compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
-    PermutationCheckVars,
+    compute_permutation_z_polys, get_grand_product_challenge_set,
+    get_n_grand_product_challenge_sets, GrandProductChallengeSet, PermutationCheckVars,
 };
-use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
+use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
@@ -117,14 +117,14 @@ where
         challenger.observe_cap(cap);
     }
 
+    let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
         timing,
         "compute CTL data",
         cross_table_lookup_data::<F, C, D>(
-            config,
             &trace_poly_values,
             &all_stark.cross_table_lookups,
-            &mut challenger,
+            &ctl_challenges,
         )
     );
 
@@ -144,6 +144,7 @@ where
 
     Ok(AllProof {
         stark_proofs,
+        ctl_challenges,
         public_values,
     })
 }
@@ -156,7 +157,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<[StarkProof<F, C, D>; NUM_TABLES]>
+) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -250,7 +251,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     ctl_data: &CtlData<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<StarkProof<F, C, D>>
+) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -268,7 +269,7 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    challenger.compact();
+    let init_challenger_state = challenger.compact();
 
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
@@ -411,12 +412,16 @@ where
         )
     );
 
-    Ok(StarkProof {
+    let proof = StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         permutation_ctl_zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
+    };
+    Ok(StarkProofWithMetadata {
+        init_challenger_state,
+        proof,
     })
 }
 

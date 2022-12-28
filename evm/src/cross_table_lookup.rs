@@ -8,7 +8,6 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::challenger::Challenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -17,10 +16,8 @@ use plonky2::plonk::config::GenericConfig;
 use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::permutation::{
-    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
-};
-use crate::proof::{StarkProof, StarkProofTarget};
+use crate::permutation::{GrandProductChallenge, GrandProductChallengeSet};
+use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -163,6 +160,7 @@ pub struct CrossTableLookup<F: Field> {
     pub(crate) looking_tables: Vec<TableWithColumns<F>>,
     pub(crate) looked_table: TableWithColumns<F>,
     /// Default value if filters are not used.
+    // TODO: Remove? Ended up not using it.
     default: Option<Vec<F>>,
 }
 
@@ -234,13 +232,11 @@ impl<F: Field> CtlData<F> {
     }
 }
 
-pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
-    config: &StarkConfig,
+pub(crate) fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     cross_table_lookups: &[CrossTableLookup<F>],
-    challenger: &mut Challenger<F, C::Hasher>,
+    ctl_challenges: &GrandProductChallengeSet<F>,
 ) -> [CtlData<F>; NUM_TABLES] {
-    let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
@@ -249,7 +245,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
     } in cross_table_lookups
     {
         log::debug!("Processing CTL for {:?}", looked_table.table);
-        for &challenge in &challenges.challenges {
+        for &challenge in &ctl_challenges.challenges {
             let zs_looking = looking_tables.iter().map(|table| {
                 partial_products(
                     &trace_poly_values[table.table as usize],
@@ -358,7 +354,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
-        proofs: &[StarkProof<F, C, D>; NUM_TABLES],
+        proofs: &[StarkProofWithMetadata<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_permutation_zs: &[usize; NUM_TABLES],
@@ -367,7 +363,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .iter()
             .zip(num_permutation_zs)
             .map(|(p, &num_perms)| {
-                let openings = &p.openings;
+                let openings = &p.proof.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
                 let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
                 ctl_zs.zip(ctl_zs_next)
@@ -582,7 +578,7 @@ pub(crate) fn verify_cross_table_lookups<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    cross_table_lookups: Vec<CrossTableLookup<F>>,
+    cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_lasts: [Vec<F>; NUM_TABLES],
     degrees_bits: [usize; NUM_TABLES],
     challenges: GrandProductChallengeSet<F>,
@@ -597,7 +593,7 @@ pub(crate) fn verify_cross_table_lookups<
             default,
             ..
         },
-    ) in cross_table_lookups.into_iter().enumerate()
+    ) in cross_table_lookups.iter().enumerate()
     {
         for _ in 0..config.num_challenges {
             let looking_degrees_sum = looking_tables
@@ -635,47 +631,23 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
-    degrees_bits: [usize; NUM_TABLES],
-    challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for (
-        i,
-        CrossTableLookup {
-            looking_tables,
-            looked_table,
-            default,
-            ..
-        },
-    ) in cross_table_lookups.into_iter().enumerate()
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+        ..
+    } in cross_table_lookups.into_iter()
     {
         for _ in 0..inner_config.num_challenges {
-            let looking_degrees_sum = looking_tables
-                .iter()
-                .map(|table| 1 << degrees_bits[table.table as usize])
-                .sum::<u64>();
-            let looked_degree = 1 << degrees_bits[looked_table.table as usize];
             let looking_zs_prod = builder.mul_many(
                 looking_tables
                     .iter()
                     .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
             );
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-            let challenge = challenges.challenges[i % inner_config.num_challenges];
-            if let Some(default) = default.as_ref() {
-                let default = default
-                    .iter()
-                    .map(|&x| builder.constant(x))
-                    .collect::<Vec<_>>();
-                let combined_default = challenge.combine_base_circuit(builder, &default);
-
-                let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
-                let padded_looked_z = builder.mul(looked_z, pad);
-                builder.connect(looking_zs_prod, padded_looked_z);
-            } else {
-                builder.connect(looking_zs_prod, looked_z);
-            }
+            builder.connect(looking_zs_prod, looked_z);
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
