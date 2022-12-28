@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use itertools::Itertools;
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 
@@ -25,23 +26,13 @@ pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
 }
 
 pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
-    let f0 = xs.clone().into_iter().next().unwrap();
-    let f1 = xs.clone().into_iter().nth(1).unwrap();
-    let f2 = xs.clone().into_iter().nth(2).unwrap();
-    let f3 = xs.clone().into_iter().nth(3).unwrap();
-    let f4 = xs.clone().into_iter().nth(4).unwrap();
-    let f5 = xs.clone().into_iter().nth(5).unwrap();
-    let f6 = xs.clone().into_iter().nth(6).unwrap();
-    let f7 = xs.clone().into_iter().nth(7).unwrap();
-    let f8 = xs.clone().into_iter().nth(8).unwrap();
-    let f9 = xs.clone().into_iter().nth(9).unwrap();
-    let f10 = xs.clone().into_iter().nth(10).unwrap();
-    let f11 = xs.into_iter().nth(11).unwrap();
-
-    [
-        [[f0, f1], [f2, f3], [f4, f5]],
-        [[f6, f7], [f8, f9], [f10, f11]],
-    ]
+    xs.into_iter()
+        .tuples::<(U256, U256)>()
+        .map(|(v1, v2)| [v1, v2])
+        .tuples()
+        .map(|(a1, a2, a3, a4, a5, a6)| [[a1, a2, a3], [a4, a5, a6]])
+        .next()
+        .unwrap()
 }
 
 pub type Curve = [Fp; 2];
@@ -715,3 +706,7 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     }
     acc
 }
+
+// pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
+
+// }
