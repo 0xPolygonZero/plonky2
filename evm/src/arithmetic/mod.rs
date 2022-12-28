@@ -1,7 +1,6 @@
-use std::str::FromStr;
-
 use ethereum_types::U256;
 
+use crate::bn254::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
 mod add;
@@ -78,9 +77,9 @@ impl BinaryOperator {
                     input1 >> input0
                 }
             }
-            BinaryOperator::AddFp254 => addmod(input0, input1, bn_base_order()),
-            BinaryOperator::MulFp254 => mulmod(input0, input1, bn_base_order()),
-            BinaryOperator::SubFp254 => submod(input0, input1, bn_base_order()),
+            BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE),
+            BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE),
+            BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE),
         }
     }
 }
@@ -151,8 +150,4 @@ impl Operation {
             Operation::TernaryOperation { result, .. } => *result,
         }
     }
-}
-
-fn bn_base_order() -> U256 {
-    U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47").unwrap()
 }
