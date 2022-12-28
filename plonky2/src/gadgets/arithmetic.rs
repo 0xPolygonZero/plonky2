@@ -337,7 +337,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BoolTarget::new_unsafe(self.mul(b1.target, b2.target))
     }
 
-    // computes the arithmetic extension of logical "or": `b1 + b2 - b1 * b2`
+    /// computes the arithmetic extension of logical "or": `b1 + b2 - b1 * b2`
     pub fn or(&mut self, b1: BoolTarget, b2: BoolTarget) -> BoolTarget {
         let res_minus_b2 = self.arithmetic(-F::ONE, F::ONE, b1.target, b2.target, b1.target);
         BoolTarget::new_unsafe(self.add(res_minus_b2, b2.target))
