@@ -1,7 +1,7 @@
 global test_pow:
-    // stack: ptr, f, ptr, out, ret_stack, out
+    // stack: ptr, f, ptr, out, return_fp12_on_stack, out
     %store_fp12
-    // stack:         ptr, out, ret_stack, out
+    // stack:         ptr, out, return_fp12_on_stack, out
     %jump(power)
 
 /// def power(acc):

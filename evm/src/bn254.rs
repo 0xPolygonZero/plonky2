@@ -731,6 +731,8 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
 pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
     let mut out = miller_loop(p, q);
 
+    println!("POSTMILLER: {:#?}", out);
+
     let inv = inv_fp12(out);
     out = frob_fp12(6, out);
     out = mul_fp12(out, inv);
@@ -738,7 +740,12 @@ pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
     let acc = frob_fp12(2, out);
     out = mul_fp12(out, acc);
 
+    println!("PREPOWER: {:#?}", out);
+
     let pow = power(out);
+
+    println!("POWER: {:#?}", pow);
+
     out = frob_fp12(3, out);
 
     mul_fp12(out, pow)

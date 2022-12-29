@@ -46,7 +46,7 @@ fn make_mul_stack(f: Fp12, g: Fp12, mul_label: &str) -> Vec<U256> {
             in0,
             in1,
             out,
-            make_label("ret_stack"),
+            make_label("return_fp12_on_stack"),
             out,
         ],
     ])
@@ -133,7 +133,7 @@ fn test_power() -> Result<()> {
     let stack = make_stack(vec![
         vec![ptr],
         fp12_to_vec(f),
-        vec![ptr, out, make_label("ret_stack"), out],
+        vec![ptr, out, make_label("return_fp12_on_stack"), out],
     ]);
 
     let output: Vec<U256> = get_output("test_pow", stack);
@@ -151,9 +151,12 @@ fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
     let p_: Vec<U256> = p.into_iter().collect();
     let q_: Vec<U256> = q.into_iter().flatten().collect();
 
-    let ret_stack = make_label("ret_stack");
-
-    make_stack(vec![vec![ptr], p_, q_, vec![ptr, out, ret_stack, out]])
+    make_stack(vec![
+        vec![ptr],
+        p_,
+        q_,
+        vec![ptr, out, make_label("return_fp12_on_stack"), out],
+    ])
 }
 
 #[test]

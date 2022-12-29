@@ -1,11 +1,11 @@
 /// Note: uncomment this to test
 
 global test_mul_fp12:
-    // stack: inA, f, f', inB, g, g', mul_dest, inA, inB, out, ret_stack, out
+    // stack: inA, f, f', inB, g, g', mul_dest, inA, inB, out, return_fp12_on_stack, out
     %store_fp12
-    // stack:             inB, g, g', mul_dest, inA, inB, out, ret_stack, out
+    // stack:             inB, g, g', mul_dest, inA, inB, out, return_fp12_on_stack, out
     %store_fp12
-    // stack:                         mul_dest, inA, inB, out, ret_stack, out
+    // stack:                         mul_dest, inA, inB, out, return_fp12_on_stack, out
     JUMP
 
 ///////////////////////////////////////
