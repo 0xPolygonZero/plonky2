@@ -27,8 +27,8 @@ global power:
     // stack:    1, 1, 1, ptr, out, retdest
     %mstore_kernel_general(200)  %mstore_kernel_general(224)  %mstore_kernel_general(212)
     // stack:             ptr, out, retdest  {200: y0, 212: y2, 224: y4}
-    PUSH 65  PUSH 62  PUSH 65
-    // stack: 65, 62, 65, ptr, out, retdest  {200: y0, 212: y2, 224: y4}
+    PUSH 65  PUSH 62  PUSH 64
+    // stack: 64, 62, 65, ptr, out, retdest  {200: y0, 212: y2, 224: y4}
     %jump(power_loop_4)
 
 power_return:
@@ -75,7 +75,7 @@ power_return_5:
     %jump(mul_fp12)
 
 /// def power_loop_4():
-///     for i in range(65):
+///     for i in range(64):
 ///         abc = load(i, power_data_4)
 ///         if a:
 ///             y4 *= acc

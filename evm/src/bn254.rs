@@ -444,8 +444,7 @@ pub fn inv_fp12(f: Fp12) -> Fp12 {
 }
 
 pub fn power(f: Fp12) -> Fp12 {
-    const EXPS4: [(usize, usize, usize); 65] = [
-        (1, 1, 1),
+    const EXPS4: [(usize, usize, usize); 64] = [
         (1, 1, 0),
         (1, 1, 1),
         (1, 1, 1),
