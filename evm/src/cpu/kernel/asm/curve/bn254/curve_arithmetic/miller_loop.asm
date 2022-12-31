@@ -10,14 +10,14 @@
 /// def miller_loop():
 ///     while times:
 ///         0xnm = load(miller_data)
-///         while 0xnm > 0x10:
+///         while 0xnm > 0x20:
 ///             miller_one()
 ///         while 0xnm:
 ///             miller_zero()
 ///         times -= 1
 ///
 /// def miller_one():
-///     0xnm -= 0x10
+///     0xnm -= 0x20
 ///     mul_tangent()
 ///     mul_cord()
 ///
@@ -32,7 +32,7 @@
 /// (3) counting the lengths of runs of 1s then 0s in exp, e.g.
 ///     exp = 1100010011110 => EXP = [(2,3), (1,2), (4,1)]
 /// (4) encoding each pair (n,m) as 0xnm:
-///     miller_data = [(0x10)n + m for (n,m) in EXP]
+///     miller_data = [(0x20)n + m for (n,m) in EXP]
 
 global test_miller:
     // stack: ptr, P, Q, ptr, out, retdest
@@ -54,11 +54,13 @@ global miller_init:
     // stack:     O, P, Q, out, retdest
     PUSH 53
     // stack: 53, O, P, Q, out, retdest
+    PUSH 0 // this placeholder lets miller_loop start with POP
 global miller_loop:
+    POP
     // stack:          times  , O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:  break?, times  , O, P, Q, out, retdest
-    %jumpi(miller_final)
+    %jumpi(miller_end)
     // stack:          times  , O, P, Q, out, retdest
     %sub_const(1)
     // stack:          times-1, O, P, Q, out, retdest
@@ -67,29 +69,19 @@ global miller_loop:
     %mload_kernel_code(miller_data)
     // stack:    0xnm, times-1, O, P, Q, out, retdest
     %jump(miller_one)
-
-miller_loop_pop:
-    POP  %jump(miller_loop)
-
-miller_final:
-    // stack:     0, O, P, Q, out, retdest
-    PUSH 28
-    // stack: 28, 0, O, P, Q, out, retdest
-    %jump(miller_zero_final)
 miller_end:
-    // stack: m, times, O, P, Q, out, retdest
-    %pop2  %pop2  %pop2  %pop4  POP
-    // stack:                    out, retdest
+    // stack: times, O, P, Q, out, retdest
+    POP  %pop2  %pop2  %pop4  POP
+    // stack:                      retdest
     JUMP 
-
 
 miller_one:
     // stack:               0xnm, times, O, P, Q, out, retdest
-    DUP1  %lt_const(0x10) 
+    DUP1  %lt_const(0x20) 
     // stack:        skip?, 0xnm, times, O, P, Q, out, retdest
     %jumpi(miller_zero)
     // stack:               0xnm, times, O, P, Q, out, retdest
-    %sub_const(0x10)
+    %sub_const(0x20)
     // stack:           0x{n-1}m, times, O, P, Q, out, retdest
     PUSH mul_cord
     // stack: mul_cord, 0x{n-1}m, times, O, P, Q, out, retdest
@@ -99,24 +91,12 @@ miller_zero:
     // stack:              m  , times, O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:       skip?, m  , times, O, P, Q, out, retdest
-    %jumpi(miller_loop_pop)
+    %jumpi(miller_loop)
     // stack:              m  , times, O, P, Q, out, retdest
     %sub_const(1)
     // stack:              m-1, times, O, P, Q, out, retdest
     PUSH miller_zero
     // stack: miller_zero, m-1, times, O, P, Q, out, retdest
-    %jump(mul_tangent)
-
-miller_zero_final:
-    // stack:                    m  , times, O, P, Q, out, retdest
-    DUP1  ISZERO
-    // stack:             skip?, m  , times, O, P, Q, out, retdest
-    %jumpi(miller_end)
-    // stack:                    m  , times, O, P, Q, out, retdest
-    %sub_const(1)
-    // stack:                    m-1, times, O, P, Q, out, retdest
-    PUSH miller_zero_final
-    // stack: miller_zero_final, m-1, times, O, P, Q, out, retdest
     %jump(mul_tangent)
 
 
@@ -157,7 +137,6 @@ after_double:
     // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
     JUMP
 
-
 /// def mul_cord()
 ///     line = cord(P, O, Q)
 ///     out = mul_fp12_sparse(out, line)
@@ -194,53 +173,6 @@ after_add:
     SWAP4  POP  SWAP4  POP
     // stack:                   0xnm, times, O+P, P, Q, out
     %jump(miller_one)
-
-
-/// def cord(p1x, p1y, p2x, p2y, qx, qy):
-///     return sparse_store(
-///         p1y*p2x - p2y*p1x, 
-///         (p2y - p1y) * qx, 
-///         (p1x - p2x) * qy,
-///     )
-
-%macro cord
-    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    DUP1  DUP5  MULFP254
-    // stack:           p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    DUP3  DUP5  MULFP254
-    // stack: p1y*p2x , p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    SUBFP254
-    // stack: p1y*p2x - p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    %mstore_kernel_general(100)
-    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    SWAP3
-    // stack:                    p2y , p1y, p2x , p1x, qx, qx_, qy, qy_
-    SUBFP254
-    // stack:                    p2y - p1y, p2x , p1x, qx, qx_, qy, qy_
-    SWAP2
-    // stack:                    p1x , p2x, p2y - p1y, qx, qx_, qy, qy_
-    SUBFP254
-    // stack:                    p1x - p2x, p2y - p1y, qx, qx_, qy, qy_
-    SWAP4
-    // stack:                    qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
-    DUP5  MULFP254
-    // stack:         (p1x - p2x)qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
-    %mstore_kernel_general(108)
-    // stack:                        p2y - p1y, qx, qx_, p1x - p2x, qy_
-    SWAP1
-    // stack:                        qx, p2y - p1y, qx_, p1x - p2x, qy_
-    DUP2  MULFP254
-    // stack:             (p2y - p1y)qx, p2y - p1y, qx_, p1x - p2x, qy_
-    %mstore_kernel_general(102)
-    // stack:                            p2y - p1y, qx_, p1x - p2x, qy_
-    MULFP254
-    // stack:                            (p2y - p1y)qx_, p1x - p2x, qy_
-    %mstore_kernel_general(103)
-    // stack:                                            p1x - p2x, qy_
-    MULFP254
-    // stack:                                           (p1x - p2x)*qy_
-    %mstore_kernel_general(109)
-%endmacro
 
 
 /// def tangent(px, py, qx, qy):
@@ -288,5 +220,51 @@ after_add:
     // stack:                                 2py, qy_ 
     MULFP254
     // stack:                                (2py)*qy_ 
+    %mstore_kernel_general(109)
+%endmacro
+
+/// def cord(p1x, p1y, p2x, p2y, qx, qy):
+///     return sparse_store(
+///         p1y*p2x - p2y*p1x, 
+///         (p2y - p1y) * qx, 
+///         (p1x - p2x) * qy,
+///     )
+
+%macro cord
+    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    DUP1  DUP5  MULFP254
+    // stack:           p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    DUP3  DUP5  MULFP254
+    // stack: p1y*p2x , p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    SUBFP254
+    // stack: p1y*p2x - p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    %mstore_kernel_general(100)
+    // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
+    SWAP3
+    // stack:                    p2y , p1y, p2x , p1x, qx, qx_, qy, qy_
+    SUBFP254
+    // stack:                    p2y - p1y, p2x , p1x, qx, qx_, qy, qy_
+    SWAP2
+    // stack:                    p1x , p2x, p2y - p1y, qx, qx_, qy, qy_
+    SUBFP254
+    // stack:                    p1x - p2x, p2y - p1y, qx, qx_, qy, qy_
+    SWAP4
+    // stack:                    qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
+    DUP5  MULFP254
+    // stack:         (p1x - p2x)qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
+    %mstore_kernel_general(108)
+    // stack:                        p2y - p1y, qx, qx_, p1x - p2x, qy_
+    SWAP1
+    // stack:                        qx, p2y - p1y, qx_, p1x - p2x, qy_
+    DUP2  MULFP254
+    // stack:             (p2y - p1y)qx, p2y - p1y, qx_, p1x - p2x, qy_
+    %mstore_kernel_general(102)
+    // stack:                            p2y - p1y, qx_, p1x - p2x, qy_
+    MULFP254
+    // stack:                            (p2y - p1y)qx_, p1x - p2x, qy_
+    %mstore_kernel_general(103)
+    // stack:                                            p1x - p2x, qy_
+    MULFP254
+    // stack:                                           (p1x - p2x)*qy_
     %mstore_kernel_general(109)
 %endmacro
