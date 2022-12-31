@@ -21,70 +21,70 @@ global test_tate:
     %jump(tate)
 
 global tate:
-    // stack:                      ptr, out, retdest
+    // stack:                        ptr, out, retdest
     DUP2
-    // stack:                 out, ptr, out, retdest
-    PUSH post_mllr
-    // stack:      post_mllr, out, ptr, out, retdest
+    // stack:                   out, ptr, out, retdest
+    PUSH post_miller
+    // stack:      post_miller, out, ptr, out, retdest
     SWAP2
-    // stack:      ptr, out, post_mllr, out, retdest
+    // stack:      ptr, out, post_miller, out, retdest
     %jump(miller_init)
-global post_mllr:    
-    // stack:                           out, retdest
-    PUSH tate_inv
-    // stack:                 tate_inv, out, retdest
+global post_miller:    
+    // stack:                             out, retdest
+    PUSH tate_mul_1
+    // stack:                 tate_mul_1, out, retdest
     PUSH 100 
-    // stack:            100, tate_inv, out, retdest
+    // stack:            100, tate_mul_1, out, retdest
     DUP3 
-    // stack:       out, 100, tate_inv, out, retdest
+    // stack:       out, 100, tate_mul_1, out, retdest
     %jump(inv_fp12)
-tate_inv:
-    // stack:                           out, retdest  {100: inv}
+tate_mul_1:
+    // stack:                             out, retdest  {100: inv}
     %frob_fp12_6
-    // stack:                           out, retdest  {100: inv}
-    PUSH tate_mul1
-    // stack:                tate_mul1, out, retdest  {100: inv}
+    // stack:                             out, retdest  {100: inv}
+    PUSH tate_mul_2
+    // stack:                 tate_mul_2, out, retdest  {100: inv}
     DUP2
-    // stack:           out, tate_mul1, out, retdest  {100: inv}
+    // stack:            out, tate_mul_2, out, retdest  {100: inv}
     PUSH 100 
-    // stack:      100, out, tate_mul1, out, retdest  {100: inv}
+    // stack:       100, out, tate_mul_2, out, retdest  {100: inv}
     DUP2
-    // stack: out, 100, out, tate_mul1, out, retdest  {100: inv}
+    // stack:  out, 100, out, tate_mul_2, out, retdest  {100: inv}
     %jump(mul_fp12)
-tate_mul1:
-    // stack:                           out, retdest  {100: inv}
-    PUSH tate_mul2
-    // stack:                tate_mul2, out, retdest  {100: inv}
+tate_mul_2:
+    // stack:                             out, retdest  {100: inv}
+    PUSH tate_power
+    // stack:                 tate_power, out, retdest  {100: inv}
     DUP2
-    // stack:           out, tate_mul2, out, retdest  {100: inv}
+    // stack:            out, tate_power, out, retdest  {100: inv}
     PUSH 100
-    // stack:      100, out, tate_mul2, out, retdest  {100: inv}       
-    DUP2
-    // stack: out, 100, out, tate_mul2, out, retdest  {100: inv}
+    // stack:       100, out, tate_power, out, retdest  {100: inv}       
+    DUP2 
+    // stack:  out, 100, out, tate_power, out, retdest  {100: inv}
     %frob_fp12_2_
-    // stack:      100, out, tate_mul2, out, retdest  {100: acc} 
+    // stack:       100, out, tate_power, out, retdest  {100: acc} 
     DUP2
-    // stack: out, 100, out, tate_mul2, out, retdest  {100: acc}
+    // stack:  out, 100, out, tate_power, out, retdest  {100: acc}
     %jump(mul_fp12)
-tate_mul2: 
-    // stack:                           out, retdest  {100: acc}
-    PUSH post_pow
-    // stack:                 post_pow, out, retdest  {100: acc}
+tate_power: 
+    // stack:                             out, retdest  {100: acc}
+    PUSH tate_return
+    // stack:                tate_return, out, retdest  {100: acc}
     PUSH 100
-    // stack:            100, post_pow, out, retdest  {100: acc}
+    // stack:           100, tate_return, out, retdest  {100: acc}
     PUSH 300
-    // stack:       300, 100, post_pow, out, retdest  {100: acc}
+    // stack:      300, 100, tate_return, out, retdest  {100: acc}
     DUP4
-    // stack:  out, 300, 100, post_pow, out, retdest  {100: acc}
+    // stack: out, 300, 100, tate_return, out, retdest  {100: acc}
     %move_fp12
-    // stack:       300, 100, post_pow, out, retdest  {100: acc, 300: out}
+    // stack:      300, 100, tate_return, out, retdest  {100: acc, 300: out}
     %jump(power)
-post_pow: 
-    // stack:                           out, retdest  {100: pow}
+tate_return: 
+    // stack:                             out, retdest  {100: pow}
     PUSH 100
-    // stack:                      100, out, retdest  {100: pow}
+    // stack:                        100, out, retdest  {100: pow}
     DUP2
-    // stack:                 out, 100, out, retdest  {100: pow}
+    // stack:                   out, 100, out, retdest  {100: pow}
     %frob_fp12_3
-    // stack:                 out, 100, out, retdest  {100: pow}
+    // stack:                   out, 100, out, retdest  {100: pow}
     %jump(mul_fp12)

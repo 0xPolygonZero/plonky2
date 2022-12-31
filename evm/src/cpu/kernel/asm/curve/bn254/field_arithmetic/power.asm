@@ -74,6 +74,7 @@ power_return_5:
     // stack:                      out, 212, out, retdest  {236: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 
+
 /// def power_loop_4():
 ///     for i in range(64):
 ///         abc = load(i, power_data_4)
@@ -196,7 +197,6 @@ power_loop_2_end:
     PUSH power_loop_0  PUSH 212  DUP1  DUP5
     // stack: ptr, 212, 212, power_loop_0, k, ptr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
-
 
 power_loop_0:
     // stack:                                 k  , ptr

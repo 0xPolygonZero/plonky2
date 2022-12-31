@@ -60,7 +60,7 @@ global miller_loop:
     // stack:          times  , O, P, Q, out, retdest
     DUP1  ISZERO
     // stack:  break?, times  , O, P, Q, out, retdest
-    %jumpi(miller_end)
+    %jumpi(miller_return)
     // stack:          times  , O, P, Q, out, retdest
     %sub_const(1)
     // stack:          times-1, O, P, Q, out, retdest
@@ -69,7 +69,7 @@ global miller_loop:
     %mload_kernel_code(miller_data)
     // stack:    0xnm, times-1, O, P, Q, out, retdest
     %jump(miller_one)
-miller_end:
+miller_return:
     // stack: times, O, P, Q, out, retdest
     POP  %pop2  %pop2  %pop4  POP
     // stack:                      retdest
