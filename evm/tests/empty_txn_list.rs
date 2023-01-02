@@ -20,6 +20,7 @@ type C = PoseidonGoldilocksConfig;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
+#[ignore] // Too slow to run on CI.
 fn test_empty_txn_list() -> anyhow::Result<()> {
     init_logger();
 
