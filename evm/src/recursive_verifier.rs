@@ -5,18 +5,24 @@ use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
+use plonky2::gates::exponentiation::ExponentiationGate;
+use plonky2::gates::gate::GateRef;
+use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
-use plonky2::iop::witness::Witness;
+use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, VerifierCircuitData, VerifierCircuitTarget};
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CircuitData, VerifierCircuitData, VerifierCircuitTarget,
+};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
+use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
@@ -36,8 +42,8 @@ use crate::permutation::{
 };
 use crate::proof::{
     AllProof, AllProofTarget, BlockMetadata, BlockMetadataTarget, PublicValues, PublicValuesTarget,
-    StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget, TrieRoots,
-    TrieRootsTarget,
+    StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
+    StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
 use crate::util::{h160_limbs, h256_limbs};
@@ -58,12 +64,12 @@ pub struct RecursiveAllProofTargetWithData<const D: usize> {
     pub verifier_data: [VerifierCircuitTarget; NUM_TABLES],
 }
 
-struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
-    trace_cap: Vec<Vec<T>>,
-    ctl_zs_last: Vec<T>,
-    ctl_challenges: GrandProductChallengeSet<T>,
-    challenger_state_before: [T; SPONGE_WIDTH],
-    challenger_state_after: [T; SPONGE_WIDTH],
+pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
+    pub(crate) trace_cap: Vec<Vec<T>>,
+    pub(crate) ctl_zs_last: Vec<T>,
+    pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
+    pub(crate) challenger_state_before: [T; SPONGE_WIDTH],
+    pub(crate) challenger_state_after: [T; SPONGE_WIDTH],
 }
 
 /// Similar to the unstable `Iterator::next_chunk`. Could be replaced with that when it's stable.
@@ -76,9 +82,9 @@ fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [
 }
 
 impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
-    fn from_vec(v: &[T], config: &StarkConfig) -> Self {
+    pub(crate) fn from_vec(v: &[T], config: &StarkConfig) -> Self {
         let mut iter = v.iter().copied();
-        let trace_cap = (0..1 << config.fri_config.cap_height)
+        let trace_cap = (0..config.fri_config.num_cap_elements())
             .map(|_| next_chunk::<_, 4>(&mut iter).to_vec())
             .collect();
         let ctl_challenges = GrandProductChallengeSet {
@@ -91,7 +97,7 @@ impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
         };
         let challenger_state_before = next_chunk(&mut iter);
         let challenger_state_after = next_chunk(&mut iter);
-        let ctl_zs_last = iter.collect();
+        let ctl_zs_last: Vec<_> = iter.collect();
 
         Self {
             trace_cap,
@@ -143,7 +149,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Verify the CTL checks.
         let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits());
         verify_cross_table_lookups::<F, C, D>(
-            cross_table_lookups,
+            &cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
             degrees_bits,
             ctl_challenges,
@@ -158,6 +164,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Recursively verify every recursive proof.
+    // TODO: Remove? Replaced by fixed_recursive_verifier.
     pub fn verify_circuit(
         builder: &mut CircuitBuilder<F, D>,
         recursive_all_proof_target: RecursiveAllProofTargetWithData<D>,
@@ -215,13 +222,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         // Verify the CTL checks.
-        let degrees_bits = std::array::from_fn(|i| verifier_data[i].common.degree_bits());
         verify_cross_table_lookups_circuit::<F, C, D>(
             builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_last),
-            degrees_bits,
-            ctl_challenges,
             inner_config,
         );
         for (i, (recursive_proof, verifier_data_target)) in recursive_proofs
@@ -238,33 +242,113 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-/// Returns the verifier data for the recursive Stark circuit.
-fn verifier_data_recursive_stark_proof<
+/// Represents a circuit which recursively verifies a STARK proof.
+pub(crate) struct StarkWrapperCircuit<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub(crate) circuit: CircuitData<F, C, D>,
+    pub(crate) stark_proof_target: StarkProofTarget<D>,
+    pub(crate) ctl_challenges_target: GrandProductChallengeSet<Target>,
+    pub(crate) init_challenger_state_target: [Target; SPONGE_WIDTH],
+    pub(crate) zero_target: Target,
+}
+
+impl<F, C, const D: usize> StarkWrapperCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    pub(crate) fn prove(
+        &self,
+        proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
+        ctl_challenges: &GrandProductChallengeSet<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let mut inputs = PartialWitness::new();
+
+        set_stark_proof_target(
+            &mut inputs,
+            &self.stark_proof_target,
+            &proof_with_metadata.proof,
+            self.zero_target,
+        );
+
+        for (challenge_target, challenge) in self
+            .ctl_challenges_target
+            .challenges
+            .iter()
+            .zip(&ctl_challenges.challenges)
+        {
+            inputs.set_target(challenge_target.beta, challenge.beta);
+            inputs.set_target(challenge_target.gamma, challenge.gamma);
+        }
+
+        inputs.set_target_arr(
+            self.init_challenger_state_target,
+            proof_with_metadata.init_challenger_state,
+        );
+
+        self.circuit.prove(inputs)
+    }
+}
+
+/// Represents a circuit which recursively verifies a PLONK proof.
+pub(crate) struct PlonkWrapperCircuit<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub(crate) circuit: CircuitData<F, C, D>,
+    pub(crate) proof_with_pis_target: ProofWithPublicInputsTarget<D>,
+}
+
+impl<F, C, const D: usize> PlonkWrapperCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    pub(crate) fn prove(
+        &self,
+        proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let mut inputs = PartialWitness::new();
+        inputs.set_proof_with_pis_target(&self.proof_with_pis_target, proof);
+        self.circuit.prove(inputs)
+    }
+}
+
+/// Returns the recursive Stark circuit.
+pub(crate) fn recursive_stark_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     table: Table,
-    stark: S,
+    stark: &S,
     degree_bits: usize,
     cross_table_lookups: &[CrossTableLookup<F>],
     inner_config: &StarkConfig,
     circuit_config: &CircuitConfig,
-) -> VerifierCircuitData<F, C, D>
+    min_degree_bits: usize,
+) -> StarkWrapperCircuit<F, C, D>
 where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
     C::Hasher: AlgebraicHasher<F>,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
+    let zero_target = builder.zero();
 
     let num_permutation_zs = stark.num_permutation_batches(inner_config);
     let num_permutation_batch_size = stark.permutation_batch_size();
     let num_ctl_zs =
         CrossTableLookup::num_ctl_zs(cross_table_lookups, table, inner_config.num_challenges);
     let proof_target =
-        add_virtual_stark_proof(&mut builder, &stark, inner_config, degree_bits, num_ctl_zs);
+        add_virtual_stark_proof(&mut builder, stark, inner_config, degree_bits, num_ctl_zs);
     builder.register_public_inputs(
         &proof_target
             .trace_cap
@@ -291,8 +375,9 @@ where
         num_permutation_zs,
     );
 
-    let challenger_state = std::array::from_fn(|_| builder.add_virtual_public_input());
-    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::from_state(challenger_state);
+    let init_challenger_state_target = std::array::from_fn(|_| builder.add_virtual_public_input());
+    let mut challenger =
+        RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
@@ -307,14 +392,39 @@ where
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
-        &stark,
+        stark,
         &proof_target,
         &challenges,
         &ctl_vars,
         inner_config,
     );
 
-    builder.build_verifier::<C>()
+    add_common_recursion_gates(&mut builder);
+
+    // Pad to the minimum degree.
+    while log2_ceil(builder.num_gates()) < min_degree_bits {
+        builder.add_gate(NoopGate, vec![]);
+    }
+
+    let circuit = builder.build::<C>();
+    StarkWrapperCircuit {
+        circuit,
+        stark_proof_target: proof_target,
+        ctl_challenges_target,
+        init_challenger_state_target,
+        zero_target,
+    }
+}
+
+/// Add gates that are sometimes used by recursive circuits, even if it's not actually used by this
+/// particular recursive circuit. This is done for uniformity. We sometimes want all recursion
+/// circuits to have the same gate set, so that we can do 1-of-n conditional recursion efficiently.
+pub(crate) fn add_common_recursion_gates<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+) {
+    builder.add_gate_to_gate_set(GateRef::new(ExponentiationGate::new_from_config(
+        &builder.config,
+    )));
 }
 
 /// Returns the recursive Stark circuit verifier data for every Stark in `AllStark`.
@@ -338,46 +448,61 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     [
-        verifier_data_recursive_stark_proof(
+        recursive_stark_circuit(
             Table::Cpu,
-            all_stark.cpu_stark,
+            &all_stark.cpu_stark,
             degree_bits[Table::Cpu as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
-        ),
-        verifier_data_recursive_stark_proof(
+            0,
+        )
+        .circuit
+        .verifier_data(),
+        recursive_stark_circuit(
             Table::Keccak,
-            all_stark.keccak_stark,
+            &all_stark.keccak_stark,
             degree_bits[Table::Keccak as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
-        ),
-        verifier_data_recursive_stark_proof(
+            0,
+        )
+        .circuit
+        .verifier_data(),
+        recursive_stark_circuit(
             Table::KeccakSponge,
-            all_stark.keccak_sponge_stark,
+            &all_stark.keccak_sponge_stark,
             degree_bits[Table::KeccakSponge as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
-        ),
-        verifier_data_recursive_stark_proof(
+            0,
+        )
+        .circuit
+        .verifier_data(),
+        recursive_stark_circuit(
             Table::Logic,
-            all_stark.logic_stark,
+            &all_stark.logic_stark,
             degree_bits[Table::Logic as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
-        ),
-        verifier_data_recursive_stark_proof(
+            0,
+        )
+        .circuit
+        .verifier_data(),
+        recursive_stark_circuit(
             Table::Memory,
-            all_stark.memory_stark,
+            &all_stark.memory_stark,
             degree_bits[Table::Memory as usize],
             &all_stark.cross_table_lookups,
             inner_config,
             circuit_config,
-        ),
+            0,
+        )
+        .circuit
+        .verifier_data(),
     ]
 }
 
@@ -580,7 +705,7 @@ where
         VerifierCircuitTarget {
             constants_sigmas_cap: builder
                 .constant_merkle_cap(&verifier_data.verifier_only.constants_sigmas_cap),
-            circuit_digest: builder.add_virtual_hash(),
+            circuit_digest: builder.constant_hash(verifier_data.verifier_only.circuit_digest),
         }
     });
     RecursiveAllProofTargetWithData {
@@ -714,7 +839,7 @@ pub fn set_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
         .iter()
         .zip_eq(&all_proof.stark_proofs)
     {
-        set_stark_proof_target(witness, pt, p, zero);
+        set_stark_proof_target(witness, pt, &p.proof, zero);
     }
     set_public_value_targets(
         witness,
@@ -994,7 +1119,7 @@ pub(crate) mod tests {
                 recursively_verify_stark_proof(
                     Table::Cpu,
                     all_stark.cpu_stark,
-                    &all_proof.stark_proofs[Table::Cpu as usize],
+                    &all_proof.stark_proofs[Table::Cpu as usize].proof,
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[0],
@@ -1005,7 +1130,7 @@ pub(crate) mod tests {
                 recursively_verify_stark_proof(
                     Table::Keccak,
                     all_stark.keccak_stark,
-                    &all_proof.stark_proofs[Table::Keccak as usize],
+                    &all_proof.stark_proofs[Table::Keccak as usize].proof,
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[1],
@@ -1016,7 +1141,7 @@ pub(crate) mod tests {
                 recursively_verify_stark_proof(
                     Table::KeccakSponge,
                     all_stark.keccak_sponge_stark,
-                    &all_proof.stark_proofs[Table::KeccakSponge as usize],
+                    &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[2],
@@ -1027,7 +1152,7 @@ pub(crate) mod tests {
                 recursively_verify_stark_proof(
                     Table::Logic,
                     all_stark.logic_stark,
-                    &all_proof.stark_proofs[Table::Logic as usize],
+                    &all_proof.stark_proofs[Table::Logic as usize].proof,
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[3],
@@ -1038,7 +1163,7 @@ pub(crate) mod tests {
                 recursively_verify_stark_proof(
                     Table::Memory,
                     all_stark.memory_stark,
-                    &all_proof.stark_proofs[Table::Memory as usize],
+                    &all_proof.stark_proofs[Table::Memory as usize].proof,
                     &all_stark.cross_table_lookups,
                     &ctl_challenges,
                     states[4],

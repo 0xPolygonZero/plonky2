@@ -23,7 +23,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.trace_cap);
+            challenger.observe_cap(&proof.proof.trace_cap);
         }
 
         // TODO: Observe public values.
@@ -37,7 +37,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         AllProofChallenges {
             stark_challenges: std::array::from_fn(|i| {
                 challenger.compact();
-                self.stark_proofs[i].get_challenges(
+                self.stark_proofs[i].proof.get_challenges(
                     &mut challenger,
                     num_permutation_zs[i] > 0,
                     num_permutation_batch_sizes[i],
@@ -57,7 +57,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.trace_cap);
+            challenger.observe_cap(&proof.proof.trace_cap);
         }
 
         // TODO: Observe public values.
@@ -70,7 +70,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 
         let mut challenger_states = vec![challenger.compact()];
         for i in 0..NUM_TABLES {
-            self.stark_proofs[i].get_challenges(
+            self.stark_proofs[i].proof.get_challenges(
                 &mut challenger,
                 num_permutation_zs[i] > 0,
                 num_permutation_batch_sizes[i],

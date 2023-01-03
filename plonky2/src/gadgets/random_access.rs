@@ -2,15 +2,15 @@ use alloc::vec::Vec;
 
 use crate::field::extension::Extendable;
 use crate::gates::random_access::RandomAccessGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::VerifierCircuitTarget;
 use crate::util::log2_strict;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Checks that a `Target` matches a vector at a non-deterministic index.
-    /// Note: `access_index` is not range-checked.
+    /// Checks that a `Target` matches a vector at a particular index.
     pub fn random_access(&mut self, access_index: Target, v: Vec<Target>) -> Target {
         let vec_size = v.len();
         let bits = log2_strict(vec_size);
@@ -38,18 +38,64 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         claimed_element
     }
 
-    /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
-    /// Note: `access_index` is not range-checked.
+    /// Like `random_access`, but with `ExtensionTarget`s rather than simple `Target`s.
     pub fn random_access_extension(
         &mut self,
         access_index: Target,
         v: Vec<ExtensionTarget<D>>,
     ) -> ExtensionTarget<D> {
-        let v: Vec<_> = (0..D)
+        let selected: Vec<_> = (0..D)
             .map(|i| self.random_access(access_index, v.iter().map(|et| et.0[i]).collect()))
             .collect();
 
-        ExtensionTarget(v.try_into().unwrap())
+        ExtensionTarget(selected.try_into().unwrap())
+    }
+
+    /// Like `random_access`, but with `HashOutTarget`s rather than simple `Target`s.
+    pub fn random_access_hash(
+        &mut self,
+        access_index: Target,
+        v: Vec<HashOutTarget>,
+    ) -> HashOutTarget {
+        let selected = std::array::from_fn(|i| {
+            self.random_access(
+                access_index,
+                v.iter().map(|hash| hash.elements[i]).collect(),
+            )
+        });
+        selected.into()
+    }
+
+    /// Like `random_access`, but with `MerkleCapTarget`s rather than simple `Target`s.
+    pub fn random_access_merkle_cap(
+        &mut self,
+        access_index: Target,
+        v: Vec<MerkleCapTarget>,
+    ) -> MerkleCapTarget {
+        let cap_size = v[0].0.len();
+        assert!(v.iter().all(|cap| cap.0.len() == cap_size));
+
+        let selected = (0..cap_size)
+            .map(|i| self.random_access_hash(access_index, v.iter().map(|cap| cap.0[i]).collect()))
+            .collect();
+        MerkleCapTarget(selected)
+    }
+
+    /// Like `random_access`, but with `VerifierCircuitTarget`s rather than simple `Target`s.
+    pub fn random_access_verifier_data(
+        &mut self,
+        access_index: Target,
+        v: Vec<VerifierCircuitTarget>,
+    ) -> VerifierCircuitTarget {
+        let constants_sigmas_caps = v.iter().map(|vk| vk.constants_sigmas_cap.clone()).collect();
+        let circuit_digests = v.iter().map(|vk| vk.circuit_digest).collect();
+        let constants_sigmas_cap =
+            self.random_access_merkle_cap(access_index, constants_sigmas_caps);
+        let circuit_digest = self.random_access_hash(access_index, circuit_digests);
+        VerifierCircuitTarget {
+            constants_sigmas_cap,
+            circuit_digest,
+        }
     }
 }
 
