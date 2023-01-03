@@ -633,7 +633,6 @@ pub(crate) mod testutils {
         let CrossTableLookup {
             looking_tables,
             looked_table,
-            default,
         } = ctl;
 
         // Maps `m` with `(table, i) in m[row]` iff the `i`-th row of `table` is equal to `row` and
@@ -647,44 +646,10 @@ pub(crate) mod testutils {
         process_table(trace_poly_values, looked_table, &mut looked_multiset);
 
         let empty = &vec![];
-        // Check that every row in the looking tables appears in the looked table the same number of times
-        // with some special logic for the default row.
+        // Check that every row in the looking tables appears in the looked table the same number of times.
         for (row, looking_locations) in &looking_multiset {
             let looked_locations = looked_multiset.get(row).unwrap_or(empty);
-            if let Some(default) = default {
-                if row == default {
-                    continue;
-                }
-            }
             check_locations(looking_locations, looked_locations, ctl_index, row);
-        }
-        let extra_default_count = default.as_ref().map(|d| {
-            let looking_default_locations = looking_multiset.get(d).unwrap_or(empty);
-            let looked_default_locations = looked_multiset.get(d).unwrap_or(empty);
-            looking_default_locations
-                .len()
-                .checked_sub(looked_default_locations.len())
-                .unwrap_or_else(|| {
-                    // If underflow, panic. There should be more default rows in the looking side.
-                    check_locations(
-                        looking_default_locations,
-                        looked_default_locations,
-                        ctl_index,
-                        d,
-                    );
-                    unreachable!()
-                })
-        });
-        // Check that the number of extra default rows is correct.
-        if let Some(count) = extra_default_count {
-            assert_eq!(
-                count,
-                looking_tables
-                    .iter()
-                    .map(|table| trace_poly_values[table.table as usize][0].len())
-                    .sum::<usize>()
-                    - trace_poly_values[looked_table.table as usize][0].len()
-            );
         }
         // Check that every row in the looked tables appears in the looked table the same number of times.
         for (row, looked_locations) in &looked_multiset {
