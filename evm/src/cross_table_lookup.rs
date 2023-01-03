@@ -553,7 +553,7 @@ pub(crate) fn verify_cross_table_lookups<
     for CrossTableLookup {
         looking_tables,
         looked_table,
-    } in cross_table_lookups.into_iter()
+    } in cross_table_lookups.iter()
     {
         for _ in 0..config.num_challenges {
             let looking_zs_prod = looking_tables
