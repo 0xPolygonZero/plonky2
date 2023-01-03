@@ -1,25 +1,25 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Return a >= b.
+// Returns a >= b.
 global ge_bignum:
-    // stack: length, a_start_loc, b_start_loc, retdest
+    // stack: len, a_start_loc, b_start_loc, retdest
     SWAP1
-    // stack: a_start_loc, length, b_start_loc, retdest
+    // stack: a_start_loc, len, b_start_loc, retdest
     DUP2
-    // stack: length, a_start_loc, length, b_start_loc, retdest
+    // stack: len, a_start_loc, len, b_start_loc, retdest
     ADD
     %decrement
-    // stack: a_end_loc, length, b_start_loc, retdest
+    // stack: a_end_loc, len, b_start_loc, retdest
     SWAP2
-    // stack: b_start_loc, length, a_end_loc, retdest
+    // stack: b_start_loc, len, a_end_loc, retdest
     DUP2
-    // stack: length, b_start_loc, length, a_end_loc, retdest
+    // stack: len, b_start_loc, len, a_end_loc, retdest
     ADD
     %decrement
-    // stack: b_end_loc, length, a_end_loc, retdest
+    // stack: b_end_loc, len, a_end_loc, retdest
     %stack (b, l, a) -> (l, a, b)
-    // stack: length, a_end_loc, b_end_loc, retdest
+    // stack: len, a_end_loc, b_end_loc, retdest
     %decrement
 ge_loop:
     // stack: i, a_i_loc, b_i_loc, retdest

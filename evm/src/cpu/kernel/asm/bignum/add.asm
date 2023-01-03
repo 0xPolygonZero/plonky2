@@ -3,52 +3,52 @@
 
 // Replaces a with a + b, leaving b unchanged.
 global add_bignum:
-    // stack: length, a_start_loc, b_start_loc, retdest
+    // stack: len, a_start_loc, b_start_loc, retdest
     %stack (l, a, b) -> (0, 0, a, b, l)
-    // stack: carry=0, i=0, a_start_loc, b_start_loc, length, retdest
+    // stack: carry=0, i=0, a_start_loc, b_start_loc, len, retdest
 add_loop:
-    // stack: carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: carry, i, a_i_loc, b_i_loc, len, retdest
     DUP4
     %mload_kernel_general
-    // stack: b[i], carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: b[i], carry, i, a_i_loc, b_i_loc, len, retdest
     DUP4
     %mload_kernel_general
-    // stack: a[i], b[i], carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: a[i], b[i], carry, i, a_i_loc, b_i_loc, len, retdest
     ADD
     ADD
-    // stack: a[i] + b[i] + carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: a[i] + b[i] + carry, i, a_i_loc, b_i_loc, len, retdest
     %stack (val) -> (val, @BIGNUM_LIMB_BASE, @BIGNUM_LIMB_BASE, val)
-    // stack: a[i] + b[i] + carry, 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: a[i] + b[i] + carry, 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, len, retdest
     DIV
-    // stack: (a[i] + b[i] + carry) // 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, length, retdest
+    // stack: (a[i] + b[i] + carry) // 2^128, 2^128, a[i] + b[i] + carry, i, a_i_loc, b_i_loc, len, retdest
     SWAP2
-    // stack: a[i] + b[i] + carry, 2^128, (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, length, retdest
+    // stack: a[i] + b[i] + carry, 2^128, (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, len, retdest
     MOD
-    // stack: c[i] = (a[i] + b[i] + carry) % 2^128, carry_new = (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, length, retdest
+    // stack: c[i] = (a[i] + b[i] + carry) % 2^128, carry_new = (a[i] + b[i] + carry) // 2^128, i, a_i_loc, b_i_loc, len, retdest
     DUP4
-    // stack: a_i_loc, c[i], carry_new, i, a_i_loc, b_i_loc, length, retdest
+    // stack: a_i_loc, c[i], carry_new, i, a_i_loc, b_i_loc, len, retdest
     %mstore_kernel_general
-    // stack: carry_new, i, a_i_loc, b_i_loc, length, retdest
+    // stack: carry_new, i, a_i_loc, b_i_loc, len, retdest
     %stack (c, i, a, b) -> (a, b, c, i)
-    // stack: a_i_loc, b_i_loc, carry_new, i, length, retdest
+    // stack: a_i_loc, b_i_loc, carry_new, i, len, retdest
     %increment
     SWAP1
     %increment
     SWAP1
     %stack (a, b, c, i) -> (c, i, a, b)
-    // stack: carry_new, i, a_i_loc + 1, b_i_loc + 1, length, retdest
+    // stack: carry_new, i, a_i_loc + 1, b_i_loc + 1, len, retdest
     SWAP1
     %increment
     SWAP1
-    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, len, retdest
     DUP5
     DUP3
-    // stack: i + 1, length, carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    // stack: i + 1, len, carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, len, retdest
     EQ
     ISZERO
     %jumpi(add_loop)
 add_end:
-    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, length, retdest
+    // stack: carry_new, i + 1, a_i_loc + 1, b_i_loc + 1, len, retdest
     %stack (c, i, a, b, n) -> (c, a)
     // stack: carry_new, a_i_loc + 1, retdest
     // If carry = 0, no need to increment.

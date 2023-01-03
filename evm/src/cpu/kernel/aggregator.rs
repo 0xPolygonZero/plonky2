@@ -13,6 +13,8 @@ pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/bignum/add.asm"),
         include_str!("asm/bignum/ge.asm"),
+        include_str!("asm/bignum/modexp.asm"),
+        include_str!("asm/bignum/modmul.asm"),
         include_str!("asm/bignum/mul.asm"),
         include_str!("asm/core/bootloader.asm"),
         include_str!("asm/core/create.asm"),
