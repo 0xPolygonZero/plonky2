@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use itertools::Itertools;
 use maybe_rayon::*;
+use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;
@@ -188,7 +189,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &format!("reduce batch of {} polynomials", polynomials.len()),
                 alpha.reduce_polys_base(polys_coeff)
             );
-            let quotient = composition_poly.divide_by_linear(*point);
+            let mut quotient = composition_poly.divide_by_linear(*point);
+            quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
