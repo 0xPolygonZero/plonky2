@@ -8,7 +8,6 @@ use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;
 use crate::field::packed::PackedField;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::field::types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
