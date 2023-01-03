@@ -402,6 +402,9 @@ where
     }
 }
 
+/// Our usual recursion threshold is 2^12 gates, but for these shrinking circuits, we use a few more
+/// gates for a constant inner VK and for public inputs. This pushes us over the threshold to 2^13.
+/// As long as we're at 2^13 gates, we might as well use a narrower witness.
 fn shrinking_config() -> CircuitConfig {
     CircuitConfig {
         num_routed_wires: 40,

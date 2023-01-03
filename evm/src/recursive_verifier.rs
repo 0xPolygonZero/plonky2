@@ -83,7 +83,6 @@ fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [
 
 impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
     pub(crate) fn from_vec(v: &[T], config: &StarkConfig) -> Self {
-        log::info!("from_vec {}", v.len());
         let mut iter = v.iter().copied();
         let trace_cap = (0..config.fri_config.num_cap_elements())
             .map(|_| next_chunk::<_, 4>(&mut iter).to_vec())
@@ -99,7 +98,6 @@ impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
         let challenger_state_before = next_chunk(&mut iter);
         let challenger_state_after = next_chunk(&mut iter);
         let ctl_zs_last: Vec<_> = iter.collect();
-        log::info!("from_vec num Zs: {}", ctl_zs_last.len()); // TODO
 
         Self {
             trace_cap,
