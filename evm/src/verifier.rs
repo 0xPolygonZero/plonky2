@@ -97,13 +97,9 @@ where
         config,
     )?;
 
-    let degrees_bits =
-        std::array::from_fn(|i| all_proof.stark_proofs[i].proof.recover_degree_bits(config));
     verify_cross_table_lookups::<F, C, D>(
         cross_table_lookups,
         all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
-        degrees_bits,
-        ctl_challenges,
         config,
     )
 }
