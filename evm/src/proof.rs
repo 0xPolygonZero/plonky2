@@ -46,11 +46,6 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usiz
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
-pub struct AllProofTarget<const D: usize> {
-    pub stark_proofs: [StarkProofTarget<D>; NUM_TABLES],
-    pub public_values: PublicValuesTarget,
-}
-
 /// Memory values which are public.
 #[derive(Debug, Clone, Default)]
 pub struct PublicValues {
