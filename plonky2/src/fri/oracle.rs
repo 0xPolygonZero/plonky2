@@ -193,9 +193,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
-        // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
-        // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
-        final_poly.coeffs.insert(0, F::Extension::ZERO);
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(
