@@ -35,7 +35,7 @@ mul_helper_end:
     JUMP
 
 // Reduces a bignum with limbs possibly greater than 128 bits to a normalized bignum with length (length + 1).
-bignum_reduce_helper:
+mul_bignum_reduce_helper:
     // stack: length, start_loc, retdest
     %stack (vals: 2) -> (vals, 0)
     // stack: n=length, i=start_loc, carry=0, retdest
@@ -93,9 +93,12 @@ reduce_end:
     JUMP
 
 // Stores a * b in output_loc, leaving a and b unchanged.
+// Both a and b have given length; a * b will have length 2 * n.
+// Scratch space needs to have space for length + 1 limbs available.
 global mul_bignum:
-    // stack: length, a_start_loc, b_start_loc, output_loc, retdest
+    // stack: length, a_start_loc, b_start_loc, output_loc, scratch_space, retdest
     
 mul_loop:
+    // stack: n, ai, bi, output_loc, retdest
 
 mul_end:
