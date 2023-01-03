@@ -41,8 +41,11 @@ bignum_reduce_helper:
     // stack: n=length, i=start_loc, carry=0, retdest
 reduce_loop:
     // stack: n, i, retdest
-
-    // stack: n, i, carry, retdest
+    DUP2
+    // stack: i, n, i, retdest
+    %mload_kernel_general
+    // stack: bignum[i], n, i, retdest
+    // stack: n, i, retdest
     %decrement
     SWAP1
     %increment
@@ -60,7 +63,7 @@ reduce_end:
     JUMP
 
 // Stores a * b in output_loc, leaving a and b unchanged.
-global mul_bignum_bounded:
+global mul_bignum:
     // stack: length, a_start_loc, b_start_loc, output_loc, retdest
     
 mul_loop:

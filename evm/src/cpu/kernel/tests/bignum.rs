@@ -6,7 +6,7 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs};
 
 #[test]
-fn test_ge_bignum_bounded() -> Result<()> {
+fn test_ge_bignum() -> Result<()> {
     let max = U256([0, 0, 0, 1u64 << 6]); // 2^198
     let a: U256 = gen_random_u256(max);
     let b: U256 = gen_random_u256(a - 1);
@@ -25,7 +25,7 @@ fn test_ge_bignum_bounded() -> Result<()> {
     let b_start_loc = a_limbs.len().into();
 
     let retdest = 0xDEADBEEFu32.into();
-    let ge_bignum = KERNEL.global_labels["ge_bignum_bounded"];
+    let ge_bignum = KERNEL.global_labels["ge_bignum"];
 
     // Test with a > b.
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
@@ -75,7 +75,7 @@ fn test_add_bignum() -> Result<()> {
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
     initial_stack.reverse();
 
-    let add_bignum = KERNEL.global_labels["add_bignum_bounded"];
+    let add_bignum = KERNEL.global_labels["add_bignum"];
     let mut interpreter = Interpreter::new_with_kernel(add_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory);
 

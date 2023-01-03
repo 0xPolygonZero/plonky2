@@ -2,7 +2,7 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Replaces a with a + b, leaving b unchanged.
-global add_bignum_bounded:
+global add_bignum:
     // stack: length, a_start_loc, b_start_loc, retdest
     %stack (l, a, b) -> (0, 0, a, b, l)
     // stack: carry=0, i=0, a_start_loc, b_start_loc, length, retdest

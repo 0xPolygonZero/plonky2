@@ -2,7 +2,7 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Return a >= b.
-global ge_bignum_bounded:
+global ge_bignum:
     // stack: length, a_start_loc, b_start_loc, retdest
     SWAP1
     // stack: a_start_loc, length, b_start_loc, retdest
