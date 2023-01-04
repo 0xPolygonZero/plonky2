@@ -33,7 +33,7 @@ pub(crate) fn biguint_to_le_limbs(x: BigUint) -> Vec<u128> {
 
     let mut result = Vec::with_capacity(padded_len / 16);
     for i in (0..bytes.len()).step_by(16) {
-        let these_bytes: [u8; 16] = bytes[i..i+16].try_into().unwrap();
+        let these_bytes: [u8; 16] = bytes[i..i + 16].try_into().unwrap();
         let this = u128::from_le_bytes(these_bytes);
         result.push(this);
     }

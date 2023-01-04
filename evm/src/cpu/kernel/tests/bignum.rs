@@ -5,7 +5,7 @@ use num_bigint::{BigUint, RandBigInt};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs, biguint_to_le_limbs};
+use crate::cpu::kernel::tests::biguint_to_le_limbs;
 
 #[test]
 fn test_ge_bignum() -> Result<()> {
@@ -100,7 +100,10 @@ fn test_mul_bignum() -> Result<()> {
 
     let a_limbs = biguint_to_le_limbs(a);
     let b_limbs = biguint_to_le_limbs(b);
-    let expected_product: Vec<U256> = biguint_to_le_limbs(product).iter().map(|&x| x.into()).collect();
+    let expected_product: Vec<U256> = biguint_to_le_limbs(product)
+        .iter()
+        .map(|&x| x.into())
+        .collect();
     let length: U256 = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
