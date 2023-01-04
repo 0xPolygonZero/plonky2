@@ -17,7 +17,6 @@ use std::str::FromStr;
 use anyhow::Result;
 use ethereum_types::U256;
 use num::BigUint;
-use rand::Rng;
 
 pub(crate) fn u256ify<'a>(hexes: impl IntoIterator<Item = &'a str>) -> Result<Vec<U256>> {
     Ok(hexes
