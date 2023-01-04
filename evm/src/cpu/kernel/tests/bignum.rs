@@ -6,9 +6,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs};
 
-fn test_bignum() -> Result<()> {
-    
-}
+fn test_bignum() -> Result<()> {}
 
 #[test]
 fn test_ge_bignum() -> Result<()> {
