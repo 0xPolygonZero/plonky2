@@ -111,8 +111,8 @@ fn test_mul_bignum() -> Result<()> {
         .collect();
     let a_start_loc = 0.into();
     let b_start_loc = length;
-    let output_loc = (length * U256::from(2));
-    let scratch_space = (length * U256::from(4));
+    let output_loc = length * U256::from(2);
+    let scratch_space = length * U256::from(4);
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![
