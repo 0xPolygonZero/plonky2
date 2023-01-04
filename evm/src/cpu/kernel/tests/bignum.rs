@@ -5,27 +5,16 @@ use num_bigint::{BigUint, RandBigInt};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs};
-
-#[test]
-fn test_bigint() -> Result<()> {
-    let mut rng = rand::thread_rng();
-    let a = rng.gen_bigint(1000);
-    let b: BigUint = a.abs().to_biguint().unwrap();
-
-    println!("{}", b);
-
-    Ok(())
-}
+use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs, biguint_to_le_limbs};
 
 #[test]
 fn test_ge_bignum() -> Result<()> {
-    let max = U256([0, 0, 0, 1u64 << 6]); // 2^198
-    let a: U256 = gen_random_u256(max);
-    let b: U256 = gen_random_u256(a - 1);
+    let mut rng = rand::thread_rng();
+    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let b: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
 
-    let a_limbs = u256_to_le_limbs(a);
-    let b_limbs = u256_to_le_limbs(b);
+    let a_limbs = biguint_to_le_limbs(a);
+    let b_limbs = biguint_to_le_limbs(b);
     let length: U256 = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
@@ -64,14 +53,14 @@ fn test_ge_bignum() -> Result<()> {
 
 #[test]
 fn test_add_bignum() -> Result<()> {
-    let max = U256([0, 0, 0, 1u64 << 6]);
-    let a: U256 = gen_random_u256(max);
-    let b: U256 = gen_random_u256(max);
-    let sum = a + b;
+    let mut rng = rand::thread_rng();
+    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let sum = a.clone() + b.clone();
 
-    let a_limbs = u256_to_le_limbs(a);
-    let b_limbs = u256_to_le_limbs(b);
-    let expected_sum: Vec<U256> = u256_to_le_limbs(sum).iter().map(|&x| x.into()).collect();
+    let a_limbs = biguint_to_le_limbs(a);
+    let b_limbs = biguint_to_le_limbs(b);
+    let expected_sum: Vec<U256> = biguint_to_le_limbs(sum).iter().map(|&x| x.into()).collect();
     let length: U256 = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
@@ -104,17 +93,14 @@ fn test_add_bignum() -> Result<()> {
 
 #[test]
 fn test_mul_bignum() -> Result<()> {
-    let max = U256([0, 0, 0, 1u64 << 6]);
-    let a: U256 = gen_random_u256(max);
-    let b: U256 = gen_random_u256(max);
-    let product = a * b;
+    let mut rng = rand::thread_rng();
+    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let product = a.clone() * b.clone();
 
-    let a_limbs = u256_to_le_limbs(a);
-    let b_limbs = u256_to_le_limbs(b);
-    let expected_product: Vec<U256> = u256_to_le_limbs(product)
-        .iter()
-        .map(|&x| x.into())
-        .collect();
+    let a_limbs = biguint_to_le_limbs(a);
+    let b_limbs = biguint_to_le_limbs(b);
+    let expected_product: Vec<U256> = biguint_to_le_limbs(product).iter().map(|&x| x.into()).collect();
     let length: U256 = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
