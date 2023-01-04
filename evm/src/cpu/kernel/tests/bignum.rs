@@ -1,12 +1,22 @@
 use anyhow::Result;
 use ethereum_types::U256;
-use num_bigint::BigUint;
+use num::Signed;
+use num_bigint::{BigUint, RandBigInt};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::{gen_random_u256, u256_to_le_limbs};
 
-fn test_bignum() -> Result<()> {}
+#[test]
+fn test_bigint() -> Result<()> {
+    let mut rng = rand::thread_rng();
+    let a = rng.gen_bigint(1000);
+    let b: BigUint = a.abs().to_biguint().unwrap();
+
+    println!("{}", b);
+    
+    Ok(())
+}
 
 #[test]
 fn test_ge_bignum() -> Result<()> {
