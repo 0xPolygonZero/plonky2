@@ -86,7 +86,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(&all_stark, 9..19, &config);
     let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
-    all_circuits.verify_root(&root_proof)?;
+    all_circuits.verify_root(root_proof.clone())?;
 
     let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
     all_circuits.verify_aggregation(&agg_proof)

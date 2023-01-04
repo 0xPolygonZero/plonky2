@@ -335,8 +335,8 @@ where
         self.root.circuit.prove(root_inputs)
     }
 
-    pub fn verify_root(&self, agg_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.root.circuit.verify(agg_proof.clone())
+    pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.root.circuit.verify(agg_proof)
     }
 
     pub fn prove_aggregation(
@@ -360,6 +360,7 @@ where
             &self.aggregation.cyclic_vk,
             &self.aggregation.circuit.verifier_only,
         );
+
         self.aggregation.circuit.prove(agg_inputs)
     }
 
