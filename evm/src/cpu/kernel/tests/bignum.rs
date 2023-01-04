@@ -14,7 +14,7 @@ fn test_bigint() -> Result<()> {
     let b: BigUint = a.abs().to_biguint().unwrap();
 
     println!("{}", b);
-    
+
     Ok(())
 }
 
