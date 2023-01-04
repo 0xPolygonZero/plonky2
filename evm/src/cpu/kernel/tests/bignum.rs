@@ -13,8 +13,7 @@ fn test_ge_bignum() -> Result<()> {
 
     let a_limbs = u256_to_le_limbs(a);
     let b_limbs = u256_to_le_limbs(b);
-
-    let length = a_limbs.len().max(b_limbs.len()).into();
+    let length = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
         .concat()
@@ -22,7 +21,7 @@ fn test_ge_bignum() -> Result<()> {
         .map(|&x| x.into())
         .collect();
     let a_start_loc = 0.into();
-    let b_start_loc = a_limbs.len().into();
+    let b_start_loc = length.into();
 
     let retdest = 0xDEADBEEFu32.into();
     let ge_bignum = KERNEL.global_labels["ge_bignum"];
@@ -60,8 +59,7 @@ fn test_add_bignum() -> Result<()> {
     let a_limbs = u256_to_le_limbs(a);
     let b_limbs = u256_to_le_limbs(b);
     let expected_sum: Vec<U256> = u256_to_le_limbs(sum).iter().map(|&x| x.into()).collect();
-
-    let length = a_limbs.len().max(b_limbs.len()).into();
+    let length = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
         .concat()
@@ -69,7 +67,7 @@ fn test_add_bignum() -> Result<()> {
         .map(|&x| x.into())
         .collect();
     let a_start_loc = 0.into();
-    let b_start_loc = a_limbs.len().into();
+    let b_start_loc = length.into();
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
@@ -91,36 +89,44 @@ fn test_add_bignum() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_sub_bignum() -> Result<()> {
-//     let max = U256([0, 0, 0, 1u64 << 6]);
-//     let a: U256 = gen_random_u256(max);
-//     let b: U256 = gen_random_u256(a - 1);
-//     let diff = a - b;
+#[test]
+fn test_mul_bignum() -> Result<()> {
+    let max = U256([0, 0, 0, 1u64 << 6]);
+    let a: U256 = gen_random_u256(max);
+    let b: U256 = gen_random_u256(max);
+    let product = a * b;
 
-//     let a_limbs = u256_to_le_limbs(a);
-//     let b_limbs = u256_to_le_limbs(b);
-//     let expected_diff = u256_to_le_limbs(diff);
+    let a_limbs = u256_to_le_limbs(a);
+    let b_limbs = u256_to_le_limbs(b);
+    let expected_product: Vec<U256> = u256_to_le_limbs(product).iter().map(|&x| x.into()).collect();
+    let length: U256 = a_limbs.len().into();
 
-//     let a_len = a_limbs.len().into();
-//     let b_len = b_limbs.len().into();
-//     let a_start_loc = 0.into();
-//     let b_start_loc = a_limbs.len().into();
-//     let memory: Vec<_> = [&a_limbs[..], &b_limbs[..]].concat();
+    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
+        .concat()
+        .iter()
+        .map(|&x| x.into())
+        .collect();
+    let a_start_loc = 0.into();
+    let b_start_loc = length.into();
+    let output_loc = (length * U256::from(2)).into();
+    let scratch_space = (length * U256::from(4)).into();
 
-//     let retdest = 0xDEADBEEFu32.into();
-//     let mut initial_stack: Vec<U256> = vec![a_len, b_len, a_start_loc, b_start_loc, retdest];
-//     initial_stack.reverse();
+    let retdest = 0xDEADBEEFu32.into();
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, output_loc, scratch_space, retdest];
+    initial_stack.reverse();
 
-//     let sub_bignum = KERNEL.global_labels["sub_bignum"];
-//     let mut interpreter = Interpreter::new_with_kernel(sub_bignum, initial_stack);
-//     interpreter.set_kernel_general_memory(memory);
+    let mul_bignum = KERNEL.global_labels["mul_bignum"];
+    let mut interpreter = Interpreter::new_with_kernel(mul_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
 
-//     interpreter.run()?;
+    interpreter.run()?;
 
-//     let new_memory = interpreter.get_kernel_general_memory();
-//     let actual_diff: Vec<u8> = new_memory[..expected_diff.len()].into();
-//     assert_eq!(actual_diff, expected_diff);
+    dbg!(interpreter.stack());
 
-//     Ok(())
-// }
+    let new_memory = interpreter.get_kernel_general_memory();
+    dbg!(new_memory.clone());
+    let actual_product: Vec<_> = new_memory[..expected_product.len()].into();
+    assert_eq!(actual_product, expected_product);
+
+    Ok(())
+}
