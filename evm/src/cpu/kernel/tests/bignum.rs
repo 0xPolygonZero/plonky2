@@ -21,7 +21,7 @@ fn test_ge_bignum() -> Result<()> {
         .map(|&x| x.into())
         .collect();
     let a_start_loc = 0.into();
-    let b_start_loc = length.into();
+    let b_start_loc = length;
 
     let retdest = 0xDEADBEEFu32.into();
     let ge_bignum = KERNEL.global_labels["ge_bignum"];
@@ -67,7 +67,7 @@ fn test_add_bignum() -> Result<()> {
         .map(|&x| x.into())
         .collect();
     let a_start_loc = 0.into();
-    let b_start_loc = length.into();
+    let b_start_loc = length;
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
@@ -98,7 +98,10 @@ fn test_mul_bignum() -> Result<()> {
 
     let a_limbs = u256_to_le_limbs(a);
     let b_limbs = u256_to_le_limbs(b);
-    let expected_product: Vec<U256> = u256_to_le_limbs(product).iter().map(|&x| x.into()).collect();
+    let expected_product: Vec<U256> = u256_to_le_limbs(product)
+        .iter()
+        .map(|&x| x.into())
+        .collect();
     let length: U256 = a_limbs.len().into();
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
@@ -107,12 +110,19 @@ fn test_mul_bignum() -> Result<()> {
         .map(|&x| x.into())
         .collect();
     let a_start_loc = 0.into();
-    let b_start_loc = length.into();
-    let output_loc = (length * U256::from(2)).into();
-    let scratch_space = (length * U256::from(4)).into();
+    let b_start_loc = length;
+    let output_loc = (length * U256::from(2));
+    let scratch_space = (length * U256::from(4));
 
     let retdest = 0xDEADBEEFu32.into();
-    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, output_loc, scratch_space, retdest];
+    let mut initial_stack: Vec<U256> = vec![
+        length,
+        a_start_loc,
+        b_start_loc,
+        output_loc,
+        scratch_space,
+        retdest,
+    ];
     initial_stack.reverse();
 
     let mul_bignum = KERNEL.global_labels["mul_bignum"];
