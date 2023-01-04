@@ -327,8 +327,10 @@ where
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
         }
 
-        root_inputs
-            .set_verifier_data_target(&self.root.cyclic_vk, &self.root.circuit.verifier_only);
+        root_inputs.set_verifier_data_target(
+            &self.root.cyclic_vk,
+            &self.aggregation.circuit.verifier_only,
+        );
 
         self.root.circuit.prove(root_inputs)
     }
