@@ -79,7 +79,6 @@ increment_loop:
     %mstore_kernel_general
     %jump(increment_loop)
 increment_end:
-    STOP
     // cur_loc, retdest
     POP
     // retdest

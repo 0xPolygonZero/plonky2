@@ -135,19 +135,23 @@ mul_loop_return_1:
     %jump(add_bignum)
 mul_loop_return_2:
     // stack: len, n, ai, bi, output_loc, scratch_space, retdest
-    DUP4
+    DUP5
+    // stack: output_loc, len, n, ai, bi, output_loc, scratch_space, retdest
     %increment
-    // stack: bi+1, len, n, ai, bi, output_loc, scratch_space, retdest
-    DUP4
+    // stack: output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    DUP5
     %increment
-    // stack: ai+1, bi+1, len, n, ai, bi, output_loc, scratch_space, retdest
-    DUP4
+    // stack: bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    DUP5
+    %increment
+    // stack: ai+1, bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    DUP5
     %decrement
-    // stack: n-1, ai+1, bi+1, len, n, ai, bi, output_loc, scratch_space, retdest
-    %stack (new: 3, len, old: 3) -> (len, new)
-    // stack: len, n-1, ai+1, bi+1, output_loc, scratch_space, retdest
+    // stack: n-1, ai+1, bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    %stack (new: 4, len, old: 4) -> (len, new)
+    // stack: len, n-1, ai+1, bi+1, output_loc+1, scratch_space, retdest
     DUP2
-    // stack: n-1, len, n-1, ai+1, bi+1, output_loc, scratch_space, retdest
+    // stack: n-1, len, n-1, ai+1, bi+1, output_loc+1, scratch_space, retdest
     ISZERO
     %jumpi(mul_end)
     %jump(mul_loop)

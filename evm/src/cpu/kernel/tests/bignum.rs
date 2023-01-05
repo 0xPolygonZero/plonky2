@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use num::Signed;
-use num_bigint::{BigUint, RandBigInt};
+use num_bigint::RandBigInt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -10,8 +10,11 @@ use crate::cpu::kernel::tests::biguint_to_le_limbs;
 #[test]
 fn test_ge_bignum() -> Result<()> {
     let mut rng = rand::thread_rng();
-    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
-    let b: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let (a, b) = {
+        let a = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        (a.clone().max(b.clone()), a.min(b))
+    };
 
     let a_limbs = biguint_to_le_limbs(a);
     let b_limbs = biguint_to_le_limbs(b);
@@ -34,8 +37,6 @@ fn test_ge_bignum() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
-    dbg!(interpreter.stack());
-    dbg!(interpreter.get_kernel_general_memory());
     let result = interpreter.stack()[0];
     assert_eq!(result, U256::one());
 
@@ -54,8 +55,11 @@ fn test_ge_bignum() -> Result<()> {
 #[test]
 fn test_add_bignum() -> Result<()> {
     let mut rng = rand::thread_rng();
-    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
-    let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let (a, b) = {
+        let a = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        (a.clone().max(b.clone()), a.min(b))
+    };
     let sum = a.clone() + b.clone();
 
     let a_limbs = biguint_to_le_limbs(a);
@@ -81,10 +85,7 @@ fn test_add_bignum() -> Result<()> {
 
     interpreter.run()?;
 
-    dbg!(interpreter.stack());
-
     let new_memory = interpreter.get_kernel_general_memory();
-    dbg!(new_memory.clone());
     let actual_sum: Vec<_> = new_memory[..expected_sum.len()].into();
     assert_eq!(actual_sum, expected_sum);
 
@@ -94,8 +95,11 @@ fn test_add_bignum() -> Result<()> {
 #[test]
 fn test_mul_bignum() -> Result<()> {
     let mut rng = rand::thread_rng();
-    let a: BigUint = rng.gen_bigint(1000).abs().to_biguint().unwrap();
-    let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+    let (a, b) = {
+        let a = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        (a.clone().max(b.clone()), a.min(b))
+    };
     let product = a.clone() * b.clone();
 
     let a_limbs = biguint_to_le_limbs(a);
@@ -115,6 +119,8 @@ fn test_mul_bignum() -> Result<()> {
     let b_start_loc = length;
     let output_loc = length * U256::from(2);
     let scratch_space = length * U256::from(4);
+
+    dbg!(a_start_loc, b_start_loc, output_loc, scratch_space);
 
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![
