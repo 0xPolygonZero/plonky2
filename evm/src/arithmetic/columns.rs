@@ -35,7 +35,7 @@ pub const IS_GT: usize = IS_LT + 1;
 pub const IS_SHL: usize = IS_GT + 1;
 pub const IS_SHR: usize = IS_SHL + 1;
 
-const START_SHARED_COLS: usize = IS_SHR + 1;
+pub(crate) const START_SHARED_COLS: usize = IS_SHR + 1;
 
 pub(crate) const ALL_OPERATIONS: [usize; 12] = [
     IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD, IS_LT, IS_GT, IS_SHL,
@@ -50,7 +50,7 @@ pub(crate) const ALL_OPERATIONS: [usize; 12] = [
 /// two rows, the first with 6 * N_LIMBS columns and the second with
 /// 5 * N_LIMBS columns. (There are hence N_LIMBS "wasted columns" in
 /// the second row.)
-const NUM_SHARED_COLS: usize = 6 * N_LIMBS;
+pub(crate) const NUM_SHARED_COLS: usize = 6 * N_LIMBS;
 
 const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
@@ -122,4 +122,15 @@ pub(crate) const DIV_DENOMINATOR: Range<usize> = MODULAR_MODULUS;
 pub(crate) const DIV_OUTPUT: Range<usize> =
     MODULAR_QUO_INPUT.start..MODULAR_QUO_INPUT.start + N_LIMBS;
 
-pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
+// Need one column for the table, then two columns for every value
+// that needs to be range checked in the trace, namely the permutation
+// of the column and the permutation of the range. The two permutations associated to column i will be in columns RC_COLS[2i] and RC_COLS[2i+1].
+//
+// FIXME: Not all columns need a range check for each operation; need
+// a way to signal when a column is checked, or to ensure unused
+// columns always contain valid values.
+pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
+pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
+pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER..RANGE_COUNTER + 2 * NUM_SHARED_COLS;
+
+pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + NUM_RANGE_CHECK_COLS;
