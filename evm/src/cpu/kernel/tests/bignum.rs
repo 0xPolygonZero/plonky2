@@ -145,7 +145,8 @@ fn test_mul_bignum() -> Result<()> {
     dbg!(new_memory.clone());
 
     let output_location: usize = output_loc.try_into().unwrap();
-    let actual_product: Vec<_> = new_memory[output_location..output_location + expected_product.len()].into();
+    let actual_product: Vec<_> =
+        new_memory[output_location..output_location + expected_product.len()].into();
     assert_eq!(actual_product, expected_product);
 
     Ok(())
