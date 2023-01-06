@@ -61,6 +61,8 @@ increment_loop:
     // stack: val, cur_loc, retdest
     %increment
     // stack: val+1, cur_loc, retdest
+    SWAP1
+    DUP2
     DUP2
     // stack: cur_loc, val+1, cur_loc, val+1, retdest
     %mstore_kernel_general
