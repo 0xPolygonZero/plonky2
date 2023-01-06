@@ -8,7 +8,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 pub(crate) fn u256_add_cc(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
     // Input and output have 16-bit limbs
@@ -117,10 +116,6 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    range_check_error!(ADD_INPUT_0, 16);
-    range_check_error!(ADD_INPUT_1, 16);
-    range_check_error!(ADD_OUTPUT, 16);
-
     let is_add = lv[IS_ADD];
     let input0_limbs = &lv[ADD_INPUT_0];
     let input1_limbs = &lv[ADD_INPUT_1];

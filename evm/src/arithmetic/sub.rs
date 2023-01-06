@@ -8,7 +8,6 @@ use crate::arithmetic::add::{eval_ext_circuit_are_equal, eval_packed_generic_are
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 pub(crate) fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
     const LIMB_BOUNDARY: u64 = 1 << LIMB_BITS;
@@ -41,10 +40,6 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    range_check_error!(SUB_INPUT_0, 16);
-    range_check_error!(SUB_INPUT_1, 16);
-    range_check_error!(SUB_OUTPUT, 16);
-
     let is_sub = lv[IS_SUB];
     let input0_limbs = &lv[SUB_INPUT_0];
     let input1_limbs = &lv[SUB_INPUT_1];

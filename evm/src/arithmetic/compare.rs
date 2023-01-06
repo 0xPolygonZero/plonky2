@@ -24,7 +24,6 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::sub::u256_sub_br;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
     let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
@@ -84,10 +83,6 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    range_check_error!(CMP_INPUT_0, 16);
-    range_check_error!(CMP_INPUT_1, 16);
-    range_check_error!(CMP_AUX_INPUT, 16);
-
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 

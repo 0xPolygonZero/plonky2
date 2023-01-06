@@ -64,7 +64,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
     let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
@@ -112,10 +111,6 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    range_check_error!(MUL_INPUT_0, 16);
-    range_check_error!(MUL_INPUT_1, 16);
-    range_check_error!(MUL_OUTPUT, 16);
-
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let is_mul = lv[IS_MUL];

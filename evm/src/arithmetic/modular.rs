@@ -122,7 +122,6 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 /// Convert the base-2^16 representation of a number into a BigInt.
 ///
@@ -319,11 +318,6 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
 ) -> [P; 2 * N_LIMBS] {
-    range_check_error!(MODULAR_INPUT_0, 16);
-    range_check_error!(MODULAR_INPUT_1, 16);
-    range_check_error!(MODULAR_MODULUS, 16);
-    range_check_error!(MODULAR_OUTPUT, 16);
-
     let mut modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
     let mod_is_zero = nv[MODULAR_MOD_IS_ZERO];
 
