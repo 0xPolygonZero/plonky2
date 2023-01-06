@@ -2,7 +2,7 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Multiplies a bignum by a constant value.
-bignum_mul_helper:
+mul_bignum_helper:
     // stack: n=len, i=start_loc, val, retdest
 mul_helper_loop:
     // stack: n, i, val, retdest
@@ -109,31 +109,40 @@ mul_loop:
     // stack: scratch_space, ai, len, len, n, ai, bi, output_loc, scratch_space, retdest
     %memcpy_kernel_general
     // stack: len, n, ai, bi, output_loc, scratch_space, retdest
-    PUSH mul_loop_return_1
-    // stack: mul_loop_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    PUSH mul_return_1
+    // stack: mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP5
-    // stack: bi, mul_loop_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: bi, mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
     %mload_kernel_general
-    // stack: b[i], mul_loop_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP8
-    // stack: scratch_space, b[i], mul_loop_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP4
-    // stack: len, scratch_space, b[i], mul_loop_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
-    %jump(bignum_mul_helper)
-mul_loop_return_1:
+    // stack: len, scratch_space, b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    %jump(mul_bignum_helper)
+mul_return_1:
     // stack: len, n, ai, bi, output_loc, scratch_space, retdest
-    PUSH mul_loop_return_2
-    // stack: mul_loop_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    PUSH mul_return_2
+    // stack: mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP7
-    // stack: scratch_space, mul_loop_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    DUP3
+    // stack: len, scratch_space, mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    %jump(mul_bignum_reduce_helper)
+mul_return_2:
+    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    PUSH mul_return_3
+    // stack: mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP7
-    // stack: output_loc, scratch_space, mul_loop_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
+    DUP7
+    // stack: output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
     DUP4
-    // stack: len, output_loc, scratch_space, mul_loop_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
     %mul_const(2)
-    // stack: 2*len, output_loc, scratch_space, mul_loop_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: 2*len, output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
     %jump(add_bignum)
-mul_loop_return_2:
+mul_return_3:
     // stack: len, n, ai, bi, output_loc, scratch_space, retdest
     DUP5
     // stack: output_loc, len, n, ai, bi, output_loc, scratch_space, retdest
