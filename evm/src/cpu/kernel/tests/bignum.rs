@@ -142,7 +142,19 @@ fn test_mul_bignum() -> Result<()> {
     dbg!(interpreter.stack());
 
     let new_memory = interpreter.get_kernel_general_memory();
-    dbg!(new_memory.clone());
+
+    let a_start: usize = a_start_loc.try_into().unwrap();
+    let b_start: usize = b_start_loc.try_into().unwrap();
+    let out: usize = output_loc.try_into().unwrap();
+    let scratch: usize = scratch_space.try_into().unwrap();
+    println!("a:");
+    println!("{:?}", &new_memory[a_start..b_start]);
+    println!("b:");
+    println!("{:?}", &new_memory[b_start..out]);
+    println!("output:");
+    println!("{:?}", &new_memory[out..scratch]);
+    println!("scratch space:");
+    println!("{:?}", &new_memory[scratch..]);
 
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_product: Vec<_> =

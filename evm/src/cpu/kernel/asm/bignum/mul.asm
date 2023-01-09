@@ -36,9 +36,7 @@ mul_helper_end:
 
 // Reduces a bignum with limbs possibly greater than 128 bits to a normalized bignum with length len + 1.
 mul_bignum_reduce_helper:
-    // stack: len, start_loc, retdest
-    %stack (vals: 2) -> (vals, 0)
-    // stack: n=len, i=start_loc, carry=0, retdest
+    // stack: n=len, i=start_loc, retdest
 reduce_loop:
     // stack: n, i, retdest
     DUP2
