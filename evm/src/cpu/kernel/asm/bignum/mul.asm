@@ -106,7 +106,7 @@ mul_loop:
     DUP8
     // stack: scratch_space, a_start_loc, len, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %memcpy_kernel_general
-    
+
     // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP6
     // stack: scratch_space, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
@@ -174,6 +174,5 @@ mul_return_3:
     %jump(mul_loop)
 mul_end:
     // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
-    STOP
     %stack (vals: 6) -> ()
     JUMP
