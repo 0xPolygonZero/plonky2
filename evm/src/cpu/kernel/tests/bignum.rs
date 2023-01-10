@@ -139,11 +139,6 @@ fn test_mul_bignum() -> Result<()> {
 
     let new_memory = interpreter.get_kernel_general_memory();
 
-    let a_start: usize = a_start_loc.try_into().unwrap();
-    let b_start: usize = b_start_loc.try_into().unwrap();
-    let out: usize = output_loc.try_into().unwrap();
-    let scratch: usize = scratch_space.try_into().unwrap();
-
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_product: Vec<_> =
         new_memory[output_location..output_location + expected_product.len()].into();
