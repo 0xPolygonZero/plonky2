@@ -96,73 +96,84 @@ reduce_end:
 global mul_bignum:
     // stack: len, a_start_loc, b_start_loc, output_loc, scratch_space, retdest
     DUP1
-    // stack: len, n=len, ai=a_start_loc, bi=b_start_loc, output_loc, scratch_space, retdest
+    // stack: len, n=len, a_start_loc, bi=b_start_loc, output_loc, scratch_space, retdest
 mul_loop:
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP1
-    // stack: len, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP4
-    // stack: ai, len, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: a_start_loc, len, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP8
-    // stack: scratch_space, ai, len, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, a_start_loc, len, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %memcpy_kernel_general
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    DUP6
+    // stack: scratch_space, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    %add_const(8)
+    // stack: scratch_space + 8, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    PUSH 0
+    SWAP1
+    // stack: scratch_space + 8, 0, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    %mstore_kernel_general
+
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     PUSH mul_return_1
-    // stack: mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: mul_return_1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP5
-    // stack: bi, mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: bi, mul_return_1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %mload_kernel_general
-    // stack: b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: b[i], mul_return_1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP8
-    // stack: scratch_space, b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, b[i], mul_return_1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP4
-    // stack: len, scratch_space, b[i], mul_return_1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, scratch_space, b[i], mul_return_1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %jump(mul_bignum_helper)
 mul_return_1:
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     PUSH mul_return_2
-    // stack: mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: mul_return_2, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP7
-    // stack: scratch_space, mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, mul_return_2, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP3
-    // stack: len, scratch_space, mul_return_2, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, scratch_space, mul_return_2, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %jump(mul_bignum_reduce_helper)
 mul_return_2:
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     PUSH mul_return_3
-    // stack: mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: mul_return_3, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP7
-    // stack: scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: scratch_space, mul_return_3, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP7
-    // stack: output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: output_loc, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP4
-    // stack: len, output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
-    %mul_const(2)
-    // stack: 2*len, output_loc, scratch_space, mul_return_3, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, output_loc, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    %add_const(2)
+    // stack: len + 2, output_loc, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %jump(add_bignum)
 mul_return_3:
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP5
-    // stack: output_loc, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: output_loc, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %increment
-    // stack: output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
-    DUP5
-    %increment
-    // stack: bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: output_loc+1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP5
     %increment
-    // stack: ai+1, bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: bi+1, output_loc+1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    DUP5
+    // stack: a_start_loc, bi+1, output_loc+1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     DUP5
     %decrement
-    // stack: n-1, ai+1, bi+1, output_loc+1, len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: n-1, a_start_loc, bi+1, output_loc+1, len, n, a_start_loc, bi, output_loc, scratch_space, retdest
     %stack (new: 4, len, old: 4) -> (len, new)
-    // stack: len, n-1, ai+1, bi+1, output_loc+1, scratch_space, retdest
+    // stack: len, n-1, a_start_loc, bi+1, output_loc+1, scratch_space, retdest
     DUP2
-    // stack: n-1, len, n-1, ai+1, bi+1, output_loc+1, scratch_space, retdest
+    // stack: n-1, len, n-1, a_start_loc, bi+1, output_loc+1, scratch_space, retdest
     ISZERO
     %jumpi(mul_end)
     %jump(mul_loop)
 mul_end:
-    // stack: len, n, ai, bi, output_loc, scratch_space, retdest
+    // stack: len, n, a_start_loc, bi, output_loc, scratch_space, retdest
+    STOP
     %stack (vals: 6) -> ()
     JUMP
