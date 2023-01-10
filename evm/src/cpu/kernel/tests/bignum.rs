@@ -120,8 +120,6 @@ fn test_mul_bignum() -> Result<()> {
     let output_loc = length * U256::from(2);
     let scratch_space = length * U256::from(4);
 
-    dbg!(a_start_loc, b_start_loc, output_loc, scratch_space);
-
     let retdest = 0xDEADBEEFu32.into();
     let mut initial_stack: Vec<U256> = vec![
         length,
@@ -139,22 +137,12 @@ fn test_mul_bignum() -> Result<()> {
 
     interpreter.run()?;
 
-    dbg!(interpreter.stack());
-
     let new_memory = interpreter.get_kernel_general_memory();
 
     let a_start: usize = a_start_loc.try_into().unwrap();
     let b_start: usize = b_start_loc.try_into().unwrap();
     let out: usize = output_loc.try_into().unwrap();
     let scratch: usize = scratch_space.try_into().unwrap();
-    println!("a:");
-    println!("{:?}", &new_memory[a_start..b_start]);
-    println!("b:");
-    println!("{:?}", &new_memory[b_start..out]);
-    println!("output:");
-    println!("{:?}", &new_memory[out..scratch]);
-    println!("scratch space:");
-    println!("{:?}", &new_memory[scratch..]);
 
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_product: Vec<_> =
