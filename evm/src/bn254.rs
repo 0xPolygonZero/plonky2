@@ -59,7 +59,7 @@ pub fn twisted_curve_generator() -> TwistedCurve {
     ]
 }
 
-const ZERO: Fp = U256([0, 0, 0, 0]);
+const ZERO: Fp = U256::zero();
 
 fn embed_fp2(x: Fp) -> Fp2 {
     [x, ZERO]
