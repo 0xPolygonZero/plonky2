@@ -5,10 +5,10 @@ use itertools::Itertools;
 use rand::{thread_rng, Rng};
 
 pub const BN_BASE: U256 = U256([
-    4332616871279656263,
-    10917124144477883021,
-    13281191951274694749,
-    3486998266802970665,
+    0x3c208c16d87cfd47,
+    0x97816a916871ca8d,
+    0xb85045b68181585d,
+    0x30644e72e131a029,
 ]);
 
 pub type Fp = U256;
