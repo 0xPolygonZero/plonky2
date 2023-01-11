@@ -39,7 +39,7 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     )))
 }
 
-/// Peak at the entire stack.
+/// Peek at the entire stack.
 pub(crate) fn stack_peeks<F: Field>(state: &GenerationState<F>) -> Option<Vec<U256>> {
     let n = state.registers.stack_len;
     let mut stack: Vec<U256> = vec![];
