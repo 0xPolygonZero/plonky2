@@ -94,7 +94,7 @@ fn test_mul_bignum() -> Result<()> {
     let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
 
     // Determine expected product.
-    let product = a.clone() * b.clone();
+    let product = a * b;
     let expected_product: Vec<U256> = biguint_to_le_limbs(product)
         .iter()
         .map(|&x| x.into())
