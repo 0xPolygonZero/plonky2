@@ -1075,4 +1075,3 @@ global return_fp12_on_stack:
     // stack: out
     %load_fp12
     %jump(0xdeadbeef)
-    
