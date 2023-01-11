@@ -114,7 +114,7 @@ fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
         keccak_stark::ctl_data(),
         Some(keccak_stark::ctl_filter()),
     );
-    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked, None)
+    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
 
 fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
@@ -128,7 +128,7 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
         keccak_sponge_stark::ctl_looked_data(),
         Some(keccak_sponge_stark::ctl_looked_filter()),
     );
-    CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked, None)
+    CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
@@ -148,7 +148,7 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     }
     let logic_looked =
         TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter()));
-    CrossTableLookup::new(all_lookers, logic_looked, None)
+    CrossTableLookup::new(all_lookers, logic_looked)
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
@@ -180,5 +180,5 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         memory_stark::ctl_data(),
         Some(memory_stark::ctl_filter()),
     );
-    CrossTableLookup::new(all_lookers, memory_looked, None)
+    CrossTableLookup::new(all_lookers, memory_looked)
 }

@@ -14,9 +14,7 @@ use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{
-    CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-};
+use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
@@ -107,10 +105,7 @@ where
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
     let pt = builder.add_virtual_proof_with_pis::<InnerC>(inner_cd);
 
-    let inner_data = VerifierCircuitTarget {
-        constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
-        circuit_digest: builder.add_virtual_hash(),
-    };
+    let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
 
     builder.verify_proof::<InnerC>(&pt, &inner_data, inner_cd);
     builder.print_gate_counts(0);

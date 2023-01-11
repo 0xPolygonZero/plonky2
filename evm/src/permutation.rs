@@ -15,9 +15,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
-use plonky2::plonk::plonk_common::{
-    reduce_with_powers, reduce_with_powers_circuit, reduce_with_powers_ext_circuit,
-};
+use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 
 use crate::config::StarkConfig;
@@ -81,15 +79,6 @@ impl GrandProductChallenge<Target> {
         let reduced = reduce_with_powers_ext_circuit(builder, terms, self.beta);
         let gamma = builder.convert_to_ext(self.gamma);
         builder.add_extension(reduced, gamma)
-    }
-
-    pub(crate) fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        terms: &[Target],
-    ) -> Target {
-        let reduced = reduce_with_powers_circuit(builder, terms, self.beta);
-        builder.add(reduced, self.gamma)
     }
 }
 

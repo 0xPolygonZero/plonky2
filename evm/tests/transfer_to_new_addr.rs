@@ -104,7 +104,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         expected_state_trie_after.calc_hash()
     );
 
-    verify_proof(all_stark, proof, &config)
+    verify_proof(&all_stark, proof, &config)
 }
 
 fn eth_to_wei(eth: U256) -> U256 {

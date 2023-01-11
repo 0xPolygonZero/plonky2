@@ -14,6 +14,7 @@ use crate::util::log2_strict;
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
+// TODO: Change H to GenericHashOut<F>, since this only cares about the hash, not the hasher.
 pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
 
 impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
