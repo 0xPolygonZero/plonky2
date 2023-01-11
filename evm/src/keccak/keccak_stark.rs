@@ -68,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
         let pad_rows = self.generate_trace_rows_for_perm([0; NUM_INPUTS]);
         while rows.len() < num_rows {
-            rows.extend(pad_rows);
+            rows.extend(pad_rows.clone());
         }
         rows.drain(num_rows..);
         rows
