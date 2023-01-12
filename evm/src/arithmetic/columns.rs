@@ -32,14 +32,11 @@ pub const IS_SUBMOD: usize = IS_ADDMOD + 1;
 pub const IS_MULMOD: usize = IS_SUBMOD + 1;
 pub const IS_LT: usize = IS_MULMOD + 1;
 pub const IS_GT: usize = IS_LT + 1;
-pub const IS_SHL: usize = IS_GT + 1;
-pub const IS_SHR: usize = IS_SHL + 1;
 
-pub(crate) const START_SHARED_COLS: usize = IS_SHR + 1;
+pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 
-pub(crate) const ALL_OPERATIONS: [usize; 12] = [
-    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD, IS_LT, IS_GT, IS_SHL,
-    IS_SHR,
+pub(crate) const ALL_OPERATIONS: [usize; 10] = [
+    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD, IS_LT, IS_GT,
 ];
 
 /// Within the Arithmetic Unit, there are shared columns which can be
