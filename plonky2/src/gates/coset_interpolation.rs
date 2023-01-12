@@ -75,7 +75,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> {
-    fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
+    pub(crate) fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
         assert!(max_degree > 1, "need at least quadratic constraints");
         // The highest power of x is `num_points - 1`, and then multiplication by the coefficient
         // adds 1.
@@ -575,7 +575,6 @@ mod tests {
     use plonky2_util::log2_strict;
 
     use super::*;
-    use crate::field::extension::quadratic::QuadraticExtension;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::types::{Field, Sample};
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -676,7 +675,6 @@ mod tests {
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(
-            gate: &CosetInterpolationGate<F, D>,
             shift: F,
             values: PolynomialValues<FF>,
             eval_point: FF,
@@ -721,7 +719,7 @@ mod tests {
         let gate = CosetInterpolationGate::<F, D>::with_max_degree(2, 3);
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(&gate, shift, values, eval_point),
+            local_wires: &get_wires(shift, values, eval_point),
             public_inputs_hash: &HashOut::rand(),
         };
 

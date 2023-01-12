@@ -82,12 +82,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// `evaluation_point`.
     pub(crate) fn interpolate_coset<G: InterpolationGate<F, D>>(
         &mut self,
-        subgroup_bits: usize,
+        gate: G,
         coset_shift: Target,
         values: &[ExtensionTarget<D>],
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = G::new(subgroup_bits);
         let row = self.add_gate(gate, vec![]);
         self.connect(coset_shift, Target::wire(row, gate.wire_shift()));
         for (i, &v) in values.iter().enumerate() {
@@ -109,7 +108,9 @@ mod tests {
     use crate::field::extension::FieldExtension;
     use crate::field::interpolation::interpolant;
     use crate::field::types::{Field, Sample};
+    use crate::gates::coset_interpolation::CosetInterpolationGate;
     use crate::gates::high_degree_interpolation::HighDegreeInterpolationGate;
+    use crate::gates::interpolation::InterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -154,21 +155,34 @@ mod tests {
 
         let zt = builder.constant_extension(z);
 
-        let eval_hd = builder.interpolate_coset::<HighDegreeInterpolationGate<F, D>>(
-            subgroup_bits,
+        let eval_hd = builder.interpolate_coset(
+            HighDegreeInterpolationGate::new(subgroup_bits),
             coset_shift_target,
             &value_targets,
             zt,
         );
-        let eval_ld = builder.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
-            subgroup_bits,
+        let eval_ld = builder.interpolate_coset(
+            LowDegreeInterpolationGate::new(subgroup_bits),
             coset_shift_target,
             &value_targets,
             zt,
         );
+        let evals_coset_gates = (2..=4)
+            .map(|max_degree| {
+                builder.interpolate_coset(
+                    CosetInterpolationGate::with_max_degree(subgroup_bits, max_degree),
+                    coset_shift_target,
+                    &value_targets,
+                    zt,
+                )
+            })
+            .collect::<Vec<_>>();
         let true_eval_target = builder.constant_extension(true_eval);
         builder.connect_extension(eval_hd, true_eval_target);
         builder.connect_extension(eval_ld, true_eval_target);
+        for &eval_coset_gate in evals_coset_gates.iter() {
+            builder.connect_extension(eval_coset_gate, true_eval_target);
+        }
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
