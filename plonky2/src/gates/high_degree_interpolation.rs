@@ -357,4 +357,15 @@ mod tests {
             "Gate constraints are not satisfied."
         );
     }
+
+    #[test]
+    fn test_num_wires_constraints() {
+        let gate = <HighDegreeInterpolationGate<GoldilocksField, 2>>::new(3);
+        assert_eq!(gate.num_wires(), 37);
+        assert_eq!(gate.num_constraints(), 18);
+
+        let gate = <HighDegreeInterpolationGate<GoldilocksField, 2>>::new(4);
+        assert_eq!(gate.num_wires(), 69);
+        assert_eq!(gate.num_constraints(), 34);
+    }
 }

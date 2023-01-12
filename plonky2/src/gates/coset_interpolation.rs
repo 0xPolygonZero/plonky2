@@ -779,4 +779,19 @@ mod tests {
             "Gate constraints are not satisfied."
         );
     }
+
+    #[test]
+    fn test_num_wires_constraints() {
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 8);
+        assert_eq!(gate.num_wires(), 47);
+        assert_eq!(gate.num_constraints(), 12);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 8);
+        assert_eq!(gate.num_wires(), 23);
+        assert_eq!(gate.num_constraints(), 4);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 16);
+        assert_eq!(gate.num_wires(), 39);
+        assert_eq!(gate.num_constraints(), 4);
+    }
 }
