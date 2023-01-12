@@ -2,6 +2,7 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Stores a * b % m in output_loc, leaving a, b, and m unchanged.
+// a, b, and m must have the same length.
 global modmul_bignum:
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, retdest
     
