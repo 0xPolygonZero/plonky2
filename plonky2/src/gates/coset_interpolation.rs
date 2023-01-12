@@ -77,9 +77,16 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
 impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> {
     pub(crate) fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
         assert!(max_degree > 1, "need at least quadratic constraints");
-        // The highest power of x is `num_points - 1`, and then multiplication by the coefficient
-        // adds 1.
-        let degree = (1 << subgroup_bits).min(max_degree);
+
+        let n_points = 1 << subgroup_bits;
+
+        // Number of intermediate values required to compute interpolation with degree bound
+        let n_intermediates = (n_points - 2) / (max_degree - 1);
+
+        // Find minimum degree such that (n_points - 2) / (degree - 1) < n_intermediates + 1
+        // Minimizing the degree this way allows the gate to be in a larger selector group
+        let degree = (n_points - 2) / (n_intermediates + 1) + 2;
+
         Self {
             subgroup_bits,
             degree,
@@ -580,6 +587,50 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    #[test]
+    fn test_degree_and_wires_minimized() {
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 2);
+        assert_eq!(gate.num_intermediates(), 6);
+        assert_eq!(gate.degree(), 2);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 3);
+        assert_eq!(gate.num_intermediates(), 3);
+        assert_eq!(gate.degree(), 3);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 4);
+        assert_eq!(gate.num_intermediates(), 2);
+        assert_eq!(gate.degree(), 4);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 5);
+        assert_eq!(gate.num_intermediates(), 1);
+        assert_eq!(gate.degree(), 5);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 6);
+        assert_eq!(gate.num_intermediates(), 1);
+        assert_eq!(gate.degree(), 5);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(3, 7);
+        assert_eq!(gate.num_intermediates(), 1);
+        assert_eq!(gate.degree(), 5);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 3);
+        assert_eq!(gate.num_intermediates(), 7);
+        assert_eq!(gate.degree(), 3);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 6);
+        assert_eq!(gate.num_intermediates(), 2);
+        assert_eq!(gate.degree(), 6);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 8);
+        assert_eq!(gate.num_intermediates(), 2);
+        assert_eq!(gate.degree(), 6);
+
+        let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 9);
+        assert_eq!(gate.num_intermediates(), 1);
+        assert_eq!(gate.degree(), 9);
+
+    }
 
     #[test]
     fn wire_indices_degree2() {
