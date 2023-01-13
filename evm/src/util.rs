@@ -165,6 +165,7 @@ pub(crate) fn biguint_to_le_u256s(x: BigUint) -> Vec<U256> {
             U256(
                 c.chunks(2)
                     .map(|cc| (cc[1] as u64) << 32 | cc[0] as u64)
+                    .pad_using(4, |_| 0)
                     .collect_vec()
                     .try_into()
                     .unwrap(),
