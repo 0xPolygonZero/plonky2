@@ -150,7 +150,8 @@ pub(crate) fn le_u256s_to_biguint(x: &[U256]) -> BigUint {
         &x.iter()
             .flat_map(|&a| {
                 a.0.iter()
-                    .flat_map(|b| [(b % (1 << 32)) as u32, (b >> 32) as u32]).collect_vec()
+                    .flat_map(|b| [(b % (1 << 32)) as u32, (b >> 32) as u32])
+                    .collect_vec()
             })
             .collect_vec(),
     )
