@@ -10,7 +10,7 @@ use crate::bn254::{
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
-fn make_label(lbl: &str) -> U256 {
+fn get_address_from_label(lbl: &str) -> U256 {
     U256::from(KERNEL.global_labels[lbl])
 }
 
@@ -42,11 +42,11 @@ fn make_mul_stack(f: Fp12, g: Fp12, mul_label: &str) -> Vec<U256> {
         vec![in1],
         fp12_to_vec(g),
         vec![
-            make_label(mul_label),
+            get_address_from_label(mul_label),
             in0,
             in1,
             out,
-            make_label("return_fp12_on_stack"),
+            get_address_from_label("return_fp12_on_stack"),
             out,
         ],
     ])
@@ -133,7 +133,7 @@ fn test_power() -> Result<()> {
     let stack = make_stack(vec![
         vec![ptr],
         fp12_to_vec(f),
-        vec![ptr, out, make_label("return_fp12_on_stack"), out],
+        vec![ptr, out, get_address_from_label("return_fp12_on_stack"), out],
     ]);
 
     let output: Vec<U256> = get_output("test_pow", stack);
@@ -155,7 +155,7 @@ fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
         vec![ptr],
         p_,
         q_,
-        vec![ptr, out, make_label("return_fp12_on_stack"), out],
+        vec![ptr, out, get_address_from_label("return_fp12_on_stack"), out],
     ])
 }
 
