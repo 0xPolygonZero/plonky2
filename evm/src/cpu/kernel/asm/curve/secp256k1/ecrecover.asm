@@ -80,19 +80,48 @@ ecrecover_valid_input:
 // precompute_table(Q) -- precomputation table for `Q`, stored in memory
 // return msm_with_wnaf([wnaf_a0, wnaf_a1, wnaf_b0, wnaf_b1], [G, phi(G), Q, phi(Q)]) -- phi is the Secp endomorphism.
 ecdsa_msm_with_glv:
-    // stack: a, b, Qx, Qy, retdest
-    PUSH ecdsa_after_precompute_base %jump(precompute_table_base_point)
-ecdsa_after_precompute_base:
-    // stack
     %stack (a, b, Qx, Qy, retdest) -> (a, ecdsa_after_glv_a, b, Qx, Qy, retdest)
     %jump(glv_decompose)
 ecdsa_after_glv_a:
-    // stack: a1neg, a0, a1, b, Qx, Qy, retdest
-    // Store a1neg at this (otherwise unused) location. Will be used later in the MSM.
-    %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G, 1337)
-    // stack: a0, a1, b, Qx, Qy, retdest
-    PUSH ecdsa_after_a0 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_A %jump(wnaf)
-ecdsa_after_a0:
+    %stack (a1neg, a0, a1, b, Qx, Qy, retdest) -> (b, ecdsa_after_glv_b, a1neg, a0, a1, Qx, Qy, retdest)
+    %jump(glv_decompose)
+ecdsa_after_glv_b:
+    %stack (b1neg, b0, b1, a1neg, a0, a1, Qx, Qy, retdest) -> (a1neg, b1neg, Qx, Qy, ecdsa_after_precompute, a0, a1, b0, b1, retdest)
+global wtf:
+    %jump(precompute_table_base_point)
+ecdsa_after_precompute:
+    // stack: a0, a1, b0, b1, retdest
+    PUSH 0 PUSH 0 PUSH 129
+    // stack: i, accx, accy, a0, a1, b0, b1, retdest
+ecdsa_after_precompute_loop:
+    %stack (i, accx, accy, a0, a1, b0, b1, retdest) -> (i, b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, a0, bit_a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %mul_const(2) ADD %mul_const(2) ADD %mul_const(2) ADD
+    %stack (index, i, accx, accy, a0, a1, b0, b1, retdest) -> (index, index, i, accx, accy, a0, a1, b0, b1, retdest)
+    %mul_const(2) %add_const(1)
+    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+    SWAP1 %mul_const(2)
+    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+    %stack (Px, Py, i, accx, accy, a0, a1, b0, b1, retdest) -> (Px, Py, accx, accy, ecdsa_after_precompute_loop_contd, i, a0, a1, b0, b1, retdest)
+    %jump(ec_add_valid_points_secp)
+ecdsa_after_precompute_loop_contd:
+    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest)
+    ISZERO %jumpi(ecdsa_after_precompute_loop_end)
+    %jump(ec_double_secp)
+ecdsa_after_precompute_loop_contd2:
+    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, a0, a1, b0, b1, retdest)
+    %decrement %jump(ecdsa_after_precompute_loop)
+ecdsa_after_precompute_loop_end:
+    %stack (accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest) -> (retdest, accx, accy)
+    JUMP
+
+/* ecdsa_after_a0:
     // stack: a1, b, Qx, Qy, retdest
     PUSH ecdsa_after_a1 SWAP1 PUSH @SEGMENT_KERNEL_WNAF_B %jump(wnaf)
 ecdsa_after_a1:
@@ -115,7 +144,7 @@ ecdsa_after_precompute:
     // stack: retdest
     %jump(ecdsa_msm)
     %stack (accx, accy, retdest) -> (retdest, accx, accy)
-    JUMP
+    JUMP */
 
 
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
