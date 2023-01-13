@@ -130,7 +130,7 @@ impl<F: Field> GenerationState<F> {
     }
 
     fn bignum_modmul_remainder(
-        &self,
+        &mut self,
         len: usize,
         a_start_loc: usize,
         b_start_loc: usize,
@@ -157,7 +157,7 @@ impl<F: Field> GenerationState<F> {
     }
 
     fn bignum_modmul_quotient(
-        &self,
+        &mut self,
         len: usize,
         a_start_loc: usize,
         b_start_loc: usize,
