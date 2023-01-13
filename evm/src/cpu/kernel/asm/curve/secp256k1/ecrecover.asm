@@ -87,7 +87,7 @@ ecdsa_after_glv_a:
     %jump(glv_decompose)
 ecdsa_after_glv_b:
     %stack (b1neg, b0, b1, a1neg, a0, a1, Qx, Qy, retdest) -> (a1neg, b1neg, Qx, Qy, ecdsa_after_precompute, a0, a1, b0, b1, retdest)
-global wtf:
+global wth:
     %jump(precompute_table_base_point)
 ecdsa_after_precompute:
     // stack: a0, a1, b0, b1, retdest
@@ -108,6 +108,7 @@ ecdsa_after_precompute_loop:
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
     SWAP1 %mul_const(2)
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE_G)
+global wtf:
     %stack (Px, Py, i, accx, accy, a0, a1, b0, b1, retdest) -> (Px, Py, accx, accy, ecdsa_after_precompute_loop_contd, i, a0, a1, b0, b1, retdest)
     %jump(ec_add_valid_points_secp)
 ecdsa_after_precompute_loop_contd:
