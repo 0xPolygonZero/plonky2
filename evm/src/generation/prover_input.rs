@@ -74,7 +74,7 @@ impl<F: Field> GenerationState<F> {
             "ext_11" => 11,
             _ => panic!("out of bounds")
         };
-        field.ext_inv(n, xs)
+        field.inverse_fp12(n, xs)
     }
 
     /// MPT data.
@@ -195,7 +195,7 @@ impl EvmField {
         modexp(x, q, n)
     }
 
-    fn ext_inv(&self, n: usize, xs: Vec<U256>) -> U256 {
+    fn inverse_fp12(&self, n: usize, xs: Vec<U256>) -> U256 {
         let offset = 12 - n;
         let vec: Vec<U256> = xs[offset..].to_vec();
         let f = fp12_to_array(inv_fp12(vec_to_fp12(vec)));
