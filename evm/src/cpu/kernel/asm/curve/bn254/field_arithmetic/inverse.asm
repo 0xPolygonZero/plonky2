@@ -54,18 +54,18 @@ global check_inv:
     JUMP
 
 %macro prover_inv_fp12
-    PROVER_INPUT(ffe::bn254_base::ext_11)
-    PROVER_INPUT(ffe::bn254_base::ext_10)
-    PROVER_INPUT(ffe::bn254_base::ext_9)
-    PROVER_INPUT(ffe::bn254_base::ext_8)
-    PROVER_INPUT(ffe::bn254_base::ext_7)
-    PROVER_INPUT(ffe::bn254_base::ext_6)
-    PROVER_INPUT(ffe::bn254_base::ext_5)
-    PROVER_INPUT(ffe::bn254_base::ext_4)
-    PROVER_INPUT(ffe::bn254_base::ext_3)
-    PROVER_INPUT(ffe::bn254_base::ext_2)
-    PROVER_INPUT(ffe::bn254_base::ext_1)
-    PROVER_INPUT(ffe::bn254_base::ext_0)
+    PROVER_INPUT(ffe::bn254_base::component_11)
+    PROVER_INPUT(ffe::bn254_base::component_10)
+    PROVER_INPUT(ffe::bn254_base::component_9)
+    PROVER_INPUT(ffe::bn254_base::component_8)
+    PROVER_INPUT(ffe::bn254_base::component_7)
+    PROVER_INPUT(ffe::bn254_base::component_6)
+    PROVER_INPUT(ffe::bn254_base::component_5)
+    PROVER_INPUT(ffe::bn254_base::component_4)
+    PROVER_INPUT(ffe::bn254_base::component_3)
+    PROVER_INPUT(ffe::bn254_base::component_2)
+    PROVER_INPUT(ffe::bn254_base::component_1)
+    PROVER_INPUT(ffe::bn254_base::component_0)
 %endmacro
 
 %macro assert_eq_unit_fp12
