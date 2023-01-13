@@ -25,7 +25,7 @@ use crate::arithmetic::sub::u256_sub_br;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], op: usize) {
     let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
     let input1 = read_value_u64_limbs(lv, CMP_INPUT_1);
 

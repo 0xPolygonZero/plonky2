@@ -35,10 +35,6 @@ pub const IS_GT: usize = IS_LT + 1;
 
 pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 
-pub(crate) const ALL_OPERATIONS: [usize; 10] = [
-    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_SUBMOD, IS_MULMOD, IS_LT, IS_GT,
-];
-
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.
@@ -121,7 +117,9 @@ pub(crate) const DIV_OUTPUT: Range<usize> =
 
 // Need one column for the table, then two columns for every value
 // that needs to be range checked in the trace, namely the permutation
-// of the column and the permutation of the range. The two permutations associated to column i will be in columns RC_COLS[2i] and RC_COLS[2i+1].
+// of the column and the permutation of the range. The two
+// permutations associated to column i will be in columns RC_COLS[2i]
+// and RC_COLS[2i+1].
 //
 // FIXME: Not all columns need a range check for each operation; need
 // a way to signal when a column is checked, or to ensure unused

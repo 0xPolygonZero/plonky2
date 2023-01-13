@@ -190,8 +190,8 @@ fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
 /// NB: `operation` can set the higher order elements in its result to
 /// zero if they are not used.
 fn generate_modular_op<F: RichField>(
-    lv: &mut [F; NUM_ARITH_COLUMNS],
-    nv: &mut [F; NUM_ARITH_COLUMNS],
+    lv: &mut [F],
+    nv: &mut [F],
     filter: usize,
     operation: fn([i64; N_LIMBS], [i64; N_LIMBS]) -> [i64; 2 * N_LIMBS - 1],
 ) {
@@ -288,11 +288,8 @@ fn generate_modular_op<F: RichField>(
 /// Generate the output and auxiliary values for modular operations.
 ///
 /// `filter` must be one of `columns::IS_{ADDMOD,MULMOD,MOD}`.
-pub(crate) fn generate<F: RichField>(
-    lv: &mut [F; NUM_ARITH_COLUMNS],
-    nv: &mut [F; NUM_ARITH_COLUMNS],
-    filter: usize,
-) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], nv: &mut [F], filter: usize) {
+    debug_assert!(lv.len() == NUM_ARITH_COLUMNS && nv.len() == NUM_ARITH_COLUMNS);
     match filter {
         columns::IS_ADDMOD => generate_modular_op(lv, nv, filter, pol_add),
         columns::IS_SUBMOD => generate_modular_op(lv, nv, filter, pol_sub),

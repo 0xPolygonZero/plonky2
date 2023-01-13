@@ -65,7 +65,7 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+pub fn generate<F: RichField>(lv: &mut [F]) {
     let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
     let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
 

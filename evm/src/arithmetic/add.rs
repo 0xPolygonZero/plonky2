@@ -103,7 +103,7 @@ where
     cy
 }
 
-pub fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS]) {
+pub fn generate<F: RichField>(lv: &mut [F]) {
     let input0 = read_value_u64_limbs(lv, ADD_INPUT_0);
     let input1 = read_value_u64_limbs(lv, ADD_INPUT_1);
 
