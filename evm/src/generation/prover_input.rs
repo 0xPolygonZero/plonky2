@@ -72,7 +72,7 @@ impl<F: Field> GenerationState<F> {
             "ext_9" => 9,
             "ext_10" => 10,
             "ext_11" => 11,
-            _ => panic!("out of bounds")
+            _ => panic!("out of bounds"),
         };
         field.inverse_fp12(n, xs)
     }

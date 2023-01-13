@@ -133,7 +133,12 @@ fn test_power() -> Result<()> {
     let stack = make_stack(vec![
         vec![ptr],
         fp12_to_vec(f),
-        vec![ptr, out, get_address_from_label("return_fp12_on_stack"), out],
+        vec![
+            ptr,
+            out,
+            get_address_from_label("return_fp12_on_stack"),
+            out,
+        ],
     ]);
 
     let output: Vec<U256> = get_output("test_pow", stack);
@@ -155,7 +160,12 @@ fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
         vec![ptr],
         p_,
         q_,
-        vec![ptr, out, get_address_from_label("return_fp12_on_stack"), out],
+        vec![
+            ptr,
+            out,
+            get_address_from_label("return_fp12_on_stack"),
+            out,
+        ],
     ])
 }
 
