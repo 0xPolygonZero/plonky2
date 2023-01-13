@@ -141,7 +141,6 @@ mod secp {
     use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
     use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
     use crate::cpu::kernel::tests::u256ify;
-    use crate::memory::segments::Segment;
 
     #[test]
     fn test_ec_ops() -> Result<()> {
