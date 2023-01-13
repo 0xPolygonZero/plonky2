@@ -134,3 +134,55 @@ fn test_mul_bignum() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_modmul_bignum() -> Result<()> {
+    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
+
+    // Determine expected result.
+    let result = a * b;
+    let expected_result: Vec<U256> = biguint_to_le_limbs(result)
+        .iter()
+        .map(|&x| x.into())
+        .collect();
+
+    // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
+    let output_loc = length * U256::from(2);
+    let scratch_1 = length * U256::from(3);
+    let scratch_2 = length * U256::from(4);
+    let scratch_3 = length * U256::from(6);
+    let scratch_4 = length * U256::from(8);
+
+    // Prepare stack.
+    let retdest = 0xDEADBEEFu32.into();
+    let mut initial_stack: Vec<U256> = vec![
+        length,
+        a_start_loc,
+        b_start_loc,
+        output_loc,
+        scratch_1,
+        scratch_2,
+        scratch_3,
+        scratch_4,
+        retdest,
+    ];
+    initial_stack.reverse();
+
+    // Prepare interpreter.
+    let modmul_bignum = KERNEL.global_labels["modmul_bignum"];
+    let mut interpreter = Interpreter::new_with_kernel(modmul_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
+
+    // Run modmul function.
+    interpreter.run()?;
+
+    // Determine actual result.
+    let new_memory = interpreter.get_kernel_general_memory();
+    let output_location: usize = output_loc.try_into().unwrap();
+    let actual_result: Vec<_> =
+        new_memory[output_location..output_location + expected_result.len()].into();
+
+    assert_eq!(actual_result, expected_result);
+
+    Ok(())
+}
