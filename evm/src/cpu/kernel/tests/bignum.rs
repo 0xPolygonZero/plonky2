@@ -30,7 +30,9 @@ fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, U256, U256, 
     (a, b, length, a_start_loc, b_start_loc, memory)
 }
 
-fn prepare_three_bignums(bit_size: usize) -> (BigUint, BigUint, BigUint, U256, U256, U256, U256, Vec<U256>) {
+fn prepare_three_bignums(
+    bit_size: usize,
+) -> (BigUint, BigUint, BigUint, U256, U256, U256, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
     let (a, b) = {
         let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
@@ -54,7 +56,16 @@ fn prepare_three_bignums(bit_size: usize) -> (BigUint, BigUint, BigUint, U256, U
     let b_start_loc = length;
     let m_start_loc = length * 2;
 
-    (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory)
+    (
+        a,
+        b,
+        m,
+        length,
+        a_start_loc,
+        b_start_loc,
+        m_start_loc,
+        memory,
+    )
 }
 
 #[test]
@@ -164,7 +175,8 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory) = prepare_three_bignums(1000);
+    let (a, b, _m, length, a_start_loc, b_start_loc, _m_start_loc, memory) =
+        prepare_three_bignums(1000);
 
     // Determine expected result.
     let result = a * b;
