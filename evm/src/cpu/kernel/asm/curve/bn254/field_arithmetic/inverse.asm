@@ -29,17 +29,17 @@ global test_inv_fp12:
     %jump(inv_fp12)
 
 global inv_fp12:
-    // stack:                 ptr, inv, retdest
+    // stack:                ptr, inv, retdest
     DUP1  %load_fp12
-    // stack:              f, ptr, inv, retdest
+    // stack:             f, ptr, inv, retdest
     DUP14
-    // stack:         inv, f, ptr, inv, retdest
+    // stack:        inv, f, ptr, inv, retdest
     %prover_inv_fp12
-    // stack:   f^-1, inv, f, ptr, inv, retdest
+    // stack:  f^-1, inv, f, ptr, inv, retdest
     DUP13  %store_fp12
-    // stack:         inv, f, ptr, inv, retdest
+    // stack:        inv, f, ptr, inv, retdest
     POP  %pop4  %pop4  %pop4
-    // stack:                 ptr, inv, retdest
+    // stack:                ptr, inv, retdest
     PUSH 50  PUSH check_inv
     // stack: check_inv, 50, ptr, inv, retdest 
     SWAP3  SWAP1  SWAP2
@@ -54,18 +54,18 @@ global check_inv:
     JUMP
 
 %macro prover_inv_fp12
-    PROVER_INPUT(ffe::bn254_base::ext_inv11)
-    PROVER_INPUT(ffe::bn254_base::ext_inv10)
-    PROVER_INPUT(ffe::bn254_base::ext_inv9)
-    PROVER_INPUT(ffe::bn254_base::ext_inv8)
-    PROVER_INPUT(ffe::bn254_base::ext_inv7)
-    PROVER_INPUT(ffe::bn254_base::ext_inv6)
-    PROVER_INPUT(ffe::bn254_base::ext_inv5)
-    PROVER_INPUT(ffe::bn254_base::ext_inv4)
-    PROVER_INPUT(ffe::bn254_base::ext_inv3)
-    PROVER_INPUT(ffe::bn254_base::ext_inv2)
-    PROVER_INPUT(ffe::bn254_base::ext_inv1)
-    PROVER_INPUT(ffe::bn254_base::ext_inv0)
+    PROVER_INPUT(ffe::bn254_base::ext_11)
+    PROVER_INPUT(ffe::bn254_base::ext_10)
+    PROVER_INPUT(ffe::bn254_base::ext_9)
+    PROVER_INPUT(ffe::bn254_base::ext_8)
+    PROVER_INPUT(ffe::bn254_base::ext_7)
+    PROVER_INPUT(ffe::bn254_base::ext_6)
+    PROVER_INPUT(ffe::bn254_base::ext_5)
+    PROVER_INPUT(ffe::bn254_base::ext_4)
+    PROVER_INPUT(ffe::bn254_base::ext_3)
+    PROVER_INPUT(ffe::bn254_base::ext_2)
+    PROVER_INPUT(ffe::bn254_base::ext_1)
+    PROVER_INPUT(ffe::bn254_base::ext_0)
 %endmacro
 
 %macro assert_eq_unit_fp12

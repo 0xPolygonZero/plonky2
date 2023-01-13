@@ -7,10 +7,6 @@ use crate::bn254::{fp12_to_array, inv_fp12, vec_to_fp12};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
-use crate::generation::prover_input::FieldExtOp::{
-    ExtInv0, ExtInv1, ExtInv10, ExtInv11, ExtInv2, ExtInv3, ExtInv4, ExtInv5, ExtInv6, ExtInv7,
-    ExtInv8, ExtInv9,
-};
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
 use crate::witness::util::{stack_peek, stack_peeks};
@@ -60,9 +56,25 @@ impl<F: Field> GenerationState<F> {
     /// Finite field extension operations.
     fn run_ffe(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let op = FieldExtOp::from_str(input_fn.0[2].as_str()).unwrap();
+        let component = input_fn.0[2].as_str();
         let xs = stack_peeks(self).expect("Empty stack");
-        field.extop(op, xs)
+        // TODO: This sucks... come back later
+        let n = match component {
+            "ext_0" => 0,
+            "ext_1" => 1,
+            "ext_2" => 2,
+            "ext_3" => 3,
+            "ext_4" => 4,
+            "ext_5" => 5,
+            "ext_6" => 6,
+            "ext_7" => 7,
+            "ext_8" => 8,
+            "ext_9" => 9,
+            "ext_10" => 10,
+            "ext_11" => 11,
+            _ => panic!("out of bounds")
+        };
+        field.ext_inv(n, xs)
     }
 
     /// MPT data.
@@ -114,21 +126,6 @@ enum FieldOp {
     Sqrt,
 }
 
-enum FieldExtOp {
-    ExtInv0,
-    ExtInv1,
-    ExtInv2,
-    ExtInv3,
-    ExtInv4,
-    ExtInv5,
-    ExtInv6,
-    ExtInv7,
-    ExtInv8,
-    ExtInv9,
-    ExtInv10,
-    ExtInv11,
-}
-
 impl FromStr for EvmField {
     type Err = ();
 
@@ -151,28 +148,6 @@ impl FromStr for FieldOp {
             "inverse" => Inverse,
             "sqrt" => Sqrt,
             _ => panic!("Unrecognized field operation."),
-        })
-    }
-}
-
-impl FromStr for FieldExtOp {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "ext_inv0" => ExtInv0,
-            "ext_inv1" => ExtInv1,
-            "ext_inv2" => ExtInv2,
-            "ext_inv3" => ExtInv3,
-            "ext_inv4" => ExtInv4,
-            "ext_inv5" => ExtInv5,
-            "ext_inv6" => ExtInv6,
-            "ext_inv7" => ExtInv7,
-            "ext_inv8" => ExtInv8,
-            "ext_inv9" => ExtInv9,
-            "ext_inv10" => ExtInv10,
-            "ext_inv11" => ExtInv11,
-            _ => panic!("Unrecognized field extension operation."),
         })
     }
 }
@@ -200,23 +175,6 @@ impl EvmField {
         match op {
             FieldOp::Inverse => self.inverse(x),
             FieldOp::Sqrt => self.sqrt(x),
-        }
-    }
-
-    fn extop(&self, op: FieldExtOp, xs: Vec<U256>) -> U256 {
-        match op {
-            FieldExtOp::ExtInv0 => self.ext_inv(0, xs),
-            FieldExtOp::ExtInv1 => self.ext_inv(1, xs),
-            FieldExtOp::ExtInv2 => self.ext_inv(2, xs),
-            FieldExtOp::ExtInv3 => self.ext_inv(3, xs),
-            FieldExtOp::ExtInv4 => self.ext_inv(4, xs),
-            FieldExtOp::ExtInv5 => self.ext_inv(5, xs),
-            FieldExtOp::ExtInv6 => self.ext_inv(6, xs),
-            FieldExtOp::ExtInv7 => self.ext_inv(7, xs),
-            FieldExtOp::ExtInv8 => self.ext_inv(8, xs),
-            FieldExtOp::ExtInv9 => self.ext_inv(9, xs),
-            FieldExtOp::ExtInv10 => self.ext_inv(10, xs),
-            FieldExtOp::ExtInv11 => self.ext_inv(11, xs),
         }
     }
 
