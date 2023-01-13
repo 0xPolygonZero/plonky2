@@ -59,14 +59,14 @@ pub fn twisted_curve_generator() -> TwistedCurve {
     ]
 }
 
-const ZERO: Fp = U256::zero();
+const FP_ZERO: Fp = U256::zero();
 
 fn embed_fp2(x: Fp) -> Fp2 {
-    [x, ZERO]
+    [x, FP_ZERO]
 }
 
 fn embed_fp2_fp6(a: Fp2) -> Fp6 {
-    [a, embed_fp2(ZERO), embed_fp2(ZERO)]
+    [a, embed_fp2(FP_ZERO), embed_fp2(FP_ZERO)]
 }
 
 fn embed_fp6(x: Fp) -> Fp6 {
@@ -74,7 +74,7 @@ fn embed_fp6(x: Fp) -> Fp6 {
 }
 
 fn embed_fp12(x: Fp) -> Fp12 {
-    [embed_fp6(x), embed_fp6(ZERO)]
+    [embed_fp6(x), embed_fp6(FP_ZERO)]
 }
 
 fn gen_fp() -> Fp {
@@ -200,7 +200,7 @@ fn sub_fp6(c: Fp6, d: Fp6) -> Fp6 {
 }
 
 fn neg_fp6(a: Fp6) -> Fp6 {
-    sub_fp6(embed_fp6(ZERO), a)
+    sub_fp6(embed_fp6(FP_ZERO), a)
 }
 
 fn mul_fp6(c: Fp6, d: Fp6) -> Fp6 {
@@ -232,8 +232,8 @@ fn sh(c: Fp6) -> Fp6 {
 
 fn sparse_embed(g0: Fp, g1: Fp2, g2: Fp2) -> Fp12 {
     [
-        [embed_fp2(g0), g1, embed_fp2(ZERO)],
-        [embed_fp2(ZERO), g2, embed_fp2(ZERO)],
+        [embed_fp2(g0), g1, embed_fp2(FP_ZERO)],
+        [embed_fp2(FP_ZERO), g2, embed_fp2(FP_ZERO)],
     ]
 }
 
