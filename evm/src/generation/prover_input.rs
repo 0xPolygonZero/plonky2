@@ -117,10 +117,10 @@ impl<F: Field> GenerationState<F> {
             .unwrap();
 
         match function {
-            "modmul_remainder" => {
+            "remainder" => {
                 self.bignum_modmul_remainder(len, a_start_loc, b_start_loc, m_start_loc, output_loc)
             }
-            "modmul_quotient" => {
+            "quotient" => {
                 self.bignum_modmul_quotient(len, a_start_loc, b_start_loc, m_start_loc, output_loc)
             }
             _ => panic!("Invalid prover input function."),
