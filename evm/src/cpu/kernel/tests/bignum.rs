@@ -7,11 +7,11 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::biguint_to_le_limbs;
 
-fn prepare_bignums() -> (BigUint, BigUint, U256, U256, U256, Vec<U256>) {
+fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, U256, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
     let (a, b) = {
-        let a = rng.gen_bigint(1000).abs().to_biguint().unwrap();
-        let b = rng.gen_bigint(1000).abs().to_biguint().unwrap();
+        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
         (a.clone().max(b.clone()), a.min(b))
     };
 
@@ -30,9 +30,36 @@ fn prepare_bignums() -> (BigUint, BigUint, U256, U256, U256, Vec<U256>) {
     (a, b, length, a_start_loc, b_start_loc, memory)
 }
 
+fn prepare_three_bignums(bit_size: usize) -> (BigUint, BigUint, BigUint, U256, U256, U256, U256, Vec<U256>) {
+    let mut rng = rand::thread_rng();
+    let (a, b) = {
+        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        (a.clone().max(b.clone()), a.min(b))
+    };
+
+    let m = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+
+    let a_limbs = biguint_to_le_limbs(a.clone());
+    let b_limbs = biguint_to_le_limbs(b.clone());
+    let m_limbs = biguint_to_le_limbs(m.clone());
+    let length: U256 = a_limbs.len().max(m_limbs.len()).into();
+
+    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]]
+        .concat()
+        .iter()
+        .map(|&x| x.into())
+        .collect();
+    let a_start_loc = 0.into();
+    let b_start_loc = length;
+    let m_start_loc = length * 2;
+
+    (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory)
+}
+
 #[test]
 fn test_ge_bignum() -> Result<()> {
-    let (_a, _b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
+    let (_a, _b, length, a_start_loc, b_start_loc, memory) = prepare_two_bignums(1000);
 
     let retdest = 0xDEADBEEFu32.into();
     let ge_bignum = KERNEL.global_labels["ge_bignum"];
@@ -60,7 +87,7 @@ fn test_ge_bignum() -> Result<()> {
 
 #[test]
 fn test_add_bignum() -> Result<()> {
-    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
+    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_two_bignums(1000);
 
     // Determine expected sum.
     let sum = a + b;
@@ -91,7 +118,7 @@ fn test_add_bignum() -> Result<()> {
 
 #[test]
 fn test_mul_bignum() -> Result<()> {
-    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
+    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_two_bignums(1000);
 
     // Determine expected product.
     let product = a * b;
@@ -137,7 +164,7 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, length, a_start_loc, b_start_loc, memory) = prepare_bignums();
+    let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory) = prepare_three_bignums(1000);
 
     // Determine expected result.
     let result = a * b;
