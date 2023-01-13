@@ -249,7 +249,7 @@ global ec_double:
     // stack: retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     // stack: u256::MAX, retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    DUP1
     // stack: u256::MAX, u256::MAX, retdest
     SWAP2
     // stack: retdest, u256::MAX, u256::MAX
