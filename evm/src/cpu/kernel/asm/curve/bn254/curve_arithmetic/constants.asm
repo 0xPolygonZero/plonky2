@@ -1,3 +1,12 @@
+/// the following is defined by
+/// (1) taking the binary expansion of N254, the order of the elliptic curve group
+/// (2) popping the first and last elements, then appending a 0:
+///     exp = bin(N254)[1:-1] + [0]
+/// (3) counting the lengths of runs of 1s then 0s in exp, e.g.
+///     if exp = 1100010011110, then EXP = [(2,3), (1,2), (4,1)]
+/// (4) encoding each pair (n,m) as 0xnm:
+///     miller_data = [(0x20)n + m for (n,m) in EXP]
+
 global miller_data:
     BYTES 0xdc, 0x22, 0x42, 0x21
     BYTES 0xa1, 0xa4, 0x24, 0x21
