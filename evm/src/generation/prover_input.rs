@@ -10,7 +10,7 @@ use crate::generation::prover_input::EvmField::{
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::util::{biguint_to_le_u256s, le_u256s_to_biguint};
+use crate::util::{biguint_to_le_u128_limbs, le_u128_limbs_to_biguint};
 use crate::witness::util::stack_peek;
 
 /// Prover input function represented as a scoped function name.
@@ -138,24 +138,27 @@ impl<F: Field> GenerationState<F> {
         output_loc: usize,
     ) {
         let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [a_start_loc..a_start_loc + len];
+        [a_start_loc..a_start_loc + len];
         let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [b_start_loc..b_start_loc + len];
+        [b_start_loc..b_start_loc + len];
         let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [m_start_loc..m_start_loc + len];
-
-        let a_biguint = le_u256s_to_biguint(a);
-        let b_biguint = le_u256s_to_biguint(b);
-        let m_biguint = le_u256s_to_biguint(m);
-
+        [m_start_loc..m_start_loc + len];
+        
+        dbg!(a.clone());
+        dbg!(b.clone());
+        dbg!(m.clone());
+        let a_biguint = le_u128_limbs_to_biguint(a);
+        let b_biguint = le_u128_limbs_to_biguint(b);
+        let m_biguint = le_u128_limbs_to_biguint(m);
+        
         let result_biguint = (a_biguint * b_biguint) % m_biguint;
-        let result = biguint_to_le_u256s(result_biguint);
-
+        let result = biguint_to_le_u128_limbs(result_biguint);
+        
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
-            .content
-            .splice(output_loc..output_loc + len, result.iter().cloned());
+        .content
+        .splice(output_loc..output_loc + len, result.iter().cloned());
     }
-
+    
     fn bignum_modmul_quotient(
         &mut self,
         len: usize,
@@ -171,12 +174,12 @@ impl<F: Field> GenerationState<F> {
         let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
             [m_start_loc..m_start_loc + len];
 
-        let a_biguint = le_u256s_to_biguint(a);
-        let b_biguint = le_u256s_to_biguint(b);
-        let m_biguint = le_u256s_to_biguint(m);
+        let a_biguint = le_u128_limbs_to_biguint(a);
+        let b_biguint = le_u128_limbs_to_biguint(b);
+        let m_biguint = le_u128_limbs_to_biguint(m);
 
         let result_biguint = (a_biguint * b_biguint) / m_biguint;
-        let result = biguint_to_le_u256s(result_biguint);
+        let result = biguint_to_le_u128_limbs(result_biguint);
 
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
             .content

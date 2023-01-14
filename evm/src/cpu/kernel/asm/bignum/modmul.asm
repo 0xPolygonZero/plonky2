@@ -11,9 +11,11 @@ global modmul_bignum:
     PROVER_INPUT(bignum_modmul::remainder)
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     %stack (init: 4, out, scratch) -> (init, scratch, out)
+    POP // PROVER_INPUT adds a dummy 0 value
     // stack: length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
     // The prover stores k := (a * b) / m in scratch_1.
     PROVER_INPUT(bignum_modmul::quotient)
+    POP // PROVER_INPUT adds a dummy 0 value
     // stack: length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
 
     // Verification step 1: calculate x + k * m.

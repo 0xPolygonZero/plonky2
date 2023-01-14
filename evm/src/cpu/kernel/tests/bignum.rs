@@ -43,9 +43,11 @@ fn prepare_three_bignums(
     let m = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
 
     let a_limbs = biguint_to_le_limbs(a.clone());
-    let b_limbs = biguint_to_le_limbs(b.clone());
-    let m_limbs = biguint_to_le_limbs(m.clone());
+    let mut b_limbs = biguint_to_le_limbs(b.clone());
+    let mut m_limbs = biguint_to_le_limbs(m.clone());
     let length: U256 = a_limbs.len().max(m_limbs.len()).into();
+    b_limbs.resize(length.as_usize(), 0);
+    m_limbs.resize(length.as_usize(), 0);
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]]
         .concat()
@@ -175,11 +177,11 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, _m, length, a_start_loc, b_start_loc, _m_start_loc, memory) =
+    let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory) =
         prepare_three_bignums(1000);
 
     // Determine expected result.
-    let result = a * b;
+    let result = (a * b) % m;
     let expected_result: Vec<U256> = biguint_to_le_limbs(result)
         .iter()
         .map(|&x| x.into())
@@ -198,6 +200,7 @@ fn test_modmul_bignum() -> Result<()> {
         length,
         a_start_loc,
         b_start_loc,
+        m_start_loc,
         output_loc,
         scratch_1,
         scratch_2,
@@ -210,7 +213,7 @@ fn test_modmul_bignum() -> Result<()> {
     // Prepare interpreter.
     let modmul_bignum = KERNEL.global_labels["modmul_bignum"];
     let mut interpreter = Interpreter::new_with_kernel(modmul_bignum, initial_stack);
-    interpreter.set_kernel_general_memory(memory);
+    interpreter.set_kernel_general_memory(memory.clone());
 
     // Run modmul function.
     interpreter.run()?;
