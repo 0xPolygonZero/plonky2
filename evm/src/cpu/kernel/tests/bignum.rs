@@ -213,7 +213,7 @@ fn test_modmul_bignum() -> Result<()> {
     // Prepare interpreter.
     let modmul_bignum = KERNEL.global_labels["modmul_bignum"];
     let mut interpreter = Interpreter::new_with_kernel(modmul_bignum, initial_stack);
-    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.set_kernel_general_memory(memory);
 
     // Run modmul function.
     interpreter.run()?;
