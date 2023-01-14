@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::bail, Error;
+use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
