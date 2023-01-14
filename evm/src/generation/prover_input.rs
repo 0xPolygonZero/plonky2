@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{bail, Error};
+use anyhow::bail, Error;
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
@@ -9,6 +9,8 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
+use crate::memory::segments::Segment;
+use crate::util::{biguint_to_le_u256s, le_u256s_to_biguint};
 use crate::witness::util::stack_peek;
 
 /// Prover input function represented as a scoped function name.
@@ -30,6 +32,7 @@ impl<F: Field> GenerationState<F> {
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "account_code" => self.run_account_code(input_fn),
+            "bignum_modmul" => self.run_bignum_modmul(input_fn),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -86,6 +89,98 @@ impl<F: Field> GenerationState<F> {
             }
             _ => panic!("Invalid prover input function."),
         }
+    }
+
+    // Bignum-related code.
+    fn run_bignum_modmul(&mut self, input_fn: &ProverInputFn) -> U256 {
+        let function = input_fn.0[1].as_str();
+
+        let len = stack_peek(self, 0)
+            .expect("Stack does not have enough items")
+            .try_into()
+            .unwrap();
+        let a_start_loc = stack_peek(self, 1)
+            .expect("Stack does not have enough items")
+            .try_into()
+            .unwrap();
+        let b_start_loc = stack_peek(self, 2)
+            .expect("Stack does not have enough items")
+            .try_into()
+            .unwrap();
+        let m_start_loc = stack_peek(self, 3)
+            .expect("Stack does not have enough items")
+            .try_into()
+            .unwrap();
+        let output_loc = stack_peek(self, 4)
+            .expect("Stack does not have enough items")
+            .try_into()
+            .unwrap();
+
+        match function {
+            "modmul_remainder" => {
+                self.bignum_modmul_remainder(len, a_start_loc, b_start_loc, m_start_loc, output_loc)
+            }
+            "modmul_quotient" => {
+                self.bignum_modmul_quotient(len, a_start_loc, b_start_loc, m_start_loc, output_loc)
+            }
+            _ => panic!("Invalid prover input function."),
+        }
+
+        0.into()
+    }
+
+    fn bignum_modmul_remainder(
+        &self,
+        len: usize,
+        a_start_loc: usize,
+        b_start_loc: usize,
+        m_start_loc: usize,
+        output_loc: usize,
+    ) {
+        let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [a_start_loc..a_start_loc + len];
+        let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [b_start_loc..b_start_loc + len];
+        let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [m_start_loc..m_start_loc + len];
+
+        let a_biguint = le_u256s_to_biguint(a);
+        let b_biguint = le_u256s_to_biguint(b);
+        let m_biguint = le_u256s_to_biguint(m);
+
+        let result_biguint = (a_biguint * b_biguint) % m_biguint;
+        let result = biguint_to_le_u256s(result_biguint);
+
+        self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
+            .content
+            .splice(output_loc..output_loc + len, result.iter().cloned());
+    }
+
+    fn bignum_modmul_quotient(
+        &self,
+        len: usize,
+        a_start_loc: usize,
+        b_start_loc: usize,
+        m_start_loc: usize,
+        output_loc: usize,
+    ) {
+        let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [a_start_loc..a_start_loc + len];
+        let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [b_start_loc..b_start_loc + len];
+        let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [m_start_loc..m_start_loc + len];
+
+        let a_biguint = le_u256s_to_biguint(a);
+        let b_biguint = le_u256s_to_biguint(b);
+        let m_biguint = le_u256s_to_biguint(m);
+
+        let result_biguint = (a_biguint * b_biguint) / m_biguint;
+        let result = biguint_to_le_u256s(result_biguint);
+
+        self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
+            .content
+            .splice(output_loc..output_loc + len, result.iter().cloned());
     }
 }
 

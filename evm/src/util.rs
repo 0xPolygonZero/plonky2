@@ -144,3 +144,30 @@ pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
     U256::from_little_endian(&bytes)
 }
+
+pub(crate) fn le_u256s_to_biguint(x: &[U256]) -> BigUint {
+    BigUint::from_slice(
+        &x.iter()
+            .flat_map(|&a| {
+                a.0.iter()
+                    .flat_map(|b| [(b % (1 << 32)) as u32, (b >> 32) as u32])
+            })
+            .collect_vec(),
+    )
+}
+
+pub(crate) fn biguint_to_le_u256s(x: BigUint) -> Vec<U256> {
+    let digits = x.to_u32_digits();
+    digits
+        .chunks(8)
+        .map(|c| {
+            U256(
+                c.chunks(2)
+                    .map(|cc| (cc[1] << 32 | cc[0]) as u64)
+                    .collect_vec()
+                    .try_into()
+                    .unwrap(),
+            )
+        })
+        .collect()
+}
