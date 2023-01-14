@@ -410,10 +410,7 @@ pub trait Field:
                 return self.exp_biguint(&power);
             }
         }
-        panic!(
-            "x^{} and x^(1/{}) are not permutations of this field, or we have a bug!",
-            k, k
-        );
+        panic!("x^{k} and x^(1/{k}) are not permutations of this field, or we have a bug!");
     }
 
     fn cube_root(&self) -> Self {

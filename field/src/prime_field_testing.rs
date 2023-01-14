@@ -59,8 +59,7 @@ where
             let expected = expected_op(lhs, rhs);
             assert_eq!(
                 actual, expected,
-                "Expected {}, got {} for inputs ({}, {})",
-                expected, actual, lhs, rhs
+                "Expected {expected}, got {actual} for inputs ({lhs}, {rhs})"
             );
         }
     }

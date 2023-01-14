@@ -288,9 +288,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
         let insertion_index = insertion_index_f.to_canonical_u64() as usize;
         debug_assert!(
             insertion_index <= vec_size,
-            "Insertion index {} is larger than the vector size {}",
-            insertion_index,
-            vec_size
+            "Insertion index {insertion_index} is larger than the vector size {vec_size}"
         );
 
         let mut new_vec = orig_vec;

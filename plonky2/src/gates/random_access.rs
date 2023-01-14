@@ -361,9 +361,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let access_index = access_index_f.to_canonical_u64() as usize;
         debug_assert!(
             access_index < vec_size,
-            "Access index {} is larger than the vector size {}",
-            access_index,
-            vec_size
+            "Access index {access_index} is larger than the vector size {vec_size}"
         );
 
         set_local_wire(

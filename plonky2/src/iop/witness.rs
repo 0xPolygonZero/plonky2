@@ -284,8 +284,7 @@ impl<F: Field> WitnessWrite<F> for PartialWitness<F> {
         if let Some(old_value) = opt_old_value {
             assert_eq!(
                 value, old_value,
-                "Target {:?} was set twice with different values: {} != {}",
-                target, old_value, value
+                "Target {target:?} was set twice with different values: {old_value} != {value}"
             );
         }
     }
@@ -325,8 +324,7 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
         if let Some(old_value) = *rep_value {
             assert_eq!(
                 value, old_value,
-                "Partition containing {:?} was set twice with different values: {} != {}",
-                target, old_value, value
+                "Partition containing {target:?} was set twice with different values: {old_value} != {value}"
             );
             None
         } else {
