@@ -10,7 +10,7 @@ use crate::generation::prover_input::EvmField::{
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::util::{biguint_to_le_u128_limbs, le_u128_limbs_to_biguint};
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 use crate::witness::util::stack_peek;
 
 /// Prover input function represented as a scoped function name.
@@ -147,12 +147,15 @@ impl<F: Field> GenerationState<F> {
         dbg!(a.clone());
         dbg!(b.clone());
         dbg!(m.clone());
-        let a_biguint = le_u128_limbs_to_biguint(a);
-        let b_biguint = le_u128_limbs_to_biguint(b);
-        let m_biguint = le_u128_limbs_to_biguint(m);
+        let a_biguint = mem_vec_to_biguint(a);
+        let b_biguint = mem_vec_to_biguint(b);
+        let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (a_biguint * b_biguint) % m_biguint;
-        let result = biguint_to_le_u128_limbs(result_biguint);
+        let result = biguint_to_mem_vec(result_biguint.clone());
+
+        dbg!(result_biguint);
+        dbg!(result.clone());
 
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
             .content
@@ -174,12 +177,12 @@ impl<F: Field> GenerationState<F> {
         let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
             [m_start_loc..m_start_loc + len];
 
-        let a_biguint = le_u128_limbs_to_biguint(a);
-        let b_biguint = le_u128_limbs_to_biguint(b);
-        let m_biguint = le_u128_limbs_to_biguint(m);
+        let a_biguint = mem_vec_to_biguint(a);
+        let b_biguint = mem_vec_to_biguint(b);
+        let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (a_biguint * b_biguint) / m_biguint;
-        let result = biguint_to_le_u128_limbs(result_biguint);
+        let result = biguint_to_mem_vec(result_biguint);
 
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
             .content

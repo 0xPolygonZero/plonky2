@@ -5,7 +5,7 @@ use num_bigint::RandBigInt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::biguint_to_le_limbs;
+use crate::util::biguint_to_mem_vec;
 
 fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, U256, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
@@ -15,15 +15,11 @@ fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, U256, U256, 
         (a.clone().max(b.clone()), a.min(b))
     };
 
-    let a_limbs = biguint_to_le_limbs(a.clone());
-    let b_limbs = biguint_to_le_limbs(b.clone());
+    let a_limbs = biguint_to_mem_vec(a.clone());
+    let b_limbs = biguint_to_mem_vec(b.clone());
     let length: U256 = a_limbs.len().into();
 
-    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]]
-        .concat()
-        .iter()
-        .map(|&x| x.into())
-        .collect();
+    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]].concat();
     let a_start_loc = 0.into();
     let b_start_loc = length;
 
@@ -42,18 +38,14 @@ fn prepare_three_bignums(
 
     let m = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
 
-    let a_limbs = biguint_to_le_limbs(a.clone());
-    let mut b_limbs = biguint_to_le_limbs(b.clone());
-    let mut m_limbs = biguint_to_le_limbs(m.clone());
+    let a_limbs = biguint_to_mem_vec(a.clone());
+    let mut b_limbs = biguint_to_mem_vec(b.clone());
+    let mut m_limbs = biguint_to_mem_vec(m.clone());
     let length: U256 = a_limbs.len().max(m_limbs.len()).into();
-    b_limbs.resize(length.as_usize(), 0);
-    m_limbs.resize(length.as_usize(), 0);
+    b_limbs.resize(length.as_usize(), U256::zero());
+    m_limbs.resize(length.as_usize(), U256::zero());
 
-    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]]
-        .concat()
-        .iter()
-        .map(|&x| x.into())
-        .collect();
+    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]].concat();
     let a_start_loc = 0.into();
     let b_start_loc = length;
     let m_start_loc = length * 2;
@@ -104,7 +96,7 @@ fn test_add_bignum() -> Result<()> {
 
     // Determine expected sum.
     let sum = a + b;
-    let expected_sum: Vec<U256> = biguint_to_le_limbs(sum).iter().map(|&x| x.into()).collect();
+    let expected_sum: Vec<U256> = biguint_to_mem_vec(sum);
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -135,10 +127,7 @@ fn test_mul_bignum() -> Result<()> {
 
     // Determine expected product.
     let product = a * b;
-    let expected_product: Vec<U256> = biguint_to_le_limbs(product)
-        .iter()
-        .map(|&x| x.into())
-        .collect();
+    let expected_product: Vec<U256> = biguint_to_mem_vec(product);
 
     // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
     let output_loc = length * U256::from(2);
@@ -182,10 +171,7 @@ fn test_modmul_bignum() -> Result<()> {
 
     // Determine expected result.
     let result = (a * b) % m;
-    let expected_result: Vec<U256> = biguint_to_le_limbs(result)
-        .iter()
-        .map(|&x| x.into())
-        .collect();
+    let expected_result: Vec<U256> = biguint_to_mem_vec(result);
 
     // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
     let output_loc = length * U256::from(2);

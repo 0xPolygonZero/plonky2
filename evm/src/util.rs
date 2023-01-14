@@ -145,20 +145,26 @@ pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     U256::from_little_endian(&bytes)
 }
 
-pub(crate) fn le_u128_limbs_to_biguint(x: &[U256]) -> BigUint {
+pub(crate) fn le_limbs_to_biguint(x: &[u128]) -> BigUint {
     BigUint::from_slice(
         &x.iter()
             .flat_map(|&a| {
-                a.0.iter()
-                    .take(2)
-                    .flat_map(|b| [(b % (1 << 32)) as u32, (b >> 32) as u32])
-                    .collect_vec()
+                [
+                    (a % (1 << 32)) as u32,
+                    ((a >> 32) % (1 << 32)) as u32,
+                    ((a >> 64) % (1 << 32)) as u32,
+                    ((a >> 96) % (1 << 32)) as u32,
+                ]
             })
-            .collect_vec(),
+            .collect::<Vec<u32>>(),
     )
 }
 
-pub(crate) fn biguint_to_le_u128_limbs(x: BigUint) -> Vec<U256> {
+pub(crate) fn mem_vec_to_biguint(x: &[U256]) -> BigUint {
+    le_limbs_to_biguint(&x.iter().map(|&n| n.try_into().unwrap()).collect_vec())
+}
+
+pub(crate) fn biguint_to_le_limbs(x: BigUint) -> Vec<u128> {
     let mut digits = x.to_u32_digits();
 
     // Pad to a multiple of 8.
@@ -166,15 +172,13 @@ pub(crate) fn biguint_to_le_u128_limbs(x: BigUint) -> Vec<U256> {
 
     digits
         .chunks(4)
-        .map(|c| {
-            U256(
-                c.chunks(2)
-                    .map(|cc| (cc[1] as u64) << 32 | cc[0] as u64)
-                    .pad_using(4, |_| 0)
-                    .collect_vec()
-                    .try_into()
-                    .unwrap(),
-            )
-        })
+        .map(|c| (c[3] as u128) << 96 | (c[2] as u128) << 64 | (c[1] as u128) << 32 | c[0] as u128)
+        .collect()
+}
+
+pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
+    biguint_to_le_limbs(x)
+        .into_iter()
+        .map(|n| n.into())
         .collect()
 }
