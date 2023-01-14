@@ -5,8 +5,8 @@ use alloc::{format, vec};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::extension::algebra::ExtensionAlgebra;
+use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::interpolation::barycentric_weights;
 use crate::field::types::Field;
 use crate::gates::gate::Gate;
@@ -117,7 +117,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
             &F::two_adic_subgroup(self.subgroup_bits)
                 .into_iter()
                 .map(|x| (x, F::ZERO))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         )
     }
 
@@ -133,9 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
-    for CosetInterpolationGate<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{self:?}<D={D}>")
     }
@@ -145,10 +143,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
 
         let shift = vars.local_wires[self.wire_shift()];
         let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
-        let shifted_evaluation_point = vars.get_local_ext_algebra(self.wires_shifted_evaluation_point());
+        let shifted_evaluation_point =
+            vars.get_local_ext_algebra(self.wires_shifted_evaluation_point());
         constraints.extend(
-            (evaluation_point - shifted_evaluation_point.scalar_mul(shift))
-                .to_basefield_array()
+            (evaluation_point - shifted_evaluation_point.scalar_mul(shift)).to_basefield_array(),
         );
 
         let domain = F::two_adic_subgroup(self.subgroup_bits);
@@ -157,15 +155,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
             .collect::<Vec<_>>();
         let weights = self.barycentric_weights();
 
-        let (mut computed_eval, mut computed_prod) =
-            partial_interpolate_ext_algebra(
-                &domain[..self.degree()],
-                &values[..self.degree()],
-                &weights[..self.degree()],
-                shifted_evaluation_point,
-                ExtensionAlgebra::ZERO,
-                ExtensionAlgebra::one(),
-            );
+        let (mut computed_eval, mut computed_prod) = partial_interpolate_ext_algebra(
+            &domain[..self.degree()],
+            &values[..self.degree()],
+            &weights[..self.degree()],
+            shifted_evaluation_point,
+            ExtensionAlgebra::ZERO,
+            ExtensionAlgebra::one(),
+        );
 
         for i in 0..self.num_intermediates() {
             let intermediate_eval = vars.get_local_ext_algebra(self.wires_intermediate_eval(i));
@@ -200,8 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
         let shifted_evaluation_point = vars.get_local_ext(self.wires_shifted_evaluation_point());
         yield_constr.many(
-            (evaluation_point - shifted_evaluation_point.scalar_mul(shift))
-                .to_basefield_array()
+            (evaluation_point - shifted_evaluation_point.scalar_mul(shift)).to_basefield_array(),
         );
 
         let domain = F::two_adic_subgroup(self.subgroup_bits);
@@ -211,13 +207,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         let weights = self.barycentric_weights();
 
         let (mut computed_eval, mut computed_prod) = partial_interpolate(
-                &domain[..self.degree()],
-                &values[..self.degree()],
-                &weights[..self.degree()],
-                shifted_evaluation_point,
-                F::Extension::ZERO,
-                F::Extension::ONE,
-            );
+            &domain[..self.degree()],
+            &values[..self.degree()],
+            &weights[..self.degree()],
+            shifted_evaluation_point,
+            F::Extension::ZERO,
+            F::Extension::ONE,
+        );
 
         for i in 0..self.num_intermediates() {
             let intermediate_eval = vars.get_local_ext(self.wires_intermediate_eval(i));
@@ -250,14 +246,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
 
         let shift = vars.local_wires[self.wire_shift()];
         let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
-        let shifted_evaluation_point = vars.get_local_ext_algebra(self.wires_shifted_evaluation_point());
+        let shifted_evaluation_point =
+            vars.get_local_ext_algebra(self.wires_shifted_evaluation_point());
 
         let neg_one = builder.neg_one();
         let neg_shift = builder.scalar_mul_ext(neg_one, shift);
         constraints.extend(
             builder
                 .scalar_mul_add_ext_algebra(neg_shift, shifted_evaluation_point, evaluation_point)
-                .to_ext_target_array()
+                .to_ext_target_array(),
         );
 
         let domain = F::two_adic_subgroup(self.subgroup_bits);
@@ -284,12 +281,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
             constraints.extend(
                 builder
                     .sub_ext_algebra(intermediate_eval, computed_eval)
-                    .to_ext_target_array()
+                    .to_ext_target_array(),
             );
             constraints.extend(
                 builder
                     .sub_ext_algebra(intermediate_prod, computed_prod)
-                    .to_ext_target_array()
+                    .to_ext_target_array(),
             );
 
             let start_index = 1 + (self.degree() - 1) * (i + 1);
@@ -348,8 +345,7 @@ struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InterpolationGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> InterpolationGenerator<F, D> {
     fn new(row: usize, gate: CosetInterpolationGate<F, D>) -> Self {
         let interpolation_domain = F::two_adic_subgroup(gate.subgroup_bits);
         let interpolation_weights = gate.barycentric_weights();
@@ -409,7 +405,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         out_buffer.set_ext_wires(
             self.gate.wires_shifted_evaluation_point().map(local_wire),
-            shifted_evaluation_point
+            shifted_evaluation_point,
         );
 
         let domain = &self.interpolation_domain;
@@ -459,8 +455,7 @@ pub fn interpolate_over_base_domain<F: Field + Extendable<D>, const D: usize>(
     values: &[F::Extension],
     barycentric_weights: &[F],
     x: F::Extension,
-) -> F::Extension
-{
+) -> F::Extension {
     let (result, _) = partial_interpolate(
         domain,
         values,
@@ -486,28 +481,26 @@ fn partial_interpolate<F: Field + Extendable<D>, const D: usize>(
     x: F::Extension,
     initial_eval: F::Extension,
     initial_partial_prod: F::Extension,
-) -> (F::Extension, F::Extension)
-{
+) -> (F::Extension, F::Extension) {
     let n = domain.len();
     assert_ne!(n, 0);
     assert_eq!(n, values.len());
     assert_eq!(n, barycentric_weights.len());
 
-    let weighted_values = values.iter()
+    let weighted_values = values
+        .iter()
         .zip(barycentric_weights.iter())
         .map(|(&value, &weight)| value.scalar_mul(weight));
 
-    weighted_values
-        .zip(domain.iter())
-        .fold(
-            (initial_eval, initial_partial_prod),
-            |(eval, terms_partial_prod), (val, &x_i)| {
-                let term = x - x_i.into();
-                let next_eval = eval * term + val * terms_partial_prod;
-                let next_terms_partial_prod = terms_partial_prod * term;
-                (next_eval, next_terms_partial_prod)
-            }
-        )
+    weighted_values.zip(domain.iter()).fold(
+        (initial_eval, initial_partial_prod),
+        |(eval, terms_partial_prod), (val, &x_i)| {
+            let term = x - x_i.into();
+            let next_eval = eval * term + val * terms_partial_prod;
+            let next_terms_partial_prod = terms_partial_prod * term;
+            (next_eval, next_terms_partial_prod)
+        },
+    )
 }
 
 fn partial_interpolate_ext_algebra<F: OEF<D>, const D: usize>(
@@ -517,28 +510,26 @@ fn partial_interpolate_ext_algebra<F: OEF<D>, const D: usize>(
     x: ExtensionAlgebra<F, D>,
     initial_eval: ExtensionAlgebra<F, D>,
     initial_partial_prod: ExtensionAlgebra<F, D>,
-) -> (ExtensionAlgebra<F, D>, ExtensionAlgebra<F, D>)
-{
+) -> (ExtensionAlgebra<F, D>, ExtensionAlgebra<F, D>) {
     let n = domain.len();
     assert_ne!(n, 0);
     assert_eq!(n, values.len());
     assert_eq!(n, barycentric_weights.len());
 
-    let weighted_values = values.iter()
+    let weighted_values = values
+        .iter()
         .zip(barycentric_weights.iter())
         .map(|(&value, &weight)| value.scalar_mul(F::from_basefield(weight)));
 
-    weighted_values
-        .zip(domain.iter())
-        .fold(
-            (initial_eval, initial_partial_prod),
-            |(eval, terms_partial_prod), (val, &x_i)| {
-                let term = x - F::from_basefield(x_i).into();
-                let next_eval = eval * term + val * terms_partial_prod;
-                let next_terms_partial_prod = terms_partial_prod * term;
-                (next_eval, next_terms_partial_prod)
-            }
-        )
+    weighted_values.zip(domain.iter()).fold(
+        (initial_eval, initial_partial_prod),
+        |(eval, terms_partial_prod), (val, &x_i)| {
+            let term = x - F::from_basefield(x_i).into();
+            let next_eval = eval * term + val * terms_partial_prod;
+            let next_terms_partial_prod = terms_partial_prod * term;
+            (next_eval, next_terms_partial_prod)
+        },
+    )
 }
 
 fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D: usize>(
@@ -549,14 +540,15 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
     point: ExtensionAlgebraTarget<D>,
     initial_eval: ExtensionAlgebraTarget<D>,
     initial_partial_prod: ExtensionAlgebraTarget<D>,
-) -> (ExtensionAlgebraTarget<D>, ExtensionAlgebraTarget<D>)
-{
+) -> (ExtensionAlgebraTarget<D>, ExtensionAlgebraTarget<D>) {
     let n = values.len();
     debug_assert!(n != 0);
     debug_assert!(domain.len() == n);
     debug_assert!(barycentric_weights.len() == n);
 
-    values.iter().cloned()
+    values
+        .iter()
+        .cloned()
         .zip(domain.iter().cloned())
         .zip(barycentric_weights.iter().cloned())
         .fold(
@@ -570,7 +562,7 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
                 let new_eval = builder.mul_add_ext_algebra(weighted_val, partial_prod, new_eval);
                 let new_partial_prod = builder.mul_ext_algebra(partial_prod, term);
                 (new_eval, new_partial_prod)
-            }
+            },
         )
 }
 
@@ -629,7 +621,6 @@ mod tests {
         let gate = <CosetInterpolationGate<GoldilocksField, 2>>::with_max_degree(4, 9);
         assert_eq!(gate.num_intermediates(), 1);
         assert_eq!(gate.degree(), 9);
-
     }
 
     #[test]
@@ -725,18 +716,12 @@ mod tests {
         type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
-        fn get_wires(
-            shift: F,
-            values: PolynomialValues<FF>,
-            eval_point: FF,
-        ) -> Vec<FF> {
+        fn get_wires(shift: F, values: PolynomialValues<FF>, eval_point: FF) -> Vec<FF> {
             let domain = F::two_adic_subgroup(log2_strict(values.len()));
-            let shifted_eval_point = <FF as FieldExtension<2>>::scalar_mul(&eval_point, shift.inverse());
-            let weights = barycentric_weights(
-                &domain.iter()
-                    .map(|&x| (x, F::ZERO))
-                    .collect::<Vec<_>>()
-            );
+            let shifted_eval_point =
+                <FF as FieldExtension<2>>::scalar_mul(&eval_point, shift.inverse());
+            let weights =
+                barycentric_weights(&domain.iter().map(|&x| (x, F::ZERO)).collect::<Vec<_>>());
             let (intermediate_eval, intermediate_prod) = partial_interpolate::<_, D>(
                 &domain[..3],
                 &values.values[..3],
