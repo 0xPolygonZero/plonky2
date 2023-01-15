@@ -244,7 +244,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::info!("User instruction: {:?}", op);
+        log::debug!("User instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);
