@@ -52,9 +52,90 @@ global process_message_txn:
     // stack: transfer_eth_status, retdest
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
-    // TODO: If code is non-empty, execute it in a new context.
-    JUMP
+
+    // If to's code is empty, return.
+    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
+    // stack: code_empty, retdest
+    %jumpi(process_message_txn_return)
+
+    // Otherwise, load to's code and execute it in a new context.
+    // stack: retdest
+    %create_context
+    // stack: new_ctx, retdest
+    PUSH process_message_txn_code_loaded
+    PUSH @SEGMENT_CODE
+    DUP3 // new_ctx
+    %mload_txn_field(@TXN_FIELD_TO)
+    // stack: address, new_ctx, segment, process_message_txn_code_loaded, new_ctx, retdest
+    %jump(load_code)
 
 global process_message_txn_insufficient_balance:
     // stack: retdest
     PANIC // TODO
+
+global process_message_txn_return:
+    // TODO: Return leftover gas?
+    JUMP
+
+global process_message_txn_code_loaded:
+    // stack: code_len, new_ctx, retdest
+    POP
+    // stack: new_ctx, retdest
+
+    // Store the address in metadata.
+    %mload_txn_field(@TXN_FIELD_TO)
+    PUSH @CTX_METADATA_ADDRESS
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
+
+    // Store the caller in metadata.
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    PUSH @CTX_METADATA_CALLER
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
+
+    // Store the call value field in metadata.
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    PUSH @CTX_METADATA_CALL_VALUE
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
+
+    // No need to write @CTX_METADATA_STATIC, because it's 0 which is the default.
+
+    // Store parent context in metadata.
+    GET_CONTEXT
+    PUSH @CTX_METADATA_PARENT_CONTEXT
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
+
+    // Store parent PC = process_message_txn_after_call.
+    PUSH process_message_txn_after_call
+    PUSH @CTX_METADATA_PARENT_PC
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
+
+    // TODO: Populate CALLDATA
+
+    // TODO: Save parent gas and set child gas
+
+    // Now, switch to the new context and go to usermode with PC=0.
+    SET_CONTEXT
+    // stack: retdest
+    PUSH 0 // jump dest
+    EXIT_KERNEL
+
+global process_message_txn_after_call:
+    // stack: success, retdest
+    // TODO: Return leftover gas? Or handled by termination instructions?
+    POP // Pop success for now. Will go into the reciept when we support that.
+    JUMP
