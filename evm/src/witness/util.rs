@@ -33,7 +33,7 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
         return None;
     }
     Some(state.memory.get(MemoryAddress::new(
-        state.registers.effective_context(),
+        state.registers.context,
         Segment::Stack,
         state.registers.stack_len - 1 - i,
     )))
@@ -142,7 +142,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
 
     let result = std::array::from_fn(|i| {
         let address = MemoryAddress::new(
-            state.registers.effective_context(),
+            state.registers.context,
             Segment::Stack,
             state.registers.stack_len - 1 - i,
         );
@@ -164,7 +164,7 @@ pub(crate) fn stack_push_log_and_fill<F: Field>(
     }
 
     let address = MemoryAddress::new(
-        state.registers.effective_context(),
+        state.registers.context,
         Segment::Stack,
         state.registers.stack_len,
     );

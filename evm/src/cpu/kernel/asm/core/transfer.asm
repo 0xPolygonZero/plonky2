@@ -80,12 +80,14 @@ global add_eth:
     // stack: balance_ptr, addr, amount, retdest
     DUP1 %mload_trie_data
     // stack: balance, balance_ptr, addr, amount, retdest
-    %stack (balance, balance_ptr, addr, amount) -> (amount, balance, addr, balance_ptr)
+    %stack (balance, balance_ptr, addr, amount) -> (amount, balance, balance_ptr)
     ADD
-    // stack: new_balance, addr, balance_ptr, retdest
-    SWAP1 %mstore_trie_data
-    // stack: addr, retdest
-    POP JUMP
+    // stack: new_balance, balance_ptr, retdest
+    SWAP1
+    // stack: balance_ptr, new_balance, retdest
+    %mstore_trie_data
+    // stack: retdest
+    JUMP
 global add_eth_new_account:
     // TODO: Skip creation if amount == 0?
     // stack: null_account_ptr, addr, amount, retdest

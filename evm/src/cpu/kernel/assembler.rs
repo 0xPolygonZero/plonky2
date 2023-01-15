@@ -48,6 +48,7 @@ impl Kernel {
             .keys()
             .cloned()
             .sorted_by_key(|label| global_labels[label])
+            .inspect(|key| debug!("Global label: {} => {:?}", key, global_labels[key]))
             .collect();
         Self {
             code,

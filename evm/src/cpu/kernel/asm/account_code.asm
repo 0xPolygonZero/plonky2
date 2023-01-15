@@ -13,6 +13,16 @@ global extcodehash:
     // stack: codehash, retdest
     SWAP1 JUMP
 
+%macro extcodehash
+    %stack (address) -> (address, %%after)
+    %jump(extcodehash)
+%%after:
+%endmacro
+
+%macro ext_code_empty
+    %extcodehash
+    %eq_const(@EMPTY_STRING_HASH)
+%endmacro
 
 %macro codesize
     // stack: (empty)

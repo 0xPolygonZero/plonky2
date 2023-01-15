@@ -93,11 +93,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: true,
         disable_other_channels: true,
     }),
-    set_context: Some(StackBehavior {
-        num_pops: 1,
-        pushes: false,
-        disable_other_channels: true,
-    }),
+    set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
     consume_gas: None, // TODO
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
