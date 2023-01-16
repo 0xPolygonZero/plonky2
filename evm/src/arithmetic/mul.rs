@@ -178,7 +178,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
         for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
             //*lo = lo + hi * base - offset;
-            *lo = builder.arithmetic_extension(-F::ONE, base, offset, hi, *lo);
+            *lo = builder.arithmetic_extension(F::NEG_ONE, base, offset, hi, *lo);
         }
         aux_limbs
     };

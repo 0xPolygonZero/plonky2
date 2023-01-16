@@ -88,11 +88,11 @@ pub(crate) fn pol_sub_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     b: [ExtensionTarget<D>; N_LIMBS],
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
     let zero = builder.zero_extension();
-    let mut sum = [zero; 2 * N_LIMBS - 1];
+    let mut diff = [zero; 2 * N_LIMBS - 1];
     for i in 0..N_LIMBS {
-        sum[i] = builder.sub_extension(a[i], b[i]);
+        diff[i] = builder.sub_extension(a[i], b[i]);
     }
-    sum
+    diff
 }
 
 /// a(x) -= b(x), but must have deg(a) >= deg(b).
