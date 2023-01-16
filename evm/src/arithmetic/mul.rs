@@ -171,14 +171,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
 
     let aux_limbs = {
-        let base = F::from_canonical_u64(1 << LIMB_BITS);
+        let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
         let offset =
             builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
         let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT_LO);
         let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
         for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
             //*lo = lo + hi * base - offset;
-            *lo = builder.arithmetic_extension(F::NEG_ONE, base, offset, hi, *lo);
+            let t = builder.mul_sub_extension(hi, base, offset);
+            *lo = builder.add_extension(*lo, t);
         }
         aux_limbs
     };
