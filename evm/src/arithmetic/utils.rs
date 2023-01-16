@@ -271,7 +271,7 @@ pub(crate) fn pol_adjoin_root_ext_circuit<
 ) -> [ExtensionTarget<D>; N] {
     let zero = builder.zero_extension();
     let mut res = [zero; N];
-    // res[deg] = NEG_ONE * root * a[0] + ZERO * zero
+    // res[0] = NEG_ONE * root * a[0] + ZERO * zero
     res[0] = builder.arithmetic_extension(F::NEG_ONE, F::ZERO, root, a[0], zero);
     for deg in 1..N {
         // res[deg] = NEG_ONE * root * a[deg] + ONE * a[deg - 1]

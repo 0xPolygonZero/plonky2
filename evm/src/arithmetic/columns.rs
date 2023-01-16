@@ -77,7 +77,7 @@ pub(crate) const SUB_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const SUB_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const SUB_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 
-// MUL takes 4 * N_LIMBS = 64 columns
+// MUL takes 5 * N_LIMBS = 80 columns
 pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_INPUT_2;
@@ -90,8 +90,8 @@ pub(crate) const CMP_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const CMP_OUTPUT: usize = GENERAL_INPUT_2.start;
 pub(crate) const CMP_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
 
-// MULMOD takes 4 * N_LIMBS + 2 * 2*N_LIMBS + N_LIMBS = 144 columns
-// but split over two rows of 80 columns and 64 columns.
+// MULMOD takes 4 * N_LIMBS + 3 * 2*N_LIMBS + N_LIMBS = 176 columns
+// but split over two rows of 96 columns and 80 columns.
 //
 // ADDMOD, SUBMOD, MOD and DIV are currently implemented in terms of
 // the general modular code, so they also take 144 columns (also split
