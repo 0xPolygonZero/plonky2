@@ -283,6 +283,7 @@ fn generate_modular_op<F: RichField>(
     }
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
     nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
+    nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * lv[IS_DIV];
 }
 
 /// Generate the output and auxiliary values for modular operations.
@@ -332,10 +333,14 @@ fn modular_constr_poly<P: PackedField>(
 
     let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
 
+    // Is 1 iff the operation is DIV and the denominator is zero.
+    let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
+    yield_constr.constraint_transition(filter * (div_denom_is_zero - mod_is_zero * lv[IS_DIV]));
+
     // Needed to compensate for adding mod_is_zero to modulus above,
     // since the call eval_packed_generic_lt() below subtracts modulus
-    // verify in the case of a DIV.
-    output[0] += mod_is_zero * lv[IS_DIV];
+    // to verify in the case of a DIV.
+    output[0] += div_denom_is_zero;
 
     // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
@@ -359,7 +364,7 @@ fn modular_constr_poly<P: PackedField>(
         true,
     );
     // restore output[0]
-    output[0] -= mod_is_zero * lv[IS_DIV];
+    output[0] -= div_denom_is_zero;
 
     // prod = q(x) * m(x)
     let quot = {
@@ -475,7 +480,12 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
     let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
-    output[0] = builder.mul_add_extension(mod_is_zero, lv[IS_DIV], output[0]);
+
+    let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
+    let t = builder.mul_sub_extension(mod_is_zero, lv[IS_DIV], div_denom_is_zero);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint_transition(builder, t);
+    output[0] = builder.add_extension(output[0], div_denom_is_zero);
 
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     let one = builder.one_extension();
@@ -492,8 +502,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         is_less_than,
         true,
     );
-    output[0] =
-        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], output[0]);
+    output[0] = builder.sub_extension(output[0], div_denom_is_zero);
     let quot = {
         let zero = builder.zero_extension();
         let mut quot = [zero; 2 * N_LIMBS];

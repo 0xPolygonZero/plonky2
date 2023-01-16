@@ -106,6 +106,8 @@ pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_INPUT_0;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_INPUT_1.start;
 pub(crate) const MODULAR_AUX_INPUT_LO: Range<usize> = AUX_INPUT_1.start + 1..AUX_INPUT_1.end;
 pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_INPUT_2;
+// Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
+pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_INPUT_2.end;
 
 #[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_NUMERATOR: Range<usize> = MODULAR_INPUT_0;
