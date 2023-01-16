@@ -527,7 +527,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         *c = builder.sub_extension(nv[i], offset);
     }
     let base = F::from_canonical_u64(1u64 << LIMB_BITS);
-    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
+    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_HI) {
         *c = builder.mul_const_add_extension(base, nv[j], *c);
     }
 
