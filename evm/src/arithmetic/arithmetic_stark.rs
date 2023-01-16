@@ -153,21 +153,10 @@ impl<F: RichField> Operation<F> for ModularOp {
 
 const RANGE_MAX: usize = 1usize << 16; // Range check strict upper bound
 
-fn print_trace<F: RichField>(cols: &Vec<Vec<F>>) {
-    let n_cols = cols.len();
-    let n_rows = cols[0].len();
-    for i in 0..n_rows {
-        for j in 0..n_cols {
-            print!("{}  ", cols[j][i].to_canonical_u64());
-        }
-        println!("");
-    }
-}
-
 impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
     /// Expects input in *column*-major layout
     fn generate_range_checks(&self, cols: &mut Vec<Vec<F>>) {
-        debug_assert!(cols.len() == columns::NUM_SHARED_COLS);
+        debug_assert!(cols.len() == columns::NUM_ARITH_COLUMNS);
 
         let n_rows = cols[0].len();
         debug_assert!(cols.iter().all(|col| col.len() == n_rows));
@@ -217,8 +206,6 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
 
         let mut trace_cols = transpose(&trace_rows);
         self.generate_range_checks(&mut trace_cols);
-
-        print_trace(&trace_cols);
 
         trace_cols
             .into_iter()
@@ -345,8 +332,17 @@ mod tests {
             Some(U256::from(456)),
             U256::from(1007),
         );
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod];
+        let submod = ModularOp::new(
+            columns::IS_SUBMOD,
+            U256::from(123),
+            Some(U256::from(456)),
+            U256::from(1007),
+        );
+        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod];
         let pols = stark.generate(ops);
-        assert!(pols.len() > 7);
+        assert!(
+            pols.len() == columns::NUM_ARITH_COLUMNS
+                && pols.iter().all(|v| v.len() == super::RANGE_MAX)
+        );
     }
 }
