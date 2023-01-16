@@ -49,6 +49,7 @@ const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_L
 const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
 const GENERAL_INPUT_2: Range<usize> = GENERAL_INPUT_1.end..GENERAL_INPUT_1.end + N_LIMBS;
 const GENERAL_INPUT_3: Range<usize> = GENERAL_INPUT_2.end..GENERAL_INPUT_2.end + N_LIMBS;
+// NB: Only one of these two sets of columns will be used for a given operation
 const GENERAL_INPUT_4: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
 const GENERAL_INPUT_4_DBL: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + 2 * N_LIMBS;
 
