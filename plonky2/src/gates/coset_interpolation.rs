@@ -568,8 +568,9 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use core::iter::repeat_with;
+
+    use anyhow::Result;
     use plonky2_field::polynomial::PolynomialValues;
     use plonky2_util::log2_strict;
 
