@@ -135,19 +135,13 @@ where
     res
 }
 
-pub(crate) fn pol_mul_wide_ext_circuit<
-    F: RichField + Extendable<D>,
-    const D: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
->(
+pub(crate) fn pol_mul_wide_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; M],
-    b: [ExtensionTarget<D>; N],
-) -> [ExtensionTarget<D>; P] {
+    a: [ExtensionTarget<D>; N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
     let zero = builder.zero_extension();
-    let mut res = [zero; P];
+    let mut res = [zero; 2 * N_LIMBS - 1];
     for (i, &ai) in a.iter().enumerate() {
         for (j, &bj) in b.iter().enumerate() {
             res[i + j] = builder.mul_add_extension(ai, bj, res[i + j]);
@@ -272,7 +266,7 @@ pub(crate) fn pol_adjoin_root_ext_circuit<
     let zero = builder.zero_extension();
     let mut res = [zero; N];
     // res[0] = NEG_ONE * root * a[0] + ZERO * zero
-    res[0] = builder.arithmetic_extension(F::NEG_ONE, F::ZERO, root, a[0], zero);
+    res[0] = builder.mul_extension_with_const(F::NEG_ONE, root, a[0]);
     for deg in 1..N {
         // res[deg] = NEG_ONE * root * a[deg] + ONE * a[deg - 1]
         res[deg] = builder.arithmetic_extension(F::NEG_ONE, F::ONE, root, a[deg], a[deg - 1]);

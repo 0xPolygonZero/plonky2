@@ -335,7 +335,7 @@ fn modular_constr_poly<P: PackedField>(
 
     // Is 1 iff the operation is DIV and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
-    yield_constr.constraint_transition(filter * (div_denom_is_zero - mod_is_zero * lv[IS_DIV]));
+    yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
 
     // Needed to compensate for adding mod_is_zero to modulus above,
     // since the call eval_packed_generic_lt() below subtracts modulus
@@ -412,9 +412,9 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     // NB: The CTL code guarantees that filter is 0 or 1, i.e. that
     // only one of the operations below is "live".
     let filter = lv[columns::IS_ADDMOD]
+        + lv[columns::IS_SUBMOD]
         + lv[columns::IS_MULMOD]
         + lv[columns::IS_MOD]
-        + lv[columns::IS_SUBMOD]
         + lv[columns::IS_DIV];
 
     // Ensure that this operation is not the last row of the table;
@@ -531,7 +531,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         *c = builder.mul_const_add_extension(base, nv[j], *c);
     }
 
-    let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
+    let base = builder.constant_extension(base.into());
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &t);
 
