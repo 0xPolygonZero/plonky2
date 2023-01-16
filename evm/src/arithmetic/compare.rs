@@ -142,7 +142,11 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     );
     let good_output = builder.sub_extension(cy, output);
     let filter = builder.mul_extension(is_op, good_output);
-    yield_constr.constraint_transition(builder, filter);
+    if is_two_row_op {
+        yield_constr.constraint_transition(builder, filter);
+    } else {
+        yield_constr.constraint(builder, filter);
+    }
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
