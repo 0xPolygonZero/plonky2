@@ -14,14 +14,6 @@ fn get_address_from_label(lbl: &str) -> U256 {
     U256::from(KERNEL.global_labels[lbl])
 }
 
-fn make_stack(vecs: Vec<Vec<U256>>) -> Vec<U256> {
-    let mut stack = vec![];
-    for vec in vecs {
-        stack.extend(vec)
-    }
-    stack
-}
-
 fn get_output(lbl: &str, stack: Vec<U256>) -> Vec<U256> {
     let label = KERNEL.global_labels[lbl];
     let mut input = stack;
@@ -36,20 +28,19 @@ fn make_mul_stack(f: Fp12, g: Fp12, mul_label: &str) -> Vec<U256> {
     let in1 = U256::from(76);
     let out = U256::from(88);
 
-    make_stack(vec![
-        vec![in0],
-        fp12_to_vec(f),
-        vec![in1],
-        fp12_to_vec(g),
-        vec![
-            get_address_from_label(mul_label),
-            in0,
-            in1,
-            out,
-            get_address_from_label("return_fp12_on_stack"),
-            out,
-        ],
-    ])
+    let mut stack = vec![in0];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![in1]);
+    stack.extend(fp12_to_vec(g));
+    stack.extend(vec![
+        get_address_from_label(mul_label),
+        in0,
+        in1,
+        out,
+        get_address_from_label("return_fp12_on_stack"),
+        out,
+    ]);
+    stack
 }
 
 #[test]
@@ -83,7 +74,9 @@ fn test_frob_fp12() -> Result<()> {
 
     let f: Fp12 = gen_fp12();
 
-    let stack = make_stack(vec![vec![ptr], fp12_to_vec(f), vec![ptr]]);
+    let mut stack = vec![ptr];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![ptr]);
 
     let out_frob1: Vec<U256> = get_output("test_frob_fp12_1", stack.clone());
     let out_frob2: Vec<U256> = get_output("test_frob_fp12_2", stack.clone());
@@ -109,12 +102,9 @@ fn test_inv_fp12() -> Result<()> {
     let inv = U256::from(300);
 
     let f: Fp12 = gen_fp12();
-
-    let stack = make_stack(vec![
-        vec![ptr],
-        fp12_to_vec(f),
-        vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()],
-    ]);
+    let mut stack = vec![ptr];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
 
     let output: Vec<U256> = get_output("test_inv_fp12", stack);
 
@@ -130,15 +120,13 @@ fn test_power() -> Result<()> {
 
     let f: Fp12 = gen_fp12();
 
-    let stack = make_stack(vec![
-        vec![ptr],
-        fp12_to_vec(f),
-        vec![
-            ptr,
-            out,
-            get_address_from_label("return_fp12_on_stack"),
-            out,
-        ],
+    let mut stack = vec![ptr];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![
+        ptr,
+        out,
+        get_address_from_label("return_fp12_on_stack"),
+        out,
     ]);
 
     let output: Vec<U256> = get_output("test_pow", stack);
@@ -156,17 +144,16 @@ fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
     let p_: Vec<U256> = p.into_iter().collect();
     let q_: Vec<U256> = q.into_iter().flatten().collect();
 
-    make_stack(vec![
-        vec![ptr],
-        p_,
-        q_,
-        vec![
-            ptr,
-            out,
-            get_address_from_label("return_fp12_on_stack"),
-            out,
-        ],
-    ])
+    let mut stack = vec![ptr];
+    stack.extend(p_);
+    stack.extend(q_);
+    stack.extend(vec![
+        ptr,
+        out,
+        get_address_from_label("return_fp12_on_stack"),
+        out,
+    ]);
+    stack
 }
 
 #[test]

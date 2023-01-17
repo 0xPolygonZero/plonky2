@@ -60,18 +60,18 @@ impl<F: Field> GenerationState<F> {
         let xs = stack_peeks(self).expect("Empty stack");
         // TODO: This sucks... come back later
         let n = match component {
-            "ext_0" => 0,
-            "ext_1" => 1,
-            "ext_2" => 2,
-            "ext_3" => 3,
-            "ext_4" => 4,
-            "ext_5" => 5,
-            "ext_6" => 6,
-            "ext_7" => 7,
-            "ext_8" => 8,
-            "ext_9" => 9,
-            "ext_10" => 10,
-            "ext_11" => 11,
+            "component_0" => 0,
+            "component_1" => 1,
+            "component_2" => 2,
+            "component_3" => 3,
+            "component_4" => 4,
+            "component_5" => 5,
+            "component_6" => 6,
+            "component_7" => 7,
+            "component_8" => 8,
+            "component_9" => 9,
+            "component_10" => 10,
+            "component_11" => 11,
             _ => panic!("out of bounds"),
         };
         field.inverse_fp12(n, xs)
