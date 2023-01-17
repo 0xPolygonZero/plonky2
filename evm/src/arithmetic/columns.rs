@@ -121,10 +121,6 @@ pub(crate) const DIV_OUTPUT: Range<usize> =
 // of the column and the permutation of the range. The two
 // permutations associated to column i will be in columns RC_COLS[2i]
 // and RC_COLS[2i+1].
-//
-// FIXME: Not all columns need a range check for each operation; need
-// a way to signal when a column is checked, or to ensure unused
-// columns always contain valid values.
 pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
 pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER..RANGE_COUNTER + 2 * NUM_SHARED_COLS;
