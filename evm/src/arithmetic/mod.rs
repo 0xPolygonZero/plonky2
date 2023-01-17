@@ -7,3 +7,4 @@ mod utils;
 
 pub mod arithmetic_stark;
 pub(crate) mod columns;
+pub mod operations;
