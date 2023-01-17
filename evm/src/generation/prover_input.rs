@@ -3,7 +3,7 @@ use std::str::FromStr;
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
-use crate::bn254::{fp12_to_array, inv_fp12, vec_to_fp12};
+use crate::bn254_arithmetic::{fp12_to_array, inv_fp12, vec_to_fp12};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };

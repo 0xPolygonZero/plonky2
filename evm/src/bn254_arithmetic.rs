@@ -1,3 +1,4 @@
+use std::ops::{Add, Div, Mul, Sub};
 use std::str::FromStr;
 
 use ethereum_types::U256;
@@ -10,6 +11,10 @@ pub const BN_BASE: U256 = U256([
     0xb85045b68181585d,
     0x30644e72e131a029,
 ]);
+
+// pub struct Fp {
+//     val: U256,
+// }
 
 pub type Fp = U256;
 pub type Fp2 = [U256; 2];

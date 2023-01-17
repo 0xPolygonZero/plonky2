@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254::{
+use crate::bn254_arithmetic::{
     curve_generator, fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, miller_loop, mul_fp12,
     power, tate, twisted_curve_generator, Curve, Fp12, TwistedCurve,
 };

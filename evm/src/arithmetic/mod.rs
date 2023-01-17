@@ -1,6 +1,6 @@
 use ethereum_types::U256;
 
-use crate::bn254::BN_BASE;
+use crate::bn254_arithmetic::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
 mod add;

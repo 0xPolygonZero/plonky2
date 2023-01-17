@@ -8,7 +8,7 @@
 
 pub mod all_stark;
 pub mod arithmetic;
-pub mod bn254;
+pub mod bn254_arithmetic;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
