@@ -6,6 +6,7 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
@@ -309,8 +310,22 @@ pub(crate) fn generate_set_context<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let [(ctx, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    state.registers.context = ctx.as_usize();
+    let sp_to_save = state.registers.stack_len.into();
+    let old_ctx = state.registers.context;
+    let new_ctx = ctx.as_usize();
+
+    let sp_field = ContextMetadata::StackSize as usize;
+    let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
+    let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
+
+    let log_write_old_sp = mem_write_gp_log_and_fill(1, old_sp_addr, state, &mut row, sp_to_save);
+    let (new_sp, log_read_new_sp) = mem_read_gp_with_log_and_fill(2, new_sp_addr, state, &mut row);
+
+    state.registers.context = new_ctx;
+    state.registers.stack_len = new_sp.as_usize();
     state.traces.push_memory(log_in);
+    state.traces.push_memory(log_write_old_sp);
+    state.traces.push_memory(log_read_new_sp);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -320,11 +335,11 @@ pub(crate) fn generate_push<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let context = state.registers.effective_context();
+    let code_context = state.registers.code_context();
     let num_bytes = n as usize + 1;
     let initial_offset = state.registers.program_counter + 1;
     let offsets = initial_offset..initial_offset + num_bytes;
-    let mut addrs = offsets.map(|offset| MemoryAddress::new(context, Segment::Code, offset));
+    let mut addrs = offsets.map(|offset| MemoryAddress::new(code_context, Segment::Code, offset));
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
     // to stack_push_log_and_fill.
@@ -333,7 +348,7 @@ pub(crate) fn generate_push<F: Field>(
             state
                 .memory
                 .get(MemoryAddress::new(
-                    context,
+                    code_context,
                     Segment::Code,
                     initial_offset + i,
                 ))
@@ -384,11 +399,7 @@ pub(crate) fn generate_dup<F: Field>(
         .stack_len
         .checked_sub(1 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(
-        state.registers.effective_context(),
-        Segment::Stack,
-        other_addr_lo,
-    );
+    let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
 
     let (val, log_in) = mem_read_gp_with_log_and_fill(0, other_addr, state, &mut row);
     let log_out = stack_push_log_and_fill(state, &mut row, val)?;
@@ -409,11 +420,7 @@ pub(crate) fn generate_swap<F: Field>(
         .stack_len
         .checked_sub(2 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(
-        state.registers.effective_context(),
-        Segment::Stack,
-        other_addr_lo,
-    );
+    let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
 
     let [(in0, log_in0)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let (in1, log_in1) = mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row);

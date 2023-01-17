@@ -3,6 +3,7 @@ use std::ops::Range;
 
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
+use plonky2::fri::FriParams;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::SPONGE_WIDTH;
@@ -10,7 +11,9 @@ use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, VerifierCircuitTarget};
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
+};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
@@ -50,6 +53,8 @@ where
     /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
     pub root: RootCircuitData<F, C, D>,
     pub aggregation: AggregationCircuitData<F, C, D>,
+    /// The block circuit, which verifies an aggregation root proof and a previous block proof.
+    pub block: BlockCircuitData<F, C, D>,
     /// Holds chains of circuits for each table and for each initial `degree_bits`.
     by_table: [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
 }
@@ -90,10 +95,22 @@ pub struct AggregationChildTarget<const D: usize> {
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
-impl<F, C, const D: usize> AllRecursiveCircuits<F, C, D>
+pub struct BlockCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+{
+    circuit: CircuitData<F, C, D>,
+    has_parent_block: BoolTarget,
+    parent_block_proof: ProofWithPublicInputsTarget<D>,
+    agg_root_proof: ProofWithPublicInputsTarget<D>,
+    cyclic_vk: VerifierCircuitTarget,
+}
+
+impl<F, C, const D: usize> AllRecursiveCircuits<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
@@ -147,9 +164,11 @@ where
         let by_table = [cpu, keccak, keccak_sponge, logic, memory];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
+        let block = Self::create_block_circuit(&aggregation);
         Self {
             root,
             aggregation,
+            block,
             by_table,
         }
     }
@@ -298,6 +317,44 @@ where
         }
     }
 
+    fn create_block_circuit(agg: &AggregationCircuitData<F, C, D>) -> BlockCircuitData<F, C, D> {
+        // The block circuit is similar to the agg circuit; both verify two inner proofs.
+        // We need to adjust a few things, but it's easier than making a new CommonCircuitData.
+        let expected_common_data = CommonCircuitData {
+            fri_params: FriParams {
+                degree_bits: 14,
+                ..agg.circuit.common.fri_params.clone()
+            },
+            ..agg.circuit.common.clone()
+        };
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let has_parent_block = builder.add_virtual_bool_target_safe();
+        let parent_block_proof = builder.add_virtual_proof_with_pis::<C>(&expected_common_data);
+        let agg_root_proof = builder.add_virtual_proof_with_pis::<C>(&agg.circuit.common);
+
+        let cyclic_vk = builder.add_verifier_data_public_inputs();
+        builder
+            .conditionally_verify_cyclic_proof_or_dummy::<C>(
+                has_parent_block,
+                &parent_block_proof,
+                &expected_common_data,
+            )
+            .expect("Failed to build cyclic recursion circuit");
+
+        let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
+        builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
+
+        let circuit = builder.build::<C>();
+        BlockCircuitData {
+            circuit,
+            has_parent_block,
+            parent_block_proof,
+            agg_root_proof,
+            cyclic_vk,
+        }
+    }
+
     /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
     pub fn prove_root(
         &self,
@@ -373,6 +430,39 @@ where
             agg_proof,
             &self.aggregation.circuit.verifier_only,
             &self.aggregation.circuit.common,
+        )
+    }
+
+    pub fn prove_block(
+        &self,
+        opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
+        agg_root_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let mut block_inputs = PartialWitness::new();
+
+        block_inputs.set_bool_target(
+            self.block.has_parent_block,
+            opt_parent_block_proof.is_some(),
+        );
+        if let Some(parent_block_proof) = opt_parent_block_proof {
+            block_inputs
+                .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
+        }
+
+        block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
+
+        block_inputs
+            .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
+
+        self.block.circuit.prove(block_inputs)
+    }
+
+    pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.block.circuit.verify(block_proof.clone())?;
+        check_cyclic_proof_verifier_data(
+            block_proof,
+            &self.block.circuit.verifier_only,
+            &self.block.circuit.common,
         )
     }
 }

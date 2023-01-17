@@ -3,6 +3,7 @@ use std::any::type_name;
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use maybe_rayon::*;
+use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -22,6 +23,7 @@ use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
@@ -54,6 +56,7 @@ where
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values) = timed!(
         timing,
         "generate all traces",

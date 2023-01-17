@@ -13,7 +13,7 @@ use crate::witness::util::{mem_read_code_with_log_and_fill, stack_peek};
 use crate::{arithmetic, logic};
 
 fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
-    let code_context = state.registers.effective_context();
+    let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
     let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
@@ -241,14 +241,18 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     let opcode = read_code_memory(state, &mut row);
     let op = decode(state.registers, opcode)?;
 
-    log_instruction(state, op);
+    if state.registers.is_kernel {
+        log_kernel_instruction(state, op);
+    } else {
+        log::debug!("User instruction: {:?}", op);
+    }
 
     fill_op_flag(op, &mut row);
 
     perform_op(state, op, row)
 }
 
-fn log_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
     let pc = state.registers.program_counter;
     let is_interesting_offset = KERNEL
         .offset_label(pc)
@@ -261,8 +265,9 @@ fn log_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
     };
     log::log!(
         level,
-        "Cycle {}, pc={}, instruction={:?}, stack={:?}",
+        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
         state.traces.clock(),
+        state.registers.context,
         KERNEL.offset_name(pc),
         op,
         (0..state.registers.stack_len)
@@ -270,9 +275,7 @@ fn log_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
             .collect_vec()
     );
 
-    if state.registers.is_kernel && pc >= KERNEL.code.len() {
-        panic!("Kernel PC is out of range: {}", pc);
-    }
+    assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }
 
 fn handle_error<F: Field>(_state: &mut GenerationState<F>) {
