@@ -751,7 +751,7 @@ mod tests {
 
         // Get a working row for InterpolationGate.
         let shift = F::rand();
-        let values = PolynomialValues::new(repeat_with(|| FF::rand()).take(4).collect());
+        let values = PolynomialValues::new(repeat_with(FF::rand).take(4).collect());
         let eval_point = FF::rand();
         let gate = CosetInterpolationGate::<F, D>::with_max_degree(2, 3);
         let vars = EvaluationVars {
