@@ -48,13 +48,13 @@ pub trait Operation<F: RichField> {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>);
 }
 
-struct SimpleOp {
+struct SimpleBinaryOp {
     op: usize,
     input0: U256,
     input1: U256,
 }
 
-impl SimpleOp {
+impl SimpleBinaryOp {
     pub fn new(op: usize, input0: U256, input1: U256) -> Self {
         assert!(
             op == columns::IS_ADD
@@ -67,7 +67,7 @@ impl SimpleOp {
     }
 }
 
-impl<F: RichField> Operation<F> for SimpleOp {
+impl<F: RichField> Operation<F> for SimpleBinaryOp {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
         let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
         row[self.op] = F::ONE;
@@ -108,62 +108,59 @@ impl<F: RichField> Operation<F> for SimpleOp {
     }
 }
 
-pub struct ModularOp {
+pub struct ModularBinaryOp {
     op: usize,
     input0: U256,
-    input1: U256, // Ignored if op == MOD
+    input1: U256,
     modulus: U256,
 }
 
-impl ModularOp {
-    pub fn new(
-        op: usize,
-        input0: U256,
-        input1: Option<U256>, // None if op == MOD
-        modulus: U256,
-    ) -> Self {
-        assert!(
-            op == columns::IS_ADDMOD
-                || op == columns::IS_SUBMOD
-                || op == columns::IS_MULMOD
-                || op == columns::IS_MOD
-        );
-
-        if let Some(input1) = input1 {
-            // second argument should only be set for {ADD,SUB,MUL}MOD
-            assert!(op != columns::IS_MOD);
-            Self {
-                op,
-                input0,
-                input1,
-                modulus,
-            }
-        } else {
-            assert!(op == columns::IS_MOD);
-            Self {
-                op,
-                input0,
-                input1: U256::zero(),
-                modulus,
-            }
+impl ModularBinaryOp {
+    pub fn new(op: usize, input0: U256, input1: U256, modulus: U256) -> Self {
+        assert!(op == columns::IS_ADDMOD || op == columns::IS_SUBMOD || op == columns::IS_MULMOD);
+        Self {
+            op,
+            input0,
+            input1,
+            modulus,
         }
     }
 }
 
-impl<F: RichField> Operation<F> for ModularOp {
+fn modular_to_rows_helper<F: RichField>(
+    op: usize,
+    input0: U256,
+    input1: U256,
+    modulus: U256,
+) -> (Vec<F>, Option<Vec<F>>) {
+    let mut row1 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+    let mut row2 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+
+    row1[op] = F::ONE;
+
+    u256_to_array(&mut row1[columns::MODULAR_INPUT_0], input0);
+    u256_to_array(&mut row1[columns::MODULAR_INPUT_1], input1);
+    u256_to_array(&mut row1[columns::MODULAR_MODULUS], modulus);
+
+    modular::generate(&mut row1, &mut row2, op);
+
+    (row1, Some(row2))
+}
+
+impl<F: RichField> Operation<F> for ModularBinaryOp {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
-        let mut row1 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-        let mut row2 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+        modular_to_rows_helper(self.op, self.input0, self.input1, self.modulus)
+    }
+}
 
-        row1[self.op] = F::ONE;
+pub struct ModOp {
+    input: U256,
+    modulus: U256,
+}
 
-        u256_to_array(&mut row1[columns::MODULAR_INPUT_0], self.input0);
-        u256_to_array(&mut row1[columns::MODULAR_INPUT_1], self.input1);
-        u256_to_array(&mut row1[columns::MODULAR_MODULUS], self.modulus);
-
-        modular::generate(&mut row1, &mut row2, columns::IS_MULMOD);
-
-        (row1, Some(row2))
+impl<F: RichField> Operation<F> for ModOp {
+    fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
+        modular_to_rows_helper(columns::IS_MOD, self.input, U256::zero(), self.modulus)
     }
 }
 
@@ -320,7 +317,9 @@ mod tests {
     use ethereum_types::U256;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    use super::{columns, ArithmeticStark, DivOp, ModularOp, Operation, SimpleOp};
+    use super::{
+        columns, ArithmeticStark, DivOp, ModOp, ModularBinaryOp, Operation, SimpleBinaryOp,
+    };
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -360,24 +359,28 @@ mod tests {
             f: Default::default(),
         };
 
-        let add = SimpleOp::new(columns::IS_ADD, U256::from(123), U256::from(456));
-        let mulmod = ModularOp::new(
+        let add = SimpleBinaryOp::new(columns::IS_ADD, U256::from(123), U256::from(456));
+        let mulmod = ModularBinaryOp::new(
             columns::IS_MULMOD,
             U256::from(123),
-            Some(U256::from(456)),
+            U256::from(456),
             U256::from(1007),
         );
-        let submod = ModularOp::new(
+        let submod = ModularBinaryOp::new(
             columns::IS_SUBMOD,
             U256::from(123),
-            Some(U256::from(456)),
+            U256::from(456),
             U256::from(1007),
         );
+        let modop = ModOp {
+            input: U256::from(128),
+            modulus: U256::from(13),
+        };
         let div = DivOp {
             numerator: U256::from(128),
             denominator: U256::from(13),
         };
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &div];
+        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &div, &modop];
         let pols = stark.generate(ops);
         assert!(
             pols.len() == columns::NUM_ARITH_COLUMNS
