@@ -3,7 +3,7 @@ use std::str::FromStr;
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
-use crate::bn254_arithmetic::{fp12_to_array, inv_fp12, vec_to_fp12};
+// use crate::bn254_arithmetic::{fp12_to_array, inv_fp12, vec_to_fp12};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
@@ -74,7 +74,8 @@ impl<F: Field> GenerationState<F> {
             "component_11" => 11,
             _ => panic!("out of bounds"),
         };
-        field.inverse_fp12(n, xs)
+        // field.inverse_fp12(n, xs)
+        todo!()
     }
 
     /// MPT data.
@@ -195,12 +196,12 @@ impl EvmField {
         modexp(x, q, n)
     }
 
-    fn inverse_fp12(&self, n: usize, xs: Vec<U256>) -> U256 {
-        let offset = 12 - n;
-        let vec: Vec<U256> = xs[offset..].to_vec();
-        let f = fp12_to_array(inv_fp12(vec_to_fp12(vec)));
-        f[n]
-    }
+    // fn inverse_fp12(&self, n: usize, xs: Vec<U256>) -> U256 {
+    //     let offset = 12 - n;
+    //     let vec: Vec<U256> = xs[offset..].to_vec();
+    //     let f = fp12_to_array(inv_fp12(vec_to_fp12(vec)));
+    //     f[n]
+    // }
 }
 
 fn modexp(x: U256, e: U256, n: U256) -> U256 {
