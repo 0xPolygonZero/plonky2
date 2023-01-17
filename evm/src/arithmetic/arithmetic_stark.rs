@@ -315,6 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 mod tests {
     use anyhow::Result;
     use ethereum_types::U256;
+    use plonky2::field::types::{Field, PrimeField64};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use super::{
@@ -359,32 +360,62 @@ mod tests {
             f: Default::default(),
         };
 
+        // 123 + 456 == 579
         let add = SimpleBinaryOp::new(columns::IS_ADD, U256::from(123), U256::from(456));
+        // (123 * 456) % 1007 == 703
         let mulmod = ModularBinaryOp::new(
             columns::IS_MULMOD,
             U256::from(123),
             U256::from(456),
             U256::from(1007),
         );
+        // (123 - 456) % 1007 == 674
         let submod = ModularBinaryOp::new(
             columns::IS_SUBMOD,
             U256::from(123),
             U256::from(456),
             U256::from(1007),
         );
+        // 128 % 13 == 11
         let modop = ModOp {
             input: U256::from(128),
             modulus: U256::from(13),
         };
+        // 128 / 13 == 9
         let div = DivOp {
             numerator: U256::from(128),
             denominator: U256::from(13),
         };
         let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &div, &modop];
+
         let pols = stark.generate(ops);
         assert!(
             pols.len() == columns::NUM_ARITH_COLUMNS
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
+
+        // Each operation has a single word answer that we can check
+        let expected_output = [
+            // Row (some ops take two rows), col, expected
+            (0, columns::ADD_OUTPUT, 579),
+            (1, columns::MODULAR_OUTPUT, 703),
+            (3, columns::MODULAR_OUTPUT, 674),
+            (5, columns::MODULAR_OUTPUT, 11),
+            (7, columns::DIV_OUTPUT, 9),
+        ];
+
+        for (row, col, expected) in expected_output {
+            // First register should match expected value...
+            let first = col.start;
+            let out = pols[first].values[row].to_canonical_u64();
+            assert_eq!(
+                out, expected,
+                "expected column {} on row {} to be {} but it was {}",
+                first, row, expected, out,
+            );
+            // ...other registers should be zero
+            let rest = col.start + 1..col.end;
+            assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
+        }
     }
 }
