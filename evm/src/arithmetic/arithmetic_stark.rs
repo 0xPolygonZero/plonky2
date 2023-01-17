@@ -152,6 +152,8 @@ mod tests {
     use ethereum_types::U256;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
     use crate::arithmetic::operations::*;
@@ -210,6 +212,8 @@ mod tests {
             U256::from(456),
             U256::from(1007),
         );
+        // 123 * 456 == 56088
+        let mul = SimpleBinaryOp::new(columns::IS_MUL, U256::from(123), U256::from(456));
         // 128 % 13 == 11
         let modop = ModOp {
             input: U256::from(128),
@@ -220,9 +224,13 @@ mod tests {
             numerator: U256::from(128),
             denominator: U256::from(13),
         };
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &div, &modop];
+        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &mul, &div, &modop];
 
         let pols = stark.generate(ops);
+
+        // Trace should always have NUM_ARITH_COLUMNS columns and
+        // min(RANGE_MAX, operations.len()) rows. In this case there
+        // are only 6 rows, so we should have RANGE_MAX rows.
         assert!(
             pols.len() == columns::NUM_ARITH_COLUMNS
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
@@ -234,8 +242,9 @@ mod tests {
             (0, columns::ADD_OUTPUT, 579),
             (1, columns::MODULAR_OUTPUT, 703),
             (3, columns::MODULAR_OUTPUT, 674),
-            (5, columns::MODULAR_OUTPUT, 11),
-            (7, columns::DIV_OUTPUT, 9),
+            (5, columns::MUL_OUTPUT, 56088),
+            (6, columns::MODULAR_OUTPUT, 11),
+            (8, columns::DIV_OUTPUT, 9),
         ];
 
         for (row, col, expected) in expected_output {
@@ -251,5 +260,68 @@ mod tests {
             let rest = col.start + 1..col.end;
             assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
         }
+    }
+
+    #[test]
+    fn big_traces() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = ArithmeticStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+
+        let ops = (0..super::RANGE_MAX)
+            .map(|_| {
+                SimpleBinaryOp::new(
+                    columns::IS_MUL,
+                    U256::from(rng.gen::<u8>()),
+                    U256::from(rng.gen::<u8>()),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // TODO: This is clearly not the right way to build this
+        // vector; I can't work out how to do it using the map above
+        // though, with or without Boxes.
+        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
+        let pols = stark.generate(ops);
+
+        // Trace should always have NUM_ARITH_COLUMNS columns and
+        // min(RANGE_MAX, operations.len()) rows. In this case there
+        // are RANGE_MAX operations with one row each, so RANGE_MAX.
+        assert!(
+            pols.len() == columns::NUM_ARITH_COLUMNS
+                && pols.iter().all(|v| v.len() == super::RANGE_MAX)
+        );
+
+        let ops = (0..super::RANGE_MAX)
+            .map(|_| {
+                ModularBinaryOp::new(
+                    columns::IS_MULMOD,
+                    U256::from(rng.gen::<u8>()),
+                    U256::from(rng.gen::<u8>()),
+                    U256::from(rng.gen::<u8>()),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // TODO: This is clearly not the right way to build this
+        // vector; I can't work out how to do it using the map above
+        // though, with or without Boxes.
+        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
+        let pols = stark.generate(ops);
+
+        // Trace should always have NUM_ARITH_COLUMNS columns and
+        // min(RANGE_MAX, operations.len()) rows. In this case there
+        // are RANGE_MAX operations with two rows each, so 2*RANGE_MAX.
+        assert!(
+            pols.len() == columns::NUM_ARITH_COLUMNS
+                && pols.iter().all(|v| v.len() == 2 * super::RANGE_MAX)
+        );
     }
 }
