@@ -467,7 +467,7 @@ pub fn interpolate_over_base_domain<F: Field + Extendable<D>, const D: usize>(
     result
 }
 
-/// Perform a partial interpolation the polynomial defined by its values on an arbitrary domain.
+/// Perform a partial interpolation of the polynomial defined by its values on an arbitrary domain.
 ///
 /// The Barycentric algorithm to interpolate a polynomial at a given point `x` is a linear pass
 /// over the sequence of domain points, values, and Barycentric weights which maintains two
