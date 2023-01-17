@@ -111,7 +111,7 @@ impl<F: RichField> Operation<F> for SimpleOp {
 pub struct ModularOp {
     op: usize,
     input0: U256,
-    input1: U256, // Ignored if op == MOD or DIV
+    input1: U256, // Ignored if op == MOD
     modulus: U256,
 }
 
@@ -119,7 +119,7 @@ impl ModularOp {
     pub fn new(
         op: usize,
         input0: U256,
-        input1: Option<U256>, // None if op == MOD or DIV
+        input1: Option<U256>, // None if op == MOD
         modulus: U256,
     ) -> Self {
         assert!(
@@ -127,12 +127,11 @@ impl ModularOp {
                 || op == columns::IS_SUBMOD
                 || op == columns::IS_MULMOD
                 || op == columns::IS_MOD
-                || op == columns::IS_DIV
         );
 
         if let Some(input1) = input1 {
             // second argument should only be set for {ADD,SUB,MUL}MOD
-            assert!(op != columns::IS_MOD && op != columns::IS_DIV);
+            assert!(op != columns::IS_MOD);
             Self {
                 op,
                 input0,
@@ -140,7 +139,7 @@ impl ModularOp {
                 modulus,
             }
         } else {
-            assert!(op == columns::IS_MOD || op == columns::IS_DIV);
+            assert!(op == columns::IS_MOD);
             Self {
                 op,
                 input0,
@@ -163,6 +162,27 @@ impl<F: RichField> Operation<F> for ModularOp {
         u256_to_array(&mut row1[columns::MODULAR_MODULUS], self.modulus);
 
         modular::generate(&mut row1, &mut row2, columns::IS_MULMOD);
+
+        (row1, Some(row2))
+    }
+}
+
+pub struct DivOp {
+    numerator: U256,
+    denominator: U256,
+}
+
+impl<F: RichField> Operation<F> for DivOp {
+    fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
+        let mut row1 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+        let mut row2 = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+
+        row1[columns::IS_DIV] = F::ONE;
+
+        u256_to_array(&mut row1[columns::DIV_NUMERATOR], self.numerator);
+        u256_to_array(&mut row1[columns::DIV_DENOMINATOR], self.denominator);
+
+        modular::generate(&mut row1, &mut row2, columns::IS_DIV);
 
         (row1, Some(row2))
     }
@@ -212,8 +232,6 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
                 trace_rows.push(row2);
             }
         }
-
-        // FIXME: Check that DIV is handled correctly
 
         // Pad the trace with zero rows if it doesn't have enough rows
         // to accommodate the range check columns.
@@ -302,7 +320,7 @@ mod tests {
     use ethereum_types::U256;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    use super::{columns, ArithmeticStark, ModularOp, Operation, SimpleOp};
+    use super::{columns, ArithmeticStark, DivOp, ModularOp, Operation, SimpleOp};
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -355,7 +373,11 @@ mod tests {
             Some(U256::from(456)),
             U256::from(1007),
         );
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod];
+        let div = DivOp {
+            numerator: U256::from(128),
+            denominator: U256::from(13),
+        };
+        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &div];
         let pols = stark.generate(ops);
         assert!(
             pols.len() == columns::NUM_ARITH_COLUMNS
