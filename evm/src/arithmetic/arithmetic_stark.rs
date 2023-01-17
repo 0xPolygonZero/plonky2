@@ -72,13 +72,30 @@ impl<F: RichField> Operation<F> for SimpleOp {
         let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
         row[self.op] = F::ONE;
 
-        // FIXME: All of these operations use the same columns for
-        // input, but they have different names; fix the naming.
-        u256_to_array(&mut row[columns::ADD_INPUT_0], self.input0);
-        u256_to_array(&mut row[columns::ADD_INPUT_1], self.input1);
+        // Each of these operations uses the same columns for input; the
+        // asserts ensure no-one changes this.
+        debug_assert!([
+            columns::ADD_INPUT_0,
+            columns::SUB_INPUT_0,
+            columns::MUL_INPUT_0,
+            columns::CMP_INPUT_0,
+        ]
+        .iter()
+        .all(|x| *x == columns::GENERAL_INPUT_0));
+        debug_assert!([
+            columns::ADD_INPUT_1,
+            columns::SUB_INPUT_1,
+            columns::MUL_INPUT_1,
+            columns::CMP_INPUT_1,
+        ]
+        .iter()
+        .all(|x| *x == columns::GENERAL_INPUT_1));
 
-        // FIXME: This is ugly; should actually dispatch directly to
-        // add/sub/etc. operation...
+        u256_to_array(&mut row[columns::GENERAL_INPUT_0], self.input0);
+        u256_to_array(&mut row[columns::GENERAL_INPUT_1], self.input1);
+
+        // This is ugly, but it avoids the huge amount of boilderplate
+        // required to dispatch directly to each add/sub/etc. operation.
         match self.op {
             columns::IS_ADD => add::generate(&mut row),
             columns::IS_SUB => sub::generate(&mut row),
