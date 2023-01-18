@@ -65,7 +65,8 @@ impl Div for Fp {
     }
 }
 
-const FP_ZERO: Fp = Fp { val: U256::zero() };
+const ZERO_FP: Fp = Fp { val: U256::zero() };
+const UNIT_FP: Fp = Fp { val: U256::one() };
 
 fn exp_fp(x: Fp, e: U256) -> Fp {
     let mut current = x;
@@ -143,9 +144,14 @@ impl Div for Fp2 {
     }
 }
 
-const FP2_ZERO: Fp2 = Fp2 {
-    re: FP_ZERO,
-    im: FP_ZERO,
+const ZERO_FP2: Fp2 = Fp2 {
+    re: ZERO_FP,
+    im: ZERO_FP,
+};
+
+const UNIT_FP2: Fp2 = Fp2 {
+    re: UNIT_FP,
+    im: ZERO_FP,
 };
 
 fn conj_fp2(a: Fp2) -> Fp2 {
@@ -238,10 +244,16 @@ impl Div for Fp6 {
     }
 }
 
-pub const FP6_ZERO: Fp6 = Fp6 {
-    t0: FP2_ZERO,
-    t1: FP2_ZERO,
-    t2: FP2_ZERO,
+pub const ZERO_FP6: Fp6 = Fp6 {
+    t0: ZERO_FP2,
+    t1: ZERO_FP2,
+    t2: ZERO_FP2,
+};
+
+pub const UNIT_FP6: Fp6 = Fp6 {
+    t0: UNIT_FP2,
+    t1: ZERO_FP2,
+    t2: ZERO_FP2,
 };
 
 fn mul_fp2_fp6(x: Fp2, f: Fp6) -> Fp6 {
@@ -298,15 +310,8 @@ impl Div for Fp12 {
 }
 
 pub const UNIT_FP12: Fp12 = Fp12 {
-    z0: Fp6 {
-        t0: Fp2 {
-            re: Fp {val: U256::one()},
-            im: FP_ZERO
-        },
-        t1: FP2_ZERO,
-        t2: FP2_ZERO,
-    },
-    z1: FP6_ZERO,
+    z0: UNIT_FP6,
+    z1: ZERO_FP6,
 };
 
 pub fn inv_fp12(f: Fp12) -> Fp12 {
@@ -317,16 +322,16 @@ fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     let g0 = Fp6 {
         t0: Fp2 {
             re: g000,
-            im: FP_ZERO,
+            im: ZERO_FP,
         },
         t1: g01,
-        t2: FP2_ZERO,
+        t2: ZERO_FP2,
     };
 
     let g1 = Fp6 {
-        t0: FP2_ZERO,
+        t0: ZERO_FP2,
         t1: g11,
-        t2: FP2_ZERO,
+        t2: ZERO_FP2,
     };
 
     Fp12 { z0: g0, z1: g1 }
