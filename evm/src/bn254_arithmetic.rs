@@ -1,6 +1,7 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
+use itertools::Itertools;
 use rand::{thread_rng, Rng};
 
 pub const BN_BASE: U256 = U256([
@@ -10,7 +11,7 @@ pub const BN_BASE: U256 = U256([
     0x30644e72e131a029,
 ]);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp {
     val: U256,
 }
@@ -59,8 +60,8 @@ impl Div for Fp {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let inv = exp_fp(self, BN_BASE - 2);
-        rhs * inv
+        let inv = exp_fp(rhs, BN_BASE - 2);
+        self * inv
     }
 }
 
@@ -79,7 +80,7 @@ fn exp_fp(x: Fp, e: U256) -> Fp {
     product
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp2 {
     re: Fp,
     im: Fp,
@@ -133,12 +134,12 @@ impl Div for Fp2 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let norm = self.re * self.re + self.im * self.im;
+        let norm = rhs.re * rhs.re + rhs.im * rhs.im;
         let inv = Fp2 {
-            re: self.re / norm,
-            im: -self.im / norm,
+            re: rhs.re / norm,
+            im: -rhs.im / norm,
         };
-        rhs * inv
+        self * inv
     }
 }
 
@@ -154,6 +155,14 @@ fn conj_fp2(a: Fp2) -> Fp2 {
     }
 }
 
+fn normalize_fp2(a: Fp2) -> Fp2 {
+    let norm = a.re * a.re + a.im * a.im;
+    Fp2 {
+        re: a.re / norm,
+        im: a.im / norm,
+    }
+}
+
 fn i9(a: Fp2) -> Fp2 {
     let nine = Fp { val: U256::from(9) };
     Fp2 {
@@ -162,7 +171,7 @@ fn i9(a: Fp2) -> Fp2 {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp6 {
     t0: Fp2,
     t1: Fp2,
@@ -217,23 +226,17 @@ impl Mul for Fp6 {
     }
 }
 
-// impl Div for Fp6 {
-//     type Output = Self;
+impl Div for Fp6 {
+    type Output = Self;
 
-//     fn div(self, rhs: Self) -> Self::Output {
-//         let b = frob_fp6(1, self) * frob_fp6(3, self);
-//         let e = (b * frob_fp6(5, self)).t0;
-//         let n = (e * conj_fp2(e)).re;
-//         let d = e / embed_fp2(n);
-//         let f = frob_fp6(1, b);
-//         let inv = Fp6 {
-//             t0: d * f.t0,
-//             t1: d * f.t1,
-//             t2: d * f.t2,
-//         };
-//         rhs * inv
-//     }
-// }
+    fn div(self, rhs: Self) -> Self::Output {
+        let b = frob_fp6(1, rhs) * frob_fp6(3, rhs);
+        let e = normalize_fp2((b * frob_fp6(5, rhs)).t0);
+        let f = frob_fp6(1, b);
+        let inv = mul_fp2_fp6(e, f);
+        self * inv
+    }
+}
 
 // pub fn inv_fp6(c: Fp6) -> Fp6 {
 //     let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
@@ -244,6 +247,12 @@ impl Mul for Fp6 {
 //     let [f0, f1, f2] = frob_fp6(1, b);
 //     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
 // }
+
+pub const FP6_ZERO: Fp6 = Fp6 {
+    t0: FP2_ZERO,
+    t1: FP2_ZERO,
+    t2: FP2_ZERO,
+};
 
 fn mul_fp2_fp6(x: Fp2, f: Fp6) -> Fp6 {
     Fp6 {
@@ -261,7 +270,7 @@ fn sh(c: Fp6) -> Fp6 {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp12 {
     z0: Fp6,
     z1: Fp6,
@@ -279,6 +288,49 @@ impl Mul for Fp12 {
             z1: h01 - (h0 + h1),
         }
     }
+}
+
+impl Div for Fp12 {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let a = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
+        let b = a * frob_fp6(2, a);
+        let c = normalize_fp2((b * frob_fp6(4, a)).t0);
+        let g = frob_fp6(1, b);
+        let e = mul_fp2_fp6(c, g);
+        let inv = Fp12 {
+            z0: e * rhs.z0,
+            z1: -e * rhs.z1,
+        };
+        self * inv
+    }
+}
+
+// pub fn inv_fp12(f: Fp12) -> Fp12 {
+    // let a = (frob_fp12(1, self) * frob_fp12(7, self))[0];
+    // let b = a * frob_fp6(2, a);
+    // let c = (b * frob_fp6(4, a))[0];
+    // let d = c / norm(c);
+    // let [g0, g1, g2] = frob_fp6(1, b);
+    // let e = [d * g0, d * g1, d * g2];
+    // [e * self.z0, - e * self.z1]
+// }
+
+pub const UNIT_FP12: Fp12 = Fp12 {
+    z0: Fp6 {
+        t0: Fp2 {
+            re: Fp {val: U256::one()},
+            im: FP_ZERO
+        },
+        t1: FP2_ZERO,
+        t2: FP2_ZERO,
+    },
+    z1: FP6_ZERO,
+};
+
+pub fn inv_fp12(f: Fp12) -> Fp12 {
+    UNIT_FP12 / f
 }
 
 fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
@@ -299,19 +351,6 @@ fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
 
     Fp12 { z0: g0, z1: g1 }
 }
-
-// pub fn inv_fp12(f: Fp12) -> Fp12 {
-//     let [f0, f1] = f;
-//     let a = mul_fp12(frob_fp12(1, f), frob_fp12(7, f))[0];
-//     let b = mul_fp6(a, frob_fp6(2, a));
-//     let c = mul_fp6(b, frob_fp6(4, a))[0];
-//     let n = mul_fp2(c, conj_fp2(c))[0];
-//     let i = inv_fp(n);
-//     let d = mul_fp2(embed_fp2(i), c);
-//     let [g0, g1, g2] = frob_fp6(1, b);
-//     let e = [mul_fp2(d, g0), mul_fp2(d, g1), mul_fp2(d, g2)];
-//     [mul_fp6(e, f0), neg_fp6(mul_fp6(e, f1))]
-// }
 
 pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
     [
@@ -334,15 +373,29 @@ pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
     fp12_to_array(f).into_iter().collect()
 }
 
-// pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
-//     xs.into_iter()
-//         .tuples::<(U256, U256)>()
-//         .map(|(v1, v2)| [v1, v2])
-//         .tuples()
-//         .map(|(a1, a2, a3, a4, a5, a6)| [[a1, a2, a3], [a4, a5, a6]])
-//         .next()
-//         .unwrap()
-// }
+pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
+    xs.into_iter()
+        .tuples::<(U256, U256)>()
+        .map(|(v1, v2)| Fp2 {
+            re: Fp { val: v1 },
+            im: Fp { val: v2 },
+        })
+        .tuples()
+        .map(|(a1, a2, a3, a4, a5, a6)| Fp12 {
+            z0: Fp6 {
+                t0: a1,
+                t1: a2,
+                t2: a3,
+            },
+            z1: Fp6 {
+                t0: a4,
+                t1: a5,
+                t2: a6,
+            },
+        })
+        .next()
+        .unwrap()
+}
 
 fn gen_fp() -> Fp {
     let mut rng = thread_rng();

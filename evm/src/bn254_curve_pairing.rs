@@ -1,26 +1,54 @@
-// pub type Curve = [Fp; 2];
-// pub type TwistedCurve = [Fp2; 2];
+use ethereum_types::U256;
 
-// pub fn curve_generator() -> Curve {
-//     [U256::one(), U256::from(2)]
-// }
+use crate::bn254_arithmetic::{Fp, Fp12};
 
-// pub fn twisted_curve_generator() -> TwistedCurve {
-//     [
-//         [
-//             U256::from_str("0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed")
-//                 .unwrap(),
-//             U256::from_str("0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2")
-//                 .unwrap(),
-//         ],
-//         [
-//             U256::from_str("0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa")
-//                 .unwrap(),
-//             U256::from_str("0x90689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b")
-//                 .unwrap(),
-//         ],
-//     ]
-// }
+pub type Curve = [Fp; 2];
+pub type TwistedCurve = [[Fp; 2]; 2];
+
+pub fn curve_generator() -> Curve {
+    [Fp { val: U256::one() }, Fp { val: U256::from(2) }]
+}
+
+pub fn twisted_curve_generator() -> TwistedCurve {
+    [
+        [
+            Fp {
+                val: U256([
+                    0x46debd5cd992f6ed,
+                    0x674322d4f75edadd,
+                    0x426a00665e5c4479,
+                    0x1800deef121f1e76,
+                ]),
+            },
+            Fp {
+                val: U256([
+                    0x97e485b7aef312c2,
+                    0xf1aa493335a9e712,
+                    0x7260bfb731fb5d25,
+                    0x198e9393920d483a,
+                ]),
+            },
+        ],
+        [
+            Fp {
+                val: U256([
+                    0x4ce6cc0166fa7daa,
+                    0xe3d1e7690c43d37b,
+                    0x4aab71808dcb408f,
+                    0x12c85ea5db8c6deb,
+                ]),
+            },
+            Fp {
+                val: U256([
+                    0x55acdadcd122975b,
+                    0xbc4b313370b38ef3,
+                    0xec9e99ad690c3395,
+                    0x90689d0585ff075,
+                ]),
+            },
+        ],
+    ]
+}
 
 pub fn power(f: Fp12) -> Fp12 {
     const EXPS4: [(usize, usize, usize); 64] = [

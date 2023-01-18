@@ -1,4 +1,4 @@
-// use std::str::FromStr;
+use std::str::FromStr;
 
 use anyhow::Result;
 use ethereum_types::U256;
@@ -92,22 +92,22 @@ fn test_frob_fp12() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_inv_fp12() -> Result<()> {
-//     let ptr = U256::from(200);
-//     let inv = U256::from(300);
+#[test]
+fn test_inv_fp12() -> Result<()> {
+    let ptr = U256::from(200);
+    let inv = U256::from(300);
 
-//     let f: Fp12 = gen_fp12();
-//     let mut stack = vec![ptr];
-//     stack.extend(fp12_to_vec(f));
-//     stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
+    let f: Fp12 = gen_fp12();
+    let mut stack = vec![ptr];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
 
-//     let output: Vec<U256> = get_output("test_inv_fp12", stack);
+    let output: Vec<U256> = get_output("test_inv_fp12", stack);
 
-//     assert_eq!(output, vec![]);
+    assert_eq!(output, vec![]);
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 // #[test]
 // fn test_power() -> Result<()> {
