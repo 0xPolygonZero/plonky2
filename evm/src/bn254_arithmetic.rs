@@ -133,6 +133,8 @@ impl Mul for Fp2 {
     }
 }
 
+/// The inverse of a + bi is given by (a - bi)/(a^2 + b^2) since
+/// (a + bi)(a - bi)/(a^2 + b^2) = (a^2 + b^2)/(a^2 + b^2) = 1
 impl Div for Fp2 {
     type Output = Self;
 
@@ -239,14 +241,21 @@ impl Mul for Fp6 {
     }
 }
 
+/// Let x_n = x^(p^n); By Galois Theory, for x: Fp6, the product
+///     phi = x_0 * x_1 * x_2 * x_3 * x_4 * x_5
+/// lands in Fp, and hence the inverse of x (= x_0) is given by
+///     (x_1 * x_2 * x_3 * x_4 * x_5) / phi
+/// Since (x_n)_m = x_{n+m}, we save compute by rearranging the numerator:
+///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
+
 impl Div for Fp6 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let b = frob_fp6(1, rhs) * frob_fp6(3, rhs);
-        let e = normalize_fp2((b * frob_fp6(5, rhs)).t0);
-        let f = frob_fp6(1, b);
-        let inv = mul_fp2_fp6(e, f);
+        let prod_13 = frob_fp6(1, rhs) * frob_fp6(3, rhs);
+        let prod_135 = (prod_13 * frob_fp6(5, rhs)).t0;
+        let prod_24 = frob_fp6(1, prod_13);
+        let inv = mul_fp2_fp6(normalize_fp2(prod_135), prod_24);
         self * inv
     }
 }
@@ -303,19 +312,25 @@ impl Mul for Fp12 {
     }
 }
 
+/// By Galois Theory, for x: Fp12, the product
+///     phi = Prod_{i=0}^11 x_i
+/// lands in Fp, and hence the inverse of x (= x_0) is given by
+///     (Prod_{i=1}^11 x_i) / phi
+/// We note that x_6 = (a + bz)_6 = a - bz, which we denote as x'
+/// The remaining factors in the numerator can be efficiently rearranged as:
+///     [(x_1 * x_7) * (x_1 * x_7)_2] * (x_1 * x_7)_4 * [(x_1 * x_7) * (x_1 * x_7)_2]_1
+/// 
+/// Note that in the variable names below, we use a and b to denote 10 and 11
 impl Div for Fp12 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let a = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
-        let b = a * frob_fp6(2, a);
-        let c = normalize_fp2((b * frob_fp6(4, a)).t0);
-        let g = frob_fp6(1, b);
-        let e = mul_fp2_fp6(c, g);
-        let inv = Fp12 {
-            z0: e * rhs.z0,
-            z1: -e * rhs.z1,
-        };
+        let prod_17 = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
+        let prod_1379= prod_17 * frob_fp6(2, prod_17);
+        let prod_13579b = (prod_1379 * frob_fp6(4, prod_17)).t0;
+        let prod_248a = frob_fp6(1, prod_1379);
+        let prod_12345789ab = mul_fp2_fp6(normalize_fp2(prod_13579b), prod_248a);
+        let inv = mul_fp6_fp12(prod_12345789ab, conj_fp12(rhs));
         self * inv
     }
 }
@@ -324,6 +339,20 @@ pub const UNIT_FP12: Fp12 = Fp12 {
     z0: UNIT_FP6,
     z1: ZERO_FP6,
 };
+
+fn conj_fp12(f: Fp12) -> Fp12 {
+    Fp12 {
+        z0: f.z0,
+        z1: -f.z1,
+    }
+}
+
+fn mul_fp6_fp12(c: Fp6, f: Fp12) -> Fp12 {
+    Fp12 {
+        z0: c * f.z0,
+        z1: c * f.z1,
+    }
+}
 
 pub fn inv_fp12(f: Fp12) -> Fp12 {
     UNIT_FP12 / f
