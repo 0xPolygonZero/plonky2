@@ -321,26 +321,24 @@ impl Mul for Fp12 {
 ///     phi = Prod_{i=0}^11 x_i
 /// lands in Fp, and hence the inverse of x is given by
 ///     (Prod_{i=1}^11 x_i) / phi
-/// We note that the 6th Frobenius map gives the Fp12 conjugate:
-///     x_6 = (a + bz)_6 = a + b(z^(p^6)) = a - bz
+/// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
+///     x_6 = (a + bz)_6 = a - bz
 /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
 ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
 /// By Galois theory, both the following are in Fp2 and are complex conjugates
-///     prod_13579b,  prod_02468a
-/// Thus phi = norm(prod_13579b), and hence the inverse is given by
-///    conj_fp12(x) * normalize([(prod_17) * (prod_17)_2] * (prod_17)_4) * [(prod_17) * (prod_17)_2]_1
-///
-/// Note that in the variable names below, we use a and b to denote 10 and 11
+///     prod_odds,  prod_evens
+/// Thus phi = norm(prod_odds), and hence the inverse is given by
+///    normalize(prod_odds) * prod_evens_except_six * conj_fp12(x)
 impl Div for Fp12 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         let prod_17 = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
         let prod_1379 = prod_17 * frob_fp6(2, prod_17);
-        let prod_13579b = (prod_1379 * frob_fp6(4, prod_17)).t0;
-        let prod_odds_over_phi = normalize_fp2(prod_13579b);
-        let prod_248a = frob_fp6(1, prod_1379);
-        let prod_penultimate = mul_fp2_fp6(prod_odds_over_phi, prod_248a);
+        let prod_odds = (prod_1379 * frob_fp6(4, prod_17)).t0;
+        let prod_odds_over_phi = normalize_fp2(prod_odds);
+        let prod_evens_except_six = frob_fp6(1, prod_1379);
+        let prod_penultimate = mul_fp2_fp6(prod_odds_over_phi, prod_evens_except_six);
         let inv = mul_fp6_fp12(prod_penultimate, conj_fp12(rhs));
         self * inv
     }
