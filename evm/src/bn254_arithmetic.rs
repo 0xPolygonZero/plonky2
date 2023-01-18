@@ -81,6 +81,8 @@ fn exp_fp(x: Fp, e: U256) -> Fp {
     product
 }
 
+/// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
+/// The arithmetic in this extension is standard complex arithmetic
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp2 {
     re: Fp,
@@ -154,6 +156,7 @@ const UNIT_FP2: Fp2 = Fp2 {
     im: ZERO_FP,
 };
 
+// This function takes the complex conjugate
 fn conj_fp2(a: Fp2) -> Fp2 {
     Fp2 {
         re: a.re,
@@ -161,6 +164,7 @@ fn conj_fp2(a: Fp2) -> Fp2 {
     }
 }
 
+// This function function normalizes the input to the complex unit circle
 fn normalize_fp2(a: Fp2) -> Fp2 {
     let norm = a.re * a.re + a.im * a.im;
     Fp2 {
@@ -169,6 +173,8 @@ fn normalize_fp2(a: Fp2) -> Fp2 {
     }
 }
 
+/// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 9 + i
+/// We begin by defining a helper function which multiplies an Fp2 element by 9 + i
 fn i9(a: Fp2) -> Fp2 {
     let nine = Fp { val: U256::from(9) };
     Fp2 {
@@ -177,6 +183,7 @@ fn i9(a: Fp2) -> Fp2 {
     }
 }
 
+// Fp6 has basis 1, t, t^2 over Fp2
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp6 {
     t0: Fp2,
@@ -264,6 +271,8 @@ fn mul_fp2_fp6(x: Fp2, f: Fp6) -> Fp6 {
     }
 }
 
+/// This function multiplies an Fp6 element by t, and hence shifts the bases,
+/// where the t^2 coefficient picks up a factor of 9+i as the 1 coefficient of the output
 fn sh(c: Fp6) -> Fp6 {
     Fp6 {
         t0: i9(c.t2),
@@ -272,6 +281,33 @@ fn sh(c: Fp6) -> Fp6 {
     }
 }
 
+/// The nth frobenius endomorphism is given by sending a field element r to r^(p^n)
+/// Hence an Fp6 element a + bt + ct^2 is sent to
+///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
+/// the constant arrays FROB_T1 and FROB_T2 record the values of t^(p^n) and t^(2p^n), respectively
+/// By the comment in conj_fp2, x^(p^n) = x when n is even and conj_fp2(x) when n is odd
+fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
+    let n = n % 6;
+    let frob_t1 = FROB_T1[n];
+    let frob_t2 = FROB_T2[n];
+
+    if n % 2 != 0 {
+        Fp6 {
+            t0: conj_fp2(c.t0),
+            t1: frob_t1 * conj_fp2(c.t1),
+            t2: frob_t2 * conj_fp2(c.t2),
+        }
+    } else {
+        Fp6 {
+            t0: c.t0,
+            t1: frob_t1 * c.t1,
+            t2: frob_t2 * c.t2,
+        }
+    }
+}
+
+/// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
+/// It thus has basis 1, z over Fp6
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp12 {
     z0: Fp6,
@@ -335,6 +371,18 @@ fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     };
 
     Fp12 { z0: g0, z1: g1 }
+}
+
+/// The nth frobenius endomorphism is given by sending a field element r to r^(p^n)
+/// Hence an Fp12 element a + bz is sent to
+///     a^(p^n) + b^(p^n) * z^(p^n)
+/// the constant array FROB_Z records the values of z^p^n
+pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
+    let n = n % 12;
+    Fp12 {
+        z0: frob_fp6(n, f.z0),
+        z1: mul_fp2_fp6(FROB_Z[n], frob_fp6(n, f.z1)),
+    }
 }
 
 pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
@@ -413,34 +461,6 @@ pub fn gen_fp12() -> Fp12 {
 
 pub fn gen_fp12_sparse() -> Fp12 {
     sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
-}
-
-fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
-    let n = n % 6;
-    let frob_t1 = FROB_T1[n];
-    let frob_t2 = FROB_T2[n];
-
-    if n % 2 != 0 {
-        Fp6 {
-            t0: conj_fp2(c.t0),
-            t1: frob_t1 * conj_fp2(c.t1),
-            t2: frob_t2 * conj_fp2(c.t2),
-        }
-    } else {
-        Fp6 {
-            t0: c.t0,
-            t1: frob_t1 * c.t1,
-            t2: frob_t2 * c.t2,
-        }
-    }
-}
-
-pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
-    let n = n % 12;
-    Fp12 {
-        z0: frob_fp6(n, f.z0),
-        z1: mul_fp2_fp6(FROB_Z[n], frob_fp6(n, f.z1)),
-    }
 }
 
 const FROB_T1: [Fp2; 6] = [
