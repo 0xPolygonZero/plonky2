@@ -1,4 +1,5 @@
-use std::{ops::{Add, Div, Mul, Neg, Sub}, mem::transmute};
+use std::mem::transmute;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
 use itertools::Itertools;
@@ -247,7 +248,10 @@ impl Mul for Fp6 {
 ///     (x_1 * x_2 * x_3 * x_4 * x_5) / phi
 /// Since (x_n)_m = x_{n+m}, we save compute by rearranging the numerator:
 ///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
-
+/// By Galois theory, both the following are in Fp2 and are complex conjugates
+///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
+/// Thus phi = norm(x_1 * x_3 * x_5), and hence the inverse is given by
+///     normalize((x_1 * x_3) * x_5) * (x_1 * x_3)_1
 impl Div for Fp6 {
     type Output = Self;
 
@@ -315,20 +319,24 @@ impl Mul for Fp12 {
 
 /// By Galois Theory, for x: Fp12, the product
 ///     phi = Prod_{i=0}^11 x_i
-/// lands in Fp, and hence the inverse of x (= x_0) is given by
+/// lands in Fp, and hence the inverse of x is given by
 ///     (Prod_{i=1}^11 x_i) / phi
 /// We note that the 6th Frobenius map gives the Fp12 conjugate:
 ///     x_6 = (a + bz)_6 = a + b(z^(p^6)) = a - bz
 /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
 ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
-/// 
+/// By Galois theory, both the following are in Fp2 and are complex conjugates
+///     prod_13579b,  prod_02468a
+/// Thus phi = norm(prod_13579b), and hence the inverse is given by
+///    conj_fp12(x) * normalize([(prod_17) * (prod_17)_2] * (prod_17)_4) * [(prod_17) * (prod_17)_2]_1
+///
 /// Note that in the variable names below, we use a and b to denote 10 and 11
 impl Div for Fp12 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         let prod_17 = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
-        let prod_1379= prod_17 * frob_fp6(2, prod_17);
+        let prod_1379 = prod_17 * frob_fp6(2, prod_17);
         let prod_13579b = (prod_1379 * frob_fp6(4, prod_17)).t0;
         let prod_odds_over_phi = normalize_fp2(prod_13579b);
         let prod_248a = frob_fp6(1, prod_1379);
