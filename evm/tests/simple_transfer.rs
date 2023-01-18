@@ -73,8 +73,9 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let expected_state_trie_after = {
         let sender_account_after = AccountRlp {
-            balance: sender_account_before.balance - value, // TODO: Also subtract gas_used * price.
-            // nonce: sender_account_before.nonce + 1, // TODO
+            // TODO: Should be 21k; 1k gas should be refunded.
+            balance: sender_account_before.balance - value - 22_000 * 10,
+            nonce: sender_account_before.nonce + 1,
             ..sender_account_before
         };
         let to_account_after = AccountRlp {

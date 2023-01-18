@@ -5,8 +5,6 @@ pub(crate) enum GlobalMetadata {
     /// The largest context ID that has been used so far in this execution. Tracking this allows us
     /// give each new context a unique ID, so that its memory will be zero-initialized.
     LargestContext = 0,
-    /// The address of the sender of the transaction.
-    Origin = 1,
     /// The size of active memory, in bytes.
     MemorySize = 2,
     /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
@@ -35,12 +33,11 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 14;
+    pub(crate) const COUNT: usize = 13;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
             Self::LargestContext,
-            Self::Origin,
             Self::MemorySize,
             Self::TrieDataSize,
             Self::StateTrieRoot,
@@ -60,7 +57,6 @@ impl GlobalMetadata {
     pub(crate) fn var_name(&self) -> &'static str {
         match self {
             GlobalMetadata::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
-            GlobalMetadata::Origin => "GLOBAL_METADATA_ORIGIN",
             GlobalMetadata::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
             GlobalMetadata::TrieDataSize => "GLOBAL_METADATA_TRIE_DATA_SIZE",
             GlobalMetadata::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
