@@ -238,16 +238,6 @@ impl Div for Fp6 {
     }
 }
 
-// pub fn inv_fp6(c: Fp6) -> Fp6 {
-//     let b = mul_fp6(frob_fp6(1, c), frob_fp6(3, c));
-//     let e = mul_fp6(b, frob_fp6(5, c))[0];
-//     let n = mul_fp2(e, conj_fp2(e))[0];
-//     let i = inv_fp(n);
-//     let d = mul_fp2(embed_fp2(i), e);
-//     let [f0, f1, f2] = frob_fp6(1, b);
-//     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
-// }
-
 pub const FP6_ZERO: Fp6 = Fp6 {
     t0: FP2_ZERO,
     t1: FP2_ZERO,
@@ -306,16 +296,6 @@ impl Div for Fp12 {
         self * inv
     }
 }
-
-// pub fn inv_fp12(f: Fp12) -> Fp12 {
-    // let a = (frob_fp12(1, self) * frob_fp12(7, self))[0];
-    // let b = a * frob_fp6(2, a);
-    // let c = (b * frob_fp6(4, a))[0];
-    // let d = c / norm(c);
-    // let [g0, g1, g2] = frob_fp6(1, b);
-    // let e = [d * g0, d * g1, d * g2];
-    // [e * self.z0, - e * self.z1]
-// }
 
 pub const UNIT_FP12: Fp12 = Fp12 {
     z0: Fp6 {
