@@ -254,8 +254,9 @@ impl Div for Fp6 {
     fn div(self, rhs: Self) -> Self::Output {
         let prod_13 = frob_fp6(1, rhs) * frob_fp6(3, rhs);
         let prod_135 = (prod_13 * frob_fp6(5, rhs)).t0;
+        let prod_odds_over_phi = normalize_fp2(prod_135);
         let prod_24 = frob_fp6(1, prod_13);
-        let inv = mul_fp2_fp6(normalize_fp2(prod_135), prod_24);
+        let inv = mul_fp2_fp6(prod_odds_over_phi, prod_24);
         self * inv
     }
 }
@@ -316,9 +317,10 @@ impl Mul for Fp12 {
 ///     phi = Prod_{i=0}^11 x_i
 /// lands in Fp, and hence the inverse of x (= x_0) is given by
 ///     (Prod_{i=1}^11 x_i) / phi
-/// We note that x_6 = (a + bz)_6 = a - bz, which we denote as x'
-/// The remaining factors in the numerator can be efficiently rearranged as:
-///     [(x_1 * x_7) * (x_1 * x_7)_2] * (x_1 * x_7)_4 * [(x_1 * x_7) * (x_1 * x_7)_2]_1
+/// We note that the 6th Frobenius map gives the Fp12 conjugate:
+///     x_6 = (a + bz)_6 = a + b(z^(p^6)) = a - bz
+/// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
+///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
 /// 
 /// Note that in the variable names below, we use a and b to denote 10 and 11
 impl Div for Fp12 {
@@ -328,9 +330,10 @@ impl Div for Fp12 {
         let prod_17 = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
         let prod_1379= prod_17 * frob_fp6(2, prod_17);
         let prod_13579b = (prod_1379 * frob_fp6(4, prod_17)).t0;
+        let prod_odds_over_phi = normalize_fp2(prod_13579b);
         let prod_248a = frob_fp6(1, prod_1379);
-        let prod_12345789ab = mul_fp2_fp6(normalize_fp2(prod_13579b), prod_248a);
-        let inv = mul_fp6_fp12(prod_12345789ab, conj_fp12(rhs));
+        let prod_penultimate = mul_fp2_fp6(prod_odds_over_phi, prod_248a);
+        let inv = mul_fp6_fp12(prod_penultimate, conj_fp12(rhs));
         self * inv
     }
 }
