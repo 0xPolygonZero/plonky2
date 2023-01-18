@@ -3,7 +3,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{fp12_to_vec, gen_fp12, gen_fp12_sparse, frob_fp12, Fp12};
+use crate::bn254_arithmetic::{fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, Fp12};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
