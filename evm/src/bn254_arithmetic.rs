@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::{ops::{Add, Div, Mul, Neg, Sub}, mem::transmute};
 
 use ethereum_types::U256;
 use itertools::Itertools;
@@ -164,7 +164,7 @@ fn conj_fp2(a: Fp2) -> Fp2 {
     }
 }
 
-// This function function normalizes the input to the complex unit circle
+// This function normalizes the input to the complex unit circle
 fn normalize_fp2(a: Fp2) -> Fp2 {
     let norm = a.re * a.re + a.im * a.im;
     Fp2 {
@@ -281,31 +281,6 @@ fn sh(c: Fp6) -> Fp6 {
     }
 }
 
-/// The nth frobenius endomorphism is given by sending a field element r to r^(p^n)
-/// Hence an Fp6 element a + bt + ct^2 is sent to
-///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
-/// the constant arrays FROB_T1 and FROB_T2 record the values of t^(p^n) and t^(2p^n), respectively
-/// By the comment in conj_fp2, x^(p^n) = x when n is even and conj_fp2(x) when n is odd
-fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
-    let n = n % 6;
-    let frob_t1 = FROB_T1[n];
-    let frob_t2 = FROB_T2[n];
-
-    if n % 2 != 0 {
-        Fp6 {
-            t0: conj_fp2(c.t0),
-            t1: frob_t1 * conj_fp2(c.t1),
-            t2: frob_t2 * conj_fp2(c.t2),
-        }
-    } else {
-        Fp6 {
-            t0: c.t0,
-            t1: frob_t1 * c.t1,
-            t2: frob_t2 * c.t2,
-        }
-    }
-}
-
 /// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
 /// It thus has basis 1, z over Fp6
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -373,10 +348,44 @@ fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     Fp12 { z0: g0, z1: g1 }
 }
 
-/// The nth frobenius endomorphism is given by sending a field element r to r^(p^n)
-/// Hence an Fp12 element a + bz is sent to
+/// The nth frobenius endomorphism of a finite field F of order p^q is given by sending x: F to x^(p^n)
+/// since any element x: F satisfies x^(p^q) = x = x^(p^0), these endomorphisms cycle modulo q
+///
+/// Thus in the case of Fp, there are no nontrivial such endomorphisms since x^p = x.
+///
+/// In the case of Fp2, the first and only nontrivial frobenius map sends a + bi to its complex conjugate:
+///     a^p + b^p(i^p) = a - bi
+/// since p == 3 mod 4, and i^3 = -i
+///
+/// An Fp6 element a + bt + ct^2 is sent to
+///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
+/// where the values of t^(p^n) and t^(2p^n) are precomputed in the constant arrays FROB_T1 and FROB_T2
+///
+///
+/// An Fp12 element a + bz is sent to
 ///     a^(p^n) + b^(p^n) * z^(p^n)
-/// the constant array FROB_Z records the values of z^p^n
+/// where the values of z^(p^n) are precomputed in the constant array FROB_Z
+
+fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
+    let n = n % 6;
+    let frob_t1 = FROB_T1[n];
+    let frob_t2 = FROB_T2[n];
+
+    if n % 2 != 0 {
+        Fp6 {
+            t0: conj_fp2(c.t0),
+            t1: frob_t1 * conj_fp2(c.t1),
+            t2: frob_t2 * conj_fp2(c.t2),
+        }
+    } else {
+        Fp6 {
+            t0: c.t0,
+            t1: frob_t1 * c.t1,
+            t2: frob_t2 * c.t2,
+        }
+    }
+}
+
 pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let n = n % 12;
     Fp12 {
@@ -386,20 +395,7 @@ pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
 }
 
 pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
-    [
-        f.z0.t0.re.val,
-        f.z0.t0.im.val,
-        f.z0.t1.re.val,
-        f.z0.t1.im.val,
-        f.z0.t2.re.val,
-        f.z0.t2.im.val,
-        f.z1.t0.re.val,
-        f.z1.t0.im.val,
-        f.z1.t1.re.val,
-        f.z1.t1.im.val,
-        f.z1.t2.re.val,
-        f.z1.t2.im.val,
-    ]
+    unsafe { transmute(f) }
 }
 
 pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
