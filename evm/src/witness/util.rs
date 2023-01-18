@@ -45,7 +45,7 @@ pub(crate) fn stack_peeks<F: Field>(state: &GenerationState<F>) -> Option<Vec<U2
     let mut stack: Vec<U256> = vec![];
     for i in 0..n {
         stack.extend(vec![state.memory.get(MemoryAddress::new(
-            state.registers.effective_context(),
+            state.registers.code_context(),
             Segment::Stack,
             n - 1 - i,
         ))])

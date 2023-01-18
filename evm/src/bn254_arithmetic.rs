@@ -1,4 +1,5 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::str::FromStr;
 
 use ethereum_types::U256;
 use rand::{thread_rng, Rng};
@@ -151,7 +152,7 @@ fn flatten_fp2(a: Fp2) -> [U256; 2] {
     [a.re.val, a.im.val]
 }
 
-fn embed_fp2(x: Fp) -> Fp2 {
+fn embed_fp_fp2(x: Fp) -> Fp2 {
     Fp2 { re: x, im: FP_ZERO }
 }
 
@@ -225,14 +226,6 @@ impl Mul for Fp6 {
     }
 }
 
-fn sh(c: Fp6) -> Fp6 {
-    Fp6 {
-        t0: i9(c.t2),
-        t1: c.t0,
-        t2: c.t1,
-    }
-}
-
 // impl Div for Fp6 {
 //     type Output = Self;
 
@@ -261,6 +254,22 @@ fn sh(c: Fp6) -> Fp6 {
 //     [mul_fp2(d, f0), mul_fp2(d, f1), mul_fp2(d, f2)]
 // }
 
+fn embed_fp2_fp6(x: Fp2) -> Fp6 {
+    Fp6 {
+        t0: x,
+        t1: FP2_ZERO,
+        t2: FP2_ZERO,
+    }
+}
+
+fn sh(c: Fp6) -> Fp6 {
+    Fp6 {
+        t0: i9(c.t2),
+        t1: c.t0,
+        t2: c.t1,
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Fp12 {
     z0: Fp6,
@@ -282,13 +291,8 @@ impl Mul for Fp12 {
 }
 
 fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
-    let g00 = Fp2 {
-        re: g000,
-        im: FP_ZERO,
-    };
-
     let g0 = Fp6 {
-        t0: g00,
+        t0: embed_fp_fp2(g000),
         t1: g01,
         t2: FP2_ZERO,
     };
@@ -346,22 +350,6 @@ pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
 //         .unwrap()
 // }
 
-// fn embed_fp2(x: Fp) -> Fp2 {
-//     [x, FP_ZERO]
-// }
-
-// fn embed_fp2_fp6(a: Fp2) -> Fp6 {
-//     [a, embed_fp2(FP_ZERO), embed_fp2(FP_ZERO)]
-// }
-
-// fn embed_fp6(x: Fp) -> Fp6 {
-//     embed_fp2_fp6(embed_fp2(x))
-// }
-
-// fn embed_fp12(x: Fp) -> Fp12 {
-//     [embed_fp6(x), embed_fp6(FP_ZERO)]
-// }
-
 fn gen_fp() -> Fp {
     let mut rng = thread_rng();
     let x64 = rng.gen::<u64>();
@@ -395,169 +383,176 @@ pub fn gen_fp12_sparse() -> Fp12 {
     sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
 }
 
-// fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
-//     let [c0, c1, c2] = c;
-//     let _c0 = conj_fp2(c0);
-//     let _c1 = conj_fp2(c1);
-//     let _c2 = conj_fp2(c2);
+fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
+    let n = n % 6;
+    let frob_t1 = frob_t1(n);
+    let frob_t2 = frob_t2(n);
 
-//     let n = n % 6;
-//     let frob_t1 = frob_t1(n);
-//     let frob_t2 = frob_t2(n);
+    if n % 2 != 0 {
+        Fp6 {
+            t0: conj_fp2(c.t0),
+            t1: frob_t1 * conj_fp2(c.t1),
+            t2: frob_t2 * conj_fp2(c.t2),
+        }
+    } else {
+        Fp6 {
+            t0: c.t0,
+            t1: frob_t1 * c.t1,
+            t2: frob_t2 * c.t2,
+        }
+    }
+}
 
-//     if n % 2 != 0 {
-//         [_c0, mul_fp2(frob_t1, _c1), mul_fp2(frob_t2, _c2)]
-//     } else {
-//         [c0, mul_fp2(frob_t1, c1), mul_fp2(frob_t2, c2)]
-//     }
-// }
+pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
+    let scale = embed_fp2_fp6(frob_z(n));
+    Fp12 {
+        z0: frob_fp6(n, f.z0),
+        z1: scale * frob_fp6(n, f.z1),
+    }
+}
 
-// pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
-//     let [f0, f1] = f;
-//     let scale = embed_fp2_fp6(frob_z(n));
+fn frob_t1(n: usize) -> Fp2 {
+    let pair = match n {
+        0 => [U256::one(), U256::zero()],
+        1 => [
+            U256::from_str("0x2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d")
+                .unwrap(),
+            U256::from_str("0x16c9e55061ebae204ba4cc8bd75a079432ae2a1d0b7c9dce1665d51c640fcba2")
+                .unwrap(),
+        ],
+        2 => [
+            U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
+                .unwrap(),
+            U256::zero(),
+        ],
+        3 => [
+            U256::from_str("0x856e078b755ef0abaff1c77959f25ac805ffd3d5d6942d37b746ee87bdcfb6d")
+                .unwrap(),
+            U256::from_str("0x4f1de41b3d1766fa9f30e6dec26094f0fdf31bf98ff2631380cab2baaa586de")
+                .unwrap(),
+        ],
+        4 => [
+            U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
+            U256::zero(),
+        ],
+        5 => [
+            U256::from_str("0x28be74d4bb943f51699582b87809d9caf71614d4b0b71f3a62e913ee1dada9e4")
+                .unwrap(),
+            U256::from_str("0x14a88ae0cb747b99c2b86abcbe01477a54f40eb4c3f6068dedae0bcec9c7aac7")
+                .unwrap(),
+        ],
+        _ => panic!(),
+    };
+    Fp2 {
+        re: Fp { val: pair[0] },
+        im: Fp { val: pair[1] },
+    }
+}
 
-//     [frob_fp6(n, f0), mul_fp6(scale, frob_fp6(n, f1))]
-// }
+fn frob_t2(n: usize) -> Fp2 {
+    let pair = match n {
+        0 => [U256::one(), U256::zero()],
+        1 => [
+            U256::from_str("0x5b54f5e64eea80180f3c0b75a181e84d33365f7be94ec72848a1f55921ea762")
+                .unwrap(),
+            U256::from_str("0x2c145edbe7fd8aee9f3a80b03b0b1c923685d2ea1bdec763c13b4711cd2b8126")
+                .unwrap(),
+        ],
+        2 => [
+            U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
+            U256::zero(),
+        ],
+        3 => [
+            U256::from_str("0xbc58c6611c08dab19bee0f7b5b2444ee633094575b06bcb0e1a92bc3ccbf066")
+                .unwrap(),
+            U256::from_str("0x23d5e999e1910a12feb0f6ef0cd21d04a44a9e08737f96e55fe3ed9d730c239f")
+                .unwrap(),
+        ],
+        4 => [
+            U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
+                .unwrap(),
+            U256::zero(),
+        ],
+        5 => [
+            U256::from_str("0x1ee972ae6a826a7d1d9da40771b6f589de1afb54342c724fa97bda050992657f")
+                .unwrap(),
+            U256::from_str("0x10de546ff8d4ab51d2b513cdbb25772454326430418536d15721e37e70c255c9")
+                .unwrap(),
+        ],
+        _ => panic!(),
+    };
+    Fp2 {
+        re: Fp { val: pair[0] },
+        im: Fp { val: pair[1] },
+    }
+}
 
-// fn frob_t1(n: usize) -> Fp2 {
-//     match n {
-//         0 => [
-//             U256::from_str("0x1").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         1 => [
-//             U256::from_str("0x2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d")
-//                 .unwrap(),
-//             U256::from_str("0x16c9e55061ebae204ba4cc8bd75a079432ae2a1d0b7c9dce1665d51c640fcba2")
-//                 .unwrap(),
-//         ],
-//         2 => [
-//             U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
-//                 .unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         3 => [
-//             U256::from_str("0x856e078b755ef0abaff1c77959f25ac805ffd3d5d6942d37b746ee87bdcfb6d")
-//                 .unwrap(),
-//             U256::from_str("0x4f1de41b3d1766fa9f30e6dec26094f0fdf31bf98ff2631380cab2baaa586de")
-//                 .unwrap(),
-//         ],
-//         4 => [
-//             U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         5 => [
-//             U256::from_str("0x28be74d4bb943f51699582b87809d9caf71614d4b0b71f3a62e913ee1dada9e4")
-//                 .unwrap(),
-//             U256::from_str("0x14a88ae0cb747b99c2b86abcbe01477a54f40eb4c3f6068dedae0bcec9c7aac7")
-//                 .unwrap(),
-//         ],
-//         _ => panic!(),
-//     }
-// }
-
-// fn frob_t2(n: usize) -> Fp2 {
-//     match n {
-//         0 => [
-//             U256::from_str("0x1").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         1 => [
-//             U256::from_str("0x5b54f5e64eea80180f3c0b75a181e84d33365f7be94ec72848a1f55921ea762")
-//                 .unwrap(),
-//             U256::from_str("0x2c145edbe7fd8aee9f3a80b03b0b1c923685d2ea1bdec763c13b4711cd2b8126")
-//                 .unwrap(),
-//         ],
-//         2 => [
-//             U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         3 => [
-//             U256::from_str("0xbc58c6611c08dab19bee0f7b5b2444ee633094575b06bcb0e1a92bc3ccbf066")
-//                 .unwrap(),
-//             U256::from_str("0x23d5e999e1910a12feb0f6ef0cd21d04a44a9e08737f96e55fe3ed9d730c239f")
-//                 .unwrap(),
-//         ],
-//         4 => [
-//             U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
-//                 .unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         5 => [
-//             U256::from_str("0x1ee972ae6a826a7d1d9da40771b6f589de1afb54342c724fa97bda050992657f")
-//                 .unwrap(),
-//             U256::from_str("0x10de546ff8d4ab51d2b513cdbb25772454326430418536d15721e37e70c255c9")
-//                 .unwrap(),
-//         ],
-//         _ => panic!(),
-//     }
-// }
-
-// fn frob_z(n: usize) -> Fp2 {
-//     match n {
-//         0 => [
-//             U256::from_str("0x1").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         1 => [
-//             U256::from_str("0x1284b71c2865a7dfe8b99fdd76e68b605c521e08292f2176d60b35dadcc9e470")
-//                 .unwrap(),
-//             U256::from_str("0x246996f3b4fae7e6a6327cfe12150b8e747992778eeec7e5ca5cf05f80f362ac")
-//                 .unwrap(),
-//         ],
-//         2 => [
-//             U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd49")
-//                 .unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         3 => [
-//             U256::from_str("0x19dc81cfcc82e4bbefe9608cd0acaa90894cb38dbe55d24ae86f7d391ed4a67f")
-//                 .unwrap(),
-//             U256::from_str("0xabf8b60be77d7306cbeee33576139d7f03a5e397d439ec7694aa2bf4c0c101")
-//                 .unwrap(),
-//         ],
-//         4 => [
-//             U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
-//                 .unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         5 => [
-//             U256::from_str("0x757cab3a41d3cdc072fc0af59c61f302cfa95859526b0d41264475e420ac20f")
-//                 .unwrap(),
-//             U256::from_str("0xca6b035381e35b618e9b79ba4e2606ca20b7dfd71573c93e85845e34c4a5b9c")
-//                 .unwrap(),
-//         ],
-//         6 => [
-//             U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd46")
-//                 .unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         7 => [
-//             U256::from_str("0x1ddf9756b8cbf849cf96a5d90a9accfd3b2f4c893f42a9166615563bfbb318d7")
-//                 .unwrap(),
-//             U256::from_str("0xbfab77f2c36b843121dc8b86f6c4ccf2307d819d98302a771c39bb757899a9b")
-//                 .unwrap(),
-//         ],
-//         8 => [
-//             U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         9 => [
-//             U256::from_str("0x1687cca314aebb6dc866e529b0d4adcd0e34b703aa1bf84253b10eddb9a856c8")
-//                 .unwrap(),
-//             U256::from_str("0x2fb855bcd54a22b6b18456d34c0b44c0187dc4add09d90a0c58be1eae3bc3c46")
-//                 .unwrap(),
-//         ],
-//         10 => [
-//             U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177ffffff").unwrap(),
-//             U256::from_str("0x0").unwrap(),
-//         ],
-//         11 => [
-//             U256::from_str("0x290c83bf3d14634db120850727bb392d6a86d50bd34b19b929bc44b896723b38")
-//                 .unwrap(),
-//             U256::from_str("0x23bd9e3da9136a739f668e1adc9ef7f0f575ec93f71a8df953c846338c32a1ab")
-//                 .unwrap(),
-//         ],
-//         _ => panic!(),
-//     }
-// }
+fn frob_z(n: usize) -> Fp2 {
+    let pair = match n {
+        0 => [U256::one(), U256::zero()],
+        1 => [
+            U256::from_str("0x1284b71c2865a7dfe8b99fdd76e68b605c521e08292f2176d60b35dadcc9e470")
+                .unwrap(),
+            U256::from_str("0x246996f3b4fae7e6a6327cfe12150b8e747992778eeec7e5ca5cf05f80f362ac")
+                .unwrap(),
+        ],
+        2 => [
+            U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd49")
+                .unwrap(),
+            U256::zero(),
+        ],
+        3 => [
+            U256::from_str("0x19dc81cfcc82e4bbefe9608cd0acaa90894cb38dbe55d24ae86f7d391ed4a67f")
+                .unwrap(),
+            U256::from_str("0xabf8b60be77d7306cbeee33576139d7f03a5e397d439ec7694aa2bf4c0c101")
+                .unwrap(),
+        ],
+        4 => [
+            U256::from_str("0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48")
+                .unwrap(),
+            U256::zero(),
+        ],
+        5 => [
+            U256::from_str("0x757cab3a41d3cdc072fc0af59c61f302cfa95859526b0d41264475e420ac20f")
+                .unwrap(),
+            U256::from_str("0xca6b035381e35b618e9b79ba4e2606ca20b7dfd71573c93e85845e34c4a5b9c")
+                .unwrap(),
+        ],
+        6 => [
+            U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd46")
+                .unwrap(),
+            U256::zero(),
+        ],
+        7 => [
+            U256::from_str("0x1ddf9756b8cbf849cf96a5d90a9accfd3b2f4c893f42a9166615563bfbb318d7")
+                .unwrap(),
+            U256::from_str("0xbfab77f2c36b843121dc8b86f6c4ccf2307d819d98302a771c39bb757899a9b")
+                .unwrap(),
+        ],
+        8 => [
+            U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe").unwrap(),
+            U256::zero(),
+        ],
+        9 => [
+            U256::from_str("0x1687cca314aebb6dc866e529b0d4adcd0e34b703aa1bf84253b10eddb9a856c8")
+                .unwrap(),
+            U256::from_str("0x2fb855bcd54a22b6b18456d34c0b44c0187dc4add09d90a0c58be1eae3bc3c46")
+                .unwrap(),
+        ],
+        10 => [
+            U256::from_str("0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177ffffff").unwrap(),
+            U256::zero(),
+        ],
+        11 => [
+            U256::from_str("0x290c83bf3d14634db120850727bb392d6a86d50bd34b19b929bc44b896723b38")
+                .unwrap(),
+            U256::from_str("0x23bd9e3da9136a739f668e1adc9ef7f0f575ec93f71a8df953c846338c32a1ab")
+                .unwrap(),
+        ],
+        _ => panic!(),
+    };
+    Fp2 {
+        re: Fp { val: pair[0] },
+        im: Fp { val: pair[1] },
+    }
+}

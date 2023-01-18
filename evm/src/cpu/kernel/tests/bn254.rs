@@ -3,7 +3,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{fp12_to_vec, gen_fp12, gen_fp12_sparse, Fp12};
+use crate::bn254_arithmetic::{fp12_to_vec, gen_fp12, gen_fp12_sparse, frob_fp12, Fp12};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
 
@@ -65,33 +65,32 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_frob_fp12() -> Result<()> {
-//     let ptr = U256::from(100);
+#[test]
+fn test_frob_fp12() -> Result<()> {
+    let ptr = U256::from(100);
+    let f: Fp12 = gen_fp12();
 
-//     let f: Fp12 = gen_fp12();
+    let mut stack = vec![ptr];
+    stack.extend(fp12_to_vec(f));
+    stack.extend(vec![ptr]);
 
-//     let mut stack = vec![ptr];
-//     stack.extend(fp12_to_vec(f));
-//     stack.extend(vec![ptr]);
+    let out_frob1: Vec<U256> = get_output("test_frob_fp12_1", stack.clone());
+    let out_frob2: Vec<U256> = get_output("test_frob_fp12_2", stack.clone());
+    let out_frob3: Vec<U256> = get_output("test_frob_fp12_3", stack.clone());
+    let out_frob6: Vec<U256> = get_output("test_frob_fp12_6", stack);
 
-//     let out_frob1: Vec<U256> = get_output("test_frob_fp12_1", stack.clone());
-//     let out_frob2: Vec<U256> = get_output("test_frob_fp12_2", stack.clone());
-//     let out_frob3: Vec<U256> = get_output("test_frob_fp12_3", stack.clone());
-//     let out_frob6: Vec<U256> = get_output("test_frob_fp12_6", stack);
+    let exp_frob1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
+    let exp_frob2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
+    let exp_frob3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
+    let exp_frob6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
 
-//     let exp_frob1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
-//     let exp_frob2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
-//     let exp_frob3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
-//     let exp_frob6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
+    assert_eq!(out_frob1, exp_frob1);
+    assert_eq!(out_frob2, exp_frob2);
+    assert_eq!(out_frob3, exp_frob3);
+    assert_eq!(out_frob6, exp_frob6);
 
-//     assert_eq!(out_frob1, exp_frob1);
-//     assert_eq!(out_frob2, exp_frob2);
-//     assert_eq!(out_frob3, exp_frob3);
-//     assert_eq!(out_frob6, exp_frob6);
-
-//     Ok(())
-// }
+    Ok(())
+}
 
 // #[test]
 // fn test_inv_fp12() -> Result<()> {
