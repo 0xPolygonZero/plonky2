@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
-pub const NUM_GP_CHANNELS: usize = 4;
+pub const NUM_GP_CHANNELS: usize = 5;
 
 pub mod channel_indices {
     use std::ops::Range;
@@ -37,9 +37,6 @@ pub fn generate<F: PrimeField64>(lv: &mut CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter != F::ZERO {
         assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);
-
-        // Set `lv.code_context` to 0 if in kernel mode and to `lv.context` if in user mode.
-        lv.code_context = (F::ONE - lv.is_kernel_mode) * lv.context;
     }
 
     for channel in lv.mem_channels {

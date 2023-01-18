@@ -1,6 +1,8 @@
 // Insertion logic specific to a particular trie.
 
 // Mutate the state trie, inserting the given key-value pair.
+// Pre stack: key, value_ptr, retdest
+// Post stack: (empty)
 global mpt_insert_state_trie:
     // stack: key, value_ptr, retdest
     %stack (key, value_ptr)

@@ -278,7 +278,7 @@ mod tests {
 
     use super::*;
     use crate::field::types::Sample;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;

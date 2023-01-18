@@ -14,7 +14,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_shift = lv.op.shl + lv.op.shr;
-    let displacement = lv.mem_channels[1]; // holds the shift displacement d
+    let displacement = lv.mem_channels[0]; // holds the shift displacement d
     let two_exp = lv.mem_channels[2]; // holds 2^d
 
     // Not needed here; val is the input and we're verifying that output is
@@ -65,7 +65,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_shift = builder.add_extension(lv.op.shl, lv.op.shr);
-    let displacement = lv.mem_channels[1];
+    let displacement = lv.mem_channels[0];
     let two_exp = lv.mem_channels[2];
 
     let shift_table_segment = F::from_canonical_u64(Segment::ShiftTable as u64);

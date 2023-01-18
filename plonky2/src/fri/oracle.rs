@@ -3,12 +3,12 @@ use alloc::vec::Vec;
 
 use itertools::Itertools;
 use maybe_rayon::*;
+use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;
 use crate::field::packed::PackedField;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::field::types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
@@ -189,13 +189,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &format!("reduce batch of {} polynomials", polynomials.len()),
                 alpha.reduce_polys_base(polys_coeff)
             );
-            let quotient = composition_poly.divide_by_linear(*point);
+            let mut quotient = composition_poly.divide_by_linear(*point);
+            quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
-        // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
-        // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
-        final_poly.coeffs.insert(0, F::Extension::ZERO);
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(

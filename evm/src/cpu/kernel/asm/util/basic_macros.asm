@@ -240,6 +240,10 @@
     %and_const(0xffffffff)
 %endmacro
 
+%macro as_u64
+    %and_const(0xffffffffffffffff)
+%endmacro
+
 %macro not_u32
     // stack: x
     PUSH 0xffffffff
@@ -309,4 +313,35 @@
     OR
     OR
     // stack: dcba
+%endmacro
+
+%macro reverse_bytes_u64
+    // stack: word
+    DUP1
+    // stack: word, word
+    %and_const(0xffffffff)
+    // stack: word_lo, word
+    SWAP1
+    // stack: word, word_lo
+    %shr_const(32)
+    // stack: word_hi, word_lo
+    %reverse_bytes_u32
+    // stack: word_hi_inverted, word_lo
+    SWAP1
+    // stack: word_lo, word_hi_inverted
+    %reverse_bytes_u32
+    // stack: word_lo_inverted, word_hi_inverted
+    %shl_const(32)
+    OR
+    // stack: word_inverted
+%endmacro
+
+// Combine four big-endian u64s into a u256.
+%macro u64s_to_u256
+    // stack: a, b, c, d
+    %rep 3
+        %shl_const(64)
+        OR
+    %endrep
+    // stack: a || b || c || d
 %endmacro

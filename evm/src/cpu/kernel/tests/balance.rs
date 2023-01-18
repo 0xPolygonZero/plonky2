@@ -33,7 +33,7 @@ fn prepare_interpreter(
     let mut state_trie: PartialTrie = Default::default();
     let trie_inputs = Default::default();
 
-    interpreter.offset = load_all_mpts;
+    interpreter.generation_state.registers.program_counter = load_all_mpts;
     interpreter.push(0xDEADBEEFu32.into());
 
     interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
@@ -44,7 +44,7 @@ fn prepare_interpreter(
         keccak(address.to_fixed_bytes()).as_bytes(),
     ));
     // Next, execute mpt_insert_state_trie.
-    interpreter.offset = mpt_insert_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
     if trie_data.is_empty() {
         // In the assembly we skip over 0, knowing trie_data[0] = 0 by default.
@@ -74,7 +74,7 @@ fn prepare_interpreter(
     );
 
     // Now, execute mpt_hash_state_trie.
-    interpreter.offset = mpt_hash_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
@@ -105,7 +105,7 @@ fn test_balance() -> Result<()> {
     prepare_interpreter(&mut interpreter, address, &account)?;
 
     // Test `balance`
-    interpreter.offset = KERNEL.global_labels["balance"];
+    interpreter.generation_state.registers.program_counter = KERNEL.global_labels["balance"];
     interpreter.pop();
     assert!(interpreter.stack().is_empty());
     interpreter.push(0xDEADBEEFu32.into());

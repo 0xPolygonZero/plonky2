@@ -9,7 +9,7 @@ use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::{PartitionWitness, Witness};
+use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -335,6 +335,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn and(&mut self, b1: BoolTarget, b2: BoolTarget) -> BoolTarget {
         BoolTarget::new_unsafe(self.mul(b1.target, b2.target))
+    }
+
+    /// computes the arithmetic extension of logical "or": `b1 + b2 - b1 * b2`
+    pub fn or(&mut self, b1: BoolTarget, b2: BoolTarget) -> BoolTarget {
+        let res_minus_b2 = self.arithmetic(-F::ONE, F::ONE, b1.target, b2.target, b1.target);
+        BoolTarget::new_unsafe(self.add(res_minus_b2, b2.target))
     }
 
     pub fn _if(&mut self, b: BoolTarget, x: Target, y: Target) -> Target {

@@ -1,4 +1,4 @@
-mod eq_iszero;
+pub(crate) mod eq_iszero;
 mod not;
 
 use plonky2::field::extension::Extendable;
@@ -8,17 +8,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-
-pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let cycle_filter = lv.is_cpu_cycle.to_canonical_u64();
-    if cycle_filter == 0 {
-        return;
-    }
-    assert_eq!(cycle_filter, 1);
-
-    not::generate(lv);
-    eq_iszero::generate(lv);
-}
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,

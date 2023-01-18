@@ -1,31 +1,9 @@
 use tiny_keccak::keccakf;
 
-use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_RATE_U32S};
-
-/// A Keccak-f based hash.
-///
-/// This hash does not use standard Keccak padding, since we don't care about extra zeros at the
-/// end of the code. It also uses an overwrite-mode sponge, rather than a standard sponge where
-/// inputs are xor'ed in.
-pub(crate) fn hash_kernel(code: &[u8]) -> [u32; 8] {
-    debug_assert_eq!(
-        code.len() % KECCAK_RATE_BYTES,
-        0,
-        "Code should have been padded to a multiple of the Keccak rate."
-    );
-
-    let mut state = [0u32; 50];
-    for chunk in code.chunks(KECCAK_RATE_BYTES) {
-        for i in 0..KECCAK_RATE_U32S {
-            state[i] = u32::from_le_bytes(std::array::from_fn(|j| chunk[i * 4 + j]));
-        }
-        keccakf_u32s(&mut state);
-    }
-    state[..8].try_into().unwrap()
-}
+use crate::keccak_sponge::columns::{KECCAK_WIDTH_BYTES, KECCAK_WIDTH_U32S};
 
 /// Like tiny-keccak's `keccakf`, but deals with `u32` limbs instead of `u64` limbs.
-pub(crate) fn keccakf_u32s(state_u32s: &mut [u32; 50]) {
+pub(crate) fn keccakf_u32s(state_u32s: &mut [u32; KECCAK_WIDTH_U32S]) {
     let mut state_u64s: [u64; 25] = std::array::from_fn(|i| {
         let lo = state_u32s[i * 2] as u64;
         let hi = state_u32s[i * 2 + 1] as u64;
@@ -36,6 +14,17 @@ pub(crate) fn keccakf_u32s(state_u32s: &mut [u32; 50]) {
         let u64_limb = state_u64s[i / 2];
         let is_hi = i % 2;
         (u64_limb >> (is_hi * 32)) as u32
+    });
+}
+
+/// Like tiny-keccak's `keccakf`, but deals with bytes instead of `u64` limbs.
+pub(crate) fn keccakf_u8s(state_u8s: &mut [u8; KECCAK_WIDTH_BYTES]) {
+    let mut state_u64s: [u64; 25] =
+        std::array::from_fn(|i| u64::from_le_bytes(state_u8s[i * 8..][..8].try_into().unwrap()));
+    keccakf(&mut state_u64s);
+    *state_u8s = std::array::from_fn(|i| {
+        let u64_limb = state_u64s[i / 8];
+        u64_limb.to_le_bytes()[i % 8]
     });
 }
 

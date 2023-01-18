@@ -17,10 +17,11 @@ pub(crate) enum NormalizedTxnField {
     YParity = 9,
     R = 10,
     S = 11,
+    Origin = 12,
 }
 
 impl NormalizedTxnField {
-    pub(crate) const COUNT: usize = 12;
+    pub(crate) const COUNT: usize = 13;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -36,6 +37,7 @@ impl NormalizedTxnField {
             Self::YParity,
             Self::R,
             Self::S,
+            Self::Origin,
         ]
     }
 
@@ -54,6 +56,7 @@ impl NormalizedTxnField {
             NormalizedTxnField::YParity => "TXN_FIELD_Y_PARITY",
             NormalizedTxnField::R => "TXN_FIELD_R",
             NormalizedTxnField::S => "TXN_FIELD_S",
+            NormalizedTxnField::Origin => "TXN_FIELD_ORIGIN",
         }
     }
 }

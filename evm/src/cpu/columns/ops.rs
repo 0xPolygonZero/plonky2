@@ -5,8 +5,8 @@ use std::ops::{Deref, DerefMut};
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Debug)]
-pub struct OpsColumnsView<T> {
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub struct OpsColumnsView<T: Copy> {
     // TODO: combine ADD, MUL, SUB, DIV, MOD, ADDFP254, MULFP254, SUBFP254, LT, and GT into one flag
     pub add: T,
     pub mul: T,
@@ -41,12 +41,6 @@ pub struct OpsColumnsView<T> {
     pub pc: T,
     pub gas: T,
     pub jumpdest: T,
-    // TODO: combine GET_STATE_ROOT and SET_STATE_ROOT into one flag
-    pub get_state_root: T,
-    pub set_state_root: T,
-    // TODO: combine GET_RECEIPT_ROOT and SET_RECEIPT_ROOT into one flag
-    pub get_receipt_root: T,
-    pub set_receipt_root: T,
     pub push: T,
     pub dup: T,
     pub swap: T,
@@ -65,38 +59,38 @@ pub struct OpsColumnsView<T> {
 // `u8` is guaranteed to have a `size_of` of 1.
 pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
-impl<T> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
+impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
     fn from(value: [T; NUM_OPS_COLUMNS]) -> Self {
         unsafe { transmute_no_compile_time_size_checks(value) }
     }
 }
 
-impl<T> From<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
+impl<T: Copy> From<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
     fn from(value: OpsColumnsView<T>) -> Self {
         unsafe { transmute_no_compile_time_size_checks(value) }
     }
 }
 
-impl<T> Borrow<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
+impl<T: Copy> Borrow<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
     fn borrow(&self) -> &OpsColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> BorrowMut<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
+impl<T: Copy> BorrowMut<OpsColumnsView<T>> for [T; NUM_OPS_COLUMNS] {
     fn borrow_mut(&mut self) -> &mut OpsColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> Deref for OpsColumnsView<T> {
+impl<T: Copy> Deref for OpsColumnsView<T> {
     type Target = [T; NUM_OPS_COLUMNS];
     fn deref(&self) -> &Self::Target {
         unsafe { transmute(self) }
     }
 }
 
-impl<T> DerefMut for OpsColumnsView<T> {
+impl<T: Copy> DerefMut for OpsColumnsView<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { transmute(self) }
     }

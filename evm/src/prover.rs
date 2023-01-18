@@ -1,7 +1,9 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use maybe_rayon::*;
+use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
@@ -21,17 +23,18 @@ use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
-    compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
-    PermutationCheckVars,
+    compute_permutation_z_polys, get_grand_product_challenge_set,
+    get_n_grand_product_challenge_sets, GrandProductChallengeSet, PermutationCheckVars,
 };
-use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
+use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
@@ -49,11 +52,16 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
-    let (traces, public_values) = generate_traces(all_stark, inputs, config, timing);
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    let (traces, public_values) = timed!(
+        timing,
+        "generate all traces",
+        generate_traces(all_stark, inputs, config, timing)
+    );
     prove_with_traces(all_stark, config, traces, public_values, timing)
 }
 
@@ -71,7 +79,7 @@ where
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
@@ -80,19 +88,24 @@ where
 
     let trace_commitments = timed!(
         timing,
-        "compute trace commitments",
+        "compute all trace commitments",
         trace_poly_values
             .iter()
-            .map(|trace| {
-                PolynomialBatch::<F, C, D>::from_values(
-                    // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                    // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                    trace.clone(),
-                    rate_bits,
-                    false,
-                    cap_height,
+            .zip_eq(Table::all())
+            .map(|(trace, table)| {
+                timed!(
                     timing,
-                    None,
+                    &format!("compute trace commitment for {:?}", table),
+                    PolynomialBatch::<F, C, D>::from_values(
+                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                        trace.clone(),
+                        rate_bits,
+                        false,
+                        cap_height,
+                        timing,
+                        None,
+                    )
                 )
             })
             .collect::<Vec<_>>()
@@ -107,71 +120,129 @@ where
         challenger.observe_cap(cap);
     }
 
-    let ctl_data_per_table = cross_table_lookup_data::<F, C, D>(
-        config,
-        &trace_poly_values,
-        &all_stark.cross_table_lookups,
-        &mut challenger,
+    let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+    let ctl_data_per_table = timed!(
+        timing,
+        "compute CTL data",
+        cross_table_lookup_data::<F, C, D>(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            &ctl_challenges,
+        )
     );
 
-    let cpu_proof = prove_single_table(
-        &all_stark.cpu_stark,
-        config,
-        &trace_poly_values[Table::Cpu as usize],
-        &trace_commitments[Table::Cpu as usize],
-        &ctl_data_per_table[Table::Cpu as usize],
-        &mut challenger,
+    let stark_proofs = timed!(
         timing,
-    )?;
-    let keccak_proof = prove_single_table(
-        &all_stark.keccak_stark,
-        config,
-        &trace_poly_values[Table::Keccak as usize],
-        &trace_commitments[Table::Keccak as usize],
-        &ctl_data_per_table[Table::Keccak as usize],
-        &mut challenger,
-        timing,
-    )?;
-    let keccak_memory_proof = prove_single_table(
-        &all_stark.keccak_memory_stark,
-        config,
-        &trace_poly_values[Table::KeccakMemory as usize],
-        &trace_commitments[Table::KeccakMemory as usize],
-        &ctl_data_per_table[Table::KeccakMemory as usize],
-        &mut challenger,
-        timing,
-    )?;
-    let logic_proof = prove_single_table(
-        &all_stark.logic_stark,
-        config,
-        &trace_poly_values[Table::Logic as usize],
-        &trace_commitments[Table::Logic as usize],
-        &ctl_data_per_table[Table::Logic as usize],
-        &mut challenger,
-        timing,
-    )?;
-    let memory_proof = prove_single_table(
-        &all_stark.memory_stark,
-        config,
-        &trace_poly_values[Table::Memory as usize],
-        &trace_commitments[Table::Memory as usize],
-        &ctl_data_per_table[Table::Memory as usize],
-        &mut challenger,
-        timing,
-    )?;
-
-    let stark_proofs = [
-        cpu_proof,
-        keccak_proof,
-        keccak_memory_proof,
-        logic_proof,
-        memory_proof,
-    ];
+        "compute all proofs given commitments",
+        prove_with_commitments(
+            all_stark,
+            config,
+            trace_poly_values,
+            trace_commitments,
+            ctl_data_per_table,
+            &mut challenger,
+            timing
+        )?
+    );
 
     Ok(AllProof {
         stark_proofs,
+        ctl_challenges,
         public_values,
     })
+}
+
+fn prove_with_commitments<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    trace_commitments: Vec<PolynomialBatch<F, C, D>>,
+    ctl_data_per_table: [CtlData<F>; NUM_TABLES],
+    challenger: &mut Challenger<F, C::Hasher>,
+    timing: &mut TimingTree,
+) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    [(); C::Hasher::HASH_SIZE]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+{
+    let cpu_proof = timed!(
+        timing,
+        "prove CPU STARK",
+        prove_single_table(
+            &all_stark.cpu_stark,
+            config,
+            &trace_poly_values[Table::Cpu as usize],
+            &trace_commitments[Table::Cpu as usize],
+            &ctl_data_per_table[Table::Cpu as usize],
+            challenger,
+            timing,
+        )?
+    );
+    let keccak_proof = timed!(
+        timing,
+        "prove Keccak STARK",
+        prove_single_table(
+            &all_stark.keccak_stark,
+            config,
+            &trace_poly_values[Table::Keccak as usize],
+            &trace_commitments[Table::Keccak as usize],
+            &ctl_data_per_table[Table::Keccak as usize],
+            challenger,
+            timing,
+        )?
+    );
+    let keccak_sponge_proof = timed!(
+        timing,
+        "prove Keccak sponge STARK",
+        prove_single_table(
+            &all_stark.keccak_sponge_stark,
+            config,
+            &trace_poly_values[Table::KeccakSponge as usize],
+            &trace_commitments[Table::KeccakSponge as usize],
+            &ctl_data_per_table[Table::KeccakSponge as usize],
+            challenger,
+            timing,
+        )?
+    );
+    let logic_proof = timed!(
+        timing,
+        "prove logic STARK",
+        prove_single_table(
+            &all_stark.logic_stark,
+            config,
+            &trace_poly_values[Table::Logic as usize],
+            &trace_commitments[Table::Logic as usize],
+            &ctl_data_per_table[Table::Logic as usize],
+            challenger,
+            timing,
+        )?
+    );
+    let memory_proof = timed!(
+        timing,
+        "prove memory STARK",
+        prove_single_table(
+            &all_stark.memory_stark,
+            config,
+            &trace_poly_values[Table::Memory as usize],
+            &trace_commitments[Table::Memory as usize],
+            &ctl_data_per_table[Table::Memory as usize],
+            challenger,
+            timing,
+        )?
+    );
+    Ok([
+        cpu_proof,
+        keccak_proof,
+        keccak_sponge_proof,
+        logic_proof,
+        memory_proof,
+    ])
 }
 
 /// Compute proof for a single STARK table.
@@ -183,7 +254,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     ctl_data: &CtlData<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<StarkProof<F, C, D>>
+) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -201,7 +272,7 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    challenger.compact();
+    let init_challenger_state = challenger.compact();
 
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
@@ -344,12 +415,16 @@ where
         )
     );
 
-    Ok(StarkProof {
+    let proof = StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         permutation_ctl_zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
+    };
+    Ok(StarkProofWithMetadata {
+        init_challenger_state,
+        proof,
     })
 }
 

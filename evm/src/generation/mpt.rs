@@ -9,11 +9,22 @@ use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
-pub(crate) struct AccountRlp {
-    pub(crate) nonce: U256,
-    pub(crate) balance: U256,
-    pub(crate) storage_root: H256,
-    pub(crate) code_hash: H256,
+pub struct AccountRlp {
+    pub nonce: U256,
+    pub balance: U256,
+    pub storage_root: H256,
+    pub code_hash: H256,
+}
+
+impl Default for AccountRlp {
+    fn default() -> Self {
+        Self {
+            nonce: U256::zero(),
+            balance: U256::zero(),
+            storage_root: PartialTrie::Empty.calc_hash(),
+            code_hash: keccak([]),
+        }
+    }
 }
 
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
@@ -29,7 +40,10 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     let storage_tries_by_state_key = trie_inputs
         .storage_tries
         .iter()
-        .map(|(address, storage_trie)| (Nibbles::from(keccak(address)), storage_trie))
+        .map(|(address, storage_trie)| {
+            let key = Nibbles::from_bytes_be(keccak(address).as_bytes()).unwrap();
+            (key, storage_trie)
+        })
         .collect();
 
     mpt_prover_inputs_state_trie(

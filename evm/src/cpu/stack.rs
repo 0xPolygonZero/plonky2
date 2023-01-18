@@ -61,27 +61,55 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     byte: BASIC_BINARY_OP,
     shl: BASIC_BINARY_OP,
     shr: BASIC_BINARY_OP,
-    keccak_general: None,   // TODO
-    prover_input: None,     // TODO
-    pop: None,              // TODO
-    jump: None,             // TODO
-    jumpi: None,            // TODO
-    pc: None,               // TODO
-    gas: None,              // TODO
-    jumpdest: None,         // TODO
-    get_state_root: None,   // TODO
-    set_state_root: None,   // TODO
-    get_receipt_root: None, // TODO
-    set_receipt_root: None, // TODO
-    push: None,             // TODO
+    keccak_general: None, // TODO
+    prover_input: None,   // TODO
+    pop: None,            // TODO
+    jump: Some(StackBehavior {
+        num_pops: 1,
+        pushes: false,
+        disable_other_channels: false,
+    }),
+    jumpi: Some(StackBehavior {
+        num_pops: 2,
+        pushes: false,
+        disable_other_channels: false,
+    }),
+    pc: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
+    gas: None, // TODO
+    jumpdest: Some(StackBehavior {
+        num_pops: 0,
+        pushes: false,
+        disable_other_channels: true,
+    }),
+    push: None, // TODO
     dup: None,
     swap: None,
-    get_context: None,    // TODO
-    set_context: None,    // TODO
-    consume_gas: None,    // TODO
-    exit_kernel: None,    // TODO
-    mload_general: None,  // TODO
-    mstore_general: None, // TODO
+    get_context: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
+    set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    consume_gas: None, // TODO
+    exit_kernel: Some(StackBehavior {
+        num_pops: 1,
+        pushes: false,
+        disable_other_channels: true,
+    }),
+    mload_general: Some(StackBehavior {
+        num_pops: 3,
+        pushes: true,
+        disable_other_channels: false,
+    }),
+    mstore_general: Some(StackBehavior {
+        num_pops: 4,
+        pushes: false,
+        disable_other_channels: false,
+    }),
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,

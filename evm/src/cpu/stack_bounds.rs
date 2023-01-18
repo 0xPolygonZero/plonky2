@@ -19,7 +19,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 
-const MAX_USER_STACK_SIZE: u64 = 1024;
+pub const MAX_USER_STACK_SIZE: usize = 1024;
 
 // Below only includes the operations that pop the top of the stack **without reading the value from
 // memory**, i.e. `POP`.
@@ -45,7 +45,7 @@ pub fn generate<F: Field>(lv: &mut CpuColumnsView<F>) {
     let check_overflow: F = INCREMENTING_FLAGS.map(|i| lv[i]).into_iter().sum();
     let no_check = F::ONE - (check_underflow + check_overflow);
 
-    let disallowed_len = check_overflow * F::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
+    let disallowed_len = check_overflow * F::from_canonical_usize(MAX_USER_STACK_SIZE) - no_check;
     let diff = lv.stack_len - disallowed_len;
 
     let user_mode = F::ONE - lv.is_kernel_mode;
@@ -84,7 +84,7 @@ pub fn eval_packed<P: PackedField>(
 
     // 0 if `check_underflow`, `MAX_USER_STACK_SIZE` if `check_overflow`, and -1 if `no_check`.
     let disallowed_len =
-        check_overflow * P::Scalar::from_canonical_u64(MAX_USER_STACK_SIZE) - no_check;
+        check_overflow * P::Scalar::from_canonical_usize(MAX_USER_STACK_SIZE) - no_check;
     // This `lhs` must equal some `rhs`. If `rhs` is nonzero, then this shows that `lv.stack_len` is
     // not `disallowed_len`.
     let lhs = (lv.stack_len - disallowed_len) * lv.stack_len_bounds_aux;
@@ -108,7 +108,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let one = builder.one_extension();
     let max_stack_size =
-        builder.constant_extension(F::from_canonical_u64(MAX_USER_STACK_SIZE).into());
+        builder.constant_extension(F::from_canonical_usize(MAX_USER_STACK_SIZE).into());
 
     // `check_underflow`, `check_overflow`, and `no_check` are mutually exclusive.
     let check_underflow = builder.add_many_extension(DECREMENTING_FLAGS.map(|i| lv[i]));

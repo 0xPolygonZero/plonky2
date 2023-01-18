@@ -10,7 +10,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::{PartitionWitness, Witness};
+use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
@@ -573,7 +573,7 @@ mod tests {
     use crate::field::extension::algebra::ExtensionAlgebra;
     use crate::field::types::Sample;
     use crate::iop::ext_target::ExtensionAlgebraTarget;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
@@ -588,7 +588,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let mut pw = PartialWitness::new();
+        let mut pw = PartialWitness::<F>::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);

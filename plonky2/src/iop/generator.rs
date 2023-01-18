@@ -3,13 +3,13 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
-use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::extension::Extendable;
 use crate::field::types::Field;
-use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
+use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::target::{BoolTarget, Target};
+use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
+use crate::iop::witness::{PartialWitness, PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::GenericConfig;
 
@@ -120,6 +120,12 @@ impl<F: Field> From<Vec<(Target, F)>> for GeneratedValues<F> {
     }
 }
 
+impl<F: Field> WitnessWrite<F> for GeneratedValues<F> {
+    fn set_target(&mut self, target: Target, value: F) {
+        self.target_values.push((target, value));
+    }
+}
+
 impl<F: Field> GeneratedValues<F> {
     pub fn with_capacity(capacity: usize) -> Self {
         Vec::with_capacity(capacity).into()
@@ -137,10 +143,6 @@ impl<F: Field> GeneratedValues<F> {
         vec![(target, value)].into()
     }
 
-    pub fn clear(&mut self) {
-        self.target_values.clear();
-    }
-
     pub fn singleton_extension_target<const D: usize>(
         et: ExtensionTarget<D>,
         value: F::Extension,
@@ -151,56 +153,6 @@ impl<F: Field> GeneratedValues<F> {
         let mut witness = Self::with_capacity(D);
         witness.set_extension_target(et, value);
         witness
-    }
-
-    pub fn set_target(&mut self, target: Target, value: F) {
-        self.target_values.push((target, value))
-    }
-
-    pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
-        self.set_target(target.target, F::from_bool(value))
-    }
-
-    pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
-        ht.elements
-            .iter()
-            .zip(value.elements)
-            .for_each(|(&t, x)| self.set_target(t, x));
-    }
-
-    pub fn set_extension_target<const D: usize>(
-        &mut self,
-        et: ExtensionTarget<D>,
-        value: F::Extension,
-    ) where
-        F: RichField + Extendable<D>,
-    {
-        let limbs = value.to_basefield_array();
-        (0..D).for_each(|i| {
-            self.set_target(et.0[i], limbs[i]);
-        });
-    }
-
-    pub fn set_wire(&mut self, wire: Wire, value: F) {
-        self.set_target(Target::Wire(wire), value)
-    }
-
-    pub fn set_wires<W>(&mut self, wires: W, values: &[F])
-    where
-        W: IntoIterator<Item = Wire>,
-    {
-        // If we used itertools, we could use zip_eq for extra safety.
-        for (wire, &value) in wires.into_iter().zip(values) {
-            self.set_wire(wire, value);
-        }
-    }
-
-    pub fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
-    where
-        F: RichField + Extendable<D>,
-        W: IntoIterator<Item = Wire>,
-    {
-        self.set_wires(wires, &value.to_basefield_array());
     }
 }
 

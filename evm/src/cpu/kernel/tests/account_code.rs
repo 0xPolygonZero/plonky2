@@ -42,7 +42,7 @@ fn prepare_interpreter(
     let mut state_trie: PartialTrie = Default::default();
     let trie_inputs = Default::default();
 
-    interpreter.offset = load_all_mpts;
+    interpreter.generation_state.registers.program_counter = load_all_mpts;
     interpreter.push(0xDEADBEEFu32.into());
 
     interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
@@ -53,7 +53,7 @@ fn prepare_interpreter(
         keccak(address.to_fixed_bytes()).as_bytes(),
     ));
     // Next, execute mpt_insert_state_trie.
-    interpreter.offset = mpt_insert_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
     if trie_data.is_empty() {
         // In the assembly we skip over 0, knowing trie_data[0] = 0 by default.
@@ -83,7 +83,7 @@ fn prepare_interpreter(
     );
 
     // Now, execute mpt_hash_state_trie.
-    interpreter.offset = mpt_hash_state_trie;
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
@@ -115,7 +115,7 @@ fn test_extcodesize() -> Result<()> {
     let extcodesize = KERNEL.global_labels["extcodesize"];
 
     // Test `extcodesize`
-    interpreter.offset = extcodesize;
+    interpreter.generation_state.registers.program_counter = extcodesize;
     interpreter.pop();
     assert!(interpreter.stack().is_empty());
     interpreter.push(0xDEADBEEFu32.into());
@@ -144,10 +144,10 @@ fn test_extcodecopy() -> Result<()> {
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
-        interpreter.memory.context_memory[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[interpreter.context].segments
             [Segment::MainMemory as usize]
             .set(i, U256::from(rng.gen::<u8>()));
-        interpreter.memory.context_memory[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[interpreter.context].segments
             [Segment::KernelAccountCode as usize]
             .set(i, U256::from(rng.gen::<u8>()));
     }
@@ -158,7 +158,7 @@ fn test_extcodecopy() -> Result<()> {
     let size = rng.gen_range(0..1500);
 
     // Test `extcodecopy`
-    interpreter.offset = extcodecopy;
+    interpreter.generation_state.registers.program_counter = extcodecopy;
     interpreter.pop();
     assert!(interpreter.stack().is_empty());
     interpreter.push(0xDEADBEEFu32.into());
@@ -173,7 +173,7 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.memory.context_memory[interpreter.context].segments
+        let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
             [Segment::MainMemory as usize]
             .get(dest_offset + i);
         assert_eq!(

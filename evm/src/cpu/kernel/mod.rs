@@ -4,7 +4,7 @@ mod ast;
 pub(crate) mod constants;
 mod cost_estimator;
 pub(crate) mod keccak_util;
-mod opcodes;
+pub mod opcodes;
 mod optimizer;
 mod parser;
 pub mod stack;

@@ -3,7 +3,7 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::witness::{PartialWitness, Witness};
+use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{GenericConfig, Hasher};

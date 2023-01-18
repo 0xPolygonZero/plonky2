@@ -191,7 +191,7 @@ mod tests {
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gates::noop::NoopGate;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
     use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
@@ -366,10 +366,7 @@ mod tests {
         let pt = builder.add_virtual_proof_with_pis::<InnerC>(&inner_cd);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
 
-        let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
-            circuit_digest: builder.add_virtual_hash(),
-        };
+        let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,

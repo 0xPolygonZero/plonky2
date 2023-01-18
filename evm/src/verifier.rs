@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::{ensure, Result};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -12,7 +14,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
 use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_memory::keccak_memory_stark::KeccakMemoryStark;
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::PermutationCheckVars;
@@ -24,14 +26,14 @@ use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    all_stark: AllStark<F, D>,
+    all_stark: &AllStark<F, D>,
     all_proof: AllProof<F, C, D>,
     config: &StarkConfig,
 ) -> Result<()>
 where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakMemoryStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
@@ -39,14 +41,14 @@ where
     let AllProofChallenges {
         stark_challenges,
         ctl_challenges,
-    } = all_proof.get_challenges(&all_stark, config);
+    } = all_proof.get_challenges(all_stark, config);
 
     let nums_permutation_zs = all_stark.nums_permutation_zs(config);
 
     let AllStark {
         cpu_stark,
         keccak_stark,
-        keccak_memory_stark,
+        keccak_sponge_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -54,54 +56,50 @@ where
 
     let ctl_vars_per_table = CtlCheckVars::from_proofs(
         &all_proof.stark_proofs,
-        &cross_table_lookups,
+        cross_table_lookups,
         &ctl_challenges,
         &nums_permutation_zs,
     );
 
     verify_stark_proof_with_challenges(
         cpu_stark,
-        &all_proof.stark_proofs[Table::Cpu as usize],
+        &all_proof.stark_proofs[Table::Cpu as usize].proof,
         &stark_challenges[Table::Cpu as usize],
         &ctl_vars_per_table[Table::Cpu as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
         keccak_stark,
-        &all_proof.stark_proofs[Table::Keccak as usize],
+        &all_proof.stark_proofs[Table::Keccak as usize].proof,
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
-        keccak_memory_stark,
-        &all_proof.stark_proofs[Table::KeccakMemory as usize],
-        &stark_challenges[Table::KeccakMemory as usize],
-        &ctl_vars_per_table[Table::KeccakMemory as usize],
+        keccak_sponge_stark,
+        &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
+        &stark_challenges[Table::KeccakSponge as usize],
+        &ctl_vars_per_table[Table::KeccakSponge as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
         memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize],
+        &all_proof.stark_proofs[Table::Memory as usize].proof,
         &stark_challenges[Table::Memory as usize],
         &ctl_vars_per_table[Table::Memory as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
         logic_stark,
-        &all_proof.stark_proofs[Table::Logic as usize],
+        &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
         config,
     )?;
 
-    let degrees_bits =
-        std::array::from_fn(|i| all_proof.stark_proofs[i].recover_degree_bits(config));
     verify_cross_table_lookups::<F, C, D>(
         cross_table_lookups,
-        all_proof.stark_proofs.map(|p| p.openings.ctl_zs_last),
-        degrees_bits,
-        ctl_challenges,
+        all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
         config,
     )
 }
@@ -112,7 +110,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     S: Stark<F, D>,
     const D: usize,
 >(
-    stark: S,
+    stark: &S,
     proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
@@ -122,7 +120,8 @@ where
     [(); S::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    validate_proof_shape(&stark, proof, config, ctl_vars.len())?;
+    log::debug!("Checking proof: {}", type_name::<S>());
+    validate_proof_shape(stark, proof, config, ctl_vars.len())?;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -157,7 +156,7 @@ where
         permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
-        &stark,
+        stark,
         config,
         vars,
         permutation_data,

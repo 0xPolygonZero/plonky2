@@ -18,15 +18,16 @@ pub(crate) mod txn_fields;
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
-    for (name, value) in EC_CONSTANTS {
+
+    let hex_constants = EC_CONSTANTS.iter().chain(HASH_CONSTANTS.iter()).cloned();
+    for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
-    for (name, value) in HASH_CONSTANTS {
-        c.insert(name.into(), U256::from_big_endian(&value));
-    }
+
     for (name, value) in GAS_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -49,7 +50,12 @@ pub fn evm_constants() -> HashMap<String, U256> {
     c
 }
 
-const HASH_CONSTANTS: [(&str, [u8; 32]); 1] = [
+const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
+    // Hash of an empty string: keccak(b'').hex()
+    (
+        "EMPTY_STRING_HASH",
+        hex!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
+    ),
     // Hash of an empty node: keccak(rlp.encode(b'')).hex()
     (
         "EMPTY_NODE_HASH",

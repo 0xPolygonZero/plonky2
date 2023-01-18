@@ -1,3 +1,14 @@
+global sys_keccak256:
+    // stack: kexit_info, offset, len
+    %stack (kexit_info, offset, len) -> (offset, len, kexit_info)
+    PUSH @SEGMENT_MAIN_MEMORY
+    GET_CONTEXT
+    // stack: ADDR: 3, len, kexit_info
+    KECCAK_GENERAL
+    // stack: hash, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 // Computes Keccak256(input_word). Clobbers @SEGMENT_KERNEL_GENERAL.
 //
 // Pre stack: input_word

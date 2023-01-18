@@ -3,7 +3,7 @@ use itertools::Itertools;
 use crate::field::extension::Extendable;
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::hash::hash_types::RichField;
-use crate::iop::witness::Witness;
+use crate::iop::witness::WitnessWrite;
 use crate::plonk::config::AlgebraicHasher;
 
 /// Set the targets in a `FriProofTarget` to their corresponding values in a `FriProof`.
@@ -13,7 +13,7 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
     fri_proof: &FriProof<F, H, D>,
 ) where
     F: RichField + Extendable<D>,
-    W: Witness<F> + ?Sized,
+    W: WitnessWrite<F> + ?Sized,
     H: AlgebraicHasher<F>,
 {
     witness.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness);
