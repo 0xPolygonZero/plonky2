@@ -151,9 +151,13 @@ impl<F: Field> GenerationState<F> {
         let result_biguint = (a_biguint * b_biguint) % m_biguint;
         let result = biguint_to_mem_vec(result_biguint.clone());
 
+        dbg!(result.clone());
+
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
             .content
             .splice(output_loc..output_loc + len, result.iter().cloned());
+
+        dbg!(self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content.clone());
     }
 
     fn bignum_modmul_quotient(

@@ -166,19 +166,21 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, memory) =
+    let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, mut memory) =
         prepare_three_bignums(1000);
+    
+    memory.resize((length * U256::from(11)).try_into().unwrap(), 0.into());
 
     // Determine expected result.
     let result = (a * b) % m;
     let expected_result: Vec<U256> = biguint_to_mem_vec(result);
 
     // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
-    let output_loc = length * U256::from(2);
-    let scratch_1 = length * U256::from(3);
-    let scratch_2 = length * U256::from(4);
-    let scratch_3 = length * U256::from(6);
-    let scratch_4 = length * U256::from(8);
+    let output_loc = length * U256::from(3);
+    let scratch_1 = length * U256::from(4);
+    let scratch_2 = length * U256::from(5);
+    let scratch_3 = length * U256::from(7);
+    let scratch_4 = length * U256::from(9);
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -209,6 +211,8 @@ fn test_modmul_bignum() -> Result<()> {
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
+
+    dbg!(interpreter.stack());
 
     assert_eq!(actual_result, expected_result);
 
