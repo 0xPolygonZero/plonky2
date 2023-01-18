@@ -47,6 +47,7 @@ impl Sub for Fp {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Mul for Fp {
     type Output = Self;
 
