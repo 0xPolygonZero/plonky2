@@ -52,6 +52,8 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
 
         // Each of these operations uses the same columns for input; the
         // asserts ensure no-one changes this.
+        // TODO: This is ugly; should just remove the other
+        // *_INPUT_[01] variables and remove this.
         debug_assert!([ADD_INPUT_0, SUB_INPUT_0, MUL_INPUT_0, CMP_INPUT_0,]
             .iter()
             .all(|x| *x == GENERAL_INPUT_0));
