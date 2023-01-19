@@ -168,8 +168,9 @@ fn test_mul_bignum() -> Result<()> {
 fn test_modmul_bignum() -> Result<()> {
     let (a, b, m, length, a_start_loc, b_start_loc, m_start_loc, mut memory) =
         prepare_three_bignums(1000);
-    
-    memory.resize((length * U256::from(11)).try_into().unwrap(), 0.into());
+
+    let len = length.as_usize();
+    memory.resize(len * 10, 0.into());
 
     // Determine expected result.
     let result = (a * b) % m;
@@ -211,8 +212,6 @@ fn test_modmul_bignum() -> Result<()> {
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
-
-    dbg!(interpreter.stack());
 
     assert_eq!(actual_result, expected_result);
 

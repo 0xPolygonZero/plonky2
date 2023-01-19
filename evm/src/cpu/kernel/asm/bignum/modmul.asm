@@ -9,9 +9,9 @@ global modmul_bignum:
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     // The prover stores x := (a * b) % m in output_loc.
     PROVER_INPUT(bignum_modmul::remainder)
+    POP // PROVER_INPUT adds a dummy 0 value
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     %stack (init: 4, out, scratch) -> (init, scratch, out)
-    POP // PROVER_INPUT adds a dummy 0 value
     // stack: length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
     // The prover stores k := (a * b) / m in scratch_1.
     PROVER_INPUT(bignum_modmul::quotient)
@@ -23,18 +23,17 @@ global modmul_bignum:
     // Store k * m in scratch_2, using scratch_3 as scratch space.
     PUSH modmul_return_1
     // stack: modmul_return_1, length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
-    %stack (return, len, a, b, m, out, s1, s2, s3) -> (len, s1, m, s2, s3, return, len, a, b, out, s2, s3)
+    %stack (return, len, a, b, m, s1, out, s2, s3) -> (len, s1, m, s2, s3, return, len, a, b, out, s2, s3)
     // stack: length, scratch_1, m_start_loc, scratch_2, scratch_3, modmul_return_1, length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, scratch_4, retdest
     %jump(mul_bignum)
 modmul_return_1:
-    STOP
     // stack: length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, scratch_4, retdest
 
     // Add x into k * m (in scratch_2).
     PUSH modmul_return_2
     // stack: modmul_return_2, length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, scratch_4, retdest
-    %stack (return, len, a, b, out, s2) -> (len, out, s2, return, len, a, b, s2)
-    // stack: length, output_loc, scratch_2, modmul_return_2, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %stack (return, len, a, b, out, s2) -> (len, s2, out, return, len, a, b, s2)
+    // stack: length, scratch_2, output_loc, modmul_return_2, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
     %jump(add_bignum)
 modmul_return_2:
     // stack: length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
@@ -73,7 +72,7 @@ modmul_zeroes_end:
     // Store a * b in scratch_3, using scratch_4 as scratch space.
     PUSH modmul_return_3
     // stack: modmul_return_3, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    %stack (return, len, a, b, m, out, s1, s2, s3, s4) -> (len, a, b, s3, s4, return, len, s2, s3)
+    %stack (return, len, a, b, s2, s3, s4) -> (len, a, b, s3, s4, return, len, s2, s3)
     // stack: length, a_start_loc, b_start_loc, scratch_3, scratch_4, modmul_return_3, length, scratch_2, scratch_3, retdest
     %jump(mul_bignum)
 modmul_return_3:

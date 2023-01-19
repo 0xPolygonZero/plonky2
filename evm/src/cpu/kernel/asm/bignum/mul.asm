@@ -149,7 +149,7 @@ mul_return_1:
 mul_return_2:
     // stack: len, n, a_start_loc, bi, output_cur, scratch_space, retdest
 
-    // Add the multiplication result into output_cur[i].
+    // Add the multiplication result into output_cur = output_len[i].
     PUSH mul_return_3
     // stack: mul_return_3, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
     DUP7
