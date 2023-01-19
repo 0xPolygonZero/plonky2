@@ -149,7 +149,7 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (a_biguint * b_biguint) % m_biguint;
-        let result = biguint_to_mem_vec(result_biguint.clone());
+        let result = biguint_to_mem_vec(result_biguint);
 
         self.memory.contexts[0].segments[Segment::KernelGeneral as usize]
             .content
