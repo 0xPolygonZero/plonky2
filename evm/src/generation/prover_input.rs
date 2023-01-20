@@ -123,12 +123,11 @@ impl<F: Field> GenerationState<F> {
                 _ => panic!("Invalid prover input function."),
             };
 
-            self.bignum_modmul_prover_inputs = result[1..].to_vec();
+            self.bignum_modmul_prover_inputs = result.to_vec();
             self.bignum_modmul_prover_inputs.reverse();
-            result[0]
-        } else {
-            self.bignum_modmul_prover_inputs.pop().unwrap()
         }
+
+        self.bignum_modmul_prover_inputs.pop().unwrap()
     }
 
     fn bignum_modmul_remainder(
