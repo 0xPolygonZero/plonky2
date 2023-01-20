@@ -7,23 +7,74 @@
 // All of scratch_2, scratch_3, and scratch_4 must have size 2 * length and be initialized with zeroes.
 global modmul_bignum:
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
-    // The prover stores x := (a * b) % m in output_loc.
-    PROVER_INPUT(bignum_modmul::remainder)
-    POP // PROVER_INPUT adds a dummy 0 value
+    // The prover provides x := (a * b) % m, which we store in output_loc.
+    
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
-    %stack (init: 4, out, scratch) -> (init, scratch, out)
-    // stack: length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
-    // The prover stores k := (a * b) / m in scratch_1.
+    PUSH 0
+    // stack: i=0, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+modmul_remainder_loop:
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    PROVER_INPUT(bignum_modmul::remainder)
+    // stack: PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP7
+    // stack: output_loc, PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP3
+    // stack: i, output_loc, PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    ADD
+    // stack: output_loc[i], PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %mstore_kernel_general
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %increment
+    // stack: i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP2
+    DUP2
+    // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    EQ
+    // stack: i+1==length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %jumpi(modmul_remainder_end)
+    %jump(modmul_remainder_loop)
+modmul_remainder_end:
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    POP
+
+    // The prover provides k := (a * b) / m, which we store in scratch_1.
+
+    // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    PUSH 0
+    // stack: i=0, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+modmul_quotient_loop:
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     PROVER_INPUT(bignum_modmul::quotient)
-    POP // PROVER_INPUT adds a dummy 0 value
-    // stack: length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
+    // stack: PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP8
+    // stack: scratch_1, PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP3
+    // stack: i, scratch_1, PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    ADD
+    // stack: scratch_1[i], PI, i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %mstore_kernel_general
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %increment
+    // stack: i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    DUP2
+    DUP2
+    // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    EQ
+    // stack: i+1==length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %jumpi(modmul_quotient_end)
+    %jump(modmul_quotient_loop)
+modmul_quotient_end:
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    POP
+
+    // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
 
     // Verification step 1: calculate x + k * m.
 
     // Store k * m in scratch_2, using scratch_3 as scratch space.
     PUSH modmul_return_1
-    // stack: modmul_return_1, length, a_start_loc, b_start_loc, m_start_loc, scratch_1, output_loc, scratch_2, scratch_3, scratch_4, retdest
-    %stack (return, len, a, b, m, s1, out, s2, s3) -> (len, s1, m, s2, s3, return, len, a, b, out, s2, s3)
+    // stack: modmul_return_1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %stack (return, len, a, b, m, out, s1, s2, s3) -> (len, s1, m, s2, s3, return, len, a, b, out, s2, s3)
     // stack: length, scratch_1, m_start_loc, scratch_2, scratch_3, modmul_return_1, length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, scratch_4, retdest
     %jump(mul_bignum)
 modmul_return_1:
