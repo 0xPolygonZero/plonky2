@@ -1,6 +1,8 @@
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{Fp, Fp2, Fp12, mul_fp_fp2, inv_fp12, frob_fp12, UNIT_FP12, sparse_embed, make_fp};
+use crate::bn254_arithmetic::{
+    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
+};
 
 pub type Curve = [Fp; 2];
 pub type TwistedCurve = [Fp2; 2];
@@ -243,14 +245,10 @@ pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let [px, py] = p;
     let [qx, qy] = q;
 
-    let cx = - make_fp(3) * px * px;
-    let cy = make_fp(2) *  py;
+    let cx = -make_fp(3) * px * px;
+    let cy = make_fp(2) * py;
 
-    sparse_embed(
-        py * py - make_fp(9),
-        mul_fp_fp2(cx, qx),
-        mul_fp_fp2(cy, qy),
-    )
+    sparse_embed(py * py - make_fp(9), mul_fp_fp2(cx, qx), mul_fp_fp2(cy, qy))
 }
 
 pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
@@ -270,7 +268,7 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
 
 fn tangent_slope(p: Curve) -> Fp {
     let [px, py] = p;
-    let num = px * px *  make_fp(3);
+    let num = px * px * make_fp(3);
     let denom = py * make_fp(2);
     num / denom
 }
