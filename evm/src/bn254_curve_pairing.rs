@@ -285,7 +285,7 @@ fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
     let [px, py] = p;
     let [qx, _] = q;
     let ox = m * m - (px + qx);
-    let oy = (m * (px - ox)) - py;
+    let oy = m * (px - ox) - py;
     [ox, oy]
 }
 

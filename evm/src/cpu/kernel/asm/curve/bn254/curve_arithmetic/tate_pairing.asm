@@ -14,12 +14,6 @@
 ///
 ///     return out
 
-global test_tate:
-    // stack: ptr, P, Q, ptr, out, retdest
-    %store_fp6
-    // stack:            ptr, out, retdest
-    %jump(tate)
-
 global tate:
     // stack:                        ptr, out, retdest
     DUP2

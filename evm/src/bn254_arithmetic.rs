@@ -254,16 +254,19 @@ impl Mul for Fp6 {
     }
 }
 
-/// Let x_n = x^(p^n); By Galois Theory, for x: Fp6, the product
+/// Let x_n = x^(p^n) and note that 
+///     x_0 = x^(p^0) = x^1 = x
+///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m} 
+/// By Galois Theory, given x: Fp6, the product
 ///     phi = x_0 * x_1 * x_2 * x_3 * x_4 * x_5
-/// lands in Fp, and hence the inverse of x (= x_0) is given by
+/// lands in Fp, and hence the inverse of x is given by
 ///     (x_1 * x_2 * x_3 * x_4 * x_5) / phi
-/// Since (x_n)_m = x_{n+m}, we save compute by rearranging the numerator:
+/// We can save compute by rearranging the numerator:
 ///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
-/// By Galois theory, both the following are in Fp2 and are complex conjugates
+/// By Galois theory, the following are in Fp2 and are complex conjugates
 ///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
 /// Thus phi = norm(x_1 * x_3 * x_5), and hence the inverse is given by
-///     normalize((x_1 * x_3) * x_5) * (x_1 * x_3)_1
+///     normalize([x_1 * x_3] * x_5) * [x_1 * x_3]_1
 impl Div for Fp6 {
     type Output = Self;
 
@@ -329,12 +332,12 @@ impl Mul for Fp12 {
     }
 }
 
-/// By Galois Theory, for x: Fp12, the product
+/// By Galois Theory, given x: Fp12, the product
 ///     phi = Prod_{i=0}^11 x_i
 /// lands in Fp, and hence the inverse of x is given by
 ///     (Prod_{i=1}^11 x_i) / phi
 /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
-///     x_6 = (a + bz)_6 = a - bz
+///     x_6 = (a + bz)_6 = a - bz = conj_fp12(x)
 /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
 ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
 /// By Galois theory, both the following are in Fp2 and are complex conjugates
