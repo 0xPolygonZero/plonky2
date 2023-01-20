@@ -254,9 +254,9 @@ impl Mul for Fp6 {
     }
 }
 
-/// Let x_n = x^(p^n) and note that 
+/// Let x_n = x^(p^n) and note that
 ///     x_0 = x^(p^0) = x^1 = x
-///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m} 
+///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m}
 /// By Galois Theory, given x: Fp6, the product
 ///     phi = x_0 * x_1 * x_2 * x_3 * x_4 * x_5
 /// lands in Fp, and hence the inverse of x is given by
