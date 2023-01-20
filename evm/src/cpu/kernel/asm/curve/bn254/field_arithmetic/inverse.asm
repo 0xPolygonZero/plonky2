@@ -36,7 +36,7 @@ global inv_fp12:
     // stack:                ptr, inv, retdest
     PUSH 50  PUSH check_inv
     // stack: check_inv, 50, ptr, inv, retdest 
-    %stack(check_inv, 50, ptr, inv) -> (ptr, inv, 50, check_inv)
+    %stack (check_inv, 50, ptr, inv) -> (ptr, inv, 50, check_inv)
     // stack: ptr, inv, 50, check_inv, retdest 
     %jump(mul_fp12)
 global check_inv:
