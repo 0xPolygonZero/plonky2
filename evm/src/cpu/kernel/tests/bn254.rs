@@ -3,7 +3,7 @@ use std::ops::Range;
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, Fp12};
+use crate::bn254_arithmetic::{fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, inv_fp12, Fp12};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -130,22 +130,32 @@ fn test_frob_fp12() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_inv_fp12() -> Result<()> {
-//     let ptr = U256::from(200);
-//     let inv = U256::from(300);
+fn setup_inv_test(f: Fp12) -> InterpreterSetup {
+    let ptr: usize = 100;
+    let inv: usize = 112;
+    let stack = vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)];
+    let memory = vec![(ptr, fp12_to_vec(f))];
 
-//     let f: Fp12 = gen_fp12();
-//     let mut stack = vec![ptr];
-//     stack.extend(fp12_to_vec(f));
-//     stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
+    InterpreterSetup {
+        offset: "inv_fp12".to_string(),
+        stack: stack,
+        memory: memory,
+        output: inv..inv+12,
+    }
+}
 
-//     let output: Vec<U256> = get_interpreter_output("test_inv_fp12", stack);
+#[test]
+fn test_inv_fp12() -> Result<()> {
+    let f: Fp12 = gen_fp12();
 
-//     assert_eq!(output, vec![]);
+    let setup = setup_inv_test(f);
+    let output: Vec<U256> = get_interpreter_output(setup).unwrap();
+    let expected: Vec<U256> = fp12_to_vec(inv_fp12(f));
 
-//     Ok(())
-// }
+    assert_eq!(output, expected);
+
+    Ok(())
+}
 
 // #[test]
 // fn test_power() -> Result<()> {
