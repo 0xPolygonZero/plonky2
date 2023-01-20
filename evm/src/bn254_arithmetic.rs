@@ -433,71 +433,6 @@ pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     }
 }
 
-pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
-    unsafe { transmute(f) }
-}
-
-pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
-    fp12_to_array(f).into_iter().collect()
-}
-
-pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
-    xs.into_iter()
-        .tuples::<(U256, U256)>()
-        .map(|(v1, v2)| Fp2 {
-            re: Fp { val: v1 },
-            im: Fp { val: v2 },
-        })
-        .tuples()
-        .map(|(a1, a2, a3, a4, a5, a6)| Fp12 {
-            z0: Fp6 {
-                t0: a1,
-                t1: a2,
-                t2: a3,
-            },
-            z1: Fp6 {
-                t0: a4,
-                t1: a5,
-                t2: a6,
-            },
-        })
-        .next()
-        .unwrap()
-}
-
-fn gen_fp() -> Fp {
-    let mut rng = thread_rng();
-    let x64 = rng.gen::<u64>();
-    let x256 = U256([x64, x64, x64, x64]) % BN_BASE;
-    Fp { val: x256 }
-}
-
-fn gen_fp2() -> Fp2 {
-    Fp2 {
-        re: gen_fp(),
-        im: gen_fp(),
-    }
-}
-
-fn gen_fp6() -> Fp6 {
-    Fp6 {
-        t0: gen_fp2(),
-        t1: gen_fp2(),
-        t2: gen_fp2(),
-    }
-}
-
-pub fn gen_fp12() -> Fp12 {
-    Fp12 {
-        z0: gen_fp6(),
-        z1: gen_fp6(),
-    }
-}
-
-pub fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
-}
-
 const FROB_T1: [Fp2; 6] = [
     Fp2 {
         re: Fp { val: U256::one() },
@@ -883,3 +818,69 @@ const FROB_Z: [Fp2; 12] = [
         },
     },
 ];
+
+
+pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
+    unsafe { transmute(f) }
+}
+
+pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
+    fp12_to_array(f).into_iter().collect()
+}
+
+pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
+    xs.into_iter()
+        .tuples::<(U256, U256)>()
+        .map(|(v1, v2)| Fp2 {
+            re: Fp { val: v1 },
+            im: Fp { val: v2 },
+        })
+        .tuples()
+        .map(|(a1, a2, a3, a4, a5, a6)| Fp12 {
+            z0: Fp6 {
+                t0: a1,
+                t1: a2,
+                t2: a3,
+            },
+            z1: Fp6 {
+                t0: a4,
+                t1: a5,
+                t2: a6,
+            },
+        })
+        .next()
+        .unwrap()
+}
+
+fn gen_fp() -> Fp {
+    let mut rng = thread_rng();
+    let x64 = rng.gen::<u64>();
+    let x256 = U256([x64, x64, x64, x64]) % BN_BASE;
+    Fp { val: x256 }
+}
+
+fn gen_fp2() -> Fp2 {
+    Fp2 {
+        re: gen_fp(),
+        im: gen_fp(),
+    }
+}
+
+fn gen_fp6() -> Fp6 {
+    Fp6 {
+        t0: gen_fp2(),
+        t1: gen_fp2(),
+        t2: gen_fp2(),
+    }
+}
+
+pub fn gen_fp12() -> Fp12 {
+    Fp12 {
+        z0: gen_fp6(),
+        z1: gen_fp6(),
+    }
+}
+
+pub fn gen_fp12_sparse() -> Fp12 {
+    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
+}
