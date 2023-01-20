@@ -7,21 +7,44 @@
 // Post stack: (empty)
 global process_normalized_txn:
     // stack: retdest
+    PUSH 0 // TODO: Load block's base fee
+    %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
+    ADD
+    // stack: priority_fee + base_fee, retdest
+    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
+    // stack: max_fee, priority_fee + base_fee, retdest
+    %min
+    // stack: computed_fee, retdest
+    %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+
+    // stack: retdest
     PUSH validate
     %jump(intrinsic_gas)
 
 global validate:
     // stack: intrinsic_gas, retdest
-    // TODO: Check signature? (Or might happen in type_0.asm etc.)
-    // TODO: Assert nonce is correct.
-    // TODO: Assert sender has no code.
     POP // TODO: Assert gas_limit >= intrinsic_gas.
     // stack: retdest
+    // TODO: Check that txn nonce matches account nonce.
+    // TODO: Assert nonce is correct.
+    // TODO: Assert sender has no code.
+    // TODO: Assert sender balance >= gas_limit * gas_price + value.
+    // stack: retdest
 
-global charge_gas:
-    // TODO: Deduct gas limit from sender (some gas may be refunded later).
+global buy_gas:
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    MUL
+    // stack: gas_cost, retdest
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender_addr, gas_cost, retdest
+    %deduct_eth
+    // stack: deduct_eth_status, retdest
+    %jumpi(panic)
+    // stack: retdest
 
-    PUSH 0 // TODO: Push sender.
+global increment_sender_nonce:
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
     %increment_nonce
 
 global process_based_on_type:
@@ -52,6 +75,8 @@ global process_message_txn:
     // stack: transfer_eth_status, retdest
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
+
+    // TODO: Handle precompiles.
 
     // If to's code is empty, return.
     %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
