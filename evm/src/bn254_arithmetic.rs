@@ -14,7 +14,7 @@ pub const BN_BASE: U256 = U256([
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp {
-    val: U256,
+    pub val: U256,
 }
 
 impl Add for Fp {
@@ -83,12 +83,16 @@ fn exp_fp(x: Fp, e: U256) -> Fp {
     product
 }
 
+pub fn make_fp(n: i32) -> Fp {
+    Fp { val: U256::from(n) }
+}
+
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
 /// The arithmetic in this extension is standard complex arithmetic
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp2 {
-    re: Fp,
-    im: Fp,
+    pub re: Fp,
+    pub im: Fp,
 }
 
 impl Add for Fp2 {
@@ -159,6 +163,13 @@ const UNIT_FP2: Fp2 = Fp2 {
     re: UNIT_FP,
     im: ZERO_FP,
 };
+
+pub fn mul_fp_fp2(x: Fp, a: Fp2) -> Fp2 {
+    Fp2 {
+        re: x * a.re,
+        im: x * a.im,
+    }
+}
 
 // This function takes the complex conjugate
 fn conj_fp2(a: Fp2) -> Fp2 {
@@ -368,7 +379,7 @@ pub fn inv_fp12(f: Fp12) -> Fp12 {
     UNIT_FP12 / f
 }
 
-fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
+pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     let g0 = Fp6 {
         t0: Fp2 {
             re: g000,

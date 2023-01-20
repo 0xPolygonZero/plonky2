@@ -59,9 +59,9 @@ fn setup_mul_test(f: Fp12, g: Fp12, label: &str) -> InterpreterSetup {
 
     InterpreterSetup {
         offset: label.to_string(),
-        stack: stack,
-        memory: memory,
-        output: out..out+12,
+        stack,
+        memory,
+        output: out..out + 12,
     }
 }
 
@@ -97,9 +97,9 @@ fn setup_frob_test(f: Fp12, label: &str) -> InterpreterSetup {
 
     InterpreterSetup {
         offset: label.to_string(),
-        stack: stack,
-        memory: memory,
-        output: ptr..ptr+12,
+        stack,
+        memory,
+        output: ptr..ptr + 12,
     }
 }
 
@@ -138,9 +138,9 @@ fn setup_inv_test(f: Fp12) -> InterpreterSetup {
 
     InterpreterSetup {
         offset: "inv_fp12".to_string(),
-        stack: stack,
-        memory: memory,
-        output: inv..inv+12,
+        stack,
+        memory,
+        output: inv..inv + 12,
     }
 }
 

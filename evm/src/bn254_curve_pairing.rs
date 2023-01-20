@@ -1,18 +1,18 @@
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{Fp, Fp12};
+use crate::bn254_arithmetic::{Fp, Fp2, Fp12, mul_fp_fp2, inv_fp12, frob_fp12, UNIT_FP12, sparse_embed, make_fp};
 
 pub type Curve = [Fp; 2];
-pub type TwistedCurve = [[Fp; 2]; 2];
+pub type TwistedCurve = [Fp2; 2];
 
 pub fn curve_generator() -> Curve {
-    [Fp { val: U256::one() }, Fp { val: U256::from(2) }]
+    [make_fp(1), make_fp(2)]
 }
 
 pub fn twisted_curve_generator() -> TwistedCurve {
     [
-        [
-            Fp {
+        Fp2 {
+            re: Fp {
                 val: U256([
                     0x46debd5cd992f6ed,
                     0x674322d4f75edadd,
@@ -20,7 +20,7 @@ pub fn twisted_curve_generator() -> TwistedCurve {
                     0x1800deef121f1e76,
                 ]),
             },
-            Fp {
+            im: Fp {
                 val: U256([
                     0x97e485b7aef312c2,
                     0xf1aa493335a9e712,
@@ -28,9 +28,9 @@ pub fn twisted_curve_generator() -> TwistedCurve {
                     0x198e9393920d483a,
                 ]),
             },
-        ],
-        [
-            Fp {
+        },
+        Fp2 {
+            re: Fp {
                 val: U256([
                     0x4ce6cc0166fa7daa,
                     0xe3d1e7690c43d37b,
@@ -38,7 +38,7 @@ pub fn twisted_curve_generator() -> TwistedCurve {
                     0x12c85ea5db8c6deb,
                 ]),
             },
-            Fp {
+            im: Fp {
                 val: U256([
                     0x55acdadcd122975b,
                     0xbc4b313370b38ef3,
@@ -46,7 +46,7 @@ pub fn twisted_curve_generator() -> TwistedCurve {
                     0x90689d0585ff075,
                 ]),
             },
-        ],
+        },
     ]
 }
 
@@ -190,66 +190,66 @@ pub fn power(f: Fp12) -> Fp12 {
     ];
 
     let mut sq: Fp12 = f;
-    let mut y0: Fp12 = embed_fp12(U256::one());
-    let mut y2: Fp12 = embed_fp12(U256::one());
-    let mut y4: Fp12 = embed_fp12(U256::one());
+    let mut y0: Fp12 = UNIT_FP12;
+    let mut y2: Fp12 = UNIT_FP12;
+    let mut y4: Fp12 = UNIT_FP12;
 
     for (a, b, c) in EXPS4 {
         if a != 0 {
-            y4 = mul_fp12(y4, sq);
+            y4 = y4 * sq;
         }
         if b != 0 {
-            y2 = mul_fp12(y2, sq);
+            y2 = y2 * sq;
         }
         if c != 0 {
-            y0 = mul_fp12(y0, sq);
+            y0 = y0 * sq;
         }
-        sq = mul_fp12(sq, sq);
+        sq = sq * sq;
     }
-    y4 = mul_fp12(y4, sq);
+    y4 = y4 * sq;
 
     for (a, b) in EXPS2 {
         if a != 0 {
-            y2 = mul_fp12(y2, sq);
+            y2 = y2 * sq;
         }
         if b != 0 {
-            y0 = mul_fp12(y0, sq);
+            y0 = y0 * sq;
         }
-        sq = mul_fp12(sq, sq);
+        sq = sq * sq;
     }
-    y2 = mul_fp12(y2, sq);
+    y2 = y2 * sq;
 
     for a in EXPS0 {
         if a != 0 {
-            y0 = mul_fp12(y0, sq);
+            y0 = y0 * sq;
         }
-        sq = mul_fp12(sq, sq);
+        sq = sq * sq;
     }
-    y0 = mul_fp12(y0, sq);
+    y0 = y0 * sq;
 
     y0 = inv_fp12(y0);
 
-    y4 = mul_fp12(y4, y2);
-    y4 = mul_fp12(y4, y2);
-    y4 = mul_fp12(y4, y0);
+    y4 = y4 * y2;
+    y4 = y4 * y2;
+    y4 = y4 * y0;
 
     y4 = frob_fp12(1, y4);
     y2 = frob_fp12(2, y2);
 
-    mul_fp12(mul_fp12(y4, y2), y0)
+    y4 * y2 * y0
 }
 
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let [px, py] = p;
     let [qx, qy] = q;
 
-    let cx = neg_fp(mul_fp(U256::from(3), mul_fp(px, px)));
-    let cy = mul_fp(U256::from(2), py);
+    let cx = - make_fp(3) * px * px;
+    let cy = make_fp(2) *  py;
 
     sparse_embed(
-        sub_fp(mul_fp(py, py), U256::from(9)),
-        mul_fp2(embed_fp2(cx), qx),
-        mul_fp2(embed_fp2(cy), qy),
+        py * py - make_fp(9),
+        mul_fp_fp2(cx, qx),
+        mul_fp_fp2(cy, qy),
     )
 }
 
@@ -258,36 +258,36 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let [p2x, p2y] = p2;
     let [qx, qy] = q;
 
-    let cx = sub_fp(p2y, p1y);
-    let cy = sub_fp(p1x, p2x);
+    let cx = p2y - p1y;
+    let cy = p1x - p2x;
 
     sparse_embed(
-        sub_fp(mul_fp(p1y, p2x), mul_fp(p2y, p1x)),
-        mul_fp2(embed_fp2(cx), qx),
-        mul_fp2(embed_fp2(cy), qy),
+        p1y * p2x - p2y * p1x,
+        mul_fp_fp2(cx, qx),
+        mul_fp_fp2(cy, qy),
     )
 }
 
 fn tangent_slope(p: Curve) -> Fp {
     let [px, py] = p;
-    let num = mul_fp(mul_fp(px, px), U256::from(3));
-    let denom = mul_fp(py, U256::from(2));
-    div_fp(num, denom)
+    let num = px * px *  make_fp(3);
+    let denom = py * make_fp(2);
+    num / denom
 }
 
 fn cord_slope(p: Curve, q: Curve) -> Fp {
     let [px, py] = p;
     let [qx, qy] = q;
-    let num = sub_fp(qy, py);
-    let denom = sub_fp(qx, px);
-    div_fp(num, denom)
+    let num = qy - py;
+    let denom = qx - px;
+    num / denom
 }
 
 fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
     let [px, py] = p;
     let [qx, _] = q;
-    let ox = sub_fp(mul_fp(m, m), add_fp(px, qx));
-    let oy = sub_fp(mul_fp(m, sub_fp(px, ox)), py);
+    let ox = m * m - (px + qx);
+    let oy = (m * (px - ox)) - py;
     [ox, oy]
 }
 
@@ -317,17 +317,17 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     ];
 
     let mut o = p;
-    let mut acc = embed_fp12(U256::one());
+    let mut acc = UNIT_FP12;
     let mut line;
 
     for i in EXP {
-        acc = mul_fp12(acc, acc);
+        acc = acc * acc;
         line = tangent(o, q);
-        acc = mul_fp12(line, acc);
+        acc = line * acc;
         o = curve_double(o);
         if i != 0 {
             line = cord(p, o, q);
-            acc = mul_fp12(line, acc);
+            acc = line * acc;
             o = curve_add(p, o);
         }
     }
@@ -339,12 +339,12 @@ pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
 
     let inv = inv_fp12(out);
     out = frob_fp12(6, out);
-    out = mul_fp12(out, inv);
+    out = out * inv;
 
     let acc = frob_fp12(2, out);
-    out = mul_fp12(out, acc);
+    out = out * acc;
 
     let pow = power(out);
     out = frob_fp12(3, out);
-    mul_fp12(out, pow)
+    out * pow
 }
