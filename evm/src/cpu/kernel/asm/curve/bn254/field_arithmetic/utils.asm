@@ -1070,8 +1070,3 @@
     // stack:      ind11', x11, ptr'
     %mstore_kernel_general
 %endmacro
-
-global return_fp12_on_stack:
-    // stack: out
-    %load_fp12
-    %jump(0xdeadbeef)
