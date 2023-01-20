@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -5,23 +6,24 @@ use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, Fp12};
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
+use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 
-struct InterpreterInit {
+struct InterpreterSetup {
     offset: String,
     stack: Vec<U256>,
     memory: Vec<(usize, Vec<U256>)>,
+    output: Range<usize>,
 }
 
-fn run_test_interpreter(init: InterpreterInit) -> Result<Vec<U256>> {
-    let label = KERNEL.global_labels[&init.offset];
-    let mut stack = init.stack;
+fn get_interpreter_output(setup: InterpreterSetup) -> Result<Vec<U256>> {
+    let label = KERNEL.global_labels[&setup.offset];
+    let mut stack = setup.stack;
     stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(label, stack);
-    
-    for (pointer, data) in init.memory {
+
+    for (pointer, data) in setup.memory {
         for (i, term) in data.iter().enumerate() {
             interpreter.generation_state.memory.set(
                 MemoryAddress::new(0, Segment::KernelGeneral, pointer + i),
@@ -31,8 +33,15 @@ fn run_test_interpreter(init: InterpreterInit) -> Result<Vec<U256>> {
     }
 
     interpreter.run()?;
-    let mut output = interpreter.stack().to_vec();
-    output.reverse();
+
+    let kernel = &interpreter.generation_state.memory.contexts[interpreter.context].segments
+        [Segment::KernelGeneral as usize]
+        .content;
+
+    let mut output: Vec<U256> = vec![];
+    for i in setup.output {
+        output.push(kernel[i]);
+    }
     Ok(output)
 }
 
@@ -40,25 +49,21 @@ fn get_address_from_label(lbl: &str) -> U256 {
     U256::from(KERNEL.global_labels[lbl])
 }
 
-fn make_mul_interpreter(f: Fp12, g: Fp12, mul_label: String) -> InterpreterInit {
+fn make_mul_interpreter(f: Fp12, g: Fp12, mul_label: String) -> InterpreterSetup {
     let in0 = U256::from(64);
     let in1 = U256::from(76);
     let out = U256::from(88);
 
-    let stack = vec![
-        in0,
-        in1,
-        out,
-        get_address_from_label("return_fp12_on_stack"),
-        out,
-    ];
+    let stack = vec![in0, in1, out, U256::from_str("0xdeadbeef").unwrap()];
 
-    let memory = vec![
-        (64usize, fp12_to_vec(f)),
-        (76, fp12_to_vec(g))
-    ];
+    let memory = vec![(64usize, fp12_to_vec(f)), (76, fp12_to_vec(g))];
 
-    InterpreterInit { offset: mul_label, stack: stack, memory: memory }
+    InterpreterSetup {
+        offset: mul_label,
+        stack: stack,
+        memory: memory,
+        output: 88..100,
+    }
 
     // let mut stack = vec![in0];
     // stack.extend(fp12_to_vec(f));
@@ -81,13 +86,13 @@ fn test_mul_fp12() -> Result<()> {
     let g: Fp12 = gen_fp12();
     let h: Fp12 = gen_fp12_sparse();
 
-    let normal: InterpreterInit = make_mul_interpreter(f, g, "mul_fp12".to_string());
-    let sparse: InterpreterInit = make_mul_interpreter(f, h, "mul_fp12_sparse".to_string());
-    let square: InterpreterInit = make_mul_interpreter(f, f, "square_fp12_test".to_string());
+    let normal: InterpreterSetup = make_mul_interpreter(f, g, "mul_fp12".to_string());
+    let sparse: InterpreterSetup = make_mul_interpreter(f, h, "mul_fp12_sparse".to_string());
+    let square: InterpreterSetup = make_mul_interpreter(f, f, "square_fp12_test".to_string());
 
-    let out_normal: Vec<U256> = run_test_interpreter(normal).unwrap();
-    let out_sparse: Vec<U256> = run_test_interpreter(sparse).unwrap();
-    let out_square: Vec<U256> = run_test_interpreter(square).unwrap();
+    let out_normal: Vec<U256> = get_interpreter_output(normal).unwrap();
+    let out_sparse: Vec<U256> = get_interpreter_output(sparse).unwrap();
+    let out_square: Vec<U256> = get_interpreter_output(square).unwrap();
 
     let exp_normal: Vec<U256> = fp12_to_vec(f * g);
     let exp_sparse: Vec<U256> = fp12_to_vec(f * h);
@@ -109,10 +114,10 @@ fn test_mul_fp12() -> Result<()> {
 //     stack.extend(fp12_to_vec(f));
 //     stack.extend(vec![ptr]);
 
-//     let out_frob1: Vec<U256> = run_test_interpreter("test_frob_fp12_1", stack.clone());
-//     let out_frob2: Vec<U256> = run_test_interpreter("test_frob_fp12_2", stack.clone());
-//     let out_frob3: Vec<U256> = run_test_interpreter("test_frob_fp12_3", stack.clone());
-//     let out_frob6: Vec<U256> = run_test_interpreter("test_frob_fp12_6", stack);
+//     let out_frob1: Vec<U256> = get_interpreter_output("test_frob_fp12_1", stack.clone());
+//     let out_frob2: Vec<U256> = get_interpreter_output("test_frob_fp12_2", stack.clone());
+//     let out_frob3: Vec<U256> = get_interpreter_output("test_frob_fp12_3", stack.clone());
+//     let out_frob6: Vec<U256> = get_interpreter_output("test_frob_fp12_6", stack);
 
 //     let exp_frob1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
 //     let exp_frob2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
@@ -137,7 +142,7 @@ fn test_mul_fp12() -> Result<()> {
 //     stack.extend(fp12_to_vec(f));
 //     stack.extend(vec![ptr, inv, U256::from_str("0xdeadbeef").unwrap()]);
 
-//     let output: Vec<U256> = run_test_interpreter("test_inv_fp12", stack);
+//     let output: Vec<U256> = get_interpreter_output("test_inv_fp12", stack);
 
 //     assert_eq!(output, vec![]);
 
@@ -160,7 +165,7 @@ fn test_mul_fp12() -> Result<()> {
 //         out,
 //     ]);
 
-//     let output: Vec<U256> = run_test_interpreter("test_pow", stack);
+//     let output: Vec<U256> = get_interpreter_output("test_pow", stack);
 //     let expected: Vec<U256> = fp12_to_vec(power(f));
 
 //     assert_eq!(output, expected);
@@ -193,7 +198,7 @@ fn test_mul_fp12() -> Result<()> {
 //     let q: TwistedCurve = twisted_curve_generator();
 
 //     let stack = make_tate_stack(p, q);
-//     let output = run_test_interpreter("test_miller", stack);
+//     let output = get_interpreter_output("test_miller", stack);
 //     let expected = fp12_to_vec(miller_loop(p, q));
 
 //     assert_eq!(output, expected);
@@ -207,7 +212,7 @@ fn test_mul_fp12() -> Result<()> {
 //     let q: TwistedCurve = twisted_curve_generator();
 
 //     let stack = make_tate_stack(p, q);
-//     let output = run_test_interpreter("test_tate", stack);
+//     let output = get_interpreter_output("test_tate", stack);
 //     let expected = fp12_to_vec(tate(p, q));
 
 //     assert_eq!(output, expected);
