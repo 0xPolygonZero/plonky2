@@ -1,5 +1,4 @@
 use std::ops::Range;
-use std::str::FromStr;
 
 use anyhow::Result;
 use ethereum_types::U256;
@@ -45,39 +44,25 @@ fn get_interpreter_output(setup: InterpreterSetup) -> Result<Vec<U256>> {
     Ok(output)
 }
 
-fn get_address_from_label(lbl: &str) -> U256 {
-    U256::from(KERNEL.global_labels[lbl])
-}
+fn setup_mul_test(f: Fp12, g: Fp12, label: &str) -> InterpreterSetup {
+    let in0: usize = 64;
+    let in1: usize = 76;
+    let out: usize = 88;
 
-fn make_mul_interpreter(f: Fp12, g: Fp12, mul_label: String) -> InterpreterSetup {
-    let in0 = U256::from(64);
-    let in1 = U256::from(76);
-    let out = U256::from(88);
-
-    let stack = vec![in0, in1, out, U256::from_str("0xdeadbeef").unwrap()];
-
-    let memory = vec![(64usize, fp12_to_vec(f)), (76, fp12_to_vec(g))];
+    let stack = vec![
+        U256::from(in0),
+        U256::from(in1),
+        U256::from(out),
+        U256::from(0xdeadbeefu32),
+    ];
+    let memory = vec![(in0, fp12_to_vec(f)), (in1, fp12_to_vec(g))];
 
     InterpreterSetup {
-        offset: mul_label,
+        offset: label.to_string(),
         stack: stack,
         memory: memory,
-        output: 88..100,
+        output: out..out+12,
     }
-
-    // let mut stack = vec![in0];
-    // stack.extend(fp12_to_vec(f));
-    // stack.extend(vec![in1]);
-    // stack.extend(fp12_to_vec(g));
-    // stack.extend(vec![
-    //     get_address_from_label(mul_label),
-    //     in0,
-    //     in1,
-    //     out,
-    //     get_address_from_label("return_fp12_on_stack"),
-    //     out,
-    // ]);
-    // stack
 }
 
 #[test]
@@ -86,13 +71,13 @@ fn test_mul_fp12() -> Result<()> {
     let g: Fp12 = gen_fp12();
     let h: Fp12 = gen_fp12_sparse();
 
-    let normal: InterpreterSetup = make_mul_interpreter(f, g, "mul_fp12".to_string());
-    let sparse: InterpreterSetup = make_mul_interpreter(f, h, "mul_fp12_sparse".to_string());
-    let square: InterpreterSetup = make_mul_interpreter(f, f, "square_fp12_test".to_string());
+    let setup_normal: InterpreterSetup = setup_mul_test(f, g, "mul_fp12");
+    let setup_sparse: InterpreterSetup = setup_mul_test(f, h, "mul_fp12_sparse");
+    let setup_square: InterpreterSetup = setup_mul_test(f, f, "square_fp12_test");
 
-    let out_normal: Vec<U256> = get_interpreter_output(normal).unwrap();
-    let out_sparse: Vec<U256> = get_interpreter_output(sparse).unwrap();
-    let out_square: Vec<U256> = get_interpreter_output(square).unwrap();
+    let out_normal: Vec<U256> = get_interpreter_output(setup_normal).unwrap();
+    let out_sparse: Vec<U256> = get_interpreter_output(setup_sparse).unwrap();
+    let out_square: Vec<U256> = get_interpreter_output(setup_square).unwrap();
 
     let exp_normal: Vec<U256> = fp12_to_vec(f * g);
     let exp_sparse: Vec<U256> = fp12_to_vec(f * h);
@@ -105,32 +90,45 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_frob_fp12() -> Result<()> {
-//     let ptr = U256::from(100);
-//     let f: Fp12 = gen_fp12();
+fn setup_frob_test(f: Fp12, label: &str) -> InterpreterSetup {
+    let ptr: usize = 100;
+    let stack = vec![U256::from(ptr)];
+    let memory = vec![(ptr, fp12_to_vec(f))];
 
-//     let mut stack = vec![ptr];
-//     stack.extend(fp12_to_vec(f));
-//     stack.extend(vec![ptr]);
+    InterpreterSetup {
+        offset: label.to_string(),
+        stack: stack,
+        memory: memory,
+        output: ptr..ptr+12,
+    }
+}
 
-//     let out_frob1: Vec<U256> = get_interpreter_output("test_frob_fp12_1", stack.clone());
-//     let out_frob2: Vec<U256> = get_interpreter_output("test_frob_fp12_2", stack.clone());
-//     let out_frob3: Vec<U256> = get_interpreter_output("test_frob_fp12_3", stack.clone());
-//     let out_frob6: Vec<U256> = get_interpreter_output("test_frob_fp12_6", stack);
+#[test]
+fn test_frob_fp12() -> Result<()> {
+    let f: Fp12 = gen_fp12();
 
-//     let exp_frob1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
-//     let exp_frob2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
-//     let exp_frob3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
-//     let exp_frob6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
+    let setup_frob_1 = setup_frob_test(f, "test_frob_fp12_1");
+    let setup_frob_2 = setup_frob_test(f, "test_frob_fp12_2");
+    let setup_frob_3 = setup_frob_test(f, "test_frob_fp12_3");
+    let setup_frob_6 = setup_frob_test(f, "test_frob_fp12_6");
 
-//     assert_eq!(out_frob1, exp_frob1);
-//     assert_eq!(out_frob2, exp_frob2);
-//     assert_eq!(out_frob3, exp_frob3);
-//     assert_eq!(out_frob6, exp_frob6);
+    let out_frob_1: Vec<U256> = get_interpreter_output(setup_frob_1).unwrap();
+    let out_frob_2: Vec<U256> = get_interpreter_output(setup_frob_2).unwrap();
+    let out_frob_3: Vec<U256> = get_interpreter_output(setup_frob_3).unwrap();
+    let out_frob_6: Vec<U256> = get_interpreter_output(setup_frob_6).unwrap();
 
-//     Ok(())
-// }
+    let exp_frob_1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
+    let exp_frob_2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
+    let exp_frob_3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
+    let exp_frob_6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
+
+    assert_eq!(out_frob_1, exp_frob_1);
+    assert_eq!(out_frob_2, exp_frob_2);
+    assert_eq!(out_frob_3, exp_frob_3);
+    assert_eq!(out_frob_6, exp_frob_6);
+
+    Ok(())
+}
 
 // #[test]
 // fn test_inv_fp12() -> Result<()> {

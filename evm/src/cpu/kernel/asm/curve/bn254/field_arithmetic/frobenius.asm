@@ -1,109 +1,28 @@
 global test_frob_fp12_1:
-    // stack: ptr, f, ptr
-    %store_fp12
     // stack:         ptr
     %frob_fp12_1
     // stack:         ptr
-    %load_fp12
     %jump(0xdeadbeef)
 
 global test_frob_fp12_2:
-    // stack: ptr, f, ptr
-    %store_fp12
     // stack:         ptr 
     DUP1
     // stack:    ptr, ptr
     %frob_fp12_2_
     // stack:         ptr
-    %load_fp12
     %jump(0xdeadbeef)
 
 global test_frob_fp12_3:
-    // stack: ptr, f, ptr
-    %store_fp12
     // stack:         ptr
     %frob_fp12_3
     // stack:         ptr
-    %load_fp12
     %jump(0xdeadbeef)
 
 global test_frob_fp12_6:
-    // stack: ptr, f, ptr
-    %store_fp12
     // stack:         ptr
     %frob_fp12_6
     // stack:         ptr
-    %load_fp12
     %jump(0xdeadbeef)
-
-/// let Z` denote the complex conjugate of Z
-
-/// def frob_fp6_n(C0, C1, C2):
-///     if n%2:
-///         D0, D1, D2 = C0`, FROB_t1[n] * C1`, FROB_t2[n] * C2`
-///     else: 
-///         D0, D1, D2 = C0 , FROB_t1[n] * C1 , FROB_t2[n] * C2
-///     return D0, D1, D2 
-
-%macro frob_fp6_1
-    // stack: C0 , C1 , C2
-    %conj
-    // stack: D0 , C1 , C2
-    %swap_fp2_hole_2
-    // stack: C2 , C1 , D0
-    %conj
-    // stack: C2`, C1 , D0
-    %frobt2_1
-    // stack: D2 , C1 , D0
-    %swap_fp2_hole_2
-    // stack: D0 , C1 , D2
-    %swap_fp2
-    // stack: C1 , D0 , D2
-    %conj
-    // stack: C1`, D0 , D2
-    %frobt1_1
-    // stack: D1 , D0 , D2
-    %swap_fp2
-    // stack: D0 , D1 , D2
-%endmacro
-
-%macro frob_fp6_2
-    // stack: C0, C1, C2
-    %swap_fp2_hole_2
-    // stack: C2, C1, C0
-    %frobt2_2
-    // stack: D2, C1, C0
-    %swap_fp2_hole_2
-    // stack: C0, C1, D2
-    %swap_fp2
-    // stack: C1, C0, D2
-    %frobt1_2
-    // stack: D1, C0, D2
-    %swap_fp2
-    // stack: D0, D1, D2
-%endmacro
-
-%macro frob_fp6_3
-    // stack: C0 , C1 , C2
-    %conj
-    // stack: D0 , C1 , C2
-    %swap_fp2_hole_2
-    // stack: C2 , C1 , D0
-    %conj
-    // stack: C2`, C1 , D0
-    %frobt2_3
-    // stack: D2 , C1 , D0
-    %swap_fp2_hole_2
-    // stack: D0 , C1 , D2
-    %swap_fp2
-    // stack: C1 , D0 , D2
-    %conj
-    // stack: C1`, D0 , D2
-    %frobt1_3
-    // stack: D1 , D0 , D2
-    %swap_fp2
-    // stack: D0 , D1 , D2
-%endmacro
 
 
 /// def frob_fp12_n(f, f'):
@@ -197,6 +116,77 @@ global test_frob_fp12_6:
     %store_fp6
     // stack:           ptr
 %endmacro
+
+
+/// let Z` denote the complex conjugate of Z
+
+/// def frob_fp6_n(C0, C1, C2):
+///     if n%2:
+///         D0, D1, D2 = C0`, FROB_T1[n] * C1`, FROB_T2[n] * C2`
+///     else: 
+///         D0, D1, D2 = C0 , FROB_T1[n] * C1 , FROB_T2[n] * C2
+///     return D0, D1, D2 
+
+%macro frob_fp6_1
+    // stack: C0 , C1 , C2
+    %conj
+    // stack: D0 , C1 , C2
+    %swap_fp2_hole_2
+    // stack: C2 , C1 , D0
+    %conj
+    // stack: C2`, C1 , D0
+    %frobt2_1
+    // stack: D2 , C1 , D0
+    %swap_fp2_hole_2
+    // stack: D0 , C1 , D2
+    %swap_fp2
+    // stack: C1 , D0 , D2
+    %conj
+    // stack: C1`, D0 , D2
+    %frobt1_1
+    // stack: D1 , D0 , D2
+    %swap_fp2
+    // stack: D0 , D1 , D2
+%endmacro
+
+%macro frob_fp6_2
+    // stack: C0, C1, C2
+    %swap_fp2_hole_2
+    // stack: C2, C1, C0
+    %frobt2_2
+    // stack: D2, C1, C0
+    %swap_fp2_hole_2
+    // stack: C0, C1, D2
+    %swap_fp2
+    // stack: C1, C0, D2
+    %frobt1_2
+    // stack: D1, C0, D2
+    %swap_fp2
+    // stack: D0, D1, D2
+%endmacro
+
+%macro frob_fp6_3
+    // stack: C0 , C1 , C2
+    %conj
+    // stack: D0 , C1 , C2
+    %swap_fp2_hole_2
+    // stack: C2 , C1 , D0
+    %conj
+    // stack: C2`, C1 , D0
+    %frobt2_3
+    // stack: D2 , C1 , D0
+    %swap_fp2_hole_2
+    // stack: D0 , C1 , D2
+    %swap_fp2
+    // stack: C1 , D0 , D2
+    %conj
+    // stack: C1`, D0 , D2
+    %frobt1_3
+    // stack: D1 , D0 , D2
+    %swap_fp2
+    // stack: D0 , D1 , D2
+%endmacro
+
 
 %macro frobz_1
     %frob_fp6_1
