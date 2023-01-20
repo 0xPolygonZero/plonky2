@@ -819,7 +819,6 @@ const FROB_Z: [Fp2; 12] = [
     },
 ];
 
-
 pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
     unsafe { transmute(f) }
 }

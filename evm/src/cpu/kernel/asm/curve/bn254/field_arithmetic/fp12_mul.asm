@@ -1,13 +1,3 @@
-/// Note: uncomment this to test
-
-global test_mul_fp12:
-    // stack: inA, f, f', inB, g, g', mul_dest, inA, inB, out, return_fp12_on_stack, out
-    %store_fp12
-    // stack:             inB, g, g', mul_dest, inA, inB, out, return_fp12_on_stack, out
-    %store_fp12
-    // stack:                         mul_dest, inA, inB, out, return_fp12_on_stack, out
-    JUMP
-
 ///////////////////////////////////////
 ///// GENERAL FP12 MULTIPLICATION /////
 ///////////////////////////////////////
@@ -319,7 +309,6 @@ global mul_fp12_sparse:
 
 global square_fp12_test:
     POP
-    %jump(square_fp12)
 
 global square_fp12:
     // stack:                                                                   inp, out
