@@ -112,7 +112,7 @@ impl<F: Field> GenerationState<F> {
                 .expect("Stack does not have enough items")
                 .try_into()
                 .unwrap();
-    
+
             let result = match function {
                 "remainder" => {
                     self.bignum_modmul_remainder(len, a_start_loc, b_start_loc, m_start_loc)
@@ -127,9 +127,7 @@ impl<F: Field> GenerationState<F> {
             self.bignum_modmul_prover_inputs.reverse();
             result[0]
         } else {
-            self.bignum_modmul_prover_inputs
-                .pop()
-                .unwrap()
+            self.bignum_modmul_prover_inputs.pop().unwrap()
         }
     }
 
