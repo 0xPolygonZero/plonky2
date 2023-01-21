@@ -3,7 +3,7 @@ use std::ops::Add;
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{
-    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
+    frob_fp12, inv_fp12, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
 };
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
@@ -20,7 +20,7 @@ impl Add for Curve {
 
     fn add(self, other: Self) -> Self {
         let m = if self == other {
-            make_fp(3) * self.x * self.x / (make_fp(2) * self.y)
+            Fp::new(3) * self.x * self.x / (Fp::new(2) * self.y)
         } else {
             (other.y - self.y) / (other.x - self.x)
         };
@@ -269,10 +269,10 @@ pub fn power(f: Fp12) -> Fp12 {
 }
 
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = -make_fp(3) * p.x * p.x;
-    let cy = make_fp(2) * p.y;
+    let cx = -Fp::new(3) * p.x * p.x;
+    let cy = Fp::new(2) * p.y;
     sparse_embed(
-        p.y * p.y - make_fp(9),
+        p.y * p.y - Fp::new(9),
         mul_fp_fp2(cx, q.x),
         mul_fp_fp2(cy, q.y),
     )
@@ -288,16 +288,18 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     )
 }
 
-// This curve is cyclic with generator (1, 2)
-pub fn curve_generator() -> Curve {
+// The curve is cyclic with generator (1, 2)
+pub const CURVE_GENERATOR: Curve = {
     Curve {
-        x: make_fp(1),
-        y: make_fp(2),
+        x: Fp { val: U256::one() },
+        y: Fp {
+            val: U256([2, 0, 0, 0]),
+        },
     }
-}
+};
 
-// This curve is cyclic with generator (x, y) as follows
-pub fn twisted_curve_generator() -> TwistedCurve {
+// The twisted curve is cyclic with generator (x, y) as follows
+pub const TWISTED_GENERATOR: TwistedCurve = {
     TwistedCurve {
         x: Fp2 {
             re: Fp {
@@ -336,4 +338,4 @@ pub fn twisted_curve_generator() -> TwistedCurve {
             },
         },
     }
-}
+};

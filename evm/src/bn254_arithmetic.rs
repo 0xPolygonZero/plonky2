@@ -15,6 +15,14 @@ pub struct Fp {
     pub val: U256,
 }
 
+impl Fp {
+    pub fn new(val: usize) -> Fp {
+        Fp {
+            val: U256::from(val),
+        }
+    }
+}
+
 impl Add for Fp {
     type Output = Self;
 
@@ -79,10 +87,6 @@ fn exp_fp(x: Fp, e: U256) -> Fp {
         current = current * current;
     }
     product
-}
-
-pub fn make_fp(n: i32) -> Fp {
-    Fp { val: U256::from(n) }
 }
 
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
@@ -185,7 +189,7 @@ fn normalize_fp2(a: Fp2) -> Fp2 {
 /// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 9 + i
 /// We begin by defining a helper function which multiplies an Fp2 element by 9 + i
 fn i9(a: Fp2) -> Fp2 {
-    let nine = make_fp(9);
+    let nine = Fp::new(9);
     Fp2 {
         re: nine * a.re - a.im,
         im: a.re + nine * a.im,
