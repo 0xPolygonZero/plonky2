@@ -1,9 +1,10 @@
+use std::mem::transmute;
 use std::ops::Range;
 
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{fp12_to_vec, frob_fp12, gen_fp12, gen_fp12_sparse, inv_fp12, Fp12};
+use crate::bn254_arithmetic::{frob_fp12, gen_fp12, gen_fp12_sparse, inv_fp12, Fp12};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -45,6 +46,11 @@ fn extract_kernel_output(range: Range<usize>, interpreter: Interpreter<'static>)
     output
 }
 
+fn fp12_on_stack(f: Fp12) -> Vec<U256> {
+    let f: [U256; 12] = unsafe { transmute(f) };
+    f.into_iter().collect()
+}
+
 fn setup_mul_test(
     in0: usize,
     in1: usize,
@@ -61,7 +67,7 @@ fn setup_mul_test(
             U256::from(out),
             U256::from(0xdeadbeefu32),
         ],
-        memory: vec![(in0, fp12_to_vec(f)), (in1, fp12_to_vec(g))],
+        memory: vec![(in0, fp12_on_stack(f)), (in1, fp12_on_stack(g))],
     }
 }
 
@@ -87,9 +93,9 @@ fn test_mul_fp12() -> Result<()> {
     let out_sparse: Vec<U256> = extract_kernel_output(out..out + 12, intrptr_sparse);
     let out_square: Vec<U256> = extract_kernel_output(out..out + 12, intrptr_square);
 
-    let exp_normal: Vec<U256> = fp12_to_vec(f * g);
-    let exp_sparse: Vec<U256> = fp12_to_vec(f * h);
-    let exp_square: Vec<U256> = fp12_to_vec(f * f);
+    let exp_normal: Vec<U256> = fp12_on_stack(f * g);
+    let exp_sparse: Vec<U256> = fp12_on_stack(f * h);
+    let exp_square: Vec<U256> = fp12_on_stack(f * f);
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
@@ -102,7 +108,7 @@ fn setup_frob_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
     InterpreterSetup {
         offset: label.to_string(),
         stack: vec![U256::from(ptr)],
-        memory: vec![(ptr, fp12_to_vec(f))],
+        memory: vec![(ptr, fp12_on_stack(f))],
     }
 }
 
@@ -126,10 +132,10 @@ fn test_frob_fp12() -> Result<()> {
     let out_frob_3: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_3);
     let out_frob_6: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_6);
 
-    let exp_frob_1: Vec<U256> = fp12_to_vec(frob_fp12(1, f));
-    let exp_frob_2: Vec<U256> = fp12_to_vec(frob_fp12(2, f));
-    let exp_frob_3: Vec<U256> = fp12_to_vec(frob_fp12(3, f));
-    let exp_frob_6: Vec<U256> = fp12_to_vec(frob_fp12(6, f));
+    let exp_frob_1: Vec<U256> = fp12_on_stack(frob_fp12(1, f));
+    let exp_frob_2: Vec<U256> = fp12_on_stack(frob_fp12(2, f));
+    let exp_frob_3: Vec<U256> = fp12_on_stack(frob_fp12(3, f));
+    let exp_frob_6: Vec<U256> = fp12_on_stack(frob_fp12(6, f));
 
     assert_eq!(out_frob_1, exp_frob_1);
     assert_eq!(out_frob_2, exp_frob_2);
@@ -148,11 +154,11 @@ fn test_inv_fp12() -> Result<()> {
     let setup = InterpreterSetup {
         offset: "inv_fp12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
-        memory: vec![(ptr, fp12_to_vec(f))],
+        memory: vec![(ptr, fp12_on_stack(f))],
     };
     let interpreter: Interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(inv..inv + 12, interpreter);
-    let expected: Vec<U256> = fp12_to_vec(inv_fp12(f));
+    let expected: Vec<U256> = fp12_on_stack(inv_fp12(f));
 
     assert_eq!(output, expected);
 
@@ -167,7 +173,7 @@ fn test_inv_fp12() -> Result<()> {
 //     let f: Fp12 = gen_fp12();
 
 //     let mut stack = vec![ptr];
-//     stack.extend(fp12_to_vec(f));
+//     stack.extend(fp12_on_stack(f));
 //     stack.extend(vec![
 //         ptr,
 //         out,
@@ -176,7 +182,7 @@ fn test_inv_fp12() -> Result<()> {
 //     ]);
 
 //     let output: Vec<U256> = run_setup_interpreter("test_pow", stack);
-//     let expected: Vec<U256> = fp12_to_vec(power(f));
+//     let expected: Vec<U256> = fp12_on_stack(power(f));
 
 //     assert_eq!(output, expected);
 
@@ -209,7 +215,7 @@ fn test_inv_fp12() -> Result<()> {
 
 //     let stack = make_tate_stack(p, q);
 //     let output = run_setup_interpreter("test_miller", stack);
-//     let expected = fp12_to_vec(miller_loop(p, q));
+//     let expected = fp12_on_stack(miller_loop(p, q));
 
 //     assert_eq!(output, expected);
 
@@ -223,7 +229,7 @@ fn test_inv_fp12() -> Result<()> {
 
 //     let stack = make_tate_stack(p, q);
 //     let output = run_setup_interpreter("test_tate", stack);
-//     let expected = fp12_to_vec(tate(p, q));
+//     let expected = fp12_on_stack(tate(p, q));
 
 //     assert_eq!(output, expected);
 

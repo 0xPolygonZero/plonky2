@@ -1,4 +1,3 @@
-use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
@@ -827,11 +826,6 @@ const FROB_Z: [Fp2; 12] = [
         },
     },
 ];
-
-pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
-    let f: [U256; 12] = unsafe { transmute(f) };
-    f.into_iter().collect()
-}
 
 fn gen_fp() -> Fp {
     let mut rng = thread_rng();
