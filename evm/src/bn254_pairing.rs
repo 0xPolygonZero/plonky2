@@ -1,7 +1,7 @@
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{
-    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
+    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, Fp, Fp12, Fp2, UNIT_FP12, sparse_embed
 };
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2

@@ -65,8 +65,8 @@ impl Div for Fp {
     }
 }
 
-const ZERO_FP: Fp = Fp { val: U256::zero() };
-const UNIT_FP: Fp = Fp { val: U256::one() };
+pub const ZERO_FP: Fp = Fp { val: U256::zero() };
+pub const UNIT_FP: Fp = Fp { val: U256::one() };
 
 fn exp_fp(x: Fp, e: U256) -> Fp {
     let mut current = x;
@@ -148,12 +148,12 @@ impl Div for Fp2 {
     }
 }
 
-const ZERO_FP2: Fp2 = Fp2 {
+pub const ZERO_FP2: Fp2 = Fp2 {
     re: ZERO_FP,
     im: ZERO_FP,
 };
 
-const UNIT_FP2: Fp2 = Fp2 {
+pub const UNIT_FP2: Fp2 = Fp2 {
     re: UNIT_FP,
     im: ZERO_FP,
 };
@@ -374,25 +374,6 @@ fn mul_fp6_fp12(c: Fp6, f: Fp12) -> Fp12 {
 
 pub fn inv_fp12(f: Fp12) -> Fp12 {
     UNIT_FP12 / f
-}
-
-pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
-    let g0 = Fp6 {
-        t0: Fp2 {
-            re: g000,
-            im: ZERO_FP,
-        },
-        t1: g01,
-        t2: ZERO_FP2,
-    };
-
-    let g1 = Fp6 {
-        t0: ZERO_FP2,
-        t1: g11,
-        t2: ZERO_FP2,
-    };
-
-    Fp12 { z0: g0, z1: g1 }
 }
 
 /// The nth frobenius endomorphism of a finite field F of order p^q is given by sending x: F to x^(p^n)
@@ -827,7 +808,7 @@ const FROB_Z: [Fp2; 12] = [
     },
 ];
 
-fn gen_fp() -> Fp {
+pub fn gen_fp() -> Fp {
     let mut rng = thread_rng();
     let x64 = rng.gen::<u64>();
     let x256 = U256([x64, x64, x64, x64]) % BN_BASE;
@@ -858,4 +839,23 @@ pub fn gen_fp12() -> Fp12 {
 
 pub fn gen_fp12_sparse() -> Fp12 {
     sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
+}
+
+pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
+    let g0 = Fp6 {
+        t0: Fp2 {
+            re: g000,
+            im: ZERO_FP,
+        },
+        t1: g01,
+        t2: ZERO_FP2,
+    };
+
+    let g1 = Fp6 {
+        t0: ZERO_FP2,
+        t1: g11,
+        t2: ZERO_FP2,
+    };
+
+    Fp12 { z0: g0, z1: g1 }
 }
