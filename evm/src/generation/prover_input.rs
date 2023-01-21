@@ -66,11 +66,18 @@ impl<F: Field> GenerationState<F> {
             .parse::<usize>()
             .unwrap();
         let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
-        let mut f: [U256; 12] = [U256::zero(); 12];
-        for i in 0..12 {
-            f[i] = kernel_general_peek(self, ptr + i);
-        }
-        field.inverse_fp12(n, f)
+
+        let f: [U256; 12] = match field {
+            Bn254Base => {
+                let mut f: [U256; 12] = [U256::zero(); 12];
+                for i in 0..12 {
+                    f[i] = kernel_general_peek(self, ptr + i);
+                }
+                f
+            }
+            _ => todo!(),
+        };
+        field.field_extension_inverse(n, f)
     }
 
     /// MPT data.
@@ -191,7 +198,7 @@ impl EvmField {
         modexp(x, q, n)
     }
 
-    fn inverse_fp12(&self, n: usize, f: [U256; 12]) -> U256 {
+    fn field_extension_inverse(&self, n: usize, f: [U256; 12]) -> U256 {
         let f: Fp12 = unsafe { transmute(f) };
         let f_inv: [U256; 12] = unsafe { transmute(inv_fp12(f)) };
         f_inv[n]
