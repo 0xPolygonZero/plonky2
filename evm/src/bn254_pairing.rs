@@ -13,7 +13,8 @@ pub struct Curve {
     y: Fp,
 }
 
-/// Standard addition formula for elliptic curves, source:
+/// Standard addition formula for elliptic curves, restricted to the cases  
+/// where neither inputs nor output would ever be the identity O. source:
 /// https://en.wikipedia.org/wiki/Elliptic_curve#Algebraic_interpretation
 impl Add for Curve {
     type Output = Self;
@@ -77,6 +78,26 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
         }
     }
     acc
+}
+
+pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
+    let cx = -Fp::new(3) * p.x * p.x;
+    let cy = Fp::new(2) * p.y;
+    sparse_embed(
+        p.y * p.y - Fp::new(9),
+        mul_fp_fp2(cx, q.x),
+        mul_fp_fp2(cy, q.y),
+    )
+}
+
+pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+    let cx = p2.y - p1.y;
+    let cy = p1.x - p2.x;
+    sparse_embed(
+        p1.y * p2.x - p2.y * p1.x,
+        mul_fp_fp2(cx, q.x),
+        mul_fp_fp2(cy, q.y),
+    )
 }
 
 pub fn power(f: Fp12) -> Fp12 {
@@ -266,26 +287,6 @@ pub fn power(f: Fp12) -> Fp12 {
     y2 = frob_fp12(2, y2);
 
     y4 * y2 * y0
-}
-
-pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = -Fp::new(3) * p.x * p.x;
-    let cy = Fp::new(2) * p.y;
-    sparse_embed(
-        p.y * p.y - Fp::new(9),
-        mul_fp_fp2(cx, q.x),
-        mul_fp_fp2(cy, q.y),
-    )
-}
-
-pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = p2.y - p1.y;
-    let cy = p1.x - p2.x;
-    sparse_embed(
-        p1.y * p2.x - p2.y * p1.x,
-        mul_fp_fp2(cx, q.x),
-        mul_fp_fp2(cy, q.y),
-    )
 }
 
 // The curve is cyclic with generator (1, 2)
