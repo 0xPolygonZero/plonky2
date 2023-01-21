@@ -58,21 +58,13 @@ impl<F: Field> GenerationState<F> {
     /// Finite field extension operations.
     fn run_ffe(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let n = match input_fn.0[2].as_str() {
-            "component_0" => 0,
-            "component_1" => 1,
-            "component_2" => 2,
-            "component_3" => 3,
-            "component_4" => 4,
-            "component_5" => 5,
-            "component_6" => 6,
-            "component_7" => 7,
-            "component_8" => 8,
-            "component_9" => 9,
-            "component_10" => 10,
-            "component_11" => 11,
-            _ => panic!("out of bounds"),
-        };
+        let n = input_fn.0[2]
+            .as_str()
+            .split('_')
+            .nth(1)
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
         let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
         let mut f: [U256; 12] = [U256::zero(); 12];
         for i in 0..12 {
