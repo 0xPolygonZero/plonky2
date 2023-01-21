@@ -1,7 +1,9 @@
+use std::ops::Add;
+
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{
-    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, Fp, Fp12, Fp2, UNIT_FP12, sparse_embed
+    frob_fp12, inv_fp12, make_fp, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
 };
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
@@ -11,7 +13,26 @@ pub struct Curve {
     y: Fp,
 }
 
-// The twisted consists of pairs (x, y): (Fp2, Fp2) |
+/// Standard addition formula for elliptic curves, source:
+/// https://en.wikipedia.org/wiki/Elliptic_curve#Algebraic_interpretation
+impl Add for Curve {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        let m = if self == other {
+            make_fp(3) * self.x * self.x / (make_fp(2) * self.y)
+        } else {
+            (other.y - self.y) / (other.x - self.x)
+        };
+        let x = m * m - (self.x + other.x);
+        Curve {
+            x,
+            y: m * (self.x - x) - self.y,
+        }
+    }
+}
+
+// The twisted curve consists of pairs (x, y): (Fp2, Fp2) | y^2 = x^3 + 3/(9 + i)
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TwistedCurve {
     x: Fp2,
@@ -48,11 +69,11 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
         acc = acc * acc;
         line = tangent(o, q);
         acc = line * acc;
-        o = curve_double(o);
+        o = o + o;
         if i != 0 {
             line = cord(p, o, q);
             acc = line * acc;
-            o = curve_add(p, o);
+            o = o + p;
         }
     }
     acc
@@ -260,34 +281,11 @@ pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
 pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
-
     sparse_embed(
         p1.y * p2.x - p2.y * p1.x,
         mul_fp_fp2(cx, q.x),
         mul_fp_fp2(cy, q.y),
     )
-}
-
-fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
-    let x = m * m - (p.x + q.x);
-    Curve {
-        x,
-        y: m * (p.x - x) - p.y,
-    }
-}
-
-fn curve_add(p: Curve, q: Curve) -> Curve {
-    if p == q {
-        curve_double(p)
-    } else {
-        let slope = (q.y - p.y) / (q.x - p.x);
-        third_point(slope, p, q)
-    }
-}
-
-fn curve_double(p: Curve) -> Curve {
-    let slope = p.x * p.x * make_fp(3) / (p.y * make_fp(2));
-    third_point(slope, p, p)
 }
 
 // This curve is cyclic with generator (1, 2)
