@@ -4,52 +4,58 @@ use crate::bn254_arithmetic::{
     frob_fp12, inv_fp12, make_fp, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
 };
 
-pub type Curve = [Fp; 2];
-pub type TwistedCurve = [Fp2; 2];
-
-pub fn curve_generator() -> Curve {
-    [make_fp(1), make_fp(2)]
+// The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Curve {
+    x: Fp,
+    y: Fp,
 }
 
-pub fn twisted_curve_generator() -> TwistedCurve {
-    [
-        Fp2 {
-            re: Fp {
-                val: U256([
-                    0x46debd5cd992f6ed,
-                    0x674322d4f75edadd,
-                    0x426a00665e5c4479,
-                    0x1800deef121f1e76,
-                ]),
-            },
-            im: Fp {
-                val: U256([
-                    0x97e485b7aef312c2,
-                    0xf1aa493335a9e712,
-                    0x7260bfb731fb5d25,
-                    0x198e9393920d483a,
-                ]),
-            },
-        },
-        Fp2 {
-            re: Fp {
-                val: U256([
-                    0x4ce6cc0166fa7daa,
-                    0xe3d1e7690c43d37b,
-                    0x4aab71808dcb408f,
-                    0x12c85ea5db8c6deb,
-                ]),
-            },
-            im: Fp {
-                val: U256([
-                    0x55acdadcd122975b,
-                    0xbc4b313370b38ef3,
-                    0xec9e99ad690c3395,
-                    0x90689d0585ff075,
-                ]),
-            },
-        },
-    ]
+// The twisted consists of pairs (x, y): (Fp2, Fp2) |
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct TwistedCurve {
+    x: Fp2,
+    y: Fp2,
+}
+
+// The tate pairing takes point each from the curve and its twist and outputs an Fp12
+pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
+    let miller_output = miller_loop(p, q);
+    let post_mul_1 = frob_fp12(6, miller_output) / miller_output;
+    let post_mul_2 = frob_fp12(2, post_mul_1) * post_mul_1;
+    let power_output = power(post_mul_2);
+    frob_fp12(3, post_mul_2) * power_output
+}
+
+pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
+    const EXP: [usize; 253] = [
+        1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1,
+        1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0,
+        1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0,
+        1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0,
+        1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0,
+        1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0,
+        0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0,
+        1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    let mut o = p;
+    let mut acc = UNIT_FP12;
+    let mut line;
+
+    for i in EXP {
+        acc = acc * acc;
+        line = tangent(o, q);
+        acc = line * acc;
+        o = curve_double(o);
+        if i != 0 {
+            line = cord(p, o, q);
+            acc = line * acc;
+            o = curve_add(p, o);
+        }
+    }
+    acc
 }
 
 pub fn power(f: Fp12) -> Fp12 {
@@ -242,107 +248,94 @@ pub fn power(f: Fp12) -> Fp12 {
 }
 
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
-    let [px, py] = p;
-    let [qx, qy] = q;
-
-    let cx = -make_fp(3) * px * px;
-    let cy = make_fp(2) * py;
-
-    sparse_embed(py * py - make_fp(9), mul_fp_fp2(cx, qx), mul_fp_fp2(cy, qy))
-}
-
-pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
-    let [p1x, p1y] = p1;
-    let [p2x, p2y] = p2;
-    let [qx, qy] = q;
-
-    let cx = p2y - p1y;
-    let cy = p1x - p2x;
-
+    let cx = -make_fp(3) * p.x * p.x;
+    let cy = make_fp(2) * p.y;
     sparse_embed(
-        p1y * p2x - p2y * p1x,
-        mul_fp_fp2(cx, qx),
-        mul_fp_fp2(cy, qy),
+        p.y * p.y - make_fp(9),
+        mul_fp_fp2(cx, q.x),
+        mul_fp_fp2(cy, q.y),
     )
 }
 
-fn tangent_slope(p: Curve) -> Fp {
-    let [px, py] = p;
-    let num = px * px * make_fp(3);
-    let denom = py * make_fp(2);
-    num / denom
-}
+pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+    let cx = p2.y - p1.y;
+    let cy = p1.x - p2.x;
 
-fn cord_slope(p: Curve, q: Curve) -> Fp {
-    let [px, py] = p;
-    let [qx, qy] = q;
-    let num = qy - py;
-    let denom = qx - px;
-    num / denom
+    sparse_embed(
+        p1.y * p2.x - p2.y * p1.x,
+        mul_fp_fp2(cx, q.x),
+        mul_fp_fp2(cy, q.y),
+    )
 }
 
 fn third_point(m: Fp, p: Curve, q: Curve) -> Curve {
-    let [px, py] = p;
-    let [qx, _] = q;
-    let ox = m * m - (px + qx);
-    let oy = m * (px - ox) - py;
-    [ox, oy]
+    let x = m * m - (p.x + q.x);
+    Curve {
+        x,
+        y: m * (p.x - x) - p.y,
+    }
 }
 
 fn curve_add(p: Curve, q: Curve) -> Curve {
     if p == q {
         curve_double(p)
     } else {
-        third_point(cord_slope(p, q), p, q)
+        let slope = (q.y - p.y) / (q.x - p.x);
+        third_point(slope, p, q)
     }
 }
 
 fn curve_double(p: Curve) -> Curve {
-    third_point(tangent_slope(p), p, p)
+    let slope = p.x * p.x * make_fp(3) / (p.y * make_fp(2));
+    third_point(slope, p, p)
 }
 
-pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
-    const EXP: [usize; 253] = [
-        1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1,
-        1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0,
-        1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0,
-        1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0,
-        1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0,
-        1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0,
-        0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0,
-        1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ];
-
-    let mut o = p;
-    let mut acc = UNIT_FP12;
-    let mut line;
-
-    for i in EXP {
-        acc = acc * acc;
-        line = tangent(o, q);
-        acc = line * acc;
-        o = curve_double(o);
-        if i != 0 {
-            line = cord(p, o, q);
-            acc = line * acc;
-            o = curve_add(p, o);
-        }
+// This curve is cyclic with generator (1, 2)
+pub fn curve_generator() -> Curve {
+    Curve {
+        x: make_fp(1),
+        y: make_fp(2),
     }
-    acc
 }
 
-pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
-    let mut out = miller_loop(p, q);
-
-    let inv = inv_fp12(out);
-    out = frob_fp12(6, out);
-    out = out * inv;
-
-    let acc = frob_fp12(2, out);
-    out = out * acc;
-
-    let pow = power(out);
-    out = frob_fp12(3, out);
-    out * pow
+// This curve is cyclic with generator (x, y) as follows
+pub fn twisted_curve_generator() -> TwistedCurve {
+    TwistedCurve {
+        x: Fp2 {
+            re: Fp {
+                val: U256([
+                    0x46debd5cd992f6ed,
+                    0x674322d4f75edadd,
+                    0x426a00665e5c4479,
+                    0x1800deef121f1e76,
+                ]),
+            },
+            im: Fp {
+                val: U256([
+                    0x97e485b7aef312c2,
+                    0xf1aa493335a9e712,
+                    0x7260bfb731fb5d25,
+                    0x198e9393920d483a,
+                ]),
+            },
+        },
+        y: Fp2 {
+            re: Fp {
+                val: U256([
+                    0x4ce6cc0166fa7daa,
+                    0xe3d1e7690c43d37b,
+                    0x4aab71808dcb408f,
+                    0x12c85ea5db8c6deb,
+                ]),
+            },
+            im: Fp {
+                val: U256([
+                    0x55acdadcd122975b,
+                    0xbc4b313370b38ef3,
+                    0xec9e99ad690c3395,
+                    0x090689d0585ff075,
+                ]),
+            },
+        },
+    }
 }

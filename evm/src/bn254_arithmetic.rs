@@ -185,7 +185,7 @@ fn normalize_fp2(a: Fp2) -> Fp2 {
 /// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 9 + i
 /// We begin by defining a helper function which multiplies an Fp2 element by 9 + i
 fn i9(a: Fp2) -> Fp2 {
-    let nine = Fp { val: U256::from(9) };
+    let nine = make_fp(9);
     Fp2 {
         re: nine * a.re - a.im,
         im: a.re + nine * a.im,
