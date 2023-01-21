@@ -1,16 +1,17 @@
+use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
-use crate::bn254_arithmetic::{fp12_to_array, inv_fp12, vec_to_fp12};
+use crate::bn254_arithmetic::{inv_fp12, Fp12};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
-use crate::witness::util::{stack_peek, stack_peeks};
+use crate::witness::util::{kernel_general_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
 /// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
@@ -57,10 +58,7 @@ impl<F: Field> GenerationState<F> {
     /// Finite field extension operations.
     fn run_ffe(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let component = input_fn.0[2].as_str();
-        let xs = stack_peeks(self).expect("Empty stack");
-        // TODO: This sucks... come back later
-        let n = match component {
+        let n = match input_fn.0[2].as_str() {
             "component_0" => 0,
             "component_1" => 1,
             "component_2" => 2,
@@ -75,7 +73,12 @@ impl<F: Field> GenerationState<F> {
             "component_11" => 11,
             _ => panic!("out of bounds"),
         };
-        field.inverse_fp12(n, xs)
+        let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
+        let mut f: [U256; 12] = [U256::zero(); 12];
+        for i in 0..12 {
+            f[i] = kernel_general_peek(self, ptr + i);
+        }
+        field.inverse_fp12(n, f)
     }
 
     /// MPT data.
@@ -196,11 +199,10 @@ impl EvmField {
         modexp(x, q, n)
     }
 
-    fn inverse_fp12(&self, n: usize, xs: Vec<U256>) -> U256 {
-        let offset = 12 - n;
-        let vec: Vec<U256> = xs[offset..].to_vec();
-        let f = fp12_to_array(inv_fp12(vec_to_fp12(vec)));
-        f[n]
+    fn inverse_fp12(&self, n: usize, f: [U256; 12]) -> U256 {
+        let f: Fp12 = unsafe { transmute(f) };
+        let f_inv: [U256; 12] = unsafe { transmute(inv_fp12(f)) };
+        f_inv[n]
     }
 }
 

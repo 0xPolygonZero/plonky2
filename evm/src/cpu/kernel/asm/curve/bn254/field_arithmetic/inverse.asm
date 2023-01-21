@@ -24,6 +24,18 @@
 
 global inv_fp12:
     // stack:                ptr, inv, retdest
+    %prover_inv_fp12
+    // stack:          f^-1, ptr, inv, retdest
+    DUP14
+    // stack:     inv, f^-1, ptr, inv, retdest
+    %store_fp12
+    // stack:                ptr, inv, retdest
+    %stack (ptr, inv) -> (ptr, inv, 50, check_inv)
+    // stack: ptr, inv, 50, check_inv, retdest 
+    %jump(mul_fp12)
+
+global inv_fp12_old:
+    // stack:                ptr, inv, retdest
     DUP1  %load_fp12
     // stack:             f, ptr, inv, retdest
     DUP14
@@ -39,9 +51,12 @@ global inv_fp12:
     %stack (check_inv, mem, ptr, inv) -> (ptr, inv, mem, check_inv)
     // stack: ptr, inv, 50, check_inv, retdest 
     %jump(mul_fp12)
+
+
 global check_inv:
     // stack:        retdest
-    PUSH 50  %load_fp12
+    PUSH 50  
+    %load_fp12
     // stack: unit?, retdest
     %assert_eq_unit_fp12
     // stack:        retdest

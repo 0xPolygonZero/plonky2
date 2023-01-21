@@ -27,7 +27,7 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
     res
 }
 
-/// Peak at the stack item `i`th from the top. If `i=0` this gives the tip.
+/// Peek at the stack item `i`th from the top. If `i=0` this gives the tip.
 pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Option<U256> {
     if i >= state.registers.stack_len {
         return None;
@@ -39,18 +39,13 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     )))
 }
 
-/// Peek at the entire stack.
-pub(crate) fn stack_peeks<F: Field>(state: &GenerationState<F>) -> Option<Vec<U256>> {
-    let n = state.registers.stack_len;
-    let mut stack: Vec<U256> = vec![];
-    for i in 0..n {
-        stack.extend(vec![state.memory.get(MemoryAddress::new(
-            state.registers.code_context(),
-            Segment::Stack,
-            n - 1 - i,
-        ))])
-    }
-    Some(stack)
+/// Peek at the kernel general item at address `i`
+pub(crate) fn kernel_general_peek<F: Field>(state: &GenerationState<F>, i: usize) -> U256 {
+    state.memory.get(MemoryAddress::new(
+        state.registers.context,
+        Segment::KernelGeneral,
+        i,
+    ))
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

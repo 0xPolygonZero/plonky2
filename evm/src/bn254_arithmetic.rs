@@ -2,7 +2,6 @@ use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
-use itertools::Itertools;
 use rand::{thread_rng, Rng};
 
 pub const BN_BASE: U256 = U256([
@@ -139,17 +138,13 @@ impl Mul for Fp2 {
     }
 }
 
-/// The inverse of a + bi is given by (a - bi)/(a^2 + b^2) since
-/// (a + bi)(a - bi)/(a^2 + b^2) = (a^2 + b^2)/(a^2 + b^2) = 1
+/// The inverse of z is given by z'/||z|| since ||z|| = zz'
 impl Div for Fp2 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         let norm = rhs.re * rhs.re + rhs.im * rhs.im;
-        let inv = Fp2 {
-            re: rhs.re / norm,
-            im: -rhs.im / norm,
-        };
+        let inv = mul_fp_fp2(norm, conj_fp2(rhs));
         self * inv
     }
 }
@@ -833,36 +828,9 @@ const FROB_Z: [Fp2; 12] = [
     },
 ];
 
-pub fn fp12_to_array(f: Fp12) -> [U256; 12] {
-    unsafe { transmute(f) }
-}
-
 pub fn fp12_to_vec(f: Fp12) -> Vec<U256> {
-    fp12_to_array(f).into_iter().collect()
-}
-
-pub fn vec_to_fp12(xs: Vec<U256>) -> Fp12 {
-    xs.into_iter()
-        .tuples::<(U256, U256)>()
-        .map(|(v1, v2)| Fp2 {
-            re: Fp { val: v1 },
-            im: Fp { val: v2 },
-        })
-        .tuples()
-        .map(|(a1, a2, a3, a4, a5, a6)| Fp12 {
-            z0: Fp6 {
-                t0: a1,
-                t1: a2,
-                t2: a3,
-            },
-            z1: Fp6 {
-                t0: a4,
-                t1: a5,
-                t2: a6,
-            },
-        })
-        .next()
-        .unwrap()
+    let f: [U256; 12] = unsafe { transmute(f) };
+    f.into_iter().collect()
 }
 
 fn gen_fp() -> Fp {
