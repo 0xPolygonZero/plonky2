@@ -8,7 +8,7 @@
 ///     acc = frob_fp12(2, out)
 ///     out = mul_fp12(out, acc)
 ///
-///     pow = power(out)
+///     pow = invariance_inducing_power(out)
 ///     out = frob_fp12(3, out) 
 ///     out = mul_fp12(out, pow)
 ///

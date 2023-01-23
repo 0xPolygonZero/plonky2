@@ -1,4 +1,4 @@
-/// def power(acc):
+/// def invariance_inducing_power(acc):
 ///     power_init()
 ///     power_loop_4()
 ///     power_loop_2()

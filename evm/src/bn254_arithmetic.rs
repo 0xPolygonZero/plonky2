@@ -147,7 +147,7 @@ impl Div for Fp2 {
 
     fn div(self, rhs: Self) -> Self::Output {
         let norm = rhs.re * rhs.re + rhs.im * rhs.im;
-        let inv = mul_fp_fp2(norm, conj_fp2(rhs));
+        let inv = scalar_mul_fp2(norm, conj_fp2(rhs));
         self * inv
     }
 }
@@ -162,7 +162,7 @@ pub const UNIT_FP2: Fp2 = Fp2 {
     im: ZERO_FP,
 };
 
-pub fn mul_fp_fp2(x: Fp, a: Fp2) -> Fp2 {
+pub fn scalar_mul_fp2(x: Fp, a: Fp2) -> Fp2 {
     Fp2 {
         re: x * a.re,
         im: x * a.im,
@@ -199,9 +199,9 @@ fn i9(a: Fp2) -> Fp2 {
 // Fp6 has basis 1, t, t^2 over Fp2
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp6 {
-    t0: Fp2,
-    t1: Fp2,
-    t2: Fp2,
+    pub t0: Fp2,
+    pub t1: Fp2,
+    pub t2: Fp2,
 }
 
 impl Add for Fp6 {
@@ -273,7 +273,7 @@ impl Div for Fp6 {
         let prod_135 = (prod_13 * frob_fp6(5, rhs)).t0;
         let prod_odds_over_phi = normalize_fp2(prod_135);
         let prod_24 = frob_fp6(1, prod_13);
-        let inv = mul_fp2_fp6(prod_odds_over_phi, prod_24);
+        let inv = scalar_mul_fp6(prod_odds_over_phi, prod_24);
         self * inv
     }
 }
@@ -290,7 +290,7 @@ pub const UNIT_FP6: Fp6 = Fp6 {
     t2: ZERO_FP2,
 };
 
-fn mul_fp2_fp6(x: Fp2, f: Fp6) -> Fp6 {
+fn scalar_mul_fp6(x: Fp2, f: Fp6) -> Fp6 {
     Fp6 {
         t0: x * f.t0,
         t1: x * f.t1,
@@ -312,8 +312,8 @@ fn sh(c: Fp6) -> Fp6 {
 /// It thus has basis 1, z over Fp6
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp12 {
-    z0: Fp6,
-    z1: Fp6,
+    pub z0: Fp6,
+    pub z1: Fp6,
 }
 
 impl Mul for Fp12 {
@@ -351,8 +351,8 @@ impl Div for Fp12 {
         let prod_odds = (prod_1379 * frob_fp6(4, prod_17)).t0;
         let prod_odds_over_phi = normalize_fp2(prod_odds);
         let prod_evens_except_six = frob_fp6(1, prod_1379);
-        let prod_penultimate = mul_fp2_fp6(prod_odds_over_phi, prod_evens_except_six);
-        let inv = mul_fp6_fp12(prod_penultimate, conj_fp12(rhs));
+        let prod_penultimate = scalar_mul_fp6(prod_odds_over_phi, prod_evens_except_six);
+        let inv = scalar_mul_fp12(prod_penultimate, conj_fp12(rhs));
         self * inv
     }
 }
@@ -369,15 +369,17 @@ fn conj_fp12(f: Fp12) -> Fp12 {
     }
 }
 
-fn mul_fp6_fp12(c: Fp6, f: Fp12) -> Fp12 {
+fn scalar_mul_fp12(c: Fp6, f: Fp12) -> Fp12 {
     Fp12 {
         z0: c * f.z0,
         z1: c * f.z1,
     }
 }
 
-pub fn inv_fp12(f: Fp12) -> Fp12 {
-    UNIT_FP12 / f
+impl Fp12 {
+    pub fn inv(self) -> Fp12 {
+        UNIT_FP12 / self
+    }
 }
 
 /// The nth frobenius endomorphism of a finite field F of order p^q is given by sending x: F to x^(p^n)
@@ -422,7 +424,7 @@ pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
     let n = n % 12;
     Fp12 {
         z0: frob_fp6(n, f.z0),
-        z1: mul_fp2_fp6(FROB_Z[n], frob_fp6(n, f.z1)),
+        z1: scalar_mul_fp6(FROB_Z[n], frob_fp6(n, f.z1)),
     }
 }
 
@@ -819,14 +821,14 @@ pub fn gen_fp() -> Fp {
     Fp { val: x256 }
 }
 
-fn gen_fp2() -> Fp2 {
+pub fn gen_fp2() -> Fp2 {
     Fp2 {
         re: gen_fp(),
         im: gen_fp(),
     }
 }
 
-fn gen_fp6() -> Fp6 {
+pub fn gen_fp6() -> Fp6 {
     Fp6 {
         t0: gen_fp2(),
         t1: gen_fp2(),
@@ -839,27 +841,4 @@ pub fn gen_fp12() -> Fp12 {
         z0: gen_fp6(),
         z1: gen_fp6(),
     }
-}
-
-pub fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
-}
-
-pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
-    let g0 = Fp6 {
-        t0: Fp2 {
-            re: g000,
-            im: ZERO_FP,
-        },
-        t1: g01,
-        t2: ZERO_FP2,
-    };
-
-    let g1 = Fp6 {
-        t0: ZERO_FP2,
-        t1: g11,
-        t2: ZERO_FP2,
-    };
-
-    Fp12 { z0: g0, z1: g1 }
 }

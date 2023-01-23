@@ -3,7 +3,7 @@ use std::ops::Add;
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{
-    frob_fp12, inv_fp12, mul_fp_fp2, sparse_embed, Fp, Fp12, Fp2, UNIT_FP12,
+    frob_fp12, scalar_mul_fp2, Fp, Fp6, Fp12, Fp2, UNIT_FP12, ZERO_FP, ZERO_FP2, gen_fp, gen_fp2
 };
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
@@ -40,13 +40,10 @@ pub struct TwistedCurve {
     y: Fp2,
 }
 
-// The tate pairing takes point each from the curve and its twist and outputs an Fp12
+// The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
 pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
     let miller_output = miller_loop(p, q);
-    let post_mul_1 = frob_fp12(6, miller_output) / miller_output;
-    let post_mul_2 = frob_fp12(2, post_mul_1) * post_mul_1;
-    let power_output = power(post_mul_2);
-    frob_fp12(3, post_mul_2) * power_output
+    invariance_inducing_power(miller_output)
 }
 
 pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
@@ -80,13 +77,36 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     acc
 }
 
+pub fn gen_fp12_sparse() -> Fp12 {
+    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
+}
+
+pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
+    let g0 = Fp6 {
+        t0: Fp2 {
+            re: g000,
+            im: ZERO_FP,
+        },
+        t1: g01,
+        t2: ZERO_FP2,
+    };
+
+    let g1 = Fp6 {
+        t0: ZERO_FP2,
+        t1: g11,
+        t2: ZERO_FP2,
+    };
+
+    Fp12 { z0: g0, z1: g1 }
+}
+
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let cx = -Fp::new(3) * p.x * p.x;
     let cy = Fp::new(2) * p.y;
     sparse_embed(
         p.y * p.y - Fp::new(9),
-        mul_fp_fp2(cx, q.x),
-        mul_fp_fp2(cy, q.y),
+        scalar_mul_fp2(cx, q.x),
+        scalar_mul_fp2(cy, q.y),
     )
 }
 
@@ -95,12 +115,34 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let cy = p1.x - p2.x;
     sparse_embed(
         p1.y * p2.x - p2.y * p1.x,
-        mul_fp_fp2(cx, q.x),
-        mul_fp_fp2(cy, q.y),
+        scalar_mul_fp2(cx, q.x),
+        scalar_mul_fp2(cy, q.y),
     )
 }
 
-pub fn power(f: Fp12) -> Fp12 {
+/// The output T of the miller loop is not an invariant, 
+/// but one gets an invariant by raising T to the power
+///     (p^12 - 1)/N = (p^6 - 1)(p^2 + 1)(p^4 - p^2 + 1)/N
+/// where N is the cyclic group order of the curve.
+/// To achieve this, we first exponentiate T by p^6 - 1 via
+///     T = T_6 / T
+/// and then exponentiate the result by p^2 + 1 via
+///     T = T_2 * T
+/// We then note that (p^4 - p^2 + 1)/N can be rewritten as
+///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
+/// where 0 < a0, a1, a2 < p. Then the final power is given by
+///     T = T_3 * (T^a2)_2 * (T^-a1)_1 * (T^-a0)
+pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
+    let mut t = frob_fp12(6, f) / f;
+    t = frob_fp12(2, t) * t;
+    let (t_a2, t_a1, t_a0) = get_powers(t);
+    frob_fp12(3, t) * frob_fp12(2, t_a2) * frob_fp12(1, t_a1) * t_a0
+}
+
+/// Given an f: Fp12, this function computes the triple
+///     T^a2, T^(-a1), T^(-a0)
+/// 
+fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     const EXPS4: [(usize, usize, usize); 64] = [
         (1, 1, 0),
         (1, 1, 1),
@@ -277,16 +319,7 @@ pub fn power(f: Fp12) -> Fp12 {
     }
     y0 = y0 * sq;
 
-    y0 = inv_fp12(y0);
-
-    y4 = y4 * y2;
-    y4 = y4 * y2;
-    y4 = y4 * y0;
-
-    y4 = frob_fp12(1, y4);
-    y2 = frob_fp12(2, y2);
-
-    y4 * y2 * y0
+    (y2, y4 * y2 * y2 * y0, y0.inv())
 }
 
 // The curve is cyclic with generator (1, 2)

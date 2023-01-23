@@ -4,7 +4,8 @@ use std::ops::Range;
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{frob_fp12, gen_fp12, gen_fp12_sparse, inv_fp12, Fp12};
+use crate::bn254_arithmetic::{frob_fp12, gen_fp12, Fp12};
+use crate::bn254_pairing::{gen_fp12_sparse};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -158,7 +159,7 @@ fn test_inv_fp12() -> Result<()> {
     };
     let interpreter: Interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(inv..inv + 12, interpreter);
-    let expected: Vec<U256> = fp12_on_stack(inv_fp12(f));
+    let expected: Vec<U256> = fp12_on_stack(f.inv());
 
     assert_eq!(output, expected);
 
@@ -166,7 +167,7 @@ fn test_inv_fp12() -> Result<()> {
 }
 
 // #[test]
-// fn test_power() -> Result<()> {
+// fn test_invariance_inducing_power() -> Result<()> {
 //     let ptr = U256::from(300);
 //     let out = U256::from(400);
 
@@ -182,7 +183,7 @@ fn test_inv_fp12() -> Result<()> {
 //     ]);
 
 //     let output: Vec<U256> = run_setup_interpreter("test_pow", stack);
-//     let expected: Vec<U256> = fp12_on_stack(power(f));
+//     let expected: Vec<U256> = fp12_on_stack(invariance_inducing_power(f));
 
 //     assert_eq!(output, expected);
 
