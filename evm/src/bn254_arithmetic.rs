@@ -64,12 +64,18 @@ impl Mul for Fp {
     }
 }
 
+impl Fp {
+    pub fn inv(self) -> Fp {
+        exp_fp(self, BN_BASE - 2)
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div for Fp {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let inv = exp_fp(rhs, BN_BASE - 2);
-        self * inv
+        self * rhs.inv()
     }
 }
 
@@ -96,6 +102,16 @@ pub struct Fp2 {
     pub re: Fp,
     pub im: Fp,
 }
+
+pub const ZERO_FP2: Fp2 = Fp2 {
+    re: ZERO_FP,
+    im: ZERO_FP,
+};
+
+pub const UNIT_FP2: Fp2 = Fp2 {
+    re: UNIT_FP,
+    im: ZERO_FP,
+};
 
 impl Add for Fp2 {
     type Output = Self;
@@ -141,61 +157,58 @@ impl Mul for Fp2 {
     }
 }
 
-/// The inverse of z is given by z'/||z|| since ||z|| = zz'
+impl Fp2 {
+    /// We preemptively define a helper function which multiplies an Fp2 element by 9 + i
+    fn i9(self) -> Fp2 {
+        let nine = Fp::new(9);
+        Fp2 {
+            re: nine * self.re - self.im,
+            im: self.re + nine * self.im,
+        }
+    }
+
+    pub fn scale(self, x: Fp) -> Fp2 {
+        Fp2 {
+            re: x * self.re,
+            im: x * self.im,
+        }
+    }
+
+    // This function takes the complex conjugate
+    fn conj(self) -> Fp2 {
+        Fp2 {
+            re: self.re,
+            im: -self.im,
+        }
+    }
+
+    // Return the magnitude of the complex number
+    fn norm(self) -> Fp {
+        self.re * self.re + self.im * self.im
+    }
+
+    // This function normalizes the input to the complex unit circle
+    fn normalize(self) -> Fp2 {
+        let norm = self.norm();
+        self.scale(UNIT_FP / norm)
+    }
+    /// The inverse of z is given by z'/||z|| since ||z|| = zz'
+    pub fn inv(self) -> Fp2 {
+        let norm = self.re * self.re + self.im * self.im;
+        self.conj().scale(norm)
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div for Fp2 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let norm = rhs.re * rhs.re + rhs.im * rhs.im;
-        let inv = scalar_mul_fp2(norm, conj_fp2(rhs));
-        self * inv
-    }
-}
-
-pub const ZERO_FP2: Fp2 = Fp2 {
-    re: ZERO_FP,
-    im: ZERO_FP,
-};
-
-pub const UNIT_FP2: Fp2 = Fp2 {
-    re: UNIT_FP,
-    im: ZERO_FP,
-};
-
-pub fn scalar_mul_fp2(x: Fp, a: Fp2) -> Fp2 {
-    Fp2 {
-        re: x * a.re,
-        im: x * a.im,
-    }
-}
-
-// This function takes the complex conjugate
-fn conj_fp2(a: Fp2) -> Fp2 {
-    Fp2 {
-        re: a.re,
-        im: -a.im,
-    }
-}
-
-// This function normalizes the input to the complex unit circle
-fn normalize_fp2(a: Fp2) -> Fp2 {
-    let norm = a.re * a.re + a.im * a.im;
-    Fp2 {
-        re: a.re / norm,
-        im: a.im / norm,
+        self * rhs.inv()
     }
 }
 
 /// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 9 + i
-/// We begin by defining a helper function which multiplies an Fp2 element by 9 + i
-fn i9(a: Fp2) -> Fp2 {
-    let nine = Fp::new(9);
-    Fp2 {
-        re: nine * a.re - a.im,
-        im: a.re + nine * a.im,
-    }
-}
-
 // Fp6 has basis 1, t, t^2 over Fp2
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Fp6 {
@@ -203,6 +216,18 @@ pub struct Fp6 {
     pub t1: Fp2,
     pub t2: Fp2,
 }
+
+pub const ZERO_FP6: Fp6 = Fp6 {
+    t0: ZERO_FP2,
+    t1: ZERO_FP2,
+    t2: ZERO_FP2,
+};
+
+pub const UNIT_FP6: Fp6 = Fp6 {
+    t0: UNIT_FP2,
+    t1: ZERO_FP2,
+    t2: ZERO_FP2,
+};
 
 impl Add for Fp6 {
     type Output = Self;
@@ -245,66 +270,89 @@ impl Mul for Fp6 {
 
     fn mul(self, other: Self) -> Self {
         Fp6 {
-            t0: self.t0 * other.t0 + i9(self.t1 * other.t2 + self.t2 * other.t1),
-            t1: self.t0 * other.t1 + self.t1 * other.t0 + i9(self.t2 * other.t2),
+            t0: self.t0 * other.t0 + (self.t1 * other.t2 + self.t2 * other.t1).i9(),
+            t1: self.t0 * other.t1 + self.t1 * other.t0 + (self.t2 * other.t2).i9(),
             t2: self.t0 * other.t2 + self.t1 * other.t1 + self.t2 * other.t0,
         }
     }
 }
 
-/// Let x_n = x^(p^n) and note that
-///     x_0 = x^(p^0) = x^1 = x
-///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m}
-/// By Galois Theory, given x: Fp6, the product
-///     phi = x_0 * x_1 * x_2 * x_3 * x_4 * x_5
-/// lands in Fp, and hence the inverse of x is given by
-///     (x_1 * x_2 * x_3 * x_4 * x_5) / phi
-/// We can save compute by rearranging the numerator:
-///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
-/// By Galois theory, the following are in Fp2 and are complex conjugates
-///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
-/// Thus phi = norm(x_1 * x_3 * x_5), and hence the inverse is given by
-///     normalize([x_1 * x_3] * x_5) * [x_1 * x_3]_1
+impl Fp6 {
+    fn scale(self, x: Fp2) -> Fp6 {
+        Fp6 {
+            t0: x * self.t0,
+            t1: x * self.t1,
+            t2: x * self.t2,
+        }
+    }
+
+    /// This function multiplies an Fp6 element by t, and hence shifts the bases,
+    /// where the t^2 coefficient picks up a factor of 9+i as the 1 coefficient of the output
+    fn sh(self) -> Fp6 {
+        Fp6 {
+            t0: self.t2.i9(),
+            t1: self.t0,
+            t2: self.t1,
+        }
+    }
+
+    /// The nth frobenius endomorphism of a p^q field is given by mapping
+    ///     x to x^(p^n)
+    /// which sends a + bt + ct^2: Fp6 to
+    ///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
+    /// Note that p == 3 mod 4, and i^3 = -i, so x + yi gets mapped to
+    ///     (x + yi)^(p^n) = x^(p^n) + y^(p^n) i^(p^n) = x + y i^(p^n mod 4)
+    /// which reduces to x + yi for n even and x - yi for n odd
+    /// The values of t^(p^n) and t^(2p^n) are precomputed in
+    /// the constant arrays FROB_T1 and FROB_T2
+    fn frob(self, n: usize) -> Fp6 {
+        let n = n % 6;
+        let frob_t1 = FROB_T1[n];
+        let frob_t2 = FROB_T2[n];
+
+        if n % 2 != 0 {
+            Fp6 {
+                t0: self.t0.conj(),
+                t1: frob_t1 * self.t1.conj(),
+                t2: frob_t2 * self.t2.conj(),
+            }
+        } else {
+            Fp6 {
+                t0: self.t0,
+                t1: frob_t1 * self.t1,
+                t2: frob_t2 * self.t2,
+            }
+        }
+    }
+
+    /// Let x_n = x^(p^n) and note that
+    ///     x_0 = x^(p^0) = x^1 = x
+    ///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m}
+    /// By Galois Theory, given x: Fp6, the product
+    ///     phi = x_0 * x_1 * x_2 * x_3 * x_4 * x_5
+    /// lands in Fp, and hence the inverse of x is given by
+    ///     (x_1 * x_2 * x_3 * x_4 * x_5) / phi
+    /// We can save compute by rearranging the numerator:
+    ///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
+    /// By Galois theory, the following are in Fp2 and are complex conjugates
+    ///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
+    /// Thus phi = norm(x_1 * x_3 * x_5), and hence the inverse is given by
+    ///     normalize([x_1 * x_3] * x_5) * [x_1 * x_3]_1
+    pub fn inv(self) -> Fp6 {
+        let prod_13 = self.frob(1) * self.frob(3);
+        let prod_135 = (prod_13 * self.frob(5)).t0;
+        let prod_odds_over_phi = prod_135.normalize();
+        let prod_24 = prod_13.frob(1);
+        prod_24.scale(prod_odds_over_phi)
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div for Fp6 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let prod_13 = frob_fp6(1, rhs) * frob_fp6(3, rhs);
-        let prod_135 = (prod_13 * frob_fp6(5, rhs)).t0;
-        let prod_odds_over_phi = normalize_fp2(prod_135);
-        let prod_24 = frob_fp6(1, prod_13);
-        let inv = scalar_mul_fp6(prod_odds_over_phi, prod_24);
-        self * inv
-    }
-}
-
-pub const ZERO_FP6: Fp6 = Fp6 {
-    t0: ZERO_FP2,
-    t1: ZERO_FP2,
-    t2: ZERO_FP2,
-};
-
-pub const UNIT_FP6: Fp6 = Fp6 {
-    t0: UNIT_FP2,
-    t1: ZERO_FP2,
-    t2: ZERO_FP2,
-};
-
-fn scalar_mul_fp6(x: Fp2, f: Fp6) -> Fp6 {
-    Fp6 {
-        t0: x * f.t0,
-        t1: x * f.t1,
-        t2: x * f.t2,
-    }
-}
-
-/// This function multiplies an Fp6 element by t, and hence shifts the bases,
-/// where the t^2 coefficient picks up a factor of 9+i as the 1 coefficient of the output
-fn sh(c: Fp6) -> Fp6 {
-    Fp6 {
-        t0: i9(c.t2),
-        t1: c.t0,
-        t2: c.t1,
+        self * rhs.inv()
     }
 }
 
@@ -316,6 +364,11 @@ pub struct Fp12 {
     pub z1: Fp6,
 }
 
+pub const UNIT_FP12: Fp12 = Fp12 {
+    z0: UNIT_FP6,
+    z1: ZERO_FP6,
+};
+
 impl Mul for Fp12 {
     type Output = Self;
 
@@ -324,107 +377,69 @@ impl Mul for Fp12 {
         let h1 = self.z1 * other.z1;
         let h01 = (self.z0 + self.z1) * (other.z0 + other.z1);
         Fp12 {
-            z0: h0 + sh(h1),
+            z0: h0 + h1.sh(),
             z1: h01 - (h0 + h1),
         }
     }
 }
 
-/// By Galois Theory, given x: Fp12, the product
-///     phi = Prod_{i=0}^11 x_i
-/// lands in Fp, and hence the inverse of x is given by
-///     (Prod_{i=1}^11 x_i) / phi
-/// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
-///     x_6 = (a + bz)_6 = a - bz = conj_fp12(x)
-/// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
-///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
-/// By Galois theory, both the following are in Fp2 and are complex conjugates
-///     prod_odds,  prod_evens
-/// Thus phi = norm(prod_odds), and hence the inverse is given by
-///    normalize(prod_odds) * prod_evens_except_six * conj_fp12(x)
+impl Fp12 {
+    fn conj(self) -> Fp12 {
+        Fp12 {
+            z0: self.z0,
+            z1: -self.z1,
+        }
+    }
+
+    fn scale(self, x: Fp6) -> Fp12 {
+        Fp12 {
+            z0: x * self.z0,
+            z1: x * self.z1,
+        }
+    }
+
+    /// The nth frobenius endomorphism of a p^q field is given by mapping
+    ///     x to x^(p^n)
+    /// which sends a + bz: Fp12 to
+    ///     a^(p^n) + b^(p^n) * z^(p^n)
+    /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
+    pub fn frob(self, n: usize) -> Fp12 {
+        let n = n % 12;
+        Fp12 {
+            z0: self.z0.frob(n),
+            z1: self.z1.frob(n).scale(FROB_Z[n]),
+        }
+    }
+
+    /// By Galois Theory, given x: Fp12, the product
+    ///     phi = Prod_{i=0}^11 x_i
+    /// lands in Fp, and hence the inverse of x is given by
+    ///     (Prod_{i=1}^11 x_i) / phi
+    /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
+    ///     x_6 = (a + bz)_6 = a - bz = conj_fp12(x)
+    /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
+    ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
+    /// By Galois theory, both the following are in Fp2 and are complex conjugates
+    ///     prod_odds,  prod_evens
+    /// Thus phi = norm(prod_odds), and hence the inverse is given by
+    ///    normalize(prod_odds) * prod_evens_except_six * conj_fp12(x)
+    pub fn inv(self) -> Fp12 {
+        let prod_17 = (self.frob(1) * self.frob(7)).z0;
+        let prod_1379 = prod_17 * prod_17.frob(2);
+        let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
+        let prod_odds_over_phi = prod_odds.normalize();
+        let prod_evens_except_six = prod_1379.frob(1);
+        let prod_penultimate = prod_evens_except_six.scale(prod_odds_over_phi);
+        self.conj().scale(prod_penultimate)
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div for Fp12 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let prod_17 = (frob_fp12(1, rhs) * frob_fp12(7, rhs)).z0;
-        let prod_1379 = prod_17 * frob_fp6(2, prod_17);
-        let prod_odds = (prod_1379 * frob_fp6(4, prod_17)).t0;
-        let prod_odds_over_phi = normalize_fp2(prod_odds);
-        let prod_evens_except_six = frob_fp6(1, prod_1379);
-        let prod_penultimate = scalar_mul_fp6(prod_odds_over_phi, prod_evens_except_six);
-        let inv = scalar_mul_fp12(prod_penultimate, conj_fp12(rhs));
-        self * inv
-    }
-}
-
-pub const UNIT_FP12: Fp12 = Fp12 {
-    z0: UNIT_FP6,
-    z1: ZERO_FP6,
-};
-
-fn conj_fp12(f: Fp12) -> Fp12 {
-    Fp12 {
-        z0: f.z0,
-        z1: -f.z1,
-    }
-}
-
-fn scalar_mul_fp12(c: Fp6, f: Fp12) -> Fp12 {
-    Fp12 {
-        z0: c * f.z0,
-        z1: c * f.z1,
-    }
-}
-
-impl Fp12 {
-    pub fn inv(self) -> Fp12 {
-        UNIT_FP12 / self
-    }
-}
-
-/// The nth frobenius endomorphism of a finite field F of order p^q is given by sending x: F to x^(p^n)
-/// since any element x: F satisfies x^(p^q) = x = x^(p^0), these endomorphisms cycle modulo q
-///
-/// Thus in the case of Fp, there are no nontrivial such endomorphisms since x^p = x.
-///
-/// In the case of Fp2, the first and only nontrivial frobenius map sends a + bi to its complex conjugate:
-///     a^p + b^p(i^p) = a - bi
-/// since p == 3 mod 4, and i^3 = -i
-///
-/// An Fp6 element a + bt + ct^2 is sent to
-///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
-/// where the values of t^(p^n) and t^(2p^n) are precomputed in the constant arrays FROB_T1 and FROB_T2
-///
-///
-/// An Fp12 element a + bz is sent to
-///     a^(p^n) + b^(p^n) * z^(p^n)
-/// where the values of z^(p^n) are precomputed in the constant array FROB_Z
-
-fn frob_fp6(n: usize, c: Fp6) -> Fp6 {
-    let n = n % 6;
-    let frob_t1 = FROB_T1[n];
-    let frob_t2 = FROB_T2[n];
-
-    if n % 2 != 0 {
-        Fp6 {
-            t0: conj_fp2(c.t0),
-            t1: frob_t1 * conj_fp2(c.t1),
-            t2: frob_t2 * conj_fp2(c.t2),
-        }
-    } else {
-        Fp6 {
-            t0: c.t0,
-            t1: frob_t1 * c.t1,
-            t2: frob_t2 * c.t2,
-        }
-    }
-}
-
-pub fn frob_fp12(n: usize, f: Fp12) -> Fp12 {
-    let n = n % 12;
-    Fp12 {
-        z0: frob_fp6(n, f.z0),
-        z1: scalar_mul_fp6(FROB_Z[n], frob_fp6(n, f.z1)),
+        self * rhs.inv()
     }
 }
 
@@ -523,7 +538,7 @@ const FROB_T2: [Fp2; 6] = [
                     0x848a1f55921ea762,
                     0xd33365f7be94ec72,
                     0x80f3c0b75a181e84,
-                    0x5b54f5e64eea801,
+                    0x05b54f5e64eea801,
                 ]),
             }
         },
@@ -737,7 +752,7 @@ const FROB_Z: [Fp2; 12] = [
                     0x71c39bb757899a9b,
                     0x2307d819d98302a7,
                     0x121dc8b86f6c4ccf,
-                    0xbfab77f2c36b843,
+                    0x0bfab77f2c36b843,
                 ]),
             }
         },

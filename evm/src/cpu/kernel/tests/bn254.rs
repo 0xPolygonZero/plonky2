@@ -4,21 +4,21 @@ use std::ops::Range;
 use anyhow::Result;
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{frob_fp12, gen_fp12, Fp12};
-use crate::bn254_pairing::{gen_fp12_sparse};
+use crate::bn254_arithmetic::{gen_fp12, Fp12};
+use crate::bn254_pairing::gen_fp12_sparse;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 
 struct InterpreterSetup {
-    offset: String,
+    label: String,
     stack: Vec<U256>,
     memory: Vec<(usize, Vec<U256>)>,
 }
 
 fn run_setup_interpreter(setup: InterpreterSetup) -> Result<Interpreter<'static>> {
-    let label = KERNEL.global_labels[&setup.offset];
+    let label = KERNEL.global_labels[&setup.label];
     let mut stack = setup.stack;
     stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(label, stack);
@@ -61,7 +61,7 @@ fn setup_mul_test(
     label: &str,
 ) -> InterpreterSetup {
     InterpreterSetup {
-        offset: label.to_string(),
+        label: label.to_string(),
         stack: vec![
             U256::from(in0),
             U256::from(in1),
@@ -107,7 +107,7 @@ fn test_mul_fp12() -> Result<()> {
 
 fn setup_frob_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
     InterpreterSetup {
-        offset: label.to_string(),
+        label: label.to_string(),
         stack: vec![U256::from(ptr)],
         memory: vec![(ptr, fp12_on_stack(f))],
     }
@@ -133,10 +133,10 @@ fn test_frob_fp12() -> Result<()> {
     let out_frob_3: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_3);
     let out_frob_6: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_6);
 
-    let exp_frob_1: Vec<U256> = fp12_on_stack(frob_fp12(1, f));
-    let exp_frob_2: Vec<U256> = fp12_on_stack(frob_fp12(2, f));
-    let exp_frob_3: Vec<U256> = fp12_on_stack(frob_fp12(3, f));
-    let exp_frob_6: Vec<U256> = fp12_on_stack(frob_fp12(6, f));
+    let exp_frob_1: Vec<U256> = fp12_on_stack(f.frob(1));
+    let exp_frob_2: Vec<U256> = fp12_on_stack(f.frob(2));
+    let exp_frob_3: Vec<U256> = fp12_on_stack(f.frob(3));
+    let exp_frob_6: Vec<U256> = fp12_on_stack(f.frob(6));
 
     assert_eq!(out_frob_1, exp_frob_1);
     assert_eq!(out_frob_2, exp_frob_2);
@@ -153,7 +153,7 @@ fn test_inv_fp12() -> Result<()> {
     let f: Fp12 = gen_fp12();
 
     let setup = InterpreterSetup {
-        offset: "inv_fp12".to_string(),
+        label: "inv_fp12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
         memory: vec![(ptr, fp12_on_stack(f))],
     };

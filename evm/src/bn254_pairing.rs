@@ -2,9 +2,7 @@ use std::ops::Add;
 
 use ethereum_types::U256;
 
-use crate::bn254_arithmetic::{
-    frob_fp12, scalar_mul_fp2, Fp, Fp6, Fp12, Fp2, UNIT_FP12, ZERO_FP, ZERO_FP2, gen_fp, gen_fp2
-};
+use crate::bn254_arithmetic::{gen_fp, gen_fp2, Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZERO_FP, ZERO_FP2};
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -103,24 +101,16 @@ pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let cx = -Fp::new(3) * p.x * p.x;
     let cy = Fp::new(2) * p.y;
-    sparse_embed(
-        p.y * p.y - Fp::new(9),
-        scalar_mul_fp2(cx, q.x),
-        scalar_mul_fp2(cy, q.y),
-    )
+    sparse_embed(p.y * p.y - Fp::new(9), q.x.scale(cx), q.y.scale(cy))
 }
 
 pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
-    sparse_embed(
-        p1.y * p2.x - p2.y * p1.x,
-        scalar_mul_fp2(cx, q.x),
-        scalar_mul_fp2(cy, q.y),
-    )
+    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x.scale(cx), q.y.scale(cy))
 }
 
-/// The output T of the miller loop is not an invariant, 
+/// The output T of the miller loop is not an invariant,
 /// but one gets an invariant by raising T to the power
 ///     (p^12 - 1)/N = (p^6 - 1)(p^2 + 1)(p^4 - p^2 + 1)/N
 /// where N is the cyclic group order of the curve.
@@ -133,15 +123,14 @@ pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
 /// where 0 < a0, a1, a2 < p. Then the final power is given by
 ///     T = T_3 * (T^a2)_2 * (T^-a1)_1 * (T^-a0)
 pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
-    let mut t = frob_fp12(6, f) / f;
-    t = frob_fp12(2, t) * t;
+    let mut t = f.frob(6) / f;
+    t = t.frob(2) * t;
     let (t_a2, t_a1, t_a0) = get_powers(t);
-    frob_fp12(3, t) * frob_fp12(2, t_a2) * frob_fp12(1, t_a1) * t_a0
+    t.frob(3) * t_a2.frob(2) * t_a1.frob(1) * t_a0
 }
 
 /// Given an f: Fp12, this function computes the triple
 ///     T^a2, T^(-a1), T^(-a0)
-/// 
 fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     const EXPS4: [(usize, usize, usize); 64] = [
         (1, 1, 0),
