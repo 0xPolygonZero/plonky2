@@ -111,6 +111,8 @@ fn test_add_bignum() -> Result<()> {
     // Run add function.
     interpreter.run()?;
 
+    dbg!(interpreter.stack());
+
     // Determine actual sum.
     let new_memory = interpreter.get_kernel_general_memory();
     let actual_sum: Vec<_> = new_memory[..expected_sum.len()].into();
