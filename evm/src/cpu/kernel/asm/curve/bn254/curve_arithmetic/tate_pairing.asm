@@ -13,8 +13,10 @@ global tate:
 ///     y = second_exp(y)
 ///     return final_exponentiation(y)
 global make_invariant:
-/// def first_exp(t):
-///     return t.frob(6) / t
+
+/// map t to t^(p^6 - 1) via 
+///     def first_exp(t):
+///         return t.frob(6) / t
     // stack:                      out, retdest  {out: y}
     %stack (out) -> (out, 100, first_exp, out)         
     // stack: out, 100, first_exp, out, retdest  {out: y}
@@ -27,12 +29,13 @@ global first_exp:
     // stack:  out, 100, out, second_exp, out, retdest  {out: y_6, 100: y^-1}
     %jump(mul_fp12)
 
-/// def second_exp(t):
-///     return t.frob(2) * t
+/// map t to t^(p^2 + 1) via 
+///     def second_exp(t):
+///         return t.frob(2) * t
 global second_exp:
-    // stack:                           out, retdest  {out: y}
-    %stack (out) -> (out, 100, out, final_exp, out)
-    // stack: out, 100, out, final_exp, out, retdest  {out: y}
+    // stack:                                out, retdest  {out: y}
+    %stack (out) -> (out, 100, out, out, final_exp, out)
+    // stack: out, 100, out, out, final_exp, out, retdest  {out: y}
     %frob_fp12_2_
-    // stack:      100, out, final_exp, out, retdest  {out: y, 100: y_2}
+    // stack:      100, out, out, final_exp, out, retdest  {out: y, 100: y_2}
     %jump(mul_fp12)

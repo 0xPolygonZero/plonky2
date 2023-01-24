@@ -224,6 +224,7 @@ fn test_tate() -> Result<()> {
     };
     let interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(out..out + 12, interpreter);
+    // let output: Vec<U256> = interpreter.stack().to_vec();
     let expected = fp12_on_stack(tate(CURVE_GENERATOR, TWISTED_GENERATOR));
 
     assert_eq!(output, expected);
