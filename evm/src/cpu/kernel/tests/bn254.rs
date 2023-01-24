@@ -208,7 +208,6 @@ fn test_inv_fp12() -> Result<()> {
 fn test_tate() -> Result<()> {
     let ptr: usize = 300;
     let out: usize = 400;
-
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
         CURVE_GENERATOR.y.val,

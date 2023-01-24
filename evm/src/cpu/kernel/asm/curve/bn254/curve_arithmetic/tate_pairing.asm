@@ -1,18 +1,8 @@
 /// def tate(P: Curve, Q: TwistedCurve) -> Fp12:
 ///     out = miller_loop(P, Q)
-///
-///     inv = inv_fp12(out)
-///     out = frob_fp12(6, out)
-///     out = mul_fp12(out, inv)
-///
-///     acc = frob_fp12(2, out)
-///     out = mul_fp12(out, acc)
-///
-///     pow = invariance_inducing_power(out)
-///     out = frob_fp12(3, out) 
-///     out = mul_fp12(out, pow)
-///
-///     return out
+///     out = out.frob(6) / out
+///     out = out.frob(2) * out
+///     return final_power(out)
 
 global tate:
     // stack:                        ptr, out, retdest

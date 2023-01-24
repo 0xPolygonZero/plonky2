@@ -129,8 +129,14 @@ pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
     t.frob(3) * t_a2.frob(2) * t_a1.frob(1) * t_a0
 }
 
-/// Given an f: Fp12, this function computes the triple
+/// Given an f: Fp12, this function computes
 ///     T^a2, T^(-a1), T^(-a0)
+/// by first computing
+///     T^a4, T^a2, T^a0
+/// where a1 is given by
+///     a1 = a4 + 2a2 - a0
+/// thus what remains is inverting T^a0 and returning
+///     T^a2, T^a4 * T^a2 * T^a2 * T^(-a0), T^(-a0)
 fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     const EXPS4: [(usize, usize, usize); 64] = [
         (1, 1, 0),
@@ -308,7 +314,8 @@ fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     }
     y0 = y0 * sq;
 
-    (y2, y4 * y2 * y2 / y0, y0.inv())
+    let y0_inv = y0.inv();
+    (y2, y4 * y2 * y2 * y0_inv, y0_inv)
 }
 
 // The curve is cyclic with generator (1, 2)
