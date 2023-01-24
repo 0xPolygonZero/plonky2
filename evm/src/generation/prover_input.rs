@@ -91,7 +91,7 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    // Bignum-related code.
+    // Bignum modular multiplication related code.
     fn run_bignum_modmul(&mut self, input_fn: &ProverInputFn) -> U256 {
         if self.bignum_modmul_prover_inputs.is_empty() {
             let function = input_fn.0[1].as_str();
@@ -172,6 +172,45 @@ impl<F: Field> GenerationState<F> {
 
         let result_biguint = (a_biguint * b_biguint) / m_biguint;
         biguint_to_mem_vec(result_biguint)
+    }
+
+    // Bignum modular exponentiation related code.
+    fn run_bignum_modexp(&mut self, input_fn: &ProverInputFn) -> U256 {
+        if self.bignum_modexp_prover_inputs.is_empty() {
+            let function = input_fn.0[1].as_str();
+
+            let len = stack_peek(self, 1)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let a_start_loc = stack_peek(self, 2)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let b_start_loc = stack_peek(self, 3)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let m_start_loc = stack_peek(self, 4)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+
+            let result = match function {
+                "remainder" => {
+                    self.bignum_modmul_remainder(len, a_start_loc, b_start_loc, m_start_loc)
+                }
+                "quotient" => {
+                    self.bignum_modmul_quotient(len, a_start_loc, b_start_loc, m_start_loc)
+                }
+                _ => panic!("Invalid prover input function."),
+            };
+
+            self.bignum_modexp_prover_inputs = result.to_vec();
+            self.bignum_modexp_prover_inputs.reverse();
+        }
+
+        self.bignum_modexp_prover_inputs.pop().unwrap()
     }
 }
 
