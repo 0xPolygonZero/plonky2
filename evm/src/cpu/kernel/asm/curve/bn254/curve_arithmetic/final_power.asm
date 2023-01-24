@@ -113,32 +113,40 @@ final_mul:
 
 power_loop_4:
     // stack:                                     i  , j, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  ISZERO
+    DUP1  
+    ISZERO
     // stack:                             break?, i  , j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_4_end)
     // stack:                                     i  , j, k, sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(1)
     // stack:                                     i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %mload_kernel_code(power_data_4)
+    DUP1  
+    %mload_kernel_code(power_data_4)
     // stack:                                abc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %lt_const(100)
+    DUP1  
+    %lt_const(100)
     // stack:                         skip?, abc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_4_b)
     // stack:                                abc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(100)
     // stack:                                 bc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_4_b  PUSH 224  DUP1  DUP8
+    %stack () -> (224, 224, power_loop_4_b)
+    // stack:      224, 224, power_loop_4_b,  bc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP8
     // stack: sqr, 224, 224, power_loop_4_b,  bc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_4_b:
     // stack:                               bc, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %lt_const(10)
+    DUP1  
+    %lt_const(10)
     // stack:                        skip?, bc, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_4_c)
     // stack:                               bc, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(10)
     // stack:                                c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_4_c  PUSH 212  DUP1  DUP8
+    %stack () -> (212, 212, power_loop_4_c)
+    // stack:      212, 212, power_loop_4_c, c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP8
     // stack: sqr, 212, 212, power_loop_4_c, c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_4_c:
@@ -147,39 +155,51 @@ power_loop_4_c:
     // stack:                          skip?, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_4_sq)
     // stack:                                 i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_4_sq  PUSH 200  DUP1  DUP7
+    %stack () -> (200, 200, power_loop_4_sq)
+    // stack:      200, 200, power_loop_4_sq, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP7
     // stack: sqr, 200, 200, power_loop_4_sq, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_4_sq:
     // stack:                         i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_4  DUP5  DUP1
+    PUSH power_loop_4  
+    // stack:           power_loop_4, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP5  
+    DUP1
     // stack: sqr, sqr, power_loop_4, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(square_fp12)
 power_loop_4_end:
     // stack:                           0, j, k, sqr  {200: y0, 212: y2, 224: y4}
     POP  
     // stack:                              j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_2  PUSH 224  DUP1  DUP6
+    %stack () -> (224, 224, power_loop_2) 
+    // stack:      224, 224, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP6
     // stack: sqr, 224, 224, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 
 power_loop_2:
     // stack:                                   j  , k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  ISZERO
+    DUP1  
+    ISZERO
     // stack:                           break?, j  , k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_2_end)
     // stack:                                   j  , k, sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(1)
     // stack:                                   j-1, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %mload_kernel_code(power_data_2)
+    DUP1  
+    %mload_kernel_code(power_data_2)
     // stack:                               ab, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %lt_const(10)
+    DUP1  
+    %lt_const(10)
     // stack:                        skip?, ab, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_2_b)
     // stack:                               ab, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(10)
     // stack:                                b, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_2_b  PUSH 212  DUP1  DUP7
+    %stack () -> (212, 212, power_loop_2_b) 
+    // stack:      212, 212, power_loop_2_b, b, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP7
     // stack: sqr, 212, 212, power_loop_2_b, b, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_2_b:
@@ -188,42 +208,56 @@ power_loop_2_b:
     // stack:                          skip?, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_2_sq)
     // stack:                                 j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_2_sq  PUSH 200  DUP1  DUP6
+    %stack () -> (200, 200, power_loop_2_sq) 
+    // stack:      200, 200, power_loop_2_sq, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP6
     // stack: sqr, 200, 200, power_loop_2_sq, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_2_sq:
     // stack:                         j, k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_2  DUP4  DUP1
+    PUSH power_loop_2  
+    // stack:           power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP4  
+    DUP1
     // stack: sqr, sqr, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(square_fp12)
 power_loop_2_end:
     // stack:                           0, k, sqr  {200: y0, 212: y2, 224: y4}
     POP  
     // stack:                              k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_0  PUSH 212  DUP1  DUP5
+    %stack () -> (212, 212, power_loop_0)
+    // stack:      212, 212, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP5
     // stack: sqr, 212, 212, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 
 power_loop_0:
     // stack:                                 k  , sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  ISZERO
+    DUP1  
+    ISZERO
     // stack:                         break?, k  , sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_0_end)
     // stack:                                 k  , sqr  {200: y0, 212: y2, 224: y4}
     %sub_const(1)
     // stack:                                 k-1, sqr  {200: y0, 212: y2, 224: y4}
-    DUP1  %mload_kernel_code(power_data_0)
+    DUP1  
+    %mload_kernel_code(power_data_0)
     // stack:                              a, k-1, sqr  {200: y0, 212: y2, 224: y4}
     ISZERO
     // stack:                          skip?, k-1, sqr  {200: y0, 212: y2, 224: y4}
     %jumpi(power_loop_0_sq)
     // stack:                                 k-1, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_0_sq  PUSH 200  DUP1  DUP5
+    %stack () -> (200, 200, power_loop_0_sq)  
+    // stack:      200, 200, power_loop_0_sq, k-1, sqr  {200: y0, 212: y2, 224: y4}
+    DUP5
     // stack: sqr, 200, 200, power_loop_0_sq, k-1, sqr  {200: y0, 212: y2, 224: y4}
     %jump(mul_fp12)
 power_loop_0_sq:
     // stack:                         k, sqr  {200: y0, 212: y2, 224: y4}
-    PUSH power_loop_0  DUP3  DUP1
+    PUSH power_loop_0  
+    // stack:           power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
+    DUP3  
+    DUP1
     // stack: sqr, sqr, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
     %jump(square_fp12)
 power_loop_0_end:
