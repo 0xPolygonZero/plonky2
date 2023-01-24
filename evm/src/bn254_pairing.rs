@@ -7,8 +7,8 @@ use crate::bn254_arithmetic::{gen_fp, gen_fp2, Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZE
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Curve {
-    x: Fp,
-    y: Fp,
+    pub x: Fp,
+    pub y: Fp,
 }
 
 /// Standard addition formula for elliptic curves, restricted to the cases  
@@ -34,8 +34,8 @@ impl Add for Curve {
 // The twisted curve consists of pairs (x, y): (Fp2, Fp2) | y^2 = x^3 + 3/(9 + i)
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TwistedCurve {
-    x: Fp2,
-    y: Fp2,
+    pub x: Fp2,
+    pub y: Fp2,
 }
 
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
@@ -75,8 +75,16 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
     acc
 }
 
-pub fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
+pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
+    let cx = -Fp::new(3) * p.x * p.x;
+    let cy = Fp::new(2) * p.y;
+    sparse_embed(p.y * p.y - Fp::new(9), q.x.scale(cx), q.y.scale(cy))
+}
+
+pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+    let cx = p2.y - p1.y;
+    let cy = p1.x - p2.x;
+    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x.scale(cx), q.y.scale(cy))
 }
 
 pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
@@ -98,16 +106,8 @@ pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     Fp12 { z0: g0, z1: g1 }
 }
 
-pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = -Fp::new(3) * p.x * p.x;
-    let cy = Fp::new(2) * p.y;
-    sparse_embed(p.y * p.y - Fp::new(9), q.x.scale(cx), q.y.scale(cy))
-}
-
-pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = p2.y - p1.y;
-    let cy = p1.x - p2.x;
-    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x.scale(cx), q.y.scale(cy))
+pub fn gen_fp12_sparse() -> Fp12 {
+    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
 }
 
 /// The output T of the miller loop is not an invariant,
@@ -308,7 +308,7 @@ fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     }
     y0 = y0 * sq;
 
-    (y2, y4 * y2 * y2 * y0, y0.inv())
+    (y2, y4 * y2 * y2 / y0, y0.inv())
 }
 
 // The curve is cyclic with generator (1, 2)

@@ -5,7 +5,9 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{gen_fp12, Fp12};
-use crate::bn254_pairing::gen_fp12_sparse;
+use crate::bn254_pairing::{
+    gen_fp12_sparse, tate, CURVE_GENERATOR, TWISTED_GENERATOR,
+};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -190,25 +192,6 @@ fn test_inv_fp12() -> Result<()> {
 //     Ok(())
 // }
 
-// fn make_tate_stack(p: Curve, q: TwistedCurve) -> Vec<U256> {
-//     let ptr = U256::from(300);
-//     let out = U256::from(400);
-
-//     let p_: Vec<U256> = p.into_iter().collect();
-//     let q_: Vec<U256> = q.into_iter().flatten().collect();
-
-//     let mut stack = vec![ptr];
-//     stack.extend(p_);
-//     stack.extend(q_);
-//     stack.extend(vec![
-//         ptr,
-//         out,
-//         get_address_from_label("return_fp12_on_stack"),
-//         out,
-//     ]);
-//     stack
-// }
-
 // #[test]
 // fn test_miller() -> Result<()> {
 //     let p: Curve = curve_generator();
@@ -223,16 +206,31 @@ fn test_inv_fp12() -> Result<()> {
 //     Ok(())
 // }
 
-// #[test]
-// fn test_tate() -> Result<()> {
-//     let p: Curve = curve_generator();
-//     let q: TwistedCurve = twisted_curve_generator();
+#[test]
+fn test_tate() -> Result<()> {
+    let ptr: usize = 300;
+    let out: usize = 400;
 
-//     let stack = make_tate_stack(p, q);
-//     let output = run_setup_interpreter("test_tate", stack);
-//     let expected = fp12_on_stack(tate(p, q));
+    let setup = InterpreterSetup {
+        label: "tate".to_string(),
+        stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        memory: vec![(
+            ptr,
+            vec![
+                CURVE_GENERATOR.x.val,
+                CURVE_GENERATOR.y.val,
+                TWISTED_GENERATOR.x.re.val,
+                TWISTED_GENERATOR.x.im.val,
+                TWISTED_GENERATOR.y.re.val,
+                TWISTED_GENERATOR.y.im.val,
+            ],
+        )],
+    };
+    let interpreter = run_setup_interpreter(setup).unwrap();
+    let output: Vec<U256> = extract_kernel_output(out..out + 12, interpreter);
+    let expected = fp12_on_stack(tate(CURVE_GENERATOR, TWISTED_GENERATOR));
 
-//     assert_eq!(output, expected);
+    assert_eq!(output, expected);
 
-//     Ok(())
-// }
+    Ok(())
+}
