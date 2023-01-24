@@ -110,34 +110,34 @@ pub fn gen_fp12_sparse() -> Fp12 {
     sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
 }
 
-/// The output T of the miller loop is not an invariant,
-/// but one gets an invariant by raising T to the power
+/// The output y of the miller loop is not an invariant,
+/// but one gets an invariant by raising y to the power
 ///     (p^12 - 1)/N = (p^6 - 1)(p^2 + 1)(p^4 - p^2 + 1)/N
 /// where N is the cyclic group order of the curve.
-/// To achieve this, we first exponentiate T by p^6 - 1 via
-///     T = T_6 / T
+/// To achieve this, we first exponentiate y by p^6 - 1 via
+///     y = y_6 / y
 /// and then exponentiate the result by p^2 + 1 via
-///     T = T_2 * T
+///     y = y_2 * y
 /// We then note that (p^4 - p^2 + 1)/N can be rewritten as
 ///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
 /// where 0 < a0, a1, a2 < p. Then the final power is given by
-///     T = T_3 * (T^a2)_2 * (T^-a1)_1 * (T^-a0)
+///     y = y_3 * (y^a2)_2 * (y^-a1)_1 * (y^-a0)
 pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
-    let mut t = f.frob(6) / f;
-    t = t.frob(2) * t;
-    let (t_a2, t_a1, t_a0) = get_powers(t);
-    t.frob(3) * t_a2.frob(2) * t_a1.frob(1) * t_a0
+    let mut y = f.frob(6) / f;
+    y = y.frob(2) * y;
+    let (y_a2, y_a1, y_a0) = get_custom_powers(y);
+    y.frob(3) * y_a2.frob(2) * y_a1.frob(1) * y_a0
 }
 
 /// Given an f: Fp12, this function computes
-///     T^a2, T^(-a1), T^(-a0)
+///     y^a2, y^(-a1), y^(-a0)
 /// by first computing
-///     T^a4, T^a2, T^a0
+///     y^a4, y^a2, y^a0
 /// where a1 is given by
 ///     a1 = a4 + 2a2 - a0
-/// thus what remains is inverting T^a0 and returning
-///     T^a2, T^a4 * T^a2 * T^a2 * T^(-a0), T^(-a0)
-fn get_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
+/// thus what remains is inverting y^a0 and returning
+///     y^a2, y^a4 * y^a2 * y^a2 * y^(-a0), y^(-a0)
+fn get_custom_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     const EXPS4: [(usize, usize, usize); 64] = [
         (1, 1, 0),
         (1, 1, 1),

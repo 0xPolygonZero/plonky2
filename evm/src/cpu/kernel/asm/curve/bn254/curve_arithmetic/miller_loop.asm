@@ -25,7 +25,7 @@
 ///     0xnm -= 1
 ///     mul_tangent()
 
-global miller_init:
+global miller:
     // stack:         ptr, out, retdest
     PUSH 1
     // stack:      1, ptr, out, retdest
