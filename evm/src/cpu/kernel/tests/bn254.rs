@@ -5,9 +5,7 @@ use anyhow::Result;
 use ethereum_types::U256;
 
 use crate::bn254_arithmetic::{gen_fp12, Fp12};
-use crate::bn254_pairing::{
-    gen_fp12_sparse, tate, CURVE_GENERATOR, TWISTED_GENERATOR,
-};
+use crate::bn254_pairing::{gen_fp12_sparse, tate, CURVE_GENERATOR, TWISTED_GENERATOR};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -211,20 +209,19 @@ fn test_tate() -> Result<()> {
     let ptr: usize = 300;
     let out: usize = 400;
 
+    let inputs: Vec<U256> = vec![
+        CURVE_GENERATOR.x.val,
+        CURVE_GENERATOR.y.val,
+        TWISTED_GENERATOR.x.re.val,
+        TWISTED_GENERATOR.x.im.val,
+        TWISTED_GENERATOR.y.re.val,
+        TWISTED_GENERATOR.y.im.val,
+    ];
+
     let setup = InterpreterSetup {
         label: "tate".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
-        memory: vec![(
-            ptr,
-            vec![
-                CURVE_GENERATOR.x.val,
-                CURVE_GENERATOR.y.val,
-                TWISTED_GENERATOR.x.re.val,
-                TWISTED_GENERATOR.x.im.val,
-                TWISTED_GENERATOR.y.re.val,
-                TWISTED_GENERATOR.y.im.val,
-            ],
-        )],
+        memory: vec![(ptr, inputs)],
     };
     let interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(out..out + 12, interpreter);
