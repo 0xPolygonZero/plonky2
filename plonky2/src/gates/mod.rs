@@ -5,6 +5,7 @@ pub mod arithmetic_base;
 pub mod arithmetic_extension;
 pub mod base_sum;
 pub mod constant;
+pub mod coset_interpolation;
 pub mod exponentiation;
 pub mod gate;
 pub mod high_degree_interpolation;
