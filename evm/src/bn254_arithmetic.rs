@@ -194,8 +194,8 @@ impl Fp2 {
 
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     pub fn inv(self) -> Fp2 {
-        let norm = self.re * self.re + self.im * self.im;
-        self.conj().scale(norm.inv())
+        let norm_sq = self.norm_sq();
+        self.conj().scale(norm_sq.inv())
     }
 }
 
@@ -278,6 +278,7 @@ impl Mul for Fp6 {
 }
 
 impl Fp6 {
+    // This function scalar multiplies an Fp6 by an Fp2
     fn scale(self, x: Fp2) -> Fp6 {
         Fp6 {
             t0: x * self.t0,
@@ -386,17 +387,18 @@ impl Mul for Fp12 {
 }
 
 impl Fp12 {
-    fn conj(self) -> Fp12 {
-        Fp12 {
-            z0: self.z0,
-            z1: -self.z1,
-        }
-    }
-
+    // This function scalar multiplies an Fp12 by an Fp6
     fn scale(self, x: Fp6) -> Fp12 {
         Fp12 {
             z0: x * self.z0,
             z1: x * self.z1,
+        }
+    }
+
+    fn conj(self) -> Fp12 {
+        Fp12 {
+            z0: self.z0,
+            z1: -self.z1,
         }
     }
 
