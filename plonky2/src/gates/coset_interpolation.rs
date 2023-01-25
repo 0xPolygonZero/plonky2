@@ -10,7 +10,6 @@ use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::interpolation::barycentric_weights;
 use crate::field::types::Field;
 use crate::gates::gate::Gate;
-use crate::gates::interpolation::InterpolationGate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -46,35 +45,19 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 ///
 /// Then e[N] is the final interpolated value. The non-routed wires hold every (d - 1)'th
 /// intermediate value of p and e, starting at p[d] and e[d], where d is the gate degree.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct CosetInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     pub degree: usize,
+    pub barycentric_weights: Vec<F>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
-    for CosetInterpolationGate<F, D>
-{
-    fn new(subgroup_bits: usize) -> Self {
+impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> {
+    pub fn new(subgroup_bits: usize) -> Self {
         Self::with_max_degree(subgroup_bits, 1 << subgroup_bits)
     }
 
-    fn num_points(&self) -> usize {
-        1 << self.subgroup_bits
-    }
-
-    /// Wire indices of the interpolant's `i`th coefficient.
-    fn wires_coeff(&self, _i: usize) -> Range<usize> {
-        panic!("No coefficient wires");
-    }
-
-    fn end_coeffs(&self) -> usize {
-        self.start_coeffs()
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> {
     pub(crate) fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
         assert!(max_degree > 1, "need at least quadratic constraints");
 
@@ -87,11 +70,67 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         // Minimizing the degree this way allows the gate to be in a larger selector group
         let degree = (n_points - 2) / (n_intermediates + 1) + 2;
 
+        let barycentric_weights = barycentric_weights(
+            &F::two_adic_subgroup(subgroup_bits)
+                .into_iter()
+                .map(|x| (x, F::ZERO))
+                .collect::<Vec<_>>(),
+        );
+
         Self {
             subgroup_bits,
             degree,
+            barycentric_weights,
             _phantom: PhantomData,
         }
+    }
+
+    fn num_points(&self) -> usize {
+        1 << self.subgroup_bits
+    }
+
+    /// Wire index of the coset shift.
+    pub(crate) fn wire_shift(&self) -> usize {
+        0
+    }
+
+    fn start_values(&self) -> usize {
+        1
+    }
+
+    /// Wire indices of the `i`th interpolant value.
+    pub(crate) fn wires_value(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_points());
+        let start = self.start_values() + i * D;
+        start..start + D
+    }
+
+    fn start_evaluation_point(&self) -> usize {
+        self.start_values() + self.num_points() * D
+    }
+
+    /// Wire indices of the point to evaluate the interpolant at.
+    pub(crate) fn wires_evaluation_point(&self) -> Range<usize> {
+        let start = self.start_evaluation_point();
+        start..start + D
+    }
+
+    fn start_evaluation_value(&self) -> usize {
+        self.start_evaluation_point() + D
+    }
+
+    /// Wire indices of the interpolated value.
+    pub(crate) fn wires_evaluation_value(&self) -> Range<usize> {
+        let start = self.start_evaluation_value();
+        start..start + D
+    }
+
+    fn start_intermediates(&self) -> usize {
+        self.start_evaluation_value() + D
+    }
+
+    pub fn num_routed_wires(&self) -> usize {
+        self.start_intermediates()
     }
 
     fn num_intermediates(&self) -> usize {
@@ -101,34 +140,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
     /// The wires corresponding to the i'th intermediate evaluation.
     fn wires_intermediate_eval(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
-        let start = self.end_coeffs() + D * i;
+        let start = self.start_intermediates() + D * i;
         start..start + D
     }
 
     /// The wires corresponding to the i'th intermediate product.
     fn wires_intermediate_prod(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
-        let start = self.end_coeffs() + D * (self.num_intermediates() + i);
+        let start = self.start_intermediates() + D * (self.num_intermediates() + i);
         start..start + D
-    }
-
-    fn barycentric_weights(&self) -> Vec<F> {
-        barycentric_weights(
-            &F::two_adic_subgroup(self.subgroup_bits)
-                .into_iter()
-                .map(|x| (x, F::ZERO))
-                .collect::<Vec<_>>(),
-        )
     }
 
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
-        self.end_coeffs() + D * (2 * self.num_intermediates() + 1)
+        self.start_intermediates() + D * (2 * self.num_intermediates() + 1)
     }
 
     /// Wire indices of the shifted point to evaluate the interpolant at.
     fn wires_shifted_evaluation_point(&self) -> Range<usize> {
-        let start = self.end_coeffs() + D * 2 * self.num_intermediates();
+        let start = self.start_intermediates() + D * 2 * self.num_intermediates();
         start..start + D
     }
 }
@@ -153,7 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         let values = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_value(i)))
             .collect::<Vec<_>>();
-        let weights = self.barycentric_weights();
+        let weights = &self.barycentric_weights;
 
         let (mut computed_eval, mut computed_prod) = partial_interpolate_ext_algebra(
             &domain[..self.degree()],
@@ -204,7 +234,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         let values = (0..self.num_points())
             .map(|i| vars.get_local_ext(self.wires_value(i)))
             .collect::<Vec<_>>();
-        let weights = self.barycentric_weights();
+        let weights = &self.barycentric_weights;
 
         let (mut computed_eval, mut computed_prod) = partial_interpolate(
             &domain[..self.degree()],
@@ -261,7 +291,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         let values = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_value(i)))
             .collect::<Vec<_>>();
-        let weights = self.barycentric_weights();
+        let weights = &self.barycentric_weights;
 
         let initial_eval = builder.zero_ext_algebra();
         let initial_prod = builder.constant_ext_algebra(F::Extension::ONE.into());
@@ -313,7 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
     }
 
     fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = InterpolationGenerator::<F, D>::new(row, *self);
+        let gen = InterpolationGenerator::<F, D>::new(row, self.clone());
         vec![Box::new(gen.adapter())]
     }
 
@@ -341,19 +371,16 @@ struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     gate: CosetInterpolationGate<F, D>,
     interpolation_domain: Vec<F>,
-    interpolation_weights: Vec<F>,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> InterpolationGenerator<F, D> {
     fn new(row: usize, gate: CosetInterpolationGate<F, D>) -> Self {
         let interpolation_domain = F::two_adic_subgroup(gate.subgroup_bits);
-        let interpolation_weights = gate.barycentric_weights();
         InterpolationGenerator {
             row,
             gate,
             interpolation_domain,
-            interpolation_weights,
             _phantom: PhantomData,
         }
     }
@@ -412,7 +439,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let values = (0..self.gate.num_points())
             .map(|i| get_local_ext(self.gate.wires_value(i)))
             .collect::<Vec<_>>();
-        let weights = &self.interpolation_weights;
+        let weights = &self.gate.barycentric_weights;
 
         let (mut computed_eval, mut computed_prod) = partial_interpolate(
             &domain[..degree],
@@ -629,6 +656,12 @@ mod tests {
         let gate = CosetInterpolationGate::<GoldilocksField, 4> {
             subgroup_bits: 2,
             degree: 2,
+            barycentric_weights: barycentric_weights(
+                &GoldilocksField::two_adic_subgroup(2)
+                    .into_iter()
+                    .map(|x| (x, GoldilocksField::ZERO))
+                    .collect::<Vec<_>>(),
+            ),
             _phantom: PhantomData,
         };
 
@@ -654,6 +687,12 @@ mod tests {
         let gate = CosetInterpolationGate::<GoldilocksField, 4> {
             subgroup_bits: 2,
             degree: 3,
+            barycentric_weights: barycentric_weights(
+                &GoldilocksField::two_adic_subgroup(2)
+                    .into_iter()
+                    .map(|x| (x, GoldilocksField::ZERO))
+                    .collect::<Vec<_>>(),
+            ),
             _phantom: PhantomData,
         };
 
@@ -677,6 +716,12 @@ mod tests {
         let gate = CosetInterpolationGate::<GoldilocksField, 4> {
             subgroup_bits: 2,
             degree: 4,
+            barycentric_weights: barycentric_weights(
+                &GoldilocksField::two_adic_subgroup(2)
+                    .into_iter()
+                    .map(|x| (x, GoldilocksField::ZERO))
+                    .collect::<Vec<_>>(),
+            ),
             _phantom: PhantomData,
         };
 

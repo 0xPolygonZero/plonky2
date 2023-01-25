@@ -12,7 +12,6 @@ use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpenin
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::coset_interpolation::CosetInterpolationGate;
 use crate::gates::gate::Gate;
-use crate::gates::interpolation::InterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
