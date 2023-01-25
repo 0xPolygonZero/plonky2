@@ -7,7 +7,8 @@
 // cost: 2 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp2
     // stack:       ptr
-    DUP1  %add_const(1)
+    DUP1  
+    %add_const(1)
     // stack: ind1, ptr
     %mload_kernel_general
     // stack:   x1, ptr
@@ -17,7 +18,8 @@
     // stack:   x0, x1
 %endmacro 
 
-%macro conj
+/// complex conjugate
+%macro conj_fp254_2
     // stack: a,  b
     SWAP1 
     PUSH 0
@@ -71,13 +73,15 @@
     // stack:      b,  a , b
     DUP2
     // stack:  a , b,  a , b
-    PUSH 9  MULFP254
+    PUSH 9  
+    MULFP254
     // stack: 9a , b,  a , b
     SUBFP254
     // stack: 9a - b,  a , b
     SWAP2 
     // stack:  b , a, 9a - b
-    PUSH 9  MULFP254
+    PUSH 9  
+    MULFP254
     // stack  9b , a, 9a - b
     ADDFP254
     // stack: 9b + a, 9a - b 
@@ -114,23 +118,28 @@
 // cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp6
     // stack:                         ptr
-    DUP1  %add_const(4)
+    DUP1  
+    %add_const(4)
     // stack:                   ind4, ptr
     %mload_kernel_general
     // stack:                     x4, ptr
-    DUP2  %add_const(3)
+    DUP2  
+    %add_const(3)
     // stack:               ind3, x4, ptr
     %mload_kernel_general
     // stack:                 x3, x4, ptr
-    DUP3  %add_const(2)
+    DUP3  
+    %add_const(2)
     // stack:           ind2, x3, x4, ptr
     %mload_kernel_general
     // stack:             x2, x3, x4, ptr
-    DUP4  %add_const(1)
+    DUP4  
+    %add_const(1)
     // stack:       ind1, x2, x3, x4, ptr
     %mload_kernel_general
     // stack:         x1, x2, x3, x4, ptr
-    DUP5  %add_const(5)
+    DUP5  
+    %add_const(5)
     // stack:   ind5, x1, x2, x3, x4, ptr
     %mload_kernel_general
     // stack:     x5, x1, x2, x3, x4, ptr
@@ -143,23 +152,28 @@
 // cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp6(ptr)
     // stack:
-    PUSH $ptr  %add_const(5)
+    PUSH $ptr  
+    %add_const(5)
     // stack:                     ind5
     %mload_kernel_general
     // stack:                       x5
-    PUSH $ptr  %add_const(4)
+    PUSH $ptr  
+    %add_const(4)
     // stack:                 ind4, x5
     %mload_kernel_general
     // stack:                   x4, x5
-    PUSH $ptr  %add_const(3)
+    PUSH $ptr  
+    %add_const(3)
     // stack:             ind3, x4, x5
     %mload_kernel_general
     // stack:               x3, x4, x5
-    PUSH $ptr  %add_const(2)
+    PUSH $ptr  
+    %add_const(2)
     // stack:         ind2, x3, x4, x5
     %mload_kernel_general
     // stack:           x2, x3, x4, x5
-    PUSH $ptr  %add_const(1)
+    PUSH $ptr  
+    %add_const(1)
     // stack:     ind1, x2, x3, x4, x5
     %mload_kernel_general
     // stack:       x1, x2, x3, x4, x5
@@ -174,7 +188,8 @@
     // stack:      ptr, x0, x1, x2, x3, x4 , x5
     SWAP5
     // stack:       x4, x0, x1, x2, x3, ptr, x5
-    DUP6  %add_const(4)
+    DUP6  
+    %add_const(4)
     // stack: ind4, x4, x0, x1, x2, x3, ptr, x5
     %mstore_kernel_general
     // stack:           x0, x1, x2, x3, ptr, x5
@@ -182,15 +197,18 @@
     // stack:     ind0, x0, x1, x2, x3, ptr, x5
     %mstore_kernel_general
     // stack:               x1, x2, x3, ptr, x5
-    DUP4  %add_const(1)
+    DUP4  
+    %add_const(1)
     // stack:         ind1, x1, x2, x3, ptr, x5
     %mstore_kernel_general
     // stack:                   x2, x3, ptr, x5
-    DUP3  %add_const(2)
+    DUP3  
+    %add_const(2)
     // stack:             ind2, x2, x3, ptr, x5
     %mstore_kernel_general
     // stack:                       x3, ptr, x5
-    DUP2  %add_const(3)
+    DUP2  
+    %add_const(3)
     // stack:                 ind3, x3, ptr, x5
     %mstore_kernel_general
     // stack:                           ptr, x5
@@ -205,37 +223,47 @@
     // stack:        ptr, x0, x1, x2, x3, x4, x5
     SWAP6
     // stack:         x5, x0, x1, x2, x3, x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2  
+    MULFP254
     // stack:       2*x5, x0, x1, x2, x3, x4, ptr
-    DUP7  %add_const(5)
+    DUP7  
+    %add_const(5)
     // stack: ind5, 2*x5, x0, x1, x2, x3, x4, ptr
     %mstore_kernel_general
     // stack:             x0, x1, x2, x3, x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2  
+    MULFP254
     // stack:           2*x0, x1, x2, x3, x4, ptr
     DUP6
     // stack:     ind0, 2*x0, x1, x2, x3, x4, ptr
     %mstore_kernel_general
     // stack:                 x1, x2, x3, x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2  
+    MULFP254
     // stack:               2*x1, x2, x3, x4, ptr
-    DUP5  %add_const(1)
+    DUP5  
+    %add_const(1)
     // stack:         ind1, 2*x1, x2, x3, x4, ptr
     %mstore_kernel_general
     // stack:                     x2, x3, x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2  
+    MULFP254
     // stack:                   2*x2, x3, x4, ptr
-    DUP4  %add_const(2)
+    DUP4  
+    %add_const(2)
     // stack:             ind2, 2*x2, x3, x4, ptr
     %mstore_kernel_general
     // stack:                         x3, x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2 
+    MULFP254
     // stack:                       2*x3, x4, ptr
-    DUP3  %add_const(3)
+    DUP3  
+    %add_const(3)
     // stack:                 ind3, 2*x3, x4, ptr
     %mstore_kernel_general
     // stack:                             x4, ptr
-    PUSH 2  MULFP254
+    PUSH 2  
+    MULFP254
     // stack:                           2*x4, ptr
     SWAP1
     // stack:                           ptr, 2*x4
@@ -252,23 +280,28 @@
     // stack: ind0, x0, x1, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:           x1, x2, x3, x4, x5
-    PUSH $ptr  %add_const(1)
+    PUSH $ptr  
+    %add_const(1)
     // stack:     ind1, x1, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:               x2, x3, x4, x5
-    PUSH $ptr  %add_const(2)
+    PUSH $ptr  
+    %add_const(2)
     // stack:         ind2, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:                   x3, x4, x5
-    PUSH $ptr  %add_const(3)
+    PUSH $ptr  
+    %add_const(3)
     // stack:             ind3, x3, x4, x5
     %mstore_kernel_general
     // stack:                       x4, x5
-    PUSH $ptr  %add_const(4)
+    PUSH $ptr  
+    %add_const(4)
     // stack:                 ind4, x4, x5
     %mstore_kernel_general
     // stack:                           x5
-    PUSH $ptr  %add_const(5)
+    PUSH $ptr  
+    %add_const(5)
     // stack:                     ind5, x5
     %mstore_kernel_general
     // stack:
@@ -277,25 +310,30 @@
 // cost: store (40) + i9 (9) = 49
 %macro store_fp6_sh(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
-    PUSH $ptr  %add_const(2)
+    PUSH $ptr  
+    %add_const(2)
     // stack: ind2, x0, x1, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:           x1, x2, x3, x4, x5
-    PUSH $ptr  %add_const(3)
+    PUSH $ptr  
+    %add_const(3)
     // stack:     ind3, x1, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:               x2, x3, x4, x5
-    PUSH $ptr  %add_const(4)
+    PUSH $ptr  
+    %add_const(4)
     // stack:         ind4, x2, x3, x4, x5
     %mstore_kernel_general
     // stack:                   x3, x4, x5
-    PUSH $ptr  %add_const(5)
+    PUSH $ptr  
+    %add_const(5)
     // stack:             ind5, x3, x4, x5
     %mstore_kernel_general
     // stack:                       x4, x5
     %i9
     // stack:                       y5, y4
-    PUSH $ptr  %add_const(1)
+    PUSH $ptr  
+    %add_const(1)
     // stack:                 ind1, y5, y4
     %mstore_kernel_general
     // stack:                           y4
@@ -868,47 +906,58 @@
 
 %macro load_fp12
     // stack:                                                          ptr
-    DUP1  %add_const(10)
+    DUP1  
+    %add_const(10)
     // stack:                                                   ind10, ptr
     %mload_kernel_general
     // stack:                                                     x10, ptr
-    DUP2  %add_const(9)
+    DUP2  
+    %add_const(9)
     // stack:                                              ind09, x10, ptr
     %mload_kernel_general
     // stack:                                                x09, x10, ptr
-    DUP3  %add_const(8)
+    DUP3  
+    %add_const(8)
     // stack:                                         ind08, x09, x10, ptr
     %mload_kernel_general
     // stack:                                           x08, x09, x10, ptr
-    DUP4  %add_const(7)
+    DUP4  
+    %add_const(7)
     // stack:                                    ind07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:                                      x07, x08, x09, x10, ptr
-    DUP5  %add_const(6)
+    DUP5  
+    %add_const(6)
     // stack:                               ind06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:                                 x06, x07, x08, x09, x10, ptr
-    DUP6  %add_const(5)
+    DUP6  
+    %add_const(5)
     // stack:                          ind05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:                            x05, x06, x07, x08, x09, x10, ptr
-    DUP7  %add_const(4)
+    DUP7  
+    %add_const(4)
     // stack:                     ind04, x05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:                       x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP8  %add_const(3)
+    DUP8  
+    %add_const(3)
     // stack:                ind03, x04, x05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:                  x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP9  %add_const(2)
+    DUP9  
+    %add_const(2)
     // stack:           ind02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:             x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP10  %add_const(1)
+    DUP10  
+    %add_const(1)
     // stack:      ind01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:        x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP11  %add_const(11)
+    DUP11  
+    %add_const(11)
     // stack: ind11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
     %mload_kernel_general
     // stack:   x11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
@@ -922,7 +971,8 @@
     // stack:        ptr, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
     SWAP11
     // stack:        x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP12  %add_const(10)
+    DUP12  
+    %add_const(10)
     // stack: ind10, x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:             x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
@@ -930,39 +980,48 @@
     // stack:      ind00, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                  x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP10  %add_const(01)
+    DUP10  
+    %add_const(01)
     // stack:           ind01, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                       x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP9   %add_const(02)
+    DUP9   
+    %add_const(02)
     // stack:                ind02, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                            x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP8   %add_const(03)
+    DUP8   
+    %add_const(03)
     // stack:                     ind03, x03, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                 x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP7   %add_const(04)
+    DUP7   
+    %add_const(04)
     // stack:                          ind04, x04, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                      x05, x06, x07, x08, x09, ptr, x11
-    DUP6   %add_const(05)
+    DUP6   
+    %add_const(05)
     // stack:                               ind05, x05, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                           x06, x07, x08, x09, ptr, x11
-    DUP5   %add_const(06)
+    DUP5   
+    %add_const(06)
     // stack:                                    ind06, x06, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                x07, x08, x09, ptr, x11
-    DUP4   %add_const(07)
+    DUP4   
+    %add_const(07)
     // stack:                                         ind07, x07, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                     x08, x09, ptr, x11
-    DUP3   %add_const(08)
+    DUP3   
+    %add_const(08)
     // stack:                                              ind08, x08, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                          x09, ptr, x11
-    DUP2   %add_const(09)
+    DUP2   
+    %add_const(09)
     // stack:                                                   ind09, x09, ptr, x11
     %mstore_kernel_general
     // stack:                                                               ptr, x11
@@ -972,102 +1031,125 @@
     // stack:                                                            
 %endmacro
 
+/// moves fp12 from src..src+12 to dest..dest+12
+/// these should not overlap. leaves dest on stack
 %macro move_fp12
-    // stack:              ptr, ptr'
+    // stack:              src, dest
     DUP1  
-    // stack:       ind00, ptr, ptr'
+    // stack:       ind00, src, dest
     %mload_kernel_general
-    // stack:         x00, ptr, ptr'
+    // stack:         x00, src, dest
     DUP3
-    // stack: ind00', x00, ptr, ptr'
+    // stack: ind00', x00, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(1)
-    // stack:       ind01, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(1)
+    // stack:       ind01, src, dest
     %mload_kernel_general
-    // stack:         x01, ptr, ptr'
-    DUP3  %add_const(1)
-    // stack: ind01', x01, ptr, ptr'
+    // stack:         x01, src, dest
+    DUP3  
+    %add_const(1)
+    // stack: ind01', x01, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(2)
-    // stack:       ind02, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(2)
+    // stack:       ind02, src, dest
     %mload_kernel_general
-    // stack:         x02, ptr, ptr'
-    DUP3  %add_const(2)
-    // stack: ind02', x02, ptr, ptr'
+    // stack:         x02, src, dest
+    DUP3  
+    %add_const(2)
+    // stack: ind02', x02, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(3)
-    // stack:       ind03, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(3)
+    // stack:       ind03, src, dest
     %mload_kernel_general
-    // stack:         x03, ptr, ptr'
-    DUP3  %add_const(3)
-    // stack: ind03', x03, ptr, ptr'
+    // stack:         x03, src, dest
+    DUP3  
+    %add_const(3)
+    // stack: ind03', x03, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(4)
-    // stack:       ind04, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(4)
+    // stack:       ind04, src, dest
     %mload_kernel_general
-    // stack:         x04, ptr, ptr'
-    DUP3  %add_const(4)
-    // stack: ind04', x04, ptr, ptr'
+    // stack:         x04, src, dest
+    DUP3 
+    %add_const(4)
+    // stack: ind04', x04, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(5)
-    // stack:       ind05, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(5)
+    // stack:       ind05, src, dest
     %mload_kernel_general
-    // stack:         x05, ptr, ptr'
-    DUP3  %add_const(5)
-    // stack: ind05', x05, ptr, ptr'
+    // stack:         x05, src, dest
+    DUP3  
+    %add_const(5)
+    // stack: ind05', x05, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(6)
-    // stack:       ind06, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(6)
+    // stack:       ind06, src, dest
     %mload_kernel_general
-    // stack:         x06, ptr, ptr'
-    DUP3  %add_const(6)
-    // stack: ind06', x06, ptr, ptr'
+    // stack:         x06, src, dest
+    DUP3  
+    %add_const(6)
+    // stack: ind06', x06, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(7)
-    // stack:       ind07, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(7)
+    // stack:       ind07, src, dest
     %mload_kernel_general
-    // stack:         x07, ptr, ptr'
-    DUP3  %add_const(7)
-    // stack: ind07', x07, ptr, ptr'
+    // stack:         x07, src, dest
+    DUP3  
+    %add_const(7)
+    // stack: ind07', x07, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(8)
-    // stack:       ind08, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(8)
+    // stack:       ind08, src, dest
     %mload_kernel_general
-    // stack:         x08, ptr, ptr'
-    DUP3  %add_const(8)
-    // stack: ind08', x08, ptr, ptr'
+    // stack:         x08, src, dest
+    DUP3  
+    %add_const(8)
+    // stack: ind08', x08, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(9)
-    // stack:       ind09, ptr, ptr'
+    // stack:              src, dest
+    DUP1 
+    %add_const(9)
+    // stack:       ind09, src, dest
     %mload_kernel_general
-    // stack:         x09, ptr, ptr'
-    DUP3  %add_const(9)
-    // stack: ind09', x09, ptr, ptr'
+    // stack:         x09, src, dest
+    DUP3  
+    %add_const(9)
+    // stack: ind09', x09, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
-    DUP1  %add_const(10)
-    // stack:       ind10, ptr, ptr'
+    // stack:              src, dest
+    DUP1  
+    %add_const(10)
+    // stack:       ind10, src, dest
     %mload_kernel_general
-    // stack:         x10, ptr, ptr'
-    DUP3  %add_const(10)
-    // stack: ind10', x10, ptr, ptr'
+    // stack:         x10, src, dest
+    DUP3  
+    %add_const(10)
+    // stack: ind10', x10, src, dest
     %mstore_kernel_general
-    // stack:              ptr, ptr'
+    // stack:              src, dest
     %add_const(11)
-    // stack:            ind11, ptr'
+    // stack:            ind11, dest
     %mload_kernel_general
-    // stack:              x11, ptr'
-    DUP2  %add_const(11)
-    // stack:      ind11', x11, ptr'
+    // stack:              x11, dest
+    DUP2  
+    %add_const(11)
+    // stack:      ind11', x11, dest
     %mstore_kernel_general
 %endmacro
 

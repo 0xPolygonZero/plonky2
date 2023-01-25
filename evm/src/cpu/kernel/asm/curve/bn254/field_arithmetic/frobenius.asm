@@ -129,11 +129,11 @@ global test_frob_fp12_6:
 
 %macro frob_fp6_1
     // stack: C0 , C1 , C2
-    %conj
+    %conj_fp254_2
     // stack: D0 , C1 , C2
     %swap_fp2_hole_2
     // stack: C2 , C1 , D0
-    %conj
+    %conj_fp254_2
     // stack: C2`, C1 , D0
     %frobt2_1
     // stack: D2 , C1 , D0
@@ -141,7 +141,7 @@ global test_frob_fp12_6:
     // stack: D0 , C1 , D2
     %swap_fp2
     // stack: C1 , D0 , D2
-    %conj
+    %conj_fp254_2
     // stack: C1`, D0 , D2
     %frobt1_1
     // stack: D1 , D0 , D2
@@ -167,11 +167,11 @@ global test_frob_fp12_6:
 
 %macro frob_fp6_3
     // stack: C0 , C1 , C2
-    %conj
+    %conj_fp254_2
     // stack: D0 , C1 , C2
     %swap_fp2_hole_2
     // stack: C2 , C1 , D0
-    %conj
+    %conj_fp254_2
     // stack: C2`, C1 , D0
     %frobt2_3
     // stack: D2 , C1 , D0
@@ -179,7 +179,7 @@ global test_frob_fp12_6:
     // stack: D0 , C1 , D2
     %swap_fp2
     // stack: C1 , D0 , D2
-    %conj
+    %conj_fp254_2
     // stack: C1`, D0 , D2
     %frobt1_3
     // stack: D1 , D0 , D2
