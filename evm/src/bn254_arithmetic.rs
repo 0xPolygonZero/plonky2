@@ -158,7 +158,7 @@ impl Mul for Fp2 {
 }
 
 impl Fp2 {
-    /// We preemptively define a helper function which multiplies an Fp2 element by 9 + i
+    // We preemptively define a helper function which multiplies an Fp2 element by 9 + i
     fn i9(self) -> Fp2 {
         let nine = Fp::new(9);
         Fp2 {
@@ -167,6 +167,7 @@ impl Fp2 {
         }
     }
 
+    // This function scalar multiplies an Fp2 by an Fp
     pub fn scale(self, x: Fp) -> Fp2 {
         Fp2 {
             re: x * self.re,
@@ -174,7 +175,11 @@ impl Fp2 {
         }
     }
 
-    // This function takes the complex conjugate
+    /// Return the complex conjugate z' of z: Fp2
+    /// This also happens to be the frobenius map 
+    ///     z -> z^p
+    /// since p == 3 mod 4 and hence
+    ///     i^p = i^3 = -i
     fn conj(self) -> Fp2 {
         Fp2 {
             re: self.re,
@@ -182,20 +187,15 @@ impl Fp2 {
         }
     }
 
-    // Return the magnitude of the complex number
-    fn norm(self) -> Fp {
+    // Return the magnitude squared of a complex number
+    fn norm_sq(self) -> Fp {
         self.re * self.re + self.im * self.im
     }
 
-    // This function normalizes the input to the complex unit circle
-    fn normalize(self) -> Fp2 {
-        let norm = self.norm();
-        self.scale(UNIT_FP / norm)
-    }
-    /// The inverse of z is given by z'/||z|| since ||z|| = zz'
+    /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     pub fn inv(self) -> Fp2 {
         let norm = self.re * self.re + self.im * self.im;
-        self.conj().scale(norm)
+        self.conj().scale(norm.inv())
     }
 }
 
@@ -300,11 +300,10 @@ impl Fp6 {
     ///     x to x^(p^n)
     /// which sends a + bt + ct^2: Fp6 to
     ///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
-    /// Note that p == 3 mod 4, and i^3 = -i, so x + yi gets mapped to
-    ///     (x + yi)^(p^n) = x^(p^n) + y^(p^n) i^(p^n) = x + y i^(p^n mod 4)
-    /// which reduces to x + yi for n even and x - yi for n odd
-    /// The values of t^(p^n) and t^(2p^n) are precomputed in
-    /// the constant arrays FROB_T1 and FROB_T2
+    /// The Fp2 coefficients are determined by the comment in the conj method, 
+    /// while the values of 
+    ///     t^(p^n) and t^(2p^n) 
+    /// are precomputed in the constant arrays FROB_T1 and FROB_T2
     fn frob(self, n: usize) -> Fp6 {
         let n = n % 6;
         let frob_t1 = FROB_T1[n];
@@ -336,12 +335,15 @@ impl Fp6 {
     ///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
     /// By Galois theory, the following are in Fp2 and are complex conjugates
     ///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
-    /// Thus phi = norm(x_1 * x_3 * x_5), and hence the inverse is given by
-    ///     normalize([x_1 * x_3] * x_5) * [x_1 * x_3]_1
+    /// and therefore 
+    ///     phi = ||x_1 * x_3 * x_5||^2
+    /// and hence the inverse is given by
+    ///     ([x_1 * x_3] * x_5) * [x_1 * x_3]_1 / ||[x_1 * x_3] * x_5||^2
     pub fn inv(self) -> Fp6 {
         let prod_13 = self.frob(1) * self.frob(3);
         let prod_135 = (prod_13 * self.frob(5)).t0;
-        let prod_odds_over_phi = prod_135.normalize();
+        let phi = prod_135.norm_sq();
+        let prod_odds_over_phi = prod_135.scale(phi.inv());
         let prod_24 = prod_13.frob(1);
         prod_24.scale(prod_odds_over_phi)
     }
@@ -427,10 +429,11 @@ impl Fp12 {
         let prod_17 = (self.frob(1) * self.frob(7)).z0;
         let prod_1379 = prod_17 * prod_17.frob(2);
         let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
-        let prod_odds_over_phi = prod_odds.normalize();
+        let phi = prod_odds.norm_sq();
+        let prod_odds_over_phi = prod_odds.scale(phi.inv());
         let prod_evens_except_six = prod_1379.frob(1);
-        let prod_penultimate = prod_evens_except_six.scale(prod_odds_over_phi);
-        self.conj().scale(prod_penultimate)
+        let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
+        self.conj().scale(prod_except_six)
     }
 }
 

@@ -1,5 +1,5 @@
 /// def final_exp(y):
-///     y0, y4, y2 = 1, 1, 1
+///     y4, y2, y0 = 1, 1, 1
 ///     power_loop_4()
 ///     power_loop_2()
 ///     power_loop_0()
