@@ -176,7 +176,7 @@ impl Fp2 {
     }
 
     /// Return the complex conjugate z' of z: Fp2
-    /// This also happens to be the frobenius map 
+    /// This also happens to be the frobenius map
     ///     z -> z^p
     /// since p == 3 mod 4 and hence
     ///     i^p = i^3 = -i
@@ -301,9 +301,9 @@ impl Fp6 {
     ///     x to x^(p^n)
     /// which sends a + bt + ct^2: Fp6 to
     ///     a^(p^n) + b^(p^n) * t^(p^n) + c^(p^n) * t^(2p^n)
-    /// The Fp2 coefficients are determined by the comment in the conj method, 
-    /// while the values of 
-    ///     t^(p^n) and t^(2p^n) 
+    /// The Fp2 coefficients are determined by the comment in the conj method,
+    /// while the values of
+    ///     t^(p^n) and t^(2p^n)
     /// are precomputed in the constant arrays FROB_T1 and FROB_T2
     fn frob(self, n: usize) -> Fp6 {
         let n = n % 6;
@@ -336,7 +336,7 @@ impl Fp6 {
     ///     (x_1 * x_3) * x_5 * (x_1 * x_3)_1
     /// By Galois theory, the following are in Fp2 and are complex conjugates
     ///     x_1 * x_3 * x_5,  x_0 * x_2 * x_4
-    /// and therefore 
+    /// and therefore
     ///     phi = ||x_1 * x_3 * x_5||^2
     /// and hence the inverse is given by
     ///     ([x_1 * x_3] * x_5) * [x_1 * x_3]_1 / ||[x_1 * x_3] * x_5||^2
