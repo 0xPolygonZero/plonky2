@@ -194,59 +194,7 @@ fn get_custom_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     (y2, y4 * y2 * y2 * y0_inv, y0_inv)
 }
 
-// The curve is cyclic with generator (1, 2)
-pub const CURVE_GENERATOR: Curve = {
-    Curve {
-        x: Fp { val: U256::one() },
-        y: Fp {
-            val: U256([2, 0, 0, 0]),
-        },
-    }
-};
-
-// The twisted curve is cyclic with generator (x, y) as follows
-pub const TWISTED_GENERATOR: TwistedCurve = {
-    TwistedCurve {
-        x: Fp2 {
-            re: Fp {
-                val: U256([
-                    0x46debd5cd992f6ed,
-                    0x674322d4f75edadd,
-                    0x426a00665e5c4479,
-                    0x1800deef121f1e76,
-                ]),
-            },
-            im: Fp {
-                val: U256([
-                    0x97e485b7aef312c2,
-                    0xf1aa493335a9e712,
-                    0x7260bfb731fb5d25,
-                    0x198e9393920d483a,
-                ]),
-            },
-        },
-        y: Fp2 {
-            re: Fp {
-                val: U256([
-                    0x4ce6cc0166fa7daa,
-                    0xe3d1e7690c43d37b,
-                    0x4aab71808dcb408f,
-                    0x12c85ea5db8c6deb,
-                ]),
-            },
-            im: Fp {
-                val: U256([
-                    0x55acdadcd122975b,
-                    0xbc4b313370b38ef3,
-                    0xec9e99ad690c3395,
-                    0x090689d0585ff075,
-                ]),
-            },
-        },
-    }
-};
-
-/// The folowing constants are defined above get_custom_powers
+// The folowing constants are defined above get_custom_powers
 
 const EXPS4: [(usize, usize, usize); 64] = [
     (1, 1, 0),
