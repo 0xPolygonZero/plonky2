@@ -182,10 +182,7 @@ mul_return_3:
     // stack: len, n-1, a_start_loc, bi+1, output_cur+1, scratch_space, retdest
     DUP2
     // stack: n-1, len, n-1, a_start_loc, bi+1, output_cur+1, scratch_space, retdest
-    ISZERO
-    %jumpi(mul_end)
-    %jump(mul_loop)
-mul_end:
+    %jumpi(mul_loop)
     // stack: len, n, a_start_loc, bi, output_cur, scratch_space, retdest
     %stack (vals: 6) -> ()
     JUMP
