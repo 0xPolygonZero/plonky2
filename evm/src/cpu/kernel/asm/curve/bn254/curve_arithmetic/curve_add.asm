@@ -4,11 +4,13 @@ global ec_add:
     // stack:                                    x0, y0, x1, y1, retdest
 
     // Check if points are valid BN254 points.
-    DUP2  DUP2    
+    DUP2
+    DUP2    
     // stack:                            x0, y0, x0, y0, x1, y1, retdest
     %ec_check
     // stack:                   isValid(x0, y0), x0, y0, x1, y1, retdest
-    DUP5  DUP5    
+    DUP5
+    DUP5    
     // stack:         x1, y1  , isValid(x0, y0), x0, y0, x1, y1, retdest
     %ec_check
     // stack: isValid(x1, y1) , isValid(x0, y0), x0, y0, x1, y1, retdest
@@ -28,7 +30,8 @@ global ec_add_valid_points:
     // stack:                   x0, y0, x1, y1, retdest
 
     // Check if the first point is the identity.
-    DUP2  DUP2
+    DUP2
+    DUP2
     // stack:           x0,y0 , x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack:   (0,0)==(x0,y0), x0, y0, x1, y1, retdest
@@ -36,7 +39,8 @@ global ec_add_valid_points:
     // stack:                   x0, y0, x1, y1, retdest
 
     // Check if the second point is the identity.
-    DUP4  DUP4    
+    DUP4
+    DUP4    
     // stack:           x1,y1 , x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack:   (0,0)==(x1,y1), x0, y0, x1, y1, retdest
@@ -44,7 +48,8 @@ global ec_add_valid_points:
     // stack:                   x0, y0, x1, y1, retdest
 
     // Check if both points have the same x-coordinate.
-    DUP3  DUP2    
+    DUP3
+    DUP2    
     // stack:         x0 ,  x1, x0, y0, x1, y1, retdest
     EQ
     // stack:         x0 == x1, x0, y0, x1, y1, retdest
@@ -54,11 +59,13 @@ global ec_add_valid_points:
     // stack:                   x0, y0, x1, y1, retdest
     // Otherwise, we can use the standard formula.
     // Compute lambda = (y0 - y1)/(x0 - x1)
-    DUP4  DUP3
+    DUP4
+    DUP3
     // stack:          y0 , y1, x0, y0, x1, y1, retdest
     SUBFP254
     // stack:          y0 - y1, x0, y0, x1, y1, retdest
-    DUP4  DUP3
+    DUP4
+    DUP3
     // stack: x0 , x1, y0 - y1, x0, y0, x1, y1, retdest
     SUBFP254
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
@@ -88,11 +95,13 @@ ec_add_valid_points_with_lambda:
     // stack:                             lambda, x0, y0, x1, y1, retdest
 
     // Compute x2 = lambda^2 - x1 - x0
-    DUP2  DUP5
+    DUP2
+    DUP5
     // stack:                     x1, x0, lambda, x0, y0, x1, y1, retdest
     DUP3
     // stack:          lambda   , x1, x0, lambda, x0, y0, x1, y1, retdest
-    DUP1  MULFP254
+    DUP1
+    MULFP254
     // stack:          lambda^2 , x1, x0, lambda, x0, y0, x1, y1, retdest
     SUBFP254
     // stack:          lambda^2 - x1, x0, lambda, x0, y0, x1, y1, retdest
@@ -127,7 +136,8 @@ ec_add_equal_first_coord:
     // stack:           x0, y0, x1, y1, retdest with x0 == x1
 
     // Check if the points are equal
-    DUP2  DUP5
+    DUP2
+    DUP5
     // stack: y1  , y0, x0, y0, x1, y1, retdest
     EQ
     // stack: y1 == y0, x0, y0, x1, y1, retdest
@@ -153,7 +163,8 @@ ec_add_equal_points:
 
     DUP1
     // stack:           x0  , x0, y0, x1, y1, retdest
-    DUP1  MULFP254
+    DUP1
+    MULFP254
     // stack:           x0^2, x0, y0, x1, y1, retdest
     %bn_3_over_2
     // stack:     3/2 , x0^2, x0, y0, x1, y1, retdest
@@ -170,7 +181,8 @@ ec_add_equal_points:
 // Standard doubling formula.
 global ec_double:
     // stack:         x0, y0, retdest
-    DUP2  DUP2    
+    DUP2
+    DUP2    
     // stack: x0, y0, x0, y0, retdest
     %jump(ec_add_equal_points)
 
@@ -213,13 +225,18 @@ global ec_double:
     // stack:                y, x, range
     DUP2 
     // stack:           x  , y, x, range
-    DUP1  DUP1  MULFP254  MULFP254
+    DUP1 
+    DUP1
+    MULFP254
+    MULFP254
     // stack:           x^3, y, x, range
-    PUSH 3  ADDFP254
+    PUSH 3
+    ADDFP254
     // stack:       3 + x^3, y, x, range
     DUP2
     // stack:  y  , 3 + x^3, y, x, range
-    DUP1  MULFP254
+    DUP1
+    MULFP254
     // stack:  y^2, 3 + x^3, y, x, range
     EQ
     // stack:         curve, y, x, range

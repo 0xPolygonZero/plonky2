@@ -45,11 +45,13 @@
 
 global mul_fp12:
     // stack:                                inA, inB, out 
-    DUP1  %offset_fp6 
+    DUP1  
+    %offset_fp6 
     // stack:                          inA', inA, inB, out 
     %load_fp6
     // stack:                            f', inA, inB, out 
-    DUP8  %offset_fp6
+    DUP8  
+    %offset_fp6
     // stack:                      inB', f', inA, inB, out 
     %load_fp6
     // stack:                        g', f', inA, inB, out 
@@ -118,7 +120,8 @@ mul_fp12_3:
     // stack:          f'g'+fg, (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %subr_fp6
     // stack:       (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
-    DUP14  %offset_fp6 
+    DUP14  
+    %offset_fp6 
     // stack: out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
     %store_fp6
     // stack:                                 fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
@@ -130,7 +133,8 @@ mul_fp12_3:
     // stack:                 out, sh(f'g') + fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %store_fp6
     // stack:                                     inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %pop2  JUMP
+    %pop2  
+    JUMP
 
 
 //////////////////////////////////////
@@ -178,7 +182,8 @@ mul_fp12_3:
 
 global mul_fp12_sparse:
     // stack:                                                                    inA, inB, out
-    DUP1  %offset_fp6
+    DUP1  
+    %offset_fp6
     // stack:                                                              inA', inA, inB, out
     %load_fp6
     // stack:                                                                f', inA, inB, out
@@ -210,7 +215,8 @@ global mul_fp12_sparse:
     // stack:                      g0 * f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     %swap_fp6
     // stack:                    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
-    DUP13  %add_const(8)
+    DUP13
+    %add_const(8)
     // stack:           inB2,    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
     %load_fp2
     // stack:           G2  ,    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
@@ -238,7 +244,8 @@ global mul_fp12_sparse:
     // stack:                                          g0 * f', out, f, inB, f', inA, inB, out
     %swap_fp6_hole
     // stack:                                        f  , out, g0 * f', inB, f', inA, inB, out
-    DUP14  %add_const(8)
+    DUP14
+    %add_const(8)
     // stack:                               inB2,    f  , out, g0 * f', inB, f', inA, inB, out
     %load_fp2
     // stack:                                G2 ,    f  , out, g0 * f', inB, f', inA, inB, out
@@ -248,7 +255,8 @@ global mul_fp12_sparse:
     // stack:                                     G2 * sh(f) + g0 * f', inB, f', inA, inB, out
     %swap_fp6_hole
     // stack:                                    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
-    DUP7  %add_const(2)
+    DUP7
+    %add_const(2)
     // stack:                           inB1,    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
     %load_fp2
     // stack:                            G1 ,    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
@@ -256,11 +264,13 @@ global mul_fp12_sparse:
     // stack:                            G1 * sh(f'), inB, G2 * sh(f) + g0 * f', inA, inB, out
     %add_fp6_hole
     // stack:                                G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
-    DUP9  %offset_fp6
+    DUP9
+    %offset_fp6
     // stack:                          out', G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
     %store_fp6
     // stack:                                                                    inA, inB, out
-    %pop3  JUMP
+    %pop3
+    JUMP
 
 
 /////////////////////////
@@ -324,11 +334,13 @@ global square_fp12:
     // stack:                                  square_fp12_2, inp, f, square_fp12_3, out 
     %dup_fp6_2
     // stack:                              f , square_fp12_2, inp, f, square_fp12_3, out
-    DUP16  %offset_fp6
+    DUP16
+    %offset_fp6
     // stack:                        out', f , square_fp12_2, inp, f, square_fp12_3, out
     PUSH square_fp12_1
     // stack:         square_fp12_1, out', f , square_fp12_2, inp, f, square_fp12_3, out
-    DUP10  %offset_fp6
+    DUP10
+    %offset_fp6
     // stack:   inp', square_fp12_1, out', f , square_fp12_2, inp, f, square_fp12_3, out
     %load_fp6
     // stack:     f', square_fp12_1, out', f , square_fp12_2, inp, f, square_fp12_3, out
@@ -352,7 +364,9 @@ square_fp12_2:
     // stack:                                       sh(f'f'), inp, f, square_fp12_3, out
     %swap_fp6_hole
     // stack:                                       f, inp, sh(f'f'), square_fp12_3, out
-    SWAP6  SWAP13  SWAP6
+    SWAP6
+    SWAP13
+    SWAP6
     // stack:                                       f, square_fp12_3, sh(f'f'), inp, out
     %jump(square_fp6)
 square_fp12_3:
@@ -363,4 +377,5 @@ square_fp12_3:
     // stack:                                               out, ff + sh(f'f'), inp, out
     %store_fp6
     // stack:                                                                   inp, out
-    %pop2  JUMP
+    %pop2
+    JUMP
