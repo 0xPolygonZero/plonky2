@@ -4,7 +4,7 @@
 // Returns y * (x^-1) where the inverse is taken modulo N
 %macro moddiv_secp_base
     // stack: x, y
-    %inv_fp254_secp_base
+    %inverse_secp_base
     // stack: x^-1, y
     %mulmodn_secp_base
 %endmacro

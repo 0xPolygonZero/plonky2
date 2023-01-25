@@ -66,7 +66,9 @@
     // stack:     cx, cy 
 %endmacro
 
-// cost: 9; note this returns y, x for the output x + yi
+/// Given z = x + iy: Fp254_2, return complex conjugate z': Fp254_2
+/// where input is represented z.re, z.im and output as z'.im, z'.re
+/// cost: 9; note this returns y, x for the output x + yi
 %macro i9
     // stack:          a , b
     DUP2
