@@ -1,10 +1,10 @@
-/// the following is defined by
+/// miller_data is defined by
 /// (1) taking the binary expansion of N254, the order of the elliptic curve group
 /// (2) popping the first and last elements, then appending a 0:
 ///     exp = bin(N254)[1:-1] + [0]
 /// (3) counting the lengths of runs of 1s then 0s in exp, e.g.
 ///     if exp = 1100010011110, then EXP = [(2,3), (1,2), (4,1)]
-/// (4) encoding each pair (n,m) as 0xnm:
+/// (4) byte encoding each pair (n,m) as follows:
 ///     miller_data = [(0x20)n + m for (n,m) in EXP]
 
 global miller_data:
@@ -22,6 +22,15 @@ global miller_data:
     BYTES 0x22, 0x64, 0x21, 0x62
     BYTES 0x62, 0x22, 0x23, 0x42
     BYTES 0x25
+
+
+/// final_exp first computes y^a4, y^a2, y^a0
+/// representing a4, a2, a0 in *little endian* binary, define
+///     EXPS4 = [(a4[i], a2[i], a0[i]) for i in       0..len(a4)]
+///     EXPS2 = [       (a2[i], a0[i]) for i in len(a4)..len(a2)]
+///     EXPS0 = [               a0[i]  for i in len(a2)..len(a0)]
+/// power_data_n is simply a reverse-order byte encoding of EXPSn
+///     where (i,j,k) is sent to (0b100)i + (0b10)j + k
 
 global power_data_4:
     BYTES 111, 010, 011, 111
