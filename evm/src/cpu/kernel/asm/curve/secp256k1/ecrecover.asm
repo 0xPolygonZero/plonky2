@@ -53,7 +53,7 @@ ecrecover_valid_input:
     // stack: y, hash, r, s, retdest
     DUP3
     // stack: r, y, hash, x, s, retdest (r=x)
-    %inverse_secp_scalar
+    %inv_fp254_secp_scalar
     // stack: r^(-1), y, hash, x, s, retdest
     DUP1
     // stack: r^(-1), r^(-1), y, hash, x, s, retdest

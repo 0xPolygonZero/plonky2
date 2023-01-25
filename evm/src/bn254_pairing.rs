@@ -1,7 +1,5 @@
 use std::ops::Add;
 
-use ethereum_types::U256;
-
 use crate::bn254_arithmetic::{gen_fp, gen_fp2, Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZERO_FP, ZERO_FP2};
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2

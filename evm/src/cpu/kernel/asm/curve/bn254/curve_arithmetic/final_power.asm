@@ -37,7 +37,7 @@ custom_powers:
     // stack:                             val, retdest  {200: y0, 212: y2, 224: y4}
     %stack () -> (200, 236, make_term_1)
     // stack:      200, 236, make_term_1, val, retdest  {200: y0, 212: y2, 224: y4}
-    %jump(inv_fp12)
+    %jump(inv_fp254_12)
 make_term_1:
     // stack:                             val, retdest  {212: y2, 224: y4, 236: y0^-1}
     %stack () -> (212, 224, 224, make_term_2)

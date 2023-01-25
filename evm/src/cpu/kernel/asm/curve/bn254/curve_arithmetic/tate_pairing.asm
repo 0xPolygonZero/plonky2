@@ -20,7 +20,7 @@ global make_invariant:
     // stack:                      out, retdest  {out: y}
     %stack (out) -> (out, 100, first_exp, out)         
     // stack: out, 100, first_exp, out, retdest  {out: y}
-    %jump(inv_fp12)
+    %jump(inv_fp254_12)
 global first_exp:
     // stack:                             out, retdest  {out: y  , 100: y^-1}
     %frob_fp12_6

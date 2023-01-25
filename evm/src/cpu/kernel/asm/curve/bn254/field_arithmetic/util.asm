@@ -1070,3 +1070,18 @@
     // stack:      ind11', x11, ptr'
     %mstore_kernel_general
 %endmacro
+
+%macro assert_eq_unit_fp12
+    %assert_eq_const(1)
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+    %assert_zero
+%endmacro

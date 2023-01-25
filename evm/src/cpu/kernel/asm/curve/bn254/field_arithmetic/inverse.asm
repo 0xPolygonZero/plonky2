@@ -3,13 +3,13 @@
 // Returns y * (x^-1) where the inverse is taken modulo N
 %macro divfp254
     // stack: x   , y
-    %inverse
+    %inv_fp254
     // stack: x^-1, y
     MULFP254
 %endmacro
 
 // Non-deterministically provide the inverse modulo N.
-%macro inverse
+%macro inv_fp254
     // stack:        x
     PROVER_INPUT(ff::bn254_base::inverse)
     // stack: x^-1 , x
@@ -22,38 +22,18 @@
 %endmacro
 
 
-global inv_fp12:
-    // stack:                ptr, inv, retdest
-    %prover_inv_fp12
-    // stack:          f^-1, ptr, inv, retdest
+global inv_fp254_12:
+    // stack:                         inp, out, retdest
+    %prover_inv_fp254_12
+    // stack:                   f^-1, inp, out, retdest
     DUP14
-    // stack:     inv, f^-1, ptr, inv, retdest
+    // stack:              out, f^-1, inp, out, retdest
     %store_fp12
-    // stack:                ptr, inv, retdest
-    %stack (ptr, inv) -> (ptr, inv, 50, check_inv)
-    // stack: ptr, inv, 50, check_inv, retdest 
+    // stack:                         inp, out, retdest
+    %stack (inp, out) -> (inp, out, 50, check_inv_fp254_12)
+    // stack: inp, out, 50, check_inv_fp254_12, retdest 
     %jump(mul_fp12)
-
-global inv_fp12_old:
-    // stack:                ptr, inv, retdest
-    DUP1  %load_fp12
-    // stack:             f, ptr, inv, retdest
-    DUP14
-    // stack:        inv, f, ptr, inv, retdest
-    %prover_inv_fp12
-    // stack:  f^-1, inv, f, ptr, inv, retdest
-    DUP13  %store_fp12
-    // stack:        inv, f, ptr, inv, retdest
-    POP  %pop4  %pop4  %pop4
-    // stack:                ptr, inv, retdest
-    PUSH 50  PUSH check_inv
-    // stack: check_inv, 50, ptr, inv, retdest 
-    %stack (check_inv, mem, ptr, inv) -> (ptr, inv, mem, check_inv)
-    // stack: ptr, inv, 50, check_inv, retdest 
-    %jump(mul_fp12)
-
-
-global check_inv:
+check_inv_fp254_12:
     // stack:        retdest
     PUSH 50  
     %load_fp12
@@ -62,7 +42,7 @@ global check_inv:
     // stack:        retdest
     JUMP
 
-%macro prover_inv_fp12
+%macro prover_inv_fp254_12
     PROVER_INPUT(ffe::bn254_base::component_11)
     PROVER_INPUT(ffe::bn254_base::component_10)
     PROVER_INPUT(ffe::bn254_base::component_9)
@@ -75,19 +55,4 @@ global check_inv:
     PROVER_INPUT(ffe::bn254_base::component_2)
     PROVER_INPUT(ffe::bn254_base::component_1)
     PROVER_INPUT(ffe::bn254_base::component_0)
-%endmacro
-
-%macro assert_eq_unit_fp12
-    %assert_eq_const(1)
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
 %endmacro

@@ -147,13 +147,13 @@ fn test_frob_fp12() -> Result<()> {
 }
 
 #[test]
-fn test_inv_fp12() -> Result<()> {
+fn test_inv_fp254_12() -> Result<()> {
     let ptr: usize = 100;
     let inv: usize = 112;
     let f: Fp12 = gen_fp12();
 
     let setup = InterpreterSetup {
-        label: "inv_fp12".to_string(),
+        label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
         memory: vec![(ptr, fp12_on_stack(f))],
     };
