@@ -55,16 +55,14 @@ reduce_loop:
     // stack: i, i, end_loc, retdest
     %mload_kernel_general
     // stack: bignum[i], i, end_loc, retdest
-    PUSH 1
+    DUP1
+    // stack: bignum[i], bignum[i], i, end_loc, retdest
     %shl_const(128)
-    // stack: 2^128, bignum[i], i, end_loc, retdest
-    %stack (mod, val) -> (val, mod, mod, val)
-    // stack: bignum[i], 2^128, 2^128, bignum[i], i, end_loc, retdest
-    MOD
-    // stack: bignum[i] % 2^128, 2^128, bignum[i], i, end_loc, retdest
-    SWAP2
-    // stack: bignum[i], 2^128, bignum[i] % 2^128, i, end_loc, retdest
-    DIV
+    %shr_const(128)
+    // stack: bignum[i] % 2^128, bignum[i], i, end_loc, retdest
+    SWAP1
+    // stack: bignum[i], bignum[i] % 2^128, i, end_loc, retdest
+    %shr_const(128)
     // stack: bignum[i] // 2^128, bignum[i] % 2^128, i, end_loc, retdest
     DUP3
     // stack: i, bignum[i] // 2^128, bignum[i] % 2^128, i, end_loc, retdest

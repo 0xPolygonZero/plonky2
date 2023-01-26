@@ -7,9 +7,9 @@
 // All of scratch_2, scratch_3, and scratch_4 must have size 2 * length and be initialized with zeroes.
 global modmul_bignum:
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    
     // The prover provides x := (a * b) % m, which we store in output_loc.
     
-    // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     PUSH 0
     // stack: i=0, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
 modmul_remainder_loop:

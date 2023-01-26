@@ -17,13 +17,14 @@ add_loop:
     ADD
     ADD
     // stack: a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
-    %stack (val) -> (val, @BIGNUM_LIMB_BASE, @BIGNUM_LIMB_BASE, val)
-    // stack: a[cur] + b[cur] + carry, 2^128, 2^128, a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
-    DIV
-    // stack: (a[cur] + b[cur] + carry) // 2^128, 2^128, a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
-    SWAP2
-    // stack: a[cur] + b[cur] + carry, 2^128, (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
-    MOD
+    DUP1
+    // stack: a[cur] + b[cur] + carry, a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
+    %shr_const(128)
+    // stack: (a[cur] + b[cur] + carry) // 2^128, a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
+    SWAP1
+    // stack: a[cur] + b[cur] + carry, (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
+    %shl_const(128)
+    %shr_const(128)
     // stack: c[cur] = (a[cur] + b[cur] + carry) % 2^128, carry_new = (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
     DUP4
     // stack: a_cur_loc, c[cur], carry_new, i, a_cur_loc, b_cur_loc, retdest

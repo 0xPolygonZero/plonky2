@@ -8,3 +8,6 @@
 global modexp_bignum:
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     
+
+    // We store x_i in scratch_1, starting with x_0 := b.
+    
