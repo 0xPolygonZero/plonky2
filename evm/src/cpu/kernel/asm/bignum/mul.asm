@@ -4,29 +4,35 @@
 // Multiplies a bignum by a constant value. Resulting limbs may be larger than 128 bits.
 // This is a naive multiplication algorithm (BasecaseMultiply from Modern Computer Arithmetic).
 mul_bignum_helper:
-    // stack: n=len, i=start_loc, val, retdest
-mul_helper_loop:
-    // stack: n, i, val, retdest
+    // stack: len, start_loc, val, retdest
     DUP2
-    // stack: i, n, i, val, retdest
-    %mload_kernel_general
-    // stack: bignum[i], n, i, val, retdest
-    DUP4
-    // stack: val, bignum[i], n, i, val, retdest
-    MUL
-    // stack: val * bignum[i], n, i, val, retdest
-    DUP3
-    // stack: i, val * bignum[i], n, i, val, retdest
-    %mstore_kernel_general
-    // stack: n, i, val, retdest
-    %decrement
+    // stack: start_loc, len, start_loc, val, retdest
+    ADD
+    // stack: end_loc, start_loc, val, retdest
+    SWAP2
     SWAP1
-    %increment
-    SWAP1
-    // stack: n - 1, i + 1, val, retdest
+    // stack: start_loc, val, end_loc, retdest
+mul_helper_loop:
+    // stack: i, val, end_loc, retdest
     DUP1
-    // stack: n - 1, n - 1, i + 1, val, retdest
-    ISZERO
+    // stack: i, i, val, end_loc, retdest
+    %mload_kernel_general
+    // stack: bignum[i], i, val, end_loc, retdest
+    DUP3
+    // stack: val, bignum[i], i, val, end_loc, retdest
+    MUL
+    // stack: val * bignum[i], i, val, end_loc, retdest
+    DUP2
+    // stack: i, val * bignum[i], i, val, end_loc, retdest
+    %mstore_kernel_general
+    // stack: i, val, end_loc, retdest
+    %increment
+    // stack: i + 1, val, end_loc, retdest
+    DUP1
+    // stack: i + 1, i + 1, val, end_loc, retdest
+    DUP4
+    // stack: end_loc, i + 1, i + 1, val, end_loc, retdest
+    EQ
     %jumpi(mul_helper_end)
     %jump(mul_helper_loop)
 mul_helper_end:
@@ -83,9 +89,7 @@ reduce_loop:
     // stack: n - 1, i + 1, retdest
     DUP1
     // stack: n - 1, n - 1, i + 1, retdest
-    ISZERO
-    %jumpi(reduce_end)
-    %jump(reduce_loop)
+    %jumpi(reduce_loop)
 reduce_end:
     // stack: n = 0, i, retdest
     %stack (vals: 2) -> ()
