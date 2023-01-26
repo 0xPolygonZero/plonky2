@@ -124,7 +124,7 @@ pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
 /// we then invert y^a0 and return
 ///     y^a2, y^a1 = y^a4 * y^a2 * y^a2 * y^(-a0), y^(-a0)
 ///
-/// Represent a4, a2, a0 in *little endian* binary, define
+/// Representing a4, a2, a0 in *little endian* binary, define
 ///     EXPS4 = [(a4[i], a2[i], a0[i]) for i in       0..len(a4)]
 ///     EXPS2 = [       (a2[i], a0[i]) for i in len(a4)..len(a2)]
 ///     EXPS0 = [               a0[i]  for i in len(a2)..len(a0)]
@@ -165,7 +165,7 @@ fn get_custom_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     // leading term of a2 is always 1
     y2 = y2 * sq;
 
-    // must keep multiplying remaining value: a0
+    // must keep multiplying final remaining value: a0
     for a in EXPS0 {
         if a {
             y0 = y0 * sq;
@@ -178,7 +178,7 @@ fn get_custom_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
     // invert y0 to compute y^(-a0)
     let y0_inv = y0.inv();
 
-    // return y2, y1 = y4 * y2^2 * y^(-a0), y^(-a0)
+    // return y^a2 = y2, y^a1 = y4 * y2^2 * y^(-a0), y^(-a0)
     (y2, y4 * y2 * y2 * y0_inv, y0_inv)
 }
 
