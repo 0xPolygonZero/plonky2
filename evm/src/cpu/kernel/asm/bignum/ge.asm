@@ -39,7 +39,7 @@ ge_loop:
     %jumpi(less)
     // stack: i, a_i_loc, b_i_loc, retdest
     DUP1
-    %eq_const(0)
+    ISZERO
     %jumpi(equal)
     %decrement
     // stack: i-1, a_i_loc, b_i_loc, retdest

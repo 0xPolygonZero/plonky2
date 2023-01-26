@@ -32,10 +32,8 @@ mul_helper_loop:
     // stack: i + 1, i + 1, val, end_loc, retdest
     DUP4
     // stack: end_loc, i + 1, i + 1, val, end_loc, retdest
-    EQ
-    %jumpi(mul_helper_end)
-    %jump(mul_helper_loop)
-mul_helper_end:
+    GT
+    %jumpi(mul_helper_loop)
     // stack: n = 0, i, val, retdest
     %stack (vals: 3) -> ()
     // stack: retdest
