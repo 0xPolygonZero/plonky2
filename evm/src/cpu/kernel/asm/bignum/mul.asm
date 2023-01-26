@@ -1,7 +1,7 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Multiplies a bignum by a constant value. Resulting limbs may be larger than 128 bits.
+// Multiplies a bignum by a single-limb value. Resulting limbs may be larger than 128 bits.
 // This is a naive multiplication algorithm (BasecaseMultiply from Modern Computer Arithmetic).
 mul_bignum_helper:
     // stack: len, start_loc, val, retdest
