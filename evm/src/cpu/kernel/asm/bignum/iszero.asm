@@ -1,3 +1,5 @@
+// Arithmetic on little-endian integers represented with 128-bit limbs.
+// All integers must be under a given length bound, and are padded with leading zeroes.
 
 global iszero_bignum:
     // stack: len, start_loc, retdest

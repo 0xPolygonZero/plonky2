@@ -5,7 +5,17 @@ use num_bigint::RandBigInt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::util::biguint_to_mem_vec;
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
+
+fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+    let mut rng = rand::thread_rng();
+    let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+
+    let a_limbs = biguint_to_mem_vec(a.clone());
+    let length = a_limbs.len().into();
+    
+    (a, length, a_limbs)
+}
 
 fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
@@ -40,8 +50,8 @@ fn prepare_three_bignums(
     let mut b_limbs = biguint_to_mem_vec(b.clone());
     let mut m_limbs = biguint_to_mem_vec(m.clone());
     let length: U256 = a_limbs.len().max(m_limbs.len()).into();
-    b_limbs.resize(length.as_usize(), U256::zero());
-    m_limbs.resize(length.as_usize(), U256::zero());
+    b_limbs.resize(length.as_usize(), 0.into());
+    m_limbs.resize(length.as_usize(), 0.into());
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]].concat();
 
@@ -55,16 +65,39 @@ fn prepare_three_bignums(
 }
 
 #[test]
+fn test_shr_bignum() -> Result<()> {
+    let (a, length, memory) = prepare_bignum(1000);
+
+    let halved = a >> 1;
+
+    let retdest = 0xDEADBEEFu32.into();
+    let shr_bignum = KERNEL.global_labels["shr_bignum"];
+
+    let a_start_loc = 0.into();
+
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
+    initial_stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(shr_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.run()?;
+
+    dbg!(interpreter.stack());
+
+    let new_memory = interpreter.get_kernel_general_memory();
+    let new_a = mem_vec_to_biguint(&new_memory[0..length.as_usize()]);
+    assert_eq!(new_a, halved);
+
+    Ok(())
+}
+
+#[test]
 fn test_iszero_bignum() -> Result<()> {
-    let (_a, _b, length, mut memory) = prepare_two_bignums(1000);
+    let (_a, length, memory) = prepare_bignum(1000);
 
     let retdest = 0xDEADBEEFu32.into();
     let iszero_bignum = KERNEL.global_labels["iszero_bignum"];
 
     let a_start_loc = 0.into();
-    let b_start_loc = length;
-
-    memory.splice(b_start_loc.as_usize()..(b_start_loc + length).as_usize(), vec![U256::zero(); length.as_usize()].iter().cloned());
 
     // Test with a > 0.
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
@@ -73,10 +106,12 @@ fn test_iszero_bignum() -> Result<()> {
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
     let result = interpreter.stack()[0];
-    assert_eq!(result, U256::zero());
+    assert_eq!(result, 0.into());
+
+    let memory = vec![0.into(); memory.len()];
 
     // Test with a == 0.
-    let mut initial_stack: Vec<U256> = vec![length, b_start_loc, retdest];
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
     initial_stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(iszero_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory);
@@ -113,7 +148,7 @@ fn test_ge_bignum() -> Result<()> {
     interpreter.set_kernel_general_memory(memory);
     interpreter.run()?;
     let result = interpreter.stack()[0];
-    assert_eq!(result, U256::zero());
+    assert_eq!(result, 0.into());
 
     Ok(())
 }

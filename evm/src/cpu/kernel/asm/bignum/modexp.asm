@@ -10,4 +10,15 @@ global modexp_bignum:
     
 
     // We store x_i in scratch_1, starting with x_0 := b.
-    
+
+
+    // Loop: while e is not zero:
+
+    // y := e % 2
+
+    // Prover supplies x_(i+1) = x_i^2 * b^y % m into scratch_2
+
+    // Prover supplies k_i = x_i^2 * b^y // m into scratch_3
+
+    // Verifier checks that x_(i+1) + k_i * m = x_i^2 * b^y
+
