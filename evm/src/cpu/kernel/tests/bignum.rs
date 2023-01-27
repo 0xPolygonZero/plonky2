@@ -61,19 +61,19 @@ fn test_iszero_bignum() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let iszero_bignum = KERNEL.global_labels["iszero_bignum"];
 
-    // let a_start_loc = 0.into();
+    let a_start_loc = 0.into();
     let b_start_loc = length;
 
     memory.splice(b_start_loc.as_usize()..(b_start_loc + length).as_usize(), vec![U256::zero(); length.as_usize()].iter().cloned());
 
     // Test with a > 0.
-    // let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
-    // initial_stack.reverse();
-    // let mut interpreter = Interpreter::new_with_kernel(iszero_bignum, initial_stack);
-    // interpreter.set_kernel_general_memory(memory.clone());
-    // interpreter.run()?;
-    // let result = interpreter.stack()[0];
-    // assert_eq!(result, U256::zero());
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
+    initial_stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(iszero_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.run()?;
+    let result = interpreter.stack()[0];
+    assert_eq!(result, U256::zero());
 
     // Test with a == 0.
     let mut initial_stack: Vec<U256> = vec![length, b_start_loc, retdest];
@@ -81,9 +81,6 @@ fn test_iszero_bignum() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(iszero_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory);
     interpreter.run()?;
-
-    dbg!(interpreter.stack());
-
     let result = interpreter.stack()[0];
     assert_eq!(result, U256::one());
 
