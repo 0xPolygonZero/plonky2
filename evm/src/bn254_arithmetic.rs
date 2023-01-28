@@ -420,13 +420,13 @@ impl Fp12 {
     /// lands in Fp, and hence the inverse of x is given by
     ///     (Prod_{i=1}^11 x_i) / phi
     /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
-    ///     x_6 = (a + bz)_6 = a - bz = conj_fp12(x)
+    ///     x_6 = (a + bz)_6 = a - bz = x.conj()
     /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
     ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
     /// By Galois theory, both the following are in Fp2 and are complex conjugates
     ///     prod_odds,  prod_evens
-    /// Thus phi = norm(prod_odds), and hence the inverse is given by
-    ///    normalize(prod_odds) * prod_evens_except_six * conj_fp12(x)
+    /// Thus phi = ||prod_odds||^2, and hence the inverse is given by
+    ///    prod_odds * prod_evens_except_six * x.conj() / ||prod_odds||^2
     pub fn inv(self) -> Fp12 {
         let prod_17 = (self.frob(1) * self.frob(7)).z0;
         let prod_1379 = prod_17 * prod_17.frob(2);
