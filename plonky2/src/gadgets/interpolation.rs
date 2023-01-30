@@ -1,3 +1,5 @@
+use alloc::vec;
+
 use plonky2_field::extension::Extendable;
 
 use crate::gates::coset_interpolation::CosetInterpolationGate;

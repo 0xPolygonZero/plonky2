@@ -1,19 +1,19 @@
 [package]
 name = "plonky2"
 description = "Recursive SNARKs based on PLONK and FRI"
-version = "0.1.0"
-authors = ["Polygon Zero <daniel@mirprotocol.org>"]
+version = "0.1.1"
+license = "MIT OR Apache-2.0"
+authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>", "Nicholas Ward <npward@berkeley.edu>"]
 readme = "README.md"
 repository = "https://github.com/mir-protocol/plonky2"
 keywords = ["cryptography", "SNARK", "PLONK", "FRI"]
 categories = ["cryptography"]
 edition = "2021"
-default-run = "generate_constants"
 
 [features]
 default = ["gate_testing", "parallel", "rand_chacha", "std", "timing"]
 gate_testing = []
-parallel = ["hashbrown/rayon", "maybe_rayon/parallel"]
+parallel = ["hashbrown/rayon", "plonky2_maybe_rayon/parallel"]
 std = ["anyhow/std", "rand/std"]
 timing = ["std"]
 
@@ -24,10 +24,10 @@ hashbrown = { version = "0.12.3", default-features = false, features = ["ahash",
 itertools = { version = "0.10.0", default-features = false }
 keccak-hash = { version = "0.8.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
-maybe_rayon = { path = "../maybe_rayon", default-features = false }
+plonky2_maybe_rayon = { version = "0.1.0", default-features = false }
 num = { version = "0.4", default-features = false, features = ["rand"] }
-plonky2_field = { path = "../field", default-features = false }
-plonky2_util = { path = "../util", default-features = false }
+plonky2_field = { version = "0.1.0", default-features = false }
+plonky2_util = { version = "0.1.0", default-features = false }
 rand = { version = "0.8.4", default-features = false }
 rand_chacha = { version = "0.3.1", optional = true, default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -38,7 +38,6 @@ unroll = { version = "0.1.5", default-features = false }
 criterion = { version = "0.4.0", default-features = false }
 env_logger = { version = "0.9.0", default-features = false }
 num_cpus = { version = "1.14.0", default-features = false }
-plonky2 = { path = "." }
 rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }
 rand_chacha = { version = "0.3.1", default-features = false }
 serde_cbor = { version = "0.11.2" }

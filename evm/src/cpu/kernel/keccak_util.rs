@@ -4,13 +4,13 @@ use crate::keccak_sponge::columns::{KECCAK_WIDTH_BYTES, KECCAK_WIDTH_U32S};
 
 /// Like tiny-keccak's `keccakf`, but deals with `u32` limbs instead of `u64` limbs.
 pub(crate) fn keccakf_u32s(state_u32s: &mut [u32; KECCAK_WIDTH_U32S]) {
-    let mut state_u64s: [u64; 25] = std::array::from_fn(|i| {
+    let mut state_u64s: [u64; 25] = core::array::from_fn(|i| {
         let lo = state_u32s[i * 2] as u64;
         let hi = state_u32s[i * 2 + 1] as u64;
         lo | (hi << 32)
     });
     keccakf(&mut state_u64s);
-    *state_u32s = std::array::from_fn(|i| {
+    *state_u32s = core::array::from_fn(|i| {
         let u64_limb = state_u64s[i / 2];
         let is_hi = i % 2;
         (u64_limb >> (is_hi * 32)) as u32
@@ -20,9 +20,9 @@ pub(crate) fn keccakf_u32s(state_u32s: &mut [u32; KECCAK_WIDTH_U32S]) {
 /// Like tiny-keccak's `keccakf`, but deals with bytes instead of `u64` limbs.
 pub(crate) fn keccakf_u8s(state_u8s: &mut [u8; KECCAK_WIDTH_BYTES]) {
     let mut state_u64s: [u64; 25] =
-        std::array::from_fn(|i| u64::from_le_bytes(state_u8s[i * 8..][..8].try_into().unwrap()));
+        core::array::from_fn(|i| u64::from_le_bytes(state_u8s[i * 8..][..8].try_into().unwrap()));
     keccakf(&mut state_u64s);
-    *state_u8s = std::array::from_fn(|i| {
+    *state_u8s = core::array::from_fn(|i| {
         let u64_limb = state_u64s[i / 8];
         u64_limb.to_le_bytes()[i % 8]
     });

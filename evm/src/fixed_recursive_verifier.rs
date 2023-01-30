@@ -178,15 +178,15 @@ where
         stark_config: &StarkConfig,
     ) -> RootCircuitData<F, C, D> {
         let inner_common_data: [_; NUM_TABLES] =
-            std::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
+            core::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
 
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_config());
         let recursive_proofs =
-            std::array::from_fn(|i| builder.add_virtual_proof_with_pis::<C>(inner_common_data[i]));
-        let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
+            core::array::from_fn(|i| builder.add_virtual_proof_with_pis::<C>(inner_common_data[i]));
+        let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
             PublicInputs::from_vec(&recursive_proofs[i].public_inputs, stark_config)
         });
-        let index_verifier_data = std::array::from_fn(|_i| builder.add_virtual_target());
+        let index_verifier_data = core::array::from_fn(|_i| builder.add_virtual_target());
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(&mut builder);
         for pi in &pis {

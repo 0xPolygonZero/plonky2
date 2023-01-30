@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use itertools::Itertools;
-use maybe_rayon::*;
 use plonky2::field::types::{Field, PrimeField};
+use plonky2_maybe_rayon::*;
 
 use crate::curve::curve_summation::affine_multisummation_best;
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};

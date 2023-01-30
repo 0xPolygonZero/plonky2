@@ -9,7 +9,6 @@ use core::str::FromStr;
 
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
-use maybe_rayon::rayon;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
@@ -20,6 +19,7 @@ use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInpu
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
+use plonky2_maybe_rayon::rayon;
 use rand::rngs::OsRng;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;

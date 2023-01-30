@@ -41,8 +41,8 @@ impl Kernel {
         prover_inputs: HashMap<usize, ProverInputFn>,
     ) -> Self {
         let code_hash_bytes = keccak(&code).0;
-        let code_hash = std::array::from_fn(|i| {
-            u32::from_le_bytes(std::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
+        let code_hash = core::array::from_fn(|i| {
+            u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
         });
         let ordered_labels = global_labels
             .keys()

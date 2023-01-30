@@ -2,7 +2,6 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use maybe_rayon::*;
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
@@ -17,6 +16,7 @@ use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
+use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};

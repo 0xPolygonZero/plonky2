@@ -35,7 +35,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
 
         AllProofChallenges {
-            stark_challenges: std::array::from_fn(|i| {
+            stark_challenges: core::array::from_fn(|i| {
                 challenger.compact();
                 self.stark_proofs[i].proof.get_challenges(
                     &mut challenger,
