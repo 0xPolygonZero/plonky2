@@ -2,6 +2,11 @@
 name = "plonky2_evm"
 description = "Implementation of STARKs for the Ethereum Virtual Machine"
 version = "0.1.0"
+authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/mir-protocol/plonky2"
+keywords = ["EVM", "STARK", "Ethereum"]
+categories = ["cryptography"]
 edition = "2021"
 
 [dependencies]
@@ -15,13 +20,13 @@ hex-literal = "0.3.4"
 itertools = "0.10.3"
 keccak-hash = "0.10.0"
 log = "0.4.14"
-maybe_rayon = { path = "../maybe_rayon" }
+plonky2_maybe_rayon = "0.1.0"
 num = "0.4.0"
 once_cell = "1.13.0"
 pest = "2.1.3"
 pest_derive = "2.1.0"
-plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
-plonky2_util = { path = "../util" }
+plonky2 = { version = "0.1.1", default-features = false, features = ["timing"] }
+plonky2_util = { version = "0.1.0" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rlp = "0.5.1"
@@ -42,7 +47,7 @@ sha2 = "0.10.6"
 [features]
 default = ["parallel"]
 asmtools = ["hex"]
-parallel = ["plonky2/parallel", "maybe_rayon/parallel"]
+parallel = ["plonky2/parallel", "plonky2_maybe_rayon/parallel"]
 
 [[bin]]
 name = "assemble"

@@ -140,7 +140,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         return Err(ProgramError::StackUnderflow);
     }
 
-    let result = std::array::from_fn(|i| {
+    let result = core::array::from_fn(|i| {
         let address = MemoryAddress::new(
             state.registers.context,
             Segment::Stack,

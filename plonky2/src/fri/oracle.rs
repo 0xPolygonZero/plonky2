@@ -2,8 +2,8 @@ use alloc::format;
 use alloc::vec::Vec;
 
 use itertools::Itertools;
-use maybe_rayon::*;
 use plonky2_field::types::Field;
+use plonky2_maybe_rayon::*;
 
 use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;

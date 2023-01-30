@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 use core::slice;
 
-use maybe_rayon::*;
+use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
@@ -84,7 +84,7 @@ fn fill_subtree<F: RichField, H: Hasher<F>>(
         // Split `leaves` between both children.
         let (left_leaves, right_leaves) = leaves.split_at(leaves.len() / 2);
 
-        let (left_digest, right_digest) = maybe_rayon::join(
+        let (left_digest, right_digest) = plonky2_maybe_rayon::join(
             || fill_subtree::<F, H>(left_digests_buf, left_leaves),
             || fill_subtree::<F, H>(right_digests_buf, right_leaves),
         );

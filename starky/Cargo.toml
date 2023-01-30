@@ -2,11 +2,17 @@
 name = "starky"
 description = "Implementation of STARKs"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/mir-protocol/plonky2"
+keywords = ["cryptography", "STARK", "FRI"]
+categories = ["cryptography"]
 edition = "2021"
 
 [features]
 default = ["parallel", "std", "timing"]
-parallel = ["plonky2/parallel", "maybe_rayon/parallel"]
+parallel = ["plonky2/parallel", "plonky2_maybe_rayon/parallel"]
 std = ["anyhow/std", "plonky2/std"]
 timing = ["plonky2/timing"]
 
@@ -14,8 +20,8 @@ timing = ["plonky2/timing"]
 anyhow = { version = "1.0.40", default-features = false }
 itertools = { version = "0.10.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
-maybe_rayon = { path = "../maybe_rayon", default-features = false }
-plonky2 = { path = "../plonky2", default-features = false }
+plonky2_maybe_rayon = { version = "0.1.0", default-features = false }
+plonky2 = { version = "0.1.1", default-features = false }
 
 [dev-dependencies]
 env_logger = { version = "0.9.0", default-features = false }

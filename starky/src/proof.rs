@@ -2,7 +2,6 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use itertools::Itertools;
-use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{
@@ -16,6 +15,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::permutation::PermutationChallengeSet;

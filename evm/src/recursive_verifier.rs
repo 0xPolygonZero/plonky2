@@ -107,7 +107,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     where
         [(); C::Hasher::HASH_SIZE]:,
     {
-        let pis: [_; NUM_TABLES] = std::array::from_fn(|i| {
+        let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
             PublicInputs::from_vec(&self.recursive_proofs[i].public_inputs, inner_config)
         });
 
@@ -279,7 +279,7 @@ where
         num_permutation_zs,
     );
 
-    let init_challenger_state_target = std::array::from_fn(|_| builder.add_virtual_public_input());
+    let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
     let mut challenger =
         RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges = proof_target.get_challenges::<F, C>(

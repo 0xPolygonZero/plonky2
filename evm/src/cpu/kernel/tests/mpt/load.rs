@@ -134,7 +134,7 @@ fn load_all_mpts_hash() -> Result<()> {
 
 #[test]
 fn load_all_mpts_empty_branch() -> Result<()> {
-    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let children = core::array::from_fn(|_| PartialTrie::Empty.into());
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
