@@ -74,13 +74,18 @@ modexp_quotient_end:
     POP
     // stack: length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
 
-    // Multiply k_i (in scratch_2) by m and store in scratch_3.
+    // Multiply k_i (in scratch_2) by m and store in scratch_3, using scratch_4 as scratch space.
+
+    // Zero out scratch_4.
+
 
     // Prover supplies x_(i+1) = x_i^2 * b^y % m into scratch_2.
 
     // Add x_(i+1) (in scratch_2) into k_i * m (in scratch_3).
 
-    // Multiply x_i (in scratch_1) by x_i (in scratch_1) and store in scratch_4.
+    // Multiply x_i (in scratch_1) by x_i (in scratch_1) and store in scratch_4, using scratch_5 as scratch space.
+
+    // Zero out scratch_5.
 
     // If y == 1, multiply x_i^2 (in scratch_4) by b and store in scratch_5.
 
