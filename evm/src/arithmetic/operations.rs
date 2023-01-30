@@ -1,12 +1,13 @@
 use ethereum_types::U256;
 use plonky2::hash::hash_types::RichField;
+use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::{add, compare, modular, mul, sub};
 
 #[inline]
 fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
-    debug_assert!(LIMB_BITS == 16);
+    const_assert!(LIMB_BITS == 16);
     debug_assert!(out.len() == 4);
 
     out[0] = F::from_canonical_u16(x as u16);
@@ -16,7 +17,7 @@ fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
 }
 
 fn u256_to_array<F: RichField>(out: &mut [F], x: U256) {
-    debug_assert!(N_LIMBS == 16);
+    const_assert!(N_LIMBS == 16);
     debug_assert!(out.len() == N_LIMBS);
 
     u64_to_array(&mut out[0..4], x.0[0]);
