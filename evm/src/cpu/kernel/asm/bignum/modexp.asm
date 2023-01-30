@@ -36,13 +36,43 @@ modexp_loop:
     %mload_kernel_general
     // stack: e_last, i, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
     %mod_const(2)
-    // stack: y, i, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
-
-    
+    // stack: y = e_lst % 2 = e % 2, i, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
 
     // Verifier's goal: check that x_(i+1) + k_i * m = x_i^2 * b^y.
 
     // Prover supplies k_i = x_i^2 * b^y // m into scratch_2.
+
+    // stack: y, i, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    DUP8
+    // stack: scratch_1, y, i, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    %stack (s1, y, i, len, b, e, m) -> (len, s1, b, y, m, e, i)
+    // stack: length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    PUSH 0
+    // stack: j=0, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+modexp_quotient_loop:
+    // stack: j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    PROVER_INPUT(bignum_modexp::quotient)
+    // stack: PI, j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    DUP12
+    // stack: scratch_2, PI, j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    DUP3
+    // stack: j, scratch_2, PI, j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    ADD
+    // stack: scratch_2[j], PI, j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    %mstore_kernel_general
+    // stack: j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    %increment
+    // stack: j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    DUP2
+    DUP2
+    // stack: j+1, length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    NE
+    // stack: j+1 != length, length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    %jumpi(modexp_quotient_loop)
+modexp_quotient_end:
+    // stack: j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
+    POP
+    // stack: length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, retdest
 
     // Multiply k_i (in scratch_2) by m and store in scratch_3.
 
