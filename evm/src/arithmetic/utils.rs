@@ -5,58 +5,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::arithmetic::columns::{NUM_ARITH_COLUMNS, N_LIMBS};
-
-/// Emit an error message regarding unchecked range assumptions.
-/// Assumes the values in `cols` are `[cols[0], cols[0] + 1, ...,
-/// cols[0] + cols.len() - 1]`.
-///
-/// TODO: Hamish to delete this when he has implemented and integrated
-/// range checks.
-pub(crate) fn _range_check_error<const RC_BITS: u32>(
-    _file: &str,
-    _line: u32,
-    _cols: Range<usize>,
-    _signedness: &str,
-) {
-    // error!(
-    //     "{}:{}: arithmetic unit skipped {}-bit {} range-checks on columns {}--{}: not yet implemented",
-    //     line,
-    //     file,
-    //     RC_BITS,
-    //     signedness,
-    //     cols.start,
-    //     cols.end - 1,
-    // );
-}
-
-#[macro_export]
-macro_rules! range_check_error {
-    ($cols:ident, $rc_bits:expr) => {
-        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(
-            file!(),
-            line!(),
-            $cols,
-            "unsigned",
-        );
-    };
-    ($cols:ident, $rc_bits:expr, signed) => {
-        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(
-            file!(),
-            line!(),
-            $cols,
-            "signed",
-        );
-    };
-    ([$cols:ident], $rc_bits:expr) => {
-        $crate::arithmetic::utils::_range_check_error::<$rc_bits>(
-            file!(),
-            line!(),
-            &[$cols],
-            "unsigned",
-        );
-    };
-}
+use crate::arithmetic::columns::N_LIMBS;
 
 /// Return an array of `N` zeros of type T.
 pub(crate) fn pol_zero<T, const N: usize>() -> [T; N]
@@ -139,11 +88,11 @@ pub(crate) fn pol_sub_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     b: [ExtensionTarget<D>; N_LIMBS],
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
     let zero = builder.zero_extension();
-    let mut sum = [zero; 2 * N_LIMBS - 1];
+    let mut diff = [zero; 2 * N_LIMBS - 1];
     for i in 0..N_LIMBS {
-        sum[i] = builder.sub_extension(a[i], b[i]);
+        diff[i] = builder.sub_extension(a[i], b[i]);
     }
-    sum
+    diff
 }
 
 /// a(x) -= b(x), but must have deg(a) >= deg(b).
@@ -186,19 +135,13 @@ where
     res
 }
 
-pub(crate) fn pol_mul_wide_ext_circuit<
-    F: RichField + Extendable<D>,
-    const D: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
->(
+pub(crate) fn pol_mul_wide_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; M],
-    b: [ExtensionTarget<D>; N],
-) -> [ExtensionTarget<D>; P] {
+    a: [ExtensionTarget<D>; N_LIMBS],
+    b: [ExtensionTarget<D>; N_LIMBS],
+) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
     let zero = builder.zero_extension();
-    let mut res = [zero; P];
+    let mut res = [zero; 2 * N_LIMBS - 1];
     for (i, &ai) in a.iter().enumerate() {
         for (j, &bj) in b.iter().enumerate() {
             res[i + j] = builder.mul_add_extension(ai, bj, res[i + j]);
@@ -322,8 +265,8 @@ pub(crate) fn pol_adjoin_root_ext_circuit<
 ) -> [ExtensionTarget<D>; N] {
     let zero = builder.zero_extension();
     let mut res = [zero; N];
-    // res[deg] = NEG_ONE * root * a[0] + ZERO * zero
-    res[0] = builder.arithmetic_extension(F::NEG_ONE, F::ZERO, root, a[0], zero);
+    // res[0] = NEG_ONE * root * a[0] + ZERO * zero
+    res[0] = builder.mul_extension_with_const(F::NEG_ONE, root, a[0]);
     for deg in 1..N {
         // res[deg] = NEG_ONE * root * a[deg] + ONE * a[deg - 1]
         res[deg] = builder.arithmetic_extension(F::NEG_ONE, F::ONE, root, a[deg], a[deg - 1]);
@@ -368,10 +311,7 @@ where
 
 /// Read the range `value_idxs` of values from `lv` into an array of
 /// length `N`. Panics if the length of the range is not `N`.
-pub(crate) fn read_value<const N: usize, T: Copy>(
-    lv: &[T; NUM_ARITH_COLUMNS],
-    value_idxs: Range<usize>,
-) -> [T; N] {
+pub(crate) fn read_value<const N: usize, T: Copy>(lv: &[T], value_idxs: Range<usize>) -> [T; N] {
     lv[value_idxs].try_into().unwrap()
 }
 
@@ -379,7 +319,7 @@ pub(crate) fn read_value<const N: usize, T: Copy>(
 /// length `N`, interpreting the values as `u64`s. Panics if the
 /// length of the range is not `N`.
 pub(crate) fn read_value_u64_limbs<const N: usize, F: RichField>(
-    lv: &[F; NUM_ARITH_COLUMNS],
+    lv: &[F],
     value_idxs: Range<usize>,
 ) -> [u64; N] {
     let limbs: [_; N] = lv[value_idxs].try_into().unwrap();
@@ -390,7 +330,7 @@ pub(crate) fn read_value_u64_limbs<const N: usize, F: RichField>(
 /// length `N`, interpreting the values as `i64`s. Panics if the
 /// length of the range is not `N`.
 pub(crate) fn read_value_i64_limbs<const N: usize, F: RichField>(
-    lv: &[F; NUM_ARITH_COLUMNS],
+    lv: &[F],
     value_idxs: Range<usize>,
 ) -> [i64; N] {
     let limbs: [_; N] = lv[value_idxs].try_into().unwrap();

@@ -14,6 +14,8 @@ mod utils;
 pub mod arithmetic_stark;
 pub(crate) mod columns;
 
+pub mod operations;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
     Add,

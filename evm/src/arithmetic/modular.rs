@@ -122,7 +122,6 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
 /// Convert the base-2^16 representation of a number into a BigInt.
 ///
@@ -191,8 +190,8 @@ fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
 /// NB: `operation` can set the higher order elements in its result to
 /// zero if they are not used.
 fn generate_modular_op<F: RichField>(
-    lv: &mut [F; NUM_ARITH_COLUMNS],
-    nv: &mut [F; NUM_ARITH_COLUMNS],
+    lv: &mut [F],
+    nv: &mut [F],
     filter: usize,
     operation: fn([i64; N_LIMBS], [i64; N_LIMBS]) -> [i64; 2 * N_LIMBS - 1],
 ) {
@@ -263,37 +262,35 @@ fn generate_modular_op<F: RichField>(
     // Higher order terms of the product must be zero for valid quot and modulus:
     debug_assert!(&prod[2 * N_LIMBS..].iter().all(|&x| x == 0i64));
 
+    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(F::from_canonical_i64));
+    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(F::from_noncanonical_i64));
     // constr_poly must be zero when evaluated at x = β :=
     // 2^LIMB_BITS, hence it's divisible by (x - β). `aux_limbs` is
     // the result of removing that root.
-    let aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
+    let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, { 2 * N_LIMBS }>(constr_poly);
 
-    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
-
-    // Copy lo and hi halves of quot_limbs into their respective registers
-    for (i, &lo) in MODULAR_QUO_INPUT_LO.zip(&quot_limbs[..N_LIMBS]) {
-        lv[i] = F::from_noncanonical_i64(lo);
+    for c in aux_limbs.iter_mut() {
+        // we store the unsigned offset value c + 2^20.
+        *c += AUX_COEFF_ABS_MAX;
     }
-    for (i, &hi) in MODULAR_QUO_INPUT_HI.zip(&quot_limbs[N_LIMBS..]) {
-        nv[i] = F::from_noncanonical_i64(hi);
-    }
+    debug_assert!(aux_limbs.iter().all(|&c| c.abs() <= 2 * AUX_COEFF_ABS_MAX));
 
-    for (i, &c) in MODULAR_AUX_INPUT.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
-        nv[i] = F::from_noncanonical_i64(c);
+    for (i, &c) in MODULAR_AUX_INPUT_LO.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+        nv[i] = F::from_canonical_u16(c as u16);
     }
-
+    for (i, &c) in MODULAR_AUX_INPUT_HI.zip(&aux_limbs[..2 * N_LIMBS - 1]) {
+        nv[i] = F::from_canonical_u16((c >> 16) as u16);
+    }
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
-    nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
+    nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(F::from_canonical_i64));
+    nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * lv[IS_DIV];
 }
 
 /// Generate the output and auxiliary values for modular operations.
 ///
 /// `filter` must be one of `columns::IS_{ADDMOD,MULMOD,MOD}`.
-pub(crate) fn generate<F: RichField>(
-    lv: &mut [F; NUM_ARITH_COLUMNS],
-    nv: &mut [F; NUM_ARITH_COLUMNS],
-    filter: usize,
-) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], nv: &mut [F], filter: usize) {
+    debug_assert!(lv.len() == NUM_ARITH_COLUMNS && nv.len() == NUM_ARITH_COLUMNS);
     match filter {
         columns::IS_ADDMOD => generate_modular_op(lv, nv, filter, pol_add),
         columns::IS_SUBMOD => generate_modular_op(lv, nv, filter, pol_sub),
@@ -319,14 +316,6 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
 ) -> [P; 2 * N_LIMBS] {
-    range_check_error!(MODULAR_INPUT_0, 16);
-    range_check_error!(MODULAR_INPUT_1, 16);
-    range_check_error!(MODULAR_MODULUS, 16);
-    range_check_error!(MODULAR_QUO_INPUT_LO, 16);
-    range_check_error!(MODULAR_QUO_INPUT_HI, 16);
-    range_check_error!(MODULAR_AUX_INPUT, 20, signed);
-    range_check_error!(MODULAR_OUTPUT, 16);
-
     let mut modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
     let mod_is_zero = nv[MODULAR_MOD_IS_ZERO];
 
@@ -344,10 +333,14 @@ fn modular_constr_poly<P: PackedField>(
 
     let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
 
+    // Is 1 iff the operation is DIV and the denominator is zero.
+    let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
+    yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
+
     // Needed to compensate for adding mod_is_zero to modulus above,
     // since the call eval_packed_generic_lt() below subtracts modulus
-    // verify in the case of a DIV.
-    output[0] += mod_is_zero * lv[IS_DIV];
+    // to verify in the case of a DIV.
+    output[0] += div_denom_is_zero;
 
     // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
@@ -371,13 +364,12 @@ fn modular_constr_poly<P: PackedField>(
         true,
     );
     // restore output[0]
-    output[0] -= mod_is_zero * lv[IS_DIV];
+    output[0] -= div_denom_is_zero;
 
     // prod = q(x) * m(x)
     let quot = {
         let mut quot = [P::default(); 2 * N_LIMBS];
-        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
-        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot.copy_from_slice(&lv[MODULAR_QUO_INPUT]);
         quot
     };
 
@@ -391,13 +383,21 @@ fn modular_constr_poly<P: PackedField>(
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign(&mut constr_poly, &output);
 
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
+    let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
+
     // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
     let mut aux = [P::ZEROS; 2 * N_LIMBS];
-    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
-        aux[i] = nv[j];
+    for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
+        // MODULAR_AUX_INPUT elements were offset by 2^20 in
+        // generation, so we undo that here.
+        *c = nv[i] - offset;
+    }
+    // add high 16-bits of aux input
+    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_HI) {
+        *c += base * nv[j];
     }
 
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     pol_add_assign(&mut constr_poly, &pol_adjoin_root(aux, base));
 
     constr_poly
@@ -412,9 +412,9 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     // NB: The CTL code guarantees that filter is 0 or 1, i.e. that
     // only one of the operations below is "live".
     let filter = lv[columns::IS_ADDMOD]
+        + lv[columns::IS_SUBMOD]
         + lv[columns::IS_MULMOD]
         + lv[columns::IS_MOD]
-        + lv[columns::IS_SUBMOD]
         + lv[columns::IS_DIV];
 
     // Ensure that this operation is not the last row of the table;
@@ -480,7 +480,12 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
     let mut output = read_value::<N_LIMBS, _>(lv, MODULAR_OUTPUT);
-    output[0] = builder.mul_add_extension(mod_is_zero, lv[IS_DIV], output[0]);
+
+    let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
+    let t = builder.mul_sub_extension(mod_is_zero, lv[IS_DIV], div_denom_is_zero);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint_transition(builder, t);
+    output[0] = builder.add_extension(output[0], div_denom_is_zero);
 
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     let one = builder.one_extension();
@@ -497,13 +502,11 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         is_less_than,
         true,
     );
-    output[0] =
-        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], output[0]);
+    output[0] = builder.sub_extension(output[0], div_denom_is_zero);
     let quot = {
         let zero = builder.zero_extension();
         let mut quot = [zero; 2 * N_LIMBS];
-        quot[..N_LIMBS].copy_from_slice(&lv[MODULAR_QUO_INPUT_LO]);
-        quot[N_LIMBS..].copy_from_slice(&nv[MODULAR_QUO_INPUT_HI]);
+        quot.copy_from_slice(&lv[MODULAR_QUO_INPUT]);
         quot
     };
 
@@ -516,13 +519,19 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
+    let offset =
+        builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
     let zero = builder.zero_extension();
     let mut aux = [zero; 2 * N_LIMBS];
-    for (i, j) in MODULAR_AUX_INPUT.enumerate() {
-        aux[i] = nv[j];
+    for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
+        *c = builder.sub_extension(nv[i], offset);
+    }
+    let base = F::from_canonical_u64(1u64 << LIMB_BITS);
+    for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_HI) {
+        *c = builder.mul_const_add_extension(base, nv[j], *c);
     }
 
-    let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << LIMB_BITS));
+    let base = builder.constant_extension(base.into());
     let t = pol_adjoin_root_ext_circuit(builder, aux, base);
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &t);
 
