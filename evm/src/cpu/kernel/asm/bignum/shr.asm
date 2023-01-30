@@ -1,7 +1,7 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Shifts a given bignum right by one bit.
+// Shifts a given bignum right by one bit (in place).
 global shr_bignum:
     // stack: len, start_loc, retdest
     DUP2
