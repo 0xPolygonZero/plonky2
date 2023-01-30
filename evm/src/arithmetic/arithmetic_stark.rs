@@ -30,15 +30,14 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         let n_rows = cols[0].len();
         debug_assert!(cols.iter().all(|col| col.len() == n_rows));
 
-        // TODO: This column is constant; do I really need to set it each time?
         for i in 0..RANGE_MAX {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(i);
         }
 
         // For each column c in cols, generate the range-check
-        // permuations and put them in the corresponding range-check
+        // permutations and put them in the corresponding range-check
         // columns rc_c and rc_c+1.
-        for (c, rc_c) in (0..cols.len()).zip(columns::RC_COLS.step_by(2)) {
+        for (c, rc_c) in columns::SHARED_COLS.zip(columns::RC_COLS.step_by(2)) {
             let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[columns::RANGE_COUNTER]);
             cols[rc_c].copy_from_slice(&col_perm);
             cols[rc_c + 1].copy_from_slice(&table_perm);
@@ -56,7 +55,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         let max_rows = std::cmp::max(2 * operations.len(), RANGE_MAX);
         let mut trace_rows = Vec::with_capacity(max_rows);
 
-        for op in operations.iter() {
+        for op in operations {
             let (row1, maybe_row2) = op.to_rows();
             trace_rows.push(row1);
 
@@ -74,10 +73,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         let mut trace_cols = transpose(&trace_rows);
         self.generate_range_checks(&mut trace_cols);
 
-        trace_cols
-            .into_iter()
-            .map(|col| PolynomialValues::new(col))
-            .collect()
+        trace_cols.into_iter().map(PolynomialValues::new).collect()
     }
 }
 
@@ -279,8 +275,8 @@ mod tests {
             .map(|_| {
                 SimpleBinaryOp::new(
                     columns::IS_MUL,
-                    U256::from(rng.gen::<u8>()),
-                    U256::from(rng.gen::<u8>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
                 )
             })
             .collect::<Vec<_>>();
@@ -303,9 +299,9 @@ mod tests {
             .map(|_| {
                 ModularBinaryOp::new(
                     columns::IS_MULMOD,
-                    U256::from(rng.gen::<u8>()),
-                    U256::from(rng.gen::<u8>()),
-                    U256::from(rng.gen::<u8>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
                 )
             })
             .collect::<Vec<_>>();

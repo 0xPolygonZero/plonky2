@@ -262,8 +262,8 @@ fn generate_modular_op<F: RichField>(
     // Higher order terms of the product must be zero for valid quot and modulus:
     debug_assert!(&prod[2 * N_LIMBS..].iter().all(|&x| x == 0i64));
 
-    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
-    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(|c| F::from_noncanonical_i64(c)));
+    lv[MODULAR_OUTPUT].copy_from_slice(&output_limbs.map(F::from_canonical_i64));
+    lv[MODULAR_QUO_INPUT].copy_from_slice(&quot_limbs.map(F::from_noncanonical_i64));
     // constr_poly must be zero when evaluated at x = β :=
     // 2^LIMB_BITS, hence it's divisible by (x - β). `aux_limbs` is
     // the result of removing that root.
@@ -282,7 +282,7 @@ fn generate_modular_op<F: RichField>(
         nv[i] = F::from_canonical_u16((c >> 16) as u16);
     }
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
-    nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(|c| F::from_canonical_i64(c)));
+    nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(F::from_canonical_i64));
     nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * lv[IS_DIV];
 }
 

@@ -25,11 +25,11 @@ use crate::arithmetic::sub::u256_sub_br;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub(crate) fn generate<F: RichField>(lv: &mut [F], op: usize) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
     let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
     let input1 = read_value_u64_limbs(lv, CMP_INPUT_1);
 
-    let (diff, br) = match op {
+    let (diff, br) = match filter {
         // input0 - input1 == diff + br*2^256
         IS_LT => u256_sub_br(input0, input1),
         // input1 - input0 == diff + br*2^256

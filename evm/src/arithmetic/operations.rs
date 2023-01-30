@@ -6,16 +6,17 @@ use crate::arithmetic::{add, compare, modular, mul, sub};
 
 #[inline]
 fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
+    debug_assert!(LIMB_BITS == 16);
     debug_assert!(out.len() == 4);
 
-    const MASK: u64 = (1 << 16) - 1;
-    out[0] = F::from_canonical_u64(x & MASK);
-    out[1] = F::from_canonical_u64((x >> 16) % MASK);
-    out[2] = F::from_canonical_u64((x >> 32) % MASK);
-    out[3] = F::from_canonical_u64((x >> 48) % MASK);
+    out[0] = F::from_canonical_u16(x as u16);
+    out[1] = F::from_canonical_u16((x >> 16) as u16);
+    out[2] = F::from_canonical_u16((x >> 32) as u16);
+    out[3] = F::from_canonical_u16((x >> 48) as u16);
 }
 
 fn u256_to_array<F: RichField>(out: &mut [F], x: U256) {
+    debug_assert!(N_LIMBS == 16);
     debug_assert!(out.len() == N_LIMBS);
 
     u64_to_array(&mut out[0..4], x.0[0]);
@@ -33,22 +34,34 @@ pub trait Operation<F: RichField> {
 }
 
 pub struct SimpleBinaryOp {
-    op: usize,
+    /// The operation is identified using the associated filter from
+    /// `columns::IS_ADD` etc., stored in `op_filter`.
+    op_filter: usize,
     input0: U256,
     input1: U256,
 }
 
 impl SimpleBinaryOp {
-    pub fn new(op: usize, input0: U256, input1: U256) -> Self {
-        assert!(op == IS_ADD || op == IS_SUB || op == IS_MUL || op == IS_LT || op == IS_GT);
-        Self { op, input0, input1 }
+    pub fn new(op_filter: usize, input0: U256, input1: U256) -> Self {
+        assert!(
+            op_filter == IS_ADD
+                || op_filter == IS_SUB
+                || op_filter == IS_MUL
+                || op_filter == IS_LT
+                || op_filter == IS_GT
+        );
+        Self {
+            op_filter,
+            input0,
+            input1,
+        }
     }
 }
 
 impl<F: RichField> Operation<F> for SimpleBinaryOp {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
         let mut row = vec![F::ZERO; NUM_ARITH_COLUMNS];
-        row[self.op] = F::ONE;
+        row[self.op_filter] = F::ONE;
 
         // Each of these operations uses the same columns for input; the
         // asserts ensure no-one changes this.
@@ -64,13 +77,13 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
         u256_to_array(&mut row[GENERAL_INPUT_0], self.input0);
         u256_to_array(&mut row[GENERAL_INPUT_1], self.input1);
 
-        // This is ugly, but it avoids the huge amount of boilderplate
+        // This is ugly, but it avoids the huge amount of boilerplate
         // required to dispatch directly to each add/sub/etc. operation.
-        match self.op {
+        match self.op_filter {
             IS_ADD => add::generate(&mut row),
             IS_SUB => sub::generate(&mut row),
             IS_MUL => mul::generate(&mut row),
-            IS_LT | IS_GT => compare::generate(&mut row, self.op),
+            IS_LT | IS_GT => compare::generate(&mut row, self.op_filter),
             _ => panic!("unrecognised operation"),
         }
 
@@ -79,17 +92,17 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
 }
 
 pub struct ModularBinaryOp {
-    op: usize,
+    op_filter: usize,
     input0: U256,
     input1: U256,
     modulus: U256,
 }
 
 impl ModularBinaryOp {
-    pub fn new(op: usize, input0: U256, input1: U256, modulus: U256) -> Self {
-        assert!(op == IS_ADDMOD || op == IS_SUBMOD || op == IS_MULMOD);
+    pub fn new(op_filter: usize, input0: U256, input1: U256, modulus: U256) -> Self {
+        assert!(op_filter == IS_ADDMOD || op_filter == IS_SUBMOD || op_filter == IS_MULMOD);
         Self {
-            op,
+            op_filter,
             input0,
             input1,
             modulus,
@@ -98,7 +111,7 @@ impl ModularBinaryOp {
 }
 
 fn modular_to_rows_helper<F: RichField>(
-    op: usize,
+    op_filter: usize,
     input0: U256,
     input1: U256,
     modulus: U256,
@@ -106,20 +119,20 @@ fn modular_to_rows_helper<F: RichField>(
     let mut row1 = vec![F::ZERO; NUM_ARITH_COLUMNS];
     let mut row2 = vec![F::ZERO; NUM_ARITH_COLUMNS];
 
-    row1[op] = F::ONE;
+    row1[op_filter] = F::ONE;
 
     u256_to_array(&mut row1[MODULAR_INPUT_0], input0);
     u256_to_array(&mut row1[MODULAR_INPUT_1], input1);
     u256_to_array(&mut row1[MODULAR_MODULUS], modulus);
 
-    modular::generate(&mut row1, &mut row2, op);
+    modular::generate(&mut row1, &mut row2, op_filter);
 
     (row1, Some(row2))
 }
 
 impl<F: RichField> Operation<F> for ModularBinaryOp {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
-        modular_to_rows_helper(self.op, self.input0, self.input1, self.modulus)
+        modular_to_rows_helper(self.op_filter, self.input0, self.input1, self.modulus)
     }
 }
 

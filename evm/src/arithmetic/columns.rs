@@ -44,6 +44,7 @@ pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 /// 5 * N_LIMBS columns. (There are hence N_LIMBS "wasted columns" in
 /// the second row.)
 pub(crate) const NUM_SHARED_COLS: usize = 6 * N_LIMBS;
+pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + NUM_SHARED_COLS;
 
 pub(crate) const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 pub(crate) const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
@@ -123,6 +124,6 @@ pub(crate) const DIV_OUTPUT: Range<usize> =
 // and RC_COLS[2i+1].
 pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
-pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER..RANGE_COUNTER + 2 * NUM_SHARED_COLS;
+pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + 1 + 2 * NUM_SHARED_COLS;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + NUM_RANGE_CHECK_COLS;
