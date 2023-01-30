@@ -13,7 +13,7 @@ fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 
     let a_limbs = biguint_to_mem_vec(a.clone());
     let length = a_limbs.len().into();
-    
+
     (a, length, a_limbs)
 }
 
@@ -34,9 +34,7 @@ fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     (a, b, length, memory)
 }
 
-fn prepare_three_bignums(
-    bit_size: usize,
-) -> (BigUint, BigUint, BigUint, U256, Vec<U256>) {
+fn prepare_three_bignums(bit_size: usize) -> (BigUint, BigUint, BigUint, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
     let (a, b) = {
         let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
@@ -55,13 +53,7 @@ fn prepare_three_bignums(
 
     let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]].concat();
 
-    (
-        a,
-        b,
-        m,
-        length,
-        memory,
-    )
+    (a, b, m, length, memory)
 }
 
 #[test]
@@ -78,7 +70,7 @@ fn test_shr_bignum() -> Result<()> {
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, retdest];
     initial_stack.reverse();
     let mut interpreter = Interpreter::new_with_kernel(shr_bignum, initial_stack);
-    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.set_kernel_general_memory(memory);
     interpreter.run()?;
 
     dbg!(interpreter.stack());
@@ -234,8 +226,7 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, m, length, mut memory) =
-        prepare_three_bignums(1000);
+    let (a, b, m, length, mut memory) = prepare_three_bignums(1000);
 
     let len = length.as_usize();
     memory.resize(len * 10, 0.into());
