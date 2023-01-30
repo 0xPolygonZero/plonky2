@@ -73,6 +73,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/main.asm"),
         include_str!("asm/memory/core.asm"),
         include_str!("asm/memory/memcpy.asm"),
+        include_str!("asm/memory/memset.asm"),
         include_str!("asm/memory/metadata.asm"),
         include_str!("asm/memory/packing.asm"),
         include_str!("asm/memory/syscalls.asm"),

@@ -4,3 +4,10 @@
     %jump(memcpy)
 %%after:
 %endmacro
+
+%macro clear_kernel_general
+    // stack: dst, len
+    %stack (dst, len) -> (0, @SEGMENT_KERNEL_GENERAL, dst, 0, len, %%after)
+    %jump(memset)
+%%after:
+%endmacro
