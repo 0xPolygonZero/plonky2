@@ -7,53 +7,47 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 
-fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
-    let mut rng = rand::thread_rng();
-    let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+fn pack_bignums(biguints: &[BigUint]) -> Vec<U256> {
+    biguints
+        .iter()
+        .flat_map(|biguint| biguint_to_mem_vec(biguint.clone()))
+        .collect()
+}
 
+fn gen_bignum(bit_size: usize) -> BigUint {
+    let mut rng = rand::thread_rng();
+    rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap()
+}
+
+fn bignum_len(a: &BigUint) -> usize {
+    (a.bits() as usize) / 128 + 1
+}
+
+fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {
+    let mut rng = rand::thread_rng();
+    let (a, b) = {
+        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        (a.clone().max(b.clone()), a.min(b))
+    };
+
+    (a, b)
+}
+
+fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+    let a = gen_bignum(bit_size);
+    let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
-    let length = a_limbs.len().into();
 
     (a, length, a_limbs)
 }
 
 fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
-    let mut rng = rand::thread_rng();
-    let (a, b) = {
-        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-        (a.clone().max(b.clone()), a.min(b))
-    };
-
-    let a_limbs = biguint_to_mem_vec(a.clone());
-    let b_limbs = biguint_to_mem_vec(b.clone());
-    let length: U256 = a_limbs.len().into();
-
-    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..]].concat();
+    let (a, b) = gen_two_bignums_ordered(bit_size);
+    let length: U256 = bignum_len(&a).into();
+    let memory = pack_bignums(&[a.clone(), b.clone()]);
 
     (a, b, length, memory)
-}
-
-fn prepare_three_bignums(bit_size: usize) -> (BigUint, BigUint, BigUint, U256, Vec<U256>) {
-    let mut rng = rand::thread_rng();
-    let (a, b) = {
-        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-        (a.clone().max(b.clone()), a.min(b))
-    };
-
-    let m = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-
-    let a_limbs = biguint_to_mem_vec(a.clone());
-    let mut b_limbs = biguint_to_mem_vec(b.clone());
-    let mut m_limbs = biguint_to_mem_vec(m.clone());
-    let length: U256 = a_limbs.len().max(m_limbs.len()).into();
-    b_limbs.resize(length.as_usize(), 0.into());
-    m_limbs.resize(length.as_usize(), 0.into());
-
-    let memory: Vec<U256> = [&a_limbs[..], &b_limbs[..], &m_limbs[..]].concat();
-
-    (a, b, m, length, memory)
 }
 
 #[test]
@@ -226,7 +220,11 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let (a, b, m, length, mut memory) = prepare_three_bignums(1000);
+    let a = gen_bignum(1000);
+    let b = gen_bignum(1000);
+    let m = gen_bignum(1000);
+    let length: U256 = bignum_len(&a).max(bignum_len(&b)).max(bignum_len(&m)).into();
+    let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()]);
 
     // Determine expected result.
     let result = (a * b) % m;
@@ -281,7 +279,11 @@ fn test_modmul_bignum() -> Result<()> {
 
 #[test]
 fn test_modexp_bignum() -> Result<()> {
-    let (b, e, m, length, mut memory) = prepare_three_bignums(1000);
+    let b = gen_bignum(1000);
+    let e = gen_bignum(150);
+    let m = gen_bignum(1000);
+    let length: U256 = bignum_len(&b).max(bignum_len(&e)).max(bignum_len(&m)).into();
+    let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()]);
 
     // Determine expected result.
     let result = b.modpow(&e, &m);
