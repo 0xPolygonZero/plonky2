@@ -223,7 +223,10 @@ fn test_modmul_bignum() -> Result<()> {
     let a = gen_bignum(1000);
     let b = gen_bignum(1000);
     let m = gen_bignum(1000);
-    let length: U256 = bignum_len(&a).max(bignum_len(&b)).max(bignum_len(&m)).into();
+    let length: U256 = bignum_len(&a)
+        .max(bignum_len(&b))
+        .max(bignum_len(&m))
+        .into();
     let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()]);
 
     // Determine expected result.
@@ -239,7 +242,7 @@ fn test_modmul_bignum() -> Result<()> {
     let scratch_2 = length * 5;
     let scratch_3 = length * 7;
     let scratch_4 = length * 9;
-    
+
     memory.resize(length.as_usize() * 10, 0.into());
 
     // Prepare stack.
@@ -282,7 +285,10 @@ fn test_modexp_bignum() -> Result<()> {
     let b = gen_bignum(1000);
     let e = gen_bignum(150);
     let m = gen_bignum(1000);
-    let length: U256 = bignum_len(&b).max(bignum_len(&e)).max(bignum_len(&m)).into();
+    let length: U256 = bignum_len(&b)
+        .max(bignum_len(&e))
+        .max(bignum_len(&m))
+        .into();
     let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()]);
 
     // Determine expected result.
