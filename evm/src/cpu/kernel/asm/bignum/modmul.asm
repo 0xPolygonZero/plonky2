@@ -59,7 +59,7 @@ modmul_quotient_loop:
     DUP2
     DUP2
     // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
-    NE
+    %neq
     // stack: i+1!=length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     %jumpi(modmul_quotient_loop)
 modmul_quotient_end:

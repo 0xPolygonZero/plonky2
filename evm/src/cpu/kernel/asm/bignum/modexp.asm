@@ -66,7 +66,7 @@ modexp_quotient_loop:
     DUP2
     DUP2
     // stack: j+1, length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    NE
+    %neq
     // stack: j+1 != length, length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jumpi(modexp_quotient_loop)
 modexp_quotient_end:
@@ -77,7 +77,7 @@ modexp_quotient_end:
     // Multiply k_i (in scratch_2) by m and store in scratch_3, using scratch_4 as scratch space.
     PUSH modexp_return_1
     // stack: modexp_return_1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %stack (return, len, s1, b, y, m, e, i, out, s11, s2, s3, s4) -> (len, s2, m, s3, s4, return, len, b, e, m, i, y out, s1, s2, s3, s4)
+    %stack (return, len, s1, b, y, m, e, i, out, s11, s2, s3, s4) -> (len, s2, m, s3, s4, return, len, b, e, m, i, y, out, s1, s2, s3, s4)
     // stack: length, scratch_2, m_start_loc, scratch_3, scratch_4, modexp_return_1, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jump(mul_bignum)
 modexp_return_1:
@@ -113,7 +113,7 @@ modexp_remainder_loop:
     DUP2
     DUP2
     // stack: j+1, length, j+1, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    NE
+    %neq
     // stack: j+1 != length, j+1, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jumpi(modexp_remainder_loop)
 modexp_remainder_end:
