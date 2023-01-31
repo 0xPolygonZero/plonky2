@@ -228,9 +228,6 @@ fn test_mul_bignum() -> Result<()> {
 fn test_modmul_bignum() -> Result<()> {
     let (a, b, m, length, mut memory) = prepare_three_bignums(1000);
 
-    let len = length.as_usize();
-    memory.resize(len * 10, 0.into());
-
     // Determine expected result.
     let result = (a * b) % m;
     let expected_result: Vec<U256> = biguint_to_mem_vec(result);
@@ -244,6 +241,8 @@ fn test_modmul_bignum() -> Result<()> {
     let scratch_2 = length * 5;
     let scratch_3 = length * 7;
     let scratch_4 = length * 9;
+    
+    memory.resize(length.as_usize() * 10, 0.into());
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -267,6 +266,65 @@ fn test_modmul_bignum() -> Result<()> {
     interpreter.set_kernel_general_memory(memory);
 
     // Run modmul function.
+    interpreter.run()?;
+
+    // Determine actual result.
+    let new_memory = interpreter.get_kernel_general_memory();
+    let output_location: usize = output_loc.try_into().unwrap();
+    let actual_result: Vec<_> =
+        new_memory[output_location..output_location + expected_result.len()].into();
+
+    assert_eq!(actual_result, expected_result);
+
+    Ok(())
+}
+
+#[test]
+fn test_modexp_bignum() -> Result<()> {
+    let (b, e, m, length, mut memory) = prepare_three_bignums(1000);
+
+    // Determine expected result.
+    let result = b.modpow(&e, &m);
+    let expected_result: Vec<U256> = biguint_to_mem_vec(result);
+
+    // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
+    let b_start_loc = 0.into();
+    let e_start_loc = length;
+    let m_start_loc = length * 2;
+    let output_loc = length * 3;
+    let scratch_1 = length * 4;
+    let scratch_2 = length * 5;
+    let scratch_3 = length * 7;
+    let scratch_4 = length * 9;
+    let scratch_5 = length * 11;
+    let scratch_6 = length * 13;
+
+    memory.resize(length.as_usize() * 14, 0.into());
+
+    // Prepare stack.
+    let retdest = 0xDEADBEEFu32.into();
+    let mut initial_stack: Vec<U256> = vec![
+        length,
+        b_start_loc,
+        e_start_loc,
+        m_start_loc,
+        output_loc,
+        scratch_1,
+        scratch_2,
+        scratch_3,
+        scratch_4,
+        scratch_5,
+        scratch_6,
+        retdest,
+    ];
+    initial_stack.reverse();
+
+    // Prepare interpreter.
+    let modexp_bignum = KERNEL.global_labels["modexp_bignum"];
+    let mut interpreter = Interpreter::new_with_kernel(modexp_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
+
+    // Run modexp function.
     interpreter.run()?;
 
     // Determine actual result.
