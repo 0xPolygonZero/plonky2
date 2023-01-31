@@ -156,11 +156,9 @@ modmul_check_loop:
     // stack: n-1, i+1, j+1, retdest
     DUP1
     // stack: n-1, n-1, i+1, j+1, retdest
-    ISZERO
-    %jumpi(modmul_check_end)
-    %jump(modmul_check_loop)
+    %jumpi(modmul_check_loop)
 modmul_check_end:
     // stack: n-1, i+1, j+1, retdest
-    %stack (vals: 3) -> ()
+    %pop3
     // stack: retdest
     JUMP
