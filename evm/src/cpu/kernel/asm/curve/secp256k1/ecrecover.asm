@@ -6,19 +6,7 @@ global ecrecover:
     %ecrecover_input_check
     // stack: isValid(v,r,s), hash, v, r, s, retdest
 
-    // Lift r to an elliptic curve point if possible.
-    SWAP2
-    // stack: v, hash, isValid(v,r,s), r, s, retdest
-    DUP4
-    // stack: r, v, hash, isValid(v,r,s), r, s, retdest
-
-    // Compute v-27 which gives the parity of the y-coordinate of the lifted point.
-    SWAP1
-    // stack: v, r, hash, isValid(v,r,s), r, s, retdest
-    PUSH 27
-    // stack: 27, v, r, hash, isValid(v,r,s), r, s, retdest
-    SWAP1
-    // stack: v, 27, r, hash, isValid(v,r,s), r, s, retdest
+    %stack (valid, hash, v, r, s, retdest) -> (v, 27, r, hash, valid, r, s, retdest)
     SUB
     // stack: v - 27, r, hash, isValid(v,r,s), r, s, retdest
     SWAP1
