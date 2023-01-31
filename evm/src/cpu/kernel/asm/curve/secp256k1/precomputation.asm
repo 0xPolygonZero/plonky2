@@ -1,16 +1,20 @@
 // Initial stack: Gneg, Qneg, Qx, Qy, retdest
-// Compute a*G ± b*phi(G) + c*Q ± d*phi(Q) for a,b,c,d in {0,1}^4 and store it at location `8a+4b+2c+d` in the SEGMENT_KERNEL_ECDSA_TABLE segment.
+// Compute a*G ± b*phi(G) + c*Q ± d*phi(Q) for a,b,c,d in {0,1}^4 and store its x-coordinate at location `2*(8a+4b+2c+d)` and its y-coordinate at location `2*(8a+4b+2c+d)+1` in the SEGMENT_KERNEL_ECDSA_TABLE segment.
 global precompute_table:
     // First store G, ± phi(G), G ± phi(G)
+    // Use Gneg for the ±, e.g., ±phi(G) is computed as `Gneg * (-phi(G)) + (1-Gneg)*phi(G)` (note only the y-coordinate needs to be filtered).
     // stack: Gneg, Qneg, Qx, Qy, retdest
     PUSH 32670510020758816978083085130507043184471273380659243275938904335757337482424 PUSH 17 PUSH 55066263022277343669578718895168534326250603453777594175500187360389116729240 PUSH 16
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+
     DUP1 DUP1 %mul_const(32670510020758816978083085130507043184471273380659243275938904335757337482424) SWAP1 PUSH 1 SUB %mul_const(83121579216557378445487899878180864668798711284981320763518679672151497189239) ADD
     PUSH 9 PUSH 85340279321737800624759429340272274763154997815782306132637707972559913914315  PUSH 8
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+
     DUP1 DUP1 %mul_const(83121579216557378445487899878180864668798711284981320763518679672151497189239) SWAP1 PUSH 1 SUB %mul_const(100652675408719987021357910538015346127426077519185866739835120963490438734674) ADD
     PUSH 25
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+
     DUP1 %mul_const(91177636130617246552803821781935006617134368061721227770777272682868638699771) SWAP1 PUSH 1 SUB %mul_const(66837770201594535779099350687042404727408598709762866365333192677982385899440) ADD
     PUSH 24
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
@@ -24,10 +28,9 @@ global precompute_table:
     MUL SWAP1 PUSH 1 SUB
     // stack: 1-Qneg, Qneg*Qy, betaQx, Qx, Qy, retdest
     DUP5 PUSH @SECP_BASE SUB MUL ADD
-    // SUB MUL SWAP1 DUP5 PUSH @SECP_BASE SUB MUL ADD
     %stack (selectQy, betaQx, Qx, Qy, retdest) -> (2, betaQx, 3, selectQy, betaQx, selectQy, Qx, Qy, precompute_table_contd, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
-    %jump(ec_add_valid_points_secp)
+    %jump(ec_add_valid_points_no_edge_case_secp)
 precompute_table_contd:
     %stack (x, y, retdest) -> (6, x, 7, y, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
@@ -44,7 +47,7 @@ precompute_table_loop:
     PUSH 8 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     // stack: Gx, Gy, x, y, precompute_table_loop_contd, x, y, i, retdest
     %jump(ec_add_valid_points_secp)
-global precompute_table_loop_contd:
+precompute_table_loop_contd:
     %stack (Rx, Ry, x, y, i, retdest) -> (i, 8, Rx, i, 9, Ry, x, y, i, retdest)
     ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     DUP2 DUP2
@@ -59,7 +62,7 @@ precompute_table_loop_contd2:
     PUSH 24 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %stack (Gx, Gy, x, y, i, retdest) -> (Gx, Gy, x, y, precompute_table_loop_contd3, i, retdest)
     %jump(ec_add_valid_points_secp)
-global precompute_table_loop_contd3:
+precompute_table_loop_contd3:
     %stack (Rx, Ry, i, retdest) -> (i, 24, Rx, i, 25, Ry, i, retdest)
     ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %add_const(2)

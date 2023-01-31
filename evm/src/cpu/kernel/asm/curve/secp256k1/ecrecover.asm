@@ -85,7 +85,7 @@ ecdsa_after_glv_b:
     %jump(precompute_table)
 ecdsa_after_precompute:
     // stack: a0, a1, b0, b1, retdest
-    PUSH 0 PUSH 0 PUSH 129
+    PUSH 0 PUSH 0 PUSH 129 // 129 is the bit length of the GLV exponents
     // stack: i, accx, accy, a0, a1, b0, b1, retdest
 ecdsa_after_precompute_loop:
     %stack (i, accx, accy, a0, a1, b0, b1, retdest) -> (i, b1, i, accx, accy, a0, a1, b0, b1, retdest)

@@ -33,9 +33,9 @@ global ec_add_valid_points_secp:
     EQ
     // stack: x0 == x1, x0, y0, x1, y1, retdest
     %jumpi(ec_add_equal_first_coord)
+// Standard affine addition formula.
+global ec_add_valid_points_no_edge_case_secp:
     // stack: x0, y0, x1, y1, retdest
-
-    // Otherwise, we can use the standard formula.
     // Compute lambda = (y0 - y1)/(x0 - x1)
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
@@ -174,27 +174,13 @@ ec_add_equal_first_coord:
 // Assumption: x0 == x1 and y0 == y1
 // Standard doubling formula.
 ec_add_equal_points:
-    // stack: x0, y0, x1, y1, retdest
-
     // Compute lambda = 3/2 * x0^2 / y0
-    %secp_base
-    // stack: N, x0, y0, x1, y1, retdest
-    %secp_base
-    // stack: N, N, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: x0, N, N, x0, y0, x1, y1, retdest
-    DUP1
-    // stack: x0, x0, N, N, x0, y0, x1, y1, retdest
+    %stack (x0, y0, x1, y1, retdest) -> (x0, x0, @SECP_BASE, @SECP_BASE, x0, y0, x1, y1, retdest)
     MULMOD
-    // stack: x0^2, N, x0, y0, x1, y1, retdest with
     PUSH 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe19 // 3/2 in the base field
-    // stack: 3/2, x0^2, N, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: 3/2 * x0^2, x0, y0, x1, y1, retdest
     DUP3
-    // stack: y0, 3/2 * x0^2, x0, y0, x1, y1, retdest
     %moddiv_secp_base
-    // stack: lambda, x0, y0, x1, y1, retdest
     %jump(ec_add_valid_points_with_lambda)
 
 // Secp256k1 elliptic curve doubling.
@@ -205,9 +191,16 @@ global ec_double_secp:
     DUP2 DUP2 %ec_isidentity
     // stack: (x,y)==(0,0), x, y, retdest
     %jumpi(retself)
-    DUP2 DUP2
-    // stack: x, y, x, y, retdest
-    %jump(ec_add_equal_points)
+
+    // Compute lambda = 3/2 * x0^2 / y0
+    %stack (x, y, retdest) -> (x, x, @SECP_BASE, @SECP_BASE, x, y, retdest)
+    MULMOD
+    PUSH 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe19 // 3/2 in the base field
+    MULMOD
+    DUP3
+    %moddiv_secp_base
+    %stack (lambda, x, y, retdest) -> (lambda, x, y, x, y, retdest)
+    %jump(ec_add_valid_points_with_lambda)
 
 retself:
     %stack (x, y, retdest) -> (retdest, x, y)

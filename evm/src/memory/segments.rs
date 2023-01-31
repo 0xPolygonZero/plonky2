@@ -39,15 +39,11 @@ pub(crate) enum Segment {
     /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
     ShiftTable = 16,
     JumpdestBits = 17,
-    WnafA = 18,
-    WnafB = 19,
-    WnafC = 20,
-    WnafD = 21,
-    EcdsaTable = 22,
+    EcdsaTable = 18,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 23;
+    pub(crate) const COUNT: usize = 19;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -69,10 +65,6 @@ impl Segment {
             Self::TrieEncodedChildLen,
             Self::ShiftTable,
             Self::JumpdestBits,
-            Self::WnafA,
-            Self::WnafB,
-            Self::WnafC,
-            Self::WnafD,
             Self::EcdsaTable,
         ]
     }
@@ -98,10 +90,6 @@ impl Segment {
             Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
-            Segment::WnafA => "SEGMENT_KERNEL_WNAF_A",
-            Segment::WnafB => "SEGMENT_KERNEL_WNAF_B",
-            Segment::WnafC => "SEGMENT_KERNEL_WNAF_C",
-            Segment::WnafD => "SEGMENT_KERNEL_WNAF_D",
             Segment::EcdsaTable => "SEGMENT_KERNEL_ECDSA_TABLE",
         }
     }
@@ -127,10 +115,6 @@ impl Segment {
             Segment::TrieEncodedChildLen => 6,
             Segment::ShiftTable => 256,
             Segment::JumpdestBits => 1,
-            Segment::WnafA => 8,
-            Segment::WnafB => 8,
-            Segment::WnafC => 8,
-            Segment::WnafD => 8,
             Segment::EcdsaTable => 256,
         }
     }
