@@ -32,7 +32,7 @@ const BN_BASE: U256 = U256([
 ]);
 
 impl MemoryState {
-    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+    pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         self.get(MemoryAddress::new(context, segment, offset))
     }
 
@@ -120,6 +120,7 @@ impl<'a> Interpreter<'a> {
                 println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
             }
         }
+        println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
 

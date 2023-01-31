@@ -6,19 +6,7 @@ global ecrecover:
     %ecrecover_input_check
     // stack: isValid(v,r,s), hash, v, r, s, retdest
 
-    // Lift r to an elliptic curve point if possible.
-    SWAP2
-    // stack: v, hash, isValid(v,r,s), r, s, retdest
-    DUP4
-    // stack: r, v, hash, isValid(v,r,s), r, s, retdest
-
-    // Compute v-27 which gives the parity of the y-coordinate of the lifted point.
-    SWAP1
-    // stack: v, r, hash, isValid(v,r,s), r, s, retdest
-    PUSH 27
-    // stack: 27, v, r, hash, isValid(v,r,s), r, s, retdest
-    SWAP1
-    // stack: v, 27, r, hash, isValid(v,r,s), r, s, retdest
+    %stack (valid, hash, v, r, s, retdest) -> (v, 27, r, hash, valid, r, s, retdest)
     SUB
     // stack: v - 27, r, hash, isValid(v,r,s), r, s, retdest
     SWAP1
@@ -62,70 +50,58 @@ ecrecover_valid_input:
     %mulmodn_secp_scalar
     // stack: u1, y, hash, x, r^(-1), retdest
 
-
-    // Compute (X,Y) = u1 * (x,y)
-    PUSH ecrecover_with_first_point
-    // stack: ecrecover_with_first_point, u1, y, hash, x, r^(-1), retdest
-    SWAP1
-    // stack: u1, ecrecover_with_first_point, y, hash, x, r^(-1), retdest
-    SWAP2
-    // stack: y, ecrecover_with_first_point, u1, hash, x, r^(-1), retdest
-    SWAP1
-    // stack: ecrecover_with_first_point, y, u1, hash, x, r^(-1), retdest
-    SWAP3
-    // stack: hash, y, u1, ecrecover_with_first_point, x, r^(-1), retdest
-    SWAP4
-    // stack: x, y, u1, ecrecover_with_first_point, hash, r^(-1), retdest
-    %jump(ec_mul_valid_point_secp)
-
-// ecrecover precompile.
-// Assumption: (X,Y) = u1 * P. Result is (X,Y) + u2*GENERATOR
-ecrecover_with_first_point:
-    // stack: X, Y, hash, r^(-1), retdest
-    %secp_scalar
-    // stack: p, X, Y, hash, r^(-1), retdest
-    SWAP1
-    // stack: X, p, Y, hash, r^(-1), retdest
-    SWAP4
-    // stack: r^(-1), p, Y, hash, X, retdest
-    SWAP2
-    // stack: Y, p, r^(-1), hash, X, retdest
-    SWAP3
-    // stack: hash, p, r^(-1), Y, X, retdest
-
     // Compute u2 = -hash * r^(-1)
-    MOD
-    // stack: hash%p, r^(-1), Y, X, retdest
-    %secp_scalar
-    // stack: p, hash%p, r^(-1), Y, X, retdest
-    SUB
-    // stack: -hash, r^(-1), Y, X, retdest
-    %mulmodn_secp_scalar
-    // stack: u2, Y, X, retdest
+    %stack (u1, y, hash, x, rinv, retdest) -> (hash, @SECP_SCALAR, @SECP_SCALAR, rinv, @SECP_SCALAR, u1, x, y, pubkey_to_addr, retdest)
+    MOD SWAP1 SUB MULMOD
+    // stack: u2, u1, x, y, pubkey_to_addr, retdest
+    %jump(ecdsa_msm_with_glv)
 
-    // Compute u2 * GENERATOR and chain the call to `ec_mul` with a call to `ec_add` to compute PUBKEY = (X,Y) + u2 * GENERATOR,
-    // and a call to `pubkey_to_addr` to get the final result `KECCAK256(PUBKEY)[-20:]`.
-    PUSH pubkey_to_addr
-    // stack: pubkey_to_addr, u2, Y, X, retdest
-    SWAP3
-    // stack: X, u2, Y, pubkey_to_addr, retdest
-    PUSH ec_add_valid_points_secp
-    // stack: ec_add_valid_points_secp, X, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    PUSH 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 // x-coordinate of generator
-    // stack: Gx, X, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    PUSH 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 // y-coordinate of generator
-    // stack: Gy, X, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP1
-    // stack: X, Gy, Gx, ec_add_valid_points_secp, u2, Y, pubkey_to_addr, retdest
-    SWAP4
-    // stack: u2, Gy, Gx, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
-    SWAP2
-    // stack: Gx, Gy, u2, ec_add_valid_points_secp, X, Y, pubkey_to_addr, retdest
-    %jump(ec_mul_valid_point_secp)
+// Computes `a * G + b * Q` using GLV+precomputation, where `G` is the Secp256k1 generator and `Q` is a point on the curve.
+// Pseudo-code:
+// precompute_table(G) -- precomputation table for the combinations of `G, phi(G), Q, phi(Q)`.
+// let a0, a1 = glv_decompose(a)
+// let b0, b1 = glv_decompose(b)
+// return msm_with_precomputation([a0, a1, b0, b1], [G, phi(G), Q, phi(Q)]) -- phi is the Secp endomorphism.
+ecdsa_msm_with_glv:
+    %stack (a, b, Qx, Qy, retdest) -> (a, ecdsa_after_glv_a, b, Qx, Qy, retdest)
+    %jump(glv_decompose)
+ecdsa_after_glv_a:
+    %stack (a1neg, a0, a1, b, Qx, Qy, retdest) -> (b, ecdsa_after_glv_b, a1neg, a0, a1, Qx, Qy, retdest)
+    %jump(glv_decompose)
+ecdsa_after_glv_b:
+    %stack (b1neg, b0, b1, a1neg, a0, a1, Qx, Qy, retdest) -> (a1neg, b1neg, Qx, Qy, ecdsa_after_precompute, a0, a1, b0, b1, retdest)
+    %jump(precompute_table)
+ecdsa_after_precompute:
+    // stack: a0, a1, b0, b1, retdest
+    PUSH 0 PUSH 0 PUSH 129 // 129 is the bit length of the GLV exponents
+    // stack: i, accx, accy, a0, a1, b0, b1, retdest
+ecdsa_after_precompute_loop:
+    %stack (i, accx, accy, a0, a1, b0, b1, retdest) -> (i, b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %stack (bit_a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest) -> (i, a0, bit_a1, bit_b0, bit_b1, i, accx, accy, a0, a1, b0, b1, retdest)
+    SHR %and_const(1)
+    %mul_const(2) ADD %mul_const(2) ADD %mul_const(2) ADD
+    %stack (index, i, accx, accy, a0, a1, b0, b1, retdest) -> (index, index, i, accx, accy, a0, a1, b0, b1, retdest)
+    %mul_const(2) %add_const(1)
+    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+    SWAP1 %mul_const(2)
+    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+    %stack (Px, Py, i, accx, accy, a0, a1, b0, b1, retdest) -> (Px, Py, accx, accy, ecdsa_after_precompute_loop_contd, i, a0, a1, b0, b1, retdest)
+    %jump(ec_add_valid_points_secp)
+ecdsa_after_precompute_loop_contd:
+    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest)
+    ISZERO %jumpi(ecdsa_after_precompute_loop_end)
+    %jump(ec_double_secp)
+ecdsa_after_precompute_loop_contd2:
+    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, a0, a1, b0, b1, retdest)
+    %decrement %jump(ecdsa_after_precompute_loop)
+ecdsa_after_precompute_loop_end:
+    %stack (accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest) -> (retdest, accx, accy)
+    JUMP
 
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
@@ -207,13 +183,13 @@ pubkey_to_addr:
 %endmacro
 
 %macro secp_scalar
-    PUSH 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+    PUSH @SECP_SCALAR
 %endmacro
 
 // Return u256::MAX which is used to indicate the input was invalid.
 %macro ecrecover_invalid_input
     // stack: retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    PUSH @U256_MAX
     // stack: u256::MAX, retdest
     SWAP1
     // stack: retdest, u256::MAX
