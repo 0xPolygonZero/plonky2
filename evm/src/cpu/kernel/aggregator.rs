@@ -39,7 +39,6 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/curve/secp256k1/glv.asm"),
         include_str!("asm/curve/secp256k1/precomputation.asm"),
         include_str!("asm/curve/wnaf.asm"),
-        include_str!("asm/curve/secp256k1/precomputation.asm"),
         include_str!("asm/exp.asm"),
         include_str!("asm/fields/fp6_macros.asm"),
         include_str!("asm/fields/fp6_mul.asm"),

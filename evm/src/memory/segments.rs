@@ -40,13 +40,13 @@ pub(crate) enum Segment {
     ShiftTable = 16,
     JumpdestBits = 17,
     EcdsaTable = 18,
-    BnWnafA = 24,
-    BnWnafB = 25,
-    BnTableQ = 26,
+    BnWnafA = 19,
+    BnWnafB = 20,
+    BnTableQ = 21,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 27;
+    pub(crate) const COUNT: usize = 22;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
