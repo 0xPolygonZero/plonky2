@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
@@ -101,7 +102,7 @@ enum FieldOp {
 }
 
 impl FromStr for EvmField {
-    type Err = ();
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
@@ -109,19 +110,19 @@ impl FromStr for EvmField {
             "bn254_scalar" => Bn254Scalar,
             "secp256k1_base" => Secp256k1Base,
             "secp256k1_scalar" => Secp256k1Scalar,
-            _ => panic!("Unrecognized field."),
+            _ => bail!("Unrecognized field."),
         })
     }
 }
 
 impl FromStr for FieldOp {
-    type Err = ();
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "inverse" => Inverse,
             "sqrt" => Sqrt,
-            _ => panic!("Unrecognized field operation."),
+            _ => bail!("Unrecognized field operation."),
         })
     }
 }

@@ -12,6 +12,7 @@ pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
 pub mod cross_table_lookup;
+pub mod fixed_recursive_verifier;
 pub mod generation;
 mod get_challenges;
 pub mod keccak;

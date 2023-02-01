@@ -98,6 +98,7 @@ underflowed:
     // stack: (y-x)*(x<y), x>=y, x<y, x, y
     %stack (a, b, c, x, y) -> (x, y, b, a, c)
     SUB MUL ADD
-    // stack: x-y if x>=y else y-x, x<y
+    %stack (res, bool) -> (res, @SECP_SCALAR, bool)
+    MOD
 %endmacro
 

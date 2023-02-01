@@ -13,7 +13,7 @@ use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark;
-use crate::keccak_sponge::keccak_sponge_stark::{num_logic_ctls, KeccakSpongeStark};
+use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark;
@@ -89,11 +89,9 @@ impl Table {
 }
 
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    let mut ctls = vec![ctl_keccak(), ctl_logic(), ctl_memory(), ctl_keccak_sponge()];
+    let mut ctls = vec![ctl_keccak_sponge(), ctl_keccak(), ctl_logic(), ctl_memory()];
     // TODO: Some CTLs temporarily disabled while we get them working.
     disable_ctl(&mut ctls[0]);
-    disable_ctl(&mut ctls[1]);
-    disable_ctl(&mut ctls[2]);
     disable_ctl(&mut ctls[3]);
     ctls
 }
@@ -116,7 +114,7 @@ fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
         keccak_stark::ctl_data(),
         Some(keccak_stark::ctl_filter()),
     );
-    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked, None)
+    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
 
 fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
@@ -130,7 +128,7 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
         keccak_sponge_stark::ctl_looked_data(),
         Some(keccak_sponge_stark::ctl_looked_filter()),
     );
-    CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked, None)
+    CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
@@ -140,18 +138,17 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
         Some(cpu_stark::ctl_filter_logic()),
     );
     let mut all_lookers = vec![cpu_looking];
-    for i in 0..num_logic_ctls() {
+    for i in 0..keccak_sponge_stark::num_logic_ctls() {
         let keccak_sponge_looking = TableWithColumns::new(
             Table::KeccakSponge,
             keccak_sponge_stark::ctl_looking_logic(i),
-            // TODO: Double check, but I think it's the same filter for memory and logic?
-            Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
+            Some(keccak_sponge_stark::ctl_looking_logic_filter()),
         );
         all_lookers.push(keccak_sponge_looking);
     }
     let logic_looked =
         TableWithColumns::new(Table::Logic, logic::ctl_data(), Some(logic::ctl_filter()));
-    CrossTableLookup::new(all_lookers, logic_looked, None)
+    CrossTableLookup::new(all_lookers, logic_looked)
 }
 
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
@@ -183,5 +180,5 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         memory_stark::ctl_data(),
         Some(memory_stark::ctl_filter()),
     );
-    CrossTableLookup::new(all_lookers, memory_looked, None)
+    CrossTableLookup::new(all_lookers, memory_looked)
 }

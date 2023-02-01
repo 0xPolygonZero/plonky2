@@ -24,13 +24,12 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::sub::u256_sub_br;
 use crate::arithmetic::utils::read_value_u64_limbs;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::range_check_error;
 
-pub(crate) fn generate<F: RichField>(lv: &mut [F; NUM_ARITH_COLUMNS], op: usize) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
     let input0 = read_value_u64_limbs(lv, CMP_INPUT_0);
     let input1 = read_value_u64_limbs(lv, CMP_INPUT_1);
 
-    let (diff, br) = match op {
+    let (diff, br) = match filter {
         // input0 - input1 == diff + br*2^256
         IS_LT => u256_sub_br(input0, input1),
         // input1 - input0 == diff + br*2^256
@@ -84,10 +83,6 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    range_check_error!(CMP_INPUT_0, 16);
-    range_check_error!(CMP_INPUT_1, 16);
-    range_check_error!(CMP_AUX_INPUT, 16);
-
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
@@ -147,7 +142,11 @@ pub(crate) fn eval_ext_circuit_lt<F: RichField + Extendable<D>, const D: usize>(
     );
     let good_output = builder.sub_extension(cy, output);
     let filter = builder.mul_extension(is_op, good_output);
-    yield_constr.constraint_transition(builder, filter);
+    if is_two_row_op {
+        yield_constr.constraint_transition(builder, filter);
+    } else {
+        yield_constr.constraint(builder, filter);
+    }
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(

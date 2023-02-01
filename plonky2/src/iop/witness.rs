@@ -14,7 +14,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{VerifierCircuitTarget, VerifierOnlyCircuitData};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 pub trait WitnessWrite<F: Field> {
@@ -222,6 +222,19 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
         HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
         }
+    }
+
+    fn get_merkle_cap_target<H: Hasher<F>>(&self, cap_target: MerkleCapTarget) -> MerkleCap<F, H>
+    where
+        F: RichField,
+        H: AlgebraicHasher<F>,
+    {
+        let cap = cap_target
+            .0
+            .iter()
+            .map(|hash_target| self.get_hash_target(*hash_target))
+            .collect();
+        MerkleCap(cap)
     }
 
     fn get_wire(&self, wire: Wire) -> F {

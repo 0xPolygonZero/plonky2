@@ -2,7 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use anyhow::ensure;
-use maybe_rayon::*;
+use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension::Extendable;

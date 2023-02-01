@@ -66,7 +66,7 @@ fn mpt_insert_leaf_leaf_key_extends_insert_key() -> Result<()> {
 
 #[test]
 fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
-    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let children = core::array::from_fn(|_| PartialTrie::Empty.into());
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
@@ -81,7 +81,7 @@ fn mpt_insert_branch_replacing_empty_child() -> Result<()> {
 #[ignore]
 fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
     // Existing keys are 0xABC, 0xABCDEF; inserted key is 0x12345.
-    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
     children[0xD] = PartialTrie::Leaf {
         nibbles: 0xEF_u64.into(),
         value: test_account_1_rlp(),
@@ -104,7 +104,7 @@ fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
 #[ignore]
 fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
     // Existing keys are 0xA, 0xABCD; inserted key is 0xABCDEF.
-    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
     children[0xB] = PartialTrie::Leaf {
         nibbles: 0xCD_u64.into(),
         value: test_account_1_rlp(),
@@ -129,7 +129,7 @@ fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
     }
     .into();
 
-    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
     children[0] = leaf;
     let state_trie = PartialTrie::Branch {
         children,

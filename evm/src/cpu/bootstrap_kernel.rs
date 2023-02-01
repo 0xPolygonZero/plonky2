@@ -43,17 +43,18 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    final_cpu_row.mem_channels[0].value[0] = F::ZERO;
-    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize);
-    final_cpu_row.mem_channels[2].value[0] = F::ZERO;
-    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(state.traces.clock());
+    final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
+    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
+    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
+    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
     final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
-    state.traces.push_cpu(final_cpu_row);
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
+    state.traces.push_cpu(final_cpu_row);
+    log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
 pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(

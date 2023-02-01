@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use maybe_rayon::*;
+use plonky2_maybe_rayon::*;
 
 use crate::field::extension::{flatten, unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};

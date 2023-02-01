@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0.40", default-features = false }
-plonky2 = { path = "../plonky2", default-features = false }
+plonky2 = { version = "0.1.1", default-features = false }
 
 [dev-dependencies]
-plonky2 = { path = "../plonky2" }
+plonky2 = { version = "0.1.1" }
 

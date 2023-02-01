@@ -11,7 +11,7 @@ pub struct RegistersState {
 }
 
 impl RegistersState {
-    pub(crate) fn effective_context(&self) -> usize {
+    pub(crate) fn code_context(&self) -> usize {
         if self.is_kernel {
             KERNEL_CONTEXT
         } else {

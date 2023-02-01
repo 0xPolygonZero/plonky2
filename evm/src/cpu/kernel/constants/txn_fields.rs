@@ -9,19 +9,22 @@ pub(crate) enum NormalizedTxnField {
     Nonce = 2,
     MaxPriorityFeePerGas = 3,
     MaxFeePerGas = 4,
-    GasLimit = 5,
-    To = 6,
-    Value = 7,
+    /// The actual computed gas price for this transaction in the block.
+    /// This is not technically a transaction field, as it depends on the block's base fee.
+    ComputedFeePerGas = 5,
+    GasLimit = 6,
+    To = 7,
+    Value = 8,
     /// The length of the data field. The data itself is stored in another segment.
-    DataLen = 8,
-    YParity = 9,
-    R = 10,
-    S = 11,
-    Origin = 12,
+    DataLen = 9,
+    YParity = 10,
+    R = 11,
+    S = 12,
+    Origin = 13,
 }
 
 impl NormalizedTxnField {
-    pub(crate) const COUNT: usize = 13;
+    pub(crate) const COUNT: usize = 14;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -30,6 +33,7 @@ impl NormalizedTxnField {
             Self::Nonce,
             Self::MaxPriorityFeePerGas,
             Self::MaxFeePerGas,
+            Self::ComputedFeePerGas,
             Self::GasLimit,
             Self::To,
             Self::Value,
@@ -49,6 +53,7 @@ impl NormalizedTxnField {
             NormalizedTxnField::Nonce => "TXN_FIELD_NONCE",
             NormalizedTxnField::MaxPriorityFeePerGas => "TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS",
             NormalizedTxnField::MaxFeePerGas => "TXN_FIELD_MAX_FEE_PER_GAS",
+            NormalizedTxnField::ComputedFeePerGas => "TXN_FIELD_COMPUTED_FEE_PER_GAS",
             NormalizedTxnField::GasLimit => "TXN_FIELD_GAS_LIMIT",
             NormalizedTxnField::To => "TXN_FIELD_TO",
             NormalizedTxnField::Value => "TXN_FIELD_VALUE",

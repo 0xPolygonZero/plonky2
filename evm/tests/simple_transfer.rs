@@ -33,8 +33,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
-    let sender_nibbles = Nibbles::from(sender_state_key);
-    let to_nibbles = Nibbles::from(to_state_key);
+    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
+    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
     let value = U256::from(100u32);
 
     let sender_account_before = AccountRlp {
@@ -73,8 +73,9 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let expected_state_trie_after = {
         let sender_account_after = AccountRlp {
-            balance: sender_account_before.balance - value, // TODO: Also subtract gas_used * price.
-            // nonce: sender_account_before.nonce + 1, // TODO
+            // TODO: Should be 21k; 1k gas should be refunded.
+            balance: sender_account_before.balance - value - 22_000 * 10,
+            nonce: sender_account_before.nonce + 1,
             ..sender_account_before
         };
         let to_account_after = AccountRlp {
@@ -82,7 +83,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
             ..AccountRlp::default()
         };
 
-        let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+        let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
         children[sender_nibbles.get_nibble(0) as usize] = PartialTrie::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_after).to_vec(),
@@ -104,7 +105,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         expected_state_trie_after.calc_hash()
     );
 
-    verify_proof(all_stark, proof, &config)
+    verify_proof(&all_stark, proof, &config)
 }
 
 fn eth_to_wei(eth: U256) -> U256 {

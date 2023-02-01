@@ -1,6 +1,5 @@
 use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
-use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{FriChallenges, FriChallengesTarget, FriProof, FriProofTarget};
@@ -13,21 +12,24 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::permutation::GrandProductChallengeSet;
 
+/// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub stark_proofs: [StarkProof<F, C, D>; NUM_TABLES],
+    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
+    pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     pub public_values: PublicValues,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        std::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
+        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }
 }
 
@@ -42,11 +44,6 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usiz
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
     pub states: [[F; SPONGE_WIDTH]; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
-}
-
-pub struct AllProofTarget<const D: usize> {
-    pub stark_proofs: [StarkProofTarget<D>; NUM_TABLES],
-    pub public_values: PublicValuesTarget,
 }
 
 /// Memory values which are public.
@@ -111,6 +108,18 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
     pub opening_proof: FriProof<F, C::Hasher, D>,
+}
+
+/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
+/// creating a recursive wrapper proof around a STARK proof.
+#[derive(Debug, Clone)]
+pub struct StarkProofWithMetadata<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub(crate) init_challenger_state: [F; SPONGE_WIDTH],
+    pub(crate) proof: StarkProof<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {

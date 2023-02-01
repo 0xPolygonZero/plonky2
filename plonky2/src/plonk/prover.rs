@@ -3,7 +3,7 @@ use alloc::{format, vec};
 use core::mem::swap;
 
 use anyhow::{ensure, Result};
-use maybe_rayon::*;
+use plonky2_maybe_rayon::*;
 
 use crate::field::extension::Extendable;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};

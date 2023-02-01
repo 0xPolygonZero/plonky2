@@ -8,6 +8,7 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
+use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
@@ -19,6 +20,7 @@ type C = PoseidonGoldilocksConfig;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
+#[ignore] // Too slow to run on CI.
 fn test_empty_txn_list() -> anyhow::Result<()> {
     init_logger();
 
@@ -49,7 +51,10 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    // TODO: This is redundant; prove_root below calls this prove method internally.
+    // Just keeping it for now because the root proof returned by prove_root doesn't contain public
+    // values yet, and we want those for the assertions below.
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
     assert_eq!(
@@ -77,7 +82,14 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         receipts_trie_root
     );
 
-    verify_proof(all_stark, proof, &config)
+    verify_proof(&all_stark, proof, &config)?;
+
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(&all_stark, 9..19, &config);
+    let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    all_circuits.verify_root(root_proof.clone())?;
+
+    let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
+    all_circuits.verify_aggregation(&agg_proof)
 }
 
 fn init_logger() {

@@ -25,10 +25,11 @@ pub(crate) enum ContextMetadata {
     StateTrieCheckpointPointer = 9,
     /// Size of the active main memory.
     MSize = 10,
+    StackSize = 11,
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 11;
+    pub(crate) const COUNT: usize = 12;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -43,6 +44,7 @@ impl ContextMetadata {
             Self::Static,
             Self::StateTrieCheckpointPointer,
             Self::MSize,
+            Self::StackSize,
         ]
     }
 
@@ -60,6 +62,7 @@ impl ContextMetadata {
             ContextMetadata::Static => "CTX_METADATA_STATIC",
             ContextMetadata::StateTrieCheckpointPointer => "CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR",
             ContextMetadata::MSize => "CTX_METADATA_MSIZE",
+            ContextMetadata::StackSize => "CTX_METADATA_STACK_SIZE",
         }
     }
 }

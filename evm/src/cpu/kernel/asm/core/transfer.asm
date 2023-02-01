@@ -10,7 +10,6 @@ global transfer_eth:
     %jumpi(transfer_eth_failure)
     // stack: to, amount, retdest
     %add_eth
-global transfer_eth_3:
     %stack (retdest) -> (retdest, 0)
     JUMP
 global transfer_eth_failure:
@@ -43,7 +42,7 @@ global deduct_eth:
     // stack: addr, amount, retdest
     %mpt_read_state_trie
     // stack: account_ptr, amount, retdest
-    DUP1 ISZERO %jumpi(panic) // If the account pointer is null, return 0.
+    DUP1 ISZERO %jumpi(deduct_eth_no_such_account) // If the account pointer is null, return 1.
     %add_const(1)
     // stack: balance_ptr, amount, retdest
     DUP1 %mload_trie_data
@@ -57,6 +56,9 @@ global deduct_eth:
     // stack: balance_ptr, balance - amount, retdest, 0
     %mstore_trie_data
     // stack: retdest, 0
+    JUMP
+global deduct_eth_no_such_account:
+    %stack (account_ptr, amount, retdest) -> (retdest, 1)
     JUMP
 global deduct_eth_insufficient_balance:
     %stack (balance, balance_ptr, amount, retdest) -> (retdest, 1)
@@ -80,12 +82,14 @@ global add_eth:
     // stack: balance_ptr, addr, amount, retdest
     DUP1 %mload_trie_data
     // stack: balance, balance_ptr, addr, amount, retdest
-    %stack (balance, balance_ptr, addr, amount) -> (amount, balance, addr, balance_ptr)
+    %stack (balance, balance_ptr, addr, amount) -> (amount, balance, balance_ptr)
     ADD
-    // stack: new_balance, addr, balance_ptr, retdest
-    SWAP1 %mstore_trie_data
-    // stack: addr, retdest
-    POP JUMP
+    // stack: new_balance, balance_ptr, retdest
+    SWAP1
+    // stack: balance_ptr, new_balance, retdest
+    %mstore_trie_data
+    // stack: retdest
+    JUMP
 global add_eth_new_account:
     // TODO: Skip creation if amount == 0?
     // stack: null_account_ptr, addr, amount, retdest

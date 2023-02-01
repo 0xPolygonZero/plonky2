@@ -8,7 +8,6 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::challenger::Challenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -17,10 +16,8 @@ use plonky2::plonk::config::GenericConfig;
 use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::permutation::{
-    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
-};
-use crate::proof::{StarkProof, StarkProofTarget};
+use crate::permutation::{GrandProductChallenge, GrandProductChallengeSet};
+use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -162,33 +159,19 @@ impl<F: Field> TableWithColumns<F> {
 pub struct CrossTableLookup<F: Field> {
     pub(crate) looking_tables: Vec<TableWithColumns<F>>,
     pub(crate) looked_table: TableWithColumns<F>,
-    /// Default value if filters are not used.
-    default: Option<Vec<F>>,
 }
 
 impl<F: Field> CrossTableLookup<F> {
     pub fn new(
         looking_tables: Vec<TableWithColumns<F>>,
         looked_table: TableWithColumns<F>,
-        default: Option<Vec<F>>,
     ) -> Self {
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
-        assert!(
-            looking_tables
-                .iter()
-                .all(|twc| twc.filter_column.is_none() == default.is_some())
-                && default.is_some() == looked_table.filter_column.is_none(),
-            "Default values should be provided iff there are no filter columns."
-        );
-        if let Some(default) = &default {
-            assert_eq!(default.len(), looked_table.columns.len());
-        }
         Self {
             looking_tables,
             looked_table,
-            default,
         }
     }
 
@@ -234,22 +217,19 @@ impl<F: Field> CtlData<F> {
     }
 }
 
-pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
-    config: &StarkConfig,
+pub(crate) fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     cross_table_lookups: &[CrossTableLookup<F>],
-    challenger: &mut Challenger<F, C::Hasher>,
+    ctl_challenges: &GrandProductChallengeSet<F>,
 ) -> [CtlData<F>; NUM_TABLES] {
-    let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
         looked_table,
-        default,
     } in cross_table_lookups
     {
         log::debug!("Processing CTL for {:?}", looked_table.table);
-        for &challenge in &challenges.challenges {
+        for &challenge in &ctl_challenges.challenges {
             let zs_looking = looking_tables.iter().map(|table| {
                 partial_products(
                     &trace_poly_values[table.table as usize],
@@ -271,21 +251,6 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                     .map(|z| *z.values.last().unwrap())
                     .product::<F>(),
                 *z_looked.values.last().unwrap()
-                    * default
-                        .as_ref()
-                        .map(|default| {
-                            challenge.combine(default).exp_u64(
-                                looking_tables
-                                    .iter()
-                                    .map(|table| {
-                                        trace_poly_values[table.table as usize][0].len() as u64
-                                    })
-                                    .sum::<u64>()
-                                    - trace_poly_values[looked_table.table as usize][0].len()
-                                        as u64,
-                            )
-                        })
-                        .unwrap_or(F::ONE)
             );
 
             for (table, z) in looking_tables.iter().zip(zs_looking) {
@@ -358,7 +323,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
-        proofs: &[StarkProof<F, C, D>; NUM_TABLES],
+        proofs: &[StarkProofWithMetadata<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_permutation_zs: &[usize; NUM_TABLES],
@@ -367,7 +332,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .iter()
             .zip(num_permutation_zs)
             .map(|(p, &num_perms)| {
-                let openings = &p.openings;
+                let openings = &p.proof.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
                 let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
                 ctl_zs.zip(ctl_zs_next)
@@ -378,7 +343,6 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         for CrossTableLookup {
             looking_tables,
             looked_table,
-            ..
         } in cross_table_lookups
         {
             for &challenges in &ctl_challenges.challenges {
@@ -481,7 +445,6 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
         for CrossTableLookup {
             looking_tables,
             looked_table,
-            ..
         } in cross_table_lookups
         {
             for &challenges in &ctl_challenges.challenges {
@@ -582,44 +545,27 @@ pub(crate) fn verify_cross_table_lookups<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    cross_table_lookups: Vec<CrossTableLookup<F>>,
+    cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_lasts: [Vec<F>; NUM_TABLES],
-    degrees_bits: [usize; NUM_TABLES],
-    challenges: GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for (
-        i,
-        CrossTableLookup {
-            looking_tables,
-            looked_table,
-            default,
-            ..
-        },
-    ) in cross_table_lookups.into_iter().enumerate()
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+    } in cross_table_lookups.iter()
     {
         for _ in 0..config.num_challenges {
-            let looking_degrees_sum = looking_tables
-                .iter()
-                .map(|table| 1 << degrees_bits[table.table as usize])
-                .sum::<u64>();
-            let looked_degree = 1 << degrees_bits[looked_table.table as usize];
             let looking_zs_prod = looking_tables
                 .iter()
                 .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
                 .product::<F>();
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-            let challenge = challenges.challenges[i % config.num_challenges];
 
-            if let Some(default) = default.as_ref() {
-                let combined_default = challenge.combine(default.iter());
-                ensure!(
-                    looking_zs_prod
-                        == looked_z * combined_default.exp_u64(looking_degrees_sum - looked_degree),
-                    "Cross-table lookup verification failed."
-                );
-            }
+            ensure!(
+                looking_zs_prod == looked_z,
+                "Cross-table lookup verification failed."
+            );
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
@@ -635,47 +581,22 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
-    degrees_bits: [usize; NUM_TABLES],
-    challenges: GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for (
-        i,
-        CrossTableLookup {
-            looking_tables,
-            looked_table,
-            default,
-            ..
-        },
-    ) in cross_table_lookups.into_iter().enumerate()
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+    } in cross_table_lookups.into_iter()
     {
         for _ in 0..inner_config.num_challenges {
-            let looking_degrees_sum = looking_tables
-                .iter()
-                .map(|table| 1 << degrees_bits[table.table as usize])
-                .sum::<u64>();
-            let looked_degree = 1 << degrees_bits[looked_table.table as usize];
             let looking_zs_prod = builder.mul_many(
                 looking_tables
                     .iter()
                     .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
             );
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-            let challenge = challenges.challenges[i % inner_config.num_challenges];
-            if let Some(default) = default.as_ref() {
-                let default = default
-                    .iter()
-                    .map(|&x| builder.constant(x))
-                    .collect::<Vec<_>>();
-                let combined_default = challenge.combine_base_circuit(builder, &default);
-
-                let pad = builder.exp_u64(combined_default, looking_degrees_sum - looked_degree);
-                let padded_looked_z = builder.mul(looked_z, pad);
-                builder.connect(looking_zs_prod, padded_looked_z);
-            } else {
-                builder.connect(looking_zs_prod, looked_z);
-            }
+            builder.connect(looking_zs_prod, looked_z);
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
@@ -712,7 +633,6 @@ pub(crate) mod testutils {
         let CrossTableLookup {
             looking_tables,
             looked_table,
-            default,
         } = ctl;
 
         // Maps `m` with `(table, i) in m[row]` iff the `i`-th row of `table` is equal to `row` and
@@ -726,44 +646,10 @@ pub(crate) mod testutils {
         process_table(trace_poly_values, looked_table, &mut looked_multiset);
 
         let empty = &vec![];
-        // Check that every row in the looking tables appears in the looked table the same number of times
-        // with some special logic for the default row.
+        // Check that every row in the looking tables appears in the looked table the same number of times.
         for (row, looking_locations) in &looking_multiset {
             let looked_locations = looked_multiset.get(row).unwrap_or(empty);
-            if let Some(default) = default {
-                if row == default {
-                    continue;
-                }
-            }
             check_locations(looking_locations, looked_locations, ctl_index, row);
-        }
-        let extra_default_count = default.as_ref().map(|d| {
-            let looking_default_locations = looking_multiset.get(d).unwrap_or(empty);
-            let looked_default_locations = looked_multiset.get(d).unwrap_or(empty);
-            looking_default_locations
-                .len()
-                .checked_sub(looked_default_locations.len())
-                .unwrap_or_else(|| {
-                    // If underflow, panic. There should be more default rows in the looking side.
-                    check_locations(
-                        looking_default_locations,
-                        looked_default_locations,
-                        ctl_index,
-                        d,
-                    );
-                    unreachable!()
-                })
-        });
-        // Check that the number of extra default rows is correct.
-        if let Some(count) = extra_default_count {
-            assert_eq!(
-                count,
-                looking_tables
-                    .iter()
-                    .map(|table| trace_poly_values[table.table as usize][0].len())
-                    .sum::<usize>()
-                    - trace_poly_values[looked_table.table as usize][0].len()
-            );
         }
         // Check that every row in the looked tables appears in the looked table the same number of times.
         for (row, looked_locations) in &looked_multiset {

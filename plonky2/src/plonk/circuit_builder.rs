@@ -245,6 +245,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         t
     }
 
+    pub fn add_virtual_verifier_data(&mut self, cap_height: usize) -> VerifierCircuitTarget {
+        VerifierCircuitTarget {
+            constants_sigmas_cap: self.add_virtual_cap(cap_height),
+            circuit_digest: self.add_virtual_hash(),
+        }
+    }
+
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn add_verifier_data_public_inputs(&mut self) -> VerifierCircuitTarget {
@@ -253,10 +260,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "add_verifier_data_public_inputs only needs to be called once"
         );
 
-        let verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self.add_virtual_cap(self.config.fri_config.cap_height),
-            circuit_digest: self.add_virtual_hash(),
-        };
+        let verifier_data = self.add_virtual_verifier_data(self.config.fri_config.cap_height);
         // The verifier data are public inputs.
         self.register_public_inputs(&verifier_data.circuit_digest.elements);
         for i in 0..self.config.fri_config.num_cap_elements() {
@@ -784,13 +788,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.add_simple_generator(const_gen);
         }
 
-        info!(
+        debug!(
             "Degree before blinding & padding: {}",
             self.gate_instances.len()
         );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
-        info!("Degree after blinding & padding: {}", degree);
+        debug!("Degree after blinding & padding: {}", degree);
         let degree_bits = log2_strict(degree);
         let fri_params = self.fri_params(degree_bits);
         assert!(

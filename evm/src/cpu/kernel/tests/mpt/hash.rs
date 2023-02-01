@@ -24,7 +24,7 @@ fn mpt_hash_empty() -> Result<()> {
 
 #[test]
 fn mpt_hash_empty_branch() -> Result<()> {
-    let children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let children = core::array::from_fn(|_| PartialTrie::Empty.into());
     let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
@@ -85,7 +85,7 @@ fn mpt_hash_branch_to_leaf() -> Result<()> {
         value: test_account_2_rlp(),
     }
     .into();
-    let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+    let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
     children[3] = leaf;
     let state_trie = PartialTrie::Branch {
         children,
