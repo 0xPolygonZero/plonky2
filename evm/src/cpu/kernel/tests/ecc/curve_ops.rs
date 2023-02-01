@@ -134,10 +134,12 @@ mod bn {
 
 #[cfg(test)]
 mod secp {
-    use anyhow::Result;
 
-    use crate::cpu::kernel::aggregator::combined_kernel;
-    use crate::cpu::kernel::interpreter::{run, run_interpreter};
+    use anyhow::Result;
+    use ethereum_types::U256;
+
+    use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
+    use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
     use crate::cpu::kernel::tests::u256ify;
 
     #[test]
@@ -146,7 +148,6 @@ mod secp {
         let kernel = combined_kernel();
         let ec_add = kernel.global_labels["ec_add_valid_points_secp"];
         let ec_double = kernel.global_labels["ec_double_secp"];
-        let ec_mul = kernel.global_labels["ec_mul_valid_point_secp"];
         let identity = ("0x0", "0x0");
         let point0 = (
             "0xc82ccceebd739e646631b7270ed8c33e96c4940b19db91eaf67da6ec92d109b",
@@ -165,12 +166,6 @@ mod secp {
         let point3 = (
             "0x7872498939b02197c2b6f0a0f5767f36551e43f910de472fbbff0538b21f5f45",
             "0x294e15025d935438023a0e4056892abd6405fade13cf2b3131d8755be7cebad",
-        );
-        let s = "0xa72ad7d8ce24135b5138f853d7a9896381c40523b5d1cf03072151f2af10e35e";
-        // point4 = s * point0
-        let point4 = (
-            "0xd8bec38864f0fe56d429540e6de624afb8ddc7fba1f738337913922a30b96c14",
-            "0x5b086b2720ac39d173777bc36a49629c80c3a3e55e1c50527e60016d9be71318",
         );
 
         // Standard addition #1
@@ -192,10 +187,6 @@ mod secp {
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
         let stack = run_interpreter(ec_double, initial_stack)?.stack().to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
-        // Standard doubling #3
-        let initial_stack = u256ify(["0xdeadbeef", "0x2", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([point3.1, point3.0])?);
 
         // Addition with identity #1
         let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
@@ -211,36 +202,29 @@ mod secp {
         let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
-        // Scalar multiplication #1
-        let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([point4.1, point4.0])?);
-        // Scalar multiplication #2
-        let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([identity.1, identity.0])?);
-        // Scalar multiplication #3
-        let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([point0.1, point0.0])?);
-        // Scalar multiplication #4
-        let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([identity.1, identity.0])?);
+        Ok(())
+    }
 
-        // Multiple calls
-        let ec_mul_hex = format!("0x{ec_mul:x}");
-        let initial_stack = u256ify([
-            "0xdeadbeef",
-            s,
-            &ec_mul_hex,
-            identity.1,
-            identity.0,
-            point0.1,
-            point0.0,
-        ])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
-        assert_eq!(stack, u256ify([point4.1, point4.0])?);
+    #[test]
+    fn test_glv_verify_data() -> Result<()> {
+        let glv = KERNEL.global_labels["glv_decompose"];
+
+        let f = include_str!("glv_test_data");
+        for line in f.lines().filter(|s| !s.starts_with("//")) {
+            let mut line = line
+                .split_whitespace()
+                .map(|s| U256::from_str_radix(s, 10).unwrap())
+                .collect::<Vec<_>>();
+            let k = line.remove(0);
+            line.reverse();
+
+            let mut initial_stack = u256ify(["0xdeadbeef"])?;
+            initial_stack.push(k);
+            let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+            int.run()?;
+
+            assert_eq!(line, int.stack());
+        }
 
         Ok(())
     }

@@ -254,6 +254,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
 fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
     let pc = state.registers.program_counter;
+    // TODO: This is affecting performance...
     let is_interesting_offset = KERNEL
         .offset_label(pc)
         .filter(|label| !label.starts_with("halt_pc"))

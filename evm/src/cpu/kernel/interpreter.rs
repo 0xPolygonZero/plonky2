@@ -25,7 +25,7 @@ type F = GoldilocksField;
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
 
 impl MemoryState {
-    fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
+    pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
         self.get(MemoryAddress::new(context, segment, offset))
     }
 
@@ -108,14 +108,12 @@ impl<'a> Interpreter<'a> {
             self.run_opcode()?;
         }
         println!("Opcode count:");
-        let mut tot = 0;
         for i in 0..0x100 {
             if self.opcode_count[i] > 0 {
-                tot += self.opcode_count[i];
                 println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
             }
         }
-        println!("TOTAL: {}", tot);
+        println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
 

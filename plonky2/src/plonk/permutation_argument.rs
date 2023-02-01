@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use hashbrown::HashMap;
-use maybe_rayon::*;
+use plonky2_maybe_rayon::*;
 
 use crate::field::polynomial::PolynomialValues;
 use crate::field::types::Field;

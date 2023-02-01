@@ -83,7 +83,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
             ..AccountRlp::default()
         };
 
-        let mut children = std::array::from_fn(|_| PartialTrie::Empty.into());
+        let mut children = core::array::from_fn(|_| PartialTrie::Empty.into());
         children[sender_nibbles.get_nibble(0) as usize] = PartialTrie::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_after).to_vec(),

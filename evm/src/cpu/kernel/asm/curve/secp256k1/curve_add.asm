@@ -15,7 +15,7 @@ global ec_add_valid_points_secp:
     %jumpi(ec_add_first_zero)
     // stack: x0, y0, x1, y1, retdest
 
-    // Check if the first point is the identity.
+    // Check if the second point is the identity.
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
     DUP4
@@ -33,9 +33,9 @@ global ec_add_valid_points_secp:
     EQ
     // stack: x0 == x1, x0, y0, x1, y1, retdest
     %jumpi(ec_add_equal_first_coord)
+// Standard affine addition formula.
+global ec_add_valid_points_no_edge_case_secp:
     // stack: x0, y0, x1, y1, retdest
-
-    // Otherwise, we can use the standard formula.
     // Compute lambda = (y0 - y1)/(x0 - x1)
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
@@ -174,66 +174,49 @@ ec_add_equal_first_coord:
 // Assumption: x0 == x1 and y0 == y1
 // Standard doubling formula.
 ec_add_equal_points:
-    // stack: x0, y0, x1, y1, retdest
-
     // Compute lambda = 3/2 * x0^2 / y0
-    %secp_base
-    // stack: N, x0, y0, x1, y1, retdest
-    %secp_base
-    // stack: N, N, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: x0, N, N, x0, y0, x1, y1, retdest
-    DUP1
-    // stack: x0, x0, N, N, x0, y0, x1, y1, retdest
+    %stack (x0, y0, x1, y1, retdest) -> (x0, x0, @SECP_BASE, @SECP_BASE, x0, y0, x1, y1, retdest)
     MULMOD
-    // stack: x0^2, N, x0, y0, x1, y1, retdest with
     PUSH 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe19 // 3/2 in the base field
-    // stack: 3/2, x0^2, N, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: 3/2 * x0^2, x0, y0, x1, y1, retdest
     DUP3
-    // stack: y0, 3/2 * x0^2, x0, y0, x1, y1, retdest
     %moddiv_secp_base
-    // stack: lambda, x0, y0, x1, y1, retdest
     %jump(ec_add_valid_points_with_lambda)
 
 // Secp256k1 elliptic curve doubling.
-// Assumption: (x0,y0) is a valid point.
+// Assumption: (x,y) is a valid point.
 // Standard doubling formula.
 global ec_double_secp:
-    // stack: x0, y0, retdest
-    DUP2
-    // stack: y0, x0, y0, retdest
-    DUP2
-    // stack: x0, y0, x0, y0, retdest
-    %jump(ec_add_equal_points)
+    // stack: x, y, retdest
+    DUP2 DUP2 %ec_isidentity
+    // stack: (x,y)==(0,0), x, y, retdest
+    %jumpi(retself)
+
+    // Compute lambda = 3/2 * x0^2 / y0
+    %stack (x, y, retdest) -> (x, x, @SECP_BASE, @SECP_BASE, x, y, retdest)
+    MULMOD
+    PUSH 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe19 // 3/2 in the base field
+    MULMOD
+    DUP3
+    %moddiv_secp_base
+    %stack (lambda, x, y, retdest) -> (lambda, x, y, x, y, retdest)
+    %jump(ec_add_valid_points_with_lambda)
+
+retself:
+    %stack (x, y, retdest) -> (retdest, x, y)
+    JUMP
 
 // Push the order of the Secp256k1 scalar field.
 %macro secp_base
-    PUSH 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+    PUSH @SECP_BASE
 %endmacro
 
-// Modular subtraction. Subtraction x-y underflows iff x<x-y, so can be computed as N*(x<x-y) + x-y.
+// Modular subtraction.
+// TODO: Use SUBMOD when it's ready
 %macro submod_secp_base
     // stack: x, y
-    SWAP1
-    // stack: y, x
-    DUP2
-    // stack: x, y, x
-    SUB
-    // stack: x - y, x
-    DUP1
-    // stack: x - y, x - y, x
-    SWAP2
-    // stack: x, x - y, x - y
-    LT
-    // stack: x < x - y, x - y
-    %secp_base
-    // stack: N, x < x - y, x - y
-    MUL
-    // stack: N * (x < x - y), x - y
-    ADD
-    // (x-y) % N
+    %stack (x, y) -> (@SECP_BASE, y, x, @SECP_BASE)
+    SUB ADDMOD
 %endmacro
 
 // Check if (x,y) is a valid curve point.

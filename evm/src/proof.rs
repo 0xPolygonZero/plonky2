@@ -1,6 +1,5 @@
 use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
-use maybe_rayon::*;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{FriChallenges, FriChallengesTarget, FriProof, FriProofTarget};
@@ -13,6 +12,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
@@ -29,7 +29,7 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        std::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
+        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }
 }
 

@@ -57,7 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         access_index: Target,
         v: Vec<HashOutTarget>,
     ) -> HashOutTarget {
-        let selected = std::array::from_fn(|i| {
+        let selected = core::array::from_fn(|i| {
             self.random_access(
                 access_index,
                 v.iter().map(|hash| hash.elements[i]).collect(),

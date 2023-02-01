@@ -804,12 +804,14 @@ impl Buffer {
     }
 }
 
+#[cfg(feature = "std")]
 impl Remaining for Buffer {
     fn remaining(&self) -> usize {
         self.bytes.len() - self.pos
     }
 }
 
+#[cfg(feature = "std")]
 impl Read for Buffer {
     #[inline]
     fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
