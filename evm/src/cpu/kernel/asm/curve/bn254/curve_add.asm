@@ -49,7 +49,7 @@ global ec_add_valid_points:
     %jumpi(ec_add_first_zero)
     // stack: x0, y0, x1, y1, retdest
 
-    // Check if the first point is the identity.
+    // Check if the second point is the identity.
     DUP4
     // stack: y1, x0, y0, x1, y1, retdest
     DUP4
