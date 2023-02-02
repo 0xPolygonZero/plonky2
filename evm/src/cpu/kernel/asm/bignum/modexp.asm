@@ -67,7 +67,6 @@ modexp_quotient_loop:
     DUP2
     // stack: j+1, length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %neq
-    STOP
     // stack: j+1 != length, j+1, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jumpi(modexp_quotient_loop)
 modexp_quotient_end:
@@ -279,6 +278,8 @@ modexp_return_6:
     // stack: e == 0, length, b_start_loc, e_start_loc, m_start_loc, i + 1, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     ISZERO
     // stack: e != 0, length, b_start_loc, e_start_loc, m_start_loc, i + 1, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    %stack (iszero, vals: 4, i) -> (iszero, i, vals)
+    // stack: e != 0, i + 1, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jumpi(modexp_loop)
 modexp_end:
     // Copy x = x_l, in scratch_1, into output_loc
