@@ -118,8 +118,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
+use crate::arithmetic::addcc::{eval_ext_circuit_add_cc, eval_packed_generic_add_cc};
 use crate::arithmetic::columns::*;
-use crate::arithmetic::compare::{eval_ext_circuit_add_cc, eval_packed_generic_add_cc};
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 

@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::{compare, modular, mul};
+use crate::arithmetic::{addcc, modular, mul};
 
 #[inline]
 fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
@@ -82,7 +82,7 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
         if self.op_filter == IS_MUL {
             mul::generate(&mut row);
         } else {
-            compare::generate(&mut row, self.op_filter);
+            addcc::generate(&mut row, self.op_filter);
         }
         (row, None)
     }

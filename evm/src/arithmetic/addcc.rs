@@ -317,7 +317,7 @@ mod tests {
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
-    fn generate_eval_consistency_not_compare() {
+    fn generate_eval_consistency_not_addcc() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -344,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_compare() {
+    fn generate_eval_consistency_addcc() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);

@@ -8,7 +8,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::util::transpose;
 
 use crate::arithmetic::operations::Operation;
-use crate::arithmetic::{columns, compare, modular, mul};
+use crate::arithmetic::{addcc, columns, modular, mul};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
@@ -97,7 +97,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let nv = vars.next_values;
 
         mul::eval_packed_generic(lv, yield_constr);
-        compare::eval_packed_generic(lv, yield_constr);
+        addcc::eval_packed_generic(lv, yield_constr);
         modular::eval_packed_generic(lv, nv, yield_constr);
     }
 
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv = vars.local_values;
         let nv = vars.next_values;
         mul::eval_ext_circuit(builder, lv, yield_constr);
-        compare::eval_ext_circuit(builder, lv, yield_constr);
+        addcc::eval_ext_circuit(builder, lv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
