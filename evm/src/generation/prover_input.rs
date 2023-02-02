@@ -226,6 +226,10 @@ impl<F: Field> GenerationState<F> {
         y: u32,
         m_start_loc: usize,
     ) -> Vec<U256> {
+        dbg!(x_i_start_loc);
+        dbg!(b_start_loc);
+        dbg!(m_start_loc);
+        
         let x_i = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
             [x_i_start_loc..x_i_start_loc + len];
         let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
@@ -236,6 +240,11 @@ impl<F: Field> GenerationState<F> {
         let x_i_biguint = mem_vec_to_biguint(x_i);
         let b_biguint = mem_vec_to_biguint(b);
         let m_biguint = mem_vec_to_biguint(m);
+
+        dbg!("remainder");
+        dbg!(x_i_biguint.clone());
+        dbg!(b_biguint.clone());
+        dbg!(m_biguint.clone());
 
         let result_biguint = (x_i_biguint.clone() * x_i_biguint * b_biguint.pow(y)) % m_biguint;
 
@@ -252,6 +261,9 @@ impl<F: Field> GenerationState<F> {
         y: u32,
         m_start_loc: usize,
     ) -> Vec<U256> {
+        dbg!(x_i_start_loc);
+        dbg!(b_start_loc);
+        dbg!(m_start_loc);
         let x_i = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
             [x_i_start_loc..x_i_start_loc + len];
         let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
@@ -262,6 +274,11 @@ impl<F: Field> GenerationState<F> {
         let x_i_biguint = mem_vec_to_biguint(x_i);
         let b_biguint = mem_vec_to_biguint(b);
         let m_biguint = mem_vec_to_biguint(m);
+
+        dbg!("quotient");
+        dbg!(x_i_biguint.clone());
+        dbg!(b_biguint.clone());
+        dbg!(m_biguint.clone());
 
         let result_biguint = (x_i_biguint.clone() * x_i_biguint * b_biguint.pow(y)) / m_biguint;
 

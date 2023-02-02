@@ -14,9 +14,8 @@ fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
         .iter()
         .flat_map(|biguint| {
             biguint_to_mem_vec(biguint.clone())
-                .iter()
-                .pad_using(length, |_| &U256::zero())
-                .cloned()
+                .into_iter()
+                .pad_using(length, |_| U256::zero())
         })
         .collect()
 }
@@ -52,7 +51,7 @@ fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let (a, b) = gen_two_bignums_ordered(bit_size);
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()], length);
+    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
@@ -234,7 +233,7 @@ fn test_modmul_bignum() -> Result<()> {
         .max(bignum_len(&b))
         .max(bignum_len(&m))
         .into();
-    let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()]);
+    let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()], length.try_into().unwrap());
 
     // Determine expected result.
     let result = (a * b) % m;
@@ -296,7 +295,7 @@ fn test_modexp_bignum() -> Result<()> {
         .max(bignum_len(&e))
         .max(bignum_len(&m))
         .into();
-    let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()]);
+    let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()], length.try_into().unwrap());
 
     dbg!(b.clone());
     dbg!(e.clone());
