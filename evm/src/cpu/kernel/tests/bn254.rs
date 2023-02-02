@@ -74,7 +74,7 @@ fn setup_mul_test(
 }
 
 #[test]
-fn test_mul_fp12() -> Result<()> {
+fn test_mul_fp254_12() -> Result<()> {
     let in0: usize = 64;
     let in1: usize = 76;
     let out: usize = 88;
@@ -116,7 +116,7 @@ fn setup_frob_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
 }
 
 #[test]
-fn test_frob_fp12() -> Result<()> {
+fn test_frob_fp254_12() -> Result<()> {
     let ptr: usize = 100;
 
     let mut rng = rand::thread_rng();
@@ -157,7 +157,7 @@ fn test_inv_fp254_12() -> Result<()> {
 
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
-    
+
     let setup = InterpreterSetup {
         label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
