@@ -14,7 +14,7 @@
 //!  GT: X > Z, inputs X, Z, output CY, auxiliary output Y
 //!  LT: Z < X, inputs Z, X, output CY, auxiliary output Y
 
-use itertools::izip;
+use itertools::{izip, Itertools};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -115,7 +115,7 @@ where
     let overflow = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     let overflow_inv = overflow.inverse();
     let mut cy = P::ZEROS;
-    for (a, b) in pol_coeffs.zip(digits) {
+    for (a, b) in pol_coeffs.zip_eq(digits) {
         // t should be either 0 or 2^LIMB_BITS
         let t = cy + a - b;
         if is_two_row_op {
@@ -152,7 +152,7 @@ where
     let overflow_inv = F::inverse_2exp(LIMB_BITS);
 
     let mut cy = builder.zero_extension();
-    for (a, b) in pol_coeffs.zip(digits) {
+    for (a, b) in pol_coeffs.zip_eq(digits) {
         // t0 = cy + a
         let t0 = builder.add_extension(cy, a);
         // t  = t0 - b
