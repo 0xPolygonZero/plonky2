@@ -42,31 +42,35 @@ pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
     invariance_inducing_power(miller_output)
 }
 
+/// Standard code for miller loop, can be found on page 99 at this url:
+/// https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107
+/// where EXP is a hardcoding of the array of Booleans that the loop traverses
 pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
-    let mut o = p;
+    let mut r = p;
     let mut acc = UNIT_FP12;
     let mut line;
 
     for i in EXP {
-        acc = acc * acc;
-        line = tangent(o, q);
-        acc = line * acc;
-        o = o + o;
+        line = tangent(r, q);
+        r = r + r;
+        acc = line * acc * acc;
         if i {
-            line = cord(p, o, q);
+            line = cord(p, r, q);
+            r = r + p;
             acc = line * acc;
-            o = o + p;
         }
     }
     acc
 }
 
+/// The sloped line function for doubling a point
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
     let cx = -Fp::new(3) * p.x * p.x;
     let cy = Fp::new(2) * p.y;
     sparse_embed(p.y * p.y - Fp::new(9), q.x.scale(cx), q.y.scale(cy))
 }
 
+/// The sloped line function for adding two points
 pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
