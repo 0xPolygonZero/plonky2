@@ -1,18 +1,18 @@
-//! Support for EVM LT and GT instructions
+//! Support for EVM instructions ADD, SUB, LT and GT
 //!
-//! This crate verifies EVM LT and GT instructions (i.e. for unsigned
-//! inputs). The difference between LT and GT is of course just a
-//! matter of the order of the inputs. The verification is essentially
-//! identical to the SUB instruction: For both SUB and LT we have values
+//! This crate verifies EVM instructions ADD, SUB, LT and GT (i.e. for
+//! unsigned inputs). Each of these instructions can be verified using
+//! the "add with carry out" equation
 //!
-//!   - `input0`
-//!   - `input1`
-//!   - `difference` (mod 2^256)
-//!   - `borrow` (= 0 or 1)
+//!   X + Y = Z + CY * 2^256
 //!
-//! satisfying `input0 - input1 = difference + borrow * 2^256`. Where
-//! SUB verifies `difference` and ignores `borrow`, LT verifies
-//! `borrow` (and uses `difference` as an auxiliary input).
+//! by an appropriate assignment of "inputs" and "outputs" to the
+//! variables X, Y, Z and CY. Specifically,
+//!
+//! ADD: X + Y, inputs X, Y, output Z, ignore CY
+//! SUB: X - Z, inputs X, Z, output Y, ignore CY
+//!  GT: X > Z, inputs X, Z, output CY, auxiliary output Y
+//!  LT: Z < X, inputs Z, X, output CY, auxiliary output Y
 
 use itertools::izip;
 use plonky2::field::extension::Extendable;
@@ -58,16 +58,16 @@ fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS
     (output, br)
 }
 
-/// Generate row for SUB, GT and LT operations.
+/// Generate row for ADD, SUB, GT and LT operations.
 ///
 /// A row consists of four values, GENERAL_REGISTER_[012] and
 /// GENERAL_REGISTER_BIT. The interpretation of these values for each
 /// operation is as follows:
 ///
-/// ADD: INPUT_0 + INPUT_1, output in INPUT_2, ignore INPUT_BIT
-/// SUB: INPUT_0 - INPUT_2, output in INPUT_1, ignore INPUT_BIT
-///  GT: INPUT_0 > INPUT_2, output in INPUT_BIT, auxiliary output in INPUT_1
-///  LT: INPUT_2 < INPUT_0, output in INPUT_BIT, auxiliary output in INPUT_1
+/// ADD: REGISTER_0 + REGISTER_1, output in REGISTER_2, ignore REGISTER_BIT
+/// SUB: REGISTER_0 - REGISTER_2, output in REGISTER_1, ignore REGISTER_BIT
+///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
+///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
 pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
     match filter {
         IS_ADD => {
