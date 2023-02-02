@@ -1,5 +1,7 @@
 use anyhow::Result;
+use blake2::digest::typenum::U25;
 use ethereum_types::U256;
+use itertools::Itertools;
 use num::{BigUint, Signed};
 use num_bigint::RandBigInt;
 
@@ -7,10 +9,10 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 
-fn pack_bignums(biguints: &[BigUint]) -> Vec<U256> {
+fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
     biguints
         .iter()
-        .flat_map(|biguint| biguint_to_mem_vec(biguint.clone()))
+        .flat_map(|biguint| biguint_to_mem_vec(biguint.clone()).iter().pad_using(length, |_| &U256::zero()).cloned())
         .collect()
 }
 
@@ -45,7 +47,7 @@ fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let (a, b) = gen_two_bignums_ordered(bit_size);
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()]);
+    let memory = pack_bignums(&[a.clone(), b.clone()], length);
 
     (a, b, length, memory)
 }
@@ -291,6 +293,10 @@ fn test_modexp_bignum() -> Result<()> {
         .into();
     let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()]);
 
+    dbg!(b.clone());
+    dbg!(e.clone());
+    dbg!(m.clone());
+
     // Determine expected result.
     let result = b.modpow(&e, &m);
     let expected_result: Vec<U256> = biguint_to_mem_vec(result);
@@ -340,6 +346,9 @@ fn test_modexp_bignum() -> Result<()> {
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
+    
+    dbg!(interpreter.stack());
+    dbg!(new_memory);
 
     assert_eq!(actual_result, expected_result);
 

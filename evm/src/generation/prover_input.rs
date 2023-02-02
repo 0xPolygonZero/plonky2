@@ -238,6 +238,9 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (x_i_biguint.clone() * x_i_biguint * b_biguint.pow(y)) % m_biguint;
+
+        dbg!(result_biguint.clone());
+
         biguint_to_mem_vec(result_biguint)
     }
 
@@ -261,6 +264,9 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (x_i_biguint.clone() * x_i_biguint * b_biguint.pow(y)) / m_biguint;
+
+        dbg!(result_biguint.clone());
+
         biguint_to_mem_vec(result_biguint)
     }
 }

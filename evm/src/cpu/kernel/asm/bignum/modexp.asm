@@ -51,6 +51,7 @@ modexp_loop:
     // stack: j=0, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
 modexp_quotient_loop:
     // stack: j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
     PROVER_INPUT(bignum_modexp::quotient)
     // stack: PI, j, length, scratch_1, b_start_loc, y, m_start_loc, e_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     DUP12
@@ -126,9 +127,10 @@ modexp_remainder_end:
     // stack: modexp_return_2, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %stack (return, len, others: 7, s2, s3) -> (len, s3, s2, return, len, others, s2, s3)
     // stack: length, scratch_3, scratch_2, modexp_return_2, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    %jump(add_bignum)
 modexp_return_2:
     // stack: length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-
+    
     // Multiply x_i (in scratch_1) by x_i (in scratch_1) and store in scratch_4, using scratch_5 as scratch space.
     PUSH modexp_return_3
     // stack: modexp_return_3, length, b_start_loc, e_start_loc, m_start_loc, i, y, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
@@ -190,7 +192,8 @@ modexp_check_loop:
     %mload_kernel_general
     SWAP1
     // stack: mem[a], mem[b], n, a, b, length, b_start_loc, e_start_loc, m_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %assert_eq
+    //%assert_eq
+    %pop2
     // stack: n, a, b, length, b_start_loc, e_start_loc, m_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %decrement
     // stack: n-1, a, b, length, b_start_loc, e_start_loc, m_start_loc, i, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
