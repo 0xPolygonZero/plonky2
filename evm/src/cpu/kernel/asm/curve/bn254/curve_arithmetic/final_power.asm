@@ -1,3 +1,8 @@
+/// To make the Tate pairing an invariant, the final step is to exponentiate by
+///     (p^12 - 1)/N = (p^6 - 1)(p^2 + 1)(p^4 - p^2 + 1)/N
+/// The function in this module enacts the final exponentiation, by
+///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
+///
 /// def final_exp(y):
 ///     y4, y2, y0 = 1, 1, 1
 ///     power_loop_4()
@@ -15,7 +20,7 @@
 ///     y  = y.frob(3)
 ///     y2 = y2.frob(2)
 ///     y1 = y1.frob(1)
-///     return y * y2 * y4 * y0
+///     return y * y2 * y1 * y0
 
 global final_exp:
     // stack:                  val, retdest

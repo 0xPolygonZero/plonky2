@@ -490,7 +490,9 @@
     // stack: g0, g1, g2, g3, g4, g5, X, f0, f1, f2, f3, f4, f5
 %endmacro
 
-%macro sh
+/// multiply (a + bt + ct^2) by t:
+///     t(a + bt + ct^2) = at + bt^2 + ct^3 = (9+i)c + at + bt^2
+%macro sh_fp254_6
     // stack: f0 , f0_, f1,  f1_, f2 , f2_
     SWAP2
     // stack: f1 , f0_, g0 , f1_, f2 , f2_

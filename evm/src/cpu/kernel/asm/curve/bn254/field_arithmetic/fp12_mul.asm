@@ -360,7 +360,7 @@ square_fp12_1:
     %jump(square_fp6)
 square_fp12_2:
     // stack:                                           f'f', inp, f, square_fp12_3, out
-    %sh
+    %sh_fp254_6
     // stack:                                       sh(f'f'), inp, f, square_fp12_3, out
     %swap_fp6_hole
     // stack:                                       f, inp, sh(f'f'), square_fp12_3, out
