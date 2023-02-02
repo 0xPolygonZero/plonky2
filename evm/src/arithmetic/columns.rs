@@ -48,8 +48,11 @@ pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COL
 
 pub(crate) const GENERAL_INPUT_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 pub(crate) const GENERAL_INPUT_1: Range<usize> = GENERAL_INPUT_0.end..GENERAL_INPUT_0.end + N_LIMBS;
-const GENERAL_INPUT_2: Range<usize> = GENERAL_INPUT_1.end..GENERAL_INPUT_1.end + N_LIMBS;
+pub(crate) const GENERAL_INPUT_2: Range<usize> = GENERAL_INPUT_1.end..GENERAL_INPUT_1.end + N_LIMBS;
 const GENERAL_INPUT_3: Range<usize> = GENERAL_INPUT_2.end..GENERAL_INPUT_2.end + N_LIMBS;
+// NB: Uses first slot of the GENERAL_INPUT_3 register.
+pub(crate) const GENERAL_INPUT_BIT: usize = GENERAL_INPUT_3.start;
+
 // NB: Only one of these two sets of columns will be used for a given operation
 const GENERAL_INPUT_4: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + N_LIMBS;
 const GENERAL_INPUT_4_DBL: Range<usize> = GENERAL_INPUT_3.end..GENERAL_INPUT_3.end + 2 * N_LIMBS;
@@ -69,28 +72,12 @@ const AUX_INPUT_2: Range<usize> = AUX_INPUT_1.end..AUX_INPUT_1.end + 2 * N_LIMBS
 // the range checks.
 pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
 
-// ADD takes 3 * N_LIMBS = 48 columns
-pub(crate) const ADD_INPUT_0: Range<usize> = GENERAL_INPUT_0;
-pub(crate) const ADD_INPUT_1: Range<usize> = GENERAL_INPUT_1;
-pub(crate) const ADD_OUTPUT: Range<usize> = GENERAL_INPUT_2;
-
-// SUB takes 3 * N_LIMBS = 48 columns
-pub(crate) const SUB_INPUT_0: Range<usize> = GENERAL_INPUT_0;
-pub(crate) const SUB_INPUT_1: Range<usize> = GENERAL_INPUT_1;
-pub(crate) const SUB_OUTPUT: Range<usize> = GENERAL_INPUT_2;
-
 // MUL takes 5 * N_LIMBS = 80 columns
 pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_INPUT_0;
 pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_INPUT_1;
 pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_INPUT_2;
 pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = GENERAL_INPUT_3;
 pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = GENERAL_INPUT_4;
-
-// LT and GT take 4 * N_LIMBS = 64 columns
-pub(crate) const CMP_INPUT_0: Range<usize> = GENERAL_INPUT_0;
-pub(crate) const CMP_INPUT_1: Range<usize> = GENERAL_INPUT_1;
-pub(crate) const CMP_OUTPUT: usize = GENERAL_INPUT_2.start;
-pub(crate) const CMP_AUX_INPUT: Range<usize> = GENERAL_INPUT_3;
 
 // MULMOD takes 4 * N_LIMBS + 3 * 2*N_LIMBS + N_LIMBS = 176 columns
 // but split over two rows of 96 columns and 80 columns.

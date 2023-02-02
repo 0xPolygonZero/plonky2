@@ -119,7 +119,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
 use crate::arithmetic::columns::*;
-use crate::arithmetic::compare::{eval_ext_circuit_lt, eval_packed_generic_lt};
+use crate::arithmetic::compare::{eval_ext_circuit_add_cc, eval_packed_generic_add_cc};
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
@@ -213,18 +213,12 @@ fn generate_modular_op<F: RichField>(
     let mut constr_poly = [0i64; 2 * N_LIMBS];
     constr_poly[..2 * N_LIMBS - 1].copy_from_slice(&operation(input0_limbs, input1_limbs));
 
-    // two_exp_256 == 2^256
-    let two_exp_256 = {
-        let mut t = BigInt::zero();
-        t.set_bit(256, true);
-        t
-    };
-
     let mut mod_is_zero = F::ZERO;
     if modulus.is_zero() {
         if filter == columns::IS_DIV {
-            // set modulus = 2^256
-            modulus = two_exp_256.clone();
+            // set modulus = 2^256; the condition above means we know
+            // it's zero at this point, so we can just set bit 256.
+            modulus.set_bit(256, true);
             // modulus_limbs don't play a role below
         } else {
             // set modulus = 1
@@ -248,8 +242,8 @@ fn generate_modular_op<F: RichField>(
     let quot = (&input - &output) / &modulus; // exact division; can be -ve
     let quot_limbs = bigint_to_columns::<{ 2 * N_LIMBS }>(&quot);
 
-    // output < modulus here, so the proof requires (output - modulus) % 2^256:
-    let out_aux_red = bigint_to_columns::<N_LIMBS>(&(two_exp_256 + output - modulus));
+    // output < modulus here, so the proof requires (modulus - output).
+    let out_aux_red = bigint_to_columns::<N_LIMBS>(&(modulus - output));
 
     // constr_poly is the array of coefficients of the polynomial
     //
@@ -338,29 +332,30 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
 
     // Needed to compensate for adding mod_is_zero to modulus above,
-    // since the call eval_packed_generic_lt() below subtracts modulus
+    // since the call eval_packed_generic_add_cc() below subtracts modulus
     // to verify in the case of a DIV.
     output[0] += div_denom_is_zero;
 
     // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
-    // This sets is_less_than to 1 unless we get mod_is_zero when
-    // doing a DIV; in that case, we need is_less_than=0, since the
-    // function checks
+    // This sets is_greater_than to 0 unless we get mod_is_zero when
+    // doing a DIV; in that case, we need is_greater_than=1, since
+    // eval_packed_generic_add_cc checks
     //
-    //   output - modulus == out_aux_red + is_less_than*2^256
+    //   output + out_aux_red == modulus + is_greater_than*2^256
     //
     // and we were given output = out_aux_red
-    let is_less_than = P::ONES - mod_is_zero * lv[IS_DIV];
-    // NB: output and modulus in lv while out_aux_red and is_less_than
-    // (via mod_is_zero) depend on nv.
-    eval_packed_generic_lt(
+    let is_greater_than = mod_is_zero * lv[IS_DIV];
+    // NB: output and modulus in lv while out_aux_red and
+    // is_greater_than (via mod_is_zero) depend on nv, hence the
+    // 'is_two_row_op' argument is set to 'true'.
+    eval_packed_generic_add_cc(
         yield_constr,
         filter,
         &output,
-        &modulus,
         out_aux_red,
-        is_less_than,
+        &modulus,
+        is_greater_than,
         true,
     );
     // restore output[0]
@@ -488,18 +483,16 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     output[0] = builder.add_extension(output[0], div_denom_is_zero);
 
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
-    let one = builder.one_extension();
-    let is_less_than =
-        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
+    let is_greater_than = builder.mul_extension(mod_is_zero, lv[IS_DIV]);
 
-    eval_ext_circuit_lt(
+    eval_ext_circuit_add_cc(
         builder,
         yield_constr,
         filter,
         &output,
-        &modulus,
         out_aux_red,
-        is_less_than,
+        &modulus,
+        is_greater_than,
         true,
     );
     output[0] = builder.sub_extension(output[0], div_denom_is_zero);

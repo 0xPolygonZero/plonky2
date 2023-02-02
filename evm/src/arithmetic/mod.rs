@@ -4,11 +4,9 @@ use ethereum_types::U256;
 
 use crate::util::{addmod, mulmod, submod};
 
-mod add;
 mod compare;
 mod modular;
 mod mul;
-mod sub;
 mod utils;
 
 pub mod arithmetic_stark;
