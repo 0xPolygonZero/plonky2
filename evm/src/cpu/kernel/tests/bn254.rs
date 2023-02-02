@@ -3,8 +3,9 @@ use std::ops::Range;
 
 use anyhow::Result;
 use ethereum_types::U256;
+use rand::Rng;
 
-use crate::bn254_arithmetic::{gen_fp12, Fp, Fp12, Fp2};
+use crate::bn254_arithmetic::{Fp, Fp12, Fp2};
 use crate::bn254_pairing::{gen_fp12_sparse, tate, Curve, TwistedCurve};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -78,9 +79,10 @@ fn test_mul_fp12() -> Result<()> {
     let in1: usize = 76;
     let out: usize = 88;
 
-    let f: Fp12 = gen_fp12();
-    let g: Fp12 = gen_fp12();
-    let h: Fp12 = gen_fp12_sparse();
+    let mut rng = rand::thread_rng();
+    let f: Fp12 = rng.gen::<Fp12>();
+    let g: Fp12 = rng.gen::<Fp12>();
+    let h: Fp12 = gen_fp12_sparse(&mut rng);
 
     let setup_normal: InterpreterSetup = setup_mul_test(in0, in1, out, f, g, "mul_fp12");
     let setup_sparse: InterpreterSetup = setup_mul_test(in0, in1, out, f, h, "mul_fp12_sparse");
@@ -116,7 +118,9 @@ fn setup_frob_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
 #[test]
 fn test_frob_fp12() -> Result<()> {
     let ptr: usize = 100;
-    let f: Fp12 = gen_fp12();
+
+    let mut rng = rand::thread_rng();
+    let f: Fp12 = rng.gen::<Fp12>();
 
     let setup_frob_1 = setup_frob_test(ptr, f, "test_frob_fp12_1");
     let setup_frob_2 = setup_frob_test(ptr, f, "test_frob_fp12_2");
@@ -150,8 +154,10 @@ fn test_frob_fp12() -> Result<()> {
 fn test_inv_fp254_12() -> Result<()> {
     let ptr: usize = 100;
     let inv: usize = 112;
-    let f: Fp12 = gen_fp12();
 
+    let mut rng = rand::thread_rng();
+    let f: Fp12 = rng.gen::<Fp12>();
+    
     let setup = InterpreterSetup {
         label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],

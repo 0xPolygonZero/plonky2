@@ -1,7 +1,8 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
-use rand::{thread_rng, Rng};
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 pub const BN_BASE: U256 = U256([
     0x3c208c16d87cfd47,
@@ -19,6 +20,15 @@ impl Fp {
     pub fn new(val: usize) -> Fp {
         Fp {
             val: U256::from(val),
+        }
+    }
+}
+
+impl Distribution<Fp> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
+        let (x0, x1, x2, x3) = rng.gen::<(u64, u64, u64, u64)>();
+        Fp {
+            val: U256([x0, x1, x2, x3]) % BN_BASE,
         }
     }
 }
@@ -112,6 +122,13 @@ pub const UNIT_FP2: Fp2 = Fp2 {
     re: UNIT_FP,
     im: ZERO_FP,
 };
+
+impl Distribution<Fp2> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2 {
+        let (re, im) = rng.gen::<(Fp, Fp)>();
+        Fp2 { re, im }
+    }
+}
 
 impl Add for Fp2 {
     type Output = Self;
@@ -228,6 +245,13 @@ pub const UNIT_FP6: Fp6 = Fp6 {
     t1: ZERO_FP2,
     t2: ZERO_FP2,
 };
+
+impl Distribution<Fp6> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6 {
+        let (t0, t1, t2) = rng.gen::<(Fp2, Fp2, Fp2)>();
+        Fp6 { t0, t1, t2 }
+    }
+}
 
 impl Add for Fp6 {
     type Output = Self;
@@ -371,6 +395,13 @@ pub const UNIT_FP12: Fp12 = Fp12 {
     z0: UNIT_FP6,
     z1: ZERO_FP6,
 };
+
+impl Distribution<Fp12> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12 {
+        let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
+        Fp12 { z0, z1 }
+    }
+}
 
 impl Mul for Fp12 {
     type Output = Self;
@@ -833,32 +864,3 @@ const FROB_Z: [Fp2; 12] = [
         },
     },
 ];
-
-pub fn gen_fp() -> Fp {
-    let mut rng = thread_rng();
-    let x64 = rng.gen::<u64>();
-    let x256 = U256([x64, x64, x64, x64]) % BN_BASE;
-    Fp { val: x256 }
-}
-
-pub fn gen_fp2() -> Fp2 {
-    Fp2 {
-        re: gen_fp(),
-        im: gen_fp(),
-    }
-}
-
-pub fn gen_fp6() -> Fp6 {
-    Fp6 {
-        t0: gen_fp2(),
-        t1: gen_fp2(),
-        t2: gen_fp2(),
-    }
-}
-
-pub fn gen_fp12() -> Fp12 {
-    Fp12 {
-        z0: gen_fp6(),
-        z1: gen_fp6(),
-    }
-}

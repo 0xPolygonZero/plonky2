@@ -1,6 +1,8 @@
 use std::ops::Add;
 
-use crate::bn254_arithmetic::{gen_fp, gen_fp2, Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZERO_FP, ZERO_FP2};
+use rand::Rng;
+
+use crate::bn254_arithmetic::{Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZERO_FP, ZERO_FP2};
 
 // The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -98,8 +100,8 @@ pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
     Fp12 { z0: g0, z1: g1 }
 }
 
-pub fn gen_fp12_sparse() -> Fp12 {
-    sparse_embed(gen_fp(), gen_fp2(), gen_fp2())
+pub fn gen_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12 {
+    sparse_embed(rng.gen::<Fp>(), rng.gen::<Fp2>(), rng.gen::<Fp2>())
 }
 
 /// The output y of the miller loop is not an invariant,
