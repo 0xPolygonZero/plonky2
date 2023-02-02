@@ -60,8 +60,8 @@ fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS
 
 /// Generate row for SUB, GT and LT operations.
 ///
-/// A row consists of four values, GENERAL_INPUT_[012] and
-/// GENERAL_INPUT_BIT. The interpretation of these values for each
+/// A row consists of four values, GENERAL_REGISTER_[012] and
+/// GENERAL_REGISTER_BIT. The interpretation of these values for each
 /// operation is as follows:
 ///
 /// ADD: INPUT_0 + INPUT_1, output in INPUT_2, ignore INPUT_BIT
@@ -71,24 +71,24 @@ fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS
 pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
     match filter {
         IS_ADD => {
-            let x = read_value_u64_limbs(lv, GENERAL_INPUT_0);
-            let y = read_value_u64_limbs(lv, GENERAL_INPUT_1);
+            let x = read_value_u64_limbs(lv, GENERAL_REGISTER_0);
+            let y = read_value_u64_limbs(lv, GENERAL_REGISTER_1);
 
             // x + y == z + cy*2^256
             let (z, cy) = u256_add_cc(x, y);
 
-            lv[GENERAL_INPUT_2].copy_from_slice(&z.map(F::from_canonical_u64));
-            lv[GENERAL_INPUT_BIT] = F::from_canonical_u64(cy);
+            lv[GENERAL_REGISTER_2].copy_from_slice(&z.map(F::from_canonical_u64));
+            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u64(cy);
         }
         IS_SUB | IS_GT | IS_LT => {
-            let x = read_value_u64_limbs(lv, GENERAL_INPUT_0);
-            let z = read_value_u64_limbs(lv, GENERAL_INPUT_2);
+            let x = read_value_u64_limbs(lv, GENERAL_REGISTER_0);
+            let z = read_value_u64_limbs(lv, GENERAL_REGISTER_2);
 
             // y == z - x + cy*2^256
             let (y, cy) = u256_sub_br(z, x);
 
-            lv[GENERAL_INPUT_1].copy_from_slice(&y.map(F::from_canonical_u64));
-            lv[GENERAL_INPUT_BIT] = F::from_canonical_u64(cy);
+            lv[GENERAL_REGISTER_1].copy_from_slice(&y.map(F::from_canonical_u64));
+            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u64(cy);
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -231,10 +231,10 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let x = &lv[GENERAL_INPUT_0];
-    let y = &lv[GENERAL_INPUT_1];
-    let z = &lv[GENERAL_INPUT_2];
-    let cy = lv[GENERAL_INPUT_BIT];
+    let x = &lv[GENERAL_REGISTER_0];
+    let y = &lv[GENERAL_REGISTER_1];
+    let z = &lv[GENERAL_REGISTER_2];
+    let cy = lv[GENERAL_REGISTER_BIT];
 
     let op_filter = is_add + is_sub + is_lt + is_gt;
     eval_packed_generic_check_is_one_bit(yield_constr, op_filter, cy);
@@ -293,10 +293,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let x = &lv[GENERAL_INPUT_0];
-    let y = &lv[GENERAL_INPUT_1];
-    let z = &lv[GENERAL_INPUT_2];
-    let cy = lv[GENERAL_INPUT_BIT];
+    let x = &lv[GENERAL_REGISTER_0];
+    let y = &lv[GENERAL_REGISTER_1];
+    let z = &lv[GENERAL_REGISTER_2];
+    let cy = lv[GENERAL_REGISTER_BIT];
 
     let op_filter = builder.add_many_extension([is_add, is_sub, is_lt, is_gt]);
     eval_ext_circuit_check_is_one_bit(builder, yield_constr, op_filter, cy);

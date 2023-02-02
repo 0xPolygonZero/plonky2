@@ -231,7 +231,7 @@ mod tests {
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), col, expected
-            (0, columns::GENERAL_INPUT_2, 579), // ADD_OUTPUT
+            (0, columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
             (1, columns::MODULAR_OUTPUT, 703),
             (3, columns::MODULAR_OUTPUT, 674),
             (5, columns::MUL_OUTPUT, 56088),
