@@ -12,7 +12,12 @@ use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
     biguints
         .iter()
-        .flat_map(|biguint| biguint_to_mem_vec(biguint.clone()).iter().pad_using(length, |_| &U256::zero()).cloned())
+        .flat_map(|biguint| {
+            biguint_to_mem_vec(biguint.clone())
+                .iter()
+                .pad_using(length, |_| &U256::zero())
+                .cloned()
+        })
         .collect()
 }
 
@@ -346,7 +351,7 @@ fn test_modexp_bignum() -> Result<()> {
     let output_location: usize = output_loc.try_into().unwrap();
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
-    
+
     dbg!(interpreter.stack());
     dbg!(new_memory);
 
