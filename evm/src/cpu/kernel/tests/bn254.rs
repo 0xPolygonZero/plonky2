@@ -86,7 +86,8 @@ fn test_mul_fp254_12() -> Result<()> {
 
     let setup_normal: InterpreterSetup = setup_mul_test(in0, in1, out, f, g, "mul_fp254_12");
     let setup_sparse: InterpreterSetup = setup_mul_test(in0, in1, out, f, h, "mul_fp254_12_sparse");
-    let setup_square: InterpreterSetup = setup_mul_test(in0, in1, out, f, f, "square_fp254_12_test");
+    let setup_square: InterpreterSetup =
+        setup_mul_test(in0, in1, out, f, f, "square_fp254_12_test");
 
     let intrptr_normal: Interpreter = run_setup_interpreter(setup_normal).unwrap();
     let intrptr_sparse: Interpreter = run_setup_interpreter(setup_sparse).unwrap();
