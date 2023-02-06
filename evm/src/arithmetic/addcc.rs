@@ -24,7 +24,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::operations::u256_to_array;
+use crate::arithmetic::utils::u256_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.

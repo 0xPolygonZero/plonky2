@@ -7,8 +7,7 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::util::transpose;
 
-use crate::arithmetic::operations::Operation;
-use crate::arithmetic::{addcc, columns, modular, mul};
+use crate::arithmetic::{addcc, columns, modular, mul, Operation, Traceable};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
@@ -44,7 +43,8 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    pub fn generate(&self, operations: Vec<&dyn Operation<F>>) -> Vec<PolynomialValues<F>> {
+    #[allow(unused)]
+    pub(crate) fn generate(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -148,7 +148,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
-    use crate::arithmetic::operations::*;
+    use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -189,34 +189,29 @@ mod tests {
         };
 
         // 123 + 456 == 579
-        let add = SimpleBinaryOp::new(columns::IS_ADD, U256::from(123), U256::from(456));
+        let add = Operation::binary(BinaryOperator::Add, U256::from(123), U256::from(456));
         // (123 * 456) % 1007 == 703
-        let mulmod = ModularBinaryOp::new(
-            columns::IS_MULMOD,
+        let mulmod = Operation::ternary(
+            TernaryOperator::MulMod,
             U256::from(123),
             U256::from(456),
             U256::from(1007),
         );
-        // (123 - 456) % 1007 == 674
-        let submod = ModularBinaryOp::new(
-            columns::IS_SUBMOD,
-            U256::from(123),
-            U256::from(456),
+        // (1234 + 567) % 1007 == 794
+        let addmod = Operation::ternary(
+            TernaryOperator::AddMod,
+            U256::from(1234),
+            U256::from(567),
             U256::from(1007),
         );
         // 123 * 456 == 56088
-        let mul = SimpleBinaryOp::new(columns::IS_MUL, U256::from(123), U256::from(456));
+        let mul = Operation::binary(BinaryOperator::Mul, U256::from(123), U256::from(456));
         // 128 % 13 == 11
-        let modop = ModOp {
-            input: U256::from(128),
-            modulus: U256::from(13),
-        };
+        let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
+
         // 128 / 13 == 9
-        let div = DivOp {
-            numerator: U256::from(128),
-            denominator: U256::from(13),
-        };
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &mul, &div, &modop];
+        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13));
+        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, div, modop];
 
         let pols = stark.generate(ops);
 
@@ -233,7 +228,7 @@ mod tests {
             // Row (some ops take two rows), col, expected
             (0, columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
             (1, columns::MODULAR_OUTPUT, 703),
-            (3, columns::MODULAR_OUTPUT, 674),
+            (3, columns::MODULAR_OUTPUT, 794),
             (5, columns::MUL_OUTPUT, 56088),
             (6, columns::MODULAR_OUTPUT, 11),
             (8, columns::DIV_OUTPUT, 9),
@@ -269,18 +264,14 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                SimpleBinaryOp::new(
-                    columns::IS_MUL,
+                Operation::binary(
+                    BinaryOperator::Mul,
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
                 )
             })
             .collect::<Vec<_>>();
 
-        // TODO: This is clearly not the right way to build this
-        // vector; I can't work out how to do it using the map above
-        // though, with or without Boxes.
-        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
         let pols = stark.generate(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
@@ -293,8 +284,8 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                ModularBinaryOp::new(
-                    columns::IS_MULMOD,
+                Operation::ternary(
+                    TernaryOperator::MulMod,
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
@@ -302,10 +293,6 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        // TODO: This is clearly not the right way to build this
-        // vector; I can't work out how to do it using the map above
-        // though, with or without Boxes.
-        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
         let pols = stark.generate(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
