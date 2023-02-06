@@ -31,7 +31,7 @@ global bn254_miller:
     // stack: out, 1, ptr, out, retdest
     %mstore_kernel_general
     // stack:         ptr, out, retdest
-    %load_fp6
+    %load_fp254_6
     // stack:        P, Q, out, retdest
     %stack (P: 2) -> (0, 53, P, P)
     // stack: 0, 53, O, P, Q, out, retdest

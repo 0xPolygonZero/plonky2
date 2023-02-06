@@ -28,7 +28,7 @@ global inv_fp254_12:
     // stack:                   f^-1, inp, out, retdest
     DUP14
     // stack:              out, f^-1, inp, out, retdest
-    %store_fp12
+    %store_fp254_12
     // stack:                         inp, out, retdest
     %stack (inp, out) -> (inp, out, 50, check_inv_fp254_12)
     // stack: inp, out, 50, check_inv_fp254_12, retdest 
@@ -36,9 +36,9 @@ global inv_fp254_12:
 check_inv_fp254_12:
     // stack:        retdest
     PUSH 50  
-    %load_fp12
+    %load_fp254_12
     // stack: unit?, retdest
-    %assert_eq_unit_fp12
+    %assert_eq_unit_fp254_12
     // stack:        retdest
     JUMP
 

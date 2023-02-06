@@ -26,7 +26,7 @@ global bn254_final_exp:
     // stack:                  val, retdest
     %stack (val) -> (val, 300, val)
     // stack:        val, 300, val, retdest
-    %move_fp12
+    %move_fp254_12
     // stack:             300, val, retdest
     %stack () -> (1, 1, 1)
     // stack:    1, 1, 1, 300, val, retdest

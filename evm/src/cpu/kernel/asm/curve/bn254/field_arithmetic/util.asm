@@ -1,11 +1,11 @@
-%macro offset_fp6
+%macro offset_fp254_6
     %add_const(6)
 %endmacro
 
-// fp2 macros
+// fp254_2 macros
 
 // cost: 2 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro load_fp2
+%macro load_fp254_2
     // stack:       ptr
     DUP1  
     %add_const(1)
@@ -28,7 +28,7 @@
     // stack: a, -b 
 %endmacro
 
-%macro swap_fp2
+%macro swap_fp254_2
     // stack: a , a_, b , b_
     SWAP2
     // stack: b , a_, a , b_
@@ -40,7 +40,7 @@
     // stack: b , b_, a , a_
 %endmacro
 
-%macro swap_fp2_hole_2
+%macro swap_fp254_2_hole_2
     // stack: a , a_, X, b , b_
     SWAP4
     // stack: b , a_, X, a , b_
@@ -52,7 +52,7 @@
     // stack: b , b_, X, a , a_
 %endmacro
 
-%macro mul_fp_fp2
+%macro mul_fp254__fp254_2
     // stack:    c, x, y
     SWAP2
     // stack:    y, x, c 
@@ -89,7 +89,7 @@
     // stack: 9b + a, 9a - b 
 %endmacro
 
-%macro mul_fp2
+%macro mul_fp254_2
     // stack:          a, b, c, d
     DUP4
     DUP3
@@ -115,10 +115,10 @@
     // stack:    ac - bd, bc + ad
 %endmacro 
 
-// fp6 macros
+// fp254_6 macros
 
 // cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro load_fp6
+%macro load_fp254_6
     // stack:                         ptr
     DUP1  
     %add_const(4)
@@ -152,7 +152,7 @@
 %endmacro
 
 // cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro load_fp6(ptr)
+%macro load_fp254_6(ptr)
     // stack:
     PUSH $ptr  
     %add_const(5)
@@ -186,7 +186,7 @@
 %endmacro
 
 // cost: 6 stores + 6 swaps/dups + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro store_fp6
+%macro store_fp254_6
     // stack:      ptr, x0, x1, x2, x3, x4 , x5
     SWAP5
     // stack:       x4, x0, x1, x2, x3, ptr, x5
@@ -221,7 +221,7 @@
 %endmacro
 
 // cost: 6 stores + 7 swaps/dups + 5 adds + 6 doubles = 6*4 + 7*1 + 5*2 + 6*2 = 53
-%macro store_fp6_double
+%macro store_fp254_6_double
     // stack:        ptr, x0, x1, x2, x3, x4, x5
     SWAP6
     // stack:         x5, x0, x1, x2, x3, x4, ptr
@@ -276,7 +276,7 @@
 %endmacro
 
 // cost: 6 stores + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
-%macro store_fp6(ptr)
+%macro store_fp254_6(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
     PUSH $ptr
     // stack: ind0, x0, x1, x2, x3, x4, x5
@@ -310,7 +310,7 @@
 %endmacro
 
 // cost: store (40) + i9 (9) = 49
-%macro store_fp6_sh(ptr)
+%macro store_fp254_6_sh(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
     PUSH $ptr  
     %add_const(2)
@@ -346,7 +346,7 @@
 %endmacro
 
 // cost: 6
-%macro dup_fp6_0
+%macro dup_fp254_6_0
     // stack:       f: 6
     DUP6
     DUP6
@@ -358,7 +358,7 @@
 %endmacro 
 
 // cost: 6
-%macro dup_fp6_2
+%macro dup_fp254_6_2
     // stack:       X: 2, f: 6
     DUP8
     DUP8
@@ -370,7 +370,7 @@
 %endmacro 
 
 // cost: 6
-%macro dup_fp6_6
+%macro dup_fp254_6_6
     // stack:       X: 6, f: 6
     DUP12
     DUP12
@@ -382,7 +382,7 @@
 %endmacro
 
 // cost: 6
-%macro dup_fp6_7
+%macro dup_fp254_6_7
     // stack:       X: 7, f: 6
     DUP13
     DUP13
@@ -394,7 +394,7 @@
 %endmacro
 
 // cost: 6
-%macro dup_fp6_8
+%macro dup_fp254_6_8
     // stack:       X: 8, f: 6
     DUP14
     DUP14
@@ -406,7 +406,7 @@
 %endmacro
 
 // cost: 16
-%macro swap_fp6
+%macro swap_fp254_6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP6
     // stack: g0, f1, f2, f3, f4, f5, f0, g1, g2, g3, g4, g5
@@ -433,9 +433,9 @@
 %endmacro
 
 // cost: 16
-// swap two fp6 elements with a stack term separating them
+// swap two fp254_6 elements with a stack term separating them
 //    (f: 6, X, g: 6) -> (g: 6, X, f: 6)
-%macro swap_fp6_hole
+%macro swap_fp254_6_hole
     // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
     SWAP7
     // stack: g0, f1, f2, f3, f4, f5, X, f0, g1, g2, g3, g4, g5
@@ -462,9 +462,9 @@
 %endmacro
 
 // cost: 16
-// swap two fp6 elements with two stack terms separating them
+// swap two fp254_6 elements with two stack terms separating them
 //    (f: 6, X: 2, g: 6) -> (g: 6, X: 2, f: 6)
-%macro swap_fp6_hole_2
+%macro swap_fp254_6_hole_2
     // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
     SWAP8
     // stack: g0, f1, f2, f3, f4, f5, X, f0, g1, g2, g3, g4, g5
@@ -513,7 +513,7 @@
 %endmacro
 
 // cost: 16
-%macro add_fp6
+%macro add_fp254_6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
     ADDFP254
@@ -540,9 +540,9 @@
 %endmacro
 
 // cost: 18
-// add two fp6 elements with a to-be-popped stack term separating them
+// add two fp254_6 elements with a to-be-popped stack term separating them
 //    (f: 6, X, g: 6) -> (f + g: 6)
-%macro add_fp6_hole
+%macro add_fp254_6_hole
     // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
     SWAP8
     ADDFP254
@@ -571,7 +571,7 @@
 %endmacro
 
 // *reversed argument subtraction* cost: 17
-%macro subr_fp6
+%macro subr_fp254_6
     // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
     SWAP7
     SUBFP254
@@ -599,7 +599,7 @@
 %endmacro
 
 // cost: 21
-%macro mul_fp_fp6
+%macro mul_fp254__fp254_6
     // stack: c , f0,      f1,    f2,     f3,     f4,     f5
     SWAP6
     DUP7
@@ -639,7 +639,7 @@
 /// G1 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
 /// G2 = (a+bi)(f2+f2_i) = (af2 - bf2_) + (bf2 + af2_)i
 
-%macro mul_fp2_fp6
+%macro mul_fp254_2_fp254_6
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP2
     DUP5
@@ -730,7 +730,7 @@
 /// G1 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 /// G2 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
 
-%macro mul_fp2_fp6_sh
+%macro mul_fp254_2_fp254_6_sh
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP6
     DUP3
@@ -824,7 +824,7 @@
 /// G1 = (a+bi)(f2+f2_i) = (cf2 - df2_) + (df2 + cf2_)i
 /// G2 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 
-%macro mul_fp2_fp6_sh2
+%macro mul_fp254_2_fp254_6_sh2
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP4
     DUP3 
@@ -908,7 +908,7 @@
     // stack:                   g0, g0_, g1, g1_, g2, g2_
 %endmacro
 
-%macro load_fp12
+%macro load_fp254_12
     // stack:                                                          ptr
     DUP1  
     %add_const(10)
@@ -971,7 +971,7 @@
     // stack:   x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
 %endmacro
 
-%macro store_fp12
+%macro store_fp254_12
     // stack:        ptr, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
     SWAP11
     // stack:        x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
@@ -1035,9 +1035,9 @@
     // stack:                                                            
 %endmacro
 
-/// moves fp12 from src..src+12 to dest..dest+12
+/// moves fp254_12 from src..src+12 to dest..dest+12
 /// these should not overlap. leaves dest on stack
-%macro move_fp12
+%macro move_fp254_12
     // stack:              src, dest
     DUP1  
     // stack:       ind00, src, dest
@@ -1157,7 +1157,7 @@
     %mstore_kernel_general
 %endmacro
 
-%macro assert_eq_unit_fp12
+%macro assert_eq_unit_fp254_12
     %assert_eq_const(1)
     %assert_zero
     %assert_zero
