@@ -65,11 +65,11 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
         row[self.op_filter] = F::ONE;
 
         if self.op_filter == IS_SUB || self.op_filter == IS_GT {
-            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
-            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input1);
-        } else if self.op_filter == IS_LT {
             u256_to_array(&mut row[GENERAL_REGISTER_2], self.input0);
             u256_to_array(&mut row[GENERAL_REGISTER_0], self.input1);
+        } else if self.op_filter == IS_LT {
+            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
+            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input1);
         } else {
             assert!(
                 self.op_filter == IS_ADD || self.op_filter == IS_MUL,

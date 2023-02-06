@@ -10,7 +10,7 @@
 //! variables X, Y, Z and CY. Specifically,
 //!
 //! ADD: X + Y, inputs X, Y, output Z, ignore CY
-//! SUB: X - Z, inputs X, Z, output Y, ignore CY
+//! SUB: Z - X, inputs X, Z, output Y, ignore CY
 //!  GT: X > Z, inputs X, Z, output CY, auxiliary output Y
 //!  LT: Z < X, inputs Z, X, output CY, auxiliary output Y
 
@@ -20,6 +20,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::read_value_u64_limbs;
@@ -65,7 +66,7 @@ fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS
 /// operation is as follows:
 ///
 /// ADD: REGISTER_0 + REGISTER_1, output in REGISTER_2, ignore REGISTER_BIT
-/// SUB: REGISTER_0 - REGISTER_2, output in REGISTER_1, ignore REGISTER_BIT
+/// SUB: REGISTER_2 - REGISTER_0, output in REGISTER_1, ignore REGISTER_BIT
 ///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
 ///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
 pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
@@ -94,30 +95,77 @@ pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
     };
 }
 
-/// Given a polynomial f represented by its coefficients `pol_coeffs`
-/// and a number n represented by its digits `digits` in base
-/// B=2^LIMB_BITS, with `pol_coeffs` and `digits` being of equal
-/// length as sequences, this method constrains that f(B) == n, but
-/// allowing the possibility of overflow by one bit (which is
-/// returned).
-fn eval_packed_generic_pol_eval_equal<P, I, J>(
+fn eval_packed_generic_check_is_one_bit<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
-    pol_coeffs: I,
-    digits: J,
+    x: P,
+) {
+    yield_constr.constraint(filter * x * (x - P::ONES));
+}
+
+fn eval_ext_circuit_check_is_one_bit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    filter: ExtensionTarget<D>,
+    x: ExtensionTarget<D>,
+) {
+    let constr = builder.mul_sub_extension(x, x, x);
+    let filtered_constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint(builder, filtered_constr);
+}
+
+/// 2^-16 mod (2^64 - 2^32 + 1)
+const GOLDILOCKS_INVERSE_65536: u64 = 18446462594437939201;
+
+/// Constrains x + y == z + cy*2^256, assuming filter != 0.
+///
+/// NB: This function DOES NOT verify that cy is 0 or 1; the caller
+/// must do that.
+///
+/// Set `is_two_row_op=true` to allow the code to be called from the
+/// two-row `modular` code (for checking that the modular output is
+/// reduced).
+///
+/// Note that the digits of `x + y` are in `[0, 2*(2^16-1)]`
+/// (i.e. they are the sums of two 16-bit numbers), whereas the digits
+/// of `z` can only be in `[0, 2^16-1]`. In the function we check that:
+///
+/// \sum_i (x_i + y_i) * 2^(16*i) = \sum_i z_i * 2^(16*i) + given_cy*2^256.
+///
+/// If `N_LIMBS = 1`, then this amounts to verifying that either `x_0
+/// + y_0 = z_0` or `x_0 + y_0 == z_0 + cy*2^16` (this is `t` on line
+/// 127ff). Ok. Now assume the constraints are valid for `N_LIMBS =
+/// n-1`. Then by induction,
+///
+/// \sum_{i=0}^{n-1} (x_i + y_i) * 2^(16*i) + (x_n + y_n)*2^(16*n) ==
+/// \sum_{i=0}^{n-1} z_i * 2^(16*i) + cy_{n-1}*2^(16*n) + z_n*2^(16*n)
+/// + cy_n*2^(16*n)
+///
+/// is true if `(x_n + y_n)*2^(16*n) == cy_{n-1}*2^(16*n) +
+/// z_n*2^(16*n) + cy_n*2^(16*n)` (again, this is `t` on line 127ff)
+/// with the last `cy_n` checked against the `given_cy` given as input.
+pub(crate) fn eval_packed_generic_add_cc<P: PackedField>(
+    yield_constr: &mut ConstraintConsumer<P>,
+    filter: P,
+    x: &[P],
+    y: &[P],
+    z: &[P],
+    given_cy: P,
     is_two_row_op: bool,
-) -> P
-where
-    P: PackedField,
-    I: Iterator<Item = P>,
-    J: Iterator<Item = P>,
-{
-    let overflow = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-    let overflow_inv = overflow.inverse();
+) {
+    debug_assert!(x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS);
+
+    let overflow = P::Scalar::from_canonical_u64(1u64 << LIMB_BITS);
+    let overflow_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_65536);
+    debug_assert!(
+        overflow * overflow_inv == P::Scalar::ONE,
+        "only works with LIMB_BITS=16 and F=Goldilocks"
+    );
+
     let mut cy = P::ZEROS;
-    for (a, b) in pol_coeffs.zip_eq(digits) {
-        // t should be either 0 or 2^LIMB_BITS
-        let t = cy + a - b;
+    for ((&xi, &yi), &zi) in x.iter().zip_eq(y).zip_eq(z) {
+        // Verify that (xi + yi) - zi is either 0 or 2^LIMB_BITS
+        let t = cy + xi + yi - zi;
         if is_two_row_op {
             yield_constr.constraint_transition(filter * t * (overflow - t));
         } else {
@@ -128,97 +176,11 @@ where
         // increase the degree of the constraint.
         cy = t * overflow_inv;
     }
-    cy
-}
 
-fn eval_ext_circuit_pol_eval_equal<F, const D: usize, I, J>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    filter: ExtensionTarget<D>,
-    pol_coeffs: I,
-    digits: J,
-    is_two_row_op: bool,
-) -> ExtensionTarget<D>
-where
-    F: RichField + Extendable<D>,
-    I: Iterator<Item = ExtensionTarget<D>>,
-    J: Iterator<Item = ExtensionTarget<D>>,
-{
-    // 2^LIMB_BITS in the base field
-    let overflow_base = F::from_canonical_u64(1 << LIMB_BITS);
-    // 2^LIMB_BITS in the extension field as an ExtensionTarget
-    let overflow = builder.constant_extension(F::Extension::from(overflow_base));
-    // 2^-LIMB_BITS in the base field.
-    let overflow_inv = F::inverse_2exp(LIMB_BITS);
-
-    let mut cy = builder.zero_extension();
-    for (a, b) in pol_coeffs.zip_eq(digits) {
-        // t0 = cy + a
-        let t0 = builder.add_extension(cy, a);
-        // t  = t0 - b
-        let t = builder.sub_extension(t0, b);
-        // t1 = overflow - t
-        let t1 = builder.sub_extension(overflow, t);
-        // t2 = t * t1
-        let t2 = builder.mul_extension(t, t1);
-
-        let filtered_limb_constraint = builder.mul_extension(filter, t2);
-        if is_two_row_op {
-            yield_constr.constraint_transition(builder, filtered_limb_constraint);
-        } else {
-            yield_constr.constraint(builder, filtered_limb_constraint);
-        }
-
-        cy = builder.mul_const_extension(overflow_inv, t);
-    }
-    cy
-}
-
-fn eval_packed_generic_check_is_one_bit<P: PackedField>(
-    yield_constr: &mut ConstraintConsumer<P>,
-    filter: P,
-    x: P,
-) {
-    yield_constr.constraint(filter * x * (x - P::ONES));
-}
-
-fn eval_ext_circuit_check_is_one_bit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    filter: ExtensionTarget<D>,
-    x: ExtensionTarget<D>,
-) {
-    let constr = builder.mul_sub_extension(x, x, x);
-    let filtered_constr = builder.mul_extension(filter, constr);
-    yield_constr.constraint(builder, filtered_constr);
-}
-
-/// Constrains x + y == z + cy*2^256 assuming filter != 0.
-pub(crate) fn eval_packed_generic_add_cc<P: PackedField>(
-    yield_constr: &mut ConstraintConsumer<P>,
-    filter: P,
-    x: &[P],
-    y: &[P],
-    z: &[P],
-    cy: P,
-    is_two_row_op: bool,
-) {
-    debug_assert!(x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS);
-
-    let pol_sum = x.iter().zip(y).map(|(&xi, &yi)| xi + yi);
-    let expected_cy = eval_packed_generic_pol_eval_equal(
-        yield_constr,
-        filter,
-        pol_sum,
-        z.iter().copied(),
-        is_two_row_op,
-    );
-    // We don't need to check that expected_cy is 0 or 1, since cy has
-    // already been checked to be 0 or 1.
     if is_two_row_op {
-        yield_constr.constraint_transition(filter * (cy - expected_cy));
+        yield_constr.constraint_transition(filter * (cy - given_cy));
     } else {
-        yield_constr.constraint(filter * (cy - expected_cy));
+        yield_constr.constraint(filter * (cy - given_cy));
     }
 }
 
@@ -251,30 +213,40 @@ pub(crate) fn eval_ext_circuit_add_cc<F: RichField + Extendable<D>, const D: usi
     x: &[ExtensionTarget<D>],
     y: &[ExtensionTarget<D>],
     z: &[ExtensionTarget<D>],
-    cy: ExtensionTarget<D>,
+    given_cy: ExtensionTarget<D>,
     is_two_row_op: bool,
 ) {
     debug_assert!(x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS);
 
-    // Since `map` is lazy and the closure passed to it borrows
-    // `builder`, we can't then borrow builder again below in the call
-    // to `eval_ext_circuit_pol_eval_equal`. The solution is to force
-    // evaluation with `collect`.
-    let pol_sum = x
-        .iter()
-        .zip(y)
-        .map(|(&xi, &yi)| builder.add_extension(xi, yi))
-        .collect::<Vec<ExtensionTarget<D>>>();
+    // 2^LIMB_BITS in the base field
+    let overflow_base = F::from_canonical_u64(1 << LIMB_BITS);
+    // 2^LIMB_BITS in the extension field as an ExtensionTarget
+    let overflow = builder.constant_extension(F::Extension::from(overflow_base));
+    // 2^-LIMB_BITS in the base field.
+    let overflow_inv = F::from_canonical_u64(GOLDILOCKS_INVERSE_65536);
 
-    let expected_cy = eval_ext_circuit_pol_eval_equal(
-        builder,
-        yield_constr,
-        filter,
-        pol_sum.into_iter(),
-        z.iter().copied(),
-        is_two_row_op,
-    );
-    let good_cy = builder.sub_extension(cy, expected_cy);
+    let mut cy = builder.zero_extension();
+    for ((&xi, &yi), &zi) in x.iter().zip_eq(y).zip_eq(z) {
+        // t0 = cy + xi + yi
+        let t0 = builder.add_many_extension([cy, xi, yi]);
+        // t  = t0 - zi
+        let t = builder.sub_extension(t0, zi);
+        // t1 = overflow - t
+        let t1 = builder.sub_extension(overflow, t);
+        // t2 = t * t1
+        let t2 = builder.mul_extension(t, t1);
+
+        let filtered_limb_constraint = builder.mul_extension(filter, t2);
+        if is_two_row_op {
+            yield_constr.constraint_transition(builder, filtered_limb_constraint);
+        } else {
+            yield_constr.constraint(builder, filtered_limb_constraint);
+        }
+
+        cy = builder.mul_const_extension(overflow_inv, t);
+    }
+
+    let good_cy = builder.sub_extension(cy, given_cy);
     let filter = builder.mul_extension(filter, good_cy);
     if is_two_row_op {
         yield_constr.constraint_transition(builder, filter);
@@ -300,7 +272,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let op_filter = builder.add_many_extension([is_add, is_sub, is_lt, is_gt]);
     eval_ext_circuit_check_is_one_bit(builder, yield_constr, op_filter, cy);
-
     eval_ext_circuit_add_cc(builder, yield_constr, op_filter, x, y, z, cy, false);
 }
 
