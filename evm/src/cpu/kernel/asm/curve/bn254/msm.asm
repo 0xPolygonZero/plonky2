@@ -23,7 +23,7 @@ msm_loop_contd:
     %increment
     //stack: i+1, accx, accy, retdest
     %stack (i, accx, accy, retdest) -> (accx, accy, bn_msm_loop, i, retdest)
-    %jump(ec_double)
+    %jump(bn_double)
 
 msm_end:
     %stack (i, accx, accy, retdest) -> (retdest, accx, accy)
@@ -33,13 +33,13 @@ bn_msm_loop_add_a_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_add_b, i, retdest)
     %bn_mload_point_a
     // stack: px, py, accx, accy, msm_loop_add_b, i, retdest
-    %jump(ec_add_valid_points)
+    %jump(bn_add_valid_points)
 
 bn_msm_loop_add_b_nonzero:
     %stack (w, accx, accy, i, retdest) -> (w, accx, accy, msm_loop_contd, i, retdest)
     %bn_mload_point_b
     // stack: px, py, accx, accy, msm_loop_contd, i, retdest
-    %jump(ec_add_valid_points)
+    %jump(bn_add_valid_points)
 
 %macro bn_mload_wnaf_a
     // stack: i

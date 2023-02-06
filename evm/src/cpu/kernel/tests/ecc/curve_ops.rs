@@ -11,9 +11,9 @@ mod bn {
     #[test]
     fn test_ec_ops() -> Result<()> {
         // Make sure we can parse and assemble the entire kernel.
-        let ec_add = KERNEL.global_labels["ec_add"];
-        let ec_double = KERNEL.global_labels["ec_double"];
-        let ec_mul = KERNEL.global_labels["ec_mul"];
+        let ec_add = KERNEL.global_labels["bn_add"];
+        let ec_double = KERNEL.global_labels["bn_double"];
+        let ec_mul = KERNEL.global_labels["bn_mul"];
         let identity = ("0x0", "0x0");
         let invalid = ("0x0", "0x3"); // Not on curve
         let point0 = (
@@ -236,8 +236,8 @@ mod secp {
     fn test_ec_ops() -> Result<()> {
         // Make sure we can parse and assemble the entire kernel.
         let kernel = combined_kernel();
-        let ec_add = kernel.global_labels["ec_add_valid_points_secp"];
-        let ec_double = kernel.global_labels["ec_double_secp"];
+        let ec_add = kernel.global_labels["secp_add_valid_points"];
+        let ec_double = kernel.global_labels["secp_double"];
         let identity = ("0x0", "0x0");
         let point0 = (
             "0xc82ccceebd739e646631b7270ed8c33e96c4940b19db91eaf67da6ec92d109b",

@@ -13,3 +13,13 @@ global ret_zero_ec_mul:
 global ec_double_retself:
     %stack (x, y, retdest) -> (retdest, x, y)
     JUMP
+
+// Check if (x,y)==(0,0)
+%macro ec_isidentity
+    // stack: x, y
+    OR
+    // stack: x | y
+    ISZERO
+    // stack: (x,y) == (0,0)
+%endmacro
+
