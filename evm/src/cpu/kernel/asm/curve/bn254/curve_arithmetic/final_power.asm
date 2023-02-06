@@ -22,7 +22,7 @@
 ///     y1 = y1.frob(1)
 ///     return y * y2 * y1 * y0
 
-global final_exp:
+global bn254_final_exp:
     // stack:                  val, retdest
     %stack (val) -> (val, 300, val)
     // stack:        val, 300, val, retdest
@@ -47,43 +47,43 @@ make_term_1:
     // stack:                             val, retdest  {212: y2, 224: y4, 236: y0^-1}
     %stack () -> (212, 224, 224, make_term_2)
     // stack: 212, 224, 224, make_term_2, val, retdest  {212: y2, 224: y4, 236: y0^-1}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 make_term_2:
     // stack:                             val, retdest  {212: y2, 224: y4 * y2, 236: y0^-1}
     %stack () -> (212, 224, 224, make_term_3)
     // stack: 212, 224, 224, make_term_3, val, retdest  {212: y2, 224: y4 * y2, 236: y0^-1}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 make_term_3:
     // stack:                             val, retdest  {212: y2, 224: y4 * y2^2, 236: y0^-1}
     %stack () -> (236, 224, 224, final_power)
     // stack: 236, 224, 224, final_power, val, retdest  {212: y2, 224: y4 * y2^2, 236: y0^-1}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 
 final_power:
     // stack:                            val, retdest  {val: y  , 212:  y^a2   , 224:  y^a1   , 236: y^a0}
-    %frob_fp12_3
+    %frob_fp254_12_3
     // stack:                            val, retdest  {val: y_3, 212:  y^a2   , 224:  y^a1   , 236: y^a0}
     %stack () -> (212, 212)
-    %frob_fp12_2_
+    %frob_fp254_12_2_
     POP
     // stack:                            val, retdest  {val: y_3, 212: (y^a2)_2, 224:  y^a1   , 236: y^a0}
     PUSH 224
-    %frob_fp12_1
+    %frob_fp254_12_1
     POP
     // stack:                            val, retdest  {val: y_3, 212: (y^a2)_2, 224: (y^a1)_1, 236: y^a0}
     %stack (val) -> (212, val, val, penult_mul, val)
     // stack: 212, val, val, penult_mul, val, retdest  {val: y_3, 212: (y^a2)_2, 224: (y^a1)_1, 236: y^a0}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 penult_mul:
     // stack:                            val, retdest  {val: y_3 * (y^a2)_2, 224: (y^a1)_1, 236: y^a0}
     %stack (val) -> (224, val, val, final_mul, val)
     // stack:  224, val, val, final_mul, val, retdest  {val: y_3 * (y^a2)_2, 224: (y^a1)_1, 236: y^a0}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 final_mul: 
     // stack:                            val, retdest  {val: y_3 * (y^a2)_2 * (y^a1)_1, 236: y^a0}
     %stack (val) -> (236, val, val)
     // stack:                  236, val, val, retdest  {val: y_3 * (y^a2)_2 * (y^a1)_1, 236: y^a0}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 
 
 /// def power_loop_4():
@@ -95,7 +95,7 @@ final_mul:
 ///             y2 *= acc
 ///         if c:
 ///             y0 *= acc
-///         acc = square_fp12(acc)
+///         acc = square_fp254_12(acc)
 ///     y4 *= acc
 ///
 /// def power_loop_2():
@@ -105,7 +105,7 @@ final_mul:
 ///            y2 *= acc
 ///        if b:
 ///            y0 *= acc
-///        acc = square_fp12(acc)
+///        acc = square_fp254_12(acc)
 ///     y2 *= acc
 ///
 /// def power_loop_0():
@@ -113,7 +113,7 @@ final_mul:
 ///         a = load(i, power_data_0)
 ///         if a:
 ///             y0 *= acc
-///         acc = square_fp12(acc)
+///         acc = square_fp254_12(acc)
 ///     y0 *= acc
 
 power_loop_4:
@@ -139,7 +139,7 @@ power_loop_4:
     // stack:      224, 224, power_loop_4_b,  bc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP8
     // stack: sqr, 224, 224, power_loop_4_b,  bc, i-1, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_4_b:
     // stack:                               bc, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP1  
@@ -153,7 +153,7 @@ power_loop_4_b:
     // stack:      212, 212, power_loop_4_c, c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP8
     // stack: sqr, 212, 212, power_loop_4_c, c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_4_c:
     // stack:                              c, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     ISZERO
@@ -164,7 +164,7 @@ power_loop_4_c:
     // stack:      200, 200, power_loop_4_sq, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP7
     // stack: sqr, 200, 200, power_loop_4_sq, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_4_sq:
     // stack:                         i, j, k, sqr  {200: y0, 212: y2, 224: y4}
     PUSH power_loop_4  
@@ -172,7 +172,7 @@ power_loop_4_sq:
     DUP5  
     DUP1
     // stack: sqr, sqr, power_loop_4, i, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(square_fp12)
+    %jump(square_fp254_12)
 power_loop_4_end:
     // stack:                           0, j, k, sqr  {200: y0, 212: y2, 224: y4}
     POP  
@@ -181,7 +181,7 @@ power_loop_4_end:
     // stack:      224, 224, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP6
     // stack: sqr, 224, 224, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 
 power_loop_2:
     // stack:                                   j  , k, sqr  {200: y0, 212: y2, 224: y4}
@@ -206,7 +206,7 @@ power_loop_2:
     // stack:      212, 212, power_loop_2_b, b, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP7
     // stack: sqr, 212, 212, power_loop_2_b, b, j-1, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_2_b:
     // stack:                              b, j, k, sqr  {200: y0, 212: y2, 224: y4}
     ISZERO
@@ -217,7 +217,7 @@ power_loop_2_b:
     // stack:      200, 200, power_loop_2_sq, j, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP6
     // stack: sqr, 200, 200, power_loop_2_sq, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_2_sq:
     // stack:                         j, k, sqr  {200: y0, 212: y2, 224: y4}
     PUSH power_loop_2  
@@ -225,7 +225,7 @@ power_loop_2_sq:
     DUP4  
     DUP1
     // stack: sqr, sqr, power_loop_2, j, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(square_fp12)
+    %jump(square_fp254_12)
 power_loop_2_end:
     // stack:                           0, k, sqr  {200: y0, 212: y2, 224: y4}
     POP  
@@ -234,7 +234,7 @@ power_loop_2_end:
     // stack:      212, 212, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
     DUP5
     // stack: sqr, 212, 212, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 
 power_loop_0:
     // stack:                                 k  , sqr  {200: y0, 212: y2, 224: y4}
@@ -256,7 +256,7 @@ power_loop_0:
     // stack:      200, 200, power_loop_0_sq, k-1, sqr  {200: y0, 212: y2, 224: y4}
     DUP5
     // stack: sqr, 200, 200, power_loop_0_sq, k-1, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)
+    %jump(mul_fp254_12)
 power_loop_0_sq:
     // stack:                         k, sqr  {200: y0, 212: y2, 224: y4}
     PUSH power_loop_0  
@@ -264,9 +264,9 @@ power_loop_0_sq:
     DUP3  
     DUP1
     // stack: sqr, sqr, power_loop_0, k, sqr  {200: y0, 212: y2, 224: y4}
-    %jump(square_fp12)
+    %jump(square_fp254_12)
 power_loop_0_end:
     // stack:                         0, sqr  {200: y0, 212: y2, 224: y4}
     %stack (i, sqr) -> (200, sqr, 200, custom_powers)
     // stack:   200, sqr, 200, custom_powers  {200: y0, 212: y2, 224: y4}
-    %jump(mul_fp12)    
+    %jump(mul_fp254_12)    

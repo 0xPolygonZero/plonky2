@@ -59,7 +59,7 @@
 /// e2_ = c0d2_ + c0_d2 + c1d1_ +  c1_d1  + c2d0_  + c2_d0
 
 // cost: 157
-global mul_fp6:
+global mul_fp254_6:
     // e2
     // make c0_d2_ + c1_d1_ + c2_d0_
     DUP8
@@ -299,7 +299,7 @@ global mul_fp6:
 /// e2_ = 2(c0_c2 + c2c0_) + 2c1c1_
 
 // cost: 101
-global square_fp6:
+global square_fp254_6:
     /// e0  = (c0^2 - c0_^2) + x0
     /// e0_ = 2c0c0_ + x0_
     ///     where x0_, x0 = %i9 2(c1c2 - c1_c2_), 2(c1_c2 + c1c2_)

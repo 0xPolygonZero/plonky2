@@ -84,9 +84,9 @@ fn test_mul_fp254_12() -> Result<()> {
     let g: Fp12 = rng.gen::<Fp12>();
     let h: Fp12 = gen_fp12_sparse(&mut rng);
 
-    let setup_normal: InterpreterSetup = setup_mul_test(in0, in1, out, f, g, "mul_fp12");
-    let setup_sparse: InterpreterSetup = setup_mul_test(in0, in1, out, f, h, "mul_fp12_sparse");
-    let setup_square: InterpreterSetup = setup_mul_test(in0, in1, out, f, f, "square_fp12_test");
+    let setup_normal: InterpreterSetup = setup_mul_test(in0, in1, out, f, g, "mul_fp254_12");
+    let setup_sparse: InterpreterSetup = setup_mul_test(in0, in1, out, f, h, "mul_fp254_12_sparse");
+    let setup_square: InterpreterSetup = setup_mul_test(in0, in1, out, f, f, "square_fp254_12_test");
 
     let intrptr_normal: Interpreter = run_setup_interpreter(setup_normal).unwrap();
     let intrptr_sparse: Interpreter = run_setup_interpreter(setup_sparse).unwrap();
@@ -122,10 +122,10 @@ fn test_frob_fp254_12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
 
-    let setup_frob_1 = setup_frob_test(ptr, f, "test_frob_fp12_1");
-    let setup_frob_2 = setup_frob_test(ptr, f, "test_frob_fp12_2");
-    let setup_frob_3 = setup_frob_test(ptr, f, "test_frob_fp12_3");
-    let setup_frob_6 = setup_frob_test(ptr, f, "test_frob_fp12_6");
+    let setup_frob_1 = setup_frob_test(ptr, f, "test_frob_fp254_12_1");
+    let setup_frob_2 = setup_frob_test(ptr, f, "test_frob_fp254_12_2");
+    let setup_frob_3 = setup_frob_test(ptr, f, "test_frob_fp254_12_3");
+    let setup_frob_6 = setup_frob_test(ptr, f, "test_frob_fp254_12_6");
 
     let intrptr_frob_1: Interpreter = run_setup_interpreter(setup_frob_1).unwrap();
     let intrptr_frob_2: Interpreter = run_setup_interpreter(setup_frob_2).unwrap();
@@ -276,7 +276,7 @@ fn test_tate() -> Result<()> {
     ];
 
     let setup = InterpreterSetup {
-        label: "tate".to_string(),
+        label: "bn254_tate".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
         memory: vec![(ptr, inputs)],
     };

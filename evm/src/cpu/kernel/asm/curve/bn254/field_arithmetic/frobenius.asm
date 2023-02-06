@@ -1,42 +1,42 @@
-global test_frob_fp12_1:
+global test_frob_fp254_12_1:
     // stack:         ptr
-    %frob_fp12_1
+    %frob_fp254_12_1
     // stack:         ptr
     %jump(0xdeadbeef)
 
-global test_frob_fp12_2:
+global test_frob_fp254_12_2:
     // stack:         ptr 
     DUP1
     // stack:    ptr, ptr
-    %frob_fp12_2_
+    %frob_fp254_12_2_
     // stack:         ptr
     %jump(0xdeadbeef)
 
-global test_frob_fp12_3:
+global test_frob_fp254_12_3:
     // stack:         ptr
-    %frob_fp12_3
-    // stack:         ptr
-    %jump(0xdeadbeef)
-
-global test_frob_fp12_6:
-    // stack:         ptr
-    %frob_fp12_6
+    %frob_fp254_12_3
     // stack:         ptr
     %jump(0xdeadbeef)
 
+global test_frob_fp254_12_6:
+    // stack:         ptr
+    %frob_fp254_12_6
+    // stack:         ptr
+    %jump(0xdeadbeef)
 
-/// def frob_fp12_n(f, f'):
-///     g  =             frob_fp6(n, f )
-///     g' = FROB_z[n] * frob_fp6(n, f')
+
+/// def frob_fp254_12_n(f, f'):
+///     g  =             frob_fp254_6(n, f )
+///     g' = FROB_z[n] * frob_fp254_6(n, f')
 ///     return g, g'
 
-%macro frob_fp12_1
+%macro frob_fp254_12_1
     // stack:           ptr
     DUP1
     // stack:      ptr, ptr 
     %load_fp6
     // stack:        f, ptr
-    %frob_fp6_1
+    %frob_fp254_6_1
     // stack:        g, ptr
     DUP7
     // stack:   ptr, g, ptr
@@ -55,13 +55,13 @@ global test_frob_fp12_6:
 %endmacro 
 
 // Note: this is the only one with distinct input and output pointers
-%macro frob_fp12_2_
+%macro frob_fp254_12_2_
     // stack:           ptr , out
     DUP1
     // stack:      ptr, ptr , out
     %load_fp6
     // stack:        f, ptr , out
-    %frob_fp6_2
+    %frob_fp254_6_2
     // stack:        g, ptr , out
     DUP8
     // stack:   out, g, ptr , out
@@ -79,13 +79,13 @@ global test_frob_fp12_6:
     // stack:                 out
 %endmacro 
 
-%macro frob_fp12_3
+%macro frob_fp254_12_3
     // stack:           ptr
     DUP1
     // stack:      ptr, ptr 
     %load_fp6
     // stack:        f, ptr
-    %frob_fp6_3
+    %frob_fp254_6_3
     // stack:        g, ptr
     DUP7
     // stack:   ptr, g, ptr
@@ -103,7 +103,7 @@ global test_frob_fp12_6:
     // stack:           ptr
 %endmacro
 
-%macro frob_fp12_6
+%macro frob_fp254_12_6
     // stack:           ptr
     DUP1  %offset_fp6
     // stack:     ptr', ptr
@@ -120,14 +120,14 @@ global test_frob_fp12_6:
 
 /// let Z` denote the complex conjugate of Z
 
-/// def frob_fp6_n(C0, C1, C2):
+/// def frob_fp254_6_n(C0, C1, C2):
 ///     if n%2:
 ///         D0, D1, D2 = C0`, FROB_T1[n] * C1`, FROB_T2[n] * C2`
 ///     else: 
 ///         D0, D1, D2 = C0 , FROB_T1[n] * C1 , FROB_T2[n] * C2
 ///     return D0, D1, D2 
 
-%macro frob_fp6_1
+%macro frob_fp254_6_1
     // stack: C0 , C1 , C2
     %conj_fp254_2
     // stack: D0 , C1 , C2
@@ -149,7 +149,7 @@ global test_frob_fp12_6:
     // stack: D0 , D1 , D2
 %endmacro
 
-%macro frob_fp6_2
+%macro frob_fp254_6_2
     // stack: C0, C1, C2
     %swap_fp2_hole_2
     // stack: C2, C1, C0
@@ -165,7 +165,7 @@ global test_frob_fp12_6:
     // stack: D0, D1, D2
 %endmacro
 
-%macro frob_fp6_3
+%macro frob_fp254_6_3
     // stack: C0 , C1 , C2
     %conj_fp254_2
     // stack: D0 , C1 , C2
@@ -189,20 +189,20 @@ global test_frob_fp12_6:
 
 
 %macro frobz_1
-    %frob_fp6_1
+    %frob_fp254_6_1
     PUSH 0x246996f3b4fae7e6a6327cfe12150b8e747992778eeec7e5ca5cf05f80f362ac
     PUSH 0x1284b71c2865a7dfe8b99fdd76e68b605c521e08292f2176d60b35dadcc9e470
     %mul_fp2_fp6
 %endmacro
 
 %macro frobz_2
-    %frob_fp6_2
+    %frob_fp254_6_2
     PUSH 0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd49
     %mul_fp_fp6
 %endmacro
 
 %macro frobz_3
-    %frob_fp6_3
+    %frob_fp254_6_3
     PUSH 0xabf8b60be77d7306cbeee33576139d7f03a5e397d439ec7694aa2bf4c0c101
     PUSH 0x19dc81cfcc82e4bbefe9608cd0acaa90894cb38dbe55d24ae86f7d391ed4a67f
     %mul_fp2_fp6

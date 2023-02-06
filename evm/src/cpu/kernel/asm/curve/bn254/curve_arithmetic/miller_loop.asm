@@ -25,7 +25,7 @@
 ///     0xnm -= 1
 ///     mul_tangent()
 
-global miller:
+global bn254_miller:
     // stack:         ptr, out, retdest
     %stack (ptr, out) -> (out, 1, ptr, out)
     // stack: out, 1, ptr, out, retdest
@@ -36,7 +36,7 @@ global miller:
     %stack (P: 2) -> (0, 53, P, P)
     // stack: 0, 53, O, P, Q, out, retdest
     // the head 0 lets miller_loop start with POP
-global miller_loop:
+miller_loop:
     POP
     // stack:          times  , O, P, Q, out, retdest
     DUP1  
@@ -85,9 +85,9 @@ miller_zero:
 
 
 /// def mul_tangent()
-///     out = square_fp12(out)
+///     out = square_fp254_12(out)
 ///     line = tangent(O, Q)
-///     out = mul_fp12_sparse(out, line)
+///     out = mul_fp254_12_sparse(out, line)
 ///     O += O
 
 mul_tangent:
@@ -98,7 +98,7 @@ mul_tangent:
     // stack:           mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %stack (mul_tangent_1, out) -> (out, out, mul_tangent_1, out)
     // stack: out, out, mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
-    %jump(square_fp12)
+    %jump(square_fp254_12)
 mul_tangent_1:
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP13
@@ -113,7 +113,7 @@ mul_tangent_1:
     // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
     %stack (out) -> (out, 100, out)
     // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
-    %jump(mul_fp12_sparse)
+    %jump(mul_fp254_12_sparse)
 mul_tangent_2:
     // stack:                  retdest, 0xnm, times,   O, P, Q, out  {100: line}
     PUSH after_double
@@ -133,7 +133,7 @@ after_double:
 
 /// def mul_cord()
 ///     line = cord(P, O, Q)
-///     out = mul_fp12_sparse(out, line)
+///     out = mul_fp254_12_sparse(out, line)
 ///     O += P
 
 mul_cord:
@@ -157,7 +157,7 @@ mul_cord:
     // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
     %stack (out) -> (out, 100, out)
     // stack: out, 100, out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
-    %jump(mul_fp12_sparse)
+    %jump(mul_fp254_12_sparse)
 mul_cord_1:
     // stack:                   0xnm, times, O  , P, Q, out
     PUSH after_add
