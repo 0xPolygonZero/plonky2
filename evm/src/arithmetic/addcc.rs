@@ -14,7 +14,8 @@
 //!  GT: X > Z, inputs X, Z, output CY, auxiliary output Y
 //!  LT: Z < X, inputs Z, X, output CY, auxiliary output Y
 
-use itertools::{izip, Itertools};
+use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -23,41 +24,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::utils::read_value_u64_limbs;
+use crate::arithmetic::operations::u256_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-
-fn u256_add_cc(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
-    // Input and output have 16-bit limbs
-    let mut output = [0u64; N_LIMBS];
-
-    const MASK: u64 = (1u64 << LIMB_BITS) - 1u64;
-    let mut cy = 0u64;
-    for (i, a, b) in izip!(0.., input0, input1) {
-        let s = a + b + cy;
-        cy = s >> LIMB_BITS;
-        assert!(cy <= 1u64, "input limbs were larger than 16 bits");
-        output[i] = s & MASK;
-    }
-    (output, cy)
-}
-
-fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS], u64) {
-    const LIMB_BOUNDARY: u64 = 1 << LIMB_BITS;
-    const MASK: u64 = LIMB_BOUNDARY - 1u64;
-
-    let mut output = [0u64; N_LIMBS];
-    let mut br = 0u64;
-    for (i, a, b) in izip!(0.., input0, input1) {
-        let d = LIMB_BOUNDARY + a - b - br;
-        // if a < b, then d < 2^16 so br = 1
-        // if a >= b, then d >= 2^16 so br = 0
-        br = 1u64 - (d >> LIMB_BITS);
-        assert!(br <= 1u64, "input limbs were larger than 16 bits");
-        output[i] = d & MASK;
-    }
-
-    (output, br)
-}
 
 /// Generate row for ADD, SUB, GT and LT operations.
 ///
@@ -69,27 +37,30 @@ fn u256_sub_br(input0: [u64; N_LIMBS], input1: [u64; N_LIMBS]) -> ([u64; N_LIMBS
 /// SUB: REGISTER_2 - REGISTER_0, output in REGISTER_1, ignore REGISTER_BIT
 ///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
 ///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
-pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize) {
+pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize, left_in: U256, right_in: U256) {
+    // Swap left_in and right_in for LT
+    let (left_in, right_in) = if filter == IS_LT {
+        (right_in, left_in)
+    } else {
+        (left_in, right_in)
+    };
+
     match filter {
         IS_ADD => {
-            let x = read_value_u64_limbs(lv, GENERAL_REGISTER_0);
-            let y = read_value_u64_limbs(lv, GENERAL_REGISTER_1);
-
             // x + y == z + cy*2^256
-            let (z, cy) = u256_add_cc(x, y);
-
-            lv[GENERAL_REGISTER_2].copy_from_slice(&z.map(F::from_canonical_u64));
-            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u64(cy);
+            let (result, cy) = left_in.overflowing_add(right_in);
+            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
+            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in); // y
+            u256_to_array(&mut lv[GENERAL_REGISTER_2], result); // z
+            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u16(cy as u16);
         }
         IS_SUB | IS_GT | IS_LT => {
-            let x = read_value_u64_limbs(lv, GENERAL_REGISTER_0);
-            let z = read_value_u64_limbs(lv, GENERAL_REGISTER_2);
-
             // y == z - x + cy*2^256
-            let (y, cy) = u256_sub_br(z, x);
-
-            lv[GENERAL_REGISTER_1].copy_from_slice(&y.map(F::from_canonical_u64));
-            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u64(cy);
+            let (diff, cy) = right_in.overflowing_sub(left_in);
+            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
+            u256_to_array(&mut lv[GENERAL_REGISTER_2], right_in); // z
+            u256_to_array(&mut lv[GENERAL_REGISTER_1], diff); // y
+            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u16(cy as u16);
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -328,7 +299,7 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // set operation filter and ensure all constraints are
-                // satisfied.  we have to explicitly set the other
+                // satisfied. We have to explicitly set the other
                 // operation filters to zero since all are treated by
                 // the call.
                 lv[IS_ADD] = F::ZERO;
@@ -337,7 +308,10 @@ mod tests {
                 lv[IS_GT] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
-                generate(&mut lv, op_filter);
+                let left_in = U256::from(rng.gen::<[u8; 32]>());
+                let right_in = U256::from(rng.gen::<[u8; 32]>());
+
+                generate(&mut lv, op_filter, left_in, right_in);
 
                 let mut constrant_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],

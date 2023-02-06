@@ -55,6 +55,7 @@
 //! file `modular.rs`), we don't need to check that output is reduced,
 //! since any value of output is less than β^16 and is hence reduced.
 
+use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -63,10 +64,16 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
+use crate::arithmetic::operations::u256_to_array;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub fn generate<F: RichField>(lv: &mut [F]) {
+pub fn generate<F: RichField>(lv: &mut [F], left_in: U256, right_in: U256) {
+    // TODO: It would probably be clearer/cleaner to read the U256
+    // into an [i64;N] and then copy that to the lv table.
+    u256_to_array(&mut lv[MUL_INPUT_0], left_in);
+    u256_to_array(&mut lv[MUL_INPUT_1], right_in);
+
     let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
     let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
 
@@ -252,7 +259,9 @@ mod tests {
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }
 
-            generate(&mut lv);
+            let left_in = U256::from(rng.gen::<[u8; 32]>());
+            let right_in = U256::from(rng.gen::<[u8; 32]>());
+            generate(&mut lv, left_in, right_in);
 
             let mut constraint_consumer = ConstraintConsumer::new(
                 vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],

@@ -16,7 +16,8 @@ fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
     out[3] = F::from_canonical_u16((x >> 48) as u16);
 }
 
-fn u256_to_array<F: RichField>(out: &mut [F], x: U256) {
+// TODO: Refactor/replace u256_limbs in evm/src/util.rs
+pub(crate) fn u256_to_array<F: RichField>(out: &mut [F], x: U256) {
     const_assert!(N_LIMBS == 16);
     debug_assert!(out.len() == N_LIMBS);
 
@@ -64,26 +65,12 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
         let mut row = vec![F::ZERO; NUM_ARITH_COLUMNS];
         row[self.op_filter] = F::ONE;
 
-        if self.op_filter == IS_SUB || self.op_filter == IS_GT {
-            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input0);
-            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input1);
-        } else if self.op_filter == IS_LT {
-            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
-            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input1);
+        if self.op_filter == IS_MUL {
+            mul::generate(&mut row, self.input0, self.input1);
         } else {
-            assert!(
-                self.op_filter == IS_ADD || self.op_filter == IS_MUL,
-                "unrecognised operation"
-            );
-            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
-            u256_to_array(&mut row[GENERAL_REGISTER_1], self.input1);
+            addcc::generate(&mut row, self.op_filter, self.input0, self.input1);
         }
 
-        if self.op_filter == IS_MUL {
-            mul::generate(&mut row);
-        } else {
-            addcc::generate(&mut row, self.op_filter);
-        }
         (row, None)
     }
 }
@@ -118,11 +105,7 @@ fn modular_to_rows_helper<F: RichField>(
 
     row1[op_filter] = F::ONE;
 
-    u256_to_array(&mut row1[MODULAR_INPUT_0], input0);
-    u256_to_array(&mut row1[MODULAR_INPUT_1], input1);
-    u256_to_array(&mut row1[MODULAR_MODULUS], modulus);
-
-    modular::generate(&mut row1, &mut row2, op_filter);
+    modular::generate(&mut row1, &mut row2, op_filter, input0, input1, modulus);
 
     (row1, Some(row2))
 }
@@ -156,10 +139,14 @@ impl<F: RichField> Operation<F> for DivOp {
 
         row1[IS_DIV] = F::ONE;
 
-        u256_to_array(&mut row1[DIV_NUMERATOR], self.numerator);
-        u256_to_array(&mut row1[DIV_DENOMINATOR], self.denominator);
-
-        modular::generate(&mut row1, &mut row2, IS_DIV);
+        modular::generate(
+            &mut row1,
+            &mut row2,
+            IS_DIV,
+            self.numerator,
+            U256::zero(),
+            self.denominator,
+        );
 
         (row1, Some(row2))
     }
