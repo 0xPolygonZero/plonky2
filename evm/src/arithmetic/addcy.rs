@@ -115,7 +115,7 @@ const GOLDILOCKS_INVERSE_65536: u64 = 18446462594437939201;
 /// is true if `(x_n + y_n)*2^(16*n) == cy_{n-1}*2^(16*n) +
 /// z_n*2^(16*n) + cy_n*2^(16*n)` (again, this is `t` on line 127ff)
 /// with the last `cy_n` checked against the `given_cy` given as input.
-pub(crate) fn eval_packed_generic_add_cc<P: PackedField>(
+pub(crate) fn eval_packed_generic_addcy<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
     x: &[P],
@@ -173,11 +173,11 @@ pub fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_check_is_one_bit(yield_constr, op_filter, cy);
 
     // x + y = z + cy*2^256
-    eval_packed_generic_add_cc(yield_constr, op_filter, x, y, z, cy, false);
+    eval_packed_generic_addcy(yield_constr, op_filter, x, y, z, cy, false);
 }
 
 #[allow(clippy::needless_collect)]
-pub(crate) fn eval_ext_circuit_add_cc<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit_addcy<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
@@ -243,7 +243,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let op_filter = builder.add_many_extension([is_add, is_sub, is_lt, is_gt]);
     eval_ext_circuit_check_is_one_bit(builder, yield_constr, op_filter, cy);
-    eval_ext_circuit_add_cc(builder, yield_constr, op_filter, x, y, z, cy, false);
+    eval_ext_circuit_addcy(builder, yield_constr, op_filter, x, y, z, cy, false);
 }
 
 #[cfg(test)]

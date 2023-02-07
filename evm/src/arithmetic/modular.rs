@@ -119,7 +119,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
-use crate::arithmetic::addcy::{eval_ext_circuit_add_cc, eval_packed_generic_add_cc};
+use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -352,7 +352,7 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
 
     // Needed to compensate for adding mod_is_zero to modulus above,
-    // since the call eval_packed_generic_add_cc() below subtracts modulus
+    // since the call eval_packed_generic_addcy() below subtracts modulus
     // to verify in the case of a DIV.
     output[0] += div_denom_is_zero;
 
@@ -360,7 +360,7 @@ fn modular_constr_poly<P: PackedField>(
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     // This sets is_less_than to 1 unless we get mod_is_zero when
     // doing a DIV; in that case, we need is_less_than=0, since
-    // eval_packed_generic_add_cc checks
+    // eval_packed_generic_addcy checks
     //
     //   modulus + out_aux_red == output + is_less_than*2^256
     //
@@ -369,7 +369,7 @@ fn modular_constr_poly<P: PackedField>(
     // NB: output and modulus in lv while out_aux_red and
     // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
-    eval_packed_generic_add_cc(
+    eval_packed_generic_addcy(
         yield_constr,
         filter,
         &modulus,
@@ -507,7 +507,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     let is_less_than =
         builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
 
-    eval_ext_circuit_add_cc(
+    eval_ext_circuit_addcy(
         builder,
         yield_constr,
         filter,
