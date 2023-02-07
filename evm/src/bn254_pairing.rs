@@ -41,7 +41,7 @@ pub struct TwistedCurve {
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
 pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
     let miller_output = miller_loop(p, q);
-    invariance_inducing_power(miller_output)
+    invariant_exponent(miller_output)
 }
 
 /// Standard code for miller loop, can be found on page 99 at this url:
@@ -116,7 +116,7 @@ pub fn gen_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12 {
 ///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
 /// where 0 < a0, a1, a2 < p. Then the final power is given by
 ///     y = y_3 * (y^a2)_2 * (y^-a1)_1 * (y^-a0)
-pub fn invariance_inducing_power(f: Fp12) -> Fp12 {
+pub fn invariant_exponent(f: Fp12) -> Fp12 {
     let mut y = f.frob(6) / f;
     y = y.frob(2) * y;
     let (y_a2, y_a1, y_a0) = get_custom_powers(y);
