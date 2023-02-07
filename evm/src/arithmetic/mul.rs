@@ -60,6 +60,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
@@ -161,7 +162,7 @@ pub fn eval_packed_generic<P: PackedField>(
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {

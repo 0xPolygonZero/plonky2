@@ -8,7 +8,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::util::transpose;
 
 use crate::arithmetic::operations::Operation;
-use crate::arithmetic::{add, columns, compare, modular, mul, sub};
+use crate::arithmetic::{addcc, columns, modular, mul};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
@@ -96,10 +96,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv = vars.local_values;
         let nv = vars.next_values;
 
-        add::eval_packed_generic(lv, yield_constr);
-        sub::eval_packed_generic(lv, yield_constr);
         mul::eval_packed_generic(lv, yield_constr);
-        compare::eval_packed_generic(lv, yield_constr);
+        addcc::eval_packed_generic(lv, yield_constr);
         modular::eval_packed_generic(lv, nv, yield_constr);
     }
 
@@ -116,10 +114,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         let lv = vars.local_values;
         let nv = vars.next_values;
-        add::eval_ext_circuit(builder, lv, yield_constr);
-        sub::eval_ext_circuit(builder, lv, yield_constr);
         mul::eval_ext_circuit(builder, lv, yield_constr);
-        compare::eval_ext_circuit(builder, lv, yield_constr);
+        addcc::eval_ext_circuit(builder, lv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
@@ -235,7 +231,7 @@ mod tests {
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), col, expected
-            (0, columns::ADD_OUTPUT, 579),
+            (0, columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
             (1, columns::MODULAR_OUTPUT, 703),
             (3, columns::MODULAR_OUTPUT, 674),
             (5, columns::MUL_OUTPUT, 56088),
