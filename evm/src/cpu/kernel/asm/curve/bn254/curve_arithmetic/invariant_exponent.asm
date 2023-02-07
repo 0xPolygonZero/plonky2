@@ -1,37 +1,17 @@
 /// To make the Tate pairing an invariant, the final step is to exponentiate by
-///     (p^12 - 1)/N = (p^6 - 1)(p^2 + 1)(p^4 - p^2 + 1)/N
-/// The function in this module enacts the final exponentiation, by
-///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
+///     (p^12 - 1)/N = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/N
+/// and thus we can exponentiate by each factor sequentially.
 ///
-/// def final_exp(y):
-///     y4, y2, y0 = 1, 1, 1
-///     power_loop_4()
-///     power_loop_2()
-///     power_loop_0()
-///     custom_powers()
-///     final_power()
-///
-/// def custom_powers()
-///     y0 = y0^{-1}
-///     y1 = y4 * y2^2 * y0
-///     return y2, y1, y0
-///
-/// def final_power()
-///     y  = y.frob(3)
-///     y2 = y2.frob(2)
-///     y1 = y1.frob(1)
-///     return y * y2 * y1 * y0
-
 /// def bn254_invariant_exponent(y: Fp12):
 ///     y = first_exp(y)
 ///     y = second_exp(y)
-///     return final_exponentiation(y)
+///     return final_exp(y)
 
 global bn254_invariant_exponent:
 
-/// map t to t^(p^6 - 1) via 
-///     def first_exp(t):
-///         return t.frob(6) / t
+/// first, exponentiate by (p^6 - 1) via
+///     def first_exp(y):
+///         return y.frob(6) / y
     // stack:                      out, retdest  {out: y}
     %stack (out) -> (out, 100, first_exp, out)         
     // stack: out, 100, first_exp, out, retdest  {out: y}
@@ -44,9 +24,9 @@ first_exp:
     // stack:  out, 100, out, second_exp, out, retdest  {out: y_6, 100: y^-1}
     %jump(mul_fp254_12)
 
-/// map t to t^(p^2 + 1) via 
-///     def second_exp(t):
-///         return t.frob(2) * t
+/// second, exponentiate by (p^2 + 1) via 
+///     def second_exp(y):
+///         return y.frob(2) * y
 second_exp:
     // stack:                                out, retdest  {out: y}
     %stack (out) -> (out, 100, out, out, final_exp, out)
@@ -54,6 +34,22 @@ second_exp:
     %frob_fp254_12_2_
     // stack:      100, out, out, final_exp, out, retdest  {out: y, 100: y_2}
     %jump(mul_fp254_12)
+
+/// Finally, we must exponentiate by (p^4 - p^2 + 1)/N
+/// To do so efficiently, we can express this power as
+///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
+/// and simultaneously compute y^a4, y^a2, y^a0 where
+///     a1 = a4 + 2a2 - a0
+/// We first initialize these powers as 1 and then use 
+/// binary algorithms for exponentiation.
+///
+/// def final_exp(y):
+///     y4, y2, y0 = 1, 1, 1
+///     power_loop_4()
+///     power_loop_2()
+///     power_loop_0()
+///     custom_powers()
+///     final_power()
 
 final_exp:
     // stack:                  val, retdest
@@ -70,6 +66,25 @@ final_exp:
     %stack () -> (64, 62, 65)
     // stack: 64, 62, 65, 300, val, retdest  {200: y0, 212: y2, 224: y4}
     %jump(power_loop_4)
+
+/// After computing the powers 
+///     y^a4, y^a2, y^a0
+/// we would like to transform them to
+///     y^a2, y^-a1, y^-a0
+///
+/// def custom_powers()
+///     y0 = y0^{-1}
+///     y1 = y4 * y2^2 * y0
+///     return y2, y1, y0
+///
+/// And finally, upon doing so, compute the final power
+///     y^(p^3) * (y^a2)^(p^2) * (y^-a1)^p * (y^-a0)
+///
+/// def final_power()
+///     y  = y.frob(3)
+///     y2 = y2.frob(2)
+///     y1 = y1.frob(1)
+///     return y * y2 * y1 * y0
 
 custom_powers:
     // stack:                             val, retdest  {200: y0, 212: y2, 224: y4}
@@ -91,7 +106,6 @@ make_term_3:
     %stack () -> (236, 224, 224, final_power)
     // stack: 236, 224, 224, final_power, val, retdest  {212: y2, 224: y4 * y2^2, 236: y0^-1}
     %jump(mul_fp254_12)
-
 final_power:
     // stack:                            val, retdest  {val: y  , 212:  y^a2   , 224:  y^a1   , 236: y^a0}
     %frob_fp254_12_3

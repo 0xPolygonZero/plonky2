@@ -1,3 +1,12 @@
+/// def tate(P: Curve, Q: TwistedCurve) -> Fp12:
+///     out = miller_loop(P, Q)
+///     return bn254_invariant_exponent(P, Q)
+global bn254_tate:
+    // stack:                      inp, out, retdest
+    %stack (inp, out) -> (inp, out, bn254_invariant_exponent, out)
+    // stack: inp, out, bn254_invariant_exponent, out, retdest
+    %jump(bn254_miller)
+
 /// def miller(P, Q):
 ///     miller_init()
 ///     miller_loop()
@@ -24,16 +33,6 @@
 /// def miller_zero():
 ///     0xnm -= 1
 ///     mul_tangent()
-
-/// def tate(P: Curve, Q: TwistedCurve) -> Fp12:
-///     out = miller_loop(P, Q)
-///     return bn254_invariant_exponent(P, Q)
-global bn254_tate:
-    // stack:                      inp, out, retdest
-    %stack (inp, out) -> (inp, out, bn254_invariant_exponent, out)
-    // stack: inp, out, bn254_invariant_exponent, out, retdest
-    %jump(bn254_miller)
-
 global bn254_miller:
     // stack:         ptr, out, retdest
     %stack (ptr, out) -> (out, 1, ptr, out)
