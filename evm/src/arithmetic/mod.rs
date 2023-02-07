@@ -238,14 +238,14 @@ fn binary_op_to_rows<F: RichField>(
 
 impl<F: RichField> Traceable<F> for Operation {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
-        match self {
-            &Operation::BinaryOperation {
+        match *self {
+            Operation::BinaryOperation {
                 operator,
                 input0,
                 input1,
                 result,
             } => binary_op_to_rows(operator, input0, input1, result),
-            &Operation::TernaryOperation {
+            Operation::TernaryOperation {
                 operator,
                 input0,
                 input1,
