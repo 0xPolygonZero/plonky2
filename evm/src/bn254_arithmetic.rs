@@ -1,3 +1,4 @@
+use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U256;
@@ -432,7 +433,6 @@ impl Fp12 {
             z1: -self.z1,
         }
     }
-
     /// The nth frobenius endomorphism of a p^q field is given by mapping
     ///     x to x^(p^n)
     /// which sends a + bz: Fp12 to
@@ -467,6 +467,11 @@ impl Fp12 {
         let prod_evens_except_six = prod_1379.frob(1);
         let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
         self.conj().scale(prod_except_six)
+    }
+
+    pub fn on_stack(self) -> Vec<U256> {
+        let f: [U256; 12] = unsafe { transmute(self) };
+        f.into_iter().collect()
     }
 }
 

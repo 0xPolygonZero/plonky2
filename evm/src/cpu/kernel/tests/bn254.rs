@@ -1,4 +1,3 @@
-use std::mem::transmute;
 use std::ops::Range;
 
 use anyhow::Result;
@@ -6,7 +5,7 @@ use ethereum_types::U256;
 use rand::Rng;
 
 use crate::bn254_arithmetic::{Fp, Fp12, Fp2};
-use crate::bn254_pairing::{gen_fp12_sparse, tate, Curve, TwistedCurve};
+use crate::bn254_pairing::{gen_fp12_sparse, miller_loop, tate, Curve, TwistedCurve};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::memory::segments::Segment;
@@ -48,19 +47,9 @@ fn extract_kernel_output(range: Range<usize>, interpreter: Interpreter<'static>)
     output
 }
 
-fn fp12_on_stack(f: Fp12) -> Vec<U256> {
-    let f: [U256; 12] = unsafe { transmute(f) };
-    f.into_iter().collect()
-}
-
-fn setup_mul_test(
-    in0: usize,
-    in1: usize,
-    out: usize,
-    f: Fp12,
-    g: Fp12,
-    label: &str,
-) -> InterpreterSetup {
+fn setup_mul_test(out: usize, f: Fp12, g: Fp12, label: &str) -> InterpreterSetup {
+    let in0: usize = 64;
+    let in1: usize = 76;
     InterpreterSetup {
         label: label.to_string(),
         stack: vec![
@@ -69,14 +58,12 @@ fn setup_mul_test(
             U256::from(out),
             U256::from(0xdeadbeefu32),
         ],
-        memory: vec![(in0, fp12_on_stack(f)), (in1, fp12_on_stack(g))],
+        memory: vec![(in0, f.on_stack()), (in1, g.on_stack())],
     }
 }
 
 #[test]
 fn test_mul_fp254_12() -> Result<()> {
-    let in0: usize = 64;
-    let in1: usize = 76;
     let out: usize = 88;
 
     let mut rng = rand::thread_rng();
@@ -84,10 +71,9 @@ fn test_mul_fp254_12() -> Result<()> {
     let g: Fp12 = rng.gen::<Fp12>();
     let h: Fp12 = gen_fp12_sparse(&mut rng);
 
-    let setup_normal: InterpreterSetup = setup_mul_test(in0, in1, out, f, g, "mul_fp254_12");
-    let setup_sparse: InterpreterSetup = setup_mul_test(in0, in1, out, f, h, "mul_fp254_12_sparse");
-    let setup_square: InterpreterSetup =
-        setup_mul_test(in0, in1, out, f, f, "square_fp254_12_test");
+    let setup_normal: InterpreterSetup = setup_mul_test(out, f, g, "mul_fp254_12");
+    let setup_sparse: InterpreterSetup = setup_mul_test(out, f, h, "mul_fp254_12_sparse");
+    let setup_square: InterpreterSetup = setup_mul_test(out, f, f, "square_fp254_12_test");
 
     let intrptr_normal: Interpreter = run_setup_interpreter(setup_normal).unwrap();
     let intrptr_sparse: Interpreter = run_setup_interpreter(setup_sparse).unwrap();
@@ -97,9 +83,9 @@ fn test_mul_fp254_12() -> Result<()> {
     let out_sparse: Vec<U256> = extract_kernel_output(out..out + 12, intrptr_sparse);
     let out_square: Vec<U256> = extract_kernel_output(out..out + 12, intrptr_square);
 
-    let exp_normal: Vec<U256> = fp12_on_stack(f * g);
-    let exp_sparse: Vec<U256> = fp12_on_stack(f * h);
-    let exp_square: Vec<U256> = fp12_on_stack(f * f);
+    let exp_normal: Vec<U256> = (f * g).on_stack();
+    let exp_sparse: Vec<U256> = (f * h).on_stack();
+    let exp_square: Vec<U256> = (f * f).on_stack();
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
@@ -112,7 +98,7 @@ fn setup_frob_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
     InterpreterSetup {
         label: label.to_string(),
         stack: vec![U256::from(ptr)],
-        memory: vec![(ptr, fp12_on_stack(f))],
+        memory: vec![(ptr, f.on_stack())],
     }
 }
 
@@ -138,10 +124,10 @@ fn test_frob_fp254_12() -> Result<()> {
     let out_frob_3: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_3);
     let out_frob_6: Vec<U256> = extract_kernel_output(ptr..ptr + 12, intrptr_frob_6);
 
-    let exp_frob_1: Vec<U256> = fp12_on_stack(f.frob(1));
-    let exp_frob_2: Vec<U256> = fp12_on_stack(f.frob(2));
-    let exp_frob_3: Vec<U256> = fp12_on_stack(f.frob(3));
-    let exp_frob_6: Vec<U256> = fp12_on_stack(f.frob(6));
+    let exp_frob_1: Vec<U256> = f.frob(1).on_stack();
+    let exp_frob_2: Vec<U256> = f.frob(2).on_stack();
+    let exp_frob_3: Vec<U256> = f.frob(3).on_stack();
+    let exp_frob_6: Vec<U256> = f.frob(6).on_stack();
 
     assert_eq!(out_frob_1, exp_frob_1);
     assert_eq!(out_frob_2, exp_frob_2);
@@ -162,11 +148,11 @@ fn test_inv_fp254_12() -> Result<()> {
     let setup = InterpreterSetup {
         label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
-        memory: vec![(ptr, fp12_on_stack(f))],
+        memory: vec![(ptr, f.on_stack())],
     };
     let interpreter: Interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(inv..inv + 12, interpreter);
-    let expected: Vec<U256> = fp12_on_stack(f.inv());
+    let expected: Vec<U256> = f.inv().on_stack();
 
     assert_eq!(output, expected);
 
@@ -191,20 +177,6 @@ fn test_inv_fp254_12() -> Result<()> {
 
 //     let output: Vec<U256> = run_setup_interpreter("test_pow", stack);
 //     let expected: Vec<U256> = fp12_on_stack(invariance_inducing_power(f));
-
-//     assert_eq!(output, expected);
-
-//     Ok(())
-// }
-
-// #[test]
-// fn test_miller() -> Result<()> {
-//     let p: Curve = curve_generator();
-//     let q: TwistedCurve = twisted_curve_generator();
-
-//     let stack = make_tate_stack(p, q);
-//     let output = run_setup_interpreter("test_miller", stack);
-//     let expected = fp12_on_stack(miller_loop(p, q));
 
 //     assert_eq!(output, expected);
 
@@ -264,6 +236,33 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
 };
 
 #[test]
+fn test_miller() -> Result<()> {
+    let ptr: usize = 300;
+    let out: usize = 400;
+    let inputs: Vec<U256> = vec![
+        CURVE_GENERATOR.x.val,
+        CURVE_GENERATOR.y.val,
+        TWISTED_GENERATOR.x.re.val,
+        TWISTED_GENERATOR.x.im.val,
+        TWISTED_GENERATOR.y.re.val,
+        TWISTED_GENERATOR.y.im.val,
+    ];
+
+    let setup = InterpreterSetup {
+        label: "bn254_miller".to_string(),
+        stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        memory: vec![(ptr, inputs)],
+    };
+    let interpreter = run_setup_interpreter(setup).unwrap();
+    let output: Vec<U256> = extract_kernel_output(out..out + 12, interpreter);
+    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
+
+    assert_eq!(output, expected);
+
+    Ok(())
+}
+
+#[test]
 fn test_tate() -> Result<()> {
     let ptr: usize = 300;
     let out: usize = 400;
@@ -283,8 +282,7 @@ fn test_tate() -> Result<()> {
     };
     let interpreter = run_setup_interpreter(setup).unwrap();
     let output: Vec<U256> = extract_kernel_output(out..out + 12, interpreter);
-    // let output: Vec<U256> = interpreter.stack().to_vec();
-    let expected = fp12_on_stack(tate(CURVE_GENERATOR, TWISTED_GENERATOR));
+    let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
 
     assert_eq!(output, expected);
 
