@@ -3,11 +3,9 @@ use ethereum_types::U256;
 use crate::bn254_arithmetic::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
-mod add;
-mod compare;
+mod addcc;
 mod modular;
 mod mul;
-mod sub;
 mod utils;
 
 pub mod arithmetic_stark;

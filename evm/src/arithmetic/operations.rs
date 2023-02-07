@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
-use crate::arithmetic::{add, compare, modular, mul, sub};
+use crate::arithmetic::{addcc, modular, mul};
 
 #[inline]
 fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
@@ -64,30 +64,26 @@ impl<F: RichField> Operation<F> for SimpleBinaryOp {
         let mut row = vec![F::ZERO; NUM_ARITH_COLUMNS];
         row[self.op_filter] = F::ONE;
 
-        // Each of these operations uses the same columns for input; the
-        // asserts ensure no-one changes this.
-        // TODO: This is ugly; should just remove the other
-        // *_INPUT_[01] variables and remove this.
-        debug_assert!([ADD_INPUT_0, SUB_INPUT_0, MUL_INPUT_0, CMP_INPUT_0,]
-            .iter()
-            .all(|x| *x == GENERAL_INPUT_0));
-        debug_assert!([ADD_INPUT_1, SUB_INPUT_1, MUL_INPUT_1, CMP_INPUT_1,]
-            .iter()
-            .all(|x| *x == GENERAL_INPUT_1));
-
-        u256_to_array(&mut row[GENERAL_INPUT_0], self.input0);
-        u256_to_array(&mut row[GENERAL_INPUT_1], self.input1);
-
-        // This is ugly, but it avoids the huge amount of boilerplate
-        // required to dispatch directly to each add/sub/etc. operation.
-        match self.op_filter {
-            IS_ADD => add::generate(&mut row),
-            IS_SUB => sub::generate(&mut row),
-            IS_MUL => mul::generate(&mut row),
-            IS_LT | IS_GT => compare::generate(&mut row, self.op_filter),
-            _ => panic!("unrecognised operation"),
+        if self.op_filter == IS_SUB || self.op_filter == IS_GT {
+            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input0);
+            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input1);
+        } else if self.op_filter == IS_LT {
+            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
+            u256_to_array(&mut row[GENERAL_REGISTER_2], self.input1);
+        } else {
+            assert!(
+                self.op_filter == IS_ADD || self.op_filter == IS_MUL,
+                "unrecognised operation"
+            );
+            u256_to_array(&mut row[GENERAL_REGISTER_0], self.input0);
+            u256_to_array(&mut row[GENERAL_REGISTER_1], self.input1);
         }
 
+        if self.op_filter == IS_MUL {
+            mul::generate(&mut row);
+        } else {
+            addcc::generate(&mut row, self.op_filter);
+        }
         (row, None)
     }
 }
