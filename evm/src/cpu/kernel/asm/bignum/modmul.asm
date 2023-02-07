@@ -90,32 +90,11 @@ modmul_return_2:
     // Calculate a * b.
 
     // Store zeroes in scratch_3.
-    DUP5
-    // stack: scratch_3, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    DUP2
-    // stack: len=length, i=scratch_3, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-modmul_zeroes_loop:
-    // stack: len, i, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    PUSH 0
-    // stack: 0, len, i, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    DUP3
-    // stack: i, 0, len, i, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    %mstore_kernel_general
-    // stack: len, i, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    %decrement
-    SWAP1
-    %increment
-    SWAP1
-    // stack: len-1, i+1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
     DUP1
-    // stack: len-1, len-1, i+1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    ISZERO
-    %jumpi(modmul_zeroes_end)
-    %jump(modmul_zeroes_loop)
-modmul_zeroes_end:
-    // stack: len-1, i+1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
-    POP
-    POP
+    // stack: length, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP6
+    // stack: scratch_3, length, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %clear_kernel_general
     // stack: length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
 
     // Store a * b in scratch_3, using scratch_4 as scratch space.

@@ -33,10 +33,6 @@ pub(crate) struct GenerationState<F: Field> {
     /// Prover inputs containing the result of a MODMUL-related operation, in reverse order so that the next
     /// input can be obtained via `pop()`.
     pub(crate) bignum_modmul_prover_inputs: Vec<U256>,
-
-    /// Prover inputs containing the result of a MODEXP-related operation, in reverse order so that the next
-    /// input can be obtained via `pop()`.
-    pub(crate) bignum_modexp_prover_inputs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -44,7 +40,6 @@ impl<F: Field> GenerationState<F> {
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
         let bignum_modmul_prover_inputs = Vec::new();
-        let bignum_modexp_prover_inputs = Vec::new();
 
         Self {
             inputs,
@@ -55,7 +50,6 @@ impl<F: Field> GenerationState<F> {
             mpt_prover_inputs,
             rlp_prover_inputs,
             bignum_modmul_prover_inputs,
-            bignum_modexp_prover_inputs,
         }
     }
 
