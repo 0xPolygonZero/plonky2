@@ -5,7 +5,7 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::util::{addmod, mulmod, submod};
 
-mod addcc;
+mod addcy;
 mod modular;
 mod mul;
 mod utils;
@@ -217,7 +217,7 @@ fn binary_op_to_rows<F: RichField>(
 
     match op {
         BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Lt | BinaryOperator::Gt => {
-            addcc::generate(&mut row, op.row_filter(), input0, input1);
+            addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
         BinaryOperator::Mul => {
