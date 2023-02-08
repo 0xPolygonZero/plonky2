@@ -76,13 +76,13 @@ mul_fp254_12_1:
     // stack:               inB, inA, g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
     %load_fp254_6
     // stack:                g , inA, g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:                g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
     %dup_fp254_6_7
     // stack:              g,g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
     %add_fp254_6
     // stack:              g+g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:                 g, inA, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
     PUSH mul_fp254_12_2
     // stack: mul_fp254_12_2, g, inA, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
@@ -224,7 +224,7 @@ global mul_fp254_12_sparse:
     // stack:           G2 * sh2(f') , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
     %add_fp254_6
     // stack:           G2 * sh2(f') + g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:          f , inB, G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     DUP7  %add_const(2)
     // stack: inB1,    f , inB, G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
@@ -242,7 +242,7 @@ global mul_fp254_12_sparse:
     // stack:                                          g0 , f', out, f, inB, f', inA, inB, out
     %scale_re_fp254_6
     // stack:                                          g0 * f', out, f, inB, f', inA, inB, out
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:                                        f  , out, g0 * f', inB, f', inA, inB, out
     DUP14
     %add_const(8)
@@ -253,7 +253,7 @@ global mul_fp254_12_sparse:
     // stack:                                G2 * sh(f) , out, g0 * f', inB, f', inA, inB, out
     %add_fp254_6_hole
     // stack:                                     G2 * sh(f) + g0 * f', inB, f', inA, inB, out
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:                                    f' , inB, G2 * sh(f) + g0 * f', inA, inB, out
     DUP7
     %add_const(2)
@@ -341,7 +341,7 @@ global square_fp254_12:
     // stack:   inp', square_fp254_12_1, out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out
     %load_fp254_6
     // stack:     f', square_fp254_12_1, out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out
-    %swap_fp254_6_hole_2
+    %stack (f: 6, x: 2, g: 6) -> (g, x, f)
     // stack:     f , square_fp254_12_1, out', f', square_fp254_12_2, inp, f, square_fp254_12_3, out
     %dup_fp254_6_8
     // stack: f', f , square_fp254_12_1, out', f', square_fp254_12_2, inp, f, square_fp254_12_3, out
@@ -359,7 +359,7 @@ square_fp254_12_2:
     // stack:                                                   f'f', inp, f, square_fp254_12_3, out
     %sh_fp254_6
     // stack:                                               sh(f'f'), inp, f, square_fp254_12_3, out
-    %swap_fp254_6_hole
+    %stack (f: 6, x, g: 6) -> (g, x, f)
     // stack:                                               f, inp, sh(f'f'), square_fp254_12_3, out
     SWAP6
     SWAP13

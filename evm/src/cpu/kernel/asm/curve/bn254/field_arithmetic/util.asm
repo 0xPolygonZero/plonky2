@@ -402,84 +402,15 @@
     // stack: g0, g1, g2, g3, g4, g5, f0, f1, f2, f3, f4, f5
 %endmacro
 
-// cost: 16
-// swap two fp254_6 elements with a stack term separating them
-//    (f: 6, X, g: 6) -> (g: 6, X, f: 6)
-%macro swap_fp254_6_hole
-    // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
-    SWAP7
-    // stack: g0, f1, f2, f3, f4, f5, X, f0, g1, g2, g3, g4, g5
-    SWAP1
-    SWAP8
-    SWAP1
-    // stack: g0, g1, f2, f3, f4, f5, X, f0, f1, g2, g3, g4, g5
-    SWAP2
-    SWAP9
-    SWAP2
-    // stack: g0, g1, g2, f3, f4, f5, X, f0, f1, f2, g3, g4, g5
-    SWAP3
-    SWAP10
-    SWAP3    
-    // stack: g0, g1, g2, g3, f4, f5, X, f0, f1, f2, f3, g4, g5
-    SWAP4
-    SWAP11
-    SWAP4
-    // stack: g0, g1, g2, g3, g4, f5, X, f0, f1, f2, f3, f4, g5
-    SWAP5
-    SWAP12
-    SWAP5
-    // stack: g0, g1, g2, g3, g4, g5, X, f0, f1, f2, f3, f4, f5
-%endmacro
-
-// cost: 16
-// swap two fp254_6 elements with two stack terms separating them
-//    (f: 6, X: 2, g: 6) -> (g: 6, X: 2, f: 6)
-%macro swap_fp254_6_hole_2
-    // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
-    SWAP8
-    // stack: g0, f1, f2, f3, f4, f5, X, f0, g1, g2, g3, g4, g5
-    SWAP1
-    SWAP9
-    SWAP1
-    // stack: g0, g1, f2, f3, f4, f5, X, f0, f1, g2, g3, g4, g5
-    SWAP2
-    SWAP10
-    SWAP2
-    // stack: g0, g1, g2, f3, f4, f5, X, f0, f1, f2, g3, g4, g5
-    SWAP3
-    SWAP11
-    SWAP3    
-    // stack: g0, g1, g2, g3, f4, f5, X, f0, f1, f2, f3, g4, g5
-    SWAP4
-    SWAP12
-    SWAP4
-    // stack: g0, g1, g2, g3, g4, f5, X, f0, f1, f2, f3, f4, g5
-    SWAP5
-    SWAP13
-    SWAP5
-    // stack: g0, g1, g2, g3, g4, g5, X, f0, f1, f2, f3, f4, f5
-%endmacro
-
 /// multiply (a + bt + ct^2) by t:
 ///     t(a + bt + ct^2) = at + bt^2 + ct^3 = (9+i)c + at + bt^2
 %macro sh_fp254_6
-    // stack: f0 , f0_, f1,  f1_, f2 , f2_
-    SWAP2
-    // stack: f1 , f0_, g0 , f1_, f2 , f2_
-    SWAP4
-    // stack: f2 , f0_, g0 , f1_, g1 , f2_
-    SWAP1
-    // stack: f0_, f2 , g0 , f1_, g1 , f2_
-    SWAP3
-    // stack: f1_, f2 , g0 , g0_, g1 , f2_
-    SWAP5
-    // stack: f2_, f2 , g0 , g0_, g1 , g1_
-    SWAP1 
-    // stack: f2 , f2_, g0 , g0_, g1 , g1_
+    // stack:      a, b, c
+    %stack (a: 2, b: 2, c: 2) -> (c, a, b)
+    // stack:      c, a, b
     %i9
-    // stack: g2_, g2 , g0 , g0_, g1 , g1_
     SWAP1
-    // stack: g2 , g2_, g0 , g0_, g1 , g1_
+    // stack: (9+i)c, a, b 
 %endmacro
 
 // cost: 16
