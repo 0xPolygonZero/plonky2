@@ -206,12 +206,20 @@ mod tests {
         );
         // 123 * 456 == 56088
         let mul = Operation::binary(BinaryOperator::Mul, U256::from(123), U256::from(456));
+        // 128 / 13 == 9
+        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13));
+
+        // 128 < 13 == 0
+        let lt1 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(13));
+        // 13 < 128 == 1
+        let lt2 = Operation::binary(BinaryOperator::Lt, U256::from(13), U256::from(128));
+        // 128 < 128 == 0
+        let lt3 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(128));
+
         // 128 % 13 == 11
         let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
 
-        // 128 / 13 == 9
-        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13));
-        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, div, modop];
+        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
 
         let pols = stark.generate(ops);
 
@@ -223,15 +231,21 @@ mod tests {
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
 
+        // Wrap the single value GENERAL_REGISTER_BIT in a Range.
+        let cmp_range = columns::GENERAL_REGISTER_BIT..columns::GENERAL_REGISTER_BIT + 1;
+
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), col, expected
-            (0, columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
-            (1, columns::MODULAR_OUTPUT, 703),
-            (3, columns::MODULAR_OUTPUT, 794),
-            (5, columns::MUL_OUTPUT, 56088),
-            (6, columns::MODULAR_OUTPUT, 11),
-            (8, columns::DIV_OUTPUT, 9),
+            (0, &columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
+            (1, &columns::MODULAR_OUTPUT, 703),
+            (3, &columns::MODULAR_OUTPUT, 794),
+            (5, &columns::MUL_OUTPUT, 56088),
+            (6, &columns::MODULAR_OUTPUT, 11),
+            (8, &cmp_range, 0),
+            (9, &cmp_range, 1),
+            (10, &cmp_range, 0),
+            (11, &columns::DIV_OUTPUT, 9),
         ];
 
         for (row, col, expected) in expected_output {
