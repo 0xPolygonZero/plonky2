@@ -375,33 +375,6 @@
     // stack: f: 6, X: 8, f: 6
 %endmacro
 
-// cost: 16
-%macro swap_fp254_6
-    // stack: f0, f1, f2, f3, f4, f5, g0, g1, g2, g3, g4, g5
-    SWAP6
-    // stack: g0, f1, f2, f3, f4, f5, f0, g1, g2, g3, g4, g5
-    SWAP1
-    SWAP7
-    SWAP1
-    // stack: g0, g1, f2, f3, f4, f5, f0, f1, g2, g3, g4, g5
-    SWAP2
-    SWAP8
-    SWAP2
-    // stack: g0, g1, g2, f3, f4, f5, f0, f1, f2, g3, g4, g5
-    SWAP3
-    SWAP9
-    SWAP3    
-    // stack: g0, g1, g2, g3, f4, f5, f0, f1, f2, f3, g4, g5
-    SWAP4
-    SWAP10
-    SWAP4
-    // stack: g0, g1, g2, g3, g4, f5, f0, f1, f2, f3, f4, g5
-    SWAP5
-    SWAP11
-    SWAP5
-    // stack: g0, g1, g2, g3, g4, g5, f0, f1, f2, f3, f4, f5
-%endmacro
-
 /// multiply (a + bt + ct^2) by t:
 ///     t(a + bt + ct^2) = at + bt^2 + ct^3 = (9+i)c + at + bt^2
 %macro sh_fp254_6
