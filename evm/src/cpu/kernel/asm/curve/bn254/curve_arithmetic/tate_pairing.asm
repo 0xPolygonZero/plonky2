@@ -2,7 +2,7 @@
 ///     out = miller_loop(P, Q)
 ///     return bn254_invariant_exponent(P, Q)
 global bn254_tate:
-    // stack:                      inp, out, retdest
+    // stack:                                inp, out, retdest
     %stack (inp, out) -> (inp, out, bn254_invariant_exponent, out)
     // stack: inp, out, bn254_invariant_exponent, out, retdest
     %jump(bn254_miller)

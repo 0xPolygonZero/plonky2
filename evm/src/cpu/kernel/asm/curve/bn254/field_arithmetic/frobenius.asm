@@ -1,3 +1,5 @@
+// frob_fp12 tests
+
 global test_frob_fp254_12_1:
     // stack:         ptr
     %frob_fp254_12_1
@@ -42,13 +44,13 @@ global test_frob_fp254_12_6:
     // stack:   ptr, g, ptr
     %store_fp254_6
     // stack:           ptr
-    DUP1  %offset_fp254_6
+    DUP1  %add_const(6)
     // stack:     ptr', ptr
     %load_fp254_6
     // stack:       f', ptr
     %frobz_1
     // stack:       g', ptr
-    DUP7  %offset_fp254_6
+    DUP7  %add_const(6)
     // stack: ptr', g', ptr
     %store_fp254_6
     // stack:           ptr
@@ -67,13 +69,13 @@ global test_frob_fp254_12_6:
     // stack:   out, g, ptr , out
     %store_fp254_6 
     // stack:           ptr , out
-    %offset_fp254_6
+    %add_const(6)
     // stack:           ptr', out
     %load_fp254_6
     // stack:             f', out
     %frobz_2
     // stack:             g', out
-    DUP7  %offset_fp254_6
+    DUP7  %add_const(6)
     // stack:       out', g', out
     %store_fp254_6
     // stack:                 out
@@ -91,13 +93,13 @@ global test_frob_fp254_12_6:
     // stack:   ptr, g, ptr
     %store_fp254_6
     // stack:           ptr
-    DUP1  %offset_fp254_6
+    DUP1  %add_const(6)
     // stack:     ptr', ptr
     %load_fp254_6
     // stack:       f', ptr
     %frobz_3
     // stack:       g', ptr
-    DUP7  %offset_fp254_6
+    DUP7  %add_const(6)
     // stack: ptr', g', ptr
     %store_fp254_6
     // stack:           ptr
@@ -105,17 +107,37 @@ global test_frob_fp254_12_6:
 
 %macro frob_fp254_12_6
     // stack:           ptr
-    DUP1  %offset_fp254_6
+    DUP1  %add_const(6)
     // stack:     ptr', ptr
     %load_fp254_6
     // stack:       f', ptr
     %frobz_6
     // stack:       g', ptr
-    DUP7  %offset_fp254_6
+    DUP7  %add_const(6)
     // stack: ptr', g', ptr
     %store_fp254_6
     // stack:           ptr
 %endmacro
+
+// frob_fp12 tests
+
+global test_frob_fp254_6_1:
+    // stack:         ptr
+    %frob_fp254_6_1
+    // stack:         ptr
+    %jump(0xdeadbeef)
+
+global test_frob_fp254_6_2:
+    // stack:         ptr 
+    %frob_fp254_6_2
+    // stack:         ptr
+    %jump(0xdeadbeef)
+
+global test_frob_fp254_6_3:
+    // stack:         ptr
+    %frob_fp254_6_3
+    // stack:         ptr
+    %jump(0xdeadbeef)
 
 
 /// let Z` denote the complex conjugate of Z
@@ -131,37 +153,37 @@ global test_frob_fp254_12_6:
     // stack: C0 , C1 , C2
     %conj_fp254_2
     // stack: D0 , C1 , C2
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: C2 , C1 , D0
     %conj_fp254_2
     // stack: C2`, C1 , D0
     %frobt2_1
     // stack: D2 , C1 , D0
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: D0 , C1 , D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: C1 , D0 , D2
     %conj_fp254_2
     // stack: C1`, D0 , D2
     %frobt1_1
     // stack: D1 , D0 , D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: D0 , D1 , D2
 %endmacro
 
 %macro frob_fp254_6_2
     // stack: C0, C1, C2
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: C2, C1, C0
     %frobt2_2
     // stack: D2, C1, C0
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: C0, C1, D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: C1, C0, D2
     %frobt1_2
     // stack: D1, C0, D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: D0, D1, D2
 %endmacro
 
@@ -169,21 +191,21 @@ global test_frob_fp254_12_6:
     // stack: C0 , C1 , C2
     %conj_fp254_2
     // stack: D0 , C1 , C2
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: C2 , C1 , D0
     %conj_fp254_2
     // stack: C2`, C1 , D0
     %frobt2_3
     // stack: D2 , C1 , D0
-    %swap_fp254_2_hole_2
+    %stack (x: 2, a: 2, y:2) -> (y, a, x)
     // stack: D0 , C1 , D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: C1 , D0 , D2
     %conj_fp254_2
     // stack: C1`, D0 , D2
     %frobt1_3
     // stack: D1 , D0 , D2
-    %swap_fp254_2
+    %stack (x: 2, y: 2) -> (y, x)
     // stack: D0 , D1 , D2
 %endmacro
 

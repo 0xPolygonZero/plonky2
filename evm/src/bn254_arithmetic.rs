@@ -330,7 +330,7 @@ impl Fp6 {
     /// while the values of
     ///     t^(p^n) and t^(2p^n)
     /// are precomputed in the constant arrays FROB_T1 and FROB_T2
-    fn frob(self, n: usize) -> Fp6 {
+    pub fn frob(self, n: usize) -> Fp6 {
         let n = n % 6;
         let frob_t1 = FROB_T1[n];
         let frob_t2 = FROB_T2[n];
@@ -372,6 +372,11 @@ impl Fp6 {
         let prod_odds_over_phi = prod_135.scale(phi.inv());
         let prod_24 = prod_13.frob(1);
         prod_24.scale(prod_odds_over_phi)
+    }
+
+    pub fn on_stack(self) -> Vec<U256> {
+        let f: [U256; 6] = unsafe { transmute(self) };
+        f.into_iter().collect()
     }
 }
 

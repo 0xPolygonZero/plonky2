@@ -46,12 +46,12 @@
 global mul_fp254_12:
     // stack:                                   inA, inB, out 
     DUP1  
-    %offset_fp254_6 
+    %add_const(6) 
     // stack:                             inA', inA, inB, out 
     %load_fp254_6
     // stack:                               f', inA, inB, out 
     DUP8  
-    %offset_fp254_6
+    %add_const(6)
     // stack:                         inB', f', inA, inB, out 
     %load_fp254_6
     // stack:                           g', f', inA, inB, out 
@@ -121,7 +121,7 @@ mul_fp254_12_3:
     %subr_fp254_6
     // stack:          (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
     DUP14  
-    %offset_fp254_6 
+    %add_const(6) 
     // stack:    out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
     %store_fp254_6
     // stack:                                    fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
@@ -183,7 +183,7 @@ mul_fp254_12_3:
 global mul_fp254_12_sparse:
     // stack:                                                                    inA, inB, out
     DUP1  
-    %offset_fp254_6
+    %add_const(6)
     // stack:                                                              inA', inA, inB, out
     %load_fp254_6
     // stack:                                                                f', inA, inB, out
@@ -265,7 +265,7 @@ global mul_fp254_12_sparse:
     %add_fp254_6_hole
     // stack:                                G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
     DUP9
-    %offset_fp254_6
+    %add_const(6)
     // stack:                          out', G1 * sh(f') + G2 * sh(f) + g0 * f', inA, inB, out
     %store_fp254_6
     // stack:                                                                    inA, inB, out
@@ -317,9 +317,6 @@ global mul_fp254_12_sparse:
 ///
 /// f, f' consist of six elements on the stack
 
-global square_fp254_12_test:
-    POP
-
 global square_fp254_12:
     // stack:                                                                               inp, out
     DUP1
@@ -335,12 +332,12 @@ global square_fp254_12:
     %dup_fp254_6_2
     // stack:                                  f , square_fp254_12_2, inp, f, square_fp254_12_3, out
     DUP16
-    %offset_fp254_6
+    %add_const(6)
     // stack:                            out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out
     PUSH square_fp254_12_1
     // stack:         square_fp254_12_1, out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out
     DUP10
-    %offset_fp254_6
+    %add_const(6)
     // stack:   inp', square_fp254_12_1, out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out
     %load_fp254_6
     // stack:     f', square_fp254_12_1, out', f , square_fp254_12_2, inp, f, square_fp254_12_3, out

@@ -1,10 +1,5 @@
-%macro offset_fp254_6
-    %add_const(6)
-%endmacro
-
 // fp254_2 macros
 
-// cost: 2 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp254_2
     // stack:       ptr
     DUP1  
@@ -26,30 +21,6 @@
     SUBFP254
     SWAP1
     // stack: a, -b 
-%endmacro
-
-%macro swap_fp254_2
-    // stack: a , a_, b , b_
-    SWAP2
-    // stack: b , a_, a , b_
-    SWAP1
-    // stack: a_, b , a , b_
-    SWAP3
-    // stack: b_, b , a , a_
-    SWAP1 
-    // stack: b , b_, a , a_
-%endmacro
-
-%macro swap_fp254_2_hole_2
-    // stack: a , a_, X, b , b_
-    SWAP4
-    // stack: b , a_, X, a , b_
-    SWAP1
-    // stack: a_, b , X, a , b_
-    SWAP5
-    // stack: b_, b , X, a , a_
-    SWAP1 
-    // stack: b , b_, X, a , a_
 %endmacro
 
 %macro mul_fp254__fp254_2
