@@ -22,8 +22,6 @@ pub(crate) enum BinaryOperator {
     Mod,
     Lt,
     Gt,
-    Shl,
-    Shr,
     AddFp254,
     MulFp254,
     SubFp254,
