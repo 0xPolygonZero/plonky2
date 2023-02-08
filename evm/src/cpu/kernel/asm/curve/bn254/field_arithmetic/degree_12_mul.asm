@@ -95,7 +95,7 @@ mul_fp254_12_2:
     // stack:                     fg, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
     %store_fp254_6(12)
     // stack:                         g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %swap_fp254_6
+    %stack (x: 6, y: 6) -> (y, x)
     // stack:                         f', g+g', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     PUSH mul_fp254_12_3
     // stack:         mul_fp254_12_3, f', g+g', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
@@ -110,7 +110,7 @@ mul_fp254_12_3:
     // stack:                          (f+f')(g+g'), inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %load_fp254_6(12)
     // stack:                      fg, (f+f')(g+g'), inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %swap_fp254_6
+    %stack (x: 6, y: 6) -> (y, x)
     // stack:                      (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
     %dup_fp254_6_6
     // stack:                  fg, (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
@@ -213,7 +213,7 @@ global mul_fp254_12_sparse:
     // stack:                      g0 , f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     %mul_fp254__fp254_6
     // stack:                      g0 * f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
-    %swap_fp254_6
+    %stack (x: 6, y: 6) -> (y, x)
     // stack:                    f'  , g0 * f, inB, f, inB, f', out, f, inB, f', inA, inB, out
     DUP13
     %add_const(8)

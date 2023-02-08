@@ -23,7 +23,7 @@
     // stack: a, -b 
 %endmacro
 
-%macro mul_fp254__fp254_2
+%macro scale_fp254_2
     // stack:    c, x, y
     SWAP2
     // stack:    y, x, c 
@@ -88,7 +88,6 @@
 
 // fp254_6 macros
 
-// cost: 6 loads + 6 dup/swaps + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp254_6
     // stack:                         ptr
     DUP1  
@@ -512,7 +511,7 @@
 
 // cost: 18
 // add two fp254_6 elements with a to-be-popped stack term separating them
-//    (f: 6, X, g: 6) -> (f + g: 6)
+//    (f: 6, X, g: 6) -> (f + g)
 %macro add_fp254_6_hole
     // stack: f0, f1, f2, f3, f4, f5, X, g0, g1, g2, g3, g4, g5
     SWAP8

@@ -250,12 +250,12 @@ global test_frob_fp254_6_3:
 
 %macro frobt1_2
     PUSH 0x30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48
-    %mul_fp254__fp254_2
+    %scale_fp254_2
 %endmacro
 
 %macro frobt2_2
     PUSH 0x59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe
-    %mul_fp254__fp254_2
+    %scale_fp254_2
 %endmacro
 
 
