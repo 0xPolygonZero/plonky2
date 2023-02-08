@@ -14,8 +14,8 @@ use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 use crate::witness::util::{
-    keccak_sponge_log, mem_read_code_with_log_and_fill, mem_read_gp_with_log_and_fill,
-    mem_write_gp_log_and_fill, stack_pop_with_log_and_fill, stack_push_log_and_fill,
+    keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
+    stack_pop_with_log_and_fill, stack_push_log_and_fill,
 };
 use crate::{arithmetic, logic};
 
@@ -37,14 +37,12 @@ pub(crate) enum Operation {
     Jump,
     Jumpi,
     Pc,
-    Gas,
     Jumpdest,
     Push(u8),
     Dup(u8),
     Swap(u8),
     GetContext,
     SetContext,
-    ConsumeGas,
     ExitKernel,
     MloadGeneral,
     MstoreGeneral,
@@ -323,8 +321,6 @@ pub(crate) fn generate_push<F: Field>(
     let code_context = state.registers.code_context();
     let num_bytes = n as usize + 1;
     let initial_offset = state.registers.program_counter + 1;
-    let offsets = initial_offset..initial_offset + num_bytes;
-    let mut addrs = offsets.map(|offset| MemoryAddress::new(code_context, Segment::Code, offset));
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
     // to stack_push_log_and_fill.
@@ -344,32 +340,8 @@ pub(crate) fn generate_push<F: Field>(
     let val = U256::from_big_endian(&bytes);
     let write = stack_push_log_and_fill(state, &mut row, val)?;
 
-    // In the first cycle, we read up to NUM_GP_CHANNELS - 1 bytes, leaving the last GP channel
-    // to push the result.
-    for (i, addr) in (&mut addrs).take(NUM_GP_CHANNELS - 1).enumerate() {
-        let (_, read) = mem_read_gp_with_log_and_fill(i, addr, state, &mut row);
-        state.traces.push_memory(read);
-    }
     state.traces.push_memory(write);
     state.traces.push_cpu(row);
-
-    // In any subsequent cycles, we read up to 1 + NUM_GP_CHANNELS bytes.
-    for mut addrs_chunk in &addrs.chunks(1 + NUM_GP_CHANNELS) {
-        let mut row = CpuColumnsView::default();
-        row.is_cpu_cycle = F::ONE;
-        row.op.push = F::ONE;
-
-        let first_addr = addrs_chunk.next().unwrap();
-        let (_, first_read) = mem_read_code_with_log_and_fill(first_addr, state, &mut row);
-        state.traces.push_memory(first_read);
-
-        for (i, addr) in addrs_chunk.enumerate() {
-            let (_, read) = mem_read_gp_with_log_and_fill(i, addr, state, &mut row);
-            state.traces.push_memory(read);
-        }
-
-        state.traces.push_cpu(row);
-    }
 
     Ok(())
 }
@@ -530,6 +502,10 @@ pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
+        panic!();
+    }
+
     let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
     let handler_addr_addr =
         handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
@@ -557,12 +533,14 @@ pub(crate) fn generate_syscall<F: Field>(
     let new_program_counter = handler_addr.as_usize();
 
     let syscall_info = U256::from(state.registers.program_counter + 1)
-        + (U256::from(u64::from(state.registers.is_kernel)) << 32);
+        + (U256::from(u64::from(state.registers.is_kernel)) << 32)
+        + (U256::from(state.registers.gas_used) << 192);
     let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
     state.registers.program_counter = new_program_counter;
     log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
     state.registers.is_kernel = true;
+    state.registers.gas_used = 0;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
@@ -601,9 +579,14 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
+    let gas_used_val = kexit_info.0[3];
+    if TryInto::<u32>::try_into(gas_used_val).is_err() {
+        panic!();
+    }
 
     state.registers.program_counter = program_counter;
     state.registers.is_kernel = is_kernel_mode;
+    state.registers.gas_used = gas_used_val;
     log::debug!(
         "Exiting to {}, is_kernel={}",
         KERNEL.offset_name(program_counter),

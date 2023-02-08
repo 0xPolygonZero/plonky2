@@ -311,8 +311,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            yield_constr
-                .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
+            yield_constr.constraint_transition(
+                next_is_read * address_unchanged * (next_values[i] - values[i]),
+            );
         }
 
         eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
@@ -433,7 +434,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let value_diff = builder.sub_extension(next_values[i], values[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
-            yield_constr.constraint(builder, read_constraint);
+            yield_constr.constraint_transition(builder, read_constraint);
         }
 
         eval_lookups_circuit(

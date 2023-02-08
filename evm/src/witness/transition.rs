@@ -6,6 +6,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
+use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
@@ -106,7 +107,6 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x57, _) => Ok(Operation::Jumpi),
         (0x58, _) => Ok(Operation::Pc),
         (0x59, _) => Ok(Operation::Syscall(opcode)),
-        (0x5a, _) => Ok(Operation::Gas),
         (0x5b, _) => Ok(Operation::Jumpdest),
         (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
@@ -128,7 +128,6 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xf5, _) => Ok(Operation::Syscall(opcode)),
         (0xf6, true) => Ok(Operation::GetContext),
         (0xf7, true) => Ok(Operation::SetContext),
-        (0xf8, true) => Ok(Operation::ConsumeGas),
         (0xf9, true) => Ok(Operation::ExitKernel),
         (0xfa, _) => Ok(Operation::Syscall(opcode)),
         (0xfb, true) => Ok(Operation::MloadGeneral),
@@ -177,11 +176,9 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Jump => &mut flags.jump,
         Operation::Jumpi => &mut flags.jumpi,
         Operation::Pc => &mut flags.pc,
-        Operation::Gas => &mut flags.gas,
         Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
-        Operation::ConsumeGas => &mut flags.consume_gas,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral => &mut flags.mload_general,
         Operation::MstoreGeneral => &mut flags.mstore_general,
@@ -215,11 +212,9 @@ fn perform_op<F: Field>(
         Operation::Jump => generate_jump(state, row)?,
         Operation::Jumpi => generate_jumpi(state, row)?,
         Operation::Pc => generate_pc(state, row)?,
-        Operation::Gas => todo!(),
         Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
-        Operation::ConsumeGas => todo!(),
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
@@ -232,6 +227,8 @@ fn perform_op<F: Field>(
         _ => 1,
     };
 
+    state.registers.gas_used += gas_to_charge(op);
+
     Ok(())
 }
 
@@ -242,6 +239,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
+    row.gas = F::from_canonical_u64(state.registers.gas_used);
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
     let opcode = read_code_memory(state, &mut row);

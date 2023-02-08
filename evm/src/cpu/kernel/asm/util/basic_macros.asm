@@ -345,3 +345,24 @@
     %endrep
     // stack: a || b || c || d
 %endmacro
+
+// Charge gas.
+// Arguments:
+//   stack[0]: gas to be charged
+//   stack[1]: syscall info
+// Returns:
+//   new syscall info
+%macro charge_gas
+    %shl_const(192)
+    ADD
+%endmacro
+
+// Charge gas and exit kernel code.
+// Arguments:
+//   stack[0]: gas to be charged
+//   stack[1]: syscall info
+// Returns: nothing
+%macro charge_gas_and_exit
+    %charge_gas
+    EXIT_KERNEL
+%endmacro
