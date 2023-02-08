@@ -30,7 +30,7 @@ global precompute_table:
     DUP5 PUSH @SECP_BASE SUB MUL ADD
     %stack (selectQy, betaQx, Qx, Qy, retdest) -> (2, betaQx, 3, selectQy, betaQx, selectQy, Qx, Qy, precompute_table_contd, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
-    %jump(ec_add_valid_points_no_edge_case_secp)
+    %jump(secp_add_valid_points_no_edge_case)
 precompute_table_contd:
     %stack (x, y, retdest) -> (6, x, 7, y, retdest)
     %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
@@ -46,7 +46,7 @@ precompute_table_loop:
     PUSH 9 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     PUSH 8 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     // stack: Gx, Gy, x, y, precompute_table_loop_contd, x, y, i, retdest
-    %jump(ec_add_valid_points_secp)
+    %jump(secp_add_valid_points)
 precompute_table_loop_contd:
     %stack (Rx, Ry, x, y, i, retdest) -> (i, 8, Rx, i, 9, Ry, x, y, i, retdest)
     ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
@@ -54,14 +54,14 @@ precompute_table_loop_contd:
     PUSH 17 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     PUSH 16 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %stack (Gx, Gy, x, y, x, y, i, retdest) -> (Gx, Gy, x, y, precompute_table_loop_contd2, x, y, i, retdest)
-    %jump(ec_add_valid_points_secp)
+    %jump(secp_add_valid_points)
 precompute_table_loop_contd2:
     %stack (Rx, Ry, x, y, i, retdest) -> (i, 16, Rx, i, 17, Ry, x, y, i, retdest)
     ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     PUSH 25 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     PUSH 24 %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %stack (Gx, Gy, x, y, i, retdest) -> (Gx, Gy, x, y, precompute_table_loop_contd3, i, retdest)
-    %jump(ec_add_valid_points_secp)
+    %jump(secp_add_valid_points)
 precompute_table_loop_contd3:
     %stack (Rx, Ry, i, retdest) -> (i, 24, Rx, i, 25, Ry, i, retdest)
     ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE) ADD %mstore_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)

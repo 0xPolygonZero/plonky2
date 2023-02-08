@@ -4,7 +4,7 @@
 global bn_precompute_table:
     // stack: Qx, Qy, retdest
     PUSH precompute_table_contd DUP3 DUP3
-    %jump(ec_double)
+    %jump(bn_double)
 precompute_table_contd:
     // stack: Qx2, Qy2, Qx, Qy, retdest
     PUSH 1
@@ -25,7 +25,7 @@ global bn_precompute_table_loop:
     // stack: i+2, Qx2, Qy2, Qx, Qy, retdest
     DUP1 PUSH 16 LT %jumpi(precompute_table_end)
     %stack (i, Qx2, Qy2, Qx, Qy, retdest) -> (Qx, Qy, Qx2, Qy2, precompute_table_loop_contd, i, Qx2, Qy2, retdest)
-    %jump(ec_add_valid_points)
+    %jump(bn_add_valid_points)
 precompute_table_loop_contd:
     %stack (Qx, Qy, i, Qx2, Qy2, retdest) -> (i, Qx2, Qy2, Qx, Qy, retdest)
     %jump(bn_precompute_table_loop)
