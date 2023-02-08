@@ -49,20 +49,8 @@ impl BinaryOperator {
                     input0 % input1
                 }
             }
-            BinaryOperator::Lt => {
-                if input0 < input1 {
-                    U256::one()
-                } else {
-                    U256::zero()
-                }
-            }
-            BinaryOperator::Gt => {
-                if input0 > input1 {
-                    U256::one()
-                } else {
-                    U256::zero()
-                }
-            }
+            BinaryOperator::Lt => U256::from((input0 < input1) as u8),
+            BinaryOperator::Gt => U256::from((input0 > input1) as u8),
             BinaryOperator::Shl => {
                 if input0 > 255.into() {
                     U256::zero()
