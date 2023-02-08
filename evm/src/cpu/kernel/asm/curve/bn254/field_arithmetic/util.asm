@@ -569,7 +569,7 @@
 %endmacro
 
 // cost: 21
-%macro mul_fp254__fp254_6
+%macro scale_re_fp254_6
     // stack: c , f0,      f1,    f2,     f3,     f4,     f5
     SWAP6
     DUP7
@@ -609,7 +609,7 @@
 /// G1 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
 /// G2 = (a+bi)(f2+f2_i) = (af2 - bf2_) + (bf2 + af2_)i
 
-%macro mul_fp254_2_fp254_6
+%macro scale_fp254_6
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP2
     DUP5
@@ -700,7 +700,7 @@
 /// G1 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 /// G2 = (a+bi)(f1+f1_i) = (af1 - bf1_) + (bf1 + af1_)i
 
-%macro mul_fp254_2_fp254_6_sh
+%macro scale_fp254_6_sh
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP6
     DUP3
@@ -794,7 +794,7 @@
 /// G1 = (a+bi)(f2+f2_i) = (cf2 - df2_) + (df2 + cf2_)i
 /// G2 = (a+bi)(f0+f0_i) = (af0 - bf0_) + (bf0 + af0_)i
 
-%macro mul_fp254_2_fp254_6_sh2
+%macro scale_fp254_6_sh2
     // stack:             a, b, f0, f0_, f1, f1_, f2, f2_
     DUP4
     DUP3 
