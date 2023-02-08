@@ -93,7 +93,7 @@ impl BinaryOperator {
 pub(crate) enum TernaryOperator {
     AddMod,
     MulMod,
-    //SubMod,
+    SubMod,
 }
 
 impl TernaryOperator {
@@ -101,7 +101,7 @@ impl TernaryOperator {
         match self {
             TernaryOperator::AddMod => addmod(input0, input1, input2),
             TernaryOperator::MulMod => mulmod(input0, input1, input2),
-            //TernaryOperator::SubMod => submod(input0, input1, input2),
+            TernaryOperator::SubMod => submod(input0, input1, input2),
         }
     }
 
@@ -109,7 +109,7 @@ impl TernaryOperator {
         match self {
             TernaryOperator::AddMod => columns::IS_ADDMOD,
             TernaryOperator::MulMod => columns::IS_MULMOD,
-            //TernaryOperator::SubMod => columns::IS_SUBMOD,
+            TernaryOperator::SubMod => columns::IS_SUBMOD,
         }
     }
 }
