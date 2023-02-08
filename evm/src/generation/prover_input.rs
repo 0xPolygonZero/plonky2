@@ -180,7 +180,6 @@ impl<F: Field> GenerationState<F> {
         let result_biguint = (a_biguint * b_biguint) / m_biguint;
         dbg!("quotient");
         dbg!(result_biguint.clone());
-        panic!();
         biguint_to_mem_vec(result_biguint)
     }
 }
