@@ -163,17 +163,12 @@ modexp_iszero_return:
     // stack: e == 0, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     ISZERO
     // stack: e != 0, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %stack (iszero, vals: 4) -> (iszero, vals)
-    // stack: e != 0, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jumpi(modexp_loop)
 modexp_end:
-    // Copy x = x_l, in scratch_1, into output_loc
-
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %stack (len, vals: 3, out, s1, ss: 5) -> (out, s1, len)
-    // stack: output_loc, scratch_1, length, retdest
-    %memcpy_kernel_general
-
+    %rep 11
+        POP
+    %endrep
     // stack: retdest
     JUMP
 

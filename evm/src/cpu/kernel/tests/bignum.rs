@@ -289,7 +289,7 @@ fn test_modmul_bignum() -> Result<()> {
 fn test_modexp_bignum() -> Result<()> {
     let b = gen_bignum(1000);
     // let e = gen_bignum(150);
-    let e = BigUint::from(1u32);
+    let e = BigUint::from(0u32);
     let m = gen_bignum(1000);
     let length: U256 = bignum_len(&b)
         .max(bignum_len(&e))
