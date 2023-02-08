@@ -23,8 +23,6 @@ pub(crate) enum BinaryOperator {
     Mod,
     Lt,
     Gt,
-    Shl,
-    Shr,
     AddFp254,
     MulFp254,
     SubFp254,
@@ -62,20 +60,6 @@ impl BinaryOperator {
                     U256::one()
                 } else {
                     U256::zero()
-                }
-            }
-            BinaryOperator::Shl => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 << input0
-                }
-            }
-            BinaryOperator::Shr => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 >> input0
                 }
             }
             BinaryOperator::AddFp254 => addmod(input0, input1, bn_base_order()),
