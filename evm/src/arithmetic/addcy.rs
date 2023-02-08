@@ -18,7 +18,7 @@ use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -37,7 +37,12 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 /// SUB: REGISTER_2 - REGISTER_0, output in REGISTER_1, ignore REGISTER_BIT
 ///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
 ///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
-pub(crate) fn generate<F: RichField>(lv: &mut [F], filter: usize, left_in: U256, right_in: U256) {
+pub(crate) fn generate<F: PrimeField64>(
+    lv: &mut [F],
+    filter: usize,
+    left_in: U256,
+    right_in: U256,
+) {
     // Swap left_in and right_in for LT
     let (left_in, right_in) = if filter == IS_LT {
         (right_in, left_in)

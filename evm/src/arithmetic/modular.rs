@@ -113,7 +113,7 @@ use num::bigint::Sign;
 use num::{BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -190,7 +190,7 @@ fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
 ///
 /// NB: `operation` can set the higher order elements in its result to
 /// zero if they are not used.
-fn generate_modular_op<F: RichField>(
+fn generate_modular_op<F: PrimeField64>(
     lv: &mut [F],
     nv: &mut [F],
     filter: usize,
@@ -291,7 +291,7 @@ fn generate_modular_op<F: RichField>(
 /// Generate the output and auxiliary values for modular operations.
 ///
 /// `filter` must be one of `columns::IS_{ADDMOD,MULMOD,MOD}`.
-pub(crate) fn generate<F: RichField>(
+pub(crate) fn generate<F: PrimeField64>(
     lv: &mut [F],
     nv: &mut [F],
     filter: usize,

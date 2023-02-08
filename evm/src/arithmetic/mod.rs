@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ethereum_types::U256;
-use plonky2::hash::hash_types::RichField;
+use plonky2::field::types::PrimeField64;
 
 use crate::util::{addmod, mulmod, submod};
 
@@ -167,7 +167,7 @@ impl Operation {
     }
 }
 
-pub trait Traceable<F: RichField> {
+pub trait Traceable<F: PrimeField64> {
     /// Convert operation into one or two rows of the trace.
     ///
     /// Morally these types should be [F; NUM_ARITH_COLUMNS], but we
@@ -177,7 +177,7 @@ pub trait Traceable<F: RichField> {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>);
 }
 
-fn ternary_op_to_rows<F: RichField>(
+fn ternary_op_to_rows<F: PrimeField64>(
     row_filter: usize,
     input0: U256,
     input1: U256,
@@ -194,7 +194,7 @@ fn ternary_op_to_rows<F: RichField>(
     (row1, Some(row2))
 }
 
-fn binary_op_to_rows<F: RichField>(
+fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
     input0: U256,
     input1: U256,
@@ -224,7 +224,7 @@ fn binary_op_to_rows<F: RichField>(
     }
 }
 
-impl<F: RichField> Traceable<F> for Operation {
+impl<F: PrimeField64> Traceable<F> for Operation {
     fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
         match *self {
             Operation::BinaryOperation {

@@ -58,7 +58,7 @@
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -67,7 +67,7 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub fn generate<F: RichField>(lv: &mut [F], left_in: U256, right_in: U256) {
+pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // TODO: It would probably be clearer/cleaner to read the U256
     // into an [i64;N] and then copy that to the lv table.
     u256_to_array(&mut lv[MUL_INPUT_0], left_in);

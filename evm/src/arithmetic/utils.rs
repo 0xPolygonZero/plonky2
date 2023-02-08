@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -320,16 +321,16 @@ pub(crate) fn read_value<const N: usize, T: Copy>(lv: &[T], value_idxs: Range<us
 /// Read the range `value_idxs` of values from `lv` into an array of
 /// length `N`, interpreting the values as `i64`s. Panics if the
 /// length of the range is not `N`.
-pub(crate) fn read_value_i64_limbs<const N: usize, F: RichField>(
+pub(crate) fn read_value_i64_limbs<const N: usize, F: PrimeField64>(
     lv: &[F],
     value_idxs: Range<usize>,
 ) -> [i64; N] {
     let limbs: [_; N] = lv[value_idxs].try_into().unwrap();
-    limbs.map(|c| F::to_canonical_u64(&c) as i64)
+    limbs.map(|c| c.to_canonical_u64() as i64)
 }
 
 #[inline]
-fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
+fn u64_to_array<F: Field>(out: &mut [F], x: u64) {
     const_assert!(LIMB_BITS == 16);
     debug_assert!(out.len() == 4);
 
@@ -340,7 +341,7 @@ fn u64_to_array<F: RichField>(out: &mut [F], x: u64) {
 }
 
 // TODO: Refactor/replace u256_limbs in evm/src/util.rs
-pub(crate) fn u256_to_array<F: RichField>(out: &mut [F], x: U256) {
+pub(crate) fn u256_to_array<F: Field>(out: &mut [F], x: U256) {
     const_assert!(N_LIMBS == 16);
     debug_assert!(out.len() == N_LIMBS);
 
