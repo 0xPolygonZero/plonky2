@@ -61,20 +61,6 @@ impl BinaryOperator {
                     U256::zero()
                 }
             }
-            BinaryOperator::Shl => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 << input0
-                }
-            }
-            BinaryOperator::Shr => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 >> input0
-                }
-            }
             BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE),
             BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE),
             BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE),
