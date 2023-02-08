@@ -25,12 +25,10 @@ global modexp_bignum:
     // stack: output_loc, 1, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %mstore_kernel_general
 
-    // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
 modexp_loop:
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
 
     // y := e % 2
-
     DUP3
     // stack: e_start_loc, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     DUP2
@@ -49,9 +47,24 @@ modexp_loop:
 
     // if y == 1, modular-multiply output_loc by scratch_1, using scratch_2..scratch_5 as scratch space, and store in scratch_6.
     PUSH modexp_mul_return
-    STOP
     // stack: modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %stack (return, len, b, e, m, out, s1, s2, s3, s4, s5, s6) -> (len, out, s1, m, s6, s2, s3, s4, s5, return, len, b, e, m, out, s1, s2, s3, s4, s5, s6)
+    DUP11
+    // stack: scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP16
+    // stack: scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP10
+    // stack: m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP13
+    // stack: scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP13
+    // stack: output_loc, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP10
     // stack: length, output_loc, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jump(modmul_bignum)
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
@@ -83,7 +96,23 @@ modexp_y_0:
     // Modular-square repeated-squares accumulator x_i (in scratch_1), using scratch_2..scratch_5 as scratch space, and store in scratch_6.
     PUSH modexp_square_return
     // stack: modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    %stack (return, len, b, e, m, out, s1, s2, s3, s4, s5, s6) -> (len, s1, s1, m, s6, s2, s3, s4, s5, return, len, b, e, m, out, s1, s2, s3, s4, s5, s6)
+    DUP11
+    // stack: scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP11
+    // stack: scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP16
+    // stack: scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP10
+    // stack: m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP13
+    // stack: scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP1
+    // stack: scratch_1, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    DUP10
     // stack: length, scratch_1, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jump(modmul_bignum)
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
@@ -109,7 +138,7 @@ modexp_square_return:
     %clear_kernel_general
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
 
-    // e //= 2 (with shr_bignum)
+    // e //= 2 (with shr_bignum)    
 
     PUSH modexp_shr_return
     // stack: modexp_shr_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
@@ -129,7 +158,6 @@ modexp_shr_return:
     // stack: e_start_loc, modexp_return_6, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     DUP3
     // stack: length, e_start_loc, modexp_return_6, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
-    STOP
     %jump(iszero_bignum)
 modexp_iszero_return:
     // stack: e == 0, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
