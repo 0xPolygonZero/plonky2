@@ -22,8 +22,6 @@ pub(crate) enum BinaryOperator {
     Mod,
     Lt,
     Gt,
-    Shl,
-    Shr,
     AddFp254,
     MulFp254,
     SubFp254,
@@ -51,20 +49,6 @@ impl BinaryOperator {
             }
             BinaryOperator::Lt => U256::from((input0 < input1) as u8),
             BinaryOperator::Gt => U256::from((input0 > input1) as u8),
-            BinaryOperator::Shl => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 << input0
-                }
-            }
-            BinaryOperator::Shr => {
-                if input0 > 255.into() {
-                    U256::zero()
-                } else {
-                    input1 >> input0
-                }
-            }
             BinaryOperator::AddFp254 => addmod(input0, input1, bn_base_order()),
             BinaryOperator::MulFp254 => mulmod(input0, input1, bn_base_order()),
             BinaryOperator::SubFp254 => submod(input0, input1, bn_base_order()),
@@ -80,8 +64,6 @@ impl BinaryOperator {
             BinaryOperator::Mod => columns::IS_MOD,
             BinaryOperator::Lt => columns::IS_LT,
             BinaryOperator::Gt => columns::IS_GT,
-            BinaryOperator::Shl => panic!("SHL is not an arithmetic operation"),
-            BinaryOperator::Shr => panic!("SHR is not an arithmetic operation"),
             BinaryOperator::AddFp254 => columns::IS_ADDMOD,
             BinaryOperator::MulFp254 => columns::IS_MULMOD,
             BinaryOperator::SubFp254 => columns::IS_SUBMOD,
@@ -218,9 +200,6 @@ fn binary_op_to_rows<F: PrimeField64>(
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
             ternary_op_to_rows::<F>(op.row_filter(), input0, input1, bn_base_order(), result)
-        }
-        BinaryOperator::Shl | BinaryOperator::Shr => {
-            panic!("shl and shr are not handled by the arithmetic table")
         }
     }
 }

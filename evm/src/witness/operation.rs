@@ -12,7 +12,7 @@ use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
-use crate::witness::memory::MemoryAddress;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 use crate::witness::util::{
     keccak_sponge_log, mem_read_code_with_log_and_fill, mem_read_gp_with_log_and_fill,
     mem_write_gp_log_and_fill, stack_pop_with_log_and_fill, stack_push_log_and_fill,
@@ -24,6 +24,8 @@ pub(crate) enum Operation {
     Iszero,
     Not,
     Byte,
+    Shl,
+    Shr,
     Syscall(u8),
     Eq,
     BinaryLogic(logic::Op),
@@ -73,24 +75,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     let [(input0, log_in0), (input1, log_in1)] =
         stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, input0, input1);
-
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
-
-    if operator == arithmetic::BinaryOperator::Shl || operator == arithmetic::BinaryOperator::Shr {
-        const LOOKUP_CHANNEL: usize = 2;
-        let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0.low_u32() as usize);
-        if input0.bits() <= 32 {
-            let (_, read) =
-                mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);
-            state.traces.push_memory(read);
-        } else {
-            // The shift constraints still expect the address to be set, even though no read will occur.
-            let mut channel = &mut row.mem_channels[LOOKUP_CHANNEL];
-            channel.addr_context = F::from_canonical_usize(lookup_addr.context);
-            channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
-            channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
-        }
-    }
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
@@ -488,6 +473,56 @@ pub(crate) fn generate_iszero<F: Field>(
     state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())
+}
+
+fn append_shift<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+    input0: U256,
+    log_in0: MemoryOp,
+    log_in1: MemoryOp,
+    result: U256,
+) -> Result<(), ProgramError> {
+    let log_out = stack_push_log_and_fill(state, &mut row, result)?;
+
+    const LOOKUP_CHANNEL: usize = 2;
+    let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0.low_u32() as usize);
+    if input0.bits() <= 32 {
+        let (_, read) = mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);
+        state.traces.push_memory(read);
+    } else {
+        // The shift constraints still expect the address to be set, even though no read will occur.
+        let mut channel = &mut row.mem_channels[LOOKUP_CHANNEL];
+        channel.addr_context = F::from_canonical_usize(lookup_addr.context);
+        channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
+        channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
+    }
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_out);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_shl<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(input0, log_in0), (input1, log_in1)] =
+        stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let result = input1 << input0;
+    append_shift(state, row, input0, log_in0, log_in1, result)
+}
+
+pub(crate) fn generate_shr<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(input0, log_in0), (input1, log_in1)] =
+        stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let result = input1 >> input0;
+    append_shift(state, row, input0, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_syscall<F: Field>(
