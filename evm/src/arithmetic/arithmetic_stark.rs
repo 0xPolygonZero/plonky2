@@ -4,7 +4,9 @@ use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 
 use crate::arithmetic::{addcy, columns, modular, mul, Operation, Traceable};
@@ -96,6 +98,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv = vars.local_values;
         let nv = vars.next_values;
 
+        // Check the range column: First value must be 0, last row
+        // must be 2^16-1, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = lv[columns::RANGE_COUNTER];
+        let rc2 = nv[columns::RANGE_COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr * incr - incr);
+        let range_max = P::Scalar::from_canonical_u64((RANGE_MAX - 1) as u64);
+        yield_constr.constraint_last_row(rc1 - range_max);
+
         mul::eval_packed_generic(lv, yield_constr);
         addcy::eval_packed_generic(lv, yield_constr);
         modular::eval_packed_generic(lv, nv, yield_constr);
@@ -103,7 +116,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
     fn eval_ext_circuit(
         &self,
-        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
@@ -114,6 +127,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         let lv = vars.local_values;
         let nv = vars.next_values;
+
+        let rc1 = lv[columns::RANGE_COUNTER];
+        let rc2 = nv[columns::RANGE_COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.mul_sub_extension(incr, incr, incr);
+        yield_constr.constraint_transition(builder, t);
+        let range_max =
+            builder.constant_extension(F::Extension::from_canonical_u64((RANGE_MAX - 1) as u64));
+        let t = builder.sub_extension(rc1, range_max);
+        yield_constr.constraint_last_row(builder, t);
+
         mul::eval_ext_circuit(builder, lv, yield_constr);
         addcy::eval_ext_circuit(builder, lv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
