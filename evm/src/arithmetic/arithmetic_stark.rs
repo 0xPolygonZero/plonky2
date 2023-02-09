@@ -34,6 +34,9 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         for i in 0..RANGE_MAX {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(i);
         }
+        for i in RANGE_MAX..n_rows {
+            cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
+        }
 
         // For each column c in cols, generate the range-check
         // permutations and put them in the corresponding range-check
@@ -135,7 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let t = builder.mul_sub_extension(incr, incr, incr);
         yield_constr.constraint_transition(builder, t);
         let range_max =
-            builder.constant_extension(F::Extension::from_canonical_u64((RANGE_MAX - 1) as u64));
+            builder.constant_extension(F::Extension::from_canonical_usize(RANGE_MAX - 1));
         let t = builder.sub_extension(rc1, range_max);
         yield_constr.constraint_last_row(builder, t);
 
