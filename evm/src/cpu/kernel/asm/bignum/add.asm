@@ -46,9 +46,7 @@ add_loop:
     // stack: carry_new, i - 1, a_cur_loc + 1, b_cur_loc + 1, retdest
     DUP2
     // stack: i - 1, carry_new, i - 1, a_cur_loc + 1, b_cur_loc + 1, retdest
-    ISZERO
-    %jumpi(add_end)
-    %jump(add_loop)
+    %jumpi(add_loop)
 add_end:
     // stack: carry_new, i - 1, a_cur_loc + 1, b_cur_loc + 1, retdest
     %stack (c, i, a, b) -> (c, a)

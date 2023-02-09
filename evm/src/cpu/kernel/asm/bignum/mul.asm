@@ -35,7 +35,7 @@ mul_helper_loop:
     GT
     %jumpi(mul_helper_loop)
     // stack: n = 0, i, val, retdest
-    %stack (vals: 3) -> ()
+    %pop3
     // stack: retdest
     JUMP
 
@@ -92,7 +92,7 @@ reduce_loop:
     %jumpi(reduce_loop)
 reduce_end:
     // stack: n = 0, i, retdest
-    %stack (vals: 2) -> ()
+    %pop2
     // stack: retdest
     JUMP
 
@@ -188,5 +188,5 @@ mul_return_3:
     // stack: n-1, len, n-1, a_start_loc, bi+1, output_cur+1, scratch_space, retdest
     %jumpi(mul_loop)
     // stack: len, n, a_start_loc, bi, output_cur, scratch_space, retdest
-    %stack (vals: 6) -> ()
+    %pop6
     JUMP

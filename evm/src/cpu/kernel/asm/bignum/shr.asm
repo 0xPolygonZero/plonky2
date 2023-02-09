@@ -51,6 +51,6 @@ shr_loop:
     %jumpi(shr_loop)
 shr_end:
     // stack: i, new_carry, start_loc, retdest
-    %stack (vals: 3) -> ()
+    %pop3
     // stack: retdest
     JUMP

@@ -31,8 +31,9 @@ modmul_remainder_loop:
     // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     EQ
     // stack: i+1==length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
-    %jumpi(modmul_remainder_end)
-    %jump(modmul_remainder_loop)
+    ISZERO
+    // stack: i+1!=length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
+    %jumpi(modmul_remainder_loop)
 modmul_remainder_end:
     // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, retdest
     POP

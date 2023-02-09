@@ -56,7 +56,7 @@ ge_loop:
     %jump(ge_loop)
 equal:
     // stack: i, a_i_loc, b_i_loc, retdest
-    %stack (vals: 3) -> ()
+    %pop3
     // stack: retdest
     PUSH 3
     // stack: 3, retdest
@@ -64,7 +64,7 @@ equal:
     JUMP
 greater:
     // stack: a[i], b[i], i, a_i_loc, b_i_loc, retdest
-    %stack (vals: 5) -> ()
+    %pop5
     // stack: retdest
     PUSH 1
     // stack: 1, retdest
@@ -72,7 +72,7 @@ greater:
     JUMP
 less:
     // stack: i, a_i_loc, b_i_loc, retdest
-    %stack (vals: 3) -> ()
+    %pop3
     // stack: retdest
     PUSH 0
     // stack: 0, retdest
