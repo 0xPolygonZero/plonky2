@@ -7,6 +7,8 @@ global shr_bignum:
     DUP2
     // stack: start_loc, len, start_loc, retdest
     ADD
+    // stack: start_loc + len, start_loc, retdest
+    %decrement
     // stack: end_loc, start_loc, retdest
     %stack (e) -> (e, 0)
     // stack: i=end_loc, carry=0, start_loc, retdest

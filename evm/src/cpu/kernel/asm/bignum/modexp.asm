@@ -18,7 +18,7 @@ global modexp_bignum:
     %memcpy_kernel_general
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
 
-    // We store the accumulated output value x_i in output_loc, starting with 1.
+    // We store the accumulated output value x_i in output_loc, starting with x_0=1.
     PUSH 1
     // stack: 1, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     DUP6

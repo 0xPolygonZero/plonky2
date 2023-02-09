@@ -225,63 +225,65 @@ fn test_mul_bignum() -> Result<()> {
 
 #[test]
 fn test_modmul_bignum() -> Result<()> {
-    let a = gen_bignum(1000);
-    let b = gen_bignum(1000);
-    let m = gen_bignum(1000);
-    let length: U256 = bignum_len(&a)
-        .max(bignum_len(&b))
-        .max(bignum_len(&m))
-        .into();
-    let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()], length.try_into().unwrap());
+    for _ in 0..1000 {
+        let a = gen_bignum(1000);
+        let b = gen_bignum(1000);
+        let m = gen_bignum(1000);
+        let length: U256 = bignum_len(&a)
+            .max(bignum_len(&b))
+            .max(bignum_len(&m))
+            .into();
+        let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()], length.try_into().unwrap());
 
-    // Determine expected result.
-    let result = (a * b) % m;
-    let expected_result: Vec<U256> = biguint_to_mem_vec(result);
+        // Determine expected result.
+        let result = (a * b) % m;
+        let expected_result: Vec<U256> = biguint_to_mem_vec(result);
 
-    // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
-    let a_start_loc = 0.into();
-    let b_start_loc = length;
-    let m_start_loc = length * 2;
-    let output_loc = length * 3;
-    let scratch_1 = length * 4;
-    let scratch_2 = length * 5;
-    let scratch_3 = length * 7;
-    let scratch_4 = length * 9;
+        // Output and scratch space locations (initialized as zeroes) follow a and b in memory.
+        let a_start_loc = 0.into();
+        let b_start_loc = length;
+        let m_start_loc = length * 2;
+        let output_loc = length * 3;
+        let scratch_1 = length * 4;
+        let scratch_2 = length * 5;
+        let scratch_3 = length * 7;
+        let scratch_4 = length * 9;
 
-    memory.resize(length.as_usize() * 10, 0.into());
+        memory.resize(length.as_usize() * 10, 0.into());
 
-    // Prepare stack.
-    let retdest = 0xDEADBEEFu32.into();
-    let mut initial_stack: Vec<U256> = vec![
-        length,
-        a_start_loc,
-        b_start_loc,
-        m_start_loc,
-        output_loc,
-        scratch_1,
-        scratch_2,
-        scratch_3,
-        scratch_4,
-        retdest,
-    ];
-    initial_stack.reverse();
+        // Prepare stack.
+        let retdest = 0xDEADBEEFu32.into();
+        let mut initial_stack: Vec<U256> = vec![
+            length,
+            a_start_loc,
+            b_start_loc,
+            m_start_loc,
+            output_loc,
+            scratch_1,
+            scratch_2,
+            scratch_3,
+            scratch_4,
+            retdest,
+        ];
+        initial_stack.reverse();
 
-    // Prepare interpreter.
-    let modmul_bignum = KERNEL.global_labels["modmul_bignum"];
-    let mut interpreter = Interpreter::new_with_kernel(modmul_bignum, initial_stack);
-    interpreter.set_kernel_general_memory(memory);
+        // Prepare interpreter.
+        let modmul_bignum = KERNEL.global_labels["modmul_bignum"];
+        let mut interpreter = Interpreter::new_with_kernel(modmul_bignum, initial_stack);
+        interpreter.set_kernel_general_memory(memory);
 
-    // Run modmul function.
-    interpreter.run()?;
+        // Run modmul function.
+        interpreter.run()?;
 
-    // Determine actual result.
-    let new_memory = interpreter.get_kernel_general_memory();
-    let output_location: usize = output_loc.try_into().unwrap();
-    let actual_result: Vec<_> =
-        new_memory[output_location..output_location + expected_result.len()].into();
+        // Determine actual result.
+        let new_memory = interpreter.get_kernel_general_memory();
+        let output_location: usize = output_loc.try_into().unwrap();
+        let actual_result: Vec<_> =
+            new_memory[output_location..output_location + expected_result.len()].into();
 
-    assert_eq!(actual_result, expected_result);
-
+        assert_eq!(actual_result, expected_result);
+    }
+    
     Ok(())
 }
 
@@ -289,7 +291,7 @@ fn test_modmul_bignum() -> Result<()> {
 fn test_modexp_bignum() -> Result<()> {
     let b = gen_bignum(1000);
     // let e = gen_bignum(150);
-    let e = BigUint::from(0u32);
+    let e = BigUint::from(1u32);
     let m = gen_bignum(1000);
     let length: U256 = bignum_len(&b)
         .max(bignum_len(&e))
@@ -354,6 +356,8 @@ fn test_modexp_bignum() -> Result<()> {
     dbg!(interpreter.stack());
     dbg!(new_memory);
 
+    dbg!(actual_result.clone());
+    dbg!(expected_result.clone());
     assert_eq!(actual_result, expected_result);
 
     Ok(())

@@ -1,6 +1,6 @@
 // Sets `count` values to `value` at
 //     DST = (dst_ctx, dst_segment, dst_addr).
-// This tuple definitions is used for brevity in the stack comments below.
+// This tuple definition is used for brevity in the stack comments below.
 global memset:
     // stack: DST, value, count, retdest
     DUP5
