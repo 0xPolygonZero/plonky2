@@ -124,7 +124,11 @@ impl<F: Field> GenerationState<F> {
                 _ => panic!("Invalid prover input function."),
             };
 
-            self.bignum_modmul_prover_inputs = result.iter().cloned().pad_using(len, |_| 0.into()).collect();
+            self.bignum_modmul_prover_inputs = result
+                .iter()
+                .cloned()
+                .pad_using(len, |_| 0.into())
+                .collect();
             self.bignum_modmul_prover_inputs.reverse();
         }
 

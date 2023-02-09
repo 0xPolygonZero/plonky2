@@ -231,7 +231,10 @@ fn test_modmul_bignum() -> Result<()> {
             .max(bignum_len(&b))
             .max(bignum_len(&m))
             .into();
-        let mut memory = pack_bignums(&[a.clone(), b.clone(), m.clone()], length.try_into().unwrap());
+        let mut memory = pack_bignums(
+            &[a.clone(), b.clone(), m.clone()],
+            length.try_into().unwrap(),
+        );
 
         // Determine expected result.
         let result = (a * b) % m;
@@ -281,7 +284,7 @@ fn test_modmul_bignum() -> Result<()> {
 
         assert_eq!(actual_result, expected_result);
     }
-    
+
     Ok(())
 }
 
@@ -294,7 +297,10 @@ fn test_modexp_bignum() -> Result<()> {
         .max(bignum_len(&e))
         .max(bignum_len(&m))
         .into();
-    let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()], length.try_into().unwrap());
+    let mut memory = pack_bignums(
+        &[b.clone(), e.clone(), m.clone()],
+        length.try_into().unwrap(),
+    );
 
     // Determine expected result.
     let result = b.modpow(&e, &m);
