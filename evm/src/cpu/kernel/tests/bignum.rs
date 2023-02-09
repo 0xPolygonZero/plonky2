@@ -72,8 +72,6 @@ fn test_shr_bignum() -> Result<()> {
     interpreter.set_kernel_general_memory(memory);
     interpreter.run()?;
 
-    dbg!(interpreter.stack());
-
     let new_memory = interpreter.get_kernel_general_memory();
     let new_a = mem_vec_to_biguint(&new_memory[0..length.as_usize()]);
     assert_eq!(new_a, halved);
@@ -290,18 +288,13 @@ fn test_modmul_bignum() -> Result<()> {
 #[test]
 fn test_modexp_bignum() -> Result<()> {
     let b = gen_bignum(1000);
-    // let e = gen_bignum(150);
-    let e = BigUint::from(1u32);
+    let e = gen_bignum(150);
     let m = gen_bignum(1000);
     let length: U256 = bignum_len(&b)
         .max(bignum_len(&e))
         .max(bignum_len(&m))
         .into();
     let mut memory = pack_bignums(&[b.clone(), e.clone(), m.clone()], length.try_into().unwrap());
-
-    dbg!(b.clone());
-    dbg!(e.clone());
-    dbg!(m.clone());
 
     // Determine expected result.
     let result = b.modpow(&e, &m);
@@ -353,11 +346,6 @@ fn test_modexp_bignum() -> Result<()> {
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
 
-    dbg!(interpreter.stack());
-    dbg!(new_memory);
-
-    dbg!(actual_result.clone());
-    dbg!(expected_result.clone());
     assert_eq!(actual_result, expected_result);
 
     Ok(())
