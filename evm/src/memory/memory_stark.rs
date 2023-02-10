@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -175,14 +176,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 while next.address.virt - curr.address.virt - 1 > max_rc {
                     let mut dummy_address = curr.address;
                     dummy_address.virt += max_rc + 1;
-                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0);
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, U256::zero());
                     memory_ops.push(dummy_read);
                     curr = dummy_read;
                 }
             } else {
                 while next.timestamp - curr.timestamp > max_rc {
                     let dummy_read =
-                        MemoryOp::new_dummy_read(curr.address, curr.timestamp + max_rc);
+                        MemoryOp::new_dummy_read(curr.address, curr.timestamp + max_rc, curr.value);
                     memory_ops.push(dummy_read);
                     curr = dummy_read;
                 }
