@@ -57,7 +57,7 @@ pub(crate) fn generate<F: PrimeField64>(
             u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
             u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in); // y
             u256_to_array(&mut lv[GENERAL_REGISTER_2], result); // z
-            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u16(cy as u16);
+            lv[GENERAL_REGISTER_BIT] = F::from_bool(cy);
         }
         IS_SUB | IS_GT | IS_LT => {
             // y == z - x + cy*2^256
@@ -65,7 +65,7 @@ pub(crate) fn generate<F: PrimeField64>(
             u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
             u256_to_array(&mut lv[GENERAL_REGISTER_2], right_in); // z
             u256_to_array(&mut lv[GENERAL_REGISTER_1], diff); // y
-            lv[GENERAL_REGISTER_BIT] = F::from_canonical_u16(cy as u16);
+            lv[GENERAL_REGISTER_BIT] = F::from_bool(cy);
         }
         _ => panic!("unexpected operation filter"),
     };

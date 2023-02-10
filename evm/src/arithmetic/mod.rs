@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
@@ -49,9 +47,9 @@ impl BinaryOperator {
             }
             BinaryOperator::Lt => U256::from((input0 < input1) as u8),
             BinaryOperator::Gt => U256::from((input0 > input1) as u8),
-            BinaryOperator::AddFp254 => addmod(input0, input1, bn_base_order()),
-            BinaryOperator::MulFp254 => mulmod(input0, input1, bn_base_order()),
-            BinaryOperator::SubFp254 => submod(input0, input1, bn_base_order()),
+            BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE_ORDER),
+            BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE_ORDER),
+            BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE_ORDER),
         }
     }
 
@@ -148,16 +146,30 @@ impl Operation {
             Operation::TernaryOperation { result, .. } => *result,
         }
     }
-}
 
-pub trait Traceable<F: PrimeField64> {
     /// Convert operation into one or two rows of the trace.
     ///
     /// Morally these types should be [F; NUM_ARITH_COLUMNS], but we
     /// use vectors because that's what utils::transpose (who consumes
     /// the result of this function as part of the range check code)
     /// expects.
-    fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>);
+    fn to_rows<F: PrimeField64>(&self) -> (Vec<F>, Option<Vec<F>>) {
+        match *self {
+            Operation::BinaryOperation {
+                operator,
+                input0,
+                input1,
+                result,
+            } => binary_op_to_rows(operator, input0, input1, result),
+            Operation::TernaryOperation {
+                operator,
+                input0,
+                input1,
+                input2,
+                result,
+            } => ternary_op_to_rows(operator.row_filter(), input0, input1, input2, result),
+        }
+    }
 }
 
 fn ternary_op_to_rows<F: PrimeField64>(
@@ -199,31 +211,15 @@ fn binary_op_to_rows<F: PrimeField64>(
             ternary_op_to_rows::<F>(op.row_filter(), input0, U256::zero(), input1, result)
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
-            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, bn_base_order(), result)
+            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE_ORDER, result)
         }
     }
 }
 
-impl<F: PrimeField64> Traceable<F> for Operation {
-    fn to_rows(&self) -> (Vec<F>, Option<Vec<F>>) {
-        match *self {
-            Operation::BinaryOperation {
-                operator,
-                input0,
-                input1,
-                result,
-            } => binary_op_to_rows(operator, input0, input1, result),
-            Operation::TernaryOperation {
-                operator,
-                input0,
-                input1,
-                input2,
-                result,
-            } => ternary_op_to_rows(operator.row_filter(), input0, input1, input2, result),
-        }
-    }
-}
-
-fn bn_base_order() -> U256 {
-    U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47").unwrap()
-}
+/// Order of the BN254 base field.
+const BN_BASE_ORDER: U256 = U256([
+    4332616871279656263,
+    10917124144477883021,
+    13281191951274694749,
+    3486998266802970665,
+]);

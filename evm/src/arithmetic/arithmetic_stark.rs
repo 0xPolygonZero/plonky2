@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 
-use crate::arithmetic::{addcy, columns, modular, mul, Operation, Traceable};
+use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
