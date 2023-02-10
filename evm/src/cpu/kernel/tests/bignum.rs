@@ -282,6 +282,8 @@ fn test_modmul_bignum() -> Result<()> {
         new_memory[output_location..output_location + expected_result.len()].into();
 
     assert_eq!(actual_result, expected_result);
+    dbg!(actual_result);
+    dbg!(expected_result);
 
     Ok(())
 }
