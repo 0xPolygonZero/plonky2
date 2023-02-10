@@ -163,10 +163,20 @@ mul_return_2:
     // stack: output_cur, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
     DUP4
     // stack: len, output_cur, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
-    %add_const(2)
-    // stack: len + 2, output_cur, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    %increment
+    // stack: len + 1, output_cur, scratch_space, mul_return_3, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
     %jump(add_bignum)
 mul_return_3:
+    // stack: carry, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    DUP6
+    // stack: output_cur, carry, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    DUP3
+    // stack: len, output_cur, carry, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    ADD
+    // stack: output_cur + len, carry, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    %increment
+    // stack: output_cur + len + 1, carry, len, n, a_start_loc, bi, output_cur, scratch_space, retdest
+    %mstore_kernel_general
     // stack: len, n, a_start_loc, bi, output_cur, scratch_space, retdest
 
     // Increment output_cur and b[i], decrement n, and check if we're done.

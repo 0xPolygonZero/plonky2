@@ -49,39 +49,8 @@ add_loop:
     %jumpi(add_loop)
 add_end:
     // stack: carry_new, i - 1, a_cur_loc + 1, b_cur_loc + 1, retdest
-    %stack (c, i, a, b) -> (c, a)
-    // stack: carry_new, a_cur_loc + 1, retdest
-    // If carry = 0, no need to increment.
-    ISZERO
-    %jumpi(increment_end)
-increment_loop:
-    // stack: cur_loc, retdest
-    DUP1
-    %mload_kernel_general
-    // stack: val, cur_loc, retdest
-    %increment
-    // stack: val+1, cur_loc, retdest
+    %stack (c, i, a, b) -> (c)
+    // stack: carry_new, retdest
     SWAP1
-    DUP2
-    DUP2
-    // stack: cur_loc, val+1, cur_loc, val+1, retdest
-    %mstore_kernel_general
-    // stack: cur_loc, val+1, retdest
-    %increment
-    // stack: cur_loc + 1, val+1, retdest
-    SWAP1
-    // stack: val+1, cur_loc + 1, retdest
-    %eq_const(@BIGNUM_LIMB_BASE)
-    ISZERO
-    %jumpi(increment_end)
-    // stack: cur_loc + 1, retdest
-    PUSH 0
-    DUP2
-    // stack: cur_loc + 1, 0, cur_loc + 1, retdest
-    %mstore_kernel_general
-    %jump(increment_loop)
-increment_end:
-    // cur_loc, retdest
-    POP
-    // retdest
+    // stack: retdest, carry_new
     JUMP

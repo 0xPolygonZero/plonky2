@@ -86,7 +86,67 @@ modmul_return_1:
     // stack: length, scratch_2, output_loc, modmul_return_2, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
     %jump(add_bignum)
 modmul_return_2:
+    // stack: carry, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    ISZERO
+    %jumpi(no_carry)
+
+    // We propogate the carry bit as far as necessary (stopping by the end of scratch_2, because in the case that the prover 
+    // input is correct, x + k * m will equal a * b, which has length at most 2 * length).
+
     // stack: length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP4
+    // stack: scratch_2, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP2
+    // stack: length, scratch_2, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    ADD
+    // stack: cur_loc=scratch_2 + length, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+increment_loop:
+    // stack: cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP1
+    %mload_kernel_general
+    // stack: val, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %increment
+    // stack: val+1, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP1
+    // stack: val+1, val+1, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %eq_const(@BIGNUM_LIMB_BASE)
+    // stack: val+1==limb_base, val+1, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP1
+    // stack: val+1==limb_base, val+1==limb_base, val+1, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    ISZERO
+    // stack: val+1!=limb_base, val+1==limb_base, val+1, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    SWAP1
+    SWAP2
+    // stack: val+1, val+1!=limb_base, val+1==limb_base, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    MUL
+    // stack: to_write=(val+1)*(val+1!=limb_base), continue=val+1==limb_base, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP3
+    // stack: cur_loc, to_write, continue, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %mstore_kernel_general
+    // stack: continue, cur_loc, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    SWAP1
+    // stack: cur_loc, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %increment
+    // stack: cur_loc + 1, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP1
+    // stack: cur_loc + 1, cur_loc + 1, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    DUP8
+    // stack: scratch_3, cur_loc + 1, cur_loc + 1, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    EQ
+    // stack: cur_loc + 1 == scratch_3, cur_loc + 1, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    ISZERO
+    // stack: cur_loc + 1 != scratch_3, cur_loc + 1, continue, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    SWAP1
+    SWAP2
+    // stack: continue, cur_loc + 1 != scratch_3, cur_loc + 1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    MUL
+    // stack: new_continue=continue*(cur_loc + 1 != scratch_3), cur_loc + 1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    %jumpi(increment_loop)
+    // stack: cur_loc + 1, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    POP
+no_carry:
+    // stack: length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
+    STOP
 
     // Calculate a * b.
 
@@ -103,6 +163,7 @@ modmul_return_2:
     // stack: modmul_return_3, length, a_start_loc, b_start_loc, scratch_2, scratch_3, scratch_4, retdest
     %stack (return, len, a, b, s2, s3, s4) -> (len, a, b, s3, s4, return, len, s2, s3)
     // stack: length, a_start_loc, b_start_loc, scratch_3, scratch_4, modmul_return_3, length, scratch_2, scratch_3, retdest
+    STOP
     %jump(mul_bignum)
 modmul_return_3:
     // stack: length, scratch_2, scratch_3, retdest
@@ -111,6 +172,7 @@ modmul_return_3:
     // Walk through scratch_2 and scratch_3, checking that they are equal.
     // stack: n=length, i=scratch_2, j=scratch_3, retdest
 modmul_check_loop:
+    STOP
     // stack: n, i, j, retdest
     %stack (l, idx: 2) -> (idx, l, idx)
     // stack: i, j, n, i, j, retdest

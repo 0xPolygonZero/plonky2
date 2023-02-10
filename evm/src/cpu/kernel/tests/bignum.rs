@@ -281,6 +281,8 @@ fn test_modmul_bignum() -> Result<()> {
     let actual_result: Vec<_> =
         new_memory[output_location..output_location + expected_result.len()].into();
 
+    dbg!(interpreter.stack());
+
     assert_eq!(actual_result, expected_result);
 
     Ok(())
