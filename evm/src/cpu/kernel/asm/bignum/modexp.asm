@@ -62,6 +62,7 @@ modexp_loop:
     // stack: length, output_loc, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_mul_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jump(modmul_bignum)
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
 
 modexp_mul_return:
     // Copy scratch_6 to output_loc.
@@ -83,6 +84,7 @@ modexp_mul_return:
     // stack: scratch_2, 10 * length, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %clear_kernel_general
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
 
 modexp_y_0:
     // if y == 0, do nothing
@@ -110,6 +112,7 @@ modexp_y_0:
     // stack: length, scratch_1, scratch_1, m_start_loc, scratch_6, scratch_2, scratch_3, scratch_4, scratch_5, modexp_square_return, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %jump(modmul_bignum)
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
 
 modexp_square_return:
     // Copy scratch_6 to scratch_1.
@@ -131,6 +134,7 @@ modexp_square_return:
     // stack: scratch_2, 10 * length, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     %clear_kernel_general
     // stack: length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
 
     // e //= 2 (with shr_bignum)    
 
@@ -152,6 +156,7 @@ modexp_shr_return:
     // stack: e_start_loc, modexp_return_6, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
     DUP3
     // stack: length, e_start_loc, modexp_return_6, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
+    STOP
     %jump(iszero_bignum)
 modexp_iszero_return:
     // stack: e == 0, length, b_start_loc, e_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, scratch_4, scratch_5, scratch_6, retdest
