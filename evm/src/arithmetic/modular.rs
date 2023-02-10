@@ -108,17 +108,18 @@
 //!   only require 96 columns, or 80 if the output doesn't need to be
 //!   reduced.
 
+use ethereum_types::U256;
 use num::bigint::Sign;
 use num::{BigInt, One, Zero};
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns;
-use crate::arithmetic::addcc::{eval_ext_circuit_add_cc, eval_packed_generic_add_cc};
+use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -189,7 +190,7 @@ fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
 ///
 /// NB: `operation` can set the higher order elements in its result to
 /// zero if they are not used.
-fn generate_modular_op<F: RichField>(
+fn generate_modular_op<F: PrimeField64>(
     lv: &mut [F],
     nv: &mut [F],
     filter: usize,
@@ -212,6 +213,13 @@ fn generate_modular_op<F: RichField>(
     // polynomial" comes in.
     let mut constr_poly = [0i64; 2 * N_LIMBS];
     constr_poly[..2 * N_LIMBS - 1].copy_from_slice(&operation(input0_limbs, input1_limbs));
+
+    // two_exp_256 == 2^256
+    let two_exp_256 = {
+        let mut t = BigInt::zero();
+        t.set_bit(256, true);
+        t
+    };
 
     let mut mod_is_zero = F::ZERO;
     if modulus.is_zero() {
@@ -242,8 +250,8 @@ fn generate_modular_op<F: RichField>(
     let quot = (&input - &output) / &modulus; // exact division; can be -ve
     let quot_limbs = bigint_to_columns::<{ 2 * N_LIMBS }>(&quot);
 
-    // output < modulus here, so the proof requires (modulus - output).
-    let out_aux_red = bigint_to_columns::<N_LIMBS>(&(modulus - output));
+    // output < modulus here; the proof requires (output - modulus) % 2^256:
+    let out_aux_red = bigint_to_columns::<N_LIMBS>(&(two_exp_256 - modulus + output));
 
     // constr_poly is the array of coefficients of the polynomial
     //
@@ -283,8 +291,20 @@ fn generate_modular_op<F: RichField>(
 /// Generate the output and auxiliary values for modular operations.
 ///
 /// `filter` must be one of `columns::IS_{ADDMOD,MULMOD,MOD}`.
-pub(crate) fn generate<F: RichField>(lv: &mut [F], nv: &mut [F], filter: usize) {
+pub(crate) fn generate<F: PrimeField64>(
+    lv: &mut [F],
+    nv: &mut [F],
+    filter: usize,
+    input0: U256,
+    input1: U256,
+    modulus: U256,
+) {
     debug_assert!(lv.len() == NUM_ARITH_COLUMNS && nv.len() == NUM_ARITH_COLUMNS);
+
+    u256_to_array(&mut lv[MODULAR_INPUT_0], input0);
+    u256_to_array(&mut lv[MODULAR_INPUT_1], input1);
+    u256_to_array(&mut lv[MODULAR_MODULUS], modulus);
+
     match filter {
         columns::IS_ADDMOD => generate_modular_op(lv, nv, filter, pol_add),
         columns::IS_SUBMOD => generate_modular_op(lv, nv, filter, pol_sub),
@@ -332,30 +352,30 @@ fn modular_constr_poly<P: PackedField>(
     yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
 
     // Needed to compensate for adding mod_is_zero to modulus above,
-    // since the call eval_packed_generic_add_cc() below subtracts modulus
+    // since the call eval_packed_generic_addcy() below subtracts modulus
     // to verify in the case of a DIV.
     output[0] += div_denom_is_zero;
 
     // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
-    // This sets is_greater_than to 0 unless we get mod_is_zero when
-    // doing a DIV; in that case, we need is_greater_than=1, since
-    // eval_packed_generic_add_cc checks
+    // This sets is_less_than to 1 unless we get mod_is_zero when
+    // doing a DIV; in that case, we need is_less_than=0, since
+    // eval_packed_generic_addcy checks
     //
-    //   output + out_aux_red == modulus + is_greater_than*2^256
+    //   modulus + out_aux_red == output + is_less_than*2^256
     //
-    // and we were given output = out_aux_red
-    let is_greater_than = mod_is_zero * lv[IS_DIV];
+    // and we are given output = out_aux_red when modulus is zero.
+    let is_less_than = P::ONES - mod_is_zero * lv[IS_DIV];
     // NB: output and modulus in lv while out_aux_red and
-    // is_greater_than (via mod_is_zero) depend on nv, hence the
+    // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
-    eval_packed_generic_add_cc(
+    eval_packed_generic_addcy(
         yield_constr,
         filter,
-        &output,
-        out_aux_red,
         &modulus,
-        is_greater_than,
+        out_aux_red,
+        &output,
+        is_less_than,
         true,
     );
     // restore output[0]
@@ -483,16 +503,18 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     output[0] = builder.add_extension(output[0], div_denom_is_zero);
 
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
-    let is_greater_than = builder.mul_extension(mod_is_zero, lv[IS_DIV]);
+    let one = builder.one_extension();
+    let is_less_than =
+        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
 
-    eval_ext_circuit_add_cc(
+    eval_ext_circuit_addcy(
         builder,
         yield_constr,
         filter,
-        &output,
-        out_aux_red,
         &modulus,
-        is_greater_than,
+        out_aux_red,
+        &output,
+        is_less_than,
         true,
     );
     output[0] = builder.sub_extension(output[0], div_denom_is_zero);
@@ -574,7 +596,6 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    use itertools::izip;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
@@ -620,38 +641,40 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
-        let mut nv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
         for op_filter in [IS_ADDMOD, IS_DIV, IS_SUBMOD, IS_MOD, IS_MULMOD] {
-            // Reset operation columns, then select one
-            lv[IS_ADDMOD] = F::ZERO;
-            lv[IS_SUBMOD] = F::ZERO;
-            lv[IS_MULMOD] = F::ZERO;
-            lv[IS_MOD] = F::ZERO;
-            lv[IS_DIV] = F::ZERO;
-            lv[op_filter] = F::ONE;
-
             for i in 0..N_RND_TESTS {
                 // set inputs to random values
-                for (ai, bi, mi) in izip!(MODULAR_INPUT_0, MODULAR_INPUT_1, MODULAR_MODULUS) {
-                    lv[ai] = F::from_canonical_u16(rng.gen());
-                    lv[bi] = F::from_canonical_u16(rng.gen());
-                    lv[mi] = F::from_canonical_u16(rng.gen());
-                }
+                let mut lv = [F::default(); NUM_ARITH_COLUMNS]
+                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
+                let mut nv = [F::default(); NUM_ARITH_COLUMNS]
+                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
+                // Reset operation columns, then select one
+                lv[IS_ADDMOD] = F::ZERO;
+                lv[IS_SUBMOD] = F::ZERO;
+                lv[IS_MULMOD] = F::ZERO;
+                lv[IS_MOD] = F::ZERO;
+                lv[IS_DIV] = F::ZERO;
+                lv[op_filter] = F::ONE;
+
+                let input0 = U256::from(rng.gen::<[u8; 32]>());
+                let input1 = U256::from(rng.gen::<[u8; 32]>());
+
+                let mut modulus_limbs = [0u8; 32];
                 // For the second half of the tests, set the top
                 // 16-start digits of the modulus to zero so it is
                 // much smaller than the inputs.
                 if i > N_RND_TESTS / 2 {
                     // 1 <= start < N_LIMBS
-                    let start = (rng.gen::<usize>() % (N_LIMBS - 1)) + 1;
-                    for mi in MODULAR_MODULUS.skip(start) {
-                        lv[mi] = F::ZERO;
+                    let start = (rng.gen::<usize>() % (modulus_limbs.len() - 1)) + 1;
+                    for mi in modulus_limbs.iter_mut().skip(start) {
+                        *mi = 0u8;
                     }
                 }
+                let modulus = U256::from(modulus_limbs);
 
-                generate(&mut lv, &mut nv, op_filter);
+                generate(&mut lv, &mut nv, op_filter, input0, input1, modulus);
 
                 let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -672,29 +695,29 @@ mod tests {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
-        let mut nv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
         for op_filter in [IS_ADDMOD, IS_SUBMOD, IS_DIV, IS_MOD, IS_MULMOD] {
-            // Reset operation columns, then select one
-            lv[IS_ADDMOD] = F::ZERO;
-            lv[IS_SUBMOD] = F::ZERO;
-            lv[IS_MULMOD] = F::ZERO;
-            lv[IS_MOD] = F::ZERO;
-            lv[IS_DIV] = F::ZERO;
-            lv[op_filter] = F::ONE;
-
             for _i in 0..N_RND_TESTS {
                 // set inputs to random values and the modulus to zero;
                 // the output is defined to be zero when modulus is zero.
+                let mut lv = [F::default(); NUM_ARITH_COLUMNS]
+                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
+                let mut nv = [F::default(); NUM_ARITH_COLUMNS]
+                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
-                for (ai, bi, mi) in izip!(MODULAR_INPUT_0, MODULAR_INPUT_1, MODULAR_MODULUS) {
-                    lv[ai] = F::from_canonical_u16(rng.gen());
-                    lv[bi] = F::from_canonical_u16(rng.gen());
-                    lv[mi] = F::ZERO;
-                }
+                // Reset operation columns, then select one
+                lv[IS_ADDMOD] = F::ZERO;
+                lv[IS_SUBMOD] = F::ZERO;
+                lv[IS_MULMOD] = F::ZERO;
+                lv[IS_MOD] = F::ZERO;
+                lv[IS_DIV] = F::ZERO;
+                lv[op_filter] = F::ONE;
 
-                generate(&mut lv, &mut nv, op_filter);
+                let input0 = U256::from(rng.gen::<[u8; 32]>());
+                let input1 = U256::from(rng.gen::<[u8; 32]>());
+                let modulus = U256::zero();
+
+                generate(&mut lv, &mut nv, op_filter, input0, input1, modulus);
 
                 // check that the correct output was generated
                 if op_filter == IS_DIV {

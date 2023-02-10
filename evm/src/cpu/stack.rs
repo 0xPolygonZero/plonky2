@@ -50,6 +50,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     addfp254: BASIC_BINARY_OP,
     mulfp254: BASIC_BINARY_OP,
     subfp254: BASIC_BINARY_OP,
+    submod: BASIC_TERNARY_OP,
     lt: BASIC_BINARY_OP,
     gt: BASIC_BINARY_OP,
     eq: BASIC_BINARY_OP,
