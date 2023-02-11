@@ -15,7 +15,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::Hasher;
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 
@@ -135,11 +135,7 @@ pub struct CompressedFriProof<F: RichField + Extendable<D>, H: Hasher<F>, const 
 
 impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, D> {
     /// Compress all the Merkle paths in the FRI proof and remove duplicate indices.
-    pub fn compress<C: GenericConfig<D, F = F, Hasher = H>>(
-        self,
-        indices: &[usize],
-        params: &FriParams,
-    ) -> CompressedFriProof<F, H, D> {
+    pub fn compress(self, indices: &[usize], params: &FriParams) -> CompressedFriProof<F, H, D> {
         let FriProof {
             commit_phase_merkle_caps,
             query_round_proofs,
@@ -241,7 +237,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
 
 impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriProof<F, H, D> {
     /// Decompress all the Merkle paths in the FRI proof and reinsert duplicate indices.
-    pub(crate) fn decompress<C: GenericConfig<D, F = F, Hasher = H>>(
+    pub(crate) fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,

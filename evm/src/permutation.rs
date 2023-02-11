@@ -13,7 +13,7 @@ use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, Hasher};
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 use plonky2_maybe_rayon::*;
@@ -89,7 +89,7 @@ pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
 }
 
 /// Compute all Z polynomials (for permutation arguments).
-pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
+pub(crate) fn compute_permutation_z_polys<F, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
@@ -97,7 +97,6 @@ pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
 ) -> Vec<PolynomialValues<F>>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
     let permutation_pairs = stark.permutation_pairs();
@@ -286,7 +285,7 @@ where
     pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<F>>,
 }
 
-pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_permutation_checks<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
@@ -296,7 +295,6 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
-    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
     let PermutationCheckVars {
