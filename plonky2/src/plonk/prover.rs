@@ -420,7 +420,7 @@ fn compute_quotient_polys<
                 public_inputs_hash,
             );
 
-            let mut quotient_values_batch = eval_vanishing_poly_base_batch::<F, C, D>(
+            let mut quotient_values_batch = eval_vanishing_poly_base_batch::<F, D>(
                 common_data,
                 &indices_batch,
                 &shifted_xs_batch,

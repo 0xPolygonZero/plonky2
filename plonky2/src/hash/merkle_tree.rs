@@ -184,7 +184,6 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
         // Mask out high bits to get the index within the sub-tree.
         let mut pair_index = leaf_index & ((1 << num_layers) - 1);
         let siblings = (0..num_layers)
-            .into_iter()
             .map(|i| {
                 let parity = pair_index & 1;
                 pair_index >>= 1;

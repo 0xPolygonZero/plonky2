@@ -277,7 +277,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             plonk_gammas,
             plonk_alphas,
             plonk_zeta,
-            fri_challenges: challenger.fri_challenges::<C>(
+            fri_challenges: challenger.fri_challenges(
                 self,
                 commit_phase_merkle_caps,
                 final_poly,

@@ -59,7 +59,7 @@ pub(crate) fn verify_with_challenges<
     let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
-    let vanishing_polys_zeta = eval_vanishing_poly::<F, C, D>(
+    let vanishing_polys_zeta = eval_vanishing_poly::<F, D>(
         common_data,
         challenges.plonk_zeta,
         vars,

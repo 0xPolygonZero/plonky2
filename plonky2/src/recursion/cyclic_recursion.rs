@@ -40,7 +40,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
 }
 
 impl VerifierCircuitTarget {
-    fn from_slice<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn from_slice<F: RichField + Extendable<D>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self> {
@@ -101,7 +101,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.goal_common_data = Some(common_data.clone());
         }
 
-        let inner_cyclic_pis = VerifierCircuitTarget::from_slice::<F, C, D>(
+        let inner_cyclic_pis = VerifierCircuitTarget::from_slice::<F, D>(
             &cyclic_proof_with_pis.public_inputs,
             common_data,
         )?;
@@ -207,7 +207,7 @@ mod tests {
         let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
+        let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
         builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
@@ -215,7 +215,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let proof = builder.add_virtual_proof_with_pis::<C>(&data.common);
+        let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
         builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
@@ -257,7 +257,7 @@ mod tests {
         let condition = builder.add_virtual_bool_target_safe();
 
         // Unpack inner proof's public inputs.
-        let inner_cyclic_proof_with_pis = builder.add_virtual_proof_with_pis::<C>(&common_data);
+        let inner_cyclic_proof_with_pis = builder.add_virtual_proof_with_pis(&common_data);
         let inner_cyclic_pis = &inner_cyclic_proof_with_pis.public_inputs;
         let inner_cyclic_initial_hash = HashOutTarget::try_from(&inner_cyclic_pis[0..4]).unwrap();
         let inner_cyclic_latest_hash = HashOutTarget::try_from(&inner_cyclic_pis[4..8]).unwrap();

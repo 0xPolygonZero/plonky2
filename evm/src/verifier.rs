@@ -97,7 +97,7 @@ where
         config,
     )?;
 
-    verify_cross_table_lookups::<F, C, D>(
+    verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
         all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
         config,
@@ -155,7 +155,7 @@ where
         next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
         permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
     });
-    eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
+    eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
         config,
         vars,

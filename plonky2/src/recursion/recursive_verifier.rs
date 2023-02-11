@@ -74,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
-            eval_vanishing_poly_circuit::<F, C, D>(
+            eval_vanishing_poly_circuit::<F, D>(
                 self,
                 inner_common_data,
                 challenges.plonk_zeta,
@@ -126,11 +126,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    pub fn add_virtual_proof_with_pis<InnerC: GenericConfig<D, F = F>>(
+    pub fn add_virtual_proof_with_pis(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {
-        let proof = self.add_virtual_proof::<InnerC>(common_data);
+        let proof = self.add_virtual_proof(common_data);
         let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
         ProofWithPublicInputsTarget {
             proof,
@@ -138,10 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
-        &mut self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> ProofTarget<D> {
+    fn add_virtual_proof(&mut self, common_data: &CommonCircuitData<F, D>) -> ProofTarget<D> {
         let config = &common_data.config;
         let fri_params = &common_data.fri_params;
         let cap_height = fri_params.config.cap_height;
@@ -158,15 +155,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
             quotient_polys_cap: self.add_virtual_cap(cap_height),
-            openings: self.add_opening_set::<InnerC>(common_data),
+            openings: self.add_opening_set(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
         }
     }
 
-    fn add_opening_set<InnerC: GenericConfig<D, F = F>>(
-        &mut self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> OpeningSetTarget<D> {
+    fn add_opening_set(&mut self, common_data: &CommonCircuitData<F, D>) -> OpeningSetTarget<D> {
         let config = &common_data.config;
         let num_challenges = config.num_challenges;
         let total_partial_products = num_challenges * common_data.num_partial_products;
@@ -363,7 +357,7 @@ mod tests {
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
-        let pt = builder.add_virtual_proof_with_pis::<InnerC>(&inner_cd);
+        let pt = builder.add_virtual_proof_with_pis(&inner_cd);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
 
         let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
