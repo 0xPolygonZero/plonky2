@@ -91,8 +91,8 @@ addmul_loop:
     // stack: i-1, carry, i-1, a_cur_loc+1, b_cur_loc+1, val, retdest
     %jumpi(addmul_loop)
 addmul_end:
-    // stack: carry_new, i-1, a_cur_loc+1, b_cur_loc+1, retdest
-    %stack (c, i, a, b) -> (c)
+    // stack: carry_new, i-1, a_cur_loc+1, b_cur_loc+1, val, retdest
+    %stack (c, i, a, b, v) -> (c)
     // stack: carry_new, retdest
     SWAP1
     // stack: retdest, carry_new
