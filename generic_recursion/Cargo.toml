@@ -1,0 +1,27 @@
+[package]
+name = "generic_recursion"
+version = "0.1.0"
+edition = "2021"
+authors = [
+    "Daniele Di Benedetto",
+    "Daniele Di Tullio",
+    "Michele d'Amico",
+    "Nicholas Mainardi",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+plonky2 = { version = "0.1.1", default-features = false, features = ["parallel", "std"]}
+plonky2_util = { version = "0.1.0", default-features = false }
+anyhow = "1.0.40"
+log = "0.4.17"
+itertools = "0.10.5"
+
+[dev-dependencies]
+rand = "0.8.4"
+rstest = "0.16.0"
+serial_test = "0.10.0"
+env_logger = "0.10.0"
+plonky2_u32 = { path = "../u32" }
+# [workspace]

@@ -1,5 +1,5 @@
 # Cargo build
-/target
+target/
 Cargo.lock
 
 # Profile-guided optimization
@@ -8,3 +8,5 @@ pgo-data.profdata
 
 # MacOS nuisances
 .DS_Store
+.idea
+
