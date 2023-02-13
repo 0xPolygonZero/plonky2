@@ -1,6 +1,6 @@
 // Initial stack: Gneg, Qneg, Qx, Qy, retdest
 // Compute a*G ± b*phi(G) + c*Q ± d*phi(Q) for a,b,c,d in {0,1}^4 and store its x-coordinate at location `2*(8a+4b+2c+d)` and its y-coordinate at location `2*(8a+4b+2c+d)+1` in the SEGMENT_KERNEL_ECDSA_TABLE segment.
-global precompute_table:
+global secp_precompute_table:
     // First store G, ± phi(G), G ± phi(G)
     // Use Gneg for the ±, e.g., ±phi(G) is computed as `Gneg * (-phi(G)) + (1-Gneg)*phi(G)` (note only the y-coordinate needs to be filtered).
     // stack: Gneg, Qneg, Qx, Qy, retdest

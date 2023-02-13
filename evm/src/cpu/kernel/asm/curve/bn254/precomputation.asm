@@ -8,7 +8,7 @@ global bn_precompute_table:
 precompute_table_contd:
     // stack: Qx2, Qy2, Qx, Qy, retdest
     PUSH 1
-global bn_precompute_table_loop:
+bn_precompute_table_loop:
     // stack i, Qx2, Qy2, Qx, Qy, retdest
     PUSH 1 DUP2 SUB
     %stack (im, i, Qx2, Qy2, Qx, Qy, retdest) -> (i, Qy, im, Qx, i, Qx2, Qy2, Qx, Qy, retdest)

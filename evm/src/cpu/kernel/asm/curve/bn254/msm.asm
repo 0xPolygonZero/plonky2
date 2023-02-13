@@ -1,5 +1,4 @@
 // Computes the multiplication `a*G` using a standard MSM with the GLV decomposition of `a`.
-// Essentially the same algorithm as in `evm/src/cpu/kernel/asm/curve/secp256k1/msm.asm`,
 // see there for a detailed description.
 global bn_msm:
     // stack: retdest
@@ -64,8 +63,8 @@ bn_msm_loop_add_b_nonzero:
     // stack: w
     DUP1
     %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
-    PUSH 1337 %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
-    %stack (a1neg, Gy, w) -> (@BN_BASE, Gy, a1neg, a1neg, Gy, w)
+    PUSH @BN_BNEG_LOC %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %stack (bneg, Gy, w) -> (@BN_BASE, Gy, bneg, bneg, Gy, w)
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
     SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
     //stack: Gx, Gy

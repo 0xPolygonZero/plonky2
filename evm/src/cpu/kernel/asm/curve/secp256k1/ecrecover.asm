@@ -64,13 +64,13 @@ ecrecover_valid_input:
 // return msm_with_precomputation([a0, a1, b0, b1], [G, phi(G), Q, phi(Q)]) -- phi is the Secp endomorphism.
 ecdsa_msm_with_glv:
     %stack (a, b, Qx, Qy, retdest) -> (a, ecdsa_after_glv_a, b, Qx, Qy, retdest)
-    %jump(glv_decompose)
+    %jump(secp_glv_decompose)
 ecdsa_after_glv_a:
     %stack (a1neg, a0, a1, b, Qx, Qy, retdest) -> (b, ecdsa_after_glv_b, a1neg, a0, a1, Qx, Qy, retdest)
-    %jump(glv_decompose)
+    %jump(secp_glv_decompose)
 ecdsa_after_glv_b:
     %stack (b1neg, b0, b1, a1neg, a0, a1, Qx, Qy, retdest) -> (a1neg, b1neg, Qx, Qy, ecdsa_after_precompute, a0, a1, b0, b1, retdest)
-    %jump(precompute_table)
+    %jump(secp_precompute_table)
 ecdsa_after_precompute:
     // stack: a0, a1, b0, b1, retdest
     PUSH 0 PUSH 0 PUSH 129 // 129 is the bit length of the GLV exponents

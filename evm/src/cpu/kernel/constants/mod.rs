@@ -63,7 +63,7 @@ const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     ),
 ];
 
-const EC_CONSTANTS: [(&str, [u8; 32]); 17] = [
+const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     (
         "U256_MAX",
         hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
@@ -99,6 +99,11 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 17] = [
     (
         "BN_GLV_B2",
         hex!("00000000000000000000000000000000000000000000000089d3256894d213e3"),
+    ),
+    (
+        "BN_BNEG_LOC",
+        // This just needs to be large enough to not interfere with anything else in SEGMENT_KERNEL_BN_TABLE_Q.
+        hex!("0000000000000000000000000000000000000000000000000000000000001337"),
     ),
     (
         "SECP_BASE",

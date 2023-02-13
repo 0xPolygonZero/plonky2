@@ -1,5 +1,5 @@
 // BN254 elliptic curve scalar multiplication.
-// Recursive implementation, same algorithm as in `exp.asm`.
+// Uses GLV, wNAF with w=5, and a MSM algorithm.
 global bn_mul:
     // stack: x, y, s, retdest
     DUP2
@@ -21,22 +21,21 @@ global bn_mul:
     %pop3
     %bn_invalid_input
 
-// Same algorithm as in `exp.asm`
 bn_mul_valid_point:
     %stack (x, y, s, retdest) -> (s, bn_mul_after_glv, x, y, bn_msm, bn_mul_end, retdest)
     %jump(bn_glv_decompose)
-global bn_mul_after_glv:
-    // stack: bneg, a, b, x, y, bn_msm, bn_mul_after_glv_precompute_and_msm, retdest
+bn_mul_after_glv:
+    // stack: bneg, a, b, x, y, bn_msm, bn_mul_end, retdest
     // Store bneg at this (otherwise unused) location. Will be used later in the MSM.
-    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q, 1337)
-    // stack: a, b, x, y, bn_msm, bn_mul_after_glv_precompute_and_msm, retdest
+    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q, @BN_BNEG_LOC)
+    // stack: a, b, x, y, bn_msm, bn_mul_end, retdest
     PUSH bn_mul_after_a SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_A PUSH @BN_SCALAR %jump(wnaf)
-global bn_mul_after_a:
-    // stack: b, x, y, bn_msm, bn_mul_after_glv_precompute_and_msm, retdest
+bn_mul_after_a:
+    // stack: b, x, y, bn_msm, bn_mul_end, retdest
     PUSH bn_mul_after_b SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_B PUSH @BN_SCALAR %jump(wnaf)
-global bn_mul_after_b:
+bn_mul_after_b:
     // stack: x, y, bn_msm, bn_mul_end, retdest
     %jump(bn_precompute_table)
-global bn_mul_end:
+bn_mul_end:
     %stack (Ax, Ay, retdest) -> (retdest, Ax, Ay)
     JUMP

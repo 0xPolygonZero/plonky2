@@ -1,5 +1,5 @@
 // Inspired by https://github.com/AztecProtocol/weierstrudel/blob/master/huff_modules/endomorphism.huff
-// See also Sage code in evm/src/cpu/kernel/tests/ecc/glv_test_data
+// See also Sage code in evm/src/cpu/kernel/tests/ecc/secp_glv_test_data
 // Given scalar `k ∈ Secp256k1::ScalarField`, return `u, k1, k2` with `k1,k2 < 2^129` and such that
 // `k = k1 - s*k2` if `u==0` otherwise `k = k1 + s*k2`, where `s` is the scalar value representing the endomorphism.
 // In the comments below, N means @SECP_SCALAR
@@ -36,7 +36,7 @@
 // s.add(Or((k2 >= 2**129), (-k2 >= 2**129), (k1 >= 2**129), (k1 < 0)))
 // assert s.check() == unsat
 // ```
-global glv_decompose:
+global secp_glv_decompose:
     // stack: k, retdest
     PUSH @SECP_SCALAR DUP1 DUP1
     // Compute c2 which is the top 256 bits of k*g1. Use asm from https://medium.com/wicketh/mathemagic-full-multiply-27650fec525d.

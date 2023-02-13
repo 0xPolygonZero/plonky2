@@ -16,7 +16,7 @@
 //         ne -= m
 //     return ans
 global wnaf:
-    // stack: N, segment, n, retdest
+    // stack: N, segment, n, retdest (N is the size of the group in which the mul is taking place)
     DUP3 MOD ISZERO %jumpi(wnaf_zero_scalar)
     PUSH 0
 wnaf_loop:
@@ -62,7 +62,7 @@ trailing_zeros_loop:
     %jumpi(trailing_zeros_end)
     // stack: count, x, retdest
     %increment SWAP1 PUSH 1 SHR SWAP1
-    // stack: count, x, retdest
+    // stack: count, x>>1, retdest
     %jump(trailing_zeros_loop)
 trailing_zeros_end:
     %stack (count, x, retdest) -> (retdest, x, count)
