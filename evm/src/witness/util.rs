@@ -39,11 +39,11 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     )))
 }
 
-/// Peek at the kernel general item at address `i`
+/// Peek at the SEGMENT_KERNEL_BN_PAIRING item at address `i`
 pub(crate) fn kernel_general_peek<F: Field>(state: &GenerationState<F>, i: usize) -> U256 {
     state.memory.get(MemoryAddress::new(
         state.registers.context,
-        Segment::KernelGeneral,
+        Segment::BnPairing,
         i,
     ))
 }

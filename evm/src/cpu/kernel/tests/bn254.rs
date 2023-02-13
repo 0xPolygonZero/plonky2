@@ -28,7 +28,7 @@ impl InterpreterSetup {
         for (pointer, data) in self.memory {
             for (i, term) in data.iter().enumerate() {
                 interpreter.generation_state.memory.set(
-                    MemoryAddress::new(0, Segment::KernelGeneral, pointer + i),
+                    MemoryAddress::new(0, Segment::BnPairing, pointer + i),
                     *term,
                 )
             }
@@ -43,7 +43,7 @@ fn extract_kernel_memory(range: Range<usize>, interpreter: Interpreter<'static>)
     for i in range {
         let term = interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
-            Segment::KernelGeneral,
+            Segment::BnPairing,
             i,
         ));
         output.push(term);

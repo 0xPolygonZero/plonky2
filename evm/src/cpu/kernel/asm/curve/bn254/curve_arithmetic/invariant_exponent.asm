@@ -59,9 +59,9 @@ final_exp:
     // stack:             300, val, retdest
     %stack () -> (1, 1, 1)
     // stack:    1, 1, 1, 300, val, retdest
-    %mstore_kernel_general(200)  
-    %mstore_kernel_general(224)  
-    %mstore_kernel_general(212)
+    %mstore_kernel_bn254_pairing(200)  
+    %mstore_kernel_bn254_pairing(224)  
+    %mstore_kernel_bn254_pairing(212)
     // stack:             300, val, retdest  {200: y0, 212: y2, 224: y4}
     %stack () -> (64, 62, 65)
     // stack: 64, 62, 65, 300, val, retdest  {200: y0, 212: y2, 224: y4}
