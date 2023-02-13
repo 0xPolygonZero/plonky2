@@ -1,0 +1,99 @@
+// Arithmetic on little-endian integers represented with 128-bit limbs.
+// All integers must be under a given length bound, and are padded with leading zeroes.
+
+// Sets a[0:len] += b[0:len] * val.
+global addmul_bignum:
+    // stack: len, a_start_loc, b_start_loc, val, retdest
+    PUSH 0
+    // stack: carry=0, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, val, retdest
+addmul_loop:
+    // stack: carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP4
+    // stack: b_cur_loc, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %mload_kernel_general
+    // stack: b[cur], carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP6
+    // stack: val, b[cur], carry, i, a_cur_loc, b_cur_loc, val, retdest
+    MUL
+    // stack: val * b[cur], carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP1
+    // stack: val * b[cur], val * b[cur], carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %shr_const(128)
+    // stack: (val * b[cur]) // 2^128, val * b[cur], carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP1
+    // stack: val * b[cur], (val * b[cur]) // 2^128, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %shl_const(128)
+    %shr_const(128)
+    // stack: prod_lo = val * b[cur] % 2^128, prod_hi = (val * b[cur]) // 2^128, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP5
+    // stack: a_cur_loc, prod_lo, prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %mload_kernel_general
+    // stack: a[cur], prod_lo, prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP1
+    // stack: a[cur], a[cur], prod_lo, prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP2
+    // stack: prod_lo, a[cur], a[cur], prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    ADD
+    %shl_const(128)
+    %shr_const(128)
+    // stack: prod_lo' = (prod_lo + a[cur]) % 2^128, a[cur], prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP1
+    // stack: prod_lo', prod_lo', a[cur], prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP2
+    // stack: a[cur], prod_lo', prod_lo', prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    GT
+    // stack: prod_lo_carry = a[cur] > prod_lo', prod_lo', prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP1
+    // stack: prod_lo', prod_lo_carry, prod_hi, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP2
+    // stack: prod_hi, prod_lo_carry, prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    ADD
+    // stack: prod_hi' = prod_hi + prod_lo_carry, prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP3
+    // stack: carry, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP2
+    // stack: prod_lo', carry, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    ADD
+    %shl_const(128)
+    %shr_const(128)
+    // stack: to_write = (prod_lo' + carry) % 2^128, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP1
+    // stack: prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP2
+    // stack: to_write, prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    LT
+    // stack: carry_new = to_write < prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %stack (cn, tw, ph, c) -> (cn, ph, tw)
+    // stack: carry_new, prod_hi', to_write, i, a_cur_loc, b_cur_loc, val, retdest
+    ADD
+    // stack: carry = carry_new' + prod_hi', to_write, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP1
+    // stack: to_write, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP4
+    // stack: a_cur_loc, to_write, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %mstore_kernel_general
+    // stack: carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP1
+    // stack: i, carry, a_cur_loc, b_cur_loc, val, retdest
+    %decrement
+    // stack: i-1, carry, a_cur_loc, b_cur_loc, val, retdest
+    SWAP2
+    // stack: a_cur_loc, carry, i-1, b_cur_loc, val, retdest
+    %increment
+    // stack: a_cur_loc+1, carry, i-1, b_cur_loc, val, retdest
+    SWAP3
+    // stack: b_cur_loc, carry, i-1, a_cur_loc+1, val, retdest
+    %increment
+    // stack: b_cur_loc+1, carry, i-1, a_cur_loc+1, val, retdest
+    %stack (b, c, i, a) -> (c, i, a, b)
+    // stack: carry, i-1, a_cur_loc+1, b_cur_loc+1, val, retdest
+    DUP2
+    // stack: i-1, carry, i-1, a_cur_loc+1, b_cur_loc+1, val, retdest
+    %jumpi(addmul_loop)
+addmul_end:
+    // stack: carry_new, i-1, a_cur_loc+1, b_cur_loc+1, retdest
+    %stack (c, i, a, b) -> (c)
+    // stack: carry_new, retdest
+    SWAP1
+    // stack: retdest, carry_new
+    JUMP

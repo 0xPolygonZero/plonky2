@@ -210,6 +210,8 @@ fn test_mul_bignum() -> Result<()> {
     // Run mul function.
     interpreter.run()?;
 
+    dbg!(interpreter.stack());
+
     // Determine actual product.
     let new_memory = interpreter.get_kernel_general_memory();
     let output_location: usize = output_loc.try_into().unwrap();

@@ -5,7 +5,7 @@
 global add_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     PUSH 0
-    // stack: carry=0, i=len, a_start_loc, b_start_loc, retdest
+    // stack: carry=0, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, retdest
 add_loop:
     // stack: carry, i, a_cur_loc, b_cur_loc, retdest
     DUP4
