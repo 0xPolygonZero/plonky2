@@ -1,3 +1,11 @@
+// Load a single value from bn254 pairings memory.
+%macro mload_bn254_pairings
+    // stack: offset
+    %mload_kernel(@SEGMENT_BN254_PAIRINGS)
+    // stack: value
+%endmacro
+
+
 // fp254_2 macros
 
 %macro load_fp254_2
