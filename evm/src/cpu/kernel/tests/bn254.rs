@@ -94,8 +94,8 @@ fn test_mul_fp6() -> Result<()> {
 }
 
 fn setup_mul_fp12_test(out: usize, f: Fp12, g: Fp12, label: &str) -> InterpreterSetup {
-    let in0: usize = 64;
-    let in1: usize = 76;
+    let in0: usize = 200;
+    let in1: usize = 212;
 
     let mut stack = vec![
         U256::from(in0),
@@ -115,7 +115,7 @@ fn setup_mul_fp12_test(out: usize, f: Fp12, g: Fp12, label: &str) -> Interpreter
 
 #[test]
 fn test_mul_fp12() -> Result<()> {
-    let out: usize = 88;
+    let out: usize = 224;
 
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
@@ -191,7 +191,7 @@ fn setup_frob_fp12_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
 
 #[test]
 fn test_frob_fp12() -> Result<()> {
-    let ptr: usize = 100;
+    let ptr: usize = 200;
 
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
@@ -226,8 +226,8 @@ fn test_frob_fp12() -> Result<()> {
 
 #[test]
 fn test_inv_fp12() -> Result<()> {
-    let ptr: usize = 100;
-    let inv: usize = 112;
+    let ptr: usize = 200;
+    let inv: usize = 212;
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
 
@@ -247,7 +247,7 @@ fn test_inv_fp12() -> Result<()> {
 
 #[test]
 fn test_invariant_exponent() -> Result<()> {
-    let ptr: usize = 400;
+    let ptr: usize = 200;
 
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
@@ -348,8 +348,8 @@ fn test_miller() -> Result<()> {
 
 #[test]
 fn test_tate() -> Result<()> {
-    let ptr: usize = 300;
-    let out: usize = 400;
+    let ptr: usize = 200;
+    let out: usize = 206;
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
         CURVE_GENERATOR.y.val,

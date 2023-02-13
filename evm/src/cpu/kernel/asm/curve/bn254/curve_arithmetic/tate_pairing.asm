@@ -109,35 +109,35 @@ mul_tangent:
     // stack: out, out, mul_tangent_1, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %jump(square_fp254_12)
 mul_tangent_1:
-    // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
+    // stack:         out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP13
     DUP13
     DUP13
     DUP13
-    // stack:        Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
+    // stack:      Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     DUP11  
     DUP11
-    // stack:     O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
+    // stack:   O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %tangent
-    // stack:           out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
-    %stack (out) -> (out, 100, out)
-    // stack: out, 100, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {100: line}
+    // stack:         out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {0: line}
+    %stack (out) -> (out, 0, out)
+    // stack: out, 0, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {0: line}
     %jump(mul_fp254_12_sparse)
 mul_tangent_2:
-    // stack:                  retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    // stack:                  retdest, 0xnm, times,   O, P, Q, out  {0: line}
     PUSH after_double
-    // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {0: line}
     DUP6  
     DUP6
-    // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {0: line}
     %jump(bn_double)
 after_double:
-    // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
+    // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {0: line}
     SWAP5
     POP
     SWAP5
     POP
-    // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {100: line}
+    // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {0: line}
     JUMP
 
 /// def mul_cord()
@@ -146,26 +146,26 @@ after_double:
 ///     O += P
 
 mul_cord:
-    // stack:                            0xnm, times, O, P, Q, out
+    // stack:                          0xnm, times, O, P, Q, out
     PUSH mul_cord_1
-    // stack:                mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:              mul_cord_1, 0xnm, times, O, P, Q, out
     DUP11  
     DUP11  
     DUP11  
     DUP11
-    // stack:             Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:           Q, mul_cord_1, 0xnm, times, O, P, Q, out
     DUP9  
     DUP9
-    // stack:          O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:        O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
     DUP13  
     DUP13
-    // stack:       P, O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
+    // stack:     P, O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
     %cord 
-    // stack:                mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
+    // stack:              mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
     DUP12
-    // stack:           out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
-    %stack (out) -> (out, 100, out)
-    // stack: out, 100, out, mul_cord_1, 0xnm, times, O, P, Q, out  {100: line}
+    // stack:         out, mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
+    %stack (out) -> (out, 0, out)
+    // stack: out, 0, out, mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
     %jump(mul_fp254_12_sparse)
 mul_cord_1:
     // stack:                   0xnm, times, O  , P, Q, out
@@ -202,7 +202,7 @@ after_add:
     // stack:      py^2 , 9, px, py, qx, qx_,  qy, qy_
     SUBFP254
     // stack:      py^2 - 9, px, py, qx, qx_,  qy, qy_
-    %mstore_kernel_bn254_pairing(100)
+    %mstore_kernel_bn254_pairing(0)
     // stack:                px, py, qx, qx_,  qy, qy_
     DUP1  
     MULFP254
@@ -218,7 +218,7 @@ after_add:
     DUP3  
     MULFP254
     // stack:   (-3*px^2)qx, py, -3px^2, qx_,  qy, qy_ 
-    %mstore_kernel_bn254_pairing(102)
+    %mstore_kernel_bn254_pairing(2)
     // stack:                py, -3px^2, qx_,  qy, qy_ 
     PUSH 2  
     MULFP254
@@ -228,15 +228,15 @@ after_add:
     DUP4  
     MULFP254
     // stack:           (2py)qy, -3px^2, qx_, 2py, qy_ 
-    %mstore_kernel_bn254_pairing(108)
+    %mstore_kernel_bn254_pairing(8)
     // stack:                    -3px^2, qx_, 2py, qy_ 
     MULFP254
     // stack:                   (-3px^2)*qx_, 2py, qy_ 
-    %mstore_kernel_bn254_pairing(103)
+    %mstore_kernel_bn254_pairing(3)
     // stack:                                 2py, qy_ 
     MULFP254
     // stack:                                (2py)*qy_ 
-    %mstore_kernel_bn254_pairing(109)
+    %mstore_kernel_bn254_pairing(9)
 %endmacro
 
 /// def cord(p1x, p1y, p2x, p2y, qx, qy):
@@ -258,7 +258,7 @@ after_add:
     // stack: p1y*p2x , p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     SUBFP254
     // stack: p1y*p2x - p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    %mstore_kernel_bn254_pairing(100)
+    %mstore_kernel_bn254_pairing(0)
     // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     SWAP3
     // stack:                    p2y , p1y, p2x , p1x, qx, qx_, qy, qy_
@@ -273,20 +273,20 @@ after_add:
     DUP5
     MULFP254
     // stack:         (p1x - p2x)qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(108)
+    %mstore_kernel_bn254_pairing(8)
     // stack:                        p2y - p1y, qx, qx_, p1x - p2x, qy_
     SWAP1
     // stack:                        qx, p2y - p1y, qx_, p1x - p2x, qy_
     DUP2
     MULFP254
     // stack:             (p2y - p1y)qx, p2y - p1y, qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(102)
+    %mstore_kernel_bn254_pairing(2)
     // stack:                            p2y - p1y, qx_, p1x - p2x, qy_
     MULFP254
     // stack:                            (p2y - p1y)qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(103)
+    %mstore_kernel_bn254_pairing(3)
     // stack:                                            p1x - p2x, qy_
     MULFP254
     // stack:                                           (p1x - p2x)*qy_
-    %mstore_kernel_bn254_pairing(109)
+    %mstore_kernel_bn254_pairing(9)
 %endmacro

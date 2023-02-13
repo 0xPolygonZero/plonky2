@@ -66,73 +66,73 @@ mul_fp254_12_1:
     // stack:                   f'g', g'  , f', inA, inB, out 
     %dup_fp254_6_0
     // stack:             f'g', f'g', g'  , f', inA, inB, out 
-    %store_fp254_6_sh(0)                                    
-    // stack:                   f'g', g'  , f', inA, inB, out  {0: sh(f'g')}
-    %store_fp254_6(6)
-    // stack:                         g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    %store_fp254_6_sh(84)                                    
+    // stack:                   f'g', g'  , f', inA, inB, out  {84: sh(f'g')}
+    %store_fp254_6(90)
+    // stack:                         g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     DUP13
-    // stack:                    inA, g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:                    inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     DUP15  
-    // stack:               inB, inA, g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:               inB, inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %load_fp254_6
-    // stack:                g , inA, g'  , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:                g , inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %stack (f: 6, x, g: 6) -> (g, x, f)
-    // stack:                g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:                g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %dup_fp254_6_7
-    // stack:              g,g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:              g,g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %add_fp254_6
-    // stack:              g+g', inA, g   , f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:              g+g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %stack (f: 6, x, g: 6) -> (g, x, f)
-    // stack:                 g, inA, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:                 g, inA, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     PUSH mul_fp254_12_2
-    // stack: mul_fp254_12_2, g, inA, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack: mul_fp254_12_2, g, inA, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     SWAP7
-    // stack: inA, g, mul_fp254_12_2, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack: inA, g, mul_fp254_12_2, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %load_fp254_6
-    // stack:   f, g, mul_fp254_12_2, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
+    // stack:   f, g, mul_fp254_12_2, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
     %jump(mul_fp254_6)
 mul_fp254_12_2:    
-    // stack:                     fg, g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g'}
-    %store_fp254_6(12)
-    // stack:                         g+g', f', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                     fg, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    %store_fp254_6(96)
+    // stack:                         g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %stack (x: 6, y: 6) -> (y, x)
-    // stack:                         f', g+g', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                         f', g+g', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     PUSH mul_fp254_12_3
-    // stack:         mul_fp254_12_3, f', g+g', inA, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:         mul_fp254_12_3, f', g+g', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     SWAP13
-    // stack:         inA, f', g+g', mul_fp254_12_3, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:         inA, f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %load_fp254_6
-    // stack:            f,f', g+g', mul_fp254_12_3, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:            f,f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %add_fp254_6
-    // stack:            f+f', g+g', mul_fp254_12_3, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:            f+f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %jump(mul_fp254_6)
 mul_fp254_12_3:
-    // stack:                          (f+f')(g+g'), inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %load_fp254_6(12)
-    // stack:                      fg, (f+f')(g+g'), inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                          (f+f')(g+g'), inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    %load_fp254_6(96)
+    // stack:                      fg, (f+f')(g+g'), inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %stack (x: 6, y: 6) -> (y, x)
-    // stack:                      (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                      (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %dup_fp254_6_6
-    // stack:                  fg, (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %load_fp254_6(6)
-    // stack:             f'g',fg, (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                  fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    %load_fp254_6(90)
+    // stack:             f'g',fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %add_fp254_6
-    // stack:             f'g'+fg, (f+f')(g+g'), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:             f'g'+fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %subr_fp254_6
-    // stack:          (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
+    // stack:          (f+f')(g+g') - (f'g'+fg), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}   
     DUP14  
     %add_const(6) 
-    // stack:    out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}   
+    // stack:    out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}   
     %store_fp254_6
-    // stack:                                    fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
-    %load_fp254_6(0)
-    // stack:                         sh(f'g') , fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                                    fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    %load_fp254_6(84)
+    // stack:                         sh(f'g') , fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %add_fp254_6
-    // stack:                         sh(f'g') + fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                         sh(f'g') + fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     DUP8
-    // stack:                    out, sh(f'g') + fg, inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                    out, sh(f'g') + fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %store_fp254_6
-    // stack:                                        inB, out  {0: sh(f'g'), 6: f'g', 12: fg}
+    // stack:                                        inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
     %pop2  
     JUMP
 
