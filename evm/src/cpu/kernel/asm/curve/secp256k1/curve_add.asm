@@ -2,7 +2,7 @@
 
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points.
-global ec_add_valid_points_secp:
+global secp_add_valid_points:
     // stack: x0, y0, x1, y1, retdest
 
     // Check if the first point is the identity.
@@ -12,7 +12,7 @@ global ec_add_valid_points_secp:
     // stack: x0, y0, x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack: (x0,y0)==(0,0), x0, y0, x1, y1, retdest
-    %jumpi(ec_add_first_zero)
+    %jumpi(secp_add_first_zero)
     // stack: x0, y0, x1, y1, retdest
 
     // Check if the second point is the identity.
@@ -22,7 +22,7 @@ global ec_add_valid_points_secp:
     // stack: x1, y1, x0, y0, x1, y1, retdest
     %ec_isidentity
     // stack: (x1,y1)==(0,0), x0, y0, x1, y1, retdest
-    %jumpi(ec_add_snd_zero)
+    %jumpi(secp_add_snd_zero)
     // stack: x0, y0, x1, y1, retdest
 
     // Check if both points have the same x-coordinate.
@@ -32,9 +32,9 @@ global ec_add_valid_points_secp:
     // stack: x0, x1, x0, y0, x1, y1, retdest
     EQ
     // stack: x0 == x1, x0, y0, x1, y1, retdest
-    %jumpi(ec_add_equal_first_coord)
+    %jumpi(secp_add_equal_first_coord)
 // Standard affine addition formula.
-global ec_add_valid_points_no_edge_case_secp:
+global secp_add_valid_points_no_edge_case:
     // stack: x0, y0, x1, y1, retdest
     // Compute lambda = (y0 - y1)/(x0 - x1)
     DUP4
@@ -51,11 +51,11 @@ global ec_add_valid_points_no_edge_case_secp:
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
     %moddiv_secp_base
     // stack: lambda, x0, y0, x1, y1, retdest
-    %jump(ec_add_valid_points_with_lambda)
+    %jump(secp_add_valid_points_with_lambda)
 
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) == (0,0)
-ec_add_first_zero:
+secp_add_first_zero:
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
@@ -69,7 +69,7 @@ ec_add_first_zero:
 
 // Secp256k1 elliptic curve addition.
 // Assumption: (x1,y1) == (0,0)
-ec_add_snd_zero:
+secp_add_snd_zero:
     // stack: x0, y0, x1, y1, retdest
 
     // Just return (x1,y1)
@@ -89,7 +89,7 @@ ec_add_snd_zero:
 
 // Secp256k1 elliptic curve addition.
 // Assumption: lambda = (y0 - y1)/(x0 - x1)
-ec_add_valid_points_with_lambda:
+secp_add_valid_points_with_lambda:
     // stack: lambda, x0, y0, x1, y1, retdest
 
     // Compute x2 = lambda^2 - x1 - x0
@@ -145,7 +145,7 @@ ec_add_valid_points_with_lambda:
 
 // Secp256k1 elliptic curve addition.
 // Assumption: (x0,y0) and (x1,y1) are valid points and x0 == x1
-ec_add_equal_first_coord:
+secp_add_equal_first_coord:
     // stack: x0, y0, x1, y1, retdest with x0 == x1
 
     // Check if the points are equal
@@ -155,7 +155,7 @@ ec_add_equal_first_coord:
     // stack: y1, y0, x0, y0, x1, y1, retdest
     EQ
     // stack: y1 == y0, x0, y0, x1, y1, retdest
-    %jumpi(ec_add_equal_points)
+    %jumpi(secp_add_equal_points)
     // stack: x0, y0, x1, y1, retdest
 
     // Otherwise, one is the negation of the other so we can return (0,0).
@@ -173,7 +173,7 @@ ec_add_equal_first_coord:
 // Secp256k1 elliptic curve addition.
 // Assumption: x0 == x1 and y0 == y1
 // Standard doubling formula.
-ec_add_equal_points:
+secp_add_equal_points:
     // Compute lambda = 3/2 * x0^2 / y0
     %stack (x0, y0, x1, y1, retdest) -> (x0, x0, @SECP_BASE, @SECP_BASE, x0, y0, x1, y1, retdest)
     MULMOD
@@ -181,16 +181,16 @@ ec_add_equal_points:
     MULMOD
     DUP3
     %moddiv_secp_base
-    %jump(ec_add_valid_points_with_lambda)
+    %jump(secp_add_valid_points_with_lambda)
 
 // Secp256k1 elliptic curve doubling.
 // Assumption: (x,y) is a valid point.
 // Standard doubling formula.
-global ec_double_secp:
+global secp_double:
     // stack: x, y, retdest
     DUP2 DUP2 %ec_isidentity
     // stack: (x,y)==(0,0), x, y, retdest
-    %jumpi(retself)
+    %jumpi(ec_double_retself)
 
     // Compute lambda = 3/2 * x0^2 / y0
     %stack (x, y, retdest) -> (x, x, @SECP_BASE, @SECP_BASE, x, y, retdest)
@@ -200,11 +200,7 @@ global ec_double_secp:
     DUP3
     %moddiv_secp_base
     %stack (lambda, x, y, retdest) -> (lambda, x, y, x, y, retdest)
-    %jump(ec_add_valid_points_with_lambda)
-
-retself:
-    %stack (x, y, retdest) -> (retdest, x, y)
-    JUMP
+    %jump(secp_add_valid_points_with_lambda)
 
 // Push the order of the Secp256k1 scalar field.
 %macro secp_base
@@ -221,7 +217,7 @@ retself:
 
 // Check if (x,y) is a valid curve point.
 // Puts y^2 % N == (x^3 + 3) % N & (x < N) & (y < N) || (x,y)==(0,0) on top of the stack.
-%macro ec_check_secp
+%macro secp_check
     // stack: x, y
     %secp_base
     // stack: N, x, y

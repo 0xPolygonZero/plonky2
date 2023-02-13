@@ -64,13 +64,13 @@ ecrecover_valid_input:
 // return msm_with_precomputation([a0, a1, b0, b1], [G, phi(G), Q, phi(Q)]) -- phi is the Secp endomorphism.
 ecdsa_msm_with_glv:
     %stack (a, b, Qx, Qy, retdest) -> (a, ecdsa_after_glv_a, b, Qx, Qy, retdest)
-    %jump(glv_decompose)
+    %jump(secp_glv_decompose)
 ecdsa_after_glv_a:
     %stack (a1neg, a0, a1, b, Qx, Qy, retdest) -> (b, ecdsa_after_glv_b, a1neg, a0, a1, Qx, Qy, retdest)
-    %jump(glv_decompose)
+    %jump(secp_glv_decompose)
 ecdsa_after_glv_b:
     %stack (b1neg, b0, b1, a1neg, a0, a1, Qx, Qy, retdest) -> (a1neg, b1neg, Qx, Qy, ecdsa_after_precompute, a0, a1, b0, b1, retdest)
-    %jump(precompute_table)
+    %jump(secp_precompute_table)
 ecdsa_after_precompute:
     // stack: a0, a1, b0, b1, retdest
     PUSH 0 PUSH 0 PUSH 129 // 129 is the bit length of the GLV exponents
@@ -91,11 +91,11 @@ ecdsa_after_precompute_loop:
     SWAP1 %mul_const(2)
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %stack (Px, Py, i, accx, accy, a0, a1, b0, b1, retdest) -> (Px, Py, accx, accy, ecdsa_after_precompute_loop_contd, i, a0, a1, b0, b1, retdest)
-    %jump(ec_add_valid_points_secp)
+    %jump(secp_add_valid_points)
 ecdsa_after_precompute_loop_contd:
     %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest)
     ISZERO %jumpi(ecdsa_after_precompute_loop_end)
-    %jump(ec_double_secp)
+    %jump(secp_double)
 ecdsa_after_precompute_loop_contd2:
     %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, a0, a1, b0, b1, retdest)
     %decrement %jump(ecdsa_after_precompute_loop)

@@ -65,7 +65,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.compress::<C>(indices, params),
+            opening_proof: opening_proof.compress(indices, params),
         }
     }
 }
@@ -163,7 +163,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress::<C>(challenges, fri_inferred_elements, params),
+            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, params),
         }
     }
 }

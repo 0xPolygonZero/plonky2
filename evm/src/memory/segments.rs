@@ -40,11 +40,13 @@ pub(crate) enum Segment {
     ShiftTable = 16,
     JumpdestBits = 17,
     EcdsaTable = 18,
-    BN254Pairings = 19,
+    BnWnafA = 19,
+    BnWnafB = 20,
+    BnTableQ = 21,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 20;
+    pub(crate) const COUNT: usize = 22;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -67,7 +69,9 @@ impl Segment {
             Self::ShiftTable,
             Self::JumpdestBits,
             Self::EcdsaTable,
-            Self::BN254Pairings,
+            Self::BnWnafA,
+            Self::BnWnafB,
+            Self::BnTableQ,
         ]
     }
 
@@ -93,7 +97,9 @@ impl Segment {
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
             Segment::EcdsaTable => "SEGMENT_KERNEL_ECDSA_TABLE",
-            Segment::BN254Pairings => "SEGMENT_BN254_PAIRINGS",
+            Segment::BnWnafA => "SEGMENT_KERNEL_BN_WNAF_A",
+            Segment::BnWnafB => "SEGMENT_KERNEL_BN_WNAF_B",
+            Segment::BnTableQ => "SEGMENT_KERNEL_BN_TABLE_Q",
         }
     }
 
@@ -119,7 +125,9 @@ impl Segment {
             Segment::ShiftTable => 256,
             Segment::JumpdestBits => 1,
             Segment::EcdsaTable => 256,
-            Segment::BN254Pairings => 256,
+            Segment::BnWnafA => 8,
+            Segment::BnWnafB => 8,
+            Segment::BnTableQ => 256,
         }
     }
 }

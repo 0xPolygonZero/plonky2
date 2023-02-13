@@ -4,11 +4,12 @@ use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 
-use crate::arithmetic::operations::Operation;
-use crate::arithmetic::{addcc, columns, modular, mul};
+use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
@@ -33,6 +34,9 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         for i in 0..RANGE_MAX {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(i);
         }
+        for i in RANGE_MAX..n_rows {
+            cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
+        }
 
         // For each column c in cols, generate the range-check
         // permutations and put them in the corresponding range-check
@@ -44,7 +48,8 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    pub fn generate(&self, operations: Vec<&dyn Operation<F>>) -> Vec<PolynomialValues<F>> {
+    #[allow(unused)]
+    pub(crate) fn generate(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -96,14 +101,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv = vars.local_values;
         let nv = vars.next_values;
 
+        // Check the range column: First value must be 0, last row
+        // must be 2^16-1, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = lv[columns::RANGE_COUNTER];
+        let rc2 = nv[columns::RANGE_COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr * incr - incr);
+        let range_max = P::Scalar::from_canonical_u64((RANGE_MAX - 1) as u64);
+        yield_constr.constraint_last_row(rc1 - range_max);
+
         mul::eval_packed_generic(lv, yield_constr);
-        addcc::eval_packed_generic(lv, yield_constr);
+        addcy::eval_packed_generic(lv, yield_constr);
         modular::eval_packed_generic(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
         &self,
-        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
@@ -114,8 +130,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         let lv = vars.local_values;
         let nv = vars.next_values;
+
+        let rc1 = lv[columns::RANGE_COUNTER];
+        let rc2 = nv[columns::RANGE_COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.mul_sub_extension(incr, incr, incr);
+        yield_constr.constraint_transition(builder, t);
+        let range_max =
+            builder.constant_extension(F::Extension::from_canonical_usize(RANGE_MAX - 1));
+        let t = builder.sub_extension(rc1, range_max);
+        yield_constr.constraint_last_row(builder, t);
+
         mul::eval_ext_circuit(builder, lv, yield_constr);
-        addcc::eval_ext_circuit(builder, lv, yield_constr);
+        addcy::eval_ext_circuit(builder, lv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
@@ -148,7 +176,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
-    use crate::arithmetic::operations::*;
+    use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -189,34 +217,37 @@ mod tests {
         };
 
         // 123 + 456 == 579
-        let add = SimpleBinaryOp::new(columns::IS_ADD, U256::from(123), U256::from(456));
+        let add = Operation::binary(BinaryOperator::Add, U256::from(123), U256::from(456));
         // (123 * 456) % 1007 == 703
-        let mulmod = ModularBinaryOp::new(
-            columns::IS_MULMOD,
+        let mulmod = Operation::ternary(
+            TernaryOperator::MulMod,
             U256::from(123),
             U256::from(456),
             U256::from(1007),
         );
-        // (123 - 456) % 1007 == 674
-        let submod = ModularBinaryOp::new(
-            columns::IS_SUBMOD,
-            U256::from(123),
-            U256::from(456),
+        // (1234 + 567) % 1007 == 794
+        let addmod = Operation::ternary(
+            TernaryOperator::AddMod,
+            U256::from(1234),
+            U256::from(567),
             U256::from(1007),
         );
         // 123 * 456 == 56088
-        let mul = SimpleBinaryOp::new(columns::IS_MUL, U256::from(123), U256::from(456));
-        // 128 % 13 == 11
-        let modop = ModOp {
-            input: U256::from(128),
-            modulus: U256::from(13),
-        };
+        let mul = Operation::binary(BinaryOperator::Mul, U256::from(123), U256::from(456));
         // 128 / 13 == 9
-        let div = DivOp {
-            numerator: U256::from(128),
-            denominator: U256::from(13),
-        };
-        let ops: Vec<&dyn Operation<F>> = vec![&add, &mulmod, &submod, &mul, &div, &modop];
+        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13));
+
+        // 128 < 13 == 0
+        let lt1 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(13));
+        // 13 < 128 == 1
+        let lt2 = Operation::binary(BinaryOperator::Lt, U256::from(13), U256::from(128));
+        // 128 < 128 == 0
+        let lt3 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(128));
+
+        // 128 % 13 == 11
+        let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
+
+        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
 
         let pols = stark.generate(ops);
 
@@ -228,15 +259,21 @@ mod tests {
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
 
+        // Wrap the single value GENERAL_REGISTER_BIT in a Range.
+        let cmp_range = columns::GENERAL_REGISTER_BIT..columns::GENERAL_REGISTER_BIT + 1;
+
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), col, expected
-            (0, columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
-            (1, columns::MODULAR_OUTPUT, 703),
-            (3, columns::MODULAR_OUTPUT, 674),
-            (5, columns::MUL_OUTPUT, 56088),
-            (6, columns::MODULAR_OUTPUT, 11),
-            (8, columns::DIV_OUTPUT, 9),
+            (0, &columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
+            (1, &columns::MODULAR_OUTPUT, 703),
+            (3, &columns::MODULAR_OUTPUT, 794),
+            (5, &columns::MUL_OUTPUT, 56088),
+            (6, &columns::MODULAR_OUTPUT, 11),
+            (8, &cmp_range, 0),
+            (9, &cmp_range, 1),
+            (10, &cmp_range, 0),
+            (11, &columns::DIV_OUTPUT, 9),
         ];
 
         for (row, col, expected) in expected_output {
@@ -269,18 +306,14 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                SimpleBinaryOp::new(
-                    columns::IS_MUL,
+                Operation::binary(
+                    BinaryOperator::Mul,
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
                 )
             })
             .collect::<Vec<_>>();
 
-        // TODO: This is clearly not the right way to build this
-        // vector; I can't work out how to do it using the map above
-        // though, with or without Boxes.
-        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
         let pols = stark.generate(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
@@ -293,8 +326,8 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                ModularBinaryOp::new(
-                    columns::IS_MULMOD,
+                Operation::ternary(
+                    TernaryOperator::MulMod,
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
                     U256::from(rng.gen::<[u8; 32]>()),
@@ -302,10 +335,6 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        // TODO: This is clearly not the right way to build this
-        // vector; I can't work out how to do it using the map above
-        // though, with or without Boxes.
-        let ops = ops.iter().map(|o| o as &dyn Operation<F>).collect();
         let pols = stark.generate(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and

@@ -51,6 +51,9 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x0e, true) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::SubFp254,
         )),
+        (0x0f, true) => Ok(Operation::TernaryArithmetic(
+            arithmetic::TernaryOperator::SubMod,
+        )),
         (0x10, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)),
         (0x11, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt)),
         (0x12, _) => Ok(Operation::Syscall(opcode)),
@@ -167,6 +170,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.subfp254,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => &mut flags.submod,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Pop => &mut flags.pop,

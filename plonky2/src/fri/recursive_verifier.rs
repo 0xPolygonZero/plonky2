@@ -25,7 +25,7 @@ use crate::with_context;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation<C: GenericConfig<D, F = F>>(
+    fn compute_evaluation(
         &mut self,
         x: Target,
         x_index_within_coset_bits: &[BoolTarget],
@@ -58,7 +58,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config<C: GenericConfig<D, F = F>>(&self, max_fri_arity_bits: usize) {
+    fn check_recursion_config(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.fri_config.cap_height),
@@ -91,11 +91,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
-        &mut self,
-        fri_pow_response: Target,
-        config: &FriConfig,
-    ) {
+    fn fri_verify_proof_of_work(&mut self, fri_pow_response: Target, config: &FriConfig) {
         self.assert_leading_zeros(
             fri_pow_response,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
@@ -114,7 +110,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         if let Some(max_arity_bits) = params.max_arity_bits() {
-            self.check_recursion_config::<C>(max_arity_bits);
+            self.check_recursion_config(max_arity_bits);
         }
 
         debug_assert_eq!(
@@ -129,7 +125,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check PoW",
-            self.fri_verify_proof_of_work::<C::Hasher>(challenges.fri_pow_response, &params.config)
+            self.fri_verify_proof_of_work(challenges.fri_pow_response, &params.config)
         );
 
         // Check that parameters are coherent.
@@ -206,7 +202,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_combine_initial<C: GenericConfig<D, F = F>>(
+    fn fri_combine_initial(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
         proof: &FriInitialTreeProofTarget,
@@ -298,7 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut old_eval = with_context!(
             self,
             "combine initial oracles",
-            self.fri_combine_initial::<C>(
+            self.fri_combine_initial(
                 instance,
                 &round_proof.initial_trees_proof,
                 challenges.fri_alpha,
@@ -324,7 +320,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             old_eval = with_context!(
                 self,
                 "infer evaluation using interpolation",
-                self.compute_evaluation::<C>(
+                self.compute_evaluation(
                     subgroup_x,
                     x_index_within_coset_bits,
                     arity_bits,
