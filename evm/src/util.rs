@@ -145,6 +145,7 @@ pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     U256::from_little_endian(&bytes)
 }
 
+#[cfg(test)]
 pub(crate) fn le_limbs_to_biguint(x: &[u128]) -> BigUint {
     BigUint::from_slice(
         &x.iter()
@@ -160,10 +161,12 @@ pub(crate) fn le_limbs_to_biguint(x: &[u128]) -> BigUint {
     )
 }
 
+#[cfg(test)]
 pub(crate) fn mem_vec_to_biguint(x: &[U256]) -> BigUint {
     le_limbs_to_biguint(&x.iter().map(|&n| n.try_into().unwrap()).collect_vec())
 }
 
+#[cfg(test)]
 pub(crate) fn biguint_to_le_limbs(x: BigUint) -> Vec<u128> {
     let mut digits = x.to_u32_digits();
 
@@ -176,6 +179,7 @@ pub(crate) fn biguint_to_le_limbs(x: BigUint) -> Vec<u128> {
         .collect()
 }
 
+#[cfg(test)]
 pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
     biguint_to_le_limbs(x)
         .into_iter()
