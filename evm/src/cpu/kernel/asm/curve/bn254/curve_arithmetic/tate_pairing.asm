@@ -33,6 +33,7 @@ global bn254_tate:
 /// def miller_zero():
 ///     0xnm -= 1
 ///     mul_tangent()
+
 global bn254_miller:
     // stack:         ptr, out, retdest
     %stack (ptr, out) -> (out, 1, ptr, out)

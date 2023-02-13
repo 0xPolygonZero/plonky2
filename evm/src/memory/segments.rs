@@ -103,7 +103,6 @@ impl Segment {
             Segment::BnWnafB => "SEGMENT_KERNEL_BN_WNAF_B",
             Segment::BnTableQ => "SEGMENT_KERNEL_BN_TABLE_Q",
             Segment::BnPairing => "SEGMENT_KERNEL_BN_PAIRING",
-
         }
     }
 

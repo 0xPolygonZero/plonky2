@@ -41,11 +41,11 @@ impl InterpreterSetup {
 fn extract_kernel_memory(range: Range<usize>, interpreter: Interpreter<'static>) -> Vec<U256> {
     let mut output: Vec<U256> = vec![];
     for i in range {
-        let term = interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            Segment::BnPairing,
-            i,
-        ));
+        let term =
+            interpreter
+                .generation_state
+                .memory
+                .get(MemoryAddress::new(0, Segment::BnPairing, i));
         output.push(term);
     }
     output
