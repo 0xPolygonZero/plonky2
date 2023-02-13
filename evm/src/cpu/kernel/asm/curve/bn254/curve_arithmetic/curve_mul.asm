@@ -1,90 +1,41 @@
 // BN254 elliptic curve scalar multiplication.
-// Recursive implementation, same algorithm as in `exp.asm`.
-global ec_mul:
-    // stack:                x, y, s, retdest
+// Uses GLV, wNAF with w=5, and a MSM algorithm.
+global bn_mul:
+    // stack: x, y, s, retdest
     DUP2
-    // stack:            y , x, y, s, retdest
+    // stack: y, x, y, s, retdest
     DUP2
-    // stack:          x,y , x, y, s, retdest
+    // stack: x, y, x, y, s, retdest
     %ec_isidentity
-    // stack:  (0,0)==(x,y), x, y, s, retdest
+    // stack: (x,y)==(0,0), x, y, s, retdest
     %jumpi(ret_zero_ec_mul)
-    // stack:                x, y, s, retdest
+    // stack: x, y, s, retdest
     DUP2
-    // stack:             y, x, y, s, retdest
+    // stack: y, x, y, s, retdest
     DUP2
-    // stack:          x, y, x, y, s, retdest
-    %ec_check
+    // stack: x, y, x, y, s, retdest
+    %bn_check
     // stack: isValid(x, y), x, y, s, retdest
-    %jumpi(ec_mul_valid_point)
-    // stack:                x, y, s, retdest
+    %jumpi(bn_mul_valid_point)
+    // stack: x, y, s, retdest
     %pop3
-    %ec_invalid_input
+    %bn_invalid_input
 
-// Same algorithm as in `exp.asm`
-ec_mul_valid_point:
-    // stack:    x, y, s, retdest
-    DUP3
-    // stack: s, x, y, s, retdest
-    %jumpi(step_case)
-    // stack:    x, y, s, retdest
-    %jump(ret_zero_ec_mul)
-
-step_case:
-    // stack:                                                 x, y, s, retdest
-    PUSH recursion_return
-    // stack:                               recursion_return, x, y, s, retdest
-    PUSH 2
-    // stack:                            2, recursion_return, x, y, s, retdest
-    DUP5
-    // stack:                        s , 2, recursion_return, x, y, s, retdest
-    DIV
-    // stack:                        s / 2, recursion_return, x, y, s, retdest
-    PUSH step_case_contd
-    // stack:       step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    DUP5
-    // stack:    y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    DUP5
-    // stack: x, y, step_case_contd, s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_double)
-
-// Assumption: 2(x,y) = (x',y')
-step_case_contd:
-    // stack: x', y', s / 2, recursion_return, x, y, s, retdest
-    %jump(ec_mul_valid_point)
-
-recursion_return:
-    // stack:     x', y', x, y, s, retdest
-    SWAP4
-    // stack:     s, y', x, y, x', retdest
-    PUSH 1
-    // stack:  1, s, y', x, y, x', retdest
-    AND
-    // stack: s & 1, y', x, y, x', retdest
-    SWAP1
-    // stack: y', s & 1, x, y, x', retdest
-    SWAP2
-    // stack: x, s & 1, y', y, x', retdest
-    SWAP3
-    // stack: y, s & 1, y', x, x', retdest
-    SWAP4
-    // stack: x', s & 1, y', x, y, retdest
-    SWAP1
-    // stack: s & 1, x', y', x, y, retdest
-    %jumpi(odd_scalar)
-    // stack:        x', y', x, y, retdest
-    SWAP3
-    // stack:        y, y', x, x', retdest
-    POP
-    // stack:           y', x, x', retdest
-    SWAP1
-    // stack:           x, y', x', retdest
-    POP
-    // stack:              y', x', retdest
-    SWAP2
-    // stack:              retdest, x', y'
+bn_mul_valid_point:
+    %stack (x, y, s, retdest) -> (s, bn_mul_after_glv, x, y, bn_msm, bn_mul_end, retdest)
+    %jump(bn_glv_decompose)
+bn_mul_after_glv:
+    // stack: bneg, a, b, x, y, bn_msm, bn_mul_end, retdest
+    // Store bneg at this (otherwise unused) location. Will be used later in the MSM.
+    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q, @BN_BNEG_LOC)
+    // stack: a, b, x, y, bn_msm, bn_mul_end, retdest
+    PUSH bn_mul_after_a SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_A PUSH @BN_SCALAR %jump(wnaf)
+bn_mul_after_a:
+    // stack: b, x, y, bn_msm, bn_mul_end, retdest
+    PUSH bn_mul_after_b SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_B PUSH @BN_SCALAR %jump(wnaf)
+bn_mul_after_b:
+    // stack: x, y, bn_msm, bn_mul_end, retdest
+    %jump(bn_precompute_table)
+bn_mul_end:
+    %stack (Ax, Ay, retdest) -> (retdest, Ax, Ay)
     JUMP
-
-odd_scalar:
-    // stack: x', y', x, y, retdest
-    %jump(ec_add_valid_points)

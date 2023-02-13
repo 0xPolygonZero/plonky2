@@ -129,7 +129,7 @@ mul_tangent_2:
     DUP6  
     DUP6
     // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {100: line}
-    %jump(ec_double)
+    %jump(bn_double)
 after_double:
     // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {100: line}
     SWAP5
@@ -175,7 +175,7 @@ mul_cord_1:
     DUP7  
     DUP7
     // stack: O , P, after_add, 0xnm, times, O  , P, Q, out
-    %jump(ec_add_valid_points)
+    %jump(bn_add_valid_points)
 after_add:
     // stack:            O + P, 0xnm, times, O  , P, Q, out
     SWAP4

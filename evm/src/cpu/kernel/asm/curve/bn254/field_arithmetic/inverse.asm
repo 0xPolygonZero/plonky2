@@ -1,7 +1,5 @@
-/// Division modulo the BN254 prime
-
-// Returns y * (x^-1) where the inverse is taken modulo N
-%macro divfp254
+// Returns reverse order divison y/x, modulo N
+%macro divr_fp254
     // stack: x   , y
     %inv_fp254
     // stack: x^-1, y
