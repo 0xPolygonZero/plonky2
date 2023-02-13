@@ -32,14 +32,16 @@ use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
+use crate::cross_table_lookup::{
+    get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
+    GrandProductChallengeSet,
+};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
     BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
     StarkProofWithMetadata, TrieRootsTarget,

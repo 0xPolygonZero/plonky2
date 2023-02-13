@@ -17,14 +17,14 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
+use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
+use crate::lookup::LookupCheckVars;
 use crate::memory::memory_stark::MemoryStark;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
-use crate::permutation::{GrandProductChallenge, PermutationCheckVars};
 use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
@@ -52,7 +52,7 @@ where
         ctl_challenges,
     } = all_proof.get_challenges(all_stark, config);
 
-    let nums_permutation_zs = all_stark.nums_permutation_zs(config);
+    let num_lookup_columns = all_stark.num_lookups_helper_columns(config);
 
     let AllStark {
         arithmetic_stark,
@@ -69,7 +69,7 @@ where
         &all_proof.stark_proofs,
         cross_table_lookups,
         &ctl_challenges,
-        &nums_permutation_zs,
+        &num_lookup_columns,
     );
 
     verify_stark_proof_with_challenges(
@@ -306,8 +306,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -330,17 +330,18 @@ where
         l_0,
         l_last,
     );
-    let num_permutation_zs = stark.num_permutation_batches(config);
-    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-        next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
+        local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
+        challenges: challenges.lookup_challenges.clone().unwrap(),
     });
+    let lookups = stark.lookups();
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
-        config,
         vars,
-        permutation_data,
+        &lookups,
+        lookup_vars,
         ctl_vars,
         &mut consumer,
     );
@@ -366,7 +367,7 @@ where
 
     let merkle_caps = vec![
         proof.trace_cap.clone(),
-        proof.permutation_ctl_zs_cap.clone(),
+        proof.auxiliary_polys_cap.clone(),
         proof.quotient_polys_cap.clone(),
     ];
 
@@ -402,7 +403,7 @@ where
 {
     let StarkProof {
         trace_cap,
-        permutation_ctl_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
@@ -413,8 +414,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_last,
         quotient_polys,
     } = openings;
@@ -422,16 +423,16 @@ where
     let degree_bits = proof.recover_degree_bits(config);
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
-    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
+    let num_auxiliary = num_ctl_zs + stark.num_lookup_helper_columns(config);
 
     ensure!(trace_cap.height() == cap_height);
-    ensure!(permutation_ctl_zs_cap.height() == cap_height);
+    ensure!(auxiliary_polys_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
 
     ensure!(local_values.len() == S::COLUMNS);
     ensure!(next_values.len() == S::COLUMNS);
-    ensure!(permutation_ctl_zs.len() == num_zs);
-    ensure!(permutation_ctl_zs_next.len() == num_zs);
+    ensure!(auxiliary_polys.len() == num_auxiliary);
+    ensure!(auxiliary_polys_next.len() == num_auxiliary);
     ensure!(ctl_zs_last.len() == num_ctl_zs);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 

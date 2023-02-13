@@ -14,14 +14,13 @@ use plonky2_maybe_rayon::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
+use crate::lookup::Lookup;
 use crate::memory::columns::{
-    value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER,
-    COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
-    SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
+    value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
+    FREQUENCIES, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE, TIMESTAMP,
+    VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
-use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryOpKind::Read;
@@ -144,10 +143,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let height = trace_col_vecs[0].len();
         trace_col_vecs[COUNTER] = (0..height).map(|i| F::from_canonical_usize(i)).collect();
 
-        let (permuted_inputs, permuted_table) =
-            permuted_cols(&trace_col_vecs[RANGE_CHECK], &trace_col_vecs[COUNTER]);
-        trace_col_vecs[RANGE_CHECK_PERMUTED] = permuted_inputs;
-        trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
+        for i in 0..height {
+            let x = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
+            trace_col_vecs[FREQUENCIES][x] += F::ONE;
+        }
     }
 
     /// This memory STARK orders rows by `(context, segment, virt, timestamp)`. To enforce the
@@ -316,8 +315,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
                 next_is_read * address_unchanged * (next_values[i] - values[i]),
             );
         }
-
-        eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
     }
 
     fn eval_ext_circuit(
@@ -438,25 +435,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);
         }
-
-        eval_lookups_circuit(
-            builder,
-            vars,
-            yield_constr,
-            RANGE_CHECK_PERMUTED,
-            COUNTER_PERMUTED,
-        )
     }
 
     fn constraint_degree(&self) -> usize {
         3
     }
 
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![
-            PermutationPair::singletons(RANGE_CHECK, RANGE_CHECK_PERMUTED),
-            PermutationPair::singletons(COUNTER, COUNTER_PERMUTED),
-        ]
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: vec![RANGE_CHECK],
+            table_column: COUNTER,
+            frequencies_column: FREQUENCIES,
+        }]
     }
 }
 

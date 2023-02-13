@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
-use crate::permutation::GrandProductChallengeSet;
+use crate::cross_table_lookup::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
@@ -588,8 +588,8 @@ impl ExtraBlockDataTarget {
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of lookup helper and CTL columns.
+    pub auxiliary_polys_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of quotient polynomial evaluations.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
@@ -630,7 +630,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 #[derive(Eq, PartialEq, Debug)]
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
-    pub permutation_ctl_zs_cap: MerkleCapTarget,
+    pub auxiliary_polys_cap: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: StarkOpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
@@ -639,7 +639,7 @@ pub struct StarkProofTarget<const D: usize> {
 impl<const D: usize> StarkProofTarget<D> {
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_merkle_cap(&self.trace_cap)?;
-        buffer.write_target_merkle_cap(&self.permutation_ctl_zs_cap)?;
+        buffer.write_target_merkle_cap(&self.auxiliary_polys_cap)?;
         buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
@@ -648,14 +648,14 @@ impl<const D: usize> StarkProofTarget<D> {
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trace_cap = buffer.read_target_merkle_cap()?;
-        let permutation_ctl_zs_cap = buffer.read_target_merkle_cap()?;
+        let auxiliary_polys_cap = buffer.read_target_merkle_cap()?;
         let quotient_polys_cap = buffer.read_target_merkle_cap()?;
         let opening_proof = buffer.read_target_fri_proof()?;
         let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
 
         Ok(Self {
             trace_cap,
-            permutation_ctl_zs_cap,
+            auxiliary_polys_cap,
             quotient_polys_cap,
             openings,
             opening_proof,
@@ -674,8 +674,8 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    /// Randomness used in any permutation arguments.
-    pub permutation_challenge_sets: Option<Vec<GrandProductChallengeSet<F>>>,
+    /// Randomness used in lookup arguments.
+    pub lookup_challenges: Option<Vec<F>>,
 
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
@@ -687,7 +687,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
-    pub permutation_challenge_sets: Option<Vec<GrandProductChallengeSet<Target>>>,
+    pub lookup_challenges: Option<Vec<Target>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,
@@ -700,10 +700,10 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub local_values: Vec<F::Extension>,
     /// Openings of trace polynomials at `g * zeta`.
     pub next_values: Vec<F::Extension>,
-    /// Openings of permutations and cross-table lookups `Z` polynomials at `zeta`.
-    pub permutation_ctl_zs: Vec<F::Extension>,
-    /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
-    pub permutation_ctl_zs_next: Vec<F::Extension>,
+    /// Openings of lookups and cross-table lookups `Z` polynomials at `zeta`.
+    pub auxiliary_polys: Vec<F::Extension>,
+    /// Openings of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
+    pub auxiliary_polys_next: Vec<F::Extension>,
     /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
     pub ctl_zs_last: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
@@ -715,10 +715,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         zeta: F::Extension,
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
-        permutation_ctl_zs_commitment: &PolynomialBatch<F, C, D>,
+        auxiliary_polys_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         degree_bits: usize,
-        num_permutation_zs: usize,
+        num_lookup_columns: usize,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
@@ -736,12 +736,12 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_next, trace_commitment),
-            permutation_ctl_zs: eval_commitment(zeta, permutation_ctl_zs_commitment),
-            permutation_ctl_zs_next: eval_commitment(zeta_next, permutation_ctl_zs_commitment),
+            auxiliary_polys: eval_commitment(zeta, auxiliary_polys_commitment),
+            auxiliary_polys_next: eval_commitment(zeta_next, auxiliary_polys_commitment),
             ctl_zs_last: eval_commitment_base(
                 F::primitive_root_of_unity(degree_bits).inverse(),
-                permutation_ctl_zs_commitment,
-            )[num_permutation_zs..]
+                auxiliary_polys_commitment,
+            )[num_lookup_columns..]
                 .to_vec(),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
@@ -752,7 +752,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .local_values
                 .iter()
-                .chain(&self.permutation_ctl_zs)
+                .chain(&self.auxiliary_polys)
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -761,7 +761,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .next_values
                 .iter()
-                .chain(&self.permutation_ctl_zs_next)
+                .chain(&self.auxiliary_polys_next)
                 .copied()
                 .collect_vec(),
         };
@@ -785,8 +785,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
-    pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
-    pub permutation_ctl_zs_next: Vec<ExtensionTarget<D>>,
+    pub auxiliary_polys: Vec<ExtensionTarget<D>>,
+    pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
     pub ctl_zs_last: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
@@ -795,8 +795,8 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_ext_vec(&self.local_values)?;
         buffer.write_target_ext_vec(&self.next_values)?;
-        buffer.write_target_ext_vec(&self.permutation_ctl_zs)?;
-        buffer.write_target_ext_vec(&self.permutation_ctl_zs_next)?;
+        buffer.write_target_ext_vec(&self.auxiliary_polys)?;
+        buffer.write_target_ext_vec(&self.auxiliary_polys_next)?;
         buffer.write_target_vec(&self.ctl_zs_last)?;
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
@@ -805,16 +805,16 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let local_values = buffer.read_target_ext_vec::<D>()?;
         let next_values = buffer.read_target_ext_vec::<D>()?;
-        let permutation_ctl_zs = buffer.read_target_ext_vec::<D>()?;
-        let permutation_ctl_zs_next = buffer.read_target_ext_vec::<D>()?;
+        let auxiliary_polys = buffer.read_target_ext_vec::<D>()?;
+        let auxiliary_polys_next = buffer.read_target_ext_vec::<D>()?;
         let ctl_zs_last = buffer.read_target_vec()?;
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
         Ok(Self {
             local_values,
             next_values,
-            permutation_ctl_zs,
-            permutation_ctl_zs_next,
+            auxiliary_polys,
+            auxiliary_polys_next,
             ctl_zs_last,
             quotient_polys,
         })
@@ -825,7 +825,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             values: self
                 .local_values
                 .iter()
-                .chain(&self.permutation_ctl_zs)
+                .chain(&self.auxiliary_polys)
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -834,7 +834,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             values: self
                 .next_values
                 .iter()
-                .chain(&self.permutation_ctl_zs_next)
+                .chain(&self.auxiliary_polys_next)
                 .copied()
                 .collect_vec(),
         };
