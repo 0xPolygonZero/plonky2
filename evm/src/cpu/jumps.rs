@@ -15,16 +15,16 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let input = lv.mem_channels[0].value;
+    let filter = lv.is_cpu_cycle * lv.op.exit_kernel;
 
-    // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
-    // flag. The top 6 (32-bit) limbs are ignored (this is not part of the spec, but we trust the
-    // kernel to set them to zero).
-    yield_constr.constraint_transition(
-        lv.is_cpu_cycle * lv.op.exit_kernel * (input[0] - nv.program_counter),
-    );
-    yield_constr.constraint_transition(
-        lv.is_cpu_cycle * lv.op.exit_kernel * (input[1] - nv.is_kernel_mode),
-    );
+    // If we are executing `EXIT_KERNEL` then we simply restore the program counter, kernel mode
+    // flag, and gas counter. The middle 4 (32-bit) limbs are ignored (this is not part of the spec,
+    // but we trust the kernel to set them to zero).
+    yield_constr.constraint_transition(filter * (input[0] - nv.program_counter));
+    yield_constr.constraint_transition(filter * (input[1] - nv.is_kernel_mode));
+    yield_constr.constraint_transition(filter * (input[6] - nv.gas));
+    // High limb of gas must be 0 for convenient detection of overflow.
+    yield_constr.constraint(filter * input[7]);
 }
 
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
@@ -47,6 +47,17 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     let kernel_constr = builder.sub_extension(input[1], nv.is_kernel_mode);
     let kernel_constr = builder.mul_extension(filter, kernel_constr);
     yield_constr.constraint_transition(builder, kernel_constr);
+
+    {
+        let diff = builder.sub_extension(input[6], nv.gas);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        // High limb of gas must be 0 for convenient detection of overflow.
+        let constr = builder.mul_extension(filter, input[7]);
+        yield_constr.constraint(builder, constr);
+    }
 }
 
 pub fn eval_packed_jump_jumpi<P: PackedField>(
