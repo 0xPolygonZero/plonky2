@@ -213,8 +213,6 @@ fn test_addmul_bignum() -> Result<()> {
     new_memory[len] = carry;
     let actual_result: Vec<_> = new_memory[..expected_result.len()].into();
 
-    dbg!(interpreter.stack());
-
     // Compare.
     assert_eq!(actual_result, expected_result);
 
