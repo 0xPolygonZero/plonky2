@@ -3,6 +3,7 @@ use ethereum_types::U256;
 use itertools::Itertools;
 use num::BigUint;
 use num_bigint::RandBigInt;
+use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -151,7 +152,7 @@ fn test_add_bignum() -> Result<()> {
     let expected_sum: Vec<U256> = biguint_to_mem_vec(sum);
 
     let a_start_loc = 0.into();
-    let b_start_loc = length;
+    let b_start_loc = length ;
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -178,9 +179,12 @@ fn test_add_bignum() -> Result<()> {
 
 #[test]
 fn test_addmul_bignum() -> Result<()> {
-    let _rng = rand::thread_rng();
-    let (a, b, length, memory) = prepare_two_bignums(1000);
-    let val: u64 = 1;
+    let mut rng = rand::thread_rng();
+    let (a, b, length, mut memory) = prepare_two_bignums(1000);
+    let len: usize = length.try_into().unwrap();
+    memory.splice(len..len, vec![0.into(); 2].iter().cloned());
+
+    let val: u64 = rng.gen();
     let val_u256 = U256::from(val);
 
     // Determine expected result.
@@ -188,7 +192,7 @@ fn test_addmul_bignum() -> Result<()> {
     let expected_result: Vec<U256> = biguint_to_mem_vec(result);
 
     let a_start_loc = 0.into();
-    let b_start_loc = length;
+    let b_start_loc = length + 2;
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -204,7 +208,9 @@ fn test_addmul_bignum() -> Result<()> {
     interpreter.run()?;
 
     // Determine actual result.
-    let new_memory = interpreter.get_kernel_general_memory();
+    let carry = interpreter.stack()[0];
+    let mut new_memory = interpreter.get_kernel_general_memory();
+    new_memory[len] = carry;
     let actual_result: Vec<_> = new_memory[..expected_result.len()].into();
 
     dbg!(interpreter.stack());
