@@ -1,9 +1,8 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
-use num::{BigUint, Signed};
+use num::BigUint;
 use num_bigint::RandBigInt;
-use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -179,7 +178,7 @@ fn test_add_bignum() -> Result<()> {
 
 #[test]
 fn test_addmul_bignum() -> Result<()> {
-    let mut rng = rand::thread_rng();
+    let _rng = rand::thread_rng();
     let (a, b, length, memory) = prepare_two_bignums(1000);
     let val: u64 = 1;
     let val_u256 = U256::from(val);
