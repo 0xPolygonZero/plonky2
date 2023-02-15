@@ -35,6 +35,7 @@ global sys_basefee:
 global sys_sload:
 global sys_sstore:
 global sys_msize:
+global sys_gas:
 global sys_log0:
 global sys_log1:
 global sys_log2:

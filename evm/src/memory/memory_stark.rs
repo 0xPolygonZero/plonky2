@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -175,14 +176,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 while next.address.virt - curr.address.virt - 1 > max_rc {
                     let mut dummy_address = curr.address;
                     dummy_address.virt += max_rc + 1;
-                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0);
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, U256::zero());
                     memory_ops.push(dummy_read);
                     curr = dummy_read;
                 }
             } else {
                 while next.timestamp - curr.timestamp > max_rc {
                     let dummy_read =
-                        MemoryOp::new_dummy_read(curr.address, curr.timestamp + max_rc);
+                        MemoryOp::new_dummy_read(curr.address, curr.timestamp + max_rc, curr.value);
                     memory_ops.push(dummy_read);
                     curr = dummy_read;
                 }
@@ -311,8 +312,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            yield_constr
-                .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
+            yield_constr.constraint_transition(
+                next_is_read * address_unchanged * (next_values[i] - values[i]),
+            );
         }
 
         eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
@@ -433,7 +435,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let value_diff = builder.sub_extension(next_values[i], values[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
-            yield_constr.constraint(builder, read_constraint);
+            yield_constr.constraint_transition(builder, read_constraint);
         }
 
         eval_lookups_circuit(

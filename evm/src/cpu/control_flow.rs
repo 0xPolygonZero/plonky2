@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 33] = [
+const NATIVE_INSTRUCTIONS: [usize; 31] = [
     COL_MAP.op.add,
     COL_MAP.op.mul,
     COL_MAP.op.sub,
@@ -35,14 +35,12 @@ const NATIVE_INSTRUCTIONS: [usize; 33] = [
     // not JUMP (need to jump)
     // not JUMPI (possible need to jump)
     COL_MAP.op.pc,
-    COL_MAP.op.gas,
     COL_MAP.op.jumpdest,
     // not PUSH (need to increment by more than 1)
     COL_MAP.op.dup,
     COL_MAP.op.swap,
     COL_MAP.op.get_context,
     COL_MAP.op.set_context,
-    COL_MAP.op.consume_gas,
     // not EXIT_KERNEL (performs a jump)
     COL_MAP.op.mload_general,
     COL_MAP.op.mstore_general,

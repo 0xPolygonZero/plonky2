@@ -24,7 +24,7 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.is_cpu_cycle * lv.op.syscall;
+    let filter = lv.op.syscall;
 
     // Look up the handler in memory
     let code_segment = P::Scalar::from_canonical_usize(Segment::Code as usize);
@@ -69,15 +69,20 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint_transition(filter * (nv.is_kernel_mode - P::ONES));
     // Maintain current context
     yield_constr.constraint_transition(filter * (nv.context - lv.context));
+    // Reset gas counter to zero.
+    yield_constr.constraint_transition(filter * nv.gas);
 
     // This memory channel is constrained in `stack.rs`.
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    // Push current PC + 1 to stack
+    // Push to stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     yield_constr.constraint(filter * (output[0] - (lv.program_counter + P::ONES)));
-    // Push current kernel flag to stack (share register with PC)
     yield_constr.constraint(filter * (output[1] - lv.is_kernel_mode));
+    yield_constr.constraint(filter * (output[6] - lv.gas));
+    // TODO: Range check `output[6]`.
+    yield_constr.constraint(filter * output[7]); // High limb of gas is zero.
+
     // Zero the rest of that register
-    for &limb in &output[2..] {
+    for &limb in &output[2..6] {
         yield_constr.constraint(filter * limb);
     }
 }
@@ -88,7 +93,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.syscall);
+    let filter = lv.op.syscall;
 
     // Look up the handler in memory
     let code_segment = F::from_canonical_usize(Segment::Code as usize);
@@ -177,24 +182,40 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
+    // Reset gas counter to zero.
+    {
+        let constr = builder.mul_extension(filter, nv.gas);
+        yield_constr.constraint_transition(builder, constr);
+    }
 
     // This memory channel is constrained in `stack.rs`.
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    // Push current PC + 1 to stack
+    // Push to stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     {
         let pc_plus_1 = builder.add_const_extension(lv.program_counter, F::ONE);
         let diff = builder.sub_extension(output[0], pc_plus_1);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    // Push current kernel flag to stack (share register with PC)
     {
         let diff = builder.sub_extension(output[1], lv.is_kernel_mode);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
+    {
+        let diff = builder.sub_extension(output[6], lv.gas);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    // TODO: Range check `output[6]`.
+    {
+        // High limb of gas is zero.
+        let constr = builder.mul_extension(filter, output[7]);
+        yield_constr.constraint(builder, constr);
+    }
+
     // Zero the rest of that register
-    for &limb in &output[2..] {
+    for &limb in &output[2..6] {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
