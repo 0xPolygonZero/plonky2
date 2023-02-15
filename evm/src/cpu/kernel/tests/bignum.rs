@@ -3,6 +3,7 @@ use ethereum_types::U256;
 use itertools::Itertools;
 use num::{BigUint, Signed};
 use num_bigint::RandBigInt;
+use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -21,7 +22,7 @@ fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
 
 fn gen_bignum(bit_size: usize) -> BigUint {
     let mut rng = rand::thread_rng();
-    rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap()
+    rng.gen_biguint(bit_size as u64)
 }
 
 fn bignum_len(a: &BigUint) -> usize {
@@ -31,8 +32,8 @@ fn bignum_len(a: &BigUint) -> usize {
 fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {
     let mut rng = rand::thread_rng();
     let (a, b) = {
-        let a = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
-        let b = rng.gen_bigint(bit_size as u64).abs().to_biguint().unwrap();
+        let a = rng.gen_biguint(bit_size as u64);
+        let b = rng.gen_biguint(bit_size as u64);
         (a.clone().max(b.clone()), a.min(b))
     };
 
@@ -172,6 +173,45 @@ fn test_add_bignum() -> Result<()> {
 
     // Compare.
     assert_eq!(actual_sum, expected_sum);
+
+    Ok(())
+}
+
+#[test]
+fn test_addmul_bignum() -> Result<()> {
+    let mut rng = rand::thread_rng();
+    let (a, b, length, memory) = prepare_two_bignums(1000);
+    let val: u64 = 1;
+    let val_u256 = U256::from(val);
+
+    // Determine expected result.
+    let result = a + b * BigUint::from(val);
+    let expected_result: Vec<U256> = biguint_to_mem_vec(result);
+
+    let a_start_loc = 0.into();
+    let b_start_loc = length;
+
+    // Prepare stack.
+    let retdest = 0xDEADBEEFu32.into();
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, val_u256, retdest];
+    initial_stack.reverse();
+
+    // Prepare interpreter.
+    let addmul_bignum = KERNEL.global_labels["addmul_bignum"];
+    let mut interpreter = Interpreter::new_with_kernel(addmul_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory);
+
+    // Run add function.
+    interpreter.run()?;
+
+    // Determine actual result.
+    let new_memory = interpreter.get_kernel_general_memory();
+    let actual_result: Vec<_> = new_memory[..expected_result.len()].into();
+
+    dbg!(interpreter.stack());
+
+    // Compare.
+    assert_eq!(actual_result, expected_result);
 
     Ok(())
 }

@@ -50,20 +50,20 @@ addmul_loop:
     ADD
     // stack: prod_hi' = prod_hi + prod_lo_carry, prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
     DUP3
-    // stack: carry, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
-    DUP2
-    // stack: prod_lo', carry, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    // stack: carry, prod_hi', prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP3
+    // stack: prod_lo', carry, prod_hi', prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
     ADD
     %shl_const(128)
     %shr_const(128)
-    // stack: to_write = (prod_lo' + carry) % 2^128, prod_lo', prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
-    SWAP1
-    // stack: prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
-    DUP2
-    // stack: to_write, prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    // stack: to_write = (prod_lo' + carry) % 2^128, prod_hi', prod_lo', carry, i, a_cur_loc, b_cur_loc, val, retdest
+    SWAP2
+    // stack: prod_lo', prod_hi', to_write, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    DUP3
+    // stack: to_write, prod_lo', prod_hi', to_write, carry, i, a_cur_loc, b_cur_loc, val, retdest
     LT
-    // stack: carry_new = to_write < prod_lo', to_write, prod_hi', carry, i, a_cur_loc, b_cur_loc, val, retdest
-    %stack (cn, tw, ph, c) -> (cn, ph, tw)
+    // stack: carry_new = to_write < prod_lo', prod_hi', to_write, carry, i, a_cur_loc, b_cur_loc, val, retdest
+    %stack (vals: 3, c) -> (vals)
     // stack: carry_new, prod_hi', to_write, i, a_cur_loc, b_cur_loc, val, retdest
     ADD
     // stack: carry = carry_new' + prod_hi', to_write, i, a_cur_loc, b_cur_loc, val, retdest
