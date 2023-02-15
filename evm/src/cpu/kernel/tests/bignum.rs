@@ -152,7 +152,7 @@ fn test_add_bignum() -> Result<()> {
     let expected_sum: Vec<U256> = biguint_to_mem_vec(sum);
 
     let a_start_loc = 0.into();
-    let b_start_loc = length ;
+    let b_start_loc = length;
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
