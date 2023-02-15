@@ -28,6 +28,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     addfp254: KERNEL_ONLY_INSTR,
     mulfp254: KERNEL_ONLY_INSTR,
     subfp254: KERNEL_ONLY_INSTR,
+    submod: KERNEL_ONLY_INSTR,
     lt: G_VERYLOW,
     gt: G_VERYLOW,
     eq: G_VERYLOW,
