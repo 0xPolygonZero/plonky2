@@ -5,7 +5,9 @@ use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
 
-use crate::cpu::kernel::interpreter::InterpreterSetup;
+use crate::cpu::kernel::interpreter::{
+    run_interpreter_with_memory, InterpreterMemoryInitialization,
+};
 use crate::memory::segments::Segment::KernelGeneral;
 
 /// Standard Blake2b implementation.
@@ -40,8 +42,8 @@ fn make_interpreter_setup(
     message: Vec<u8>,
     hash_fn_label: &str,
     hash_input_virt: usize,
-) -> InterpreterSetup {
-    InterpreterSetup {
+) -> InterpreterMemoryInitialization {
+    InterpreterMemoryInitialization {
         label: hash_fn_label.to_string(),
         stack: vec![
             U256::from(hash_input_virt),
@@ -75,7 +77,7 @@ fn prepare_test<T>(
     let interpreter_setup = make_interpreter_setup(message, hash_fn_label, hash_input_virt);
 
     // Run the interpeter
-    let result = interpreter_setup.run().unwrap();
+    let result = run_interpreter_with_memory(interpreter_setup).unwrap();
 
     Ok((expected, result.stack().to_vec()))
 }
