@@ -129,12 +129,12 @@ fn test_iszero_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
 where
     F: Fn(usize) -> (BigUint, U256, Vec<U256>),
 {
-    let (a, length, memory) = {
-        let (a, length, memory) = prepare_bignum_fn(1000);
+    let (length, memory) = {
+        let (mut a, mut length, mut memory) = prepare_bignum_fn(1000);
         while a == BigUint::zero() {
             (a, length, memory) = prepare_bignum_fn(1000);
         }
-        (a, length, memory)
+        (length, memory)
     };
 
     let retdest = 0xDEADBEEFu32.into();
