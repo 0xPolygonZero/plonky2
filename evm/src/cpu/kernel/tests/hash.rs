@@ -57,10 +57,7 @@ fn make_interpreter_setup(
 }
 
 fn combine_u256s(hi: U256, lo: U256) -> U512 {
-    let mut result = U512::from(hi);
-    result <<= 256;
-    result += U512::from(lo);
-    result
+    U512::from(lo) + (U512::from(hi) << 256)
 }
 
 fn prepare_test<T>(
