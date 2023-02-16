@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
-use num::{BigUint, Zero, One};
+use num::{BigUint, One, Zero};
 use num_bigint::RandBigInt;
 use rand::Rng;
 
@@ -100,8 +100,9 @@ fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U25
 }
 
 fn test_shr_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
-
+where
+    F: Fn(usize) -> (BigUint, U256, Vec<U256>),
+{
     let (a, length, memory) = prepare_bignum_fn(1000);
 
     let halved = a >> 1;
@@ -125,7 +126,9 @@ where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
 }
 
 fn test_iszero_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
+where
+    F: Fn(usize) -> (BigUint, U256, Vec<U256>),
+{
     let (a, length, memory) = {
         let (a, length, memory) = prepare_bignum_fn(1000);
         while a == BigUint::zero() {
@@ -163,7 +166,9 @@ where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
 }
 
 fn test_ge_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+where
+    F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
+{
     let (_a, _b, length, memory) = prepare_two_bignums_fn(1000);
 
     let retdest = 0xDEADBEEFu32.into();
@@ -194,7 +199,9 @@ where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
 }
 
 fn test_add_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+where
+    F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
+{
     let (a, b, length, memory) = prepare_two_bignums_fn(1000);
 
     // Determine expected sum.
@@ -228,7 +235,9 @@ where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
 }
 
 fn test_addmul_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+where
+    F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
+{
     let mut rng = rand::thread_rng();
     let (a, b, length, mut memory) = prepare_two_bignums_fn(1000);
     let len: usize = length.try_into().unwrap();
@@ -270,7 +279,9 @@ where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
 }
 
 fn test_mul_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
-where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
+where
+    F: Fn(usize) -> (BigUint, U256, Vec<U256>),
+{
     let (a, b, length, memory) = prepare_two_bignums_fn(1000);
 
     // Determine expected product.
