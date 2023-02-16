@@ -49,14 +49,14 @@ fn prepare_bignum_random(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 }
 
 fn prepare_bignum_max(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
-    let a = BigUint::one() << bit_size - 1;
+    let a = BigUint::one() << (bit_size - 1);
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
 
     (a, length, a_limbs)
 }
 
-fn prepare_bignum_min(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+fn prepare_bignum_min(_bit_size: usize) -> (BigUint, U256, Vec<U256>) {
     let a = BigUint::zero();
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
@@ -73,15 +73,15 @@ fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U
 }
 
 fn prepare_two_bignums_max(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
-    let a = BigUint::one() << bit_size - 1;
-    let b = BigUint::one() << bit_size - 2;
+    let a = BigUint::one() << (bit_size - 1);
+    let b = BigUint::one() << (bit_size - 2);
     let length: U256 = bignum_len(&a).into();
     let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
 
-fn prepare_two_bignums_min(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+fn prepare_two_bignums_min(_bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let a = BigUint::one();
     let b = BigUint::zero();
     let length: U256 = bignum_len(&a).into();
@@ -91,7 +91,7 @@ fn prepare_two_bignums_min(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256
 }
 
 fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
-    let a = BigUint::one() << bit_size - 1;
+    let a = BigUint::one() << (bit_size - 1);
     let b = BigUint::zero();
     let length: U256 = bignum_len(&a).into();
     let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
