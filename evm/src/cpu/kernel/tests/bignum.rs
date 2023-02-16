@@ -278,7 +278,7 @@ where
     Ok(())
 }
 
-fn test_mul_bignum<F>(prepare_two_bignums_fn: &F: &F) -> Result<()>
+fn test_mul_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
 where
     F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
 {
