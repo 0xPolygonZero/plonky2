@@ -364,9 +364,9 @@ fn test_addmul_bignum_all() -> Result<()> {
 
 #[test]
 fn test_mul_bignum_all() -> Result<()> {
-    test_mul_bignum(&prepare_bignum_random)?;
-    test_mul_bignum(&prepare_bignum_max)?;
-    test_mul_bignum(&prepare_bignum_min)?;
+    test_mul_bignum(&prepare_two_bignums_random)?;
+    test_mul_bignum(&prepare_two_bignums_max)?;
+    test_mul_bignum(&prepare_two_bignums_min)?;
 
     Ok(())
 }
