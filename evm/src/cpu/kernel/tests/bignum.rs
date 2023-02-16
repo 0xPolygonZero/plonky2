@@ -278,9 +278,9 @@ where
     Ok(())
 }
 
-fn test_mul_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
+fn test_mul_bignum<F>(prepare_two_bignums_fn: &F: &F) -> Result<()>
 where
-    F: Fn(usize) -> (BigUint, U256, Vec<U256>),
+    F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
 {
     let (a, b, length, memory) = prepare_two_bignums_fn(1000);
 
