@@ -65,7 +65,7 @@ ripemd_2:
     %stack (STATE: 5, count, length, virt) -> (STATE, count,          8,        64)
     // stack:                                  STATE, count, length = 8, virt = 64, LABELS
     %jump(ripemd_update)
-global process:
+process:
     // stack: a , b, c, d, e, count, length, virt
     %reverse_bytes_u32
     %shl_const(128)

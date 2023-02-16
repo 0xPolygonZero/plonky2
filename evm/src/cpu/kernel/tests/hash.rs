@@ -36,6 +36,26 @@ fn make_random_input() -> Vec<u8> {
     (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
+fn make_interpreter_setup(
+    message: Vec<u8>,
+    hash_fn_label: &str,
+    hash_input_virt: usize,
+) -> InterpreterSetup {
+    InterpreterSetup {
+        label: hash_fn_label.to_string(),
+        stack: vec![
+            U256::from(hash_input_virt),
+            U256::from(message.len()),
+            U256::from(0xdeadbeefu32),
+        ],
+        segment: KernelGeneral,
+        memory: vec![(
+            hash_input_virt,
+            message.iter().map(|&x| U256::from(x as u32)).collect(),
+        )],
+    }
+}
+
 fn combine_u256s(hi: U256, lo: U256) -> U512 {
     let mut result = U512::from(hi);
     result <<= 256;
@@ -49,33 +69,18 @@ fn prepare_test<T>(
     standard_implementation: &dyn Fn(Vec<u8>) -> T,
 ) -> Result<(T, Vec<U256>)> {
     // Make the input.
-    let message_random = make_random_input();
+    let message = make_random_input();
 
     // Hash the message using a standard implementation.
-    let expected_random = standard_implementation(message_random.clone());
+    let expected = standard_implementation(message.clone());
 
     // Load the message into the kernel.
-    let interpreter_setup_random = InterpreterSetup {
-        label: hash_fn_label.to_string(),
-        stack: vec![
-            U256::from(hash_input_virt),
-            U256::from(message_random.len()),
-            U256::from(0xdeadbeefu32),
-        ],
-        segment: KernelGeneral,
-        memory: vec![(
-            hash_input_virt,
-            message_random
-                .iter()
-                .map(|&x| U256::from(x as u32))
-                .collect(),
-        )],
-    };
+    let interpreter_setup = make_interpreter_setup(message, hash_fn_label, hash_input_virt);
 
     // Run the interpeter
-    let result_random = interpreter_setup_random.run().unwrap();
+    let result = interpreter_setup.run().unwrap();
 
-    Ok((expected_random, result_random.stack().to_vec()))
+    Ok((expected, result.stack().to_vec()))
 }
 
 fn test_hash_256(
@@ -83,14 +88,14 @@ fn test_hash_256(
     hash_input_virt: usize,
     standard_implementation: &dyn Fn(Vec<u8>) -> U256,
 ) -> Result<()> {
-    let (expected_random, random_stack) =
+    let (expected, result_stack) =
         prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
 
     // Extract the final output.
-    let actual_random = random_stack[0];
+    let actual = result_stack[0];
 
     // Check that the result is correct.
-    assert_eq!(expected_random, actual_random);
+    assert_eq!(expected, actual);
 
     Ok(())
 }
@@ -100,14 +105,14 @@ fn test_hash_512(
     hash_input_virt: usize,
     standard_implementation: &dyn Fn(Vec<u8>) -> U512,
 ) -> Result<()> {
-    let (expected_random, random_stack) =
+    let (expected, result_stack) =
         prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
 
     // Extract the final output.
-    let actual_random = combine_u256s(random_stack[0], random_stack[1]);
+    let actual = combine_u256s(result_stack[0], result_stack[1]);
 
     // Check that the result is correct.
-    assert_eq!(expected_random, actual_random);
+    assert_eq!(expected, actual);
 
     Ok(())
 }
@@ -119,10 +124,10 @@ fn test_hash_512(
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    test_hash_256("ripemd", 136, &ripemd)
+    test_hash_256("ripemd", 200, &ripemd)
 }
 
 // #[test]
 // fn test_sha2() -> Result<()> {
-//     test_hash_256("sha2", &sha2)
+//     test_hash_256("sha2", 1, &sha2)
 // }
