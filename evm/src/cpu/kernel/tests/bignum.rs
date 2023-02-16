@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
-use num::BigUint;
+use num::{BigUint, Zero, One};
 use num_bigint::RandBigInt;
 use rand::Rng;
 
@@ -40,7 +40,7 @@ fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {
     (a, b)
 }
 
-fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+fn prepare_bignum_random(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
     let a = gen_bignum(bit_size);
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
@@ -48,7 +48,23 @@ fn prepare_bignum(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
     (a, length, a_limbs)
 }
 
-fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+fn prepare_bignum_max(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+    let a = BigUint::one() << bit_size - 1;
+    let length: U256 = bignum_len(&a).into();
+    let a_limbs = biguint_to_mem_vec(a.clone());
+
+    (a, length, a_limbs)
+}
+
+fn prepare_bignum_min(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
+    let a = BigUint::zero();
+    let length: U256 = bignum_len(&a).into();
+    let a_limbs = biguint_to_mem_vec(a.clone());
+
+    (a, length, a_limbs)
+}
+
+fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let (a, b) = gen_two_bignums_ordered(bit_size);
     let length: U256 = bignum_len(&a).into();
     let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
@@ -56,9 +72,37 @@ fn prepare_two_bignums(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     (a, b, length, memory)
 }
 
-#[test]
-fn test_shr_bignum() -> Result<()> {
-    let (a, length, memory) = prepare_bignum(1000);
+fn prepare_two_bignums_max(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let a = BigUint::one() << bit_size - 1;
+    let b = BigUint::one() << bit_size - 2;
+    let length: U256 = bignum_len(&a).into();
+    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+
+    (a, b, length, memory)
+}
+
+fn prepare_two_bignums_min(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let a = BigUint::one();
+    let b = BigUint::zero();
+    let length: U256 = bignum_len(&a).into();
+    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+
+    (a, b, length, memory)
+}
+
+fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let a = BigUint::one() << bit_size - 1;
+    let b = BigUint::zero();
+    let length: U256 = bignum_len(&a).into();
+    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+
+    (a, b, length, memory)
+}
+
+fn test_shr_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
+
+    let (a, length, memory) = prepare_bignum_fn(1000);
 
     let halved = a >> 1;
 
@@ -80,9 +124,15 @@ fn test_shr_bignum() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_iszero_bignum() -> Result<()> {
-    let (_a, length, memory) = prepare_bignum(1000);
+fn test_iszero_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
+    let (a, length, memory) = {
+        let (a, length, memory) = prepare_bignum_fn(1000);
+        while a == BigUint::zero() {
+            (a, length, memory) = prepare_bignum_fn(1000);
+        }
+        (a, length, memory)
+    };
 
     let retdest = 0xDEADBEEFu32.into();
     let iszero_bignum = KERNEL.global_labels["iszero_bignum"];
@@ -112,9 +162,9 @@ fn test_iszero_bignum() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_ge_bignum() -> Result<()> {
-    let (_a, _b, length, memory) = prepare_two_bignums(1000);
+fn test_ge_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let (_a, _b, length, memory) = prepare_two_bignums_fn(1000);
 
     let retdest = 0xDEADBEEFu32.into();
     let ge_bignum = KERNEL.global_labels["ge_bignum"];
@@ -143,9 +193,9 @@ fn test_ge_bignum() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_add_bignum() -> Result<()> {
-    let (a, b, length, memory) = prepare_two_bignums(1000);
+fn test_add_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let (a, b, length, memory) = prepare_two_bignums_fn(1000);
 
     // Determine expected sum.
     let sum = a + b;
@@ -177,14 +227,14 @@ fn test_add_bignum() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_addmul_bignum() -> Result<()> {
+fn test_addmul_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let mut rng = rand::thread_rng();
-    let (a, b, length, mut memory) = prepare_two_bignums(1000);
+    let (a, b, length, mut memory) = prepare_two_bignums_fn(1000);
     let len: usize = length.try_into().unwrap();
     memory.splice(len..len, vec![0.into(); 2].iter().cloned());
 
-    let val: u64 = rng.gen();
+    let val: u128 = rng.gen();
     let val_u256 = U256::from(val);
 
     // Determine expected result.
@@ -219,9 +269,9 @@ fn test_addmul_bignum() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_mul_bignum() -> Result<()> {
-    let (a, b, length, memory) = prepare_two_bignums(1000);
+fn test_mul_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
+where F: Fn(usize) -> (BigUint, U256, Vec<U256>) {
+    let (a, b, length, memory) = prepare_two_bignums_fn(1000);
 
     // Determine expected product.
     let product = a * b;
@@ -252,6 +302,60 @@ fn test_mul_bignum() -> Result<()> {
         new_memory[output_location..output_location + expected_product.len()].into();
 
     assert_eq!(actual_product, expected_product);
+
+    Ok(())
+}
+
+#[test]
+fn test_shr_bignum_all() -> Result<()> {
+    test_shr_bignum(&prepare_bignum_random)?;
+    test_shr_bignum(&prepare_bignum_max)?;
+    test_shr_bignum(&prepare_bignum_min)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_iszero_bignum_all() -> Result<()> {
+    test_iszero_bignum(&prepare_bignum_random)?;
+    test_iszero_bignum(&prepare_bignum_max)?;
+    // No need to test for min, since it is zero.
+
+    Ok(())
+}
+
+#[test]
+fn test_ge_bignum_all() -> Result<()> {
+    test_ge_bignum(&prepare_bignum_random)?;
+    test_ge_bignum(&prepare_bignum_max)?;
+    test_ge_bignum(&prepare_bignum_min)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_add_bignum_all() -> Result<()> {
+    test_add_bignum(&prepare_two_bignums_random)?;
+    test_add_bignum(&prepare_two_bignums_max)?;
+    test_add_bignum(&prepare_two_bignums_min)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_addmul_bignum_all() -> Result<()> {
+    test_addmul_bignum(&prepare_two_bignums_random)?;
+    test_addmul_bignum(&prepare_two_bignums_max)?;
+    test_addmul_bignum(&prepare_two_bignums_min)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_mul_bignum_all() -> Result<()> {
+    test_mul_bignum(&prepare_bignum_random)?;
+    test_mul_bignum(&prepare_bignum_max)?;
+    test_mul_bignum(&prepare_bignum_min)?;
 
     Ok(())
 }
