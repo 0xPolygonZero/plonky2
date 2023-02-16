@@ -334,6 +334,8 @@ pub trait Read {
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let plonk_zs_next = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
+        let lookup_zs = self.read_field_ext_vec::<F, D>(common_data.num_lookup_polys)?;
+        let lookup_zs_next = self.read_field_ext_vec::<F, D>(common_data.num_lookup_polys)?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(
@@ -347,6 +349,8 @@ pub trait Read {
             plonk_zs_next,
             partial_products,
             quotient_polys,
+            lookup_zs,
+            lookup_zs_next,
         })
     }
 
@@ -422,7 +426,9 @@ pub trait Read {
         evals_proofs.push((wires_v, wires_p));
 
         let zs_partial_v = self.read_field_vec(
-            config.num_challenges * (1 + common_data.num_partial_products) + salt,
+            config.num_challenges
+                * (1 + common_data.num_partial_products + common_data.num_lookup_polys)
+                + salt,
         )?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
@@ -1334,6 +1340,8 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.wires)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs_next)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }

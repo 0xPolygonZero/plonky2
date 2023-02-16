@@ -1,19 +1,25 @@
 use alloc::vec::Vec;
 use alloc::{format, vec};
+use core::cmp::min;
 use core::mem::swap;
 
 use anyhow::{ensure, Result};
 use plonky2_maybe_rayon::*;
 
+use super::circuit_builder::{LookupChallenges, LookupWire};
 use crate::field::extension::Extendable;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::Field;
 use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
+use crate::gates::lookup::LookupGate;
+use crate::gates::lookup_table::LookupTableGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
-use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
+use crate::iop::target::Target;
+use crate::iop::witness::{MatrixWitness, PartialWitness, PartitionWitness, Witness, WitnessWrite};
+use crate::plonk::circuit_builder::NUM_COINS_LOOKUP;
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkOracle;
@@ -25,6 +31,74 @@ use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_pr
 use crate::util::timing::TimingTree;
 use crate::util::{ceil_div_usize, log2_ceil, transpose};
 
+/// Set all the lookup gate wires (including multiplicities) and pad unused LU slots.
+/// Warning: rows are in descending order: the first gate to appear is the last LU gate, and
+/// the last gate to appear is the first LUT gate.
+pub fn set_lookup_wires<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
+    pw: &mut PartitionWitness<F>,
+) {
+    for (
+        lut_index,
+        &LookupWire {
+            last_lu_gate: _,
+            last_lut_gate,
+            first_lut_gate,
+        },
+    ) in prover_data.lookup_rows.iter().enumerate()
+    {
+        let lut_len = common_data.luts[lut_index].len();
+        let num_entries = LookupGate::num_slots(&common_data.config);
+        let num_lut_entries = LookupTableGate::num_slots(&common_data.config);
+
+        // Compute multiplicities.
+        let mut multiplicities = vec![0; lut_len];
+        for (inp_target, _) in prover_data.lut_to_lookups[lut_index].iter() {
+            let inp_value = pw.get_target(*inp_target);
+            let mut idx = 0;
+            while F::from_canonical_u16(common_data.luts[lut_index][idx].0) != inp_value {
+                idx += 1;
+            }
+            multiplicities[idx] += 1;
+        }
+
+        // Pad the last `LookupGate` with the first entry from the LUT.
+        let remaining_slots = (num_entries
+            - (prover_data.lut_to_lookups[lut_index].len() % num_entries))
+            % num_entries;
+        let first_inp_value = F::from_canonical_u16(common_data.luts[lut_index][0].0);
+        let first_out_value = F::from_canonical_u16(common_data.luts[lut_index][0].1);
+        for slot in (num_entries - remaining_slots)..num_entries {
+            let inp_target =
+                Target::wire(last_lut_gate - 1, LookupGate::wire_ith_looking_inp(slot));
+            let out_target =
+                Target::wire(last_lut_gate - 1, LookupGate::wire_ith_looking_out(slot));
+            pw.set_target(inp_target, first_inp_value);
+            pw.set_target(out_target, first_out_value);
+
+            multiplicities[0] += 1;
+        }
+
+        // We don't need to pad the last `LookupTableGate`; extra wires are set to 0 by default, which satisfies the constraints.
+        for lut_entry in 0..lut_len {
+            let row = first_lut_gate - lut_entry / num_lut_entries;
+            let col = lut_entry % num_lut_entries;
+
+            let mul_target = Target::wire(row, LookupTableGate::wire_ith_multiplicity(col));
+
+            pw.set_target(
+                mul_target,
+                F::from_canonical_usize(multiplicities[lut_entry]),
+            );
+        }
+    }
+}
+
 pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, D>,
@@ -35,16 +109,19 @@ where
     C::Hasher: Hasher<F>,
     C::InnerHasher: Hasher<F>,
 {
+    let has_lookup = !common_data.luts.is_empty();
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let partition_witness = timed!(
+    let mut partition_witness = timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
         generate_partial_witness(inputs, prover_data, common_data)
     );
+
+    set_lookup_wires(prover_data, common_data, &mut partition_witness);
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
@@ -85,8 +162,25 @@ where
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap::<C::Hasher>(&wires_commitment.merkle_tree.cap);
+
+    // We need 4 values per challenge: 2 for the combos, 1 for (X-combo) in the accumulators and 1 to prove that the lookup table was computed correctly.
+    // We can reuse betas and gammas for two of them.
+    let num_lookup_challenges = NUM_COINS_LOOKUP * num_challenges;
+
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
+
+    let deltas = if has_lookup {
+        let mut delts = Vec::with_capacity(2 * num_challenges);
+        let num_additional_challenges = num_lookup_challenges - 2 * num_challenges;
+        let additional = challenger.get_n_challenges(num_additional_challenges);
+        delts.extend(&betas);
+        delts.extend(&gammas);
+        delts.extend(additional);
+        delts
+    } else {
+        vec![]
+    };
 
     assert!(
         common_data.quotient_degree_factor < common_data.config.num_routed_wires,
@@ -105,11 +199,21 @@ where
         .collect();
     let zs_partial_products = [plonk_z_vecs, partial_products_and_zs.concat()].concat();
 
-    let partial_products_and_zs_commitment = timed!(
+    // All lookup polys: RE and partial SLDCs.
+    let lookup_polys =
+        compute_all_lookup_polys(&witness, &deltas, prover_data, common_data, has_lookup);
+
+    let zs_partial_products_lookups = if has_lookup {
+        [zs_partial_products, lookup_polys].concat()
+    } else {
+        zs_partial_products
+    };
+
+    let partial_products_zs_and_lookup_commitment = timed!(
         timing,
-        "commit to partial products and Z's",
-        PolynomialBatch::<F, C, D>::from_values(
-            zs_partial_products,
+        "commit to partial products, Z's and, if any, lookup polynomials",
+        PolynomialBatch::from_values(
+            zs_partial_products_lookups,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
             config.fri_config.cap_height,
@@ -118,7 +222,7 @@ where
         )
     );
 
-    challenger.observe_cap::<C::Hasher>(&partial_products_and_zs_commitment.merkle_tree.cap);
+    challenger.observe_cap::<C::Hasher>(&partial_products_zs_and_lookup_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -130,15 +234,15 @@ where
             prover_data,
             &public_inputs_hash,
             &wires_commitment,
-            &partial_products_and_zs_commitment,
+            &partial_products_zs_and_lookup_commitment,
             &betas,
             &gammas,
+            &deltas,
             &alphas,
         )
     );
 
-    // Compute the quotient polynomials, aka `t` in the Plonk paper.
-    let all_quotient_poly_chunks = timed!(
+    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = timed!(
         timing,
         "split up quotient polys",
         quotient_polys
@@ -180,28 +284,29 @@ where
 
     let openings = timed!(
         timing,
-        "construct the opening set",
-        OpeningSet::new::<C>(
+        "construct the opening set, including lookups",
+        OpeningSet::new(
             zeta,
             g,
             &prover_data.constants_sigmas_commitment,
             &wires_commitment,
-            &partial_products_and_zs_commitment,
+            &partial_products_zs_and_lookup_commitment,
             &quotient_polys_commitment,
-            common_data,
+            common_data
         )
     );
     challenger.observe_openings(&openings.to_fri_openings());
+    let instance = common_data.get_fri_instance(zeta);
 
     let opening_proof = timed!(
         timing,
         "compute opening proofs",
         PolynomialBatch::<F, C, D>::prove_openings(
-            &common_data.get_fri_instance(zeta),
+            &instance,
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
-                &partial_products_and_zs_commitment,
+                &partial_products_zs_and_lookup_commitment,
                 &quotient_polys_commitment,
             ],
             &mut challenger,
@@ -212,7 +317,7 @@ where
 
     let proof = Proof::<F, C, D> {
         wires_cap: wires_commitment.merkle_tree.cap,
-        plonk_zs_partial_products_cap: partial_products_and_zs_commitment.merkle_tree.cap,
+        plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
         opening_proof,
@@ -310,6 +415,162 @@ fn wires_permutation_partial_products_and_zs<
         .collect()
 }
 
+/// Computes lookup polynomials for a given challenge.
+/// The polynomials hold the value of RE, Sum and Ldc of the Tip5 paper (https://eprint.iacr.org/2023/107.pdf). To reduce their
+/// numbers, we batch multiple slots in a single polynomial. Since RE only involves degree one constraints, we can batch
+/// all the slots of a row. For Sum and Ldc, batching increases the constraint degree, so we bound the number of
+/// partial polynomials according to `max_quotient_degree_factor`.
+/// As another optimization, Sum and LDC polynomials are shared (in so called partial SLDC polynomials), and the last value
+/// of the last partial polynomial is Sum(end) - LDC(end). If the lookup argument is valid, then it must be equal to 0.
+fn compute_lookup_polys<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    witness: &MatrixWitness<F>,
+    deltas: &[F; 4],
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
+) -> Vec<PolynomialValues<F>> {
+    let degree = common_data.degree();
+    let num_lu_slots = LookupGate::num_slots(&common_data.config);
+    let max_lookup_degree = common_data.config.max_quotient_degree_factor - 1;
+    let num_partial_lookups = ceil_div_usize(num_lu_slots, max_lookup_degree);
+    let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
+    let max_lookup_table_degree = ceil_div_usize(num_lut_slots, num_partial_lookups);
+
+    // First poly is RE, the rest are partial SLDCs.
+    let mut final_poly_vecs = Vec::with_capacity(num_partial_lookups + 1);
+    for _ in 0..num_partial_lookups + 1 {
+        final_poly_vecs.push(PolynomialValues::<F>::new(vec![F::ZERO; degree]));
+    }
+
+    for LookupWire {
+        last_lu_gate: last_lu_row,
+        last_lut_gate: last_lut_row,
+        first_lut_gate: first_lut_row,
+    } in prover_data.lookup_rows.clone()
+    {
+        // Set values for partial Sums and RE.
+        for row in (last_lut_row..(first_lut_row + 1)).rev() {
+            // Get combos for Sum.
+            let looked_combos: Vec<F> = (0..num_lut_slots)
+                .map(|s| {
+                    let looked_inp = witness.get_wire(row, LookupTableGate::wire_ith_looked_inp(s));
+                    let looked_out = witness.get_wire(row, LookupTableGate::wire_ith_looked_out(s));
+
+                    looked_inp + deltas[LookupChallenges::ChallengeA as usize] * looked_out
+                })
+                .collect();
+            // Get (alpha - combo).
+            let minus_looked_combos: Vec<F> = (0..num_lut_slots)
+                .map(|s| deltas[LookupChallenges::ChallengeAlpha as usize] - looked_combos[s])
+                .collect();
+            // Get 1/(alpha - combo).
+            let looked_combo_inverses = F::batch_multiplicative_inverse(&minus_looked_combos);
+
+            // Get lookup combos, used to check the well formation of the LUT.
+            let lookup_combos: Vec<F> = (0..num_lut_slots)
+                .map(|s| {
+                    let looked_inp = witness.get_wire(row, LookupTableGate::wire_ith_looked_inp(s));
+                    let looked_out = witness.get_wire(row, LookupTableGate::wire_ith_looked_out(s));
+
+                    looked_inp + deltas[LookupChallenges::ChallengeB as usize] * looked_out
+                })
+                .collect();
+
+            // Compute next row's first value of RE.
+            // If `row == first_lut_row`, then `final_poly_vecs[0].values[row + 1] == 0`.
+            let mut new_re = final_poly_vecs[0].values[row + 1];
+            for elt in &lookup_combos {
+                new_re = new_re * deltas[LookupChallenges::ChallengeDelta as usize] + *elt
+            }
+            final_poly_vecs[0].values[row] = new_re;
+
+            for slot in 0..num_partial_lookups {
+                let prev = if slot != 0 {
+                    final_poly_vecs[slot].values[row]
+                } else {
+                    // If `row == first_lut_row`, then `final_poly_vecs[num_partial_lookups].values[row + 1] == 0`.
+                    final_poly_vecs[num_partial_lookups].values[row + 1]
+                };
+                let sum = (slot * max_lookup_table_degree
+                    ..min((slot + 1) * max_lookup_table_degree, num_lut_slots))
+                    .fold(prev, |acc, s| {
+                        acc + witness.get_wire(row, LookupTableGate::wire_ith_multiplicity(s))
+                            * looked_combo_inverses[s]
+                    });
+                final_poly_vecs[slot + 1].values[row] = sum;
+            }
+        }
+
+        // Set values for partial LDCs.
+        for row in (last_lu_row..last_lut_row).rev() {
+            // Get looking combos.
+            let looking_combos: Vec<F> = (0..num_lu_slots)
+                .map(|s| {
+                    let looking_inp = witness.get_wire(row, LookupGate::wire_ith_looking_inp(s));
+                    let looking_out = witness.get_wire(row, LookupGate::wire_ith_looking_out(s));
+
+                    looking_inp + deltas[LookupChallenges::ChallengeA as usize] * looking_out
+                })
+                .collect();
+            // Get (alpha - combo).
+            let minus_looking_combos: Vec<F> = (0..num_lu_slots)
+                .map(|s| deltas[LookupChallenges::ChallengeAlpha as usize] - looking_combos[s])
+                .collect();
+            // Get 1 / (alpha - combo).
+            let looking_combo_inverses = F::batch_multiplicative_inverse(&minus_looking_combos);
+
+            for slot in 0..num_partial_lookups {
+                let prev = if slot == 0 {
+                    // Valid at _any_ row, even `first_lu_row`.
+                    final_poly_vecs[num_partial_lookups].values[row + 1]
+                } else {
+                    final_poly_vecs[slot].values[row]
+                };
+                let sum = (slot * max_lookup_degree
+                    ..min((slot + 1) * max_lookup_degree, num_lu_slots))
+                    .fold(F::ZERO, |acc, s| acc + looking_combo_inverses[s]);
+                final_poly_vecs[slot + 1].values[row] = prev - sum;
+            }
+        }
+    }
+
+    final_poly_vecs
+}
+
+/// Computes lookup polynomials for all challenges.
+fn compute_all_lookup_polys<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    witness: &MatrixWitness<F>,
+    deltas: &[F],
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
+    lookup: bool,
+) -> Vec<PolynomialValues<F>> {
+    if lookup {
+        let polys: Vec<Vec<PolynomialValues<F>>> = (0..common_data.config.num_challenges)
+            .map(|c| {
+                compute_lookup_polys(
+                    witness,
+                    &deltas[c * NUM_COINS_LOOKUP..(c + 1) * NUM_COINS_LOOKUP]
+                        .try_into()
+                        .unwrap(),
+                    prover_data,
+                    common_data,
+                )
+            })
+            .collect();
+        polys.concat()
+    } else {
+        vec![]
+    }
+}
+
 const BATCH_SIZE: usize = 32;
 
 fn compute_quotient_polys<
@@ -322,12 +583,16 @@ fn compute_quotient_polys<
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
     public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     wires_commitment: &'a PolynomialBatch<F, C, D>,
-    zs_partial_products_commitment: &'a PolynomialBatch<F, C, D>,
+    zs_partial_products_and_lookup_commitment: &'a PolynomialBatch<F, C, D>,
     betas: &[F],
     gammas: &[F],
+    deltas: &[F],
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
+
+    let has_lookup = common_data.num_lookup_polys != 0;
+
     let quotient_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
         quotient_degree_bits <= common_data.config.fri_config.rate_bits,
@@ -364,6 +629,10 @@ fn compute_quotient_polys<
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut local_zs_batch = Vec::with_capacity(xs_batch.len());
             let mut next_zs_batch = Vec::with_capacity(xs_batch.len());
+
+            let mut local_lookup_batch = Vec::with_capacity(xs_batch.len());
+            let mut next_lookup_batch = Vec::with_capacity(xs_batch.len());
+
             let mut partial_products_batch = Vec::with_capacity(xs_batch.len());
             let mut s_sigmas_batch = Vec::with_capacity(xs_batch.len());
 
@@ -379,13 +648,27 @@ fn compute_quotient_polys<
                 let local_constants = &local_constants_sigmas[common_data.constants_range()];
                 let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
                 let local_wires = wires_commitment.get_lde_values(i, step);
-                let local_zs_partial_products =
-                    zs_partial_products_commitment.get_lde_values(i, step);
-                let local_zs = &local_zs_partial_products[common_data.zs_range()];
-                let next_zs = &zs_partial_products_commitment.get_lde_values(i_next, step)
-                    [common_data.zs_range()];
+                let local_zs_partial_and_lookup =
+                    zs_partial_products_and_lookup_commitment.get_lde_values(i, step);
+                let next_zs_partial_and_lookup =
+                    zs_partial_products_and_lookup_commitment.get_lde_values(i_next, step);
+
+                let local_zs = &local_zs_partial_and_lookup[common_data.zs_range()];
+
+                let next_zs = &next_zs_partial_and_lookup[common_data.zs_range()];
+
                 let partial_products =
-                    &local_zs_partial_products[common_data.partial_products_range()];
+                    &local_zs_partial_and_lookup[common_data.partial_products_range()];
+
+                if has_lookup {
+                    let local_lookup_zs = &local_zs_partial_and_lookup[common_data.lookup_range()];
+
+                    let next_lookup_zs = &next_zs_partial_and_lookup[common_data.lookup_range()];
+                    debug_assert_eq!(local_lookup_zs.len(), common_data.num_all_lookup_polys());
+
+                    local_lookup_batch.push(local_lookup_zs);
+                    next_lookup_batch.push(next_lookup_zs);
+                }
 
                 debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
                 debug_assert_eq!(local_zs.len(), num_challenges);
@@ -431,10 +714,13 @@ fn compute_quotient_polys<
                 vars_batch,
                 &local_zs_batch,
                 &next_zs_batch,
+                &local_lookup_batch,
+                &next_lookup_batch,
                 &partial_products_batch,
                 &s_sigmas_batch,
                 betas,
                 gammas,
+                deltas,
                 alphas,
                 &z_h_on_coset,
             );
