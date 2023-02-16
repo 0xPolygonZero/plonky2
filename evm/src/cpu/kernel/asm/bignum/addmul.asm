@@ -1,7 +1,7 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Sets a[0:len+1] += b[0:len] * val.
+// Sets a[0:len] += b[0:len] * val, and returns the carry.
 global addmul_bignum:
     // stack: len, a_start_loc, b_start_loc, val, retdest
     PUSH 0

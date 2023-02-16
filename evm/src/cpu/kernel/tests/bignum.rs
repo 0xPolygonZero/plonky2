@@ -231,7 +231,6 @@ fn test_mul_bignum() -> Result<()> {
     let a_start_loc = 0.into();
     let b_start_loc = length;
     let output_loc = length * 2;
-    let scratch_space = length * 4;
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
@@ -240,7 +239,6 @@ fn test_mul_bignum() -> Result<()> {
         a_start_loc,
         b_start_loc,
         output_loc,
-        scratch_space,
         retdest,
     ];
     initial_stack.reverse();
