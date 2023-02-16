@@ -65,6 +65,32 @@ pub fn run_interpreter(
     )
 }
 
+pub struct InterpreterSetup {
+    pub label: String,
+    pub stack: Vec<U256>,
+    pub segment: Segment,
+    pub memory: Vec<(usize, Vec<U256>)>,
+}
+
+impl InterpreterSetup {
+    pub fn run(self) -> anyhow::Result<Interpreter<'static>> {
+        let label = KERNEL.global_labels[&self.label];
+        let mut stack = self.stack;
+        stack.reverse();
+        let mut interpreter = Interpreter::new_with_kernel(label, stack);
+        for (pointer, data) in self.memory {
+            for (i, term) in data.iter().enumerate() {
+                interpreter
+                    .generation_state
+                    .memory
+                    .set(MemoryAddress::new(0, self.segment, pointer + i), *term)
+            }
+        }
+        interpreter.run()?;
+        Ok(interpreter)
+    }
+}
+
 pub fn run<'a>(
     code: &'a [u8],
     initial_offset: usize,
@@ -221,6 +247,15 @@ impl<'a> Interpreter<'a> {
     fn stack_mut(&mut self) -> &mut Vec<U256> {
         &mut self.generation_state.memory.contexts[self.context].segments[Segment::Stack as usize]
             .content
+    }
+
+    pub fn extract_kernel_memory(self, locs: Vec<MemoryAddress>) -> Vec<U256> {
+        let mut output: Vec<U256> = vec![];
+        for loc in locs {
+            let term = self.generation_state.memory.get(loc);
+            output.push(term);
+        }
+        output
     }
 
     pub(crate) fn push(&mut self, x: U256) {

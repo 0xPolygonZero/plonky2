@@ -57,7 +57,6 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/hash/ripemd/constants.asm"),
         include_str!("asm/hash/ripemd/functions.asm"),
         include_str!("asm/hash/ripemd/main.asm"),
-        include_str!("asm/hash/ripemd/memory.asm"),
         include_str!("asm/hash/ripemd/update.asm"),
         include_str!("asm/hash/sha2/compression.asm"),
         include_str!("asm/hash/sha2/constants.asm"),
