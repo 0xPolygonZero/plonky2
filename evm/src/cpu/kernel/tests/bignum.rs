@@ -337,9 +337,9 @@ fn test_iszero_bignum_all() -> Result<()> {
 
 #[test]
 fn test_ge_bignum_all() -> Result<()> {
-    test_ge_bignum(&prepare_bignum_random)?;
-    test_ge_bignum(&prepare_bignum_max)?;
-    test_ge_bignum(&prepare_bignum_min)?;
+    test_ge_bignum(&prepare_two_bignums_random)?;
+    test_ge_bignum(&prepare_two_bignums_max)?;
+    test_ge_bignum(&prepare_two_bignums_min)?;
 
     Ok(())
 }
