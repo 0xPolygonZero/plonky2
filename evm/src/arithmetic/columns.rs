@@ -22,16 +22,23 @@ const fn n_limbs() -> usize {
 /// Number of LIMB_BITS limbs that are in on EVM register-sized number.
 pub const N_LIMBS: usize = n_limbs();
 
-pub const IS_ADD: usize = 0;
-pub const IS_MUL: usize = IS_ADD + 1;
-pub const IS_SUB: usize = IS_MUL + 1;
-pub const IS_DIV: usize = IS_SUB + 1;
-pub const IS_MOD: usize = IS_DIV + 1;
-pub const IS_ADDMOD: usize = IS_MOD + 1;
-pub const IS_SUBMOD: usize = IS_ADDMOD + 1;
-pub const IS_MULMOD: usize = IS_SUBMOD + 1;
-pub const IS_LT: usize = IS_MULMOD + 1;
-pub const IS_GT: usize = IS_LT + 1;
+pub(crate) const IS_ADD: usize = 0;
+pub(crate) const IS_MUL: usize = IS_ADD + 1;
+pub(crate) const IS_SUB: usize = IS_MUL + 1;
+pub(crate) const IS_DIV: usize = IS_SUB + 1;
+pub(crate) const IS_MOD: usize = IS_DIV + 1;
+pub(crate) const IS_ADDMOD: usize = IS_MOD + 1;
+pub(crate) const IS_MULMOD: usize = IS_ADDMOD + 1;
+// pub(crate) const IS_ADDFP254: usize = IS_ADDMOD;
+// pub(crate) const IS_MULFP254: usize = IS_MULMOD;
+// pub(crate) const IS_SUBFP254: usize = IS_SUBMOD;
+pub(crate) const IS_SUBMOD: usize = IS_MULMOD + 1;
+pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
+pub(crate) const IS_GT: usize = IS_LT + 1;
+
+pub(crate) const ALL_OPERATIONS: [usize; 10] = [
+    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_MULMOD, IS_SUBMOD, IS_LT, IS_GT,
+];
 
 pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 

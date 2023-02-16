@@ -21,6 +21,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
+use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
@@ -113,6 +114,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
     [(); C::Hasher::HASH_SIZE]:,
+    [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -125,6 +127,13 @@ where
         degree_bits_range: Range<usize>,
         stark_config: &StarkConfig,
     ) -> Self {
+        let arithmetic = RecursiveCircuitsForTable::new(
+            Table::Arithmetic,
+            &all_stark.arithmetic_stark,
+            degree_bits_range.clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
@@ -161,7 +170,7 @@ where
             stark_config,
         );
 
-        let by_table = [cpu, keccak, keccak_sponge, logic, memory];
+        let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);

@@ -59,6 +59,30 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
 }
 
+const ARITHMETIC_OPS: [usize; 10] = [
+    COL_MAP.op.add,
+    COL_MAP.op.mul,
+    COL_MAP.op.sub,
+    COL_MAP.op.div,
+    COL_MAP.op.mod_,
+    COL_MAP.op.addmod,
+    COL_MAP.op.mulmod,
+    // COL_MAP.op.addfp254,
+    // COL_MAP.op.mulfp254,
+    // COL_MAP.op.subfp254,
+    COL_MAP.op.submod,
+    COL_MAP.op.lt,
+    COL_MAP.op.gt,
+];
+
+pub fn ctl_data_arithmetic<F: Field>() -> Vec<Column<F>> {
+    Column::singles(ARITHMETIC_OPS).collect_vec()
+}
+
+pub fn ctl_filter_arithmetic<F: Field>() -> Column<F> {
+    Column::sum(ARITHMETIC_OPS)
+}
+
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 

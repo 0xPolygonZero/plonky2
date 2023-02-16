@@ -11,12 +11,21 @@ use plonky2::util::transpose;
 
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::Column;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-#[derive(Copy, Clone)]
+pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    Column::singles(columns::ALL_OPERATIONS).collect_vec()
+}
+
+pub fn ctl_filter<F: Field>() -> Column<F> {
+    Column::sum(columns::ALL_OPERATIONS)
+}
+
+#[derive(Copy, Clone, Default)]
 pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
@@ -48,8 +57,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    #[allow(unused)]
-    pub(crate) fn generate(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -249,7 +257,7 @@ mod tests {
 
         let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
@@ -314,7 +322,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
@@ -335,7 +343,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
