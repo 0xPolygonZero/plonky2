@@ -234,13 +234,7 @@ fn test_mul_bignum() -> Result<()> {
 
     // Prepare stack.
     let retdest = 0xDEADBEEFu32.into();
-    let mut initial_stack: Vec<U256> = vec![
-        length,
-        a_start_loc,
-        b_start_loc,
-        output_loc,
-        retdest,
-    ];
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, output_loc, retdest];
     initial_stack.reverse();
 
     // Prepare interpreter.
@@ -250,8 +244,6 @@ fn test_mul_bignum() -> Result<()> {
 
     // Run mul function.
     interpreter.run()?;
-
-    dbg!(interpreter.stack());
 
     // Determine actual product.
     let new_memory = interpreter.get_kernel_general_memory();
