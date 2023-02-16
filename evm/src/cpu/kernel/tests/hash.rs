@@ -124,7 +124,7 @@ fn test_ripemd() -> Result<()> {
     test_hash_256("ripemd", 200, &ripemd)
 }
 
-// #[test]
-// fn test_sha2() -> Result<()> {
-//     test_hash_256("sha2", 1, &sha2)
-// }
+#[test]
+fn test_sha2() -> Result<()> {
+    test_hash_256("sha2", 1, &sha2)
+}
