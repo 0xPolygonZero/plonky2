@@ -249,15 +249,6 @@ impl<'a> Interpreter<'a> {
             .content
     }
 
-    pub fn extract_kernel_memory(self, locs: Vec<MemoryAddress>) -> Vec<U256> {
-        let mut output: Vec<U256> = vec![];
-        for loc in locs {
-            let term = self.generation_state.memory.get(loc);
-            output.push(term);
-        }
-        output
-    }
-
     pub(crate) fn push(&mut self, x: U256) {
         self.stack_mut().push(x);
         self.generation_state.registers.stack_len += 1;

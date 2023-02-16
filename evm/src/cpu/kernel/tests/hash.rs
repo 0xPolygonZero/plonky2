@@ -114,10 +114,10 @@ fn test_hash_512(
     Ok(())
 }
 
-// #[test]
-// fn test_blake2b() -> Result<()> {
-//     test_hash_512("blake2b", &blake2b)
-// }
+#[test]
+fn test_blake2b() -> Result<()> {
+    test_hash_512("blake2b", 2, &blake2b)
+}
 
 #[test]
 fn test_ripemd() -> Result<()> {
