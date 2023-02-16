@@ -189,8 +189,6 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let result_biguint = (a_biguint * b_biguint) % m_biguint;
-        dbg!("remainder");
-        dbg!(result_biguint.clone());
         biguint_to_mem_vec(result_biguint)
     }
 
@@ -212,13 +210,7 @@ impl<F: Field> GenerationState<F> {
         let b_biguint = mem_vec_to_biguint(b);
         let m_biguint = mem_vec_to_biguint(m);
 
-        dbg!(a_biguint.clone());
-        dbg!(b_biguint.clone());
-        dbg!(m_biguint.clone());
-
         let result_biguint = (a_biguint * b_biguint) / m_biguint;
-        dbg!("quotient");
-        dbg!(result_biguint.clone());
         biguint_to_mem_vec(result_biguint)
     }
 }
