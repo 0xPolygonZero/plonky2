@@ -340,6 +340,7 @@ fn test_ge_bignum_all() -> Result<()> {
     test_ge_bignum(&prepare_two_bignums_random)?;
     test_ge_bignum(&prepare_two_bignums_max)?;
     test_ge_bignum(&prepare_two_bignums_min)?;
+    test_ge_bignum(&prepare_two_bignums_diff)?;
 
     Ok(())
 }
@@ -349,6 +350,7 @@ fn test_add_bignum_all() -> Result<()> {
     test_add_bignum(&prepare_two_bignums_random)?;
     test_add_bignum(&prepare_two_bignums_max)?;
     test_add_bignum(&prepare_two_bignums_min)?;
+    test_add_bignum(&prepare_two_bignums_diff)?;
 
     Ok(())
 }
@@ -358,6 +360,7 @@ fn test_addmul_bignum_all() -> Result<()> {
     test_addmul_bignum(&prepare_two_bignums_random)?;
     test_addmul_bignum(&prepare_two_bignums_max)?;
     test_addmul_bignum(&prepare_two_bignums_min)?;
+    test_addmul_bignum(&prepare_two_bignums_diff)?;
 
     Ok(())
 }
@@ -367,6 +370,7 @@ fn test_mul_bignum_all() -> Result<()> {
     test_mul_bignum(&prepare_two_bignums_random)?;
     test_mul_bignum(&prepare_two_bignums_max)?;
     test_mul_bignum(&prepare_two_bignums_min)?;
+    test_mul_bignum(&prepare_two_bignums_diff)?;
 
     Ok(())
 }
