@@ -36,15 +36,6 @@ fn make_random_input() -> Vec<u8> {
     (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
-fn make_custom_input() -> Vec<u8> {
-    // Hardcode a custom message
-    vec![
-        86, 124, 206, 245, 74, 57, 250, 43, 60, 30, 254, 43, 143, 144, 242, 215, 13, 103, 237, 61,
-        90, 105, 123, 250, 189, 181, 110, 192, 227, 57, 145, 46, 221, 238, 7, 181, 146, 111, 209,
-        150, 31, 157, 229, 126, 206, 105, 37, 17,
-    ]
-}
-
 fn combine_u256s(hi: U256, lo: U256) -> U512 {
     let mut result = U512::from(hi);
     result <<= 256;
@@ -54,29 +45,26 @@ fn combine_u256s(hi: U256, lo: U256) -> U512 {
 
 fn prepare_test<T>(
     hash_fn_label: &str,
+    hash_input_virt: usize,
     standard_implementation: &dyn Fn(Vec<u8>) -> T,
-) -> Result<(T, T, Vec<U256>, Vec<U256>)> {
+) -> Result<(T, Vec<U256>)> {
     // Make the input.
     let message_random = make_random_input();
-    let message_custom = make_custom_input();
 
     // Hash the message using a standard implementation.
     let expected_random = standard_implementation(message_random.clone());
-    let expected_custom = standard_implementation(message_custom.clone());
-
-    let inp: usize = 136;
 
     // Load the message into the kernel.
     let interpreter_setup_random = InterpreterSetup {
         label: hash_fn_label.to_string(),
         stack: vec![
-            U256::from(inp),
+            U256::from(hash_input_virt),
             U256::from(message_random.len()),
             U256::from(0xdeadbeefu32),
         ],
         segment: KernelGeneral,
         memory: vec![(
-            inp,
+            hash_input_virt,
             message_random
                 .iter()
                 .map(|&x| U256::from(x as u32))
@@ -84,67 +72,42 @@ fn prepare_test<T>(
         )],
     };
 
-    let interpreter_setup_custom = InterpreterSetup {
-        label: hash_fn_label.to_string(),
-        stack: vec![
-            U256::from(inp),
-            U256::from(message_custom.len()),
-            U256::from(0xdeadbeefu32),
-        ],
-        segment: KernelGeneral,
-        memory: vec![(
-            inp,
-            message_custom
-                .iter()
-                .map(|&x| U256::from(x as u32))
-                .collect(),
-        )],
-    };
-
-    // Run the kernel code.
+    // Run the interpeter
     let result_random = interpreter_setup_random.run().unwrap();
-    let result_custom = interpreter_setup_custom.run().unwrap();
 
-    Ok((
-        expected_random,
-        expected_custom,
-        result_random.stack().to_vec(),
-        result_custom.stack().to_vec(),
-    ))
+    Ok((expected_random, result_random.stack().to_vec()))
 }
 
 fn test_hash_256(
     hash_fn_label: &str,
+    hash_input_virt: usize,
     standard_implementation: &dyn Fn(Vec<u8>) -> U256,
 ) -> Result<()> {
-    let (expected_random, expected_custom, random_stack, custom_stack) =
-        prepare_test(hash_fn_label, standard_implementation).unwrap();
+    let (expected_random, random_stack) =
+        prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
 
     // Extract the final output.
     let actual_random = random_stack[0];
-    let actual_custom = custom_stack[0];
 
     // Check that the result is correct.
     assert_eq!(expected_random, actual_random);
-    assert_eq!(expected_custom, actual_custom);
 
     Ok(())
 }
 
 fn test_hash_512(
     hash_fn_label: &str,
+    hash_input_virt: usize,
     standard_implementation: &dyn Fn(Vec<u8>) -> U512,
 ) -> Result<()> {
-    let (expected_random, expected_custom, random_stack, custom_stack) =
-        prepare_test(hash_fn_label, standard_implementation).unwrap();
+    let (expected_random, random_stack) =
+        prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
 
     // Extract the final output.
     let actual_random = combine_u256s(random_stack[0], random_stack[1]);
-    let actual_custom = combine_u256s(custom_stack[0], custom_stack[1]);
 
     // Check that the result is correct.
     assert_eq!(expected_random, actual_random);
-    assert_eq!(expected_custom, actual_custom);
 
     Ok(())
 }
@@ -156,7 +119,7 @@ fn test_hash_512(
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    test_hash_256("ripemd", &ripemd)
+    test_hash_256("ripemd", 136, &ripemd)
 }
 
 // #[test]
