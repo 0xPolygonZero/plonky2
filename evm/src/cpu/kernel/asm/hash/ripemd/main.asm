@@ -6,13 +6,14 @@
 ///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer, padlength(len(input)), bytes =     [0x80]+[0]*63)
 ///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer,                     8, bytes = size(len(_input)))
 ///     return process(STATE)
-///
-/// ripemd is called on
-///     // stack: length
+/// 
+/// The hardcoded memory structure, where each register is only a byte, is given as follows
+///     { 0-63: buffer, 64-71: bytes(8*len(_input)), 72-135: [0x80]+[0]*63 }
 ///
 /// ripemd_update receives and return the stack in the form:
 ///     stack: STATE, count, length, virt
 /// where virt is the virtual address of the bytes argument
+///
 
 global ripemd:
     // stack:                               virt, length
@@ -52,7 +53,7 @@ global ripemd:
     %stack (virt, length) -> (        0, length, virt, ripemd_1, ripemd_2, process)
     // stack:                 count = 0, length, virt, ripemd_1, ripemd_2, process
     %stack () -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)
-    // stack:     0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
+    // stack:                                  STATE, count, length, virt, LABELS
     %jump(ripemd_update)
 
 ripemd_1:

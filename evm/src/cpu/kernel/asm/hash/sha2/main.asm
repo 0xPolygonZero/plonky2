@@ -1,16 +1,19 @@
 global sha2:
-    // stack: virt, length
-    POP
-    // stack:       length
-    %mstore_kernel_general(0)
+    // stack: virt, num_bytes, retdest
+    SWAP1
+    // stack: num_bytes, virt, retdest
+    DUP2
+    // stack: virt, num_bytes, virt, retdest
+    %mstore_kernel_general
+    // stack: virt, retdest
+    
 
-// Precodition: input is in memory, starting at 0 of kernel general segment, of the form
+// Precodition: input is in memory, starting at virt of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
 // Postcodition: output is in memory, starting at 0, of the form
 //               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
-    // stack: retdest
-    PUSH 0
+    // stack: virt, retdest
     %mload_kernel_general
     // stack: num_bytes, retdest
     // STEP 1: append 1

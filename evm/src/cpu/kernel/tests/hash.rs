@@ -41,18 +41,18 @@ fn make_random_input() -> Vec<u8> {
 fn make_interpreter_setup(
     message: Vec<u8>,
     hash_fn_label: &str,
-    hash_input_virt: usize,
+    hash_input_virt: (usize, usize),
 ) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
         label: hash_fn_label.to_string(),
         stack: vec![
-            U256::from(hash_input_virt),
+            U256::from(hash_input_virt.0),
             U256::from(message.len()),
             U256::from(0xdeadbeefu32),
         ],
         segment: KernelGeneral,
         memory: vec![(
-            hash_input_virt,
+            hash_input_virt.1,
             message.iter().map(|&x| U256::from(x as u32)).collect(),
         )],
     }
@@ -64,7 +64,7 @@ fn combine_u256s(hi: U256, lo: U256) -> U512 {
 
 fn prepare_test<T>(
     hash_fn_label: &str,
-    hash_input_virt: usize,
+    hash_input_virt: (usize, usize),
     standard_implementation: &dyn Fn(Vec<u8>) -> T,
 ) -> Result<(T, Vec<U256>)> {
     // Make the input.
@@ -84,7 +84,7 @@ fn prepare_test<T>(
 
 fn test_hash_256(
     hash_fn_label: &str,
-    hash_input_virt: usize,
+    hash_input_virt: (usize, usize),
     standard_implementation: &dyn Fn(Vec<u8>) -> U256,
 ) -> Result<()> {
     let (expected, result_stack) =
@@ -101,7 +101,7 @@ fn test_hash_256(
 
 fn test_hash_512(
     hash_fn_label: &str,
-    hash_input_virt: usize,
+    hash_input_virt: (usize, usize),
     standard_implementation: &dyn Fn(Vec<u8>) -> U512,
 ) -> Result<()> {
     let (expected, result_stack) =
@@ -118,15 +118,15 @@ fn test_hash_512(
 
 #[test]
 fn test_blake2b() -> Result<()> {
-    test_hash_512("blake2b", 2, &blake2b)
+    test_hash_512("blake2b", (0,2), &blake2b)
 }
 
 #[test]
 fn test_ripemd() -> Result<()> {
-    test_hash_256("ripemd", 200, &ripemd)
+    test_hash_256("ripemd", (200, 200), &ripemd)
 }
 
 #[test]
 fn test_sha2() -> Result<()> {
-    test_hash_256("sha2", 1, &sha2)
+    test_hash_256("sha2", (0, 1), &sha2)
 }
