@@ -8,63 +8,43 @@ use crate::bn254_arithmetic::{Fp, Fp12, Fp2, Fp6};
 use crate::bn254_pairing::{
     gen_fp12_sparse, invariant_exponent, miller_loop, tate, Curve, TwistedCurve,
 };
-use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::interpreter::Interpreter;
-use crate::memory::segments::Segment;
+use crate::cpu::kernel::interpreter::{
+    run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
+};
+use crate::memory::segments::Segment::BnPairing;
 use crate::witness::memory::MemoryAddress;
-
-struct InterpreterSetup {
-    label: String,
-    stack: Vec<U256>,
-    memory: Vec<(usize, Vec<U256>)>,
-}
-
-impl InterpreterSetup {
-    fn run(self) -> Result<Interpreter<'static>> {
-        let label = KERNEL.global_labels[&self.label];
-        let mut stack = self.stack;
-        stack.reverse();
-        let mut interpreter = Interpreter::new_with_kernel(label, stack);
-        for (pointer, data) in self.memory {
-            for (i, term) in data.iter().enumerate() {
-                interpreter.generation_state.memory.set(
-                    MemoryAddress::new(0, Segment::BnPairing, pointer + i),
-                    *term,
-                )
-            }
-        }
-        interpreter.run()?;
-        Ok(interpreter)
-    }
-}
 
 fn extract_kernel_memory(range: Range<usize>, interpreter: Interpreter<'static>) -> Vec<U256> {
     let mut output: Vec<U256> = vec![];
     for i in range {
-        let term =
-            interpreter
-                .generation_state
-                .memory
-                .get(MemoryAddress::new(0, Segment::BnPairing, i));
+        let term = interpreter
+            .generation_state
+            .memory
+            .get(MemoryAddress::new(0, BnPairing, i));
         output.push(term);
     }
     output
 }
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
-    let stack = interpreter.stack();
-    stack.iter().rev().cloned().collect::<Vec<U256>>()
+    interpreter
+        .stack()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<U256>>()
 }
 
-fn setup_mul_fp6_test(f: Fp6, g: Fp6, label: &str) -> InterpreterSetup {
+fn setup_mul_fp6_test(f: Fp6, g: Fp6, label: &str) -> InterpreterMemoryInitialization {
     let mut stack = f.on_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.on_stack());
     }
     stack.push(U256::from(0xdeadbeefu32));
-    InterpreterSetup {
+    InterpreterMemoryInitialization {
         label: label.to_string(),
         stack,
+        segment: BnPairing,
         memory: vec![],
     }
 }
@@ -75,11 +55,11 @@ fn test_mul_fp6() -> Result<()> {
     let f: Fp6 = rng.gen::<Fp6>();
     let g: Fp6 = rng.gen::<Fp6>();
 
-    let setup_normal: InterpreterSetup = setup_mul_fp6_test(f, g, "mul_fp254_6");
-    let setup_square: InterpreterSetup = setup_mul_fp6_test(f, f, "square_fp254_6");
+    let setup_normal: InterpreterMemoryInitialization = setup_mul_fp6_test(f, g, "mul_fp254_6");
+    let setup_square: InterpreterMemoryInitialization = setup_mul_fp6_test(f, f, "square_fp254_6");
 
-    let intrptr_normal: Interpreter = setup_normal.run().unwrap();
-    let intrptr_square: Interpreter = setup_square.run().unwrap();
+    let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
+    let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
 
     let out_normal: Vec<U256> = extract_stack(intrptr_normal);
     let out_square: Vec<U256> = extract_stack(intrptr_square);
@@ -93,7 +73,12 @@ fn test_mul_fp6() -> Result<()> {
     Ok(())
 }
 
-fn setup_mul_fp12_test(out: usize, f: Fp12, g: Fp12, label: &str) -> InterpreterSetup {
+fn setup_mul_fp12_test(
+    out: usize,
+    f: Fp12,
+    g: Fp12,
+    label: &str,
+) -> InterpreterMemoryInitialization {
     let in0: usize = 200;
     let in1: usize = 212;
 
@@ -106,9 +91,10 @@ fn setup_mul_fp12_test(out: usize, f: Fp12, g: Fp12, label: &str) -> Interpreter
     if label == "square_fp254_12" {
         stack.remove(0);
     }
-    InterpreterSetup {
+    InterpreterMemoryInitialization {
         label: label.to_string(),
         stack,
+        segment: BnPairing,
         memory: vec![(in0, f.on_stack()), (in1, g.on_stack())],
     }
 }
@@ -122,13 +108,16 @@ fn test_mul_fp12() -> Result<()> {
     let g: Fp12 = rng.gen::<Fp12>();
     let h: Fp12 = gen_fp12_sparse(&mut rng);
 
-    let setup_normal: InterpreterSetup = setup_mul_fp12_test(out, f, g, "mul_fp254_12");
-    let setup_sparse: InterpreterSetup = setup_mul_fp12_test(out, f, h, "mul_fp254_12_sparse");
-    let setup_square: InterpreterSetup = setup_mul_fp12_test(out, f, f, "square_fp254_12");
+    let setup_normal: InterpreterMemoryInitialization =
+        setup_mul_fp12_test(out, f, g, "mul_fp254_12");
+    let setup_sparse: InterpreterMemoryInitialization =
+        setup_mul_fp12_test(out, f, h, "mul_fp254_12_sparse");
+    let setup_square: InterpreterMemoryInitialization =
+        setup_mul_fp12_test(out, f, f, "square_fp254_12");
 
-    let intrptr_normal: Interpreter = setup_normal.run().unwrap();
-    let intrptr_sparse: Interpreter = setup_sparse.run().unwrap();
-    let intrptr_square: Interpreter = setup_square.run().unwrap();
+    let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
+    let intrptr_sparse: Interpreter = run_interpreter_with_memory(setup_sparse).unwrap();
+    let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
 
     let out_normal: Vec<U256> = extract_kernel_memory(out..out + 12, intrptr_normal);
     let out_sparse: Vec<U256> = extract_kernel_memory(out..out + 12, intrptr_sparse);
@@ -145,10 +134,11 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-fn setup_frob_fp6_test(f: Fp6, label: &str) -> InterpreterSetup {
-    InterpreterSetup {
+fn setup_frob_fp6_test(f: Fp6, label: &str) -> InterpreterMemoryInitialization {
+    InterpreterMemoryInitialization {
         label: label.to_string(),
         stack: f.on_stack(),
+        segment: BnPairing,
         memory: vec![],
     }
 }
@@ -162,9 +152,9 @@ fn test_frob_fp6() -> Result<()> {
     let setup_frob_2 = setup_frob_fp6_test(f, "test_frob_fp254_6_2");
     let setup_frob_3 = setup_frob_fp6_test(f, "test_frob_fp254_6_3");
 
-    let intrptr_frob_1: Interpreter = setup_frob_1.run().unwrap();
-    let intrptr_frob_2: Interpreter = setup_frob_2.run().unwrap();
-    let intrptr_frob_3: Interpreter = setup_frob_3.run().unwrap();
+    let intrptr_frob_1: Interpreter = run_interpreter_with_memory(setup_frob_1).unwrap();
+    let intrptr_frob_2: Interpreter = run_interpreter_with_memory(setup_frob_2).unwrap();
+    let intrptr_frob_3: Interpreter = run_interpreter_with_memory(setup_frob_3).unwrap();
 
     let out_frob_1: Vec<U256> = extract_stack(intrptr_frob_1);
     let out_frob_2: Vec<U256> = extract_stack(intrptr_frob_2);
@@ -181,10 +171,11 @@ fn test_frob_fp6() -> Result<()> {
     Ok(())
 }
 
-fn setup_frob_fp12_test(ptr: usize, f: Fp12, label: &str) -> InterpreterSetup {
-    InterpreterSetup {
+fn setup_frob_fp12_test(ptr: usize, f: Fp12, label: &str) -> InterpreterMemoryInitialization {
+    InterpreterMemoryInitialization {
         label: label.to_string(),
         stack: vec![U256::from(ptr)],
+        segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
     }
 }
@@ -201,10 +192,10 @@ fn test_frob_fp12() -> Result<()> {
     let setup_frob_3 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_3");
     let setup_frob_6 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_6");
 
-    let intrptr_frob_1: Interpreter = setup_frob_1.run().unwrap();
-    let intrptr_frob_2: Interpreter = setup_frob_2.run().unwrap();
-    let intrptr_frob_3: Interpreter = setup_frob_3.run().unwrap();
-    let intrptr_frob_6: Interpreter = setup_frob_6.run().unwrap();
+    let intrptr_frob_1: Interpreter = run_interpreter_with_memory(setup_frob_1).unwrap();
+    let intrptr_frob_2: Interpreter = run_interpreter_with_memory(setup_frob_2).unwrap();
+    let intrptr_frob_3: Interpreter = run_interpreter_with_memory(setup_frob_3).unwrap();
+    let intrptr_frob_6: Interpreter = run_interpreter_with_memory(setup_frob_6).unwrap();
 
     let out_frob_1: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_1);
     let out_frob_2: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_2);
@@ -231,12 +222,13 @@ fn test_inv_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
 
-    let setup = InterpreterSetup {
+    let setup = InterpreterMemoryInitialization {
         label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
+        segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
     };
-    let interpreter: Interpreter = setup.run().unwrap();
+    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = extract_kernel_memory(inv..inv + 12, interpreter);
     let expected: Vec<U256> = f.inv().on_stack();
 
@@ -252,13 +244,14 @@ fn test_invariant_exponent() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
 
-    let setup = InterpreterSetup {
+    let setup = InterpreterMemoryInitialization {
         label: "bn254_invariant_exponent".to_string(),
         stack: vec![U256::from(ptr), U256::from(0xdeadbeefu32)],
+        segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
     };
 
-    let interpreter: Interpreter = setup.run().unwrap();
+    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, interpreter);
     let expected: Vec<U256> = invariant_exponent(f).on_stack();
 
@@ -332,12 +325,13 @@ fn test_miller() -> Result<()> {
         TWISTED_GENERATOR.y.im.val,
     ];
 
-    let setup = InterpreterSetup {
+    let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        segment: BnPairing,
         memory: vec![(ptr, inputs)],
     };
-    let interpreter = setup.run().unwrap();
+    let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = extract_kernel_memory(out..out + 12, interpreter);
     let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
 
@@ -359,12 +353,13 @@ fn test_tate() -> Result<()> {
         TWISTED_GENERATOR.y.im.val,
     ];
 
-    let setup = InterpreterSetup {
+    let setup = InterpreterMemoryInitialization {
         label: "bn254_tate".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        segment: BnPairing,
         memory: vec![(ptr, inputs)],
     };
-    let interpreter = setup.run().unwrap();
+    let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = extract_kernel_memory(out..out + 12, interpreter);
     let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
 
