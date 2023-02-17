@@ -13,7 +13,7 @@ use plonky2_maybe_rayon::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
+use crate::lookup::{eval_lookups, eval_lookups_circuit};
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER,
     COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
@@ -143,10 +143,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         let height = trace_col_vecs[0].len();
         trace_col_vecs[COUNTER] = (0..height).map(|i| F::from_canonical_usize(i)).collect();
 
-        let (permuted_inputs, permuted_table) =
-            permuted_cols(&trace_col_vecs[RANGE_CHECK], &trace_col_vecs[COUNTER]);
-        trace_col_vecs[RANGE_CHECK_PERMUTED] = permuted_inputs;
-        trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
+        // let (permuted_inputs, permuted_table) =
+        //     permuted_cols(&trace_col_vecs[RANGE_CHECK], &trace_col_vecs[COUNTER]);
+        // trace_col_vecs[RANGE_CHECK_PERMUTED] = permuted_inputs;
+        // trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
     }
 
     /// This memory STARK orders rows by `(context, segment, virt, timestamp)`. To enforce the

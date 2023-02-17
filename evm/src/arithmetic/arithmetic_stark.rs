@@ -11,7 +11,7 @@ use plonky2::util::transpose;
 
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
+use crate::lookup::{eval_lookups, eval_lookups_circuit};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -41,11 +41,11 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         // For each column c in cols, generate the range-check
         // permutations and put them in the corresponding range-check
         // columns rc_c and rc_c+1.
-        for (c, rc_c) in columns::SHARED_COLS.zip(columns::RC_COLS.step_by(2)) {
-            let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[columns::RANGE_COUNTER]);
-            cols[rc_c].copy_from_slice(&col_perm);
-            cols[rc_c + 1].copy_from_slice(&table_perm);
-        }
+        // for (c, rc_c) in columns::SHARED_COLS.zip(columns::RC_COLS.step_by(2)) {
+        //     let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[columns::RANGE_COUNTER]);
+        //     cols[rc_c].copy_from_slice(&col_perm);
+        //     cols[rc_c + 1].copy_from_slice(&table_perm);
+        // }
     }
 
     #[allow(unused)]

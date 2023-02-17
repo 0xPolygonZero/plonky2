@@ -12,7 +12,7 @@ use plonky2_util::ceil_div_usize;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub(crate) struct Lookup {
+pub struct Lookup {
     columns: Vec<usize>,
     table_column: usize,
     frequencies_column: usize,
@@ -21,13 +21,13 @@ pub(crate) struct Lookup {
 /// Compute the helper columns for the lookup argument.
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
 /// we compute the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)` and `g = 1/(x+t)`.
-pub fn lookup_helper_columns<F: Field>(
+pub(crate) fn lookup_helper_columns<F: Field>(
     lookup: &Lookup,
     trace_poly_values: &[PolynomialValues<F>],
     challenge: F,
     degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(lookup.columns.len(), degree) + 2;
+    let num_helper_columns = ceil_div_usize(lookup.columns.len(), degree - 1) + 2;
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
     // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
@@ -35,14 +35,14 @@ pub fn lookup_helper_columns<F: Field>(
     // Not sure which approach is better.
     // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
     // taking `challenge` as an additional argument.
-    for mut col_inds in &lookup.columns.iter().chunks(degree) {
+    for mut col_inds in &lookup.columns.iter().chunks(degree - 1) {
         let first = *col_inds.next().unwrap();
         let mut column = trace_poly_values[first].values.clone();
         for x in column.iter_mut() {
             *x = challenge + *x;
         }
         let mut acc = F::batch_multiplicative_inverse(&column);
-        while let Some(&ind) = col_inds.next() {
+        for &ind in col_inds {
             let mut column = trace_poly_values[ind].values.clone();
             for x in column.iter_mut() {
                 *x = challenge + *x;
@@ -55,79 +55,108 @@ pub fn lookup_helper_columns<F: Field>(
         helper_columns.push(acc.into());
     }
 
-    let frequencies = &trace_poly_values[lookup.table_column].values.clone();
-    for x in frequencies.iter_mut() {
+    let mut table = trace_poly_values[lookup.table_column].values.clone();
+    for x in table.iter_mut() {
         *x = challenge + *x;
     }
-    helper_columns.push(F::batch_multiplicative_inverse(&frequencies).into());
+    helper_columns.push(F::batch_multiplicative_inverse(&table).into());
 
     let frequencies = &trace_poly_values[lookup.frequencies_column].values;
     let mut z = Vec::with_capacity(frequencies.len());
     z.push(F::ZERO);
     for i in 0..frequencies.len() - 1 {
-        let x = helper_columns[..num_helper_columns - 1]
+        let x = helper_columns[..num_helper_columns - 2]
             .iter()
             .map(|col| col.values[i])
             .sum::<F>()
-            - frequencies[i] * helper_columns[num_helper_columns - 1].values[i];
+            - frequencies[i] * helper_columns[num_helper_columns - 2].values[i];
         z.push(z[i] + x);
     }
     helper_columns.push(z.into());
 
+    // Constraints
+    for i in 0..frequencies.len() {
+        for j in 0..num_helper_columns - 2 {
+            let mut x = helper_columns[j].values[i];
+            let mut y = F::ZERO;
+            let fs: Vec<_> = ((degree - 1) * j..(degree - 1) * (j + 1))
+                .map(|k| trace_poly_values[lookup.columns[k]].values[i])
+                .collect();
+            for &f in &fs {
+                x *= challenge + f;
+                y += challenge + f;
+            }
+            assert_eq!(x, y);
+        }
+        let x = helper_columns[num_helper_columns - 2].values[i];
+        let x = x * (challenge + trace_poly_values[lookup.table_column].values[i]);
+        assert!(x.is_one());
+
+        let z = helper_columns[num_helper_columns - 1].values[i];
+        let next_z = helper_columns[num_helper_columns - 1].values[(i + 1) % frequencies.len()];
+        let y = helper_columns[..num_helper_columns - 2]
+            .iter()
+            .map(|col| col.values[i])
+            .sum::<F>()
+            - trace_poly_values[lookup.table_column].values[i]
+                * helper_columns[num_helper_columns - 2].values[i];
+        assert_eq!(next_z - z, y);
+    }
+
     helper_columns
 }
 
-// pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usize>(
-//     vars: StarkEvaluationVars<F, P, COLS>,
-//     yield_constr: &mut ConstraintConsumer<P>,
-//     col_permuted_input: usize,
-//     col_permuted_table: usize,
-// ) {
-//     let local_perm_input = vars.local_values[col_permuted_input];
-//     let next_perm_table = vars.next_values[col_permuted_table];
-//     let next_perm_input = vars.next_values[col_permuted_input];
-//
-//     // A "vertical" diff between the local and next permuted inputs.
-//     let diff_input_prev = next_perm_input - local_perm_input;
-//     // A "horizontal" diff between the next permuted input and permuted table value.
-//     let diff_input_table = next_perm_input - next_perm_table;
-//
-//     yield_constr.constraint(diff_input_prev * diff_input_table);
-//
-//     // This is actually constraining the first row, as per the spec, since `diff_input_table`
-//     // is a diff of the next row's values. In the context of `constraint_last_row`, the next
-//     // row is the first row.
-//     yield_constr.constraint_last_row(diff_input_table);
-// }
-//
-// pub(crate) fn eval_lookups_circuit<
-//     F: RichField + Extendable<D>,
-//     const D: usize,
-//     const COLS: usize,
-// >(
-//     builder: &mut CircuitBuilder<F, D>,
-//     vars: StarkEvaluationTargets<D, COLS>,
-//     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-//     col_permuted_input: usize,
-//     col_permuted_table: usize,
-// ) {
-//     let local_perm_input = vars.local_values[col_permuted_input];
-//     let next_perm_table = vars.next_values[col_permuted_table];
-//     let next_perm_input = vars.next_values[col_permuted_input];
-//
-//     // A "vertical" diff between the local and next permuted inputs.
-//     let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
-//     // A "horizontal" diff between the next permuted input and permuted table value.
-//     let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
-//
-//     let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
-//     yield_constr.constraint(builder, diff_product);
-//
-//     // This is actually constraining the first row, as per the spec, since `diff_input_table`
-//     // is a diff of the next row's values. In the context of `constraint_last_row`, the next
-//     // row is the first row.
-//     yield_constr.constraint_last_row(builder, diff_input_table);
-// }
+pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usize>(
+    vars: StarkEvaluationVars<F, P, COLS>,
+    yield_constr: &mut ConstraintConsumer<P>,
+    col_permuted_input: usize,
+    col_permuted_table: usize,
+) {
+    // let local_perm_input = vars.local_values[col_permuted_input];
+    // let next_perm_table = vars.next_values[col_permuted_table];
+    // let next_perm_input = vars.next_values[col_permuted_input];
+    //
+    // // A "vertical" diff between the local and next permuted inputs.
+    // let diff_input_prev = next_perm_input - local_perm_input;
+    // // A "horizontal" diff between the next permuted input and permuted table value.
+    // let diff_input_table = next_perm_input - next_perm_table;
+    //
+    // yield_constr.constraint(diff_input_prev * diff_input_table);
+    //
+    // // This is actually constraining the first row, as per the spec, since `diff_input_table`
+    // // is a diff of the next row's values. In the context of `constraint_last_row`, the next
+    // // row is the first row.
+    // yield_constr.constraint_last_row(diff_input_table);
+}
+
+pub(crate) fn eval_lookups_circuit<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    const COLS: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    vars: StarkEvaluationTargets<D, COLS>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    col_permuted_input: usize,
+    col_permuted_table: usize,
+) {
+    // let local_perm_input = vars.local_values[col_permuted_input];
+    // let next_perm_table = vars.next_values[col_permuted_table];
+    // let next_perm_input = vars.next_values[col_permuted_input];
+    //
+    // // A "vertical" diff between the local and next permuted inputs.
+    // let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
+    // // A "horizontal" diff between the next permuted input and permuted table value.
+    // let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
+    //
+    // let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
+    // yield_constr.constraint(builder, diff_product);
+    //
+    // // This is actually constraining the first row, as per the spec, since `diff_input_table`
+    // // is a diff of the next row's values. In the context of `constraint_last_row`, the next
+    // // row is the first row.
+    // yield_constr.constraint_last_row(builder, diff_input_table);
+}
 //
 // /// Given an input column and a table column, generate the permuted input and permuted table columns
 // /// used in the Halo2 permutation argument.
