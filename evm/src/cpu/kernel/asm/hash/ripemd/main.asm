@@ -22,21 +22,28 @@ global ripemd:
     // stack: length
     %shl_const(3)
     // stack: abcdefgh
-    %extract_and_store_byte(64)
-    // stack: abcdefg
-    %extract_and_store_byte(65)
-    // stack: abcdef
-    %extract_and_store_byte(66)
-    // stack: abcde
-    %extract_and_store_byte(67)
-    // stack: abcd
-    %extract_and_store_byte(68)
-    // stack: abc
-    %extract_and_store_byte(69)
-    // stack: ab
-    %extract_and_store_byte(70)
-    // stack: a
-    %mstore_kernel_general(71)
+    DUP1
+    %extract_and_store_byte(31, 64)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(30, 65)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(29, 66)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(28, 67)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(27, 68)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(26, 69)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(25, 70)
+    // stack: abcdefgh
+    %extract_and_store_byte(24, 71)
 
     // stack: 0x80
     %mstore_kernel_general(72)
@@ -113,19 +120,11 @@ process:
     SUB
 %endmacro
 
-
-%macro extract_and_store_byte(offset)
-    // stack: xsy
-    PUSH 0x100
-    DUP2
-    MOD
-    // stack: y, xsy
-    %stack (y, xsy) -> (xsy, y, 0x100, y)
-    // stack:           xsy, y, 0x100, y
-    SUB
-    DIV
-    SWAP1
-    // stack: y, xs
-    %mstore_kernel_general($offset)
+%macro extract_and_store_byte(byte, offset)
     // stack: xs
+    PUSH $byte
+    BYTE
+    // stack: xs[byte]
+    %mstore_kernel_general($offset)
+    // stack:
 %endmacro 
