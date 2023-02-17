@@ -299,8 +299,8 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
 
 #[test]
 fn test_miller() -> Result<()> {
-    let ptr: usize = 300;
-    let out: usize = 400;
+    let ptr: usize = 200;
+    let out: usize = 206;
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
         CURVE_GENERATOR.y.val,
