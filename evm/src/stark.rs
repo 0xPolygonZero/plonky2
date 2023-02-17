@@ -12,6 +12,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::lookup::Lookup;
 use crate::permutation::PermutationPair;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -234,5 +235,13 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             self.num_permutation_instances(config),
             self.permutation_batch_size(),
         )
+    }
+
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![]
+    }
+
+    fn uses_lookups(&self) -> bool {
+        !self.lookups().is_empty()
     }
 }

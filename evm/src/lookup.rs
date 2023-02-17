@@ -7,20 +7,74 @@ use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub(crate) struct Lookup {
     columns: Vec<usize>,
-    table: usize,
-    frequencies: usize,
+    table_column: usize,
+    frequencies_column: usize,
 }
 
 /// Compute the helper columns for the lookup argument.
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
 /// we compute the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)` and `g = 1/(x+t)`.
-pub fn lookup_helper_columns<F: Field>(lookup: &Lookup, trace_poly_values: &[PolynomialValues<F>]) {
+pub fn lookup_helper_columns<F: Field>(
+    lookup: &Lookup,
+    trace_poly_values: &[PolynomialValues<F>],
+    challenge: F,
+    degree: usize,
+) -> Vec<PolynomialValues<F>> {
+    let num_helper_columns = ceil_div_usize(lookup.columns.len(), degree) + 2;
+    let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
+
+    // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
+    // for every column, but that would require building a big vector of all the columns concatenated.
+    // Not sure which approach is better.
+    // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
+    // taking `challenge` as an additional argument.
+    for mut col_inds in &lookup.columns.iter().chunks(degree) {
+        let first = *col_inds.next().unwrap();
+        let mut column = trace_poly_values[first].values.clone();
+        for x in column.iter_mut() {
+            *x = challenge + *x;
+        }
+        let mut acc = F::batch_multiplicative_inverse(&column);
+        while let Some(&ind) = col_inds.next() {
+            let mut column = trace_poly_values[ind].values.clone();
+            for x in column.iter_mut() {
+                *x = challenge + *x;
+            }
+            column = F::batch_multiplicative_inverse(&column);
+            for (x, y) in acc.iter_mut().zip(column) {
+                *x += y;
+            }
+        }
+        helper_columns.push(acc.into());
+    }
+
+    let frequencies = &trace_poly_values[lookup.table_column].values.clone();
+    for x in frequencies.iter_mut() {
+        *x = challenge + *x;
+    }
+    helper_columns.push(F::batch_multiplicative_inverse(&frequencies).into());
+
+    let frequencies = &trace_poly_values[lookup.frequencies_column].values;
+    let mut z = Vec::with_capacity(frequencies.len());
+    z.push(F::ZERO);
+    for i in 0..frequencies.len() - 1 {
+        let x = helper_columns[..num_helper_columns - 1]
+            .iter()
+            .map(|col| col.values[i])
+            .sum::<F>()
+            - frequencies[i] * helper_columns[num_helper_columns - 1].values[i];
+        z.push(z[i] + x);
+    }
+    helper_columns.push(z.into());
+
+    helper_columns
 }
 
 // pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usize>(
