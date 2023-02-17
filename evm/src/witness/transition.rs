@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use log::log_enabled;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -257,8 +258,12 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 }
 
 fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+    // The logic below is a bit costly, so skip it if debug logs aren't enabled.
+    if !log_enabled!(log::Level::Debug) {
+        return;
+    }
+
     let pc = state.registers.program_counter;
-    // TODO: This is affecting performance...
     let is_interesting_offset = KERNEL
         .offset_label(pc)
         .filter(|label| !label.starts_with("halt_pc"))
