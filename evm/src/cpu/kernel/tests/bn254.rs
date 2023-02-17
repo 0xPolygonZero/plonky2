@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
@@ -12,19 +10,6 @@ use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::memory::segments::Segment::BnPairing;
-use crate::witness::memory::MemoryAddress;
-
-fn extract_kernel_memory(range: Range<usize>, interpreter: Interpreter<'static>) -> Vec<U256> {
-    let mut output: Vec<U256> = vec![];
-    for i in range {
-        let term = interpreter
-            .generation_state
-            .memory
-            .get(MemoryAddress::new(0, BnPairing, i));
-        output.push(term);
-    }
-    output
-}
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
     interpreter
@@ -119,9 +104,9 @@ fn test_mul_fp12() -> Result<()> {
     let intrptr_sparse: Interpreter = run_interpreter_with_memory(setup_sparse).unwrap();
     let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
 
-    let out_normal: Vec<U256> = extract_kernel_memory(out..out + 12, intrptr_normal);
-    let out_sparse: Vec<U256> = extract_kernel_memory(out..out + 12, intrptr_sparse);
-    let out_square: Vec<U256> = extract_kernel_memory(out..out + 12, intrptr_square);
+    let out_normal: Vec<U256> = intrptr_normal.extract_kernel_memory(BnPairing, out..out + 12);
+    let out_sparse: Vec<U256> = intrptr_sparse.extract_kernel_memory(BnPairing, out..out + 12);
+    let out_square: Vec<U256> = intrptr_square.extract_kernel_memory(BnPairing, out..out + 12);
 
     let exp_normal: Vec<U256> = (f * g).on_stack();
     let exp_sparse: Vec<U256> = (f * h).on_stack();
@@ -197,10 +182,10 @@ fn test_frob_fp12() -> Result<()> {
     let intrptr_frob_3: Interpreter = run_interpreter_with_memory(setup_frob_3).unwrap();
     let intrptr_frob_6: Interpreter = run_interpreter_with_memory(setup_frob_6).unwrap();
 
-    let out_frob_1: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_1);
-    let out_frob_2: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_2);
-    let out_frob_3: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_3);
-    let out_frob_6: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, intrptr_frob_6);
+    let out_frob_1: Vec<U256> = intrptr_frob_1.extract_kernel_memory(BnPairing, ptr..ptr + 12);
+    let out_frob_2: Vec<U256> = intrptr_frob_2.extract_kernel_memory(BnPairing, ptr..ptr + 12);
+    let out_frob_3: Vec<U256> = intrptr_frob_3.extract_kernel_memory(BnPairing, ptr..ptr + 12);
+    let out_frob_6: Vec<U256> = intrptr_frob_6.extract_kernel_memory(BnPairing, ptr..ptr + 12);
 
     let exp_frob_1: Vec<U256> = f.frob(1).on_stack();
     let exp_frob_2: Vec<U256> = f.frob(2).on_stack();
@@ -229,7 +214,7 @@ fn test_inv_fp12() -> Result<()> {
         memory: vec![(ptr, f.on_stack())],
     };
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = extract_kernel_memory(inv..inv + 12, interpreter);
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, inv..inv + 12);
     let expected: Vec<U256> = f.inv().on_stack();
 
     assert_eq!(output, expected);
@@ -252,7 +237,7 @@ fn test_invariant_exponent() -> Result<()> {
     };
 
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = extract_kernel_memory(ptr..ptr + 12, interpreter);
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
     let expected: Vec<U256> = invariant_exponent(f).on_stack();
 
     assert_eq!(output, expected);
@@ -332,7 +317,7 @@ fn test_miller() -> Result<()> {
         memory: vec![(ptr, inputs)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = extract_kernel_memory(out..out + 12, interpreter);
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
     let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
 
     assert_eq!(output, expected);
@@ -360,7 +345,7 @@ fn test_tate() -> Result<()> {
         memory: vec![(ptr, inputs)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = extract_kernel_memory(out..out + 12, interpreter);
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
     let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
 
     assert_eq!(output, expected);

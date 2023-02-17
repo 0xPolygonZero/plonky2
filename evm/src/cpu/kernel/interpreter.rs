@@ -1,6 +1,7 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
+use std::ops::Range;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
@@ -240,6 +241,18 @@ impl<'a> Interpreter<'a> {
     fn stack_mut(&mut self) -> &mut Vec<U256> {
         &mut self.generation_state.memory.contexts[self.context].segments[Segment::Stack as usize]
             .content
+    }
+
+    pub fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
+        let mut output: Vec<U256> = vec![];
+        for i in range {
+            let term = self
+                .generation_state
+                .memory
+                .get(MemoryAddress::new(0, segment, i));
+            output.push(term);
+        }
+        output
     }
 
     pub(crate) fn push(&mut self, x: U256) {
