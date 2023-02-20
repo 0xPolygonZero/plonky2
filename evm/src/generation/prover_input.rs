@@ -11,7 +11,8 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
-use crate::witness::util::{kernel_general_peek, stack_peek};
+use crate::memory::segments::Segment::BnPairing;
+use crate::witness::util::{kernel_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
 /// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
@@ -71,7 +72,7 @@ impl<F: Field> GenerationState<F> {
             Bn254Base => {
                 let mut f: [U256; 12] = [U256::zero(); 12];
                 for i in 0..12 {
-                    f[i] = kernel_general_peek(self, ptr + i);
+                    f[i] = kernel_peek(self, BnPairing, ptr + i);
                 }
                 f
             }
