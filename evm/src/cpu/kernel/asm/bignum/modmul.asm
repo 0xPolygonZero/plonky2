@@ -75,7 +75,6 @@ modmul_quotient_end:
     // stack: modmul_return_1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     %stack (return, len, a, b, m, out, s1, s2) -> (len, s1, m, s2, return, len, a, b, out, s2)
     // stack: length, scratch_1, m_start_loc, scratch_2, modmul_return_1, length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, retdest
-    STOP
     %jump(mul_bignum)
 modmul_return_1:
     // stack: length, a_start_loc, b_start_loc, output_loc, scratch_2, scratch_3, retdest
