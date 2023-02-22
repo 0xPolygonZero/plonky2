@@ -11,10 +11,7 @@ use crate::cross_table_lookup::{
     CtlCheckVarsTarget,
 };
 use crate::lookup::{eval_lookups_checks, Lookup, LookupCheckVars};
-use crate::permutation::{
-    eval_permutation_checks, eval_permutation_checks_circuit, PermutationCheckDataTarget,
-    PermutationCheckVars,
-};
+use crate::permutation::{eval_permutation_checks_circuit, PermutationCheckDataTarget};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 

@@ -245,7 +245,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.lookups()
             .iter()
             .map(|lookup| lookup.num_helper_columns(self.constraint_degree()))
-            .sum()
+            .sum::<usize>()
             * config.num_challenges
     }
 

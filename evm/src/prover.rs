@@ -31,10 +31,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::{
-    compute_permutation_z_polys, get_grand_product_challenge_set,
-    get_n_grand_product_challenge_sets, GrandProductChallengeSet, PermutationCheckVars,
-};
+use crate::permutation::get_grand_product_challenge_set;
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -438,7 +435,7 @@ where
 
     let proof = StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
-        permutation_ctl_zs_cap: auxiliary_polys_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
@@ -531,7 +528,7 @@ where
                 local_values: &get_trace_values_packed(i_start),
                 next_values: &get_trace_values_packed(i_next_start),
             };
-            let lookup_check_vars = lookup_challenges.map(|challenges| LookupCheckVars {
+            let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
                     [..num_lookup_columns]
                     .to_vec(),
@@ -556,8 +553,8 @@ where
                 stark,
                 config,
                 vars,
-                &lookups,
-                lookup_check_vars,
+                lookups,
+                lookup_vars,
                 &ctl_vars,
                 &mut consumer,
             );
@@ -590,12 +587,13 @@ where
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
+    auxiliary_commitment: &'a PolynomialBatch<F, C, D>,
+    lookup_challenges: Option<&'a Vec<F>>,
+    lookups: &[Lookup],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
-    num_permutation_zs: usize,
+    num_lookup_columns: usize,
     config: &StarkConfig,
 ) where
     F: RichField + Extendable<D>,
@@ -627,7 +625,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     };
 
     let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
-    let permutation_ctl_zs_subgroup_evals = get_subgroup_evals(permutation_ctl_zs_commitment);
+    let auxiliary_subgroup_evals = get_subgroup_evals(auxiliary_commitment);
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
@@ -651,21 +649,19 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 local_values: trace_subgroup_evals[i].as_slice().try_into().unwrap(),
                 next_values: trace_subgroup_evals[i_next].as_slice().try_into().unwrap(),
             };
-            let permutation_check_vars =
-                permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
-                    local_zs: permutation_ctl_zs_subgroup_evals[i][..num_permutation_zs].to_vec(),
-                    next_zs: permutation_ctl_zs_subgroup_evals[i_next][..num_permutation_zs]
-                        .to_vec(),
-                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                });
+            let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
+                local_values: auxiliary_subgroup_evals[i][..num_lookup_columns].to_vec(),
+                next_values: auxiliary_subgroup_evals[i_next][..num_lookup_columns].to_vec(),
+                challenges: challenges.to_vec(),
+            });
 
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
                 .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
-                    local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
-                    next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
+                    local_z: auxiliary_subgroup_evals[i][num_lookup_columns + iii],
+                    next_z: auxiliary_subgroup_evals[i_next][num_lookup_columns + iii],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
                     filter_column: &zs_columns.filter_column,
@@ -676,7 +672,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 config,
                 vars,
                 lookups,
-                permutation_check_vars,
+                lookup_vars,
                 &ctl_vars,
                 &mut consumer,
             );

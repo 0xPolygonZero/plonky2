@@ -578,7 +578,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
 
     witness.set_cap_target(
         &proof_target.permutation_ctl_zs_cap,
-        &proof.permutation_ctl_zs_cap,
+        &proof.auxiliary_polys_cap,
     );
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);

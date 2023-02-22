@@ -44,6 +44,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
+    pub(crate) fn num_lookups_helper_columns(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+        [
+            self.cpu_stark.num_lookup_helper_columns(config),
+            self.keccak_stark.num_lookup_helper_columns(config),
+            self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            self.logic_stark.num_lookup_helper_columns(config),
+            self.memory_stark.num_lookup_helper_columns(config),
+        ]
+    }
+
     pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         [
             self.cpu_stark.num_permutation_batches(config),

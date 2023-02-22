@@ -16,8 +16,8 @@ use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
+use crate::lookup::LookupCheckVars;
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::PermutationCheckVars;
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
@@ -150,10 +150,10 @@ where
         l_last,
     );
     let num_lookup_columns = stark.num_lookup_helper_columns(config);
-    let lookup_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: auxiliary_polys[..num_lookup_columns].to_vec(),
-        next_zs: auxiliary_polys_next[..num_lookup_columns].to_vec(),
-        permutation_challenge_sets: challenges.lookup_challenges.clone().unwrap(),
+    let lookup_data = stark.uses_permutation_args().then(|| LookupCheckVars {
+        local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
+        challenges: challenges.lookup_challenges.clone().unwrap(),
     });
     let lookups = stark.lookups();
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
@@ -187,7 +187,7 @@ where
 
     let merkle_caps = vec![
         proof.trace_cap.clone(),
-        proof.permutation_ctl_zs_cap.clone(),
+        proof.auxiliary_polys_cap.clone(),
         proof.quotient_polys_cap.clone(),
     ];
 
@@ -224,7 +224,7 @@ where
 {
     let StarkProof {
         trace_cap,
-        permutation_ctl_zs_cap,
+        auxiliary_polys_cap: permutation_ctl_zs_cap,
         quotient_polys_cap,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
