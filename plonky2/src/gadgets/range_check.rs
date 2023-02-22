@@ -7,6 +7,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
@@ -51,8 +52,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug)]
-struct LowHighGenerator {
+#[derive(Debug, Default)]
+pub(crate) struct LowHighGenerator {
     integer: Target,
     n_log: usize,
     low: Target,
@@ -60,6 +61,10 @@ struct LowHighGenerator {
 }
 
 impl<F: RichField> SimpleGenerator<F> for LowHighGenerator {
+    fn id(&self) -> String {
+        "LowHighGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }
@@ -71,5 +76,25 @@ impl<F: RichField> SimpleGenerator<F> for LowHighGenerator {
 
         out_buffer.set_target(self.low, F::from_canonical_u64(low));
         out_buffer.set_target(self.high, F::from_canonical_u64(high));
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_target(self.integer)?;
+        dst.write_usize(self.n_log)?;
+        dst.write_target(self.low)?;
+        dst.write_target(self.high)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let integer = src.read_target()?;
+        let n_log = src.read_usize()?;
+        let low = src.read_target()?;
+        let high = src.read_target()?;
+        Ok(Self {
+            integer,
+            n_log,
+            low,
+            high,
+        })
     }
 }

@@ -13,6 +13,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::log_floor;
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
@@ -79,13 +80,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug)]
-struct BaseSumGenerator<const B: usize> {
+#[derive(Debug, Default)]
+pub(crate) struct BaseSumGenerator<const B: usize> {
     row: usize,
     limbs: Vec<BoolTarget>,
 }
 
 impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
+    fn id(&self) -> String {
+        "BaseSumGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         self.limbs.iter().map(|b| b.target).collect()
     }
@@ -101,6 +106,17 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
             });
 
         out_buffer.set_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM), sum);
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.row)?;
+        dst.write_target_bool_vec(&self.limbs)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let row = src.read_usize()?;
+        let limbs = src.read_target_bool_vec()?;
+        Ok(Self { row, limbs })
     }
 }
 

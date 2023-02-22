@@ -1,8 +1,8 @@
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::any::Any;
 use core::fmt::{Debug, Error, Formatter};
 use core::hash::{Hash, Hasher};
 use core::ops::Range;
@@ -16,15 +16,22 @@ use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::WitnessGenerator;
+use crate::iop::generator::WitnessGeneratorRef;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
 };
+use crate::util::serialization::{Buffer, IoResult};
 
 /// A custom gate.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    where
+        Self: Sized;
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
 
@@ -162,7 +169,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     /// The generators used to populate the witness.
     /// Note: This should return exactly 1 generator per operation in the gate.
-    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>>;
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>>;
 
     /// The number of wires used by this gate.
     fn num_wires(&self) -> usize;
@@ -191,9 +198,19 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     }
 }
 
+pub trait AnyGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D> {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: Gate<F, D>, F: RichField + Extendable<D>, const D: usize> AnyGate<F, D> for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
-pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
+pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn AnyGate<F, D>>);
 
 impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
