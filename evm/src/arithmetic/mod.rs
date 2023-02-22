@@ -62,9 +62,9 @@ impl BinaryOperator {
             BinaryOperator::Mod => columns::IS_MOD,
             BinaryOperator::Lt => columns::IS_LT,
             BinaryOperator::Gt => columns::IS_GT,
-            BinaryOperator::AddFp254 => columns::IS_ADDMOD,
-            BinaryOperator::MulFp254 => columns::IS_MULMOD,
-            BinaryOperator::SubFp254 => columns::IS_SUBMOD,
+            BinaryOperator::AddFp254 => columns::IS_ADDFP254,
+            BinaryOperator::MulFp254 => columns::IS_MULFP254,
+            BinaryOperator::SubFp254 => columns::IS_SUBFP254,
         }
     }
 }
@@ -216,6 +216,7 @@ fn binary_op_to_rows<F: PrimeField64>(
     }
 }
 
+// TODO: This constant also exists in cpu/kernel/interpreter.rs; refactor.
 /// Order of the BN254 base field.
 const BN_BASE_ORDER: U256 = U256([
     4332616871279656263,

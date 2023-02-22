@@ -122,7 +122,13 @@ use super::columns;
 use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
+use crate::arithmetic::BN_BASE_ORDER;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+
+const BN254_MODULUS_LIMBS: [u16; N_LIMBS] = [
+    0xfd47, 0xd87c, 0x8c16, 0x3c20, 0xca8d, 0x6871, 0x6a91, 0x9781, 0x585d, 0x8181, 0x45b6, 0xb850,
+    0xa029, 0xe131, 0x4e72, 0x3064,
+];
 
 /// Convert the base-2^16 representation of a number into a BigInt.
 ///
@@ -305,10 +311,22 @@ pub(crate) fn generate<F: PrimeField64>(
     u256_to_array(&mut lv[MODULAR_INPUT_1], input1);
     u256_to_array(&mut lv[MODULAR_MODULUS], modulus);
 
+    if [
+        columns::IS_ADDFP254,
+        columns::IS_SUBFP254,
+        columns::IS_MULFP254,
+    ]
+    .contains(&filter)
+    {
+        debug_assert!(modulus == BN_BASE_ORDER);
+    }
+
     match filter {
-        columns::IS_ADDMOD => generate_modular_op(lv, nv, filter, pol_add),
-        columns::IS_SUBMOD => generate_modular_op(lv, nv, filter, pol_sub),
-        columns::IS_MULMOD => generate_modular_op(lv, nv, filter, pol_mul_wide),
+        columns::IS_ADDMOD | columns::IS_ADDFP254 => generate_modular_op(lv, nv, filter, pol_add),
+        columns::IS_SUBMOD | columns::IS_SUBFP254 => generate_modular_op(lv, nv, filter, pol_sub),
+        columns::IS_MULMOD | columns::IS_MULFP254 => {
+            generate_modular_op(lv, nv, filter, pol_mul_wide)
+        }
         columns::IS_MOD | columns::IS_DIV => {
             generate_modular_op(lv, nv, filter, |a, _| pol_extend(a))
         }
@@ -426,15 +444,25 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
 ) {
     // NB: The CTL code guarantees that filter is 0 or 1, i.e. that
     // only one of the operations below is "live".
+    let bn254_filter =
+        lv[columns::IS_ADDFP254] + lv[columns::IS_MULFP254] + lv[columns::IS_SUBFP254];
     let filter = lv[columns::IS_ADDMOD]
         + lv[columns::IS_SUBMOD]
         + lv[columns::IS_MULMOD]
         + lv[columns::IS_MOD]
-        + lv[columns::IS_DIV];
+        + lv[columns::IS_DIV]
+        + bn254_filter;
 
     // Ensure that this operation is not the last row of the table;
     // needed because we access the next row of the table in nv.
     yield_constr.constraint_last_row(filter);
+
+    // Verify that the modulus is the BN254 modulus for the
+    // {ADD,MUL,SUB}FP254 operations.
+    let modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
+    for (&mi, bi) in modulus.iter().zip(BN254_MODULUS_LIMBS) {
+        yield_constr.constraint_transition(bn254_filter * (mi - P::Scalar::from_canonical_u16(bi)));
+    }
 
     // constr_poly has 2*N_LIMBS limbs
     let constr_poly = modular_constr_poly(lv, nv, yield_constr, filter);
@@ -447,11 +475,16 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let mul_input = pol_mul_wide(input0, input1);
     let mod_input = pol_extend(input0);
 
+    let add_filter = lv[columns::IS_ADDMOD] + lv[columns::IS_ADDFP254];
+    let sub_filter = lv[columns::IS_SUBMOD] + lv[columns::IS_SUBFP254];
+    let mul_filter = lv[columns::IS_MULMOD] + lv[columns::IS_MULFP254];
+    let mod_filter = lv[columns::IS_MOD] + lv[columns::IS_DIV];
+
     for (input, &filter) in [
-        (&add_input, &lv[columns::IS_ADDMOD]),
-        (&sub_input, &lv[columns::IS_SUBMOD]),
-        (&mul_input, &lv[columns::IS_MULMOD]),
-        (&mod_input, &(lv[columns::IS_MOD] + lv[columns::IS_DIV])),
+        (&add_input, &add_filter),
+        (&sub_input, &sub_filter),
+        (&mul_input, &mul_filter),
+        (&mod_input, &mod_filter),
     ] {
         // Need constr_poly_copy to be the first argument to
         // pol_sub_assign, since it is the longer of the two
@@ -559,15 +592,34 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let bn254_filter = builder.add_many_extension([
+        lv[columns::IS_ADDFP254],
+        lv[columns::IS_MULFP254],
+        lv[columns::IS_SUBFP254],
+    ]);
     let filter = builder.add_many_extension([
         lv[columns::IS_ADDMOD],
         lv[columns::IS_SUBMOD],
         lv[columns::IS_MULMOD],
         lv[columns::IS_MOD],
         lv[columns::IS_DIV],
+        bn254_filter,
     ]);
 
     yield_constr.constraint_last_row(builder, filter);
+
+    let modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
+    for (&mi, bi) in modulus.iter().zip(BN254_MODULUS_LIMBS) {
+        // bn254_filter * (mi - bi)
+        let t = builder.arithmetic_extension(
+            F::ONE,
+            -F::from_canonical_u16(bi),
+            mi,
+            bn254_filter,
+            bn254_filter,
+        );
+        yield_constr.constraint_transition(builder, t);
+    }
 
     let constr_poly = modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter);
     let input0 = read_value(lv, MODULAR_INPUT_0);
@@ -578,12 +630,15 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let mul_input = pol_mul_wide_ext_circuit(builder, input0, input1);
     let mod_input = pol_extend_ext_circuit(builder, input0);
 
-    let mod_div_filter = builder.add_extension(lv[columns::IS_MOD], lv[columns::IS_DIV]);
+    let add_filter = builder.add_extension(lv[columns::IS_ADDMOD], lv[columns::IS_ADDFP254]);
+    let sub_filter = builder.add_extension(lv[columns::IS_SUBMOD], lv[columns::IS_SUBFP254]);
+    let mul_filter = builder.add_extension(lv[columns::IS_MULMOD], lv[columns::IS_MULFP254]);
+    let mod_filter = builder.add_extension(lv[columns::IS_MOD], lv[columns::IS_DIV]);
     for (input, &filter) in [
-        (&add_input, &lv[columns::IS_ADDMOD]),
-        (&sub_input, &lv[columns::IS_SUBMOD]),
-        (&mul_input, &lv[columns::IS_MULMOD]),
-        (&mod_input, &mod_div_filter),
+        (&add_input, &add_filter),
+        (&sub_input, &sub_filter),
+        (&mul_input, &mul_filter),
+        (&mod_input, &mod_filter),
     ] {
         let mut constr_poly_copy = constr_poly;
         pol_sub_assign_ext_circuit(builder, &mut constr_poly_copy, input);
@@ -603,9 +658,20 @@ mod tests {
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
+    use crate::arithmetic::BN_BASE_ORDER;
     use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
+    const MODULAR_OPS: [usize; 8] = [
+        IS_ADDMOD,
+        IS_SUBMOD,
+        IS_MULMOD,
+        IS_ADDFP254,
+        IS_SUBFP254,
+        IS_MULFP254,
+        IS_MOD,
+        IS_DIV,
+    ];
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
@@ -617,12 +683,10 @@ mod tests {
         let nv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
 
         // if `IS_ADDMOD == 0`, then the constraints should be met even
-        // if all values are garbage.
-        lv[IS_ADDMOD] = F::ZERO;
-        lv[IS_SUBMOD] = F::ZERO;
-        lv[IS_MULMOD] = F::ZERO;
-        lv[IS_MOD] = F::ZERO;
-        lv[IS_DIV] = F::ZERO;
+        // if all values are garbage (and similarly for the other operations).
+        for op in MODULAR_OPS {
+            lv[op] = F::ZERO;
+        }
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -642,7 +706,7 @@ mod tests {
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
 
-        for op_filter in [IS_ADDMOD, IS_DIV, IS_SUBMOD, IS_MOD, IS_MULMOD] {
+        for op_filter in MODULAR_OPS {
             for i in 0..N_RND_TESTS {
                 // set inputs to random values
                 let mut lv = [F::default(); NUM_ARITH_COLUMNS]
@@ -651,28 +715,30 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                lv[IS_ADDMOD] = F::ZERO;
-                lv[IS_SUBMOD] = F::ZERO;
-                lv[IS_MULMOD] = F::ZERO;
-                lv[IS_MOD] = F::ZERO;
-                lv[IS_DIV] = F::ZERO;
+                for op in MODULAR_OPS {
+                    lv[op] = F::ZERO;
+                }
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());
                 let input1 = U256::from(rng.gen::<[u8; 32]>());
 
-                let mut modulus_limbs = [0u8; 32];
-                // For the second half of the tests, set the top
-                // 16-start digits of the modulus to zero so it is
-                // much smaller than the inputs.
-                if i > N_RND_TESTS / 2 {
-                    // 1 <= start < N_LIMBS
-                    let start = (rng.gen::<usize>() % (modulus_limbs.len() - 1)) + 1;
-                    for mi in modulus_limbs.iter_mut().skip(start) {
-                        *mi = 0u8;
+                let modulus = if [IS_ADDFP254, IS_MULFP254, IS_SUBFP254].contains(&op_filter) {
+                    BN_BASE_ORDER
+                } else {
+                    let mut modulus_limbs = [0u8; 32];
+                    // For the second half of the tests, set the top
+                    // 16-start digits of the modulus to zero so it is
+                    // much smaller than the inputs.
+                    if i > N_RND_TESTS / 2 {
+                        // 1 <= start < N_LIMBS
+                        let start = (rng.gen::<usize>() % (modulus_limbs.len() - 1)) + 1;
+                        for mi in modulus_limbs.iter_mut().skip(start) {
+                            *mi = 0u8;
+                        }
                     }
-                }
-                let modulus = U256::from(modulus_limbs);
+                    U256::from(modulus_limbs)
+                };
 
                 generate(&mut lv, &mut nv, op_filter, input0, input1, modulus);
 
@@ -706,11 +772,9 @@ mod tests {
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
                 // Reset operation columns, then select one
-                lv[IS_ADDMOD] = F::ZERO;
-                lv[IS_SUBMOD] = F::ZERO;
-                lv[IS_MULMOD] = F::ZERO;
-                lv[IS_MOD] = F::ZERO;
-                lv[IS_DIV] = F::ZERO;
+                for op in MODULAR_OPS {
+                    lv[op] = F::ZERO;
+                }
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());

@@ -29,15 +29,27 @@ pub(crate) const IS_DIV: usize = IS_SUB + 1;
 pub(crate) const IS_MOD: usize = IS_DIV + 1;
 pub(crate) const IS_ADDMOD: usize = IS_MOD + 1;
 pub(crate) const IS_MULMOD: usize = IS_ADDMOD + 1;
-// pub(crate) const IS_ADDFP254: usize = IS_ADDMOD;
-// pub(crate) const IS_MULFP254: usize = IS_MULMOD;
-// pub(crate) const IS_SUBFP254: usize = IS_SUBMOD;
-pub(crate) const IS_SUBMOD: usize = IS_MULMOD + 1;
+pub(crate) const IS_ADDFP254: usize = IS_MULMOD + 1;
+pub(crate) const IS_MULFP254: usize = IS_ADDFP254 + 1;
+pub(crate) const IS_SUBFP254: usize = IS_MULFP254 + 1;
+pub(crate) const IS_SUBMOD: usize = IS_SUBFP254 + 1;
 pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
 pub(crate) const IS_GT: usize = IS_LT + 1;
 
-pub(crate) const ALL_OPERATIONS: [usize; 10] = [
-    IS_ADD, IS_MUL, IS_SUB, IS_DIV, IS_MOD, IS_ADDMOD, IS_MULMOD, IS_SUBMOD, IS_LT, IS_GT,
+pub(crate) const ALL_OPERATIONS: [usize; 13] = [
+    IS_ADD,
+    IS_MUL,
+    IS_SUB,
+    IS_DIV,
+    IS_MOD,
+    IS_ADDMOD,
+    IS_MULMOD,
+    IS_ADDFP254,
+    IS_MULFP254,
+    IS_SUBFP254,
+    IS_SUBMOD,
+    IS_LT,
+    IS_GT,
 ];
 
 pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
