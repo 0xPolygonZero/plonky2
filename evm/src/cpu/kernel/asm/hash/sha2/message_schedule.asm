@@ -55,9 +55,7 @@ gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr - 4, block[0] >> 32, block[1], retdest
     %decrement
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_from_block_0_end)
-    %jump(gen_message_schedule_from_block_0_loop)
+    %jumpi(gen_message_schedule_from_block_0_loop)
 gen_message_schedule_from_block_0_end:
     // stack: old counter=0, output_addr, block[0], block[1], retdest
     POP
@@ -185,9 +183,7 @@ gen_message_schedule_remaining_loop:
     %decrement
     // stack: counter - 1, output_addr + 4, block[0], block[1], retdest
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_remaining_end)
-    %jump(gen_message_schedule_remaining_loop)
+    %jumpi(gen_message_schedule_remaining_loop)
 gen_message_schedule_remaining_end:
     // stack: counter=0, output_addr, block[0], block[1], retdest
     %pop4
@@ -230,9 +226,7 @@ gen_all_message_schedules_loop_end:
     // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     DUP2
     // stack: counter - 1, cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
-    ISZERO
-    %jumpi(gen_all_message_schedules_end)
-    %jump(gen_all_message_schedules_loop)
+    %jumpi(gen_all_message_schedules_loop)
 gen_all_message_schedules_end:
     // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     %pop3

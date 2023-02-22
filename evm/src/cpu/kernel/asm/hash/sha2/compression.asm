@@ -180,9 +180,7 @@ compression_loop:
     // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, scratch_space_addr, message_schedule_addr new, (i+1)%64, retdest
     DUP12
     // stack: (i+1)%64, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks new, scratch_space_addr, message_schedule_addr new, (i+1)%64, retdest
-    ISZERO
-    %jumpi(compression_end_block)
-    %jump(compression_loop)
+    %jumpi(compression_loop)
 compression_end_block:
     // Add the initial values of the eight working variables (from the start of this block's compression) back into them.
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, retdest
