@@ -11,7 +11,7 @@ use plonky2::util::transpose;
 
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::lookup::{eval_lookups, eval_lookups_circuit};
+use crate::lookup::{eval_lookups_checks, eval_lookups_circuit};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -95,7 +95,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
     {
         // Range check all the columns
         for col in columns::RC_COLS.step_by(2) {
-            eval_lookups(vars, yield_constr, col, col + 1);
+            eval_lookups_checks(vars, yield_constr, col, col + 1);
         }
 
         let lv = vars.local_values;

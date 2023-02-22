@@ -10,6 +10,7 @@ use crate::cross_table_lookup::{
     eval_cross_table_lookup_checks, eval_cross_table_lookup_checks_circuit, CtlCheckVars,
     CtlCheckVarsTarget,
 };
+use crate::lookup::{eval_lookups_checks, Lookup, LookupCheckVars};
 use crate::permutation::{
     eval_permutation_checks, eval_permutation_checks_circuit, PermutationCheckDataTarget,
     PermutationCheckVars,
@@ -21,7 +22,8 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
-    permutation_vars: Option<PermutationCheckVars<F, FE, P, D2>>,
+    lookups: &[Lookup],
+    lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -32,14 +34,8 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
     S: Stark<F, D>,
 {
     stark.eval_packed_generic(vars, consumer);
-    if let Some(permutation_vars) = permutation_vars {
-        eval_permutation_checks::<F, FE, P, C, S, D, D2>(
-            stark,
-            config,
-            vars,
-            permutation_vars,
-            consumer,
-        );
+    if let Some(lookup_vars) = lookup_vars {
+        eval_lookups_checks::<F, FE, P, C, S, D, D2>(stark, lookups, vars, lookup_vars, consumer);
     }
     eval_cross_table_lookup_checks::<F, FE, P, C, S, D, D2>(vars, ctl_vars, consumer);
 }

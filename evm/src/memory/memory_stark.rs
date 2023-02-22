@@ -13,7 +13,7 @@ use plonky2_maybe_rayon::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::lookup::{eval_lookups, eval_lookups_circuit};
+use crate::lookup::{eval_lookups_checks, eval_lookups_circuit};
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER,
     COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
@@ -315,7 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
                 .constraint(next_is_read * address_unchanged * (next_values[i] - values[i]));
         }
 
-        eval_lookups(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
+        eval_lookups_checks(vars, yield_constr, RANGE_CHECK_PERMUTED, COUNTER_PERMUTED)
     }
 
     fn eval_ext_circuit(

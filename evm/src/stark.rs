@@ -241,6 +241,14 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         vec![]
     }
 
+    fn num_lookup_helper_columns(&self, config: &StarkConfig) -> usize {
+        self.lookups()
+            .iter()
+            .map(|lookup| lookup.num_helper_columns(self.constraint_degree()))
+            .sum()
+            * config.num_challenges
+    }
+
     fn uses_lookups(&self) -> bool {
         !self.lookups().is_empty()
     }

@@ -125,8 +125,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -149,17 +149,19 @@ where
         l_0,
         l_last,
     );
-    let num_permutation_zs = stark.num_permutation_batches(config);
-    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-        next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
+        local_zs: auxiliary_polys[..num_lookup_columns].to_vec(),
+        next_zs: auxiliary_polys_next[..num_lookup_columns].to_vec(),
+        permutation_challenge_sets: challenges.lookup_challenges.clone().unwrap(),
     });
+    let lookups = stark.lookups();
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
         stark,
         config,
         vars,
-        permutation_data,
+        &lookups,
+        lookup_data,
         ctl_vars,
         &mut consumer,
     );
@@ -233,8 +235,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys: permutation_ctl_zs,
+        auxiliary_polys_next: permutation_ctl_zs_next,
         ctl_zs_last,
         quotient_polys,
     } = openings;

@@ -1,10 +1,8 @@
-use std::cmp::Ordering;
-
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
-use plonky2::field::types::{Field, PrimeField64};
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
@@ -20,6 +18,14 @@ pub struct Lookup {
     frequencies_column: usize,
 }
 
+impl Lookup {
+    pub(crate) fn num_helper_columns(&self, constraint_degree: usize) -> usize {
+        // Split the lookup columns in batches of size `constraint_degree-1`,
+        // then 1 column of inverse of `table + challenge` and one for the `Z` polynomial.
+        ceil_div_usize(self.columns.len(), constraint_degree - 1) + 2
+    }
+}
+
 /// Compute the helper columns for the lookup argument.
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
 /// we compute the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)` and `g = 1/(x+t)`.
@@ -27,9 +33,9 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     lookup: &Lookup,
     trace_poly_values: &[PolynomialValues<F>],
     challenge: F,
-    degree: usize,
+    constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(lookup.columns.len(), degree - 1) + 2;
+    let num_helper_columns = lookup.num_helper_columns(constraint_degree);
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
     // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
@@ -37,7 +43,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     // Not sure which approach is better.
     // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
     // taking `challenge` as an additional argument.
-    for mut col_inds in &lookup.columns.iter().chunks(degree - 1) {
+    for mut col_inds in &lookup.columns.iter().chunks(constraint_degree - 1) {
         let first = *col_inds.next().unwrap();
         let mut column = trace_poly_values[first].values.clone();
         for x in column.iter_mut() {
@@ -81,7 +87,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
         for j in 0..num_helper_columns - 2 {
             let mut x = helper_columns[j].values[i];
             let mut y = F::ZERO;
-            let fs: Vec<_> = ((degree - 1) * j..(degree - 1) * (j + 1))
+            let fs: Vec<_> = ((constraint_degree - 1) * j..(constraint_degree - 1) * (j + 1))
                 .map(|k| trace_poly_values[lookup.columns[k]].values[i])
                 .collect();
             for &f in &fs {
@@ -116,15 +122,15 @@ where
 {
     pub(crate) local_values: Vec<P>,
     pub(crate) next_values: Vec<P>,
-    // pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<F>>,
+    pub(crate) challenges: Vec<F>,
 }
 
-pub(crate) fn eval_lookups<F, FE, P, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
+    lookups: &[Lookup],
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     lookup_vars: LookupCheckVars<F, FE, P, D2>,
     yield_constr: &mut ConstraintConsumer<P>,
-    challenge: FE,
 ) where
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
@@ -133,31 +139,36 @@ pub(crate) fn eval_lookups<F, FE, P, C, S, const D: usize, const D2: usize>(
     S: Stark<F, D>,
 {
     let degree = stark.constraint_degree();
-    let challenge = P::from(challenge);
-    for lookup in stark.lookups() {
-        let num_helper_columns = lookup_vars.local_values.len();
-        for j in 0..num_helper_columns - 2 {
-            let mut x = lookup_vars.local_values[j];
-            let mut y = P::ZEROS;
-            let fs = ((degree - 1) * j..(degree - 1) * (j + 1))
-                .map(|k| vars.local_values[lookup.columns[k]]);
-            for f in fs {
-                x *= challenge + f;
-                y += challenge + f;
+    let mut start = 0;
+    for lookup in lookups {
+        let num_helper_columns = lookup.num_helper_columns(degree);
+        for &challenge in &lookup_vars.challenges {
+            let challenge = FE::from_basefield(challenge);
+            for j in 0..num_helper_columns - 2 {
+                let mut x = lookup_vars.local_values[start + j];
+                let mut y = P::ZEROS;
+                let fs = ((degree - 1) * j..(degree - 1) * (j + 1))
+                    .map(|k| vars.local_values[lookup.columns[k]]);
+                for f in fs {
+                    x *= f + challenge;
+                    y += f + challenge;
+                }
+                yield_constr.constraint(x - y);
             }
-            yield_constr.constraint(x - y);
-        }
-        let x = lookup_vars.local_values[num_helper_columns - 2];
-        let x = x * (challenge + vars.local_values[lookup.table_column]);
-        yield_constr.constraint(x - P::ONES);
+            let x = lookup_vars.local_values[start + num_helper_columns - 2];
+            let x = x * (vars.local_values[lookup.table_column] + challenge);
+            yield_constr.constraint(x - P::ONES);
 
-        let z = lookup_vars.local_values[num_helper_columns - 1];
-        let next_z = lookup_vars.next_values[num_helper_columns - 1];
-        let y = lookup_vars.local_values[..num_helper_columns - 2]
-            .iter()
-            .fold(P::ZEROS, |acc, x| acc + *x);
-        -vars.local_values[lookup.table_column] * lookup_vars.local_values[num_helper_columns - 2];
-        yield_constr.constraint(next_z - z - y);
+            let z = lookup_vars.local_values[start + num_helper_columns - 1];
+            let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
+            let y = lookup_vars.local_values[start..start + num_helper_columns - 2]
+                .iter()
+                .fold(P::ZEROS, |acc, x| acc + *x);
+            -vars.local_values[lookup.table_column]
+                * lookup_vars.local_values[start + num_helper_columns - 2];
+            yield_constr.constraint(next_z - z - y);
+            start += num_helper_columns;
+        }
     }
 }
 
