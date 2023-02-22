@@ -1,15 +1,17 @@
 use std::cmp::Ordering;
 
 use itertools::Itertools;
-use plonky2::field::extension::Extendable;
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::config::GenericConfig;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct Lookup {
@@ -106,27 +108,57 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     helper_columns
 }
 
-pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usize>(
-    vars: StarkEvaluationVars<F, P, COLS>,
+pub struct LookupCheckVars<F, FE, P, const D2: usize>
+where
+    F: Field,
+    FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
+{
+    pub(crate) local_values: Vec<P>,
+    pub(crate) next_values: Vec<P>,
+    // pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<F>>,
+}
+
+pub(crate) fn eval_lookups<F, FE, P, C, S, const D: usize, const D2: usize>(
+    stark: &S,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
+    lookup_vars: LookupCheckVars<F, FE, P, D2>,
     yield_constr: &mut ConstraintConsumer<P>,
-    col_permuted_input: usize,
-    col_permuted_table: usize,
-) {
-    // let local_perm_input = vars.local_values[col_permuted_input];
-    // let next_perm_table = vars.next_values[col_permuted_table];
-    // let next_perm_input = vars.next_values[col_permuted_input];
-    //
-    // // A "vertical" diff between the local and next permuted inputs.
-    // let diff_input_prev = next_perm_input - local_perm_input;
-    // // A "horizontal" diff between the next permuted input and permuted table value.
-    // let diff_input_table = next_perm_input - next_perm_table;
-    //
-    // yield_constr.constraint(diff_input_prev * diff_input_table);
-    //
-    // // This is actually constraining the first row, as per the spec, since `diff_input_table`
-    // // is a diff of the next row's values. In the context of `constraint_last_row`, the next
-    // // row is the first row.
-    // yield_constr.constraint_last_row(diff_input_table);
+    challenge: FE,
+) where
+    F: RichField + Extendable<D>,
+    FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    let degree = stark.constraint_degree();
+    let challenge = P::from(challenge);
+    for lookup in stark.lookups() {
+        let num_helper_columns = lookup_vars.local_values.len();
+        for j in 0..num_helper_columns - 2 {
+            let mut x = lookup_vars.local_values[j];
+            let mut y = P::ZEROS;
+            let fs = ((degree - 1) * j..(degree - 1) * (j + 1))
+                .map(|k| vars.local_values[lookup.columns[k]]);
+            for f in fs {
+                x *= challenge + f;
+                y += challenge + f;
+            }
+            yield_constr.constraint(x - y);
+        }
+        let x = lookup_vars.local_values[num_helper_columns - 2];
+        let x = x * (challenge + vars.local_values[lookup.table_column]);
+        yield_constr.constraint(x - P::ONES);
+
+        let z = lookup_vars.local_values[num_helper_columns - 1];
+        let next_z = lookup_vars.next_values[num_helper_columns - 1];
+        let y = lookup_vars.local_values[..num_helper_columns - 2]
+            .iter()
+            .fold(P::ZEROS, |acc, x| acc + *x);
+        -vars.local_values[lookup.table_column] * lookup_vars.local_values[num_helper_columns - 2];
+        yield_constr.constraint(next_z - z - y);
+    }
 }
 
 pub(crate) fn eval_lookups_circuit<
