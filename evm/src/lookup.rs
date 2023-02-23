@@ -13,9 +13,9 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct Lookup {
-    columns: Vec<usize>,
-    table_column: usize,
-    frequencies_column: usize,
+    pub(crate) columns: Vec<usize>,
+    pub(crate) table_column: usize,
+    pub(crate) frequencies_column: usize,
 }
 
 impl Lookup {
@@ -35,6 +35,10 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     challenge: F,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
+    assert_eq!(
+        constraint_degree, 3,
+        "TODO: Allow other constraint degrees."
+    );
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
@@ -84,17 +88,26 @@ pub(crate) fn lookup_helper_columns<F: Field>(
 
     // Constraints
     for i in 0..frequencies.len() {
-        for j in 0..num_helper_columns - 2 {
+        for (j, chunk) in lookup.columns.chunks(constraint_degree - 1).enumerate() {
             let mut x = helper_columns[j].values[i];
             let mut y = F::ZERO;
-            let fs: Vec<_> = ((constraint_degree - 1) * j..(constraint_degree - 1) * (j + 1))
-                .map(|k| trace_poly_values[lookup.columns[k]].values[i])
+            let fs: Vec<_> = chunk
+                .iter()
+                .map(|&k| trace_poly_values[k].values[i])
                 .collect();
             for &f in &fs {
                 x *= challenge + f;
                 y += challenge + f;
             }
-            assert_eq!(x, y);
+            match chunk.len() {
+                2 => assert_eq!(
+                    x, y,
+                    "{} {} {:?} {:?} {} {} {} {}",
+                    i, j, chunk, fs, challenge, x, y, helper_columns[j].values[i]
+                ),
+                1 => assert_eq!(x, F::ONE),
+                _ => todo!("Allow other constraint degrees."),
+            }
         }
         let x = helper_columns[num_helper_columns - 2].values[i];
         let x = x * (challenge + trace_poly_values[lookup.table_column].values[i]);
@@ -106,9 +119,21 @@ pub(crate) fn lookup_helper_columns<F: Field>(
             .iter()
             .map(|col| col.values[i])
             .sum::<F>()
-            - trace_poly_values[lookup.table_column].values[i]
+            - trace_poly_values[lookup.frequencies_column].values[i]
                 * helper_columns[num_helper_columns - 2].values[i];
-        assert_eq!(next_z - z, y);
+        assert_eq!(
+            next_z - z,
+            y,
+            "{} {} {} {} {:?}",
+            i,
+            z,
+            y,
+            next_z,
+            helper_columns
+                .iter()
+                .map(|col| col.values[i])
+                .collect::<Vec<_>>()
+        );
     }
 
     helper_columns
@@ -139,21 +164,25 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
     S: Stark<F, D>,
 {
     let degree = stark.constraint_degree();
+    assert_eq!(degree, 3, "TODO: Allow other constraint degrees.");
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
             let challenge = FE::from_basefield(challenge);
-            for j in 0..num_helper_columns - 2 {
+            for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
                 let mut x = lookup_vars.local_values[start + j];
                 let mut y = P::ZEROS;
-                let fs = ((degree - 1) * j..(degree - 1) * (j + 1))
-                    .map(|k| vars.local_values[lookup.columns[k]]);
+                let fs = chunk.iter().map(|&k| vars.local_values[k]);
                 for f in fs {
                     x *= f + challenge;
                     y += f + challenge;
                 }
-                yield_constr.constraint(x - y);
+                match chunk.len() {
+                    2 => yield_constr.constraint(x - y),
+                    1 => yield_constr.constraint(x - P::ONES),
+                    _ => todo!("Allow other constraint degrees."),
+                }
             }
             let x = lookup_vars.local_values[start + num_helper_columns - 2];
             let x = x * (vars.local_values[lookup.table_column] + challenge);
@@ -163,9 +192,9 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
             let y = lookup_vars.local_values[start..start + num_helper_columns - 2]
                 .iter()
-                .fold(P::ZEROS, |acc, x| acc + *x);
-            -vars.local_values[lookup.table_column]
-                * lookup_vars.local_values[start + num_helper_columns - 2];
+                .fold(P::ZEROS, |acc, x| acc + *x)
+                - vars.local_values[lookup.frequencies_column]
+                    * lookup_vars.local_values[start + num_helper_columns - 2];
             yield_constr.constraint(next_z - z - y);
             start += num_helper_columns;
         }

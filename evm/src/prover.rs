@@ -334,19 +334,19 @@ where
     challenger.observe_cap(&auxiliary_polys_cap);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    // if cfg!(test) {
-    //     check_constraints(
-    //         stark,
-    //         trace_commitment,
-    //         &auxiliary_polys_commitment,
-    //         permutation_challenges.as_ref(),
-    //         ctl_data,
-    //         alphas.clone(),
-    //         degree_bits,
-    //         num_permutation_zs,
-    //         config,
-    //     );
-    // }
+    if cfg!(test) {
+        check_constraints(
+            stark,
+            trace_commitment,
+            &auxiliary_polys_commitment,
+            lookup_challenges.as_ref(),
+            &lookups,
+            ctl_data,
+            alphas.clone(),
+            degree_bits,
+            num_lookup_columns,
+        );
+    }
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
@@ -411,7 +411,7 @@ where
         &auxiliary_polys_commitment,
         &quotient_commitment,
         degree_bits,
-        stark.num_permutation_batches(config),
+        stark.num_lookup_helper_columns(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
@@ -551,7 +551,6 @@ where
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
                 stark,
-                config,
                 vars,
                 lookups,
                 lookup_vars,
@@ -594,7 +593,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
-    config: &StarkConfig,
 ) where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -669,7 +667,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, F, C, S, D, 1>(
                 stark,
-                config,
                 vars,
                 lookups,
                 lookup_vars,

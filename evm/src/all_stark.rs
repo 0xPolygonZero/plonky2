@@ -54,25 +54,25 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
         ]
     }
 
-    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        [
-            self.cpu_stark.num_permutation_batches(config),
-            self.keccak_stark.num_permutation_batches(config),
-            self.keccak_sponge_stark.num_permutation_batches(config),
-            self.logic_stark.num_permutation_batches(config),
-            self.memory_stark.num_permutation_batches(config),
-        ]
-    }
+    // pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+    //     [
+    //         self.cpu_stark.num_permutation_batches(config),
+    //         self.keccak_stark.num_permutation_batches(config),
+    //         self.keccak_sponge_stark.num_permutation_batches(config),
+    //         self.logic_stark.num_permutation_batches(config),
+    //         self.memory_stark.num_permutation_batches(config),
+    //     ]
+    // }
 
-    pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
-        [
-            self.cpu_stark.permutation_batch_size(),
-            self.keccak_stark.permutation_batch_size(),
-            self.keccak_sponge_stark.permutation_batch_size(),
-            self.logic_stark.permutation_batch_size(),
-            self.memory_stark.permutation_batch_size(),
-        ]
-    }
+    // pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
+    //     [
+    //         self.cpu_stark.permutation_batch_size(),
+    //         self.keccak_stark.permutation_batch_size(),
+    //         self.keccak_sponge_stark.permutation_batch_size(),
+    //         self.logic_stark.permutation_batch_size(),
+    //         self.memory_stark.permutation_batch_size(),
+    //     ]
+    // }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

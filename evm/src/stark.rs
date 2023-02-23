@@ -95,20 +95,18 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         };
         let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
 
-        let num_permutation_batches = self.num_permutation_batches(config);
-        let num_perutation_ctl_polys = num_permutation_batches + num_ctl_zs;
-        let permutation_ctl_oracle = FriOracleInfo {
-            num_polys: num_perutation_ctl_polys,
+        let num_lookup_columns = self.num_lookup_helper_columns(config);
+        let num_auxiliary_polys = num_lookup_columns + num_ctl_zs;
+        let auxiliary_oracle = FriOracleInfo {
+            num_polys: num_auxiliary_polys,
             blinding: false,
         };
-        let permutation_ctl_zs_info = FriPolynomialInfo::from_range(
-            PERMUTATION_CTL_ORACLE_INDEX,
-            0..num_perutation_ctl_polys,
-        );
+        let auxiliary_polys_info =
+            FriPolynomialInfo::from_range(PERMUTATION_CTL_ORACLE_INDEX, 0..num_auxiliary_polys);
 
         let ctl_zs_info = FriPolynomialInfo::from_range(
             PERMUTATION_CTL_ORACLE_INDEX,
-            num_permutation_batches..num_permutation_batches + num_ctl_zs,
+            num_lookup_columns..num_lookup_columns + num_ctl_zs,
         );
 
         let num_quotient_polys = self.num_quotient_polys(config);
@@ -123,21 +121,21 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta,
             polynomials: [
                 trace_info.clone(),
-                permutation_ctl_zs_info.clone(),
+                auxiliary_polys_info.clone(),
                 quotient_info,
             ]
             .concat(),
         };
         let zeta_next_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
-            polynomials: [trace_info, permutation_ctl_zs_info].concat(),
+            polynomials: [trace_info, auxiliary_polys_info].concat(), // TODO: only need to open the last column of the lookup argument.
         };
         let ctl_last_batch = FriBatchInfo {
             point: F::Extension::primitive_root_of_unity(degree_bits).inverse(),
             polynomials: ctl_zs_info,
         };
         FriInstanceInfo {
-            oracles: vec![trace_oracle, permutation_ctl_oracle, quotient_oracle],
+            oracles: vec![trace_oracle, auxiliary_oracle, quotient_oracle],
             batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
         }
     }

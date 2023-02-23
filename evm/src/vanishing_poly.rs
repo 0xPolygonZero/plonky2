@@ -17,7 +17,6 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
-    config: &StarkConfig,
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     lookups: &[Lookup],
     lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,

@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -9,9 +8,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 
+use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::lookup::{eval_lookups_checks, eval_lookups_circuit};
+use crate::lookup::Lookup;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -38,14 +38,13 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
         }
 
-        // For each column c in cols, generate the range-check
-        // permutations and put them in the corresponding range-check
-        // columns rc_c and rc_c+1.
-        // for (c, rc_c) in columns::SHARED_COLS.zip(columns::RC_COLS.step_by(2)) {
-        //     let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[columns::RANGE_COUNTER]);
-        //     cols[rc_c].copy_from_slice(&col_perm);
-        //     cols[rc_c + 1].copy_from_slice(&table_perm);
-        // }
+        // Generate the frequency column.
+        for col in SHARED_COLS {
+            for i in 0..n_rows {
+                let x = cols[col][i].to_canonical_u64() as usize;
+                cols[RC_FREQUENCIES][x] += F::ONE;
+            }
+        }
     }
 
     #[allow(unused)]
@@ -93,11 +92,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // Range check all the columns
-        for col in columns::RC_COLS.step_by(2) {
-            eval_lookups_checks(vars, yield_constr, col, col + 1);
-        }
-
         let lv = vars.local_values;
         let nv = vars.next_values;
 
@@ -123,11 +117,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        // Range check all the columns
-        for col in columns::RC_COLS.step_by(2) {
-            eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
-        }
-
         let lv = vars.local_values;
         let nv = vars.next_values;
 
@@ -152,17 +141,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
     }
 
     fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        const START: usize = columns::START_SHARED_COLS;
-        const END: usize = START + columns::NUM_SHARED_COLS;
-        let mut pairs = Vec::with_capacity(2 * columns::NUM_SHARED_COLS);
-        for (c, c_perm) in (START..END).zip_eq(columns::RC_COLS.step_by(2)) {
-            pairs.push(PermutationPair::singletons(c, c_perm));
-            pairs.push(PermutationPair::singletons(
-                c_perm + 1,
-                columns::RANGE_COUNTER,
-            ));
-        }
-        pairs
+        // const START: usize = columns::START_SHARED_COLS;
+        // const END: usize = START + columns::NUM_SHARED_COLS;
+        // let mut pairs = Vec::with_capacity(2 * columns::NUM_SHARED_COLS);
+        // for (c, c_perm) in (START..END).zip_eq(columns::RC_COLS.step_by(2)) {
+        //     pairs.push(PermutationPair::singletons(c, c_perm));
+        //     pairs.push(PermutationPair::singletons(
+        //         c_perm + 1,
+        //         columns::RANGE_COUNTER,
+        //     ));
+        // }
+        // pairs
+        vec![]
+    }
+
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: SHARED_COLS.collect(),
+            table_column: RANGE_COUNTER,
+            frequencies_column: RC_FREQUENCIES,
+        }]
     }
 }
 
