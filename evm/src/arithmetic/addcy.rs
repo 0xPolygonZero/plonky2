@@ -44,7 +44,7 @@ pub(crate) fn generate<F: PrimeField64>(
     right_in: U256,
 ) {
     // Swap left_in and right_in for LT
-    let (left_in, right_in) = if filter == IS_LT {
+    let (left_in, right_in) = if filter == IS_LT || filter == IS_SUB {
         (right_in, left_in)
     } else {
         (left_in, right_in)
@@ -264,7 +264,7 @@ mod tests {
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
-    fn generate_eval_consistency_not_addcc() {
+    fn generate_eval_consistency_not_addcy() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -291,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_addcc() {
+    fn generate_eval_consistency_addcy() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -327,6 +327,31 @@ mod tests {
                 eval_packed_generic(&lv, &mut constrant_consumer);
                 for &acc in &constrant_consumer.constraint_accs {
                     assert_eq!(acc, F::ZERO);
+                }
+
+                let expected = match op_filter {
+                    IS_ADD => left_in.overflowing_add(right_in).0,
+                    IS_SUB => left_in.overflowing_sub(right_in).0,
+                    IS_LT => U256::from((left_in < right_in) as u8),
+                    IS_GT => U256::from((left_in > right_in) as u8),
+                    _ => panic!("unrecognised operation"),
+                };
+
+                let mut expected_limbs = [F::ZERO; N_LIMBS];
+                u256_to_array(&mut expected_limbs, expected);
+                if op_filter == IS_ADD {
+                    assert!(expected_limbs
+                        .iter()
+                        .zip(&lv[GENERAL_REGISTER_2])
+                        .all(|(x, y)| x == y));
+                } else if op_filter == IS_SUB {
+                    assert!(expected_limbs
+                        .iter()
+                        .zip(&lv[GENERAL_REGISTER_1])
+                        .all(|(x, y)| x == y));
+                } else {
+                    assert!(expected_limbs[0] == lv[GENERAL_REGISTER_BIT]);
+                    assert!(expected_limbs[1..].iter().all(|&x| x == F::ZERO));
                 }
             }
         }
