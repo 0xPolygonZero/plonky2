@@ -17,12 +17,100 @@ use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    Column::singles(columns::ALL_OPERATIONS).collect_vec()
+const ADD_MUL_OPS: [usize; 2] = [columns::IS_ADD, columns::IS_MUL];
+
+pub fn ctl_data_add_mul<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = Column::singles(ADD_MUL_OPS).collect_vec();
+    for reg_cols in [
+        columns::GENERAL_REGISTER_0,
+        columns::GENERAL_REGISTER_1,
+        columns::GENERAL_REGISTER_2,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum(columns::ALL_OPERATIONS)
+pub fn ctl_filter_add_mul<F: Field>() -> Column<F> {
+    Column::sum(ADD_MUL_OPS)
+}
+
+pub fn ctl_data_sub<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = vec![Column::single(columns::IS_SUB)];
+    for reg_cols in [
+        columns::GENERAL_REGISTER_2,
+        columns::GENERAL_REGISTER_0,
+        columns::GENERAL_REGISTER_1,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_filter_sub<F: Field>() -> Column<F> {
+    Column::single(columns::IS_SUB)
+}
+
+pub fn ctl_data_lt<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = vec![Column::single(columns::IS_LT)];
+    for reg_cols in [columns::GENERAL_REGISTER_2, columns::GENERAL_REGISTER_0] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    // Output is 0 or 1 and contained in column GENERAL_REGISTER_BIT,
+    // but the result is a U256, so all the other columns must be
+    // zero.
+    res.push(Column::single(columns::GENERAL_REGISTER_BIT));
+    for _ in 1..(columns::N_LIMBS / 2) {
+        res.push(Column::zero());
+    }
+    res
+}
+
+pub fn ctl_filter_lt<F: Field>() -> Column<F> {
+    Column::single(columns::IS_LT)
+}
+
+pub fn ctl_data_gt<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = vec![Column::single(columns::IS_GT)];
+    for reg_cols in [columns::GENERAL_REGISTER_0, columns::GENERAL_REGISTER_2] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    // Output is 0 or 1 and contained in column GENERAL_REGISTER_BIT,
+    // but the result is a U256, so all the other columns must be
+    // zero.
+    res.push(Column::single(columns::GENERAL_REGISTER_BIT));
+    for _ in 1..(columns::N_LIMBS / 2) {
+        res.push(Column::zero());
+    }
+    res
+}
+
+pub fn ctl_filter_gt<F: Field>() -> Column<F> {
+    Column::single(columns::IS_GT)
 }
 
 #[derive(Copy, Clone, Default)]
