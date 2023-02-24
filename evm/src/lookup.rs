@@ -8,7 +8,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::GenericConfig;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -111,7 +110,7 @@ where
 }
 
 /// Constraints for the logUp lookup argument.
-pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_lookups_checks<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     lookups: &[Lookup],
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
@@ -121,7 +120,6 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
-    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
     let degree = stark.constraint_degree();
