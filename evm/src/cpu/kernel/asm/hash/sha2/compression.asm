@@ -35,6 +35,8 @@ global sha2_compression:
     SWAP1
     // stack: num_blocks, scratch_space_addr, message_schedule_addr, i=0, a[0]..h[0], retdest
 compression_start_block:
+    // We keep the current values of the working variables saved at the end of the stack.
+    // These are the "initial values" to be added back in at the end of this block.
     // stack: num_blocks, scratch_space_addr, message_schedule_addr, i=0, a[0]..h[0], retdest
     %rep 8
         DUP12
@@ -183,17 +185,13 @@ compression_end_block:
     // stack: num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], retdest
     %jump(compression_start_block)
 compression_end:
-    // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
-    POP
-    // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
+    // stack: num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], retdest
+    %pop4
+    // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], retdest
     %rep 7
         %shl_const(32)
         ADD // OR
     %endrep
-    // stack: concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), scratch_space_addr, message_schedule_addr, i, retdest
-    SWAP3
-    // stack: i, scratch_space_addr, message_schedule_addr, concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
-    %pop3
     // stack: sha2_result = concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
     SWAP1
     JUMP
