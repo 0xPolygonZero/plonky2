@@ -150,7 +150,7 @@ where
         l_last,
     );
     let num_lookup_columns = stark.num_lookup_helper_columns(config);
-    let lookup_data = stark.uses_lookups().then(|| LookupCheckVars {
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
         local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
         next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
         challenges: challenges.lookup_challenges.clone().unwrap(),
@@ -160,7 +160,7 @@ where
         stark,
         vars,
         &lookups,
-        lookup_data,
+        lookup_vars,
         ctl_vars,
         &mut consumer,
     );

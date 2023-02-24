@@ -24,14 +24,15 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
+use crate::cross_table_lookup::{
+    cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
+};
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::get_grand_product_challenge_set;
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;

@@ -20,7 +20,6 @@ use crate::memory::columns::{
     VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
-use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryOpKind::Read;
@@ -450,14 +449,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
     fn constraint_degree(&self) -> usize {
         3
-    }
-
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        // vec![
-        //     PermutationPair::singletons(RANGE_CHECK, RANGE_CHECK_PERMUTED),
-        //     PermutationPair::singletons(COUNTER, COUNTER_PERMUTED),
-        // ]
-        vec![]
     }
 
     fn lookups(&self) -> Vec<Lookup> {

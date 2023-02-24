@@ -4,14 +4,15 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
 
-use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{
     eval_cross_table_lookup_checks, eval_cross_table_lookup_checks_circuit, CtlCheckVars,
     CtlCheckVarsTarget,
 };
-use crate::lookup::{eval_lookups_checks, Lookup, LookupCheckVars};
-use crate::permutation::{eval_permutation_checks_circuit, PermutationCheckDataTarget};
+use crate::lookup::{
+    eval_lookups_checks, eval_lookups_checks_circuit, Lookup, LookupCheckVars,
+    LookupCheckVarsTarget,
+};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -39,9 +40,8 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
 pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
-    config: &StarkConfig,
     vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
-    permutation_data: Option<PermutationCheckDataTarget<D>>,
+    lookup_vars: Option<LookupCheckVarsTarget<D>>,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
@@ -51,15 +51,8 @@ pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
     [(); S::COLUMNS]:,
 {
     stark.eval_ext_circuit(builder, vars, consumer);
-    if let Some(permutation_data) = permutation_data {
-        eval_permutation_checks_circuit::<F, S, D>(
-            builder,
-            stark,
-            config,
-            vars,
-            permutation_data,
-            consumer,
-        );
+    if let Some(lookup_vars) = lookup_vars {
+        eval_lookups_checks_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
     }
     eval_cross_table_lookup_checks_circuit::<S, F, D>(builder, vars, ctl_vars, consumer);
 }

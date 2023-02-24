@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::fmt::Debug;
 use std::iter::repeat;
 
 use anyhow::{ensure, Result};
@@ -8,15 +9,16 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 
 use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::permutation::{GrandProductChallenge, GrandProductChallengeSet};
 use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
@@ -215,6 +217,93 @@ impl<F: Field> CtlData<F> {
             .map(|zs_columns| zs_columns.z.clone())
             .collect()
     }
+}
+
+/// Randomness for a single instance of a permutation check protocol.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub(crate) struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
+    /// Randomness used to combine multiple columns into one.
+    pub(crate) beta: T,
+    /// Random offset that's added to the beta-reduced column values.
+    pub(crate) gamma: T,
+}
+
+impl<F: Field> GrandProductChallenge<F> {
+    pub(crate) fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(
+        &self,
+        terms: T,
+    ) -> P
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+        T::IntoIter: DoubleEndedIterator,
+    {
+        reduce_with_powers(terms, FE::from_basefield(self.beta)) + FE::from_basefield(self.gamma)
+    }
+}
+
+impl GrandProductChallenge<Target> {
+    pub(crate) fn combine_circuit<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        terms: &[ExtensionTarget<D>],
+    ) -> ExtensionTarget<D> {
+        let reduced = reduce_with_powers_ext_circuit(builder, terms, self.beta);
+        let gamma = builder.convert_to_ext(self.gamma);
+        builder.add_extension(reduced, gamma)
+    }
+}
+
+/// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
+    pub(crate) challenges: Vec<GrandProductChallenge<T>>,
+}
+
+fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
+    challenger: &mut Challenger<F, H>,
+) -> GrandProductChallenge<F> {
+    let beta = challenger.get_challenge();
+    let gamma = challenger.get_challenge();
+    GrandProductChallenge { beta, gamma }
+}
+
+pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
+    challenger: &mut Challenger<F, H>,
+    num_challenges: usize,
+) -> GrandProductChallengeSet<F> {
+    let challenges = (0..num_challenges)
+        .map(|_| get_grand_product_challenge(challenger))
+        .collect();
+    GrandProductChallengeSet { challenges }
+}
+
+fn get_grand_product_challenge_target<
+    F: RichField + Extendable<D>,
+    H: AlgebraicHasher<F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
+) -> GrandProductChallenge<Target> {
+    let beta = challenger.get_challenge(builder);
+    let gamma = challenger.get_challenge(builder);
+    GrandProductChallenge { beta, gamma }
+}
+
+pub(crate) fn get_grand_product_challenge_set_target<
+    F: RichField + Extendable<D>,
+    H: AlgebraicHasher<F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
+    num_challenges: usize,
+) -> GrandProductChallengeSet<Target> {
+    let challenges = (0..num_challenges)
+        .map(|_| get_grand_product_challenge_target(builder, challenger))
+        .collect();
+    GrandProductChallengeSet { challenges }
 }
 
 pub(crate) fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
@@ -429,15 +518,15 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
         proof: &StarkProofTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
-        num_permutation_zs: usize,
+        num_lookup_columns: usize,
     ) -> Vec<Self> {
         let mut ctl_zs = {
             let openings = &proof.openings;
-            let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_permutation_zs);
+            let ctl_zs = openings.auxiliary_polys.iter().skip(num_lookup_columns);
             let ctl_zs_next = openings
-                .permutation_ctl_zs_next
+                .auxiliary_polys_next
                 .iter()
-                .skip(num_permutation_zs);
+                .skip(num_lookup_columns);
             ctl_zs.zip(ctl_zs_next)
         };
 

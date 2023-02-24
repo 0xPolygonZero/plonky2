@@ -7,9 +7,7 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::permutation::{
-    get_grand_product_challenge_set, get_n_grand_product_challenge_sets_target,
-};
+use crate::cross_table_lookup::get_grand_product_challenge_set;
 use crate::proof::*;
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
@@ -139,15 +137,14 @@ impl<const D: usize> StarkProofTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
-        stark_use_permutation: bool,
-        stark_permutation_batch_size: usize,
+        stark_use_lookup: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
         let StarkProofTarget {
-            permutation_ctl_zs_cap,
+            auxiliary_polys,
             quotient_polys_cap,
             openings,
             opening_proof:
@@ -162,16 +159,10 @@ impl<const D: usize> StarkProofTarget<D> {
 
         let num_challenges = config.num_challenges;
 
-        let permutation_challenge_sets = stark_use_permutation.then(|| {
-            get_n_grand_product_challenge_sets_target(
-                builder,
-                challenger,
-                num_challenges,
-                stark_permutation_batch_size,
-            )
-        });
+        let lookup_challenges =
+            stark_use_lookup.then(|| challenger.get_n_challenges(builder, num_challenges));
 
-        challenger.observe_cap(permutation_ctl_zs_cap);
+        challenger.observe_cap(auxiliary_polys);
 
         let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
@@ -181,7 +172,7 @@ impl<const D: usize> StarkProofTarget<D> {
         challenger.observe_openings(&openings.to_fri_openings(builder.zero()));
 
         StarkProofChallengesTarget {
-            permutation_challenge_sets,
+            lookup_challenges,
             stark_alphas,
             stark_zeta,
             fri_challenges: challenger.fri_challenges::<C>(

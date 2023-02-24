@@ -12,7 +12,6 @@ use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::lookup::Lookup;
-use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -138,21 +137,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
     fn constraint_degree(&self) -> usize {
         3
-    }
-
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        // const START: usize = columns::START_SHARED_COLS;
-        // const END: usize = START + columns::NUM_SHARED_COLS;
-        // let mut pairs = Vec::with_capacity(2 * columns::NUM_SHARED_COLS);
-        // for (c, c_perm) in (START..END).zip_eq(columns::RC_COLS.step_by(2)) {
-        //     pairs.push(PermutationPair::singletons(c, c_perm));
-        //     pairs.push(PermutationPair::singletons(
-        //         c_perm + 1,
-        //         columns::RANGE_COUNTER,
-        //     ));
-        // }
-        // pairs
-        vec![]
     }
 
     fn lookups(&self) -> Vec<Lookup> {

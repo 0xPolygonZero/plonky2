@@ -613,10 +613,9 @@ mod tests {
     use tiny_keccak::keccakf;
 
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData};
+    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallenge};
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::permutation::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 

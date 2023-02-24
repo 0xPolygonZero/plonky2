@@ -4,6 +4,8 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
 use plonky2_util::ceil_div_usize;
@@ -201,95 +203,72 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
     }
 }
 
-pub(crate) fn eval_lookups_circuit<
+pub struct LookupCheckVarsTarget<const D: usize> {
+    pub(crate) local_values: Vec<ExtensionTarget<D>>,
+    pub(crate) next_values: Vec<ExtensionTarget<D>>,
+    pub(crate) challenges: Vec<Target>,
+}
+
+pub(crate) fn eval_lookups_checks_circuit<
     F: RichField + Extendable<D>,
+    S: Stark<F, D>,
     const D: usize,
-    const COLS: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, COLS>,
+    stark: &S,
+    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
+    lookup_vars: LookupCheckVarsTarget<D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    col_permuted_input: usize,
-    col_permuted_table: usize,
 ) {
-    // let local_perm_input = vars.local_values[col_permuted_input];
-    // let next_perm_table = vars.next_values[col_permuted_table];
-    // let next_perm_input = vars.next_values[col_permuted_input];
-    //
-    // // A "vertical" diff between the local and next permuted inputs.
-    // let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
-    // // A "horizontal" diff between the next permuted input and permuted table value.
-    // let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
-    //
-    // let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
-    // yield_constr.constraint(builder, diff_product);
-    //
-    // // This is actually constraining the first row, as per the spec, since `diff_input_table`
-    // // is a diff of the next row's values. In the context of `constraint_last_row`, the next
-    // // row is the first row.
-    // yield_constr.constraint_last_row(builder, diff_input_table);
+    let one = builder.one_extension();
+    let degree = stark.constraint_degree();
+    let lookups = stark.lookups();
+    assert_eq!(degree, 3, "TODO: Allow other constraint degrees.");
+    let mut start = 0;
+    for lookup in lookups {
+        let num_helper_columns = lookup.num_helper_columns(degree);
+        for &challenge in &lookup_vars.challenges {
+            let challenge = builder.convert_to_ext(challenge);
+            for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
+                let mut x = lookup_vars.local_values[start + j];
+                let mut y = builder.zero_extension();
+                let fs = chunk.iter().map(|&k| vars.local_values[k]);
+                for f in fs {
+                    let tmp = builder.add_extension(f, challenge);
+                    x = builder.mul_extension(x, tmp);
+                    y = builder.add_extension(y, tmp);
+                }
+                match chunk.len() {
+                    2 => {
+                        let tmp = builder.sub_extension(x, y);
+                        yield_constr.constraint(builder, tmp)
+                    }
+                    1 => {
+                        let tmp = builder.sub_extension(x, one);
+                        yield_constr.constraint(builder, tmp)
+                    }
+                    _ => todo!("Allow other constraint degrees."),
+                }
+            }
+            let x = lookup_vars.local_values[start + num_helper_columns - 2];
+            let tmp = builder.add_extension(vars.local_values[lookup.table_column], challenge);
+            let x = builder.mul_sub_extension(x, tmp, one);
+            yield_constr.constraint(builder, x);
+
+            let z = lookup_vars.local_values[start + num_helper_columns - 1];
+            let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
+            let y = builder.add_many_extension(
+                &lookup_vars.local_values[start..start + num_helper_columns - 2],
+            );
+            let tmp = builder.mul_extension(
+                vars.local_values[lookup.frequencies_column],
+                lookup_vars.local_values[start + num_helper_columns - 2],
+            );
+            let y = builder.sub_extension(y, tmp);
+            let constraint = builder.sub_extension(next_z, z);
+            let constraint = builder.sub_extension(constraint, y);
+            yield_constr.constraint(builder, constraint);
+            start += num_helper_columns;
+        }
+    }
 }
-//
-// /// Given an input column and a table column, generate the permuted input and permuted table columns
-// /// used in the Halo2 permutation argument.
-// pub fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
-//     let n = inputs.len();
-//
-//     // The permuted inputs do not have to be ordered, but we found that sorting was faster than
-//     // hash-based grouping. We also sort the table, as this helps us identify "unused" table
-//     // elements efficiently.
-//
-//     // To compare elements, e.g. for sorting, we first need them in canonical form. It would be
-//     // wasteful to canonicalize in each comparison, as a single element may be involved in many
-//     // comparisons. So we will canonicalize once upfront, then use `to_noncanonical_u64` when
-//     // comparing elements.
-//
-//     let sorted_inputs = inputs
-//         .iter()
-//         .map(|x| x.to_canonical())
-//         .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
-//         .collect_vec();
-//     let sorted_table = table
-//         .iter()
-//         .map(|x| x.to_canonical())
-//         .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
-//         .collect_vec();
-//
-//     let mut unused_table_inds = Vec::with_capacity(n);
-//     let mut unused_table_vals = Vec::with_capacity(n);
-//     let mut permuted_table = vec![F::ZERO; n];
-//     let mut i = 0;
-//     let mut j = 0;
-//     while (j < n) && (i < n) {
-//         let input_val = sorted_inputs[i].to_noncanonical_u64();
-//         let table_val = sorted_table[j].to_noncanonical_u64();
-//         match input_val.cmp(&table_val) {
-//             Ordering::Greater => {
-//                 unused_table_vals.push(sorted_table[j]);
-//                 j += 1;
-//             }
-//             Ordering::Less => {
-//                 if let Some(x) = unused_table_vals.pop() {
-//                     permuted_table[i] = x;
-//                 } else {
-//                     unused_table_inds.push(i);
-//                 }
-//                 i += 1;
-//             }
-//             Ordering::Equal => {
-//                 permuted_table[i] = sorted_table[j];
-//                 i += 1;
-//                 j += 1;
-//             }
-//         }
-//     }
-//
-//     unused_table_vals.extend_from_slice(&sorted_table[j..n]);
-//     unused_table_inds.extend(i..n);
-//
-//     for (ind, val) in unused_table_inds.into_iter().zip_eq(unused_table_vals) {
-//         permuted_table[ind] = val;
-//     }
-//
-//     (sorted_inputs, permuted_table)
-// }

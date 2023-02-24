@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
-use crate::permutation::GrandProductChallengeSet;
+use crate::cross_table_lookup::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
@@ -140,7 +140,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
-    pub permutation_ctl_zs_cap: MerkleCapTarget,
+    pub auxiliary_polys: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: StarkOpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
@@ -172,7 +172,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
-    pub permutation_challenge_sets: Option<Vec<GrandProductChallengeSet<Target>>>,
+    pub lookup_challenges: Option<Vec<Target>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,
@@ -269,8 +269,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
-    pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
-    pub permutation_ctl_zs_next: Vec<ExtensionTarget<D>>,
+    pub auxiliary_polys: Vec<ExtensionTarget<D>>,
+    pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
     pub ctl_zs_last: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
@@ -281,7 +281,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             values: self
                 .local_values
                 .iter()
-                .chain(&self.permutation_ctl_zs)
+                .chain(&self.auxiliary_polys)
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -290,7 +290,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             values: self
                 .next_values
                 .iter()
-                .chain(&self.permutation_ctl_zs_next)
+                .chain(&self.auxiliary_polys_next)
                 .copied()
                 .collect_vec(),
         };

@@ -25,11 +25,11 @@ use plonky2_util::log2_ceil;
 use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
-use crate::cross_table_lookup::{verify_cross_table_lookups, CrossTableLookup, CtlCheckVarsTarget};
-use crate::permutation::{
-    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
-    PermutationCheckDataTarget,
+use crate::cross_table_lookup::{
+    get_grand_product_challenge_set, verify_cross_table_lookups, CrossTableLookup,
+    CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
 };
+use crate::lookup::LookupCheckVarsTarget;
 use crate::proof::{
     BlockMetadata, BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget,
     StarkProof, StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
@@ -247,8 +247,7 @@ where
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let zero_target = builder.zero();
 
-    let num_permutation_zs = stark.num_permutation_batches(inner_config);
-    let num_permutation_batch_size = stark.permutation_batch_size();
+    let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
     let num_ctl_zs =
         CrossTableLookup::num_ctl_zs(cross_table_lookups, table, inner_config.num_challenges);
     let proof_target =
@@ -276,7 +275,7 @@ where
         &proof_target,
         cross_table_lookups,
         &ctl_challenges_target,
-        num_permutation_zs,
+        num_lookup_columns,
     );
 
     let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
@@ -285,8 +284,7 @@ where
     let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
-        num_permutation_zs > 0,
-        num_permutation_batch_size,
+        num_lookup_columns > 0,
         inner_config,
     );
     let challenger_state = challenger.compact(&mut builder);
@@ -354,8 +352,8 @@ fn verify_stark_proof_with_challenges_circuit<
     let StarkOpeningSetTarget {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -381,14 +379,12 @@ fn verify_stark_proof_with_challenges_circuit<
         l_last,
     );
 
-    let num_permutation_zs = stark.num_permutation_batches(inner_config);
-    let permutation_data = stark
-        .uses_permutation_args()
-        .then(|| PermutationCheckDataTarget {
-            local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-            next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
-            permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
-        });
+    let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
+        local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
+        challenges: challenges.lookup_challenges.clone().unwrap(),
+    });
 
     with_context!(
         builder,
@@ -396,9 +392,8 @@ fn verify_stark_proof_with_challenges_circuit<
         eval_vanishing_poly_circuit::<F, C, S, D>(
             builder,
             stark,
-            inner_config,
             vars,
-            permutation_data,
+            lookup_vars,
             ctl_vars,
             &mut consumer,
         )
@@ -418,7 +413,7 @@ fn verify_stark_proof_with_challenges_circuit<
 
     let merkle_caps = vec![
         proof.trace_cap.clone(),
-        proof.permutation_ctl_zs_cap.clone(),
+        proof.auxiliary_polys.clone(),
         proof.quotient_polys_cap.clone(),
     ];
 
@@ -523,7 +518,7 @@ pub(crate) fn add_virtual_stark_proof<
 
     let num_leaves_per_oracle = vec![
         S::COLUMNS,
-        stark.num_permutation_batches(config) + num_ctl_zs,
+        stark.num_lookup_helper_columns(config) + num_ctl_zs,
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
@@ -531,7 +526,7 @@ pub(crate) fn add_virtual_stark_proof<
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
-        permutation_ctl_zs_cap: permutation_zs_cap,
+        auxiliary_polys: permutation_zs_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
         openings: add_virtual_stark_opening_set::<F, S, D>(builder, stark, num_ctl_zs, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
@@ -548,10 +543,10 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        permutation_ctl_zs: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
-        permutation_ctl_zs_next: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
+        auxiliary_polys: builder
+            .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
+        auxiliary_polys_next: builder
+            .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
         ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
@@ -576,10 +571,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
         &proof.openings.to_fri_openings(),
     );
 
-    witness.set_cap_target(
-        &proof_target.permutation_ctl_zs_cap,
-        &proof.auxiliary_polys_cap,
-    );
+    witness.set_cap_target(&proof_target.auxiliary_polys, &proof.auxiliary_polys_cap);
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
