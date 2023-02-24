@@ -37,7 +37,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
         }
 
-        // Generate the frequency column.
+        // Generate the frequencies column.
         for col in SHARED_COLS {
             for i in 0..n_rows {
                 let x = cols[col][i].to_canonical_u64() as usize;
