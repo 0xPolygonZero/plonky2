@@ -277,21 +277,25 @@ where
         .uses_lookups()
         .then(|| challenger.get_n_challenges(config.num_challenges));
     let lookups = stark.lookups();
-    let lookup_helper_columns = lookup_challenges.as_ref().map(|challenges| {
-        let mut columns = Vec::new();
-        let degree = stark.constraint_degree();
-        for lookup in &lookups {
-            for &challenge in challenges {
-                columns.extend(lookup_helper_columns(
-                    lookup,
-                    trace_poly_values,
-                    challenge,
-                    degree,
-                ));
+    let lookup_helper_columns = timed!(
+        timing,
+        "compute lookup helper columns",
+        lookup_challenges.as_ref().map(|challenges| {
+            let mut columns = Vec::new();
+            let degree = stark.constraint_degree();
+            for lookup in &lookups {
+                for &challenge in challenges {
+                    columns.extend(lookup_helper_columns(
+                        lookup,
+                        trace_poly_values,
+                        challenge,
+                        degree,
+                    ));
+                }
             }
-        }
-        columns
-    });
+            columns
+        })
+    );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
 
     let auxiliary_polys = match lookup_helper_columns {

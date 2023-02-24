@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use plonky2::field::batch_util::batch_add_inplace;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -15,22 +16,27 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct Lookup {
+    /// Columns whose values should be contained in the lookup table.
     pub(crate) columns: Vec<usize>,
+    /// Column containing the lookup table.
     pub(crate) table_column: usize,
+    /// Column containing the frequencies of `columns` in `table_column`.
     pub(crate) frequencies_column: usize,
 }
 
 impl Lookup {
     pub(crate) fn num_helper_columns(&self, constraint_degree: usize) -> usize {
-        // Split the lookup columns in batches of size `constraint_degree-1`,
-        // then 1 column of inverse of `table + challenge` and one for the `Z` polynomial.
+        // One helper column for each column batch of size `constraint_degree-1`,
+        // then 1 column for the inverse of `table + challenge` and one for the `Z` polynomial.
         ceil_div_usize(self.columns.len(), constraint_degree - 1) + 2
     }
 }
 
+/// logUp protocol from https://ia.cr/2022/1530 (TODO link to newer version?)
 /// Compute the helper columns for the lookup argument.
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
-/// we compute the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)` and `g = 1/(x+t)`.
+/// this computes the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)`, `g = 1/(x+t)`,
+/// and `Z(gx) = Z(x) + sum h_i(x) - m(x)g(x)` where `m` is the frequencies column.
 pub(crate) fn lookup_helper_columns<F: Field>(
     lookup: &Lookup,
     trace_poly_values: &[PolynomialValues<F>],
@@ -44,13 +50,15 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
+    // For each batch of `constraint_degree-1` columns `fi`, compute `sum 1/(f_i+challenge)` and
+    // add it to the helper columns.
     // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
     // for every column, but that would require building a big vector of all the columns concatenated.
     // Not sure which approach is better.
-    // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
-    // taking `challenge` as an additional argument.
     for mut col_inds in &lookup.columns.iter().chunks(constraint_degree - 1) {
         let first = *col_inds.next().unwrap();
+        // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
+        // taking `challenge` as an additional argument.
         let mut column = trace_poly_values[first].values.clone();
         for x in column.iter_mut() {
             *x = challenge + *x;
@@ -62,19 +70,19 @@ pub(crate) fn lookup_helper_columns<F: Field>(
                 *x = challenge + *x;
             }
             column = F::batch_multiplicative_inverse(&column);
-            for (x, y) in acc.iter_mut().zip(column) {
-                *x += y;
-            }
+            batch_add_inplace(&mut acc, &column);
         }
         helper_columns.push(acc.into());
     }
 
+    // Add `1/(table+challenge)` to the helper columns.
     let mut table = trace_poly_values[lookup.table_column].values.clone();
     for x in table.iter_mut() {
         *x = challenge + *x;
     }
     helper_columns.push(F::batch_multiplicative_inverse(&table).into());
 
+    // Compute the `Z` polynomial with `Z(1)=0` and `Z(gx) = Z(x) + sum h_i(x) - frequencies(x)g(x)`.
     let frequencies = &trace_poly_values[lookup.frequencies_column].values;
     let mut z = Vec::with_capacity(frequencies.len());
     z.push(F::ZERO);
@@ -87,56 +95,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
         z.push(z[i] + x);
     }
     helper_columns.push(z.into());
-
-    // Constraints
-    for i in 0..frequencies.len() {
-        for (j, chunk) in lookup.columns.chunks(constraint_degree - 1).enumerate() {
-            let mut x = helper_columns[j].values[i];
-            let mut y = F::ZERO;
-            let fs: Vec<_> = chunk
-                .iter()
-                .map(|&k| trace_poly_values[k].values[i])
-                .collect();
-            for &f in &fs {
-                x *= challenge + f;
-                y += challenge + f;
-            }
-            match chunk.len() {
-                2 => assert_eq!(
-                    x, y,
-                    "{} {} {:?} {:?} {} {} {} {}",
-                    i, j, chunk, fs, challenge, x, y, helper_columns[j].values[i]
-                ),
-                1 => assert_eq!(x, F::ONE),
-                _ => todo!("Allow other constraint degrees."),
-            }
-        }
-        let x = helper_columns[num_helper_columns - 2].values[i];
-        let x = x * (challenge + trace_poly_values[lookup.table_column].values[i]);
-        assert!(x.is_one());
-
-        let z = helper_columns[num_helper_columns - 1].values[i];
-        let next_z = helper_columns[num_helper_columns - 1].values[(i + 1) % frequencies.len()];
-        let y = helper_columns[..num_helper_columns - 2]
-            .iter()
-            .map(|col| col.values[i])
-            .sum::<F>()
-            - trace_poly_values[lookup.frequencies_column].values[i]
-                * helper_columns[num_helper_columns - 2].values[i];
-        assert_eq!(
-            next_z - z,
-            y,
-            "{} {} {} {} {:?}",
-            i,
-            z,
-            y,
-            next_z,
-            helper_columns
-                .iter()
-                .map(|col| col.values[i])
-                .collect::<Vec<_>>()
-        );
-    }
 
     helper_columns
 }
@@ -152,6 +110,7 @@ where
     pub(crate) challenges: Vec<F>,
 }
 
+/// Constraints for the logUp lookup argument.
 pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     lookups: &[Lookup],
@@ -172,6 +131,8 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
             let challenge = FE::from_basefield(challenge);
+            // For each chunk, check that `h_i f_2i f_2i+1 = f_2i + f_2i+1` if the chunk has length 2
+            // or if it has length 1, check that `h_i * f = 1`.
             for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
                 let mut x = lookup_vars.local_values[start + j];
                 let mut y = P::ZEROS;
@@ -186,10 +147,12 @@ pub(crate) fn eval_lookups_checks<F, FE, P, C, S, const D: usize, const D2: usiz
                     _ => todo!("Allow other constraint degrees."),
                 }
             }
+            // Check that the penultimate helper column contains `1/(table+challenge)`.
             let x = lookup_vars.local_values[start + num_helper_columns - 2];
             let x = x * (vars.local_values[lookup.table_column] + challenge);
             yield_constr.constraint(x - P::ONES);
 
+            // Check the `Z` polynomial.
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
             let y = lookup_vars.local_values[start..start + num_helper_columns - 2]
