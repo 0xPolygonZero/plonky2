@@ -14,7 +14,10 @@ use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
-    fn from_slice(slice: &[C::F], common_data: &CommonCircuitData<C::F, D>) -> Result<Self>
+    pub(crate) fn from_slice(
+        slice: &[C::F],
+        common_data: &CommonCircuitData<C::F, D>,
+    ) -> Result<Self>
     where
         C::Hasher: AlgebraicHasher<C::F>,
     {
@@ -40,7 +43,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
 }
 
 impl VerifierCircuitTarget {
-    fn from_slice<F: RichField + Extendable<D>, const D: usize>(
+    pub(crate) fn from_slice<F: RichField + Extendable<D>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self> {
