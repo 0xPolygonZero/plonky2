@@ -144,7 +144,7 @@ impl<const D: usize> StarkProofTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         let StarkProofTarget {
-            auxiliary_polys,
+            auxiliary_polys_cap: auxiliary_polys,
             quotient_polys_cap,
             openings,
             opening_proof:

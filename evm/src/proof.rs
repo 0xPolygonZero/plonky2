@@ -100,7 +100,7 @@ pub struct BlockMetadataTarget {
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of permutation Z values.
+    /// Merkle cap of LDEs of lookup helper and CTL columns.
     pub auxiliary_polys_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
@@ -140,7 +140,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
-    pub auxiliary_polys: MerkleCapTarget,
+    pub auxiliary_polys_cap: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: StarkOpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,

@@ -31,7 +31,7 @@ pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 pub(crate) const RANGE_CHECK: usize = VIRTUAL_FIRST_CHANGE + NUM_CHANNELS;
 // The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
-// Helper columns for the permutation argument used to enforce the range check.
+// The frequencies column used in logUp.
 pub(crate) const FREQUENCIES: usize = COUNTER + 1;
 
 pub(crate) const NUM_COLUMNS: usize = FREQUENCIES + 1;

@@ -292,21 +292,6 @@ where
         }
         columns
     });
-    // // Permutation arguments.
-    // let permutation_challenges = stark.uses_permutation_args().then(|| {
-    //     get_n_grand_product_challenge_sets(
-    //         challenger,
-    //         config.num_challenges,
-    //         stark.permutation_batch_size(),
-    //     )
-    // });
-    // let permutation_zs = permutation_challenges.as_ref().map(|challenges| {
-    //     timed!(
-    //         timing,
-    //         "compute permutation Z(x) polys",
-    //         compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
-    //     )
-    // });
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
 
     let auxiliary_polys = match lookup_helper_columns {

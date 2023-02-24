@@ -413,7 +413,7 @@ fn verify_stark_proof_with_challenges_circuit<
 
     let merkle_caps = vec![
         proof.trace_cap.clone(),
-        proof.auxiliary_polys.clone(),
+        proof.auxiliary_polys_cap.clone(),
         proof.quotient_polys_cap.clone(),
     ];
 
@@ -522,11 +522,11 @@ pub(crate) fn add_virtual_stark_proof<
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
-    let permutation_zs_cap = builder.add_virtual_cap(cap_height);
+    let auxiliary_polys_cap = builder.add_virtual_cap(cap_height);
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
-        auxiliary_polys: permutation_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
         openings: add_virtual_stark_opening_set::<F, S, D>(builder, stark, num_ctl_zs, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
@@ -571,7 +571,10 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
         &proof.openings.to_fri_openings(),
     );
 
-    witness.set_cap_target(&proof_target.auxiliary_polys, &proof.auxiliary_polys_cap);
+    witness.set_cap_target(
+        &proof_target.auxiliary_polys_cap,
+        &proof.auxiliary_polys_cap,
+    );
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
