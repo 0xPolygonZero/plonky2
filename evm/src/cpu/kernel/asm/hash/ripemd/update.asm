@@ -106,3 +106,29 @@ update_2:
     %stack (offset, STATE: 5) -> (STATE, offset, update_2)
     // stack: STATE, offset, update_2, shift, need, have, count, length, virt, retdest
     %jump(compress)
+
+
+/// def buffer_update(get, set, times):
+///     for i in range(times):
+///         buffer[set+i] = bytestring[get+i]
+
+buffer_update:
+    // stack:           get  , set  , times  , retdest
+    DUP2
+    DUP2
+    // stack: get, set, get  , set  , times  , retdest
+    %mupdate_kernel_general
+    // stack:           get  , set  , times  , retdest
+    %increment
+    SWAP1 
+    %increment
+    SWAP1
+    SWAP2
+    %decrement
+    SWAP2
+    // stack:           get+1, set+1, times-1, retdest
+    DUP3
+    %jumpi(buffer_update)
+    // stack:           get  , set  , 0      , retdest
+    %pop3
+    JUMP

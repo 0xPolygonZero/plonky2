@@ -8,6 +8,7 @@ pub struct RegistersState {
     pub is_kernel: bool,
     pub stack_len: usize,
     pub context: usize,
+    pub gas_used: u64,
 }
 
 impl RegistersState {
@@ -27,6 +28,7 @@ impl Default for RegistersState {
             is_kernel: true,
             stack_len: 0,
             context: 0,
+            gas_used: 0,
         }
     }
 }

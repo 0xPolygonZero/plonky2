@@ -123,7 +123,7 @@ where
     let ctl_data_per_table = timed!(
         timing,
         "compute CTL data",
-        cross_table_lookup_data::<F, C, D>(
+        cross_table_lookup_data::<F, D>(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
             &ctl_challenges,
@@ -539,7 +539,7 @@ where
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
-            eval_vanishing_poly::<F, F, P, C, S, D, 1>(
+            eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 vars,
                 lookups,
@@ -556,7 +556,7 @@ where
 
             let num_challenges = alphas.len();
 
-            (0..P::WIDTH).into_iter().map(move |i| {
+            (0..P::WIDTH).map(move |i| {
                 (0..num_challenges)
                     .map(|j| constraints_evals[j].as_slice()[i])
                     .collect()
@@ -655,7 +655,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
-            eval_vanishing_poly::<F, F, F, C, S, D, 1>(
+            eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
                 vars,
                 lookups,

@@ -374,9 +374,9 @@ mod tests {
         // Conditionally verify the two proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
-        let pt = builder.add_virtual_proof_with_pis::<C>(&data.common);
+        let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
-        let dummy_pt = builder.add_virtual_proof_with_pis::<C>(&data.common);
+        let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
         let inner_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);

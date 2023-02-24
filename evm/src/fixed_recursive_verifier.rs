@@ -230,7 +230,7 @@ where
         }
 
         // Verify the CTL checks.
-        verify_cross_table_lookups_circuit::<F, C, D>(
+        verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_last),

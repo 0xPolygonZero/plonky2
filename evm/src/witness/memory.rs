@@ -94,13 +94,13 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize) -> Self {
+    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize, value: U256) -> Self {
         Self {
             filter: false,
             timestamp,
             address,
             kind: MemoryOpKind::Read,
-            value: U256::zero(),
+            value,
         }
     }
 

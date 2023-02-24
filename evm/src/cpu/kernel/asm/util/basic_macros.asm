@@ -289,7 +289,7 @@
 
 // given u32 bytestring abcd return dcba
 %macro reverse_bytes_u32
-    // stack: abcd
+    // stack:                   abcd
     DUP1
     PUSH 28
     BYTE
@@ -308,11 +308,11 @@
     PUSH 31
     BYTE
     %shl_const(24)
-    // stack: d000, b0, a, c00
+    // stack:       d000, b0, a, c00
     OR 
     OR
     OR
-    // stack: dcba
+    // stack:                   dcba
 %endmacro
 
 %macro reverse_bytes_u64
@@ -344,4 +344,25 @@
         OR
     %endrep
     // stack: a || b || c || d
+%endmacro
+
+// Charge gas.
+// Arguments:
+//   stack[0]: gas to be charged
+//   stack[1]: syscall info
+// Returns:
+//   new syscall info
+%macro charge_gas
+    %shl_const(192)
+    ADD
+%endmacro
+
+// Charge gas and exit kernel code.
+// Arguments:
+//   stack[0]: gas to be charged
+//   stack[1]: syscall info
+// Returns: nothing
+%macro charge_gas_and_exit
+    %charge_gas
+    EXIT_KERNEL
 %endmacro

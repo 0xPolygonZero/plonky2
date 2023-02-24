@@ -306,7 +306,7 @@ pub(crate) fn get_grand_product_challenge_set_target<
     GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_challenges: &GrandProductChallengeSet<F>,
@@ -460,7 +460,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     }
 }
 
-pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const D2: usize>(
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
@@ -468,7 +468,6 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
-    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
     for lookup_vars in ctl_vars {
@@ -629,11 +628,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     }
 }
 
-pub(crate) fn verify_cross_table_lookups<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_lasts: [Vec<F>; NUM_TABLES],
     config: &StarkConfig,
@@ -662,11 +657,7 @@ pub(crate) fn verify_cross_table_lookups<
     Ok(())
 }
 
-pub(crate) fn verify_cross_table_lookups_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_lasts: [Vec<Target>; NUM_TABLES],

@@ -84,7 +84,7 @@ global syscall_jumptable:
     JUMPTABLE panic // jumpi is implemented natively
     JUMPTABLE panic // pc is implemented natively
     JUMPTABLE sys_msize
-    JUMPTABLE panic // gas is implemented natively
+    JUMPTABLE sys_gas
     JUMPTABLE panic // jumpdest is implemented natively
     JUMPTABLE panic // 0x5c is an invalid opcode
     JUMPTABLE panic // 0x5d is an invalid opcode

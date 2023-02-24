@@ -132,7 +132,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         // Verify the CTL checks.
-        verify_cross_table_lookups::<F, C, D>(
+        verify_cross_table_lookups::<F, D>(
             &cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
             inner_config,
@@ -389,7 +389,7 @@ fn verify_stark_proof_with_challenges_circuit<
     with_context!(
         builder,
         "evaluate vanishing polynomial",
-        eval_vanishing_poly_circuit::<F, C, S, D>(
+        eval_vanishing_poly_circuit::<F, S, D>(
             builder,
             stark,
             vars,

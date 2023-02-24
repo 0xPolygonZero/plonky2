@@ -97,7 +97,7 @@ where
         config,
     )?;
 
-    verify_cross_table_lookups::<F, C, D>(
+    verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
         all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
         config,
@@ -156,7 +156,7 @@ where
         challenges: challenges.lookup_challenges.clone().unwrap(),
     });
     let lookups = stark.lookups();
-    eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
+    eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
         vars,
         &lookups,

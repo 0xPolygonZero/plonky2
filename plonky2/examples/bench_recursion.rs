@@ -103,7 +103,7 @@ where
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-    let pt = builder.add_virtual_proof_with_pis::<InnerC>(inner_cd);
+    let pt = builder.add_virtual_proof_with_pis(inner_cd);
 
     let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
 
