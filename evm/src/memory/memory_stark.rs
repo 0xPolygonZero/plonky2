@@ -147,11 +147,6 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             let x = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
             trace_col_vecs[FREQUENCIES][x] += F::ONE;
         }
-
-        // let (permuted_inputs, permuted_table) =
-        //     permuted_cols(&trace_col_vecs[RANGE_CHECK], &trace_col_vecs[COUNTER]);
-        // trace_col_vecs[RANGE_CHECK_PERMUTED] = permuted_inputs;
-        // trace_col_vecs[COUNTER_PERMUTED] = permuted_table;
     }
 
     /// This memory STARK orders rows by `(context, segment, virt, timestamp)`. To enforce the
@@ -439,14 +434,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);
         }
-
-        // eval_lookups_circuit(
-        //     builder,
-        //     vars,
-        //     yield_constr,
-        //     RANGE_CHECK_PERMUTED,
-        //     COUNTER_PERMUTED,
-        // )
     }
 
     fn constraint_degree(&self) -> usize {

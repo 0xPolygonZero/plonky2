@@ -273,6 +273,7 @@ where
 
     let init_challenger_state = challenger.compact();
 
+    let degree = stark.constraint_degree();
     let lookup_challenges = stark
         .uses_lookups()
         .then(|| challenger.get_n_challenges(config.num_challenges));
@@ -282,7 +283,6 @@ where
         "compute lookup helper columns",
         lookup_challenges.as_ref().map(|challenges| {
             let mut columns = Vec::new();
-            let degree = stark.constraint_degree();
             for lookup in &lookups {
                 for &challenge in challenges {
                     columns.extend(lookup_helper_columns(
