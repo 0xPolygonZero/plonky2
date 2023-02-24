@@ -148,7 +148,7 @@ compression_loop:
     // stack: t_hi = t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     SWAP1
     // stack: t, t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
-    %mod_const(PUSH 0x10000000000000000)
+    %mod_const(0x10000000000000000)
     // stack: t_lo = t % (1 << 64), t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
     %stack (t_lo, t_hi, i, loc, inv) -> (i, loc, t_lo, t_hi, inv, 0)
     // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, cur_block, retdest
