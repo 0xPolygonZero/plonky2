@@ -26,7 +26,7 @@ pub struct Lookup {
 impl Lookup {
     pub(crate) fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
-        // then 1 column for the inverse of `table + challenge` and one for the `Z` polynomial.
+        // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
         ceil_div_usize(self.columns.len(), constraint_degree - 1) + 2
     }
 }
