@@ -40,8 +40,6 @@ compression_start_block:
         DUP12
     %endrep
     // stack: a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], num_blocks, scratch_space_addr, message_schedule_addr, i=0, a[0]..h[0], retdest
-compression_start_block:
-    
 compression_loop:
     // Update the eight working variables, using the next constant K[i] and the next message schedule chunk W[i].
     // stack: a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
