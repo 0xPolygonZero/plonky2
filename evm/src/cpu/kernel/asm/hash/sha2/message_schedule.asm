@@ -94,9 +94,7 @@ gen_message_schedule_from_block_1_loop:
     // stack: counter, output_addr - 4, block[1] >> 32, block[0], retdest
     %decrement
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_from_block_1_end)
-    %jump(gen_message_schedule_from_block_1_loop)
+    %jumpi(gen_message_schedule_from_block_1_loop)
 gen_message_schedule_from_block_1_end:
     // stack: old counter=0, output_addr, block[1], block[0], retdest
     POP
