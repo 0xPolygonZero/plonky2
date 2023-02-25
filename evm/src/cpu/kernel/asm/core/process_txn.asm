@@ -40,6 +40,7 @@ global buy_gas:
     // stack: sender_addr, gas_cost, retdest
     %deduct_eth
     // stack: deduct_eth_status, retdest
+global txn_failure_insufficient_balance:
     %jumpi(panic)
     // stack: retdest
 
@@ -54,16 +55,25 @@ global process_based_on_type:
 
 global process_contract_creation_txn:
     // stack: retdest
-    // Push the code address & length onto the stack, then call `create`.
+    PUSH process_contract_creation_txn_after_create
+    // stack: process_contract_creation_txn_after_create, retdest
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: code_len, retdest
+    // stack: code_len, process_contract_creation_txn_after_create, retdest
     PUSH 0
-    // stack: code_offset, code_len, retdest
+    // stack: code_offset, code_len, process_contract_creation_txn_after_create, retdest
     PUSH @SEGMENT_TXN_DATA
-    // stack: code_segment, code_offset, code_len, retdest
+    // stack: code_segment, code_offset, code_len, process_contract_creation_txn_after_create, retdest
     PUSH 0 // context
-    // stack: CODE_ADDR, code_len, retdest
+    // stack: CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender, endowment, CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
     %jump(create)
+
+global process_contract_creation_txn_after_create:
+    // stack: new_address, retdest
+    POP
+    JUMP
 
 global process_message_txn:
     // stack: retdest
@@ -162,5 +172,5 @@ global process_message_txn_code_loaded:
 global process_message_txn_after_call:
     // stack: success, retdest
     // TODO: Return leftover gas? Or handled by termination instructions?
-    POP // Pop success for now. Will go into the reciept when we support that.
+    POP // Pop success for now. Will go into the receipt when we support that.
     JUMP
