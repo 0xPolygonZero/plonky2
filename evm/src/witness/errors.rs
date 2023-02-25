@@ -7,4 +7,5 @@ pub enum ProgramError {
     InvalidJumpDestination,
     InvalidJumpiDestination,
     StackOverflow,
+    KernelPanic,
 }

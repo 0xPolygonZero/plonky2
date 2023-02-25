@@ -29,6 +29,7 @@ global validate:
     // TODO: Assert nonce is correct.
     // TODO: Assert sender has no code.
     // TODO: Assert sender balance >= gas_limit * gas_price + value.
+    // TODO: Assert chain ID matches block metadata?
     // stack: retdest
 
 global buy_gas:
@@ -109,7 +110,7 @@ global process_message_txn_insufficient_balance:
     PANIC // TODO
 
 global process_message_txn_return:
-    // TODO: Return leftover gas?
+    // TODO: Since there was no code to execute, do we still return leftover gas?
     JUMP
 
 global process_message_txn_code_loaded:
@@ -159,9 +160,15 @@ global process_message_txn_code_loaded:
     MSTORE_GENERAL
     // stack: new_ctx, retdest
 
-    // TODO: Populate CALLDATA
+    // Set the new context's gas limit.
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    PUSH @CTX_METADATA_GAS_LIMIT
+    PUSH @SEGMENT_CONTEXT_METADATA
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, retdest
 
-    // TODO: Save parent gas and set child gas
+    // TODO: Copy TXN_DATA to CALLDATA
 
     // Now, switch to the new context and go to usermode with PC=0.
     SET_CONTEXT
@@ -171,6 +178,5 @@ global process_message_txn_code_loaded:
 
 global process_message_txn_after_call:
     // stack: success, retdest
-    // TODO: Return leftover gas? Or handled by termination instructions?
     POP // Pop success for now. Will go into the receipt when we support that.
     JUMP

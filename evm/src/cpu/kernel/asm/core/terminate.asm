@@ -2,28 +2,36 @@
 // RETURN, SELFDESTRUCT, REVERT, and exceptions such as stack underflow.
 
 global sys_stop:
+    // stack: kexit_info
+    %refund_leftover_gas
+    // stack: (empty)
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE to 0.
-    // TODO: Refund unused gas to parent.
     PUSH 1 // success
     %jump(terminate_common)
 
 global sys_return:
+    // stack: kexit_info
+    %refund_leftover_gas
+    // stack: (empty)
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
     // TODO: Copy returned memory to parent context's RETURNDATA (but not if we're returning from a constructor?)
     // TODO: Copy returned memory to parent context's memory (as specified in their call instruction)
-    // TODO: Refund unused gas to parent.
     PUSH 1 // success
     %jump(terminate_common)
 
 global sys_selfdestruct:
+    // stack: kexit_info
     %consume_gas_const(@GAS_SELFDESTRUCT)
+    %refund_leftover_gas
+    // stack: (empty)
     // TODO: Destroy account.
-    // TODO: Refund unused gas to parent.
     PUSH 1 // success
     %jump(terminate_common)
 
 global sys_revert:
-    // TODO: Refund unused gas to parent.
+    // stack: kexit_info
+    %refund_leftover_gas
+    // stack: (empty)
     // TODO: Revert state changes.
     PUSH 0 // success
     %jump(terminate_common)
@@ -68,3 +76,14 @@ terminate_common:
 
     // stack: parent_pc, success
     JUMP
+
+%macro refund_leftover_gas
+    // stack: kexit_info
+    %shr_const(192)
+    // stack: gas_used
+    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
+    SUB
+    // stack: leftover_gas
+    POP // TODO: Refund to caller.
+    // stack: (empty)
+%endmacro

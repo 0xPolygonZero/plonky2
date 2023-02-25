@@ -1,8 +1,10 @@
 // Handlers for call-like operations, namely CALL, CALLCODE, STATICCALL and DELEGATECALL.
 
+// TODO: Take kexit_info
+
 // Creates a new sub context and executes the code of the given account.
 global call:
-    // stack: gas, address, value, args_offset, args_size, ret_offset, ret_size, retdest
+    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %address
     %stack (self, gas, address, value)
            // These are (static, should_transfer_value, value, sender, address, code_addr, gas)
