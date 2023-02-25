@@ -1,9 +1,17 @@
+// The CREATE syscall.
+//
+// Pre stack: value, CODE_ADDR, code_len, retdest
+// Post stack: address
+global sys_create:
+    %address
+    %jump(create)
+
 // Create a new contract account with the traditional address scheme, i.e.
 //     address = KEC(RLP(sender, nonce))[12:]
 // This can be used both for the CREATE instruction and for contract-creation
 // transactions.
 //
-// Pre stack: CODE_ADDR, code_len, retdest
+// Pre stack: sender, endowment, CODE_ADDR, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create:
@@ -21,18 +29,11 @@ global create:
 // Pre stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
-global create2:
+global sys_create2:
     // stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
     // Call get_create2_address and have it return to create_inner.
-    %stack (sender, endowment, salt) -> (salt, sender, endowment)
-    // stack: salt, sender, endowment, CODE_ADDR, code_len, retdest
-    DUP7 DUP7 DUP7 DUP7 // CODE_ADDR and code_len
-    // stack: CODE_ADDR, code_len, salt, sender, endowment, CODE_ADDR, code_len, retdest
-    PUSH create_inner
-    // stack: create_inner, CODE_ADDR, code_len, salt, sender, endowment, CODE_ADDR, code_len, retdest
-    SWAP5 // create_inner <-> salt
-    // stack: salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
-    DUP7 // sender
+    %stack (sender, endowment, salt, CODE_ADDR: 3, code_len)
+        -> (sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len)
     // stack: sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
     %jump(get_create2_address)
 

@@ -102,7 +102,10 @@ impl<F: Field> GenerationState<F> {
                 // Return length of code.
                 // stack: codehash, ...
                 let codehash = stack_peek(self, 0).expect("Empty stack");
-                self.inputs.contract_code[&H256::from_uint(&codehash)]
+                self.inputs
+                    .contract_code
+                    .get(&H256::from_uint(&codehash))
+                    .unwrap_or_else(|| panic!("No code found with hash {codehash}"))
                     .len()
                     .into()
             }
@@ -111,7 +114,11 @@ impl<F: Field> GenerationState<F> {
                 // stack: i, code_length, codehash, ...
                 let i = stack_peek(self, 0).expect("Unexpected stack").as_usize();
                 let codehash = stack_peek(self, 2).expect("Unexpected stack");
-                self.inputs.contract_code[&H256::from_uint(&codehash)][i].into()
+                self.inputs
+                    .contract_code
+                    .get(&H256::from_uint(&codehash))
+                    .unwrap_or_else(|| panic!("No code found with hash {codehash}"))[i]
+                    .into()
             }
             _ => panic!("Invalid prover input function."),
         }
