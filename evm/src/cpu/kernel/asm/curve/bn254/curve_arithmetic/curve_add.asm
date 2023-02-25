@@ -200,7 +200,7 @@ global bn_double:
     %jump(bn_add_equal_points)
 
 // Check if (x,y) is a valid curve point.
-// Returns range & curve || is_identity
+// Returns (range & curve) || is_identity
 // where
 //     range = (x < N) & (y < N) 
 //     curve = y^2 == (x^3 + 3) 

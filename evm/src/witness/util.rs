@@ -39,7 +39,7 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     )))
 }
 
-/// Peek at the SEGMENT_KERNEL_BN_PAIRING item at address `i`
+/// Peek at kernel at specified segment and address
 pub(crate) fn kernel_peek<F: Field>(
     state: &GenerationState<F>,
     segment: Segment,
