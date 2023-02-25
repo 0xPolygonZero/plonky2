@@ -90,7 +90,6 @@ fn test_hash_256(
     let (expected, result_stack) =
         prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
 
-
     // Extract the final output.
     let actual = result_stack[0];
 
