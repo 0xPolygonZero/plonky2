@@ -119,9 +119,9 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-fn setup_frob_fp6_test(f: Fp6, label: &str) -> InterpreterMemoryInitialization {
+fn setup_frob_fp6_test(f: Fp6, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
-        label: label.to_string(),
+        label: String::from("test_frob_fp254_6_") + &(n.to_string()),
         stack: f.on_stack(),
         segment: BnPairing,
         memory: vec![],
@@ -132,33 +132,19 @@ fn setup_frob_fp6_test(f: Fp6, label: &str) -> InterpreterMemoryInitialization {
 fn test_frob_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp6 = rng.gen::<Fp6>();
-
-    let setup_frob_1 = setup_frob_fp6_test(f, "test_frob_fp254_6_1");
-    let setup_frob_2 = setup_frob_fp6_test(f, "test_frob_fp254_6_2");
-    let setup_frob_3 = setup_frob_fp6_test(f, "test_frob_fp254_6_3");
-
-    let intrptr_frob_1: Interpreter = run_interpreter_with_memory(setup_frob_1).unwrap();
-    let intrptr_frob_2: Interpreter = run_interpreter_with_memory(setup_frob_2).unwrap();
-    let intrptr_frob_3: Interpreter = run_interpreter_with_memory(setup_frob_3).unwrap();
-
-    let out_frob_1: Vec<U256> = extract_stack(intrptr_frob_1);
-    let out_frob_2: Vec<U256> = extract_stack(intrptr_frob_2);
-    let out_frob_3: Vec<U256> = extract_stack(intrptr_frob_3);
-
-    let exp_frob_1: Vec<U256> = f.frob(1).on_stack();
-    let exp_frob_2: Vec<U256> = f.frob(2).on_stack();
-    let exp_frob_3: Vec<U256> = f.frob(3).on_stack();
-
-    assert_eq!(out_frob_1, exp_frob_1);
-    assert_eq!(out_frob_2, exp_frob_2);
-    assert_eq!(out_frob_3, exp_frob_3);
-
+    for n in 1..4 {
+        let setup_frob = setup_frob_fp6_test(f, n);
+        let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
+        let out_frob: Vec<U256> = extract_stack(intrptr_frob);
+        let exp_frob: Vec<U256> = f.frob(n).on_stack();
+        assert_eq!(out_frob, exp_frob);
+    }
     Ok(())
 }
 
-fn setup_frob_fp12_test(ptr: usize, f: Fp12, label: &str) -> InterpreterMemoryInitialization {
+fn setup_frob_fp12_test(ptr: usize, f: Fp12, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
-        label: label.to_string(),
+        label: String::from("test_frob_fp254_12_") + &(n.to_string()),
         stack: vec![U256::from(ptr)],
         segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
@@ -168,35 +154,15 @@ fn setup_frob_fp12_test(ptr: usize, f: Fp12, label: &str) -> InterpreterMemoryIn
 #[test]
 fn test_frob_fp12() -> Result<()> {
     let ptr: usize = 200;
-
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
-
-    let setup_frob_1 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_1");
-    let setup_frob_2 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_2");
-    let setup_frob_3 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_3");
-    let setup_frob_6 = setup_frob_fp12_test(ptr, f, "test_frob_fp254_12_6");
-
-    let intrptr_frob_1: Interpreter = run_interpreter_with_memory(setup_frob_1).unwrap();
-    let intrptr_frob_2: Interpreter = run_interpreter_with_memory(setup_frob_2).unwrap();
-    let intrptr_frob_3: Interpreter = run_interpreter_with_memory(setup_frob_3).unwrap();
-    let intrptr_frob_6: Interpreter = run_interpreter_with_memory(setup_frob_6).unwrap();
-
-    let out_frob_1: Vec<U256> = intrptr_frob_1.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let out_frob_2: Vec<U256> = intrptr_frob_2.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let out_frob_3: Vec<U256> = intrptr_frob_3.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let out_frob_6: Vec<U256> = intrptr_frob_6.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-
-    let exp_frob_1: Vec<U256> = f.frob(1).on_stack();
-    let exp_frob_2: Vec<U256> = f.frob(2).on_stack();
-    let exp_frob_3: Vec<U256> = f.frob(3).on_stack();
-    let exp_frob_6: Vec<U256> = f.frob(6).on_stack();
-
-    assert_eq!(out_frob_1, exp_frob_1);
-    assert_eq!(out_frob_2, exp_frob_2);
-    assert_eq!(out_frob_3, exp_frob_3);
-    assert_eq!(out_frob_6, exp_frob_6);
-
+    for n in [1, 2, 3, 6] {
+        let setup_frob = setup_frob_fp12_test(ptr, f, n);
+        let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
+        let out_frob: Vec<U256> = intrptr_frob.extract_kernel_memory(BnPairing, ptr..ptr + 12);
+        let exp_frob: Vec<U256> = f.frob(n).on_stack();
+        assert_eq!(out_frob, exp_frob);
+    }
     Ok(())
 }
 
@@ -225,7 +191,6 @@ fn test_inv_fp12() -> Result<()> {
 #[test]
 fn test_invariant_exponent() -> Result<()> {
     let ptr: usize = 200;
-
     let mut rng = rand::thread_rng();
     let f: Fp12 = rng.gen::<Fp12>();
 
