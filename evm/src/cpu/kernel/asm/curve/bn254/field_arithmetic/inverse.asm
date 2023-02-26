@@ -6,7 +6,10 @@
     MULFP254
 %endmacro
 
-// Non-deterministically provide the inverse modulo N.
+// Non-deterministically provide the inverse x^-1 of x modulo N.
+// If x === 0 mod N, this function panics.
+// Although the official prover provides the unique inverse <N
+// this macro only checks that x * x^-1 === 0 mod N
 %macro inv_fp254
     // stack:        x
     PROVER_INPUT(ff::bn254_base::inverse)
