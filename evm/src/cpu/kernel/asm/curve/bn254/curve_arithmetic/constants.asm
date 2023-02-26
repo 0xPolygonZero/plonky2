@@ -30,7 +30,7 @@ global miller_data:
 ///     EXPS2 = [       (a2[i], a0[i]) for i in len(a4)..len(a2)]
 ///     EXPS0 = [               a0[i]  for i in len(a2)..len(a0)]
 /// power_data_n is simply a reverse-order byte encoding of EXPSn
-///     where (i,j,k) is sent to (0b100)i + (0b10)j + k
+///     where (i,j,k) is sent to (100)i + (10)j + k
 
 global power_data_4:
     BYTES 111, 010, 011, 111
