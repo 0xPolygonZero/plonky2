@@ -273,7 +273,7 @@ where
 
     let init_challenger_state = challenger.compact();
 
-    let degree = stark.constraint_degree();
+    let constraint_degree = stark.constraint_degree();
     let lookup_challenges = stark
         .uses_lookups()
         .then(|| challenger.get_n_challenges(config.num_challenges));
@@ -289,7 +289,7 @@ where
                         lookup,
                         trace_poly_values,
                         challenge,
-                        degree,
+                        constraint_degree,
                     ));
                 }
             }
