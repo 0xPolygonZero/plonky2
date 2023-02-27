@@ -19,9 +19,7 @@ global sha2_pad:
     // STEP 1: append 1
     // insert 128 (= 1 << 7) at x[num_bytes+1]
     // stack: num_bytes, retdest
-    PUSH 1
-    PUSH 7
-    SHL
+    PUSH 0x80
     // stack: 128, num_bytes, retdest
     DUP2
     // stack: num_bytes, 128, num_bytes, retdest
@@ -33,21 +31,19 @@ global sha2_pad:
     DUP1
     // stack: num_bytes, num_bytes, retdest
     %add_const(8)
-    %div_const(64)
+    %shr_const(6)
     
     %increment
     // stack: num_blocks = (num_bytes+8)//64 + 1, num_bytes, retdest
     // STEP 3: calculate length := num_bytes*8
     SWAP1
     // stack: num_bytes, num_blocks, retdest
-    PUSH 8
-    MUL
+    %mul_const(8)
     // stack: length = num_bytes*8, num_blocks, retdest
     // STEP 4: write length to x[num_blocks*64-7..num_blocks*64]
     DUP2
     // stack: num_blocks, length, num_blocks, retdest
-    PUSH 64
-    MUL
+    %mul_const(64)
     // stack: last_addr = num_blocks*64, length, num_blocks, retdest
     %sha2_write_length
     // stack: num_blocks, retdest
