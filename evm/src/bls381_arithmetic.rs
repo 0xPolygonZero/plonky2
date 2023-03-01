@@ -68,14 +68,48 @@ impl Sub for Fp {
     }
 }
 
+impl Fp {
+    fn lsh_128(self) -> Fp {
+        let b128: U512 = U512([0, 0, 1, 0, 0, 0, 0, 0]);
+        // since BLS_BASE < 2^384, multiplying by 2^128 doesn't overflow the U512
+        Fp {
+            val: self.val.saturating_mul(b128) % BLS_BASE,
+        }
+    }
+
+    fn lsh_256(self) -> Fp {
+        self.lsh_128().lsh_128()
+    }
+
+    fn lsh_512(self) -> Fp {
+        self.lsh_256().lsh_256()
+    }
+}
+
 #[allow(clippy::suspicious_arithmetic_impl)]
 impl Mul for Fp {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        Fp {
-            val: (self.val).overflowing_mul(other.val).0 % BLS_BASE,
-        }
+        let b256: U512 = U512([0, 0, 0, 0, 1, 0, 0, 0]);
+        // x1, y1 are at most (q-1) // 2^256 < 2^125
+        let (x0, x1) = self.val.div_mod(b256);
+        let (y0, y1) = other.val.div_mod(b256);
+
+        let z00 = Fp {
+            val: x0.saturating_mul(y0) % BLS_BASE,
+        };
+        let z01 = Fp {
+            val: x0.saturating_mul(y1),
+        };
+        let z10 = Fp {
+            val: x1.saturating_mul(y0),
+        };
+        let z11 = Fp {
+            val: x1.saturating_mul(y1),
+        };
+
+        z00 + (z01 + z10).lsh_256() + z11.lsh_512()
     }
 }
 
