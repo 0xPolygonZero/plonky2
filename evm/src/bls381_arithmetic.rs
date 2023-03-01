@@ -93,8 +93,8 @@ impl Mul for Fp {
     fn mul(self, other: Self) -> Self {
         let b256: U512 = U512([0, 0, 0, 0, 1, 0, 0, 0]);
         // x1, y1 are at most (q-1) // 2^256 < 2^125
-        let (x0, x1) = self.val.div_mod(b256);
-        let (y0, y1) = other.val.div_mod(b256);
+        let (x1, x0) = self.val.div_mod(b256);
+        let (y1, y0) = other.val.div_mod(b256);
 
         let z00 = Fp {
             val: x0.saturating_mul(y0) % BLS_BASE,

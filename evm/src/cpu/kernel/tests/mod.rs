@@ -1,5 +1,6 @@
 mod account_code;
 mod balance;
+mod bls381;
 mod bn254;
 mod core;
 mod ecc;
