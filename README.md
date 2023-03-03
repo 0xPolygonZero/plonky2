@@ -59,3 +59,4 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 ## Links
 
 - [System Zero](https://github.com/mir-protocol/system-zero), a zkVM built on top of Starky (no longer maintained)
+- [Waksman](https://github.com/mir-protocol/waksman), Plonky2 gadgets for permutation checking using Waksman networks (no longer maintained)
