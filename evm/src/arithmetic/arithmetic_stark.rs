@@ -113,6 +113,75 @@ pub fn ctl_filter_gt<F: Field>() -> Column<F> {
     Column::single(columns::IS_GT)
 }
 
+const MOD_OPS: [usize; 3] = [columns::IS_ADDMOD, columns::IS_MULMOD, columns::IS_SUBMOD];
+
+pub fn ctl_data_modops<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = Column::singles(MOD_OPS).collect_vec();
+    for reg_cols in [
+        columns::MODULAR_INPUT_0,
+        columns::MODULAR_INPUT_1,
+        columns::MODULAR_MODULUS,
+        columns::MODULAR_OUTPUT,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_filter_modops<F: Field>() -> Column<F> {
+    Column::sum(MOD_OPS)
+}
+
+pub fn ctl_data_div<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = vec![Column::single(columns::IS_DIV)];
+    for reg_cols in [
+        columns::DIV_NUMERATOR,
+        columns::DIV_DENOMINATOR,
+        columns::DIV_OUTPUT,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_filter_div<F: Field>() -> Column<F> {
+    Column::single(columns::IS_DIV)
+}
+
+pub fn ctl_data_mod<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = vec![Column::single(columns::IS_MOD)];
+    for reg_cols in [
+        columns::MODULAR_INPUT_0,
+        columns::MODULAR_MODULUS,
+        columns::MODULAR_OUTPUT,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_filter_mod<F: Field>() -> Column<F> {
+    Column::single(columns::IS_MOD)
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,

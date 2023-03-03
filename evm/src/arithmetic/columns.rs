@@ -36,22 +36,6 @@ pub(crate) const IS_SUBMOD: usize = IS_SUBFP254 + 1;
 pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
 pub(crate) const IS_GT: usize = IS_LT + 1;
 
-pub(crate) const ALL_OPERATIONS: [usize; 13] = [
-    IS_ADD,
-    IS_MUL,
-    IS_SUB,
-    IS_DIV,
-    IS_MOD,
-    IS_ADDMOD,
-    IS_MULMOD,
-    IS_ADDFP254,
-    IS_MULFP254,
-    IS_SUBFP254,
-    IS_SUBMOD,
-    IS_LT,
-    IS_GT,
-];
-
 pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 
 /// Within the Arithmetic Unit, there are shared columns which can be
@@ -120,11 +104,8 @@ pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_REGISTER_2;
 // Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
 pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 
-#[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_NUMERATOR: Range<usize> = MODULAR_INPUT_0;
-#[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_DENOMINATOR: Range<usize> = MODULAR_MODULUS;
-#[allow(unused)] // TODO: Will be used when hooking into the CPU
 pub(crate) const DIV_OUTPUT: Range<usize> =
     MODULAR_QUO_INPUT.start..MODULAR_QUO_INPUT.start + N_LIMBS;
 
