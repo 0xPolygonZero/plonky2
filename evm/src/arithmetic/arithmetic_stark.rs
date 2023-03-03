@@ -182,6 +182,34 @@ pub fn ctl_filter_mod<F: Field>() -> Column<F> {
     Column::single(columns::IS_MOD)
 }
 
+const BN254_OPS: [usize; 3] = [
+    columns::IS_ADDFP254,
+    columns::IS_MULFP254,
+    columns::IS_SUBFP254,
+];
+
+pub fn ctl_data_bn254ops<F: Field>() -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = Column::singles(BN254_OPS).collect_vec();
+    for reg_cols in [
+        columns::MODULAR_INPUT_0,
+        columns::MODULAR_INPUT_1,
+        columns::MODULAR_OUTPUT,
+    ] {
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_filter_bn254ops<F: Field>() -> Column<F> {
+    Column::sum(BN254_OPS)
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,

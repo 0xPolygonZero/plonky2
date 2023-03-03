@@ -104,6 +104,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_arithmetic_lt(),
         ctl_arithmetic_gt(),
         ctl_arithmetic_modops(),
+        ctl_arithmetic_bn254ops(),
         ctl_arithmetic_div(),
         ctl_arithmetic_mod(),
         ctl_keccak_sponge(),
@@ -112,8 +113,8 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_memory(),
     ];
     // TODO: Some CTLs temporarily disabled while we get them working.
-    disable_ctl(&mut ctls[7]);
-    disable_ctl(&mut ctls[10]);
+    disable_ctl(&mut ctls[8]);
+    disable_ctl(&mut ctls[11]);
     ctls
 }
 
@@ -124,9 +125,8 @@ fn disable_ctl<F: Field>(ctl: &mut CrossTableLookup<F>) {
     ctl.looked_table.filter_column = Some(Column::zero());
 }
 
-const ADD_MUL_OPS: [usize; 2] = [COL_MAP.op.add, COL_MAP.op.mul];
-
 fn ctl_arithmetic_add_mul<F: Field>() -> CrossTableLookup<F> {
+    const ADD_MUL_OPS: [usize; 2] = [COL_MAP.op.add, COL_MAP.op.mul];
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_arithmetic_binops(&ADD_MUL_OPS),
@@ -193,6 +193,25 @@ fn ctl_arithmetic_modops<F: Field>() -> CrossTableLookup<F> {
         Table::Arithmetic,
         arithmetic_stark::ctl_data_modops(),
         Some(arithmetic_stark::ctl_filter_modops()),
+    );
+    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+}
+
+fn ctl_arithmetic_bn254ops<F: Field>() -> CrossTableLookup<F> {
+    const BN254_OPS: [usize; 3] = [
+        COL_MAP.op.addfp254,
+        COL_MAP.op.mulfp254,
+        COL_MAP.op.subfp254,
+    ];
+    let cpu_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_arithmetic_binops(&BN254_OPS),
+        Some(cpu_stark::ctl_filter_arithmetic(&BN254_OPS)),
+    );
+    let arithmetic_looked = TableWithColumns::new(
+        Table::Arithmetic,
+        arithmetic_stark::ctl_data_bn254ops(),
+        Some(arithmetic_stark::ctl_filter_bn254ops()),
     );
     CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
 }
