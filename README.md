@@ -62,3 +62,4 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 - [Waksman](https://github.com/mir-protocol/plonky2-waksman), Plonky2 gadgets for permutation checking using Waksman networks (no longer maintained)
 - [Insertion](https://github.com/mir-protocol/plonky2-insertion), Plonky2 gadgets for insertion into a list (no longer maintained)
 - [u32](https://github.com/mir-protocol/plonky2-u32), Plonky2 gadgets for u32 arithmetic (no longer actively maintained)
+- [ECDSA](https://github.com/mir-protocol/plonky2-ecdsa), Plonky2 gadgets for the ECDSA algorithm (no longer actively maintained)
