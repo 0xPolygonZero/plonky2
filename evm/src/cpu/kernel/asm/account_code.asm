@@ -36,19 +36,42 @@ global extcodehash:
 %%after:
 %endmacro
 
+global sys_extcodesize:
+    // stack: kexit_info, address
+    SWAP1
+    // stack: address, kexit_info
+    %extcodesize
+    // stack: code_size, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 global extcodesize:
     // stack: address, retdest
     %extcodesize
     // stack: extcodesize(address), retdest
     SWAP1 JUMP
 
-
 %macro codecopy
-    // stack: dest_offset, offset, size, retdest
+    // stack: dest_offset, offset, size
     %address
-    // stack: address, dest_offset, offset, size, retdest
-    %jump(extcodecopy)
+    %extcodecopy
 %endmacro
+
+%macro extcodecopy
+    // stack: address, dest_offset, offset, size
+    %stack (dest_offset, offset, size) -> (dest_offset, offset, size, %%after)
+    %jump(extcodecopy)
+%%after:
+%endmacro
+
+// Pre stack: kexit_info, address, dest_offset, offset, size
+// Post stack: (empty)
+global sys_extcodecopy:
+    %stack (kexit_info, address, dest_offset, offset, size)
+        -> (address, dest_offset, offset, size, kexit_info)
+    %extcodecopy
+    // stack: kexit_info
+    EXIT_KERNEL
 
 // Pre stack: address, dest_offset, offset, size, retdest
 // Post stack: (empty)

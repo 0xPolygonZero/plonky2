@@ -67,12 +67,12 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
-) -> ([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues) {
+) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
 
     generate_bootstrap_kernel::<F>(&mut state);
 
-    timed!(timing, "simulate CPU", simulate_cpu(&mut state));
+    timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
     log::info!(
         "Trace lengths (before padding): {:?}",
@@ -109,10 +109,12 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "convert trace data to tables",
         state.traces.into_tables(all_stark, config, timing)
     );
-    (tables, public_values)
+    Ok((tables, public_values))
 }
 
-fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(state: &mut GenerationState<F>) {
+fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+) -> anyhow::Result<()> {
     let halt_pc0 = KERNEL.global_labels["halt_pc0"];
     let halt_pc1 = KERNEL.global_labels["halt_pc1"];
 
@@ -126,11 +128,13 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(state: &mut Genera
         }
         already_in_halt_loop |= in_halt_loop;
 
-        transition(state);
+        transition(state)?;
 
         if already_in_halt_loop && state.traces.clock().is_power_of_two() {
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
             break;
         }
     }
+
+    Ok(())
 }
