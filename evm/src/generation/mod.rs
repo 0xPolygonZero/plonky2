@@ -18,7 +18,10 @@ use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata::StateTrieRoot;
+use crate::generation::mpt::AccountRlp;
 use crate::generation::state::GenerationState;
+use crate::generation::trie_extractor::read_state_trie_value;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::witness::memory::MemoryAddress;
@@ -28,6 +31,8 @@ pub mod mpt;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
+mod trie_extractor;
+use crate::generation::trie_extractor::read_trie;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 /// Inputs needed for trace generation.
@@ -86,6 +91,15 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
             field as usize,
         ))
     };
+
+    log::debug!(
+        "Updated state trie:\n{:#?}",
+        read_trie::<F, AccountRlp, D>(
+            &state.memory,
+            read_metadata(StateTrieRoot).as_usize(),
+            read_state_trie_value
+        )
+    );
 
     let trie_roots_before = TrieRoots {
         state_root: H256::from_uint(&read_metadata(StateTrieRootDigestBefore)),
