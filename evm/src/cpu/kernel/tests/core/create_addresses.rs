@@ -28,23 +28,12 @@ fn test_get_create2_address() -> Result<()> {
 
     // TODO: Replace with real data once we have a real implementation.
     let retaddr = 0xdeadbeefu32.into();
-    let code_len = 0.into();
-    let code_offset = 0.into();
-    let code_segment = 0.into();
-    let code_context = 0.into();
+    let code_hash = 0.into();
     let salt = 5.into();
     let sender = 0.into();
     let expected_addr = 123.into();
 
-    let initial_stack = vec![
-        retaddr,
-        code_len,
-        code_offset,
-        code_segment,
-        code_context,
-        salt,
-        sender,
-    ];
+    let initial_stack = vec![retaddr, code_hash, salt, sender];
     let mut interpreter = Interpreter::new_with_kernel(get_create2_address, initial_stack);
     interpreter.run()?;
 

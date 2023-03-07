@@ -12,6 +12,7 @@ pub static KERNEL: Lazy<Kernel> = Lazy::new(combined_kernel);
 pub(crate) fn combined_kernel() -> Kernel {
     let files = vec![
         include_str!("asm/core/bootloader.asm"),
+        include_str!("asm/core/call.asm"),
         include_str!("asm/core/create.asm"),
         include_str!("asm/core/create_addresses.asm"),
         include_str!("asm/core/intrinsic_gas.asm"),
