@@ -192,14 +192,10 @@ g_functions_return:
     
     // Finalize hash value.
     // stack: cur_block, retdest
-    %blake2b_generate_new_hash_value(7)
-    %blake2b_generate_new_hash_value(6)
-    %blake2b_generate_new_hash_value(5)
-    %blake2b_generate_new_hash_value(4)
-    %blake2b_generate_new_hash_value(3)
-    %blake2b_generate_new_hash_value(2)
-    %blake2b_generate_new_hash_value(1)
-    %blake2b_generate_new_hash_value(0)
+    PUSH hash_generate_return
+    // stack: hash_generate_return, cur_block, retdest
+    %jump(blake2b_generate_all_hash_values)
+hash_generate_return:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     DUP9
     // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
