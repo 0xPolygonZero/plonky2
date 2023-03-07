@@ -79,6 +79,8 @@ fn prepare_test<T>(
     // Run the interpeter
     let result = run_interpreter_with_memory(interpreter_setup).unwrap();
 
+    dbg!(result.stack().to_vec());
+
     Ok((expected, result.stack().to_vec()))
 }
 

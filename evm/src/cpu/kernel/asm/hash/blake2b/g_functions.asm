@@ -117,8 +117,8 @@ call_blake2b_g_function:
     ADD
     %mload_kernel_general
     // stack: m[s[x_idx]], m[s[y_idx]], a, b, c, d, x_idx, y_idx, round, start, retdest
-    %stack (mm: 2, abcd: 4, xy: 2, r, s) -> (abcd, mm, s, r, s)
-    // stack: a, b, c, d, m[s[x_idx]], m[s[y_idx]], start, round, start, retdest
+    %stack (mm: 2, abcd: 4, xy: 2, r, s) -> (abcd, mm, s)
+    // stack: a, b, c, d, m[s[x_idx]], m[s[y_idx]], start, retdest
     %jump(blake2b_g_function)
 
 global run_g_function_round:
@@ -192,12 +192,12 @@ global run_12_rounds_g_function:
     // stack: round=0, start, retdest
 run_next_round_g_function:
     // stack: round, start, retdest
-    PUSH run_g_function_round_return
-    // stack: run_g_function_round_return, round, start, retdest
+    PUSH run_next_round_g_function_return
+    // stack: run_next_round_g_function_return, round, start, retdest
     SWAP2
-    // stack: start, round, run_g_function_round_return, retdest
+    // stack: start, round, run_next_round_g_function_return, retdest
     SWAP1
-    // stack: round, start, run_g_function_round_return, retdest
+    // stack: round, start, run_next_round_g_function_return, retdest
     %jump(run_g_function_round)
 run_next_round_g_function_return:
     // stack: round, start, retdest
