@@ -11,7 +11,11 @@ global add_bignum:
     %jumpi(len_zero)
     // stack: len, a_start_loc, b_start_loc, retdest
     PUSH 0
+<<<<<<< HEAD
     // stack: carry=0, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, retdest
+=======
+    // stack: carry=0, i=len, a_start_loc, b_start_loc, retdest
+>>>>>>> 96ddadf6 (basic bignum)
 add_loop:
     // stack: carry, i, a_cur_loc, b_cur_loc, retdest
     DUP4
