@@ -14,17 +14,17 @@ blake2b_generate_new_hash_value:
     // stack: v_i, h_i, i, retdest
     %blake2b_internal_state_addr
     // stack: addr, v_i, h_i, i, retdest
-    DUP4
+    SWAP1
+    // stack: v_i, addr, h_i, i, retdest
+    SWAP3
+    // stack: i, addr, h_i, v_i, retdest
     ADD
     %add_const(8)
     %mload_kernel_general
-    // stack: v_(i+8), v_i, h_i, i, retdest
+    // stack: v_(i+8), h_i, v_i, retdest
     XOR
     XOR
-    // stack: h_i' = v_(i+8) ^ v_i ^ h_i, i, retdest
-    SWAP1
-    POP
-    // stack: h_i', retdest
+    // stack: h_i' = v_(i+8) ^ v_i ^ h_i, retdest
     SWAP1
     JUMP
 
