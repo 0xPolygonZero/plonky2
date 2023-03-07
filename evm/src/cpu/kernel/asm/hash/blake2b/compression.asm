@@ -181,30 +181,15 @@ compression_loop:
     POP
     POP
     // stack: cur_block, retdest
-    %blake2b_internal_state_addr
-    // stack: start, cur_block, retdest
-    PUSH 0
-    // stack: round=0, start, cur_block, retdest
 
     // Run 12 rounds of G functions.
-    %rep 12
-        // stack: round, start, cur_block, retdest
-        %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
-        %call_blake2b_g_function(1, 5, 9, 13, 2, 3)
-        %call_blake2b_g_function(2, 6, 10, 14, 4, 5)
-        %call_blake2b_g_function(3, 7, 11, 15, 6, 7)
-        %call_blake2b_g_function(0, 5, 10, 15, 8, 9)
-        %call_blake2b_g_function(1, 6, 11, 12, 10, 11)
-        %call_blake2b_g_function(2, 7, 8, 13, 12, 13)
-        %call_blake2b_g_function(3, 4, 9, 14, 14, 15)
-        // stack: round, start, cur_block, retdest
-        %increment
-        // stack: round + 1, start, cur_block, retdest
-    %endrep
-    // stack: 12, start, cur_block, retdest
-    POP
-    POP
-
+    PUSH g_functions_return
+    // stack: g_functions_return, cur_block, retdest
+    %blake2b_internal_state_addr
+    // stack: start, g_functions_return, cur_block, retdest
+    %jump(run_12_rounds_g_function)
+g_functions_return:
+    
     // Finalize hash value.
     // stack: cur_block, retdest
     %blake2b_generate_new_hash_value(7)
