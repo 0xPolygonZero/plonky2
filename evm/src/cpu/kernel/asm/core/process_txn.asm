@@ -39,7 +39,7 @@ global buy_gas:
     // stack: gas_cost, retdest
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender_addr, gas_cost, retdest
-    %deduct_eth
+    %deduct_eth // TODO: It should be transferred to coinbase instead?
     // stack: deduct_eth_status, retdest
 global txn_failure_insufficient_balance:
     %jumpi(panic)
@@ -114,69 +114,28 @@ global process_message_txn_return:
     JUMP
 
 global process_message_txn_code_loaded:
-    // stack: code_len, new_ctx, retdest
-    POP
+    // stack: code_size, new_ctx, retdest
+    %set_new_ctx_code_size
     // stack: new_ctx, retdest
 
-    // Store the address in metadata.
-    %mload_txn_field(@TXN_FIELD_TO)
-    PUSH @CTX_METADATA_ADDRESS
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Store the caller in metadata.
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    PUSH @CTX_METADATA_CALLER
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Store the call value field in metadata.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    PUSH @CTX_METADATA_CALL_VALUE
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // No need to write @CTX_METADATA_STATIC, because it's 0 which is the default.
-
-    // Store parent context in metadata.
-    GET_CONTEXT
-    PUSH @CTX_METADATA_PARENT_CONTEXT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Store parent PC = process_message_txn_after_call.
-    PUSH process_message_txn_after_call
-    PUSH @CTX_METADATA_PARENT_PC
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Set the new context's gas limit.
-    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    PUSH @CTX_METADATA_GAS_LIMIT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
+    // Each line in the block below does not change the stack.
+    %mload_txn_field(@TXN_FIELD_TO) %set_new_ctx_addr
+    %mload_txn_field(@TXN_FIELD_ORIGIN) %set_new_ctx_caller
+    %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
+    %set_new_ctx_parent_ctx
+    %set_new_ctx_parent_pc(process_message_txn_after_call)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT) %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
     // TODO: Copy TXN_DATA to CALLDATA
 
-    // Now, switch to the new context and go to usermode with PC=0.
-    SET_CONTEXT
-    // stack: retdest
-    PUSH 0 // jump dest
-    EXIT_KERNEL
+    %enter_new_ctx
 
 global process_message_txn_after_call:
-    // stack: success, retdest
-    POP // Pop success for now. Will go into the receipt when we support that.
+    // stack: success, leftover_gas, new_ctx, retdest
+    POP // TODO: Success will go into the receipt when we support that.
+    // stack: leftover_gas, new_ctx, retdest
+    POP // TODO: Refund leftover gas.
+    // stack: new_ctx, retdest
+    POP
     JUMP
