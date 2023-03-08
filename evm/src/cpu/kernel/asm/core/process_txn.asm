@@ -29,6 +29,7 @@ global validate:
     // TODO: Assert nonce is correct.
     // TODO: Assert sender has no code.
     // TODO: Assert sender balance >= gas_limit * gas_price + value.
+    // TODO: Assert chain ID matches block metadata?
     // stack: retdest
 
 global buy_gas:
@@ -38,8 +39,9 @@ global buy_gas:
     // stack: gas_cost, retdest
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender_addr, gas_cost, retdest
-    %deduct_eth
+    %deduct_eth // TODO: It should be transferred to coinbase instead?
     // stack: deduct_eth_status, retdest
+global txn_failure_insufficient_balance:
     %jumpi(panic)
     // stack: retdest
 
@@ -54,16 +56,25 @@ global process_based_on_type:
 
 global process_contract_creation_txn:
     // stack: retdest
-    // Push the code address & length onto the stack, then call `create`.
+    PUSH process_contract_creation_txn_after_create
+    // stack: process_contract_creation_txn_after_create, retdest
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: code_len, retdest
+    // stack: code_len, process_contract_creation_txn_after_create, retdest
     PUSH 0
-    // stack: code_offset, code_len, retdest
+    // stack: code_offset, code_len, process_contract_creation_txn_after_create, retdest
     PUSH @SEGMENT_TXN_DATA
-    // stack: code_segment, code_offset, code_len, retdest
+    // stack: code_segment, code_offset, code_len, process_contract_creation_txn_after_create, retdest
     PUSH 0 // context
-    // stack: CODE_ADDR, code_len, retdest
+    // stack: CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender, endowment, CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
     %jump(create)
+
+global process_contract_creation_txn_after_create:
+    // stack: new_address, retdest
+    POP
+    JUMP
 
 global process_message_txn:
     // stack: retdest
@@ -99,68 +110,32 @@ global process_message_txn_insufficient_balance:
     PANIC // TODO
 
 global process_message_txn_return:
-    // TODO: Return leftover gas?
+    // TODO: Since there was no code to execute, do we still return leftover gas?
     JUMP
 
 global process_message_txn_code_loaded:
-    // stack: code_len, new_ctx, retdest
-    POP
+    // stack: code_size, new_ctx, retdest
+    %set_new_ctx_code_size
     // stack: new_ctx, retdest
 
-    // Store the address in metadata.
-    %mload_txn_field(@TXN_FIELD_TO)
-    PUSH @CTX_METADATA_ADDRESS
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
+    // Each line in the block below does not change the stack.
+    %mload_txn_field(@TXN_FIELD_TO) %set_new_ctx_addr
+    %mload_txn_field(@TXN_FIELD_ORIGIN) %set_new_ctx_caller
+    %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
+    %set_new_ctx_parent_ctx
+    %set_new_ctx_parent_pc(process_message_txn_after_call)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT) %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
-    // Store the caller in metadata.
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    PUSH @CTX_METADATA_CALLER
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
+    // TODO: Copy TXN_DATA to CALLDATA
 
-    // Store the call value field in metadata.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    PUSH @CTX_METADATA_CALL_VALUE
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // No need to write @CTX_METADATA_STATIC, because it's 0 which is the default.
-
-    // Store parent context in metadata.
-    GET_CONTEXT
-    PUSH @CTX_METADATA_PARENT_CONTEXT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Store parent PC = process_message_txn_after_call.
-    PUSH process_message_txn_after_call
-    PUSH @CTX_METADATA_PARENT_PC
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // TODO: Populate CALLDATA
-
-    // TODO: Save parent gas and set child gas
-
-    // Now, switch to the new context and go to usermode with PC=0.
-    SET_CONTEXT
-    // stack: retdest
-    PUSH 0 // jump dest
-    EXIT_KERNEL
+    %enter_new_ctx
 
 global process_message_txn_after_call:
-    // stack: success, retdest
-    // TODO: Return leftover gas? Or handled by termination instructions?
-    POP // Pop success for now. Will go into the reciept when we support that.
+    // stack: success, leftover_gas, new_ctx, retdest
+    POP // TODO: Success will go into the receipt when we support that.
+    // stack: leftover_gas, new_ctx, retdest
+    POP // TODO: Refund leftover gas.
+    // stack: new_ctx, retdest
+    POP
     JUMP

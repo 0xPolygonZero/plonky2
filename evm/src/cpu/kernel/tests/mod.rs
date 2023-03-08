@@ -7,7 +7,6 @@ mod fields;
 mod hash;
 mod mpt;
 mod packing;
-mod ripemd;
 mod rlp;
 mod transaction_parsing;
 

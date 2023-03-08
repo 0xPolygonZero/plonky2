@@ -62,7 +62,7 @@ where
     let (traces, public_values) = timed!(
         timing,
         "generate all traces",
-        generate_traces(all_stark, inputs, config, timing)
+        generate_traces(all_stark, inputs, config, timing)?
     );
     prove_with_traces(all_stark, config, traces, public_values, timing)
 }

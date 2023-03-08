@@ -175,7 +175,7 @@ where
         permutation_challenge_sets,
         stark_alphas,
         stark_zeta,
-        fri_challenges: challenger.fri_challenges::<C>(
+        fri_challenges: challenger.fri_challenges(
             builder,
             commit_phase_merkle_caps,
             final_poly,

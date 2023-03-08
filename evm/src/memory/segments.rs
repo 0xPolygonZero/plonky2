@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
-pub(crate) enum Segment {
+pub enum Segment {
     /// Contains EVM bytecode.
     Code = 0,
     /// The program stack.

@@ -44,6 +44,8 @@ global encode_rlp_string_small_single_byte:
     %mstore_rlp
     // stack: pos, retdest
     %increment
+    SWAP1
+    // stack: retdest, pos'
     JUMP
 
 global encode_rlp_string_large:

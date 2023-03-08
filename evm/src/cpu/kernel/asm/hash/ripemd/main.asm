@@ -6,41 +6,56 @@
 ///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer, padlength(len(input)), bytes =     [0x80]+[0]*63)
 ///     STATE, count, _buffer = ripemd_update(STATE, count, _buffer,                     8, bytes = size(len(_input)))
 ///     return process(STATE)
-///
-/// ripemd is called on a stack with ADDR and length
-/// ripemd_stack is called on a stack with length, followed by the input bytes
+/// 
+/// The hardcoded memory structure, where each register is only a byte, is given as follows
+///     { 0-63: buffer, 64-71: bytes(8*len(_input)), 72-135: [0x80]+[0]*63 }
 ///
 /// ripemd_update receives and return the stack in the form:
 ///     stack: STATE, count, length, virt
 /// where virt is the virtual address of the bytes argument
-
-global ripemd_stack:
-    // stack: length, INPUT
-    %stack (length) -> (64, length, 0x80, 63, length, length)
-    // stack:           64, length, 0x80, 63, length, length, INPUT
-    %jump(ripemd_storage) // stores the following into memory
-                          // init  _buffer  at virt 0   [consumes           64]
-                          // store _size    at virt 64  [consumes       length]
-                          // store _padding at virt 72  [consumes 0x80,     63]
-                          // store _input   at virt 136 [consumes       length]
+///
 
 global ripemd:
-    // stack:  ADDR, length
-    %stack (ADDR: 3, length) -> (64, length, 0x80, 63, length, ADDR, length)
-    // stack:                    64, length, 0x80, 63, length, ADDR, length
-    %jump(ripemd_storage) // stores the following into memory
-                          // init  _buffer  at virt 0   [consumes           64]
-                          // store _size    at virt 64  [consumes       length]
-                          // store _padding at virt 72  [consumes 0x80,     63]
-                          // store _input   at virt 136 [consumes ADDR, length]
+    // stack:                               virt, length
+    %stack (virt, length) -> (length, 0x80, virt, length)
+    // stack:                 length, 0x80, virt, length
 
-global ripemd_init:
     // stack: length
-    %stack (length) -> (        0, length,        136, ripemd_1, ripemd_2, process)
-    // stack:           count = 0, length, virt = 136, ripemd_1, ripemd_2, process
+    %shl_const(3)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(31, 64)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(30, 65)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(29, 66)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(28, 67)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(27, 68)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(26, 69)
+    // stack: abcdefgh
+    DUP1
+    %extract_and_store_byte(25, 70)
+    // stack: abcdefgh
+    %extract_and_store_byte(24, 71)
+
+    // stack: 0x80
+    %mstore_kernel_general(72)
+
+    // stack: virt, length
+    %stack (virt, length) -> (        0, length, virt, ripemd_1, ripemd_2, process)
+    // stack:                 count = 0, length, virt, ripemd_1, ripemd_2, process
     %stack () -> (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)
-    // stack:     0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, count, length, virt, LABELS
+    // stack:                                  STATE, count, length, virt, LABELS
     %jump(ripemd_update)
+
 ripemd_1:
     // stack:                                  STATE, count, length            , virt     , LABELS
     DUP7
@@ -58,7 +73,7 @@ ripemd_2:
     %stack (STATE: 5, count, length, virt) -> (STATE, count,          8,        64)
     // stack:                                  STATE, count, length = 8, virt = 64, LABELS
     %jump(ripemd_update)
-global process:
+process:
     // stack: a , b, c, d, e, count, length, virt
     %reverse_bytes_u32
     %shl_const(128)
@@ -105,3 +120,12 @@ global process:
     // stack: 56 + 64*(t > 55), t 
     SUB
 %endmacro
+
+%macro extract_and_store_byte(byte, offset)
+    // stack: xs
+    PUSH $byte
+    BYTE
+    // stack: xs[byte]
+    %mstore_kernel_general($offset)
+    // stack:
+%endmacro 

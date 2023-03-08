@@ -38,17 +38,56 @@
     %mload_context_metadata(@CTX_METADATA_ADDRESS)
 %endmacro
 
-%macro sender
+global sys_address:
+    // stack: kexit_info
+    %address
+    // stack: address, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro caller
     %mload_context_metadata(@CTX_METADATA_CALLER)
 %endmacro
+
+global sys_caller:
+    // stack: kexit_info
+    %caller
+    // stack: caller, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 %macro callvalue
     %mload_context_metadata(@CTX_METADATA_CALL_VALUE)
 %endmacro
 
+%macro codesize
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+%endmacro
+
+global sys_codesize:
+    // stack: kexit_info
+    %codesize
+    // stack: codesize, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+global sys_callvalue:
+    // stack: kexit_info
+    %callvalue
+    // stack: callvalue, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 %macro msize
     %mload_context_metadata(@CTX_METADATA_MSIZE)
 %endmacro
+
+global sys_msize:
+    // stack: kexit_info
+    %msize
+    // stack: msize, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 %macro update_msize
     // stack: offset
@@ -64,4 +103,3 @@
     // stack: new_msize
     %mstore_context_metadata(@CTX_METADATA_MSIZE)
 %endmacro
-

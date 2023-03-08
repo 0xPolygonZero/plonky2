@@ -88,11 +88,15 @@ encode_account_after_hash_storage_trie:
     SWAP1
     JUMP
 
-encode_txn:
+global encode_txn:
     PANIC // TODO
 
-encode_receipt:
+global encode_receipt:
     PANIC // TODO
 
-encode_storage_value:
-    PANIC // TODO: RLP encode as variable-len scalar?
+global encode_storage_value:
+    // stack: rlp_pos, value_ptr, retdest
+    %encode_rlp_scalar
+    // stack: rlp_pos', retdest
+    SWAP1
+    JUMP

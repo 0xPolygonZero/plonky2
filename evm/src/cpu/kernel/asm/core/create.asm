@@ -1,9 +1,17 @@
+// The CREATE syscall.
+//
+// Pre stack: value, CODE_ADDR, code_len, retdest
+// Post stack: address
+global sys_create:
+    %address
+    %jump(create)
+
 // Create a new contract account with the traditional address scheme, i.e.
 //     address = KEC(RLP(sender, nonce))[12:]
 // This can be used both for the CREATE instruction and for contract-creation
 // transactions.
 //
-// Pre stack: CODE_ADDR, code_len, retdest
+// Pre stack: sender, endowment, CODE_ADDR, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create:
@@ -18,21 +26,18 @@ global create:
 // CREATE2; see EIP-1014. Address will be
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
 //
-// Pre stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
+// Pre stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
-global create2:
-    // stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
+global sys_create2:
+    // stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
+    DUP7 DUP7 DUP7 DUP7 // CODE_ADDR: 3, code_len
+    KECCAK_GENERAL
+    // stack: code_hash, sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
+
     // Call get_create2_address and have it return to create_inner.
-    %stack (sender, endowment, salt) -> (salt, sender, endowment)
-    // stack: salt, sender, endowment, CODE_ADDR, code_len, retdest
-    DUP7 DUP7 DUP7 DUP7 // CODE_ADDR and code_len
-    // stack: CODE_ADDR, code_len, salt, sender, endowment, CODE_ADDR, code_len, retdest
-    PUSH create_inner
-    // stack: create_inner, CODE_ADDR, code_len, salt, sender, endowment, CODE_ADDR, code_len, retdest
-    SWAP5 // create_inner <-> salt
-    // stack: salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
-    DUP7 // sender
+    %stack (code_hash, sender, endowment, salt)
+        -> (sender, salt, code_hash, create_inner, sender, endowment)
     // stack: sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
     %jump(get_create2_address)
 
