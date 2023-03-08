@@ -189,7 +189,6 @@ compression_loop:
     // stack: start, g_functions_return, cur_block, retdest
     %jump(run_12_rounds_g_function)
 g_functions_return:
-    
     // Finalize hash value.
     // stack: cur_block, retdest
     PUSH hash_generate_return
