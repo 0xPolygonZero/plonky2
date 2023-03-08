@@ -65,11 +65,16 @@ compression_loop:
     // stack: sha2_constants_k + 4*i, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     %mload_kernel_code_u32
     // stack: K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
-    %stack (start: 6, e, f, g, h) -> (e, f, g, h, start, e, f, g, h)
+    DUP10
+    DUP10
+    DUP10
+    DUP10
     // stack: e[i], f[i], g[i], h[i], K[i], W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     %sha2_temp_word1
     // stack: T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
-    %stack (t, a, b, c) -> (a, b, c, t, a, b, c)
+    DUP4
+    DUP4
+    DUP4
     // stack: a[i], b[i], c[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     %sha2_temp_word2
     // stack: T2[i], T1[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest

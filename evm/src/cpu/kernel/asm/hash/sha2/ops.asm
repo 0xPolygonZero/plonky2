@@ -26,14 +26,15 @@
     // stack: x, x
     %rotr(7)
     // stack: rotr(x, 7), x
-    %stack (rotated, x) -> (x, x, rotated)
+    SWAP1
+    // stack: x, rotr(x, 7)
+    DUP1
     // stack: x, x, rotr(x, 7)
     %rotr(18)
     // stack: rotr(x, 18), x, rotr(x, 7)
     SWAP1
     // stack: x, rotr(x, 18), rotr(x, 7)
-    PUSH 3
-    SHR
+    %shr_const(3)
     // stack: shr(x, 3), rotr(x, 18), rotr(x, 7)
     XOR
     XOR
@@ -45,7 +46,9 @@
     // stack: x, x
     %rotr(17)
     // stack: rotr(x, 17), x
-    %stack (rotated, x) -> (x, x, rotated)
+    SWAP1
+    // stack: x, rotr(x, 17)
+    DUP1
     // stack: x, x, rotr(x, 17)
     %rotr(19)
     // stack: rotr(x, 19), x, rotr(x, 17)
@@ -64,7 +67,9 @@
     // stack: x, x
     %rotr(2)
     // stack: rotr(x, 2), x
-    %stack (rotated, x) -> (x, x, rotated)
+    SWAP1
+    // stack: x, rotr(x, 2)
+    DUP1
     // stack: x, x, rotr(x, 2)
     %rotr(13)
     // stack: rotr(x, 13), x, rotr(x, 2)
@@ -82,7 +87,9 @@
     // stack: x, x
     %rotr(6)
     // stack: rotr(x, 6), x
-    %stack (rotated, x) -> (x, x, rotated)
+    SWAP1
+    // stack: x, rotr(x, 6)
+    DUP1
     // stack: x, x, rotr(x, 6)
     %rotr(11)
     // stack: rotr(x, 11), x, rotr(x, 6)
@@ -100,11 +107,13 @@
     // stack: x, x, y, z
     NOT
     // stack: not x, x, y, z
-    %stack (notx, x, y, z) -> (notx, z, x, y)
-    // stack: not x, z, x, y
+    SWAP1
+    // stack: x, not x, y, z
+    SWAP3
+    // stack: z, not x, y, x
     AND
-    // stack: (not x) and z, x, y
-    %stack (nxz, x, y) -> (x, y, nxz)
+    // stack: (not x) and z, y, x
+    SWAP2
     // stack: x, y, (not x) and z
     AND
     // stack: x and y, (not x) and z
@@ -113,18 +122,22 @@
 
 %macro sha2_majority
     // stack: x, y, z
-    %stack (xyz: 3) -> (xyz, xyz)
-    // stack: x, y, z, x, y, z
+    DUP1
+    // stack: x, x, y, z
+    DUP3
+    // stack: y, x, x, y, z
+    DUP5
+    // stack: z, y, x, x, y, z
     AND
-    // stack: x and y, z, x, y, z
+    // stack: z and y, x, x, y, z
+    SWAP4
+    // stack: z, x, x, y, z and y
+    AND
+    // stack: z and x, x, y, z and y
     SWAP2
-    // stack: x, z, x and y, y, z
+    // stack: y, x, z and x, z and y
     AND
-    // stack: x and z, x and y, y, z
-    %stack (a: 2, b: 2) -> (b, a)
-    // stack: y, z, x and z, x and y
-    AND
-    // stack: y and z, x and z, x and y
+    // stack: y and x, z and x, z and y
     OR
     OR
 %endmacro
