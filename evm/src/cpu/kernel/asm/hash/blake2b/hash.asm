@@ -30,62 +30,25 @@ blake2b_generate_new_hash_value:
 
 global blake2b_generate_all_hash_values:
     // stack: retdest
-    PUSH blake2b_generate_hash_return_7
-    // stack: blake2b_generate_hash_return_7, retdest
-    PUSH 7
-    // stack: 7, blake2b_generate_hash_return_7, retdest
+    PUSH 8
+    // stack: i=8, retdest
+blake2b_generate_hash_loop:
+    // stack: i, h_i', ..., h_7', retdest
+    %decrement
+    // stack: i-1, h_i', ..., h_7', retdest
+    PUSH blake2b_generate_hash_return
+    // stack: blake2b_generate_hash_return, i-1, h_i', ..., h_7', retdest
+    DUP2
+    // stack: i-1, blake2b_generate_hash_return, i-1, h_i', ..., h_7', retdest
     %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_7:
-    // stack: h_7', retdest
-    PUSH blake2b_generate_hash_return_6
-    // stack: blake2b_generate_hash_return_6, h_7', retdest
-    PUSH 6
-    // stack: 6, blake2b_generate_hash_return_6, h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_6:
-    // stack: h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_5
-    // stack: blake2b_generate_hash_return_5, h_6', h_7', retdest
-    PUSH 5
-    // stack: 5, blake2b_generate_hash_return_5, h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_5:
-    // stack: h_5', h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_4
-    // stack: blake2b_generate_hash_return_4, h_5', h_6', h_7', retdest
-    PUSH 4
-    // stack: 4, blake2b_generate_hash_return_4, h_5', h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_4:
-    // stack: h_4', h_5', h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_3
-    // stack: blake2b_generate_hash_return_3, h_4', h_5', h_6', h_7', retdest
-    PUSH 3
-    // stack: 3, blake2b_generate_hash_return_3, h_4', h_5', h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_3:
-    // stack: h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_2
-    // stack: blake2b_generate_hash_return_2, h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH 2
-    // stack: 2, blake2b_generate_hash_return_2, h_3', h_4', h_5', h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_2:
-    // stack: h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_1
-    // stack: blake2b_generate_hash_return_1, h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH 1
-    // stack: 1, blake2b_generate_hash_return_1, h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_1:
-    // stack: h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH blake2b_generate_hash_return_0
-    // stack: blake2b_generate_hash_return_0, h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    PUSH 0
-    // stack: 0, blake2b_generate_hash_return_0, h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    %jump(blake2b_generate_new_hash_value)
-blake2b_generate_hash_return_0:
-    // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
-    %stack (h: 8, ret) -> (ret, h)
-    // stack: retdest, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7'
+blake2b_generate_hash_return:
+    // stack: h_(i-1)', i-1, h_i', ..., h_7', retdest
+    SWAP1
+    // stack: i-1, h_(i-1)', h_i', ..., h_7', retdest
+    DUP1
+    // stack: i-1, i-1, h_(i-1)', ..., h_7', retdest
+    %jumpi(blake2b_generate_hash_loop)
+    // stack: i-1=0, h_0', ..., h_7', retdest
+    %stack (i, h: 8, ret) -> (ret, h)
+    // stack: retdest, h_0'...h_7'
     JUMP
