@@ -33,30 +33,63 @@ global blake2b_iv_const:
     BYTES 91, 224, 205, 25
     BYTES 19, 126, 33, 121
 
-%macro blake2b_iv
-    // stack: i, ...
+global blake2b_iv:
+    // stack: i, retdest
     PUSH blake2b_iv_const
-    // stack: blake2b_iv_const, i, ...
+    // stack: blake2b_iv_const, i, retdest
     SWAP1
-    // stack: i, blake2b_iv_const, ...
+    // stack: i, blake2b_iv_const, retdest
     %mul_const(8)
     ADD
-    // stack: blake2b_iv_const + 2 * i, ...
+    // stack: blake2b_iv_const + 2 * i, retdest
     DUP1
-    // stack: blake2b_iv_const + 2 * i, blake2b_iv_const + 2 * i, ...
+    // stack: blake2b_iv_const + 2 * i, blake2b_iv_const + 2 * i, retdest
     %add_const(4)
-    // stack: blake2b_iv_const + 2 * i + 1, blake2b_iv_const + 2 * i, ...
+    // stack: blake2b_iv_const + 2 * i + 1, blake2b_iv_const + 2 * i, retdest
     %mload_kernel_code_u32
     SWAP1
     %mload_kernel_code_u32
-    // stack: IV_i[32:], IV_i[:32], ...
+    // stack: IV_i[32:], IV_i[:32], retdest
     %shl_const(32)
-    // stack: IV_i[32:] << 32, IV_i[:32], ...
+    // stack: IV_i[32:] << 32, IV_i[:32], retdest
     OR
-    // stack: IV_i, ...
+    // stack: IV_i, retdest
+    SWAP1
+    JUMP
+
+%macro blake2b_iv
+    %stack (i) -> (i, %%after)
+    %jump(blake2b_iv)
+%%after:
 %endmacro
 
-%macro blake2b_iv_i(i)
-    PUSH $i
-    %blake2b_iv
-%endmacro
+// Load the initial hash value (the IV, but with params XOR'd into the first word).
+global blake2b_initial_hash_value:
+    // stack: retdest
+    PUSH 8
+    // stack: i=8, retdest
+blake2b_initial_hash_loop:
+    // stack: i, IV_i, ..., IV_7, retdest
+    %decrement
+    // stack: i-1, IV_i, ..., IV_7, retdest
+    PUSH blake2b_initial_hash_return
+    // stack: blake2b_initial_hash_return, i-1, IV_i, ..., IV_7, retdest
+    DUP2
+    // stack: i-1, blake2b_initial_hash_return, i-1, IV_i, ..., IV_7, retdest
+    %jump(blake2b_iv)
+blake2b_initial_hash_return:
+    // stack: IV_(i-1), i-1, IV_i, ..., IV_7, retdest
+    SWAP1
+    // stack: i-1, IV_(i-1), IV_i, ..., IV_7, retdest
+    DUP1
+    // stack: i-1, i-1, IV_(i-1), ..., IV_7, retdest
+    %jumpi(blake2b_initial_hash_loop)
+    // stack: i-1=0, IV_0, ..., IV_7, retdest
+    POP
+    // stack: IV_0, ..., IV_7, retdest
+    PUSH 0x01010040 // params: key = 00, digest_size = 64 = 0x40
+    XOR
+    // stack: IV_0 ^ params, IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7, retdest
+    %stack(iv: 8, ret) -> (ret, iv)
+    JUMP
+
