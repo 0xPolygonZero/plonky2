@@ -33,6 +33,15 @@ pub(crate) struct GenerationState<F: Field> {
 
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Self {
+        log::debug!("Input signed_txns: {:?}", &inputs.signed_txns);
+        log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
+        log::debug!(
+            "Input transactions_trie: {:?}",
+            &inputs.tries.transactions_trie
+        );
+        log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
+        log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
+        log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
 

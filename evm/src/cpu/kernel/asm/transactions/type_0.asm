@@ -19,61 +19,16 @@ global process_type_0_txn:
     // We don't actually need the length.
     %stack (pos, len) -> (pos)
 
-    // Decode the nonce and store it.
     // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, nonce) -> (nonce, pos)
-    %mstore_txn_field(@TXN_FIELD_NONCE)
-
-    // Decode the gas price and store it.
-    // For legacy transactions, we set both the
-    // TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS and TXN_FIELD_MAX_FEE_PER_GAS
-    // fields to gas_price.
+    %decode_and_store_nonce
+    %decode_and_store_gas_price_legacy
+    %decode_and_store_gas_limit
+    %decode_and_store_to
+    %decode_and_store_value
+    %decode_and_store_data
     // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, gas_price) -> (gas_price, gas_price, pos)
-    %mstore_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
-    %mstore_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
 
-    // Decode the gas limit and store it.
-    // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, gas_limit) -> (gas_limit, pos)
-    %mstore_txn_field(@TXN_FIELD_GAS_LIMIT)
-
-    // Decode the "to" field and store it.
-    // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, to) -> (to, pos)
-    %mstore_txn_field(@TXN_FIELD_TO)
-
-    // Decode the value field and store it.
-    // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, value) -> (value, pos)
-    %mstore_txn_field(@TXN_FIELD_VALUE)
-
-    // Decode the data length, store it, and compute new_pos after any data.
-    // stack: pos, retdest
-    %decode_rlp_string_len
-    %stack (pos, data_len) -> (data_len, pos, data_len, pos, data_len)
-    %mstore_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: pos, data_len, pos, data_len, retdest
-    ADD
-    // stack: new_pos, pos, data_len, retdest
-
-    // Memcpy the txn data from @SEGMENT_RLP_RAW to @SEGMENT_TXN_DATA.
-    PUSH parse_v
-    %stack (parse_v, new_pos, old_pos, data_len) -> (old_pos, data_len, parse_v, new_pos)
-    PUSH @SEGMENT_RLP_RAW
-    GET_CONTEXT
-    PUSH 0
-    PUSH @SEGMENT_TXN_DATA
-    GET_CONTEXT
-    // stack: DST, SRC, data_len, parse_v, new_pos, retdest
-    %jump(memcpy)
-
-parse_v:
+    // Parse the "v" field.
     // stack: pos, retdest
     %decode_rlp_scalar
     // stack: pos, v, retdest
@@ -93,7 +48,7 @@ parse_v:
     %mstore_txn_field(@TXN_FIELD_Y_PARITY)
 
     // stack: pos, retdest
-    %jump(parse_r)
+    %jump(decode_r_and_s)
 
 process_v_new_style:
     // stack: v, pos, retdest
@@ -115,16 +70,12 @@ process_v_new_style:
     // stack: y_parity, pos, retdest
     %mstore_txn_field(@TXN_FIELD_Y_PARITY)
 
-parse_r:
+decode_r_and_s:
     // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, r) -> (r, pos)
-    %mstore_txn_field(@TXN_FIELD_R)
-
+    %decode_and_store_r
+    %decode_and_store_s
     // stack: pos, retdest
-    %decode_rlp_scalar
-    %stack (pos, s) -> (s)
-    %mstore_txn_field(@TXN_FIELD_S)
+    POP
     // stack: retdest
 
 type_0_compute_signed_data:

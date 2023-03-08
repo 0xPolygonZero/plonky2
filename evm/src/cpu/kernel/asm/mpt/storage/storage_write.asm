@@ -4,6 +4,12 @@
 // Post stack: (empty)
 
 global sys_sstore:
+    // TODO: Assuming a cold zero -> nonzero write for now.
+    PUSH @GAS_COLDSLOAD
+    PUSH @GAS_SSET
+    ADD
+    %charge_gas
+
     %stack (kexit_info, slot, value) -> (slot, value, kexit_info)
     // TODO: If value = 0, delete the key instead of inserting 0.
     // stack: slot, value, kexit_info

@@ -26,14 +26,18 @@ global create:
 // CREATE2; see EIP-1014. Address will be
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
 //
-// Pre stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
+// Pre stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global sys_create2:
-    // stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
+    // stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
+    DUP7 DUP7 DUP7 DUP7 // CODE_ADDR: 3, code_len
+    KECCAK_GENERAL
+    // stack: code_hash, sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
+
     // Call get_create2_address and have it return to create_inner.
-    %stack (sender, endowment, salt, CODE_ADDR: 3, code_len)
-        -> (sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len)
+    %stack (code_hash, sender, endowment, salt)
+        -> (sender, salt, code_hash, create_inner, sender, endowment)
     // stack: sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
     %jump(get_create2_address)
 

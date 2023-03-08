@@ -13,15 +13,9 @@ global sys_sgt:
     PANIC
 global sys_sar:
     PANIC
-global sys_address:
-    PANIC
 global sys_balance:
     PANIC
 global sys_origin:
-    PANIC
-global sys_caller:
-    PANIC
-global sys_callvalue:
     PANIC
 global sys_calldataload:
     PANIC
@@ -29,16 +23,14 @@ global sys_calldatasize:
     PANIC
 global sys_calldatacopy:
     PANIC
-global sys_codesize:
-    PANIC
 global sys_codecopy:
     PANIC
 global sys_gasprice:
-    PANIC
-global sys_extcodesize:
-    PANIC
-global sys_extcodecopy:
-    PANIC
+    // stack: kexit_info
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    // stack: gas_price, kexit_info
+    SWAP1
+    EXIT_KERNEL
 global sys_returndatasize:
     PANIC
 global sys_returndatacopy:
@@ -54,19 +46,32 @@ global sys_timestamp:
 global sys_number:
     PANIC
 global sys_prevrandao:
+    // TODO: What semantics will this have for Edge?
     PANIC
 global sys_gaslimit:
+    // TODO: Return the block's gas limit.
     PANIC
 global sys_chainid:
-    PANIC
+    // TODO: Return the block's chain ID instead of the txn's, even though they should match.
+    // stack: kexit_info
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID)
+    // stack: chain_id, kexit_info
+    SWAP1
+    EXIT_KERNEL
 global sys_selfbalance:
     PANIC
 global sys_basefee:
     PANIC
-global sys_msize:
-    PANIC
 global sys_gas:
-    PANIC
+    // stack: kexit_info
+    DUP1 %shr_const(192)
+    // stack: gas_used, kexit_info
+    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
+    // stack: gas_limit, gas_used, kexit_info
+    SUB
+    // stack: gas_remaining, kexit_info
+    SWAP1
+    EXIT_KERNEL
 global sys_log0:
     PANIC
 global sys_log1:
@@ -76,12 +81,4 @@ global sys_log2:
 global sys_log3:
     PANIC
 global sys_log4:
-    PANIC
-global sys_call:
-    PANIC
-global sys_callcode:
-    PANIC
-global sys_delegatecall:
-    PANIC
-global sys_staticcall:
     PANIC
