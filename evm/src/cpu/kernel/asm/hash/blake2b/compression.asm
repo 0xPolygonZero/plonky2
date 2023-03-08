@@ -2,7 +2,9 @@ global blake2b_compression:
     // stack: retdest
     PUSH 0
     // stack: cur_block = 0, retdest
-    %blake2b_initial_hash_value
+    PUSH compression_loop
+    // stack: compression_loop, cur_block, retdest
+    %jump(blake2b_initial_hash_value)
 compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     
