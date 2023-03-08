@@ -27,9 +27,9 @@ impl Fp {
 
 impl Distribution<Fp> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
-        let (x0, x1, x2, x3) = rng.gen::<(u64, u64, u64, u64)>();
+        let xs = rng.gen::<[u64; 4]>();
         Fp {
-            val: U256([x0, x1, x2, x3]) % BN_BASE,
+            val: U256(xs) % BN_BASE,
         }
     }
 }

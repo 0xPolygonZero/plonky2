@@ -26,10 +26,12 @@ pub(crate) enum ContextMetadata {
     /// Size of the active main memory.
     MSize = 10,
     StackSize = 11,
+    /// The gas limit for this call (not the entire transaction).
+    GasLimit = 12,
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 12;
+    pub(crate) const COUNT: usize = 13;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -45,6 +47,7 @@ impl ContextMetadata {
             Self::StateTrieCheckpointPointer,
             Self::MSize,
             Self::StackSize,
+            Self::GasLimit,
         ]
     }
 
@@ -63,6 +66,7 @@ impl ContextMetadata {
             ContextMetadata::StateTrieCheckpointPointer => "CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR",
             ContextMetadata::MSize => "CTX_METADATA_MSIZE",
             ContextMetadata::StackSize => "CTX_METADATA_STACK_SIZE",
+            ContextMetadata::GasLimit => "CTX_METADATA_GAS_LIMIT",
         }
     }
 }
