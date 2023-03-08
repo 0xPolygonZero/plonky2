@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -8,26 +9,36 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
+use static_assertions::const_assert;
 
+use crate::all_stark::Table;
 use crate::arithmetic::{addcy, columns, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-const ADD_MUL_OPS: [usize; 2] = [columns::IS_ADD, columns::IS_MUL];
-
-pub fn ctl_data_add_mul<F: Field>() -> Vec<Column<F>> {
+/// Link the 16-bit columns of the arithmetic table, split into groups
+/// of N_LIMBS at a time in `regs`, with the corresponding 32-bit
+/// columns of the CPU table. Does this for all ops in `ops`.
+///
+/// This is done by taking pairs of columns (x, y) of the arithmetic
+/// table and combining them as x + y*2^16 to ensure they equal the
+/// corresponding 32-bit number in the CPU table.
+fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let mut res = Column::singles(ADD_MUL_OPS).collect_vec();
-    for reg_cols in [
-        columns::GENERAL_REGISTER_0,
-        columns::GENERAL_REGISTER_1,
-        columns::GENERAL_REGISTER_2,
-    ] {
+    let mut res = Column::singles(ops).collect_vec();
+
+    // The inner for loop below assumes N_LIMBS is even.
+    const_assert!(columns::N_LIMBS % 2 == 0);
+
+    for reg_cols in regs {
+        // Loop below assumes we're operating on a "register" of N_LIMBS columns.
+        debug_assert_eq!(reg_cols.len(), columns::N_LIMBS);
+
         for i in 0..(columns::N_LIMBS / 2) {
             let c0 = reg_cols.start + 2 * i;
             let c1 = reg_cols.start + 2 * i + 1;
@@ -37,43 +48,10 @@ pub fn ctl_data_add_mul<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter_add_mul<F: Field>() -> Column<F> {
-    Column::sum(ADD_MUL_OPS)
-}
-
-pub fn ctl_data_sub<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = vec![Column::single(columns::IS_SUB)];
-    for reg_cols in [
-        columns::GENERAL_REGISTER_2,
-        columns::GENERAL_REGISTER_0,
-        columns::GENERAL_REGISTER_1,
-    ] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    res
-}
-
-pub fn ctl_filter_sub<F: Field>() -> Column<F> {
-    Column::single(columns::IS_SUB)
-}
-
-pub fn ctl_data_lt<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = vec![Column::single(columns::IS_LT)];
-    for reg_cols in [columns::GENERAL_REGISTER_2, columns::GENERAL_REGISTER_0] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
+/// As for cpu_arith_data_link but also checks that the output is a
+/// the single column columns::GENERAL_REGISTER_BIT.
+fn cpu_arith_data_link_bitout<F: Field>(ops: &[usize], in_regs: &[Range<usize>]) -> Vec<Column<F>> {
+    let mut res = cpu_arith_data_link(ops, in_regs);
     // Output is 0 or 1 and contained in column GENERAL_REGISTER_BIT,
     // but the result is a U256, so all the other columns must be
     // zero.
@@ -84,130 +62,122 @@ pub fn ctl_data_lt<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter_lt<F: Field>() -> Column<F> {
-    Column::single(columns::IS_LT)
+/// Create the Arithmetic Table whose columns are those of the
+/// operations listed in `ops` whose inputs and outputs are given by
+/// `regs`, where each element of `regs` is a range of columns
+/// corresponding to a 256-bit input or output register (also `ops` is
+/// used as the operation filter).
+fn ctl_link_ops_rows<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> TableWithColumns<F> {
+    TableWithColumns::new(
+        Table::Arithmetic,
+        cpu_arith_data_link(ops, regs),
+        Some(Column::sum(ops)),
+    )
 }
 
-pub fn ctl_data_gt<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = vec![Column::single(columns::IS_GT)];
-    for reg_cols in [columns::GENERAL_REGISTER_0, columns::GENERAL_REGISTER_2] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    // Output is 0 or 1 and contained in column GENERAL_REGISTER_BIT,
-    // but the result is a U256, so all the other columns must be
-    // zero.
-    res.push(Column::single(columns::GENERAL_REGISTER_BIT));
-    for _ in 1..(columns::N_LIMBS / 2) {
-        res.push(Column::zero());
-    }
-    res
+/// Create the Arithmetic Table whose columns are those of the
+/// operations listed in `ops` whose inputs are given by `regs`, where
+/// each element of `regs` is a range of columns corresponding to a
+/// 256-bit input register (also `ops` is used as the operation
+/// filter). This function assumes that the output is a single bit
+/// found at column columns::GENERAL_REGISTER_BIT.
+fn ctl_link_ops_rows_bitout<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> TableWithColumns<F> {
+    TableWithColumns::new(
+        Table::Arithmetic,
+        cpu_arith_data_link_bitout(ops, regs),
+        Some(Column::sum(ops)),
+    )
 }
 
-pub fn ctl_filter_gt<F: Field>() -> Column<F> {
-    Column::single(columns::IS_GT)
+// Each ctl_<OPS>_rows() function produces the Table of Columns
+// corresponding to the operations OPS. Each of these functions has a
+// corresponding function in cpu_stark.rs with the same name; together
+// they define the mapping from data received in CPU table Columns and
+// data received in arithmetic table columns.
+
+pub fn ctl_add_mul_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[columns::IS_ADD, columns::IS_MUL],
+        &[
+            columns::GENERAL_REGISTER_0,
+            columns::GENERAL_REGISTER_1,
+            columns::GENERAL_REGISTER_2,
+        ],
+    )
 }
 
-const MOD_OPS: [usize; 3] = [columns::IS_ADDMOD, columns::IS_MULMOD, columns::IS_SUBMOD];
-
-pub fn ctl_data_modops<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = Column::singles(MOD_OPS).collect_vec();
-    for reg_cols in [
-        columns::MODULAR_INPUT_0,
-        columns::MODULAR_INPUT_1,
-        columns::MODULAR_MODULUS,
-        columns::MODULAR_OUTPUT,
-    ] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    res
+pub fn ctl_sub_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[columns::IS_SUB],
+        &[
+            columns::GENERAL_REGISTER_2,
+            columns::GENERAL_REGISTER_0,
+            columns::GENERAL_REGISTER_1,
+        ],
+    )
 }
 
-pub fn ctl_filter_modops<F: Field>() -> Column<F> {
-    Column::sum(MOD_OPS)
+pub fn ctl_lt_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows_bitout(
+        &[columns::IS_LT],
+        &[columns::GENERAL_REGISTER_2, columns::GENERAL_REGISTER_0],
+    )
 }
 
-pub fn ctl_data_div<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = vec![Column::single(columns::IS_DIV)];
-    for reg_cols in [
-        columns::DIV_NUMERATOR,
-        columns::DIV_DENOMINATOR,
-        columns::DIV_OUTPUT,
-    ] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    res
+pub fn ctl_gt_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows_bitout(
+        &[columns::IS_GT],
+        &[columns::GENERAL_REGISTER_0, columns::GENERAL_REGISTER_2],
+    )
 }
 
-pub fn ctl_filter_div<F: Field>() -> Column<F> {
-    Column::single(columns::IS_DIV)
+pub fn ctl_modops_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[columns::IS_ADDMOD, columns::IS_MULMOD, columns::IS_SUBMOD],
+        &[
+            columns::MODULAR_INPUT_0,
+            columns::MODULAR_INPUT_1,
+            columns::MODULAR_MODULUS,
+            columns::MODULAR_OUTPUT,
+        ],
+    )
 }
 
-pub fn ctl_data_mod<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = vec![Column::single(columns::IS_MOD)];
-    for reg_cols in [
-        columns::MODULAR_INPUT_0,
-        columns::MODULAR_MODULUS,
-        columns::MODULAR_OUTPUT,
-    ] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    res
+pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[columns::IS_DIV],
+        &[
+            columns::DIV_NUMERATOR,
+            columns::DIV_DENOMINATOR,
+            columns::DIV_OUTPUT,
+        ],
+    )
 }
 
-pub fn ctl_filter_mod<F: Field>() -> Column<F> {
-    Column::single(columns::IS_MOD)
+pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[columns::IS_MOD],
+        &[
+            columns::MODULAR_INPUT_0,
+            columns::MODULAR_MODULUS,
+            columns::MODULAR_OUTPUT,
+        ],
+    )
 }
 
-const BN254_OPS: [usize; 3] = [
-    columns::IS_ADDFP254,
-    columns::IS_MULFP254,
-    columns::IS_SUBFP254,
-];
-
-pub fn ctl_data_bn254ops<F: Field>() -> Vec<Column<F>> {
-    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
-
-    let mut res = Column::singles(BN254_OPS).collect_vec();
-    for reg_cols in [
-        columns::MODULAR_INPUT_0,
-        columns::MODULAR_INPUT_1,
-        columns::MODULAR_OUTPUT,
-    ] {
-        for i in 0..(columns::N_LIMBS / 2) {
-            let c0 = reg_cols.start + 2 * i;
-            let c1 = reg_cols.start + 2 * i + 1;
-            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
-        }
-    }
-    res
-}
-
-pub fn ctl_filter_bn254ops<F: Field>() -> Column<F> {
-    Column::sum(BN254_OPS)
+pub fn ctl_bn254ops_rows<F: Field>() -> TableWithColumns<F> {
+    ctl_link_ops_rows(
+        &[
+            columns::IS_ADDFP254,
+            columns::IS_MULFP254,
+            columns::IS_SUBFP254,
+        ],
+        &[
+            columns::MODULAR_INPUT_0,
+            columns::MODULAR_INPUT_1,
+            columns::MODULAR_OUTPUT,
+        ],
+    )
 }
 
 #[derive(Copy, Clone, Default)]

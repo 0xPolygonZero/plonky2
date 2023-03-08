@@ -8,6 +8,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
+use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
@@ -15,7 +16,7 @@ use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
     modfp254, pc, shift, simple_logic, stack, stack_bounds, syscalls,
 };
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
@@ -45,22 +46,9 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
-pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor]).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[0].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
-    res
-}
-
-pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
-}
-
-// TODO: Refactor this with ctl_data_logic() above.
-pub fn ctl_data_arithmetic_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
+/// Create the vector of Columns corresponding to the two inputs and
+/// one output of a binary operation.
+fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
     let mut res = Column::singles(ops).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[0].value));
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
@@ -70,7 +58,9 @@ pub fn ctl_data_arithmetic_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_data_arithmetic_ternops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
+/// Create the vector of Columns corresponding to the three inputs and
+/// one output of a ternary operation.
+fn ctl_data_ternops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
     let mut res = Column::singles(ops).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[0].value));
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
@@ -81,8 +71,65 @@ pub fn ctl_data_arithmetic_ternops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_filter_arithmetic<F: Field>(ops: &[usize]) -> Column<F> {
-    Column::sum(ops)
+pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
+    ctl_data_binops(&[COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
+}
+
+pub fn ctl_filter_logic<F: Field>() -> Column<F> {
+    Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
+}
+
+/// Create the CPU Table whose columns are those with the two inputs
+/// and one output of the binary operations listed in `ops` (also
+/// `ops` is used as the operation filter).
+fn binops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
+    TableWithColumns::new(Table::Cpu, ctl_data_binops(ops), Some(Column::sum(ops)))
+}
+
+/// Create the CPU Table whose columns are those with the three inputs
+/// and one output of the ternary operations listed in `ops` (also
+/// `ops` is used as the operation filter).
+fn ternops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
+    TableWithColumns::new(Table::Cpu, ctl_data_ternops(ops), Some(Column::sum(ops)))
+}
+
+// The ctl_<OPS>_rows() functions below produce the CPU table
+// corresponding to the OPS operations.
+
+pub fn ctl_add_mul_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.add, COL_MAP.op.mul])
+}
+
+pub fn ctl_sub_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.sub])
+}
+
+pub fn ctl_lt_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.lt])
+}
+
+pub fn ctl_gt_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.gt])
+}
+
+pub fn ctl_modops_rows<F: Field>() -> TableWithColumns<F> {
+    ternops_table(&[COL_MAP.op.addmod, COL_MAP.op.mulmod, COL_MAP.op.submod])
+}
+
+pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.div])
+}
+
+pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[COL_MAP.op.mod_])
+}
+
+pub fn ctl_bn254ops_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[
+        COL_MAP.op.addfp254,
+        COL_MAP.op.mulfp254,
+        COL_MAP.op.subfp254,
+    ])
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;

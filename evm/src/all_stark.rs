@@ -7,7 +7,6 @@ use plonky2::hash::hash_types::RichField;
 use crate::arithmetic::arithmetic_stark;
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
-use crate::cpu::columns::COL_MAP;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
@@ -99,14 +98,14 @@ impl Table {
 
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     let mut ctls = vec![
-        ctl_arithmetic_add_mul(),
-        ctl_arithmetic_sub(),
-        ctl_arithmetic_lt(),
-        ctl_arithmetic_gt(),
-        ctl_arithmetic_modops(),
-        ctl_arithmetic_bn254ops(),
-        ctl_arithmetic_div(),
-        ctl_arithmetic_mod(),
+        ctl_add_mul(),
+        ctl_sub(),
+        ctl_lt(),
+        ctl_gt(),
+        ctl_modops(),
+        ctl_bn254ops(),
+        ctl_div(),
+        ctl_mod(),
         ctl_keccak_sponge(),
         ctl_keccak(),
         ctl_logic(),
@@ -125,123 +124,60 @@ fn disable_ctl<F: Field>(ctl: &mut CrossTableLookup<F>) {
     ctl.looked_table.filter_column = Some(Column::zero());
 }
 
-fn ctl_arithmetic_add_mul<F: Field>() -> CrossTableLookup<F> {
-    const ADD_MUL_OPS: [usize; 2] = [COL_MAP.op.add, COL_MAP.op.mul];
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&ADD_MUL_OPS),
-        Some(cpu_stark::ctl_filter_arithmetic(&ADD_MUL_OPS)),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_add_mul(),
-        Some(arithmetic_stark::ctl_filter_add_mul()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_add_mul<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_add_mul_rows()],
+        arithmetic_stark::ctl_add_mul_rows(),
+    )
 }
 
-fn ctl_arithmetic_sub<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&[COL_MAP.op.sub]),
-        Some(cpu_stark::ctl_filter_arithmetic(&[COL_MAP.op.sub])),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_sub(),
-        Some(arithmetic_stark::ctl_filter_sub()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_sub<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_sub_rows()],
+        arithmetic_stark::ctl_sub_rows(),
+    )
 }
 
-fn ctl_arithmetic_lt<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&[COL_MAP.op.lt]),
-        Some(cpu_stark::ctl_filter_arithmetic(&[COL_MAP.op.lt])),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_lt(),
-        Some(arithmetic_stark::ctl_filter_lt()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_lt<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_lt_rows()],
+        arithmetic_stark::ctl_lt_rows(),
+    )
 }
 
-fn ctl_arithmetic_gt<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&[COL_MAP.op.gt]),
-        Some(cpu_stark::ctl_filter_arithmetic(&[COL_MAP.op.gt])),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_gt(),
-        Some(arithmetic_stark::ctl_filter_gt()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_gt<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_gt_rows()],
+        arithmetic_stark::ctl_gt_rows(),
+    )
 }
 
-fn ctl_arithmetic_modops<F: Field>() -> CrossTableLookup<F> {
-    const MOD_OPS: [usize; 3] = [COL_MAP.op.addmod, COL_MAP.op.mulmod, COL_MAP.op.submod];
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_ternops(&MOD_OPS),
-        Some(cpu_stark::ctl_filter_arithmetic(&MOD_OPS)),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_modops(),
-        Some(arithmetic_stark::ctl_filter_modops()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_modops<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_modops_rows()],
+        arithmetic_stark::ctl_modops_rows(),
+    )
 }
 
-fn ctl_arithmetic_bn254ops<F: Field>() -> CrossTableLookup<F> {
-    const BN254_OPS: [usize; 3] = [
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-    ];
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&BN254_OPS),
-        Some(cpu_stark::ctl_filter_arithmetic(&BN254_OPS)),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_bn254ops(),
-        Some(arithmetic_stark::ctl_filter_bn254ops()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_div<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_div_rows()],
+        arithmetic_stark::ctl_div_rows(),
+    )
 }
 
-fn ctl_arithmetic_div<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&[COL_MAP.op.div]),
-        Some(cpu_stark::ctl_filter_arithmetic(&[COL_MAP.op.div])),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_div(),
-        Some(arithmetic_stark::ctl_filter_div()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_mod<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_mod_rows()],
+        arithmetic_stark::ctl_mod_rows(),
+    )
 }
 
-fn ctl_arithmetic_mod<F: Field>() -> CrossTableLookup<F> {
-    let cpu_looking = TableWithColumns::new(
-        Table::Cpu,
-        cpu_stark::ctl_data_arithmetic_binops(&[COL_MAP.op.mod_]),
-        Some(cpu_stark::ctl_filter_arithmetic(&[COL_MAP.op.mod_])),
-    );
-    let arithmetic_looked = TableWithColumns::new(
-        Table::Arithmetic,
-        arithmetic_stark::ctl_data_mod(),
-        Some(arithmetic_stark::ctl_filter_mod()),
-    );
-    CrossTableLookup::new(vec![cpu_looking], arithmetic_looked)
+fn ctl_bn254ops<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_bn254ops_rows()],
+        arithmetic_stark::ctl_bn254ops_rows(),
+    )
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
