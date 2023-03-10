@@ -135,9 +135,9 @@ encode_node_branch:
     // Get the next unused offset within the encoded child buffers.
     // Then immediately increment the next unused offset by 16, so any
     // recursive calls will use nonoverlapping offsets.
-    %mload_global_metadata(@TRIE_ENCODED_CHILD_SIZE)
+    %mload_global_metadata(@GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE)
     DUP1 %add_const(16)
-    %mstore_global_metadata(@TRIE_ENCODED_CHILD_SIZE)
+    %mstore_global_metadata(@GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE)
     // stack: base_offset, node_payload_ptr, encode_value, retdest
 
     // We will call encode_or_hash_node on each child. For the i'th child, we

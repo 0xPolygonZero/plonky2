@@ -30,10 +30,19 @@ pub(crate) enum GlobalMetadata {
     /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
     /// next available offset in these buffers.
     TrieEncodedChildSize = 14,
+
+    // Block metadata.
+    BlockBeneficiary = 15,
+    BlockTimestamp = 16,
+    BlockNumber = 17,
+    BlockDifficulty = 18,
+    BlockGasLimit = 19,
+    BlockChainId = 20,
+    BlockBaseFee = 21,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 13;
+    pub(crate) const COUNT: usize = 20;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -50,33 +59,39 @@ impl GlobalMetadata {
             Self::TransactionTrieRootDigestAfter,
             Self::ReceiptTrieRootDigestAfter,
             Self::TrieEncodedChildSize,
+            Self::BlockBeneficiary,
+            Self::BlockTimestamp,
+            Self::BlockNumber,
+            Self::BlockDifficulty,
+            Self::BlockGasLimit,
+            Self::BlockChainId,
+            Self::BlockBaseFee,
         ]
     }
 
     /// The variable name that gets passed into kernel assembly code.
     pub(crate) fn var_name(&self) -> &'static str {
         match self {
-            GlobalMetadata::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
-            GlobalMetadata::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
-            GlobalMetadata::TrieDataSize => "GLOBAL_METADATA_TRIE_DATA_SIZE",
-            GlobalMetadata::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
-            GlobalMetadata::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
-            GlobalMetadata::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
-            GlobalMetadata::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
-            GlobalMetadata::TransactionTrieRootDigestBefore => {
-                "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE"
-            }
-            GlobalMetadata::ReceiptTrieRootDigestBefore => {
-                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE"
-            }
-            GlobalMetadata::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
-            GlobalMetadata::TransactionTrieRootDigestAfter => {
-                "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER"
-            }
-            GlobalMetadata::ReceiptTrieRootDigestAfter => {
-                "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER"
-            }
-            GlobalMetadata::TrieEncodedChildSize => "TRIE_ENCODED_CHILD_SIZE",
+            Self::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
+            Self::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
+            Self::TrieDataSize => "GLOBAL_METADATA_TRIE_DATA_SIZE",
+            Self::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
+            Self::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
+            Self::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
+            Self::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
+            Self::TransactionTrieRootDigestBefore => "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE",
+            Self::ReceiptTrieRootDigestBefore => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE",
+            Self::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
+            Self::TransactionTrieRootDigestAfter => "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER",
+            Self::ReceiptTrieRootDigestAfter => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER",
+            Self::TrieEncodedChildSize => "GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE",
+            Self::BlockBeneficiary => "GLOBAL_METADATA_BLOCK_BENEFICIARY",
+            Self::BlockTimestamp => "GLOBAL_METADATA_BLOCK_TIMESTAMP",
+            Self::BlockNumber => "GLOBAL_METADATA_BLOCK_NUMBER",
+            Self::BlockDifficulty => "GLOBAL_METADATA_BLOCK_DIFFICULTY",
+            Self::BlockGasLimit => "GLOBAL_METADATA_BLOCK_GAS_LIMIT",
+            Self::BlockChainId => "GLOBAL_METADATA_BLOCK_CHAIN_ID",
+            Self::BlockBaseFee => "GLOBAL_METADATA_BLOCK_BASE_FEE",
         }
     }
 }
