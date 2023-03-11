@@ -144,7 +144,7 @@ global after_call_instruction:
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
     %stack (gas_limit, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, gas_limit, new_ctx)
+        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_GAS_LIMIT, gas_limit, new_ctx)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
