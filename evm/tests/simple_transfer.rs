@@ -72,9 +72,10 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     timing.filter(Duration::from_millis(100)).print();
 
     let expected_state_trie_after = {
+        let txdata_gas = 2 * 16;
+        let gas_used = 21_000 + txdata_gas;
         let sender_account_after = AccountRlp {
-            // TODO: Should be 21k; 1k gas should be refunded.
-            balance: sender_account_before.balance - value - 22_000 * 10,
+            balance: sender_account_before.balance - value - gas_used * 10,
             nonce: sender_account_before.nonce + 1,
             ..sender_account_before
         };

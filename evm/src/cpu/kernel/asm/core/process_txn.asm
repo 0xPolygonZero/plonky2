@@ -16,15 +16,18 @@ global process_normalized_txn:
     %min
     // stack: computed_fee, retdest
     %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
-
     // stack: retdest
-    PUSH validate
-    %jump(intrinsic_gas)
 
-global validate:
-    // stack: intrinsic_gas, retdest
-    POP // TODO: Assert gas_limit >= intrinsic_gas.
+    // Compute this transaction's intrinsic gas and store it.
+    %intrinsic_gas
+    %mstore_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     // stack: retdest
+
+    // Assert gas_limit >= intrinsic_gas.
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    %assert_ge
+
     // TODO: Check that txn nonce matches account nonce.
     // TODO: Assert nonce is correct.
     // TODO: Assert sender has no code.
@@ -110,7 +113,14 @@ global process_message_txn_insufficient_balance:
     PANIC // TODO
 
 global process_message_txn_return:
-    // TODO: Since there was no code to execute, do we still return leftover gas?
+    // Refund leftover gas.
+    // stack: retdest
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    // stack: leftover_gas, retdest
+    %refund_leftover_gas_cost
+    // stack: retdest
     JUMP
 
 global process_message_txn_code_loaded:
@@ -124,7 +134,13 @@ global process_message_txn_code_loaded:
     %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(process_message_txn_after_call)
-    %mload_txn_field(@TXN_FIELD_GAS_LIMIT) %set_new_ctx_gas_limit
+    // stack: new_ctx, retdest
+
+    // The gas provided to the callee is gas_limit - intrinsic_gas.
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
     // TODO: Copy TXN_DATA to CALLDATA
@@ -135,7 +151,17 @@ global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, retdest
-    POP // TODO: Refund leftover gas.
+    %refund_leftover_gas_cost
     // stack: new_ctx, retdest
     POP
     JUMP
+
+%macro refund_leftover_gas_cost
+    // stack: leftover_gas
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    MUL
+    // stack: leftover_gas_cost
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: origin, leftover_gas_cost
+    %add_eth
+%endmacro
