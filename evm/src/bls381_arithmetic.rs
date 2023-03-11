@@ -1,9 +1,21 @@
-use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use ethereum_types::U512;
-use rand::distributions::{Distribution, Standard};
-use rand::Rng;
+use ethereum_types::{U512};
+// use rand::distributions::{Distribution, Standard};
+// use rand::Rng;
+
+pub trait FieldExt:
+    Sized
+    + std::ops::Add<Output = Self>
+    + std::ops::Neg<Output = Self>
+    + std::ops::Sub<Output = Self>
+    + std::ops::Mul<Output = Self>
+    + std::ops::Div<Output = Self>
+{
+    const ZERO: Self;
+    const UNIT: Self;
+    fn inv(self) -> Self;
+}
 
 pub const BLS_BASE: U512 = U512([
     0xb9feffffffffaaab,
@@ -29,14 +41,14 @@ impl Fp {
     }
 }
 
-impl Distribution<Fp> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
-        let xs = rng.gen::<[u64; 8]>();
-        Fp {
-            val: U512(xs) % BLS_BASE,
-        }
-    }
-}
+// impl Distribution<Fp> for Standard {
+//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
+//         let xs = rng.gen::<[u64; 8]>();
+//         Fp {
+//             val: U512(xs) % BLS_BASE,
+//         }
+//     }
+// }
 
 impl Add for Fp {
     type Output = Self;
@@ -113,8 +125,10 @@ impl Mul for Fp {
     }
 }
 
-impl Fp {
-    pub fn inv(self) -> Fp {
+impl FieldExt for Fp {
+    const ZERO: Self = Fp { val: U512::zero() };
+    const UNIT: Self = Fp { val: U512::one() };
+    fn inv(self) -> Fp {
         exp_fp(self, BLS_BASE - 2)
     }
 }
@@ -127,9 +141,6 @@ impl Div for Fp {
         self * rhs.inv()
     }
 }
-
-pub const ZERO_FP: Fp = Fp { val: U512::zero() };
-pub const UNIT_FP: Fp = Fp { val: U512::one() };
 
 fn exp_fp(x: Fp, e: U512) -> Fp {
     let mut current = x;
@@ -147,29 +158,20 @@ fn exp_fp(x: Fp, e: U512) -> Fp {
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
 /// The arithmetic in this extension is standard complex arithmetic
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp2 {
-    pub re: Fp,
-    pub im: Fp,
+pub struct Fp2<T> where T: FieldExt {
+    pub re: T,
+    pub im: T,
 }
 
-pub const ZERO_FP2: Fp2 = Fp2 {
-    re: ZERO_FP,
-    im: ZERO_FP,
-};
 
-pub const UNIT_FP2: Fp2 = Fp2 {
-    re: UNIT_FP,
-    im: ZERO_FP,
-};
+// impl<T: Distribution<T>> Distribution<Fp2<T>> for Standard {
+//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2<T> {
+//         let (re, im) = rng.gen::<(T, T)>();
+//         Fp2 { re, im }
+//     }
+// }
 
-impl Distribution<Fp2> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2 {
-        let (re, im) = rng.gen::<(Fp, Fp)>();
-        Fp2 { re, im }
-    }
-}
-
-impl Add for Fp2 {
+impl<T: FieldExt> Add for Fp2<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -180,7 +182,7 @@ impl Add for Fp2 {
     }
 }
 
-impl Neg for Fp2 {
+impl<T: FieldExt>  Neg for Fp2<T> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -191,7 +193,7 @@ impl Neg for Fp2 {
     }
 }
 
-impl Sub for Fp2 {
+impl<T: FieldExt>  Sub for Fp2<T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -202,7 +204,9 @@ impl Sub for Fp2 {
     }
 }
 
-impl Mul for Fp2 {
+impl<T: FieldExt>  Mul
+    for Fp2<T>
+{
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -213,17 +217,9 @@ impl Mul for Fp2 {
     }
 }
 
-impl Fp2 {
-    // We preemptively define a helper function which multiplies an Fp2 element by 1 + i
-    fn i1(self) -> Fp2 {
-        Fp2 {
-            re: self.re - self.im,
-            im: self.re + self.im,
-        }
-    }
-
-    // This function scalar multiplies an Fp2 by an Fp
-    pub fn scale(self, x: Fp) -> Fp2 {
+impl<T: FieldExt> Fp2<T> {
+    /// This function scalar multiplies an Fp2 by an Fp
+    pub fn scale(self, x: T) -> Self {
         Fp2 {
             re: x * self.re,
             im: x * self.im,
@@ -234,8 +230,8 @@ impl Fp2 {
     /// This also happens to be the frobenius map
     ///     z -> z^p
     /// since p == 3 mod 4 and hence
-    ///     i^p = i^3 = -i
-    fn conj(self) -> Fp2 {
+    ///     i^p = i^(4k) * i^3 = 1*(-i) = -i
+    fn conj(self) -> Self {
         Fp2 {
             re: self.re,
             im: -self.im,
@@ -243,19 +239,30 @@ impl Fp2 {
     }
 
     // Return the magnitude squared of a complex number
-    fn norm_sq(self) -> Fp {
+    fn norm_sq(self) -> T {
         self.re * self.re + self.im * self.im
     }
+}
 
+impl<T: FieldExt> FieldExt for Fp2<T> {
+    const ZERO: Fp2<T> = Fp2 {
+        re: T::ZERO,
+        im: T::ZERO,
+    };
+
+    const UNIT: Fp2<T> = Fp2 {
+        re: T::UNIT,
+        im: T::ZERO,
+    };
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
-    pub fn inv(self) -> Fp2 {
+    fn inv(self) -> Fp2<T> {
         let norm_sq = self.norm_sq();
         self.conj().scale(norm_sq.inv())
     }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Div for Fp2 {
+impl<T: FieldExt> Div for Fp2<T> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -263,35 +270,40 @@ impl Div for Fp2 {
     }
 }
 
-/// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 1 + i
-// Fp6 has basis 1, t, t^2 over Fp2
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp6 {
-    pub t0: Fp2,
-    pub t1: Fp2,
-    pub t2: Fp2,
+trait Adj {
+    fn mul_adj(self) -> Self;
 }
 
-pub const ZERO_FP6: Fp6 = Fp6 {
-    t0: ZERO_FP2,
-    t1: ZERO_FP2,
-    t2: ZERO_FP2,
-};
-
-pub const UNIT_FP6: Fp6 = Fp6 {
-    t0: UNIT_FP2,
-    t1: ZERO_FP2,
-    t2: ZERO_FP2,
-};
-
-impl Distribution<Fp6> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6 {
-        let (t0, t1, t2) = rng.gen::<(Fp2, Fp2, Fp2)>();
-        Fp6 { t0, t1, t2 }
+/// Helper function which multiplies by the Fp2 element
+/// whose cube root we will adjoin in the next extension
+impl Adj for Fp2<Fp> {
+    fn mul_adj(self) -> Self {
+        Fp2 {
+            re: self.re - self.im,
+            im: self.re + self.im,
+        }
     }
 }
 
-impl Add for Fp6 {
+/// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 1 + i
+/// Fp6 has basis 1, t, t^2 over Fp2
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Fp6<T> where T: FieldExt {
+    pub t0: Fp2<T>,
+    pub t1: Fp2<T>,
+    pub t2: Fp2<T>,
+}
+
+
+
+// impl<T: Distribution<T>> Distribution<Fp6<T>> for Standard {
+//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6<T> {
+//         let (t0, t1, t2) = rng.gen::<(Fp2<T>, Fp2<T>, Fp2<T>)>();
+//         Fp6 { t0, t1, t2 }
+//     }
+// }
+
+impl<T: FieldExt> Add for Fp6<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -303,7 +315,7 @@ impl Add for Fp6 {
     }
 }
 
-impl Neg for Fp6 {
+impl<T: FieldExt> Neg for Fp6<T> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -315,7 +327,7 @@ impl Neg for Fp6 {
     }
 }
 
-impl Sub for Fp6 {
+impl<T: FieldExt> Sub for Fp6<T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -327,38 +339,47 @@ impl Sub for Fp6 {
     }
 }
 
-impl Mul for Fp6 {
+impl<T: FieldExt> Mul for Fp6<T> {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
         Fp6 {
-            t0: self.t0 * other.t0 + (self.t1 * other.t2 + self.t2 * other.t1).i1(),
-            t1: self.t0 * other.t1 + self.t1 * other.t0 + (self.t2 * other.t2).i1(),
+            t0: self.t0 * other.t0 + (self.t1 * other.t2 + self.t2 * other.t1).mul_adj(),
+            t1: self.t0 * other.t1 + self.t1 * other.t0 + (self.t2 * other.t2).mul_adj(),
             t2: self.t0 * other.t2 + self.t1 * other.t1 + self.t2 * other.t0,
         }
     }
 }
 
-impl Fp6 {
+impl<T: FieldExt> Fp6<T> {
     // This function scalar multiplies an Fp6 by an Fp2
-    fn scale(self, x: Fp2) -> Fp6 {
+    fn scale(self, x: Fp2<T>) -> Fp6<T> {
         Fp6 {
             t0: x * self.t0,
             t1: x * self.t1,
             t2: x * self.t2,
         }
     }
+}
 
+impl<T: FieldExt + Adj> Fp6<T> {
     /// This function multiplies an Fp6 element by t, and hence shifts the bases,
     /// where the t^2 coefficient picks up a factor of 1+i as the 1 coefficient of the output
-    fn sh(self) -> Fp6 {
+    fn sh(self) -> Fp6<T> {
         Fp6 {
-            t0: self.t2.i1(),
+            t0: self.t2.mul_adj(),
             t1: self.t0,
             t2: self.t1,
         }
     }
+}
 
+pub trait Frob {
+    const FROB_T: Self;
+    const FROB_Z: Self;
+}
+
+impl<T: Frob + FieldExt> Fp6<T> {
     /// The nth frobenius endomorphism of a p^q field is given by mapping
     ///     x to x^(p^n)
     /// which sends a + bt + ct^2: Fp6 to
@@ -367,10 +388,10 @@ impl Fp6 {
     /// while the values of
     ///     t^(p^n) and t^(2p^n)
     /// are precomputed in the constant arrays FROB_T1 and FROB_T2
-    pub fn frob(self, n: usize) -> Fp6 {
+    pub fn frob(self, n: usize) -> Fp6<T> {
         let n = n % 6;
-        let frob_t1 = FROB_T1[n];
-        let frob_t2 = FROB_T2[n];
+        let frob_t1 = Self::FROB_T[0][n];
+        let frob_t2 = Self::FROB_T[1][n];
 
         if n % 2 != 0 {
             Fp6 {
@@ -386,6 +407,20 @@ impl Fp6 {
             }
         }
     }
+}
+
+impl<T: FieldExt + Adj> FieldExt for Fp6<T> {
+    const ZERO: Fp6<T> = Fp6 {
+        t0: Fp2::<T>::ZERO,
+        t1: Fp2::<T>::ZERO,
+        t2: Fp2::<T>::ZERO,
+    };
+
+    const UNIT: Fp6<T> = Fp6 {
+        t0: Fp2::<T>::UNIT,
+        t1: Fp2::<T>::ZERO,
+        t2: Fp2::<T>::ZERO,
+    };
 
     /// Let x_n = x^(p^n) and note that
     ///     x_0 = x^(p^0) = x^1 = x
@@ -402,7 +437,7 @@ impl Fp6 {
     ///     phi = ||x_1 * x_3 * x_5||^2
     /// and hence the inverse is given by
     ///     ([x_1 * x_3] * x_5) * [x_1 * x_3]_1 / ||[x_1 * x_3] * x_5||^2
-    pub fn inv(self) -> Fp6 {
+    fn inv(self) -> Fp6<T> {
         let prod_13 = self.frob(1) * self.frob(3);
         let prod_135 = (prod_13 * self.frob(5)).t0;
         let phi = prod_135.norm_sq();
@@ -410,15 +445,10 @@ impl Fp6 {
         let prod_24 = prod_13.frob(1);
         prod_24.scale(prod_odds_over_phi)
     }
-
-    pub fn on_stack(self) -> Vec<U512> {
-        let f: [U512; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
-    }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Div for Fp6 {
+impl<T: FieldExt> Div for Fp6<T> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -426,108 +456,111 @@ impl Div for Fp6 {
     }
 }
 
-/// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
-/// It thus has basis 1, z over Fp6
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp12 {
-    pub z0: Fp6,
-    pub z1: Fp6,
-}
+// /// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
+// /// It thus has basis 1, z over Fp6
+// #[derive(Debug, Copy, Clone, PartialEq)]
+// pub struct Fp12<T> {
+//     pub z0: Fp6<T>,
+//     pub z1: Fp6<T>,
+// }
 
-pub const UNIT_FP12: Fp12 = Fp12 {
-    z0: UNIT_FP6,
-    z1: ZERO_FP6,
-};
+// impl<T: Unital> Unital for Fp12<T> {
+//     const ZERO: Fp12<T> = Fp12 {
+//         z0: Fp6::<T>::ZERO,
+//         z1: Fp6::<T>::ZERO,
+//     };
 
-impl Distribution<Fp12> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12 {
-        let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
-        Fp12 { z0, z1 }
-    }
-}
+//     const UNIT: Fp12<T> = Fp12 {
+//         z0: Fp6::<T>::UNIT,
+//         z1: Fp6::<T>::ZERO,
+//     };
+// }
 
-impl Mul for Fp12 {
-    type Output = Self;
+// // impl<T: Distribution<T>> Distribution<Fp12<T>> for Standard {
+// //     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
+// //         let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
+// //         Fp12 { z0, z1 }
+// //     }
+// // }
 
-    fn mul(self, other: Self) -> Self {
-        let h0 = self.z0 * other.z0;
-        let h1 = self.z1 * other.z1;
-        let h01 = (self.z0 + self.z1) * (other.z0 + other.z1);
-        Fp12 {
-            z0: h0 + h1.sh(),
-            z1: h01 - (h0 + h1),
-        }
-    }
-}
+// impl<T: Mul> Mul for Fp12<T> {
+//     type Output = Self;
 
-impl Fp12 {
-    // This function scalar multiplies an Fp12 by an Fp6
-    fn scale(self, x: Fp6) -> Fp12 {
-        Fp12 {
-            z0: x * self.z0,
-            z1: x * self.z1,
-        }
-    }
+//     fn mul(self, other: Self) -> Self {
+//         let h0 = self.z0 * other.z0;
+//         let h1 = self.z1 * other.z1;
+//         let h01 = (self.z0 + self.z1) * (other.z0 + other.z1);
+//         Fp12 {
+//             z0: h0 + h1.sh(),
+//             z1: h01 - (h0 + h1),
+//         }
+//     }
+// }
 
-    fn conj(self) -> Fp12 {
-        Fp12 {
-            z0: self.z0,
-            z1: -self.z1,
-        }
-    }
-    /// The nth frobenius endomorphism of a p^q field is given by mapping
-    ///     x to x^(p^n)
-    /// which sends a + bz: Fp12 to
-    ///     a^(p^n) + b^(p^n) * z^(p^n)
-    /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
-    pub fn frob(self, n: usize) -> Fp12 {
-        let n = n % 12;
-        Fp12 {
-            z0: self.z0.frob(n),
-            z1: self.z1.frob(n).scale(FROB_Z[n]),
-        }
-    }
+// impl<T> Fp12<T> {
+//     // This function scalar multiplies an Fp12 by an Fp6
+//     fn scale(self, x: Fp6<T>) -> Fp12<T> {
+//         Fp12 {
+//             z0: x * self.z0,
+//             z1: x * self.z1,
+//         }
+//     }
 
-    /// By Galois Theory, given x: Fp12, the product
-    ///     phi = Prod_{i=0}^11 x_i
-    /// lands in Fp, and hence the inverse of x is given by
-    ///     (Prod_{i=1}^11 x_i) / phi
-    /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
-    ///     x_6 = (a + bz)_6 = a - bz = x.conj()
-    /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
-    ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
-    /// By Galois theory, both the following are in Fp2 and are complex conjugates
-    ///     prod_odds,  prod_evens
-    /// Thus phi = ||prod_odds||^2, and hence the inverse is given by
-    ///    prod_odds * prod_evens_except_six * x.conj() / ||prod_odds||^2
-    pub fn inv(self) -> Fp12 {
-        let prod_17 = (self.frob(1) * self.frob(7)).z0;
-        let prod_1379 = prod_17 * prod_17.frob(2);
-        let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
-        let phi = prod_odds.norm_sq();
-        let prod_odds_over_phi = prod_odds.scale(phi.inv());
-        let prod_evens_except_six = prod_1379.frob(1);
-        let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
-        self.conj().scale(prod_except_six)
-    }
+//     fn conj(self) -> Fp12<T> {
+//         Fp12 {
+//             z0: self.z0,
+//             z1: -self.z1,
+//         }
+//     }
+// }
 
-    pub fn on_stack(self) -> Vec<U512> {
-        let f: [U512; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
-    }
-}
+// impl<T: Frob> Fp12<T> {
+//     /// The nth frobenius endomorphism of a p^q field is given by mapping
+//     ///     x to x^(p^n)
+//     /// which sends a + bz: Fp12 to
+//     ///     a^(p^n) + b^(p^n) * z^(p^n)
+//     /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
+//     pub fn frob(self, n: usize) -> Fp12<T> {
+//         let n = n % 12;
+//         Fp12 {
+//             z0: self.z0.frob(n),
+//             z1: self.z1.frob(n).scale(Self::FROB_Z[n]),
+//         }
+//     }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
-impl Div for Fp12 {
-    type Output = Self;
+//     /// By Galois Theory, given x: Fp12, the product
+//     ///     phi = Prod_{i=0}^11 x_i
+//     /// lands in Fp, and hence the inverse of x is given by
+//     ///     (Prod_{i=1}^11 x_i) / phi
+//     /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
+//     ///     x_6 = (a + bz)_6 = a - bz = x.conj()
+//     /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
+//     ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
+//     /// By Galois theory, both the following are in Fp2 and are complex conjugates
+//     ///     prod_odds,  prod_evens
+//     /// Thus phi = ||prod_odds||^2, and hence the inverse is given by
+//     ///    prod_odds * prod_evens_except_six * x.conj() / ||prod_odds||^2
+//     pub fn inv(self) -> Fp12<T> {
+//         let prod_17 = (self.frob(1) * self.frob(7)).z0;
+//         let prod_1379 = prod_17 * prod_17.frob(2);
+//         let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
+//         let phi = prod_odds.norm_sq();
+//         let prod_odds_over_phi = prod_odds.scale(phi.inv());
+//         let prod_evens_except_six = prod_1379.frob(1);
+//         let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
+//         self.conj().scale(prod_except_six)
+//     }
+// }
 
-    fn div(self, rhs: Self) -> Self::Output {
-        self * rhs.inv()
-    }
-}
+// #[allow(clippy::suspicious_arithmetic_impl)]
+// impl<T: std::ops::Div<Output = T>> Div for Fp12<T> {
+//     type Output = Self;
 
-const FROB_T1: [Fp2; 6] = [ZERO_FP2; 6];
+//     fn div(self, rhs: Self) -> Self::Output {
+//         self * rhs.inv()
+//     }
+// }
 
-const FROB_T2: [Fp2; 6] = [ZERO_FP2; 6];
-
-const FROB_Z: [Fp2; 12] = [ZERO_FP2; 12];
+// trait Stack {
+//     fn on_stack(self) -> Vec<U256>;
+// }
