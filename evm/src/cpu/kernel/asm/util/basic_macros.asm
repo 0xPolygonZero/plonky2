@@ -227,8 +227,8 @@
     DUP2
     DUP2
     // stack: x, y, x, y
-    LT
-    // stack: x < y, x, y
+    GT
+    // stack: x > y, x, y
     %select_bool
     // stack: min
 %endmacro
@@ -238,8 +238,8 @@
     DUP2
     DUP2
     // stack: x, y, x, y
-    GT
-    // stack: x > y, x, y
+    LT
+    // stack: x < y, x, y
     %select_bool
     // stack: max
 %endmacro
