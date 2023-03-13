@@ -39,10 +39,13 @@ pub(crate) enum GlobalMetadata {
     BlockGasLimit = 19,
     BlockChainId = 20,
     BlockBaseFee = 21,
+
+    /// Gas to refund at the end of the transaction.
+    RefundCounter = 22,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 20;
+    pub(crate) const COUNT: usize = 21;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -66,6 +69,7 @@ impl GlobalMetadata {
             Self::BlockGasLimit,
             Self::BlockChainId,
             Self::BlockBaseFee,
+            Self::RefundCounter,
         ]
     }
 
@@ -92,6 +96,7 @@ impl GlobalMetadata {
             Self::BlockGasLimit => "GLOBAL_METADATA_BLOCK_GAS_LIMIT",
             Self::BlockChainId => "GLOBAL_METADATA_BLOCK_CHAIN_ID",
             Self::BlockBaseFee => "GLOBAL_METADATA_BLOCK_BASE_FEE",
+            Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
         }
     }
 }
