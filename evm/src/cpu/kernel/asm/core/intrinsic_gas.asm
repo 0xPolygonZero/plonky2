@@ -60,3 +60,12 @@ count_zeros_finish:
 
     SWAP1
     JUMP
+
+// Convenience macro to call intrinsic_gas and return where we left off.
+%macro intrinsic_gas
+    // stack: (empty)
+    PUSH %%after
+    %jump(intrinsic_gas)
+%%after:
+    // stack: (empty)
+%endmacro
