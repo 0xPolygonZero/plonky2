@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{Address, BigEndianHash, H256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -24,7 +24,7 @@ use crate::generation::state::GenerationState;
 use crate::generation::trie_extractor::read_state_trie_value;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
-use crate::witness::memory::MemoryAddress;
+use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
 pub mod mpt;
@@ -33,6 +33,7 @@ pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
 use crate::generation::trie_extractor::read_trie;
+use crate::witness::util::mem_write_log;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 /// Inputs needed for trace generation.
@@ -67,6 +68,37 @@ pub struct TrieInputs {
     pub storage_tries: Vec<(Address, PartialTrie)>,
 }
 
+fn apply_metadata_memops<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+    metadata: &BlockMetadata,
+) {
+    let fields = [
+        (
+            GlobalMetadata::BlockBeneficiary,
+            U256::from_big_endian(&metadata.block_beneficiary.0),
+        ),
+        (GlobalMetadata::BlockTimestamp, metadata.block_timestamp),
+        (GlobalMetadata::BlockNumber, metadata.block_number),
+        (GlobalMetadata::BlockDifficulty, metadata.block_difficulty),
+        (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
+        (GlobalMetadata::BlockChainId, metadata.block_chain_id),
+        (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
+    ];
+
+    let channel = MemoryChannel::GeneralPurpose(0);
+    let ops = fields.map(|(field, val)| {
+        mem_write_log(
+            channel,
+            MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+            state,
+            val,
+        )
+    });
+
+    state.memory.apply_ops(&ops);
+    state.traces.memory_ops.extend(ops);
+}
+
 pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
@@ -74,6 +106,8 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     timing: &mut TimingTree,
 ) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
+
+    apply_metadata_memops(&mut state, &inputs.block_metadata);
 
     generate_bootstrap_kernel::<F>(&mut state);
 
