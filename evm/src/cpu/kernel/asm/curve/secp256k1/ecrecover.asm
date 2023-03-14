@@ -134,17 +134,13 @@ pubkey_to_addr:
     // stack: hash, v, r, s, retdest
     DUP2
     // stack: v, hash, v, r, s, retdest
-    PUSH 27
-    // stack: 27, v, hash, v, r, s, retdest
-    EQ
+    %eq_consts(27)
     // stack: v==27, hash, v, r, s, retdest
     DUP3
     // stack: v, v==27, hash, v, r, s, retdest
-    PUSH 28
-    // stack: 28, v, v==27, hash, v, r, s, retdest
-    EQ
+    %eq_consts(28)
     // stack: v==28, v==27, hash, v, r, s, retdest
-    OR
+    ADD // OR
     // stack: (v==28 || v==27), hash, v, r, s, retdest
     DUP5
     // stack: s, (v==28 || v==27), hash, v, r, s, retdest
@@ -154,7 +150,7 @@ pubkey_to_addr:
     // stack: r, (s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
     %secp_is_out_of_bounds
     // stack: (r >= N || r==0), (s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
-    OR
+    ADD // OR
     // stack: (r >= N || r==0 || s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
     ISZERO
     // stack: (r < N & r!=0 & s < N & s!=0), (v==28 || v==27), hash, v, r, s, retdest
@@ -178,7 +174,7 @@ pubkey_to_addr:
     // stack: x < N, x==0
     ISZERO
     // stack: x >= N, x==0
-    OR
+    ADD // OR
     // stack: x >= N || x==0
 %endmacro
 
