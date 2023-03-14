@@ -85,8 +85,7 @@ compression_loop:
         // stack: cur_message_addr + 1, cur_block_byte + 8, ...
     %endrep
     // stack: end_message_addr, end_block_start_byte, t, cur_block, is_last_block, retdest
-    POP
-    POP
+    %pop2
     // stack: t, cur_block, is_last_block, retdest
     SWAP1
     // stack: cur_block, t, is_last_block, retdest
@@ -128,15 +127,14 @@ compression_loop:
     // stack: 0, start + 8, invert_if_last_block, t, cur_block, retdest
     %rep 4
         // stack: i, loc, ...
-        DUP2
-        DUP2
-        // stack: i, loc, i, loc,...
+        DUP1
+        // stack: i, i, loc, ...
         %blake2b_iv
-        // stack: IV_i, loc, i, loc,...
-        SWAP1
-        // stack: loc, IV_i, i, loc,...
+        // stack: IV_i, i, loc, ...
+        DUP2
+        // stack: loc, IV_i, i, loc, ...
         %mstore_kernel_general
-        // stack: i, loc,...
+        // stack: i, loc, ...
         %increment
         SWAP1
         %increment
@@ -147,15 +145,11 @@ compression_loop:
     %stack (i, loc, inv, last, t) -> (t, t, i, loc, inv, last)
     // stack: t, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     %shr_const(64)
-    // stack: t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
+    // stack: t_hi = t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     SWAP1
-    // stack: t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
-    PUSH 1
-    %shl_const(64)
-    // stack: 1 << 64, t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
-    SWAP1
-    MOD
-    // stack: t_lo = t % (1 << 64), t_hi = t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
+    // stack: t, t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
+    %mod_const(PUSH 0x10000000000000000)
+    // stack: t_lo = t % (1 << 64), t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
     %stack (t_lo, t_hi, i, loc, inv) -> (i, loc, t_lo, t_hi, inv, 0)
     // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, cur_block, retdest
 
@@ -163,25 +157,31 @@ compression_loop:
     // the values (t % 2**64, t >> 64, invert_if, 0).
     %rep 4
         // stack: i, loc, val, next_val,...
-        %stack (i, loc, val) -> (i, val, loc, i, loc)
-        // stack: i, val, loc, i, loc, next_val,...
+        DUP1
+        // stack: i, i, loc, val, next_val,...
         %blake2b_iv
-        // stack: IV_i, val, loc, i, loc, next_val,...
+        // stack: IV_i, i, loc, val, next_val,...
+        DUP4
+        // stack: val, IV_i, i, loc, val, next_val,...
         XOR
-        // stack: val ^ IV_i, loc, i, loc, next_val,...
-        SWAP1
-        // stack: loc, val ^ IV_i, i, loc, next_val,...
+        // stack: val ^ IV_i, i, loc, val, next_val,...
+        DUP3
+        // stack: loc, val ^ IV_i, i, loc, val, next_val,...
         %mstore_kernel_general
-        // stack: i, loc, next_val,...
+        // stack: i, loc, val, next_val,...
         %increment
-        SWAP1
+        // stack: i + 1, loc, val, next_val,...
+        SWAP2
+        // stack: val, loc, i + 1, next_val,...
+        POP
+        // stack: loc, i + 1, next_val,...
         %increment
+        // stack: loc + 1, i + 1, next_val,...
         SWAP1
         // stack: i + 1, loc + 1, next_val,...
     %endrep
     // stack: 8, loc + 16, cur_block, retdest
-    POP
-    POP
+    %pop2
     // stack: cur_block, retdest
 
     // Run 12 rounds of G functions.

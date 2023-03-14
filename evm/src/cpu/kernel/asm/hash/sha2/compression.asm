@@ -161,8 +161,7 @@ compression_loop:
     // stack: message_schedule_addr, i+1==64, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, num_blocks new, i, retdest
     SWAP1
     // stack: i+1==64, message_schedule_addr, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, num_blocks new, i, retdest
-    PUSH 256
-    MUL
+    %mul_const(256)
     // stack: (i+1==64)*256, message_schedule_addr, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, num_blocks new, i, retdest
     ADD
     // stack: message_schedule_addr new, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, num_blocks new, i, retdest
@@ -260,20 +259,10 @@ compression_end:
     // stack: num_blocks, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     POP
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
-    %shl_const(32)
-    ADD // OR
+    %rep 7
+        %shl_const(32)
+        ADD // OR
+    %endrep
     // stack: concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), scratch_space_addr, message_schedule_addr, i, retdest
     SWAP3
     // stack: i, scratch_space_addr, message_schedule_addr, concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
