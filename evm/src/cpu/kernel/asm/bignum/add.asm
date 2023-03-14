@@ -5,6 +5,11 @@
 // Replaces a with a + b, leaving b unchanged, and returns the final carry.
 global add_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
+    DUP1
+    // stack: len, len, a_start_loc, b_start_loc, retdest
+    ISZERO
+    %jumpi(len_zero)
+    // stack: len, a_start_loc, b_start_loc, retdest
     PUSH 0
     // stack: carry=0, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, retdest
 add_loop:
@@ -54,4 +59,12 @@ add_end:
     // stack: carry_new, retdest
     SWAP1
     // stack: retdest, carry_new
+    JUMP
+len_zero:
+    // stack: len, a_start_loc, b_start_loc, retdest
+    %pop3
+    // stack: retdest
+    PUSH 0
+    // stack: carry=0, retdest
+    SWAP1
     JUMP

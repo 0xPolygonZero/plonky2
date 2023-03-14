@@ -4,6 +4,10 @@
 // Sets a[0:len] += b[0:len] * val, and returns the carry.
 global addmul_bignum:
     // stack: len, a_start_loc, b_start_loc, val, retdest
+    DUP1
+    // stack: len, len, a_start_loc, b_start_loc, val, retdest
+    ISZERO
+    %jumpi(len_zero)
     PUSH 0
     // stack: carry=0, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, val, retdest
 addmul_loop:
@@ -96,4 +100,12 @@ addmul_end:
     // stack: carry_new, retdest
     SWAP1
     // stack: retdest, carry_new
+    JUMP
+len_zero:
+    // stack: len, a_start_loc, b_start_loc, val, retdest
+    %pop4
+    // stack: retdest
+    PUSH 0
+    // stack: carry=0, retdest
+    SWAP1
     JUMP

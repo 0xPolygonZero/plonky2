@@ -104,6 +104,15 @@ fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U25
     (a, b, length, memory)
 }
 
+fn prepare_two_bignums_zero(_bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let a = BigUint::zero();
+    let b = BigUint::zero();
+    let length: U256 = bignum_len(&a).into();
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+
+    (a, b, length, memory)
+}
+
 fn test_shr_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
 where
     F: Fn(usize) -> (BigUint, U256, Vec<U256>),
@@ -356,6 +365,7 @@ fn test_add_bignum_all() -> Result<()> {
     test_add_bignum(&prepare_two_bignums_max)?;
     test_add_bignum(&prepare_two_bignums_min)?;
     test_add_bignum(&prepare_two_bignums_diff)?;
+    test_add_bignum(&prepare_two_bignums_zero)?;
 
     Ok(())
 }
@@ -366,6 +376,7 @@ fn test_addmul_bignum_all() -> Result<()> {
     test_addmul_bignum(&prepare_two_bignums_max)?;
     test_addmul_bignum(&prepare_two_bignums_min)?;
     test_addmul_bignum(&prepare_two_bignums_diff)?;
+    test_addmul_bignum(&prepare_two_bignums_zero)?;
 
     Ok(())
 }
@@ -376,6 +387,7 @@ fn test_mul_bignum_all() -> Result<()> {
     test_mul_bignum(&prepare_two_bignums_max)?;
     test_mul_bignum(&prepare_two_bignums_min)?;
     test_mul_bignum(&prepare_two_bignums_diff)?;
+    test_mul_bignum(&prepare_two_bignums_zero)?;
 
     Ok(())
 }

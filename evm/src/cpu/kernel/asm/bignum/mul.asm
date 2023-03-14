@@ -7,6 +7,10 @@
 global mul_bignum:
     // stack: len, a_start_loc, b_start_loc, output_loc, retdest
     DUP1
+    // stack: len, len, a_start_loc, b_start_loc, output_loc, retdest
+    ISZERO
+    %jumpi(len_zero)
+    DUP1
     // stack: n=len, len, a_start_loc, bi=b_start_loc, output_cur=output_loc, retdest
 mul_loop:
     // stack: n, len, a_start_loc, bi, output_cur, retdest
@@ -49,5 +53,10 @@ mul_return:
 mul_end:
     // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
     %pop5
+    // stack: retdest
+    JUMP
+len_zero:
+    // stack: len, a_start_loc, b_start_loc, output_loc, retdest
+    %pop4
     // stack: retdest
     JUMP

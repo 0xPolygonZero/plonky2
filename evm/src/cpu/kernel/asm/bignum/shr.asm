@@ -8,7 +8,7 @@ global shr_bignum:
     DUP1
     // stack: len, len, start_loc, retdest
     ISZERO
-    %jumpi(shr_end_len_zero)
+    %jumpi(len_zero)
     // stack: len, start_loc, retdest
     DUP2
     // stack: start_loc, len, start_loc, retdest
@@ -60,7 +60,7 @@ shr_end:
     %pop3
     // stack: retdest
     JUMP
-shr_end_len_zero:
+len_zero:
     // stack: len, start_loc, retdest
     %pop2
     // stack: retdest
