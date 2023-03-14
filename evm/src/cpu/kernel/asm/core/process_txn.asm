@@ -7,15 +7,7 @@
 // Post stack: (empty)
 global process_normalized_txn:
     // stack: retdest
-    PUSH 0 // TODO: Load block's base fee
-    %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
-    ADD
-    // stack: priority_fee + base_fee, retdest
-    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    // stack: max_fee, priority_fee + base_fee, retdest
-    %min
-    // stack: computed_fee, retdest
-    %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %compute_fees
     // stack: retdest
 
     // Compute this transaction's intrinsic gas and store it.
@@ -42,9 +34,8 @@ global buy_gas:
     // stack: gas_cost, retdest
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender_addr, gas_cost, retdest
-    %deduct_eth // TODO: It should be transferred to coinbase instead?
+    %deduct_eth
     // stack: deduct_eth_status, retdest
-global txn_failure_insufficient_balance:
     %jumpi(panic)
     // stack: retdest
 
@@ -113,13 +104,12 @@ global process_message_txn_insufficient_balance:
     PANIC // TODO
 
 global process_message_txn_return:
-    // Refund leftover gas.
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     SUB
     // stack: leftover_gas, retdest
-    %refund_leftover_gas_cost
+    %pay_coinbase_and_refund_sender
     // stack: retdest
     JUMP
 
@@ -151,17 +141,68 @@ global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, retdest
-    %refund_leftover_gas_cost
+    %pay_coinbase_and_refund_sender
     // stack: new_ctx, retdest
     POP
     JUMP
 
-%macro refund_leftover_gas_cost
+%macro pay_coinbase_and_refund_sender
     // stack: leftover_gas
+    DUP1
+    // stack: leftover_gas, leftover_gas
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    // stack: used_gas, leftover_gas
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    // stack: refund, used_gas, leftover_gas
+    DUP2 %div_const(2) // max_refund = used_gas/2
+    // stack: max_refund, refund, used_gas, leftover_gas
+    %min
+    %stack (refund, used_gas, leftover_gas) -> (leftover_gas, refund, refund, used_gas)
+    ADD
+    // stack: leftover_gas', refund, used_gas
+    SWAP2
+    // stack: used_gas, refund, leftover_gas'
+    SUB
+    // stack: used_gas', leftover_gas'
+
+    // Pay the coinbase.
+    %mload_txn_field(@TXN_FIELD_COMPUTED_PRIORITY_FEE_PER_GAS)
+    MUL
+    // stack: used_gas_tip, leftover_gas'
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
+    // stack: coinbase, used_gas_tip, leftover_gas'
+    %add_eth
+    // stack: leftover_gas'
+
+    // Refund gas to the origin.
     %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
     MUL
     // stack: leftover_gas_cost
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: origin, leftover_gas_cost
     %add_eth
+    // stack: (empty)
+%endmacro
+
+// Sets @TXN_FIELD_MAX_FEE_PER_GAS and @TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS.
+%macro compute_fees
+    // stack: (empty)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
+    %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
+    // stack: max_fee, max_priority_fee, base_fee
+    DUP3 DUP2 %assert_ge // Assert max_fee >= base_fee
+    // stack: max_fee, max_priority_fee, base_fee
+    %stack (max_fee, max_priority_fee, base_fee) -> (max_fee, base_fee, max_priority_fee, base_fee)
+    SUB
+    // stack: max_fee - base_fee, max_priority_fee, base_fee
+    %min
+    // stack: computed_priority_fee, base_fee
+    %stack (computed_priority_fee, base_fee) -> (computed_priority_fee, base_fee, computed_priority_fee)
+    ADD
+    // stack: computed_fee, computed_priority_fee
+    %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mstore_txn_field(@TXN_FIELD_COMPUTED_PRIORITY_FEE_PER_GAS)
+    // stack: (empty)
 %endmacro
