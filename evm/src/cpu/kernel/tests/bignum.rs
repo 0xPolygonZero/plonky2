@@ -34,8 +34,15 @@ fn bignum_len(a: &BigUint) -> usize {
 
 fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {
     let mut rng = rand::thread_rng();
-    let (a, b) = (rng.gen_biguint(bit_size as u64), rng.gen_biguint(bit_size as u64));
-    if b < a { (a, b) } else { (b, a) }
+    let (a, b) = (
+        rng.gen_biguint(bit_size as u64),
+        rng.gen_biguint(bit_size as u64),
+    );
+    if b < a {
+        (a, b)
+    } else {
+        (b, a)
+    }
 }
 
 fn prepare_bignum_random(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
