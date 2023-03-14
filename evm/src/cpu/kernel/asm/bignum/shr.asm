@@ -2,6 +2,7 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Shifts a given bignum right by one bit (in place).
+// Assumes that len > 0.
 global shr_bignum:
     // stack: len, start_loc, retdest
     DUP2
@@ -30,7 +31,7 @@ shr_loop:
     // stack: carry, a[i] >> 1, i, new_carry, start_loc, retdest
     %shl_const(127)
     // stack: carry << 127, a[i] >> 1, i, new_carry, start_loc, retdest
-    OR
+    ADD
     // stack: carry << 127 | a[i] >> 1, i, new_carry, start_loc, retdest
     DUP2
     // stack: i, carry << 127 | a[i] >> 1, i, new_carry, start_loc, retdest
