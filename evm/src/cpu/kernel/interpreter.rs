@@ -770,9 +770,7 @@ impl<'a> Interpreter<'a> {
     fn run_mload_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
-        let x = self.pop();
-        dbg!(x);
-        let offset = x.as_usize();
+        let offset = self.pop().as_usize();
         let value = self
             .generation_state
             .memory
