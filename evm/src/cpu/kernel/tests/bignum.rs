@@ -29,7 +29,7 @@ fn gen_bignum(bit_size: usize) -> BigUint {
 }
 
 fn bignum_len(a: &BigUint) -> usize {
-    a.bits() as usize / BIGNUM_LIMB_BITS + 1
+    ceil_div_usize(a.bits() as usize, BIGNUM_LIMB_BITS)
 }
 
 fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {

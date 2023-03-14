@@ -5,6 +5,11 @@
 // Assumes that len > 0.
 global shr_bignum:
     // stack: len, start_loc, retdest
+    DUP1
+    // stack: len, len, start_loc, retdest
+    ISZERO
+    %jumpi(shr_end_len_zero)
+    // stack: len, start_loc, retdest
     DUP2
     // stack: start_loc, len, start_loc, retdest
     ADD
@@ -53,5 +58,10 @@ shr_loop:
 shr_end:
     // stack: i, new_carry, start_loc, retdest
     %pop3
+    // stack: retdest
+    JUMP
+shr_end_len_zero:
+    // stack: len, start_loc, retdest
+    %pop2
     // stack: retdest
     JUMP
