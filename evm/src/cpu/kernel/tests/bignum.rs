@@ -12,7 +12,7 @@ use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 
 const BIGNUM_LIMB_BITS: usize = 128;
 
-fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
+fn pad_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
     biguints
         .iter()
         .flat_map(|biguint| {
@@ -65,7 +65,7 @@ fn prepare_bignum_min(_bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let (a, b) = gen_two_bignums_ordered(bit_size);
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
@@ -74,7 +74,7 @@ fn prepare_two_bignums_max(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256
     let a = (BigUint::one() << bit_size) - BigUint::one();
     let b = (BigUint::one() << bit_size) - BigUint::from(2u8);
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
@@ -83,7 +83,7 @@ fn prepare_two_bignums_min(_bit_size: usize) -> (BigUint, BigUint, U256, Vec<U25
     let a = BigUint::one();
     let b = BigUint::zero();
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
@@ -92,7 +92,7 @@ fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U25
     let a = BigUint::one() << (bit_size - 1);
     let b = BigUint::zero();
     let length: U256 = bignum_len(&a).into();
-    let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
     (a, b, length, memory)
 }
