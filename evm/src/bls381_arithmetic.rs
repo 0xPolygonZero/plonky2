@@ -1,11 +1,13 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use ethereum_types::{U512};
+use ethereum_types::U512;
+
 // use rand::distributions::{Distribution, Standard};
 // use rand::Rng;
 
 pub trait FieldExt:
     Sized
+    + Copy
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -158,11 +160,13 @@ fn exp_fp(x: Fp, e: U512) -> Fp {
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
 /// The arithmetic in this extension is standard complex arithmetic
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp2<T> where T: FieldExt {
+pub struct Fp2<T>
+where
+    T: FieldExt,
+{
     pub re: T,
     pub im: T,
 }
-
 
 // impl<T: Distribution<T>> Distribution<Fp2<T>> for Standard {
 //     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2<T> {
@@ -182,7 +186,7 @@ impl<T: FieldExt> Add for Fp2<T> {
     }
 }
 
-impl<T: FieldExt>  Neg for Fp2<T> {
+impl<T: FieldExt> Neg for Fp2<T> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -193,7 +197,7 @@ impl<T: FieldExt>  Neg for Fp2<T> {
     }
 }
 
-impl<T: FieldExt>  Sub for Fp2<T> {
+impl<T: FieldExt> Sub for Fp2<T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -204,9 +208,7 @@ impl<T: FieldExt>  Sub for Fp2<T> {
     }
 }
 
-impl<T: FieldExt>  Mul
-    for Fp2<T>
-{
+impl<T: FieldExt> Mul for Fp2<T> {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -270,13 +272,13 @@ impl<T: FieldExt> Div for Fp2<T> {
     }
 }
 
-trait Adj {
+pub trait Adj {
     fn mul_adj(self) -> Self;
 }
 
 /// Helper function which multiplies by the Fp2 element
 /// whose cube root we will adjoin in the next extension
-impl Adj for Fp2<Fp> {
+impl<T: FieldExt> Adj for Fp2<T> {
     fn mul_adj(self) -> Self {
         Fp2 {
             re: self.re - self.im,
@@ -288,13 +290,14 @@ impl Adj for Fp2<Fp> {
 /// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 1 + i
 /// Fp6 has basis 1, t, t^2 over Fp2
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp6<T> where T: FieldExt {
+pub struct Fp6<T>
+where
+    T: FieldExt,
+{
     pub t0: Fp2<T>,
     pub t1: Fp2<T>,
     pub t2: Fp2<T>,
 }
-
-
 
 // impl<T: Distribution<T>> Distribution<Fp6<T>> for Standard {
 //     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6<T> {
@@ -374,12 +377,12 @@ impl<T: FieldExt + Adj> Fp6<T> {
     }
 }
 
-pub trait Frob {
-    const FROB_T: Self;
-    const FROB_Z: Self;
+impl<T: FieldExt> Fp6<T> {
+    const FROB_T: [[Fp2<T>; 6]; 2] = [[Fp2::<T>::ZERO; 6]; 2];
+    const FROB_Z: [Fp2<T>; 12] = [Fp2::<T>::ZERO; 12];
 }
 
-impl<T: Frob + FieldExt> Fp6<T> {
+impl<T: FieldExt> Fp6<T> {
     /// The nth frobenius endomorphism of a p^q field is given by mapping
     ///     x to x^(p^n)
     /// which sends a + bt + ct^2: Fp6 to
@@ -390,8 +393,8 @@ impl<T: Frob + FieldExt> Fp6<T> {
     /// are precomputed in the constant arrays FROB_T1 and FROB_T2
     pub fn frob(self, n: usize) -> Fp6<T> {
         let n = n % 6;
-        let frob_t1 = Self::FROB_T[0][n];
-        let frob_t2 = Self::FROB_T[1][n];
+        let frob_t1 = Fp6::<T>::FROB_T[0][n];
+        let frob_t2 = Fp6::<T>::FROB_T[1][n];
 
         if n % 2 != 0 {
             Fp6 {
@@ -409,7 +412,7 @@ impl<T: Frob + FieldExt> Fp6<T> {
     }
 }
 
-impl<T: FieldExt + Adj> FieldExt for Fp6<T> {
+impl<T: FieldExt> FieldExt for Fp6<T> {
     const ZERO: Fp6<T> = Fp6 {
         t0: Fp2::<T>::ZERO,
         t1: Fp2::<T>::ZERO,
@@ -456,110 +459,146 @@ impl<T: FieldExt> Div for Fp6<T> {
     }
 }
 
-// /// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
-// /// It thus has basis 1, z over Fp6
-// #[derive(Debug, Copy, Clone, PartialEq)]
-// pub struct Fp12<T> {
-//     pub z0: Fp6<T>,
-//     pub z1: Fp6<T>,
-// }
+/// The degree 2 field extension Fp12 over Fp6 is given by adjoining z, where z^2 = t.
+/// It thus has basis 1, z over Fp6
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Fp12<T>
+where
+    T: FieldExt,
+{
+    pub z0: Fp6<T>,
+    pub z1: Fp6<T>,
+}
 
-// impl<T: Unital> Unital for Fp12<T> {
-//     const ZERO: Fp12<T> = Fp12 {
-//         z0: Fp6::<T>::ZERO,
-//         z1: Fp6::<T>::ZERO,
-//     };
+impl<T: FieldExt + Adj> FieldExt for Fp12<T> {
+    const ZERO: Fp12<T> = Fp12 {
+        z0: Fp6::<T>::ZERO,
+        z1: Fp6::<T>::ZERO,
+    };
 
-//     const UNIT: Fp12<T> = Fp12 {
-//         z0: Fp6::<T>::UNIT,
-//         z1: Fp6::<T>::ZERO,
-//     };
-// }
+    const UNIT: Fp12<T> = Fp12 {
+        z0: Fp6::<T>::UNIT,
+        z1: Fp6::<T>::ZERO,
+    };
 
-// // impl<T: Distribution<T>> Distribution<Fp12<T>> for Standard {
-// //     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
-// //         let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
-// //         Fp12 { z0, z1 }
-// //     }
-// // }
+    /// By Galois Theory, given x: Fp12, the product
+    ///     phi = Prod_{i=0}^11 x_i
+    /// lands in Fp, and hence the inverse of x is given by
+    ///     (Prod_{i=1}^11 x_i) / phi
+    /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
+    ///     x_6 = (a + bz)_6 = a - bz = x.conj()
+    /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
+    ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
+    /// By Galois theory, both the following are in Fp2 and are complex conjugates
+    ///     prod_odds,  prod_evens
+    /// Thus phi = ||prod_odds||^2, and hence the inverse is given by
+    ///    prod_odds * prod_evens_except_six * x.conj() / ||prod_odds||^2
+    fn inv(self) -> Fp12<T> {
+        let prod_17 = (self.frob(1) * self.frob(7)).z0;
+        let prod_1379 = prod_17 * prod_17.frob(2);
+        let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
+        let phi = prod_odds.norm_sq();
+        let prod_odds_over_phi = prod_odds.scale(phi.inv());
+        let prod_evens_except_six = prod_1379.frob(1);
+        let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
+        self.conj().scale(prod_except_six)
+    }
+}
 
-// impl<T: Mul> Mul for Fp12<T> {
-//     type Output = Self;
-
-//     fn mul(self, other: Self) -> Self {
-//         let h0 = self.z0 * other.z0;
-//         let h1 = self.z1 * other.z1;
-//         let h01 = (self.z0 + self.z1) * (other.z0 + other.z1);
-//         Fp12 {
-//             z0: h0 + h1.sh(),
-//             z1: h01 - (h0 + h1),
-//         }
+// impl<T: Distribution<T>> Distribution<Fp12<T>> for Standard {
+//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
+//         let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
+//         Fp12 { z0, z1 }
 //     }
 // }
 
-// impl<T> Fp12<T> {
-//     // This function scalar multiplies an Fp12 by an Fp6
-//     fn scale(self, x: Fp6<T>) -> Fp12<T> {
-//         Fp12 {
-//             z0: x * self.z0,
-//             z1: x * self.z1,
-//         }
-//     }
+impl<T: FieldExt> Add for Fp12<T> {
+    type Output = Self;
 
-//     fn conj(self) -> Fp12<T> {
-//         Fp12 {
-//             z0: self.z0,
-//             z1: -self.z1,
-//         }
-//     }
-// }
+    fn add(self, other: Self) -> Self {
+        Fp12 {
+            z0: self.z0 + other.z0,
+            z1: self.z1 + other.z1,
+        }
+    }
+}
 
-// impl<T: Frob> Fp12<T> {
-//     /// The nth frobenius endomorphism of a p^q field is given by mapping
-//     ///     x to x^(p^n)
-//     /// which sends a + bz: Fp12 to
-//     ///     a^(p^n) + b^(p^n) * z^(p^n)
-//     /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
-//     pub fn frob(self, n: usize) -> Fp12<T> {
-//         let n = n % 12;
-//         Fp12 {
-//             z0: self.z0.frob(n),
-//             z1: self.z1.frob(n).scale(Self::FROB_Z[n]),
-//         }
-//     }
+impl<T: FieldExt> Neg for Fp12<T> {
+    type Output = Self;
 
-//     /// By Galois Theory, given x: Fp12, the product
-//     ///     phi = Prod_{i=0}^11 x_i
-//     /// lands in Fp, and hence the inverse of x is given by
-//     ///     (Prod_{i=1}^11 x_i) / phi
-//     /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
-//     ///     x_6 = (a + bz)_6 = a - bz = x.conj()
-//     /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
-//     ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
-//     /// By Galois theory, both the following are in Fp2 and are complex conjugates
-//     ///     prod_odds,  prod_evens
-//     /// Thus phi = ||prod_odds||^2, and hence the inverse is given by
-//     ///    prod_odds * prod_evens_except_six * x.conj() / ||prod_odds||^2
-//     pub fn inv(self) -> Fp12<T> {
-//         let prod_17 = (self.frob(1) * self.frob(7)).z0;
-//         let prod_1379 = prod_17 * prod_17.frob(2);
-//         let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
-//         let phi = prod_odds.norm_sq();
-//         let prod_odds_over_phi = prod_odds.scale(phi.inv());
-//         let prod_evens_except_six = prod_1379.frob(1);
-//         let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
-//         self.conj().scale(prod_except_six)
-//     }
-// }
+    fn neg(self) -> Self::Output {
+        Fp12 {
+            z0: -self.z0,
+            z1: -self.z1,
+        }
+    }
+}
 
-// #[allow(clippy::suspicious_arithmetic_impl)]
-// impl<T: std::ops::Div<Output = T>> Div for Fp12<T> {
-//     type Output = Self;
+impl<T: FieldExt> Sub for Fp12<T> {
+    type Output = Self;
 
-//     fn div(self, rhs: Self) -> Self::Output {
-//         self * rhs.inv()
-//     }
-// }
+    fn sub(self, other: Self) -> Self {
+        Fp12 {
+            z0: self.z0 - other.z0,
+            z1: self.z1 - other.z1,
+        }
+    }
+}
+
+impl<T: FieldExt + Adj> Mul for Fp12<T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        let h0 = self.z0 * other.z0;
+        let h1 = self.z1 * other.z1;
+        let h01 = (self.z0 + self.z1) * (other.z0 + other.z1);
+        Fp12 {
+            z0: h0 + h1.sh(),
+            z1: h01 - (h0 + h1),
+        }
+    }
+}
+
+impl<T: FieldExt> Fp12<T> {
+    // This function scalar multiplies an Fp12 by an Fp6
+    fn scale(self, x: Fp6<T>) -> Fp12<T> {
+        Fp12 {
+            z0: x * self.z0,
+            z1: x * self.z1,
+        }
+    }
+
+    fn conj(self) -> Fp12<T> {
+        Fp12 {
+            z0: self.z0,
+            z1: -self.z1,
+        }
+    }
+}
+
+impl<T: FieldExt> Fp12<T> {
+    /// The nth frobenius endomorphism of a p^q field is given by mapping
+    ///     x to x^(p^n)
+    /// which sends a + bz: Fp12 to
+    ///     a^(p^n) + b^(p^n) * z^(p^n)
+    /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
+    pub fn frob(self, n: usize) -> Fp12<T> {
+        let n = n % 12;
+        Fp12 {
+            z0: self.z0.frob(n),
+            z1: self.z1.frob(n).scale(Fp6::<T>::FROB_Z[n]),
+        }
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
+impl<T: FieldExt + Adj> Div for Fp12<T> {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self * rhs.inv()
+    }
+}
 
 // trait Stack {
 //     fn on_stack(self) -> Vec<U256>;
