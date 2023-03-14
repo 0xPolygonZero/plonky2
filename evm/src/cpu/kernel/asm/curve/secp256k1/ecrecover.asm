@@ -134,11 +134,11 @@ pubkey_to_addr:
     // stack: hash, v, r, s, retdest
     DUP2
     // stack: v, hash, v, r, s, retdest
-    %eq_consts(27)
+    %eq_const(27)
     // stack: v==27, hash, v, r, s, retdest
     DUP3
     // stack: v, v==27, hash, v, r, s, retdest
-    %eq_consts(28)
+    %eq_const(28)
     // stack: v==28, v==27, hash, v, r, s, retdest
     ADD // OR
     // stack: (v==28 || v==27), hash, v, r, s, retdest
