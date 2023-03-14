@@ -3,6 +3,10 @@
 
 global iszero_bignum:
     // stack: len, start_loc, retdest
+    DUP1
+    // stack: len, len, start_loc, retdest
+    ISZERO
+    %jumpi(eqzero)
     DUP2
     // stack: start_loc, len, start_loc, retdest
     ADD

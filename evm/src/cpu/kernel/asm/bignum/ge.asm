@@ -1,7 +1,8 @@
 // Arithmetic on little-endian integers represented with 128-bit limbs.
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
-// Returns a >= b.
+// Compares two bignums of the same given length. Assumes that len > 0.
+// Returns 1 if a > b, 3 if a == b, and 0 if a < b.
 global ge_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     SWAP1
