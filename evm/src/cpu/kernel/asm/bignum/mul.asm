@@ -45,7 +45,6 @@ mul_return:
     // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
     DUP1
     // stack: n-1, n-1, len, a_start_loc, bi+1, output_cur+1, retdest
-    STOP
     %jumpi(mul_loop)
 mul_end:
     // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
