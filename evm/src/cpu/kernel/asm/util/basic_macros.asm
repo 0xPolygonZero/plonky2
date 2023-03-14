@@ -309,9 +309,9 @@
     BYTE
     %shl_const(24)
     // stack:       d000, b0, a, c00
-    OR 
-    OR
-    OR
+    ADD // OR
+    ADD // OR
+    ADD // OR
     // stack:                   dcba
 %endmacro
 
@@ -332,7 +332,7 @@
     %reverse_bytes_u32
     // stack: word_lo_inverted, word_hi_inverted
     %shl_const(32)
-    OR
+    ADD // OR
     // stack: word_inverted
 %endmacro
 
@@ -341,7 +341,7 @@
     // stack: a, b, c, d
     %rep 3
         %shl_const(64)
-        OR
+        ADD // OR
     %endrep
     // stack: a || b || c || d
 %endmacro
