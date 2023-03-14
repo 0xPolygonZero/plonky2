@@ -48,13 +48,12 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
     res
 }
 
-/// As for cpu_arith_data_link but also checks that the output is a
+/// As for cpu_arith_data_link but also checks that the output is
 /// the single column columns::GENERAL_REGISTER_BIT.
 fn cpu_arith_data_link_bitout<F: Field>(ops: &[usize], in_regs: &[Range<usize>]) -> Vec<Column<F>> {
     let mut res = cpu_arith_data_link(ops, in_regs);
-    // Output is 0 or 1 and contained in column GENERAL_REGISTER_BIT,
-    // but the result is a U256, so all the other columns must be
-    // zero.
+    // Output is contained in column GENERAL_REGISTER_BIT, but the
+    // result is a U256, so all the other columns must be zero.
     res.push(Column::single(columns::GENERAL_REGISTER_BIT));
     for _ in 1..(columns::N_LIMBS / 2) {
         res.push(Column::zero());
