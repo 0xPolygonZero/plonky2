@@ -3,11 +3,14 @@ use ethereum_types::U256;
 use itertools::Itertools;
 use num::{BigUint, One, Zero};
 use num_bigint::RandBigInt;
+use plonky2_util::ceil_div_usize;
 use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
+
+const BIGNUM_LIMB_BITS: usize = 128;
 
 fn pack_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
     biguints
@@ -26,18 +29,13 @@ fn gen_bignum(bit_size: usize) -> BigUint {
 }
 
 fn bignum_len(a: &BigUint) -> usize {
-    (a.bits() as usize) / 128 + 1
+    a.bits() as usize / BIGNUM_LIMB_BITS + 1
 }
 
 fn gen_two_bignums_ordered(bit_size: usize) -> (BigUint, BigUint) {
     let mut rng = rand::thread_rng();
-    let (a, b) = {
-        let a = rng.gen_biguint(bit_size as u64);
-        let b = rng.gen_biguint(bit_size as u64);
-        (a.clone().max(b.clone()), a.min(b))
-    };
-
-    (a, b)
+    let (a, b) = (rng.gen_biguint(bit_size as u64), rng.gen_biguint(bit_size as u64));
+    if b < a { (a, b) } else { (b, a) }
 }
 
 fn prepare_bignum_random(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
@@ -49,7 +47,7 @@ fn prepare_bignum_random(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
 }
 
 fn prepare_bignum_max(bit_size: usize) -> (BigUint, U256, Vec<U256>) {
-    let a = BigUint::one() << (bit_size - 1);
+    let a = (BigUint::one() << bit_size) - BigUint::one();
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
 
@@ -73,8 +71,8 @@ fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U
 }
 
 fn prepare_two_bignums_max(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
-    let a = BigUint::one() << (bit_size - 1);
-    let b = BigUint::one() << (bit_size - 2);
+    let a = (BigUint::one() << bit_size) - BigUint::one();
+    let b = (BigUint::one() << bit_size) - BigUint::from(2u8);
     let length: U256 = bignum_len(&a).into();
     let memory = pack_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
