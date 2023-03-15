@@ -4,6 +4,8 @@
 // Stores a * b in output_loc, leaving a and b unchanged.
 // Both a and b have length len; a * b will have length 2 * len.
 // output_loc must be initialized as 2 * len zeroes.
+// TODO: possible optimization: allow output_loc to be uninitialized, and write over it with a[0:len] * b[0] (a multiplication
+// with carry) in place of the first addmul.
 global mul_bignum:
     // stack: len, a_start_loc, b_start_loc, output_loc, retdest
     DUP1
