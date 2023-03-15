@@ -52,7 +52,7 @@ global blake2b_iv:
     // stack: IV_i[32:], IV_i[:32], retdest
     %shl_const(32)
     // stack: IV_i[32:] << 32, IV_i[:32], retdest
-    OR
+    ADD // OR
     // stack: IV_i, retdest
     SWAP1
     JUMP
