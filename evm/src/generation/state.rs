@@ -7,6 +7,7 @@ use crate::generation::GenerationInputs;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
+use crate::witness::util::stack_peek;
 
 pub(crate) struct GenerationStateCheckpoint {
     pub(crate) registers: RegistersState,
@@ -66,5 +67,11 @@ impl<F: Field> GenerationState<F> {
     pub fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
+    }
+
+    pub(crate) fn stack(&self) -> Vec<U256> {
+        (0..self.registers.stack_len)
+            .map(|i| stack_peek(self, i).unwrap())
+            .collect()
     }
 }
