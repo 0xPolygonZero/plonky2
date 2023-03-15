@@ -1,5 +1,3 @@
-use std::f32::MIN;
-
 use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
@@ -15,6 +13,7 @@ use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_biguint};
 const BIGNUM_LIMB_BITS: usize = 128;
 const MINUS_ONE: U256 = U256::MAX;
 
+#[allow(dead_code)]
 fn test_data() -> Vec<Vec<BigUint>> {
     let unary_op_inputs = vec![0u8.into(), 1u8.into(), 2u8.into()];
 
