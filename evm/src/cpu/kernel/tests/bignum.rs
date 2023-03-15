@@ -1,3 +1,5 @@
+use std::f32::MIN;
+
 use anyhow::Result;
 use ethereum_types::U256;
 use itertools::Itertools;
@@ -8,9 +10,37 @@ use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_biguint};
 
 const BIGNUM_LIMB_BITS: usize = 128;
+const MINUS_ONE: U256 = U256::MAX;
+
+fn test_data() -> Vec<Vec<BigUint>> {
+    let unary_op_inputs = vec![0u8.into(), 1u8.into(), 2u8.into()];
+
+    let shr_outputs = vec![0u8.into(), 0u8.into(), 1u8.into()];
+    let iszero_outputs = vec![1u8.into(), 0u8.into(), 0u8.into()];
+
+    let binary_op_first_inputs = vec![0u8.into(), 1u8.into(), 2u8.into()];
+    let binary_op_second_inputs = vec![0u8.into(), 2u8.into(), 1u8.into()];
+
+    let cmp_outputs = vec![0u8.into(), u256_to_biguint(MINUS_ONE), 1u8.into()];
+    let add_outputs = vec![0u8.into(), 3u8.into(), 3u8.into()];
+    let addmul_outputs = vec![0u8.into(), 2u8.into(), 4u8.into()];
+    let mul_outputs = vec![0u8.into(), 2u8.into(), 2u8.into()];
+
+    vec![
+        unary_op_inputs,
+        shr_outputs,
+        iszero_outputs,
+        binary_op_first_inputs,
+        binary_op_second_inputs,
+        cmp_outputs,
+        add_outputs,
+        addmul_outputs,
+        mul_outputs,
+    ]
+}
 
 fn pad_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
     biguints
@@ -207,8 +237,7 @@ where
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
     let result = interpreter.stack()[0];
-    let minus_one = ((U256::one() << 255) - 1) * 2 + 1;
-    assert_eq!(result, minus_one);
+    assert_eq!(result, MINUS_ONE);
 
     // Test equal case.
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, a_start_loc, retdest];
