@@ -179,14 +179,14 @@ where
     Ok(())
 }
 
-fn test_ge_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
+fn test_cmp_bignum<F>(prepare_two_bignums_fn: &F) -> Result<()>
 where
     F: Fn(usize) -> (BigUint, BigUint, U256, Vec<U256>),
 {
     let (_a, _b, length, memory) = prepare_two_bignums_fn(1000);
 
     let retdest = 0xDEADBEEFu32.into();
-    let ge_bignum = KERNEL.global_labels["ge_bignum"];
+    let cmp_bignum = KERNEL.global_labels["cmp_bignum"];
 
     let a_start_loc = 0.into();
     let b_start_loc = length;
@@ -194,7 +194,7 @@ where
     // Test with a > b.
     let mut initial_stack: Vec<U256> = vec![length, a_start_loc, b_start_loc, retdest];
     initial_stack.reverse();
-    let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(cmp_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory.clone());
     interpreter.run()?;
     let result = interpreter.stack()[0];
@@ -203,11 +203,21 @@ where
     // Swap a and b, to test the less-than case.
     let mut initial_stack: Vec<U256> = vec![length, b_start_loc, a_start_loc, retdest];
     initial_stack.reverse();
-    let mut interpreter = Interpreter::new_with_kernel(ge_bignum, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(cmp_bignum, initial_stack);
+    interpreter.set_kernel_general_memory(memory.clone());
+    interpreter.run()?;
+    let result = interpreter.stack()[0];
+    let minus_one = ((U256::one() << 255) - 1) * 2 + 1;
+    assert_eq!(result, minus_one);
+
+    // Test equal case.
+    let mut initial_stack: Vec<U256> = vec![length, a_start_loc, a_start_loc, retdest];
+    initial_stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(cmp_bignum, initial_stack);
     interpreter.set_kernel_general_memory(memory);
     interpreter.run()?;
     let result = interpreter.stack()[0];
-    assert_eq!(result, 0.into());
+    assert_eq!(result, U256::zero());
 
     Ok(())
 }
@@ -350,11 +360,11 @@ fn test_iszero_bignum_all() -> Result<()> {
 }
 
 #[test]
-fn test_ge_bignum_all() -> Result<()> {
-    test_ge_bignum(&prepare_two_bignums_random)?;
-    test_ge_bignum(&prepare_two_bignums_max)?;
-    test_ge_bignum(&prepare_two_bignums_min)?;
-    test_ge_bignum(&prepare_two_bignums_diff)?;
+fn test_cmp_bignum_all() -> Result<()> {
+    test_cmp_bignum(&prepare_two_bignums_random)?;
+    test_cmp_bignum(&prepare_two_bignums_max)?;
+    test_cmp_bignum(&prepare_two_bignums_min)?;
+    test_cmp_bignum(&prepare_two_bignums_diff)?;
 
     Ok(())
 }

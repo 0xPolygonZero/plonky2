@@ -2,8 +2,8 @@
 // All integers must be under a given length bound, and are padded with leading zeroes.
 
 // Compares two bignums of the same given length. Assumes that len > 0.
-// Returns 1 if a > b, 3 if a == b, and 0 if a < b.
-global ge_bignum:
+// Returns 1 if a > b, 0 if a == b, and -1 (that is, 2^256 - 1) if a < b.
+global cmp_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     SWAP1
     // stack: a_start_loc, len, b_start_loc, retdest
@@ -59,8 +59,8 @@ equal:
     // stack: i, a_i_loc, b_i_loc, retdest
     %pop3
     // stack: retdest
-    PUSH 3
-    // stack: 3, retdest
+    PUSH 0
+    // stack: 0, retdest
     SWAP1
     JUMP
 greater:
@@ -75,7 +75,7 @@ less:
     // stack: i, a_i_loc, b_i_loc, retdest
     %pop3
     // stack: retdest
-    PUSH 0
-    // stack: 0, retdest
+    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    // stack: -1, retdest
     SWAP1
     JUMP

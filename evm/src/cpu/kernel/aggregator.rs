@@ -15,7 +15,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         "global jumped_to_1: PANIC",
         include_str!("asm/bignum/add.asm"),
         include_str!("asm/bignum/addmul.asm"),
-        include_str!("asm/bignum/ge.asm"),
+        include_str!("asm/bignum/cmp.asm"),
         include_str!("asm/bignum/iszero.asm"),
         include_str!("asm/bignum/mul.asm"),
         include_str!("asm/bignum/shr.asm"),
