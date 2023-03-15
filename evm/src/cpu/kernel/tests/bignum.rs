@@ -8,37 +8,15 @@ use rand::Rng;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_biguint};
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 
 const BIGNUM_LIMB_BITS: usize = 128;
 const MINUS_ONE: U256 = U256::MAX;
 
-#[allow(dead_code)]
-fn test_data() -> Vec<Vec<BigUint>> {
-    let unary_op_inputs = vec![0u8.into(), 1u8.into(), 2u8.into()];
-
-    let shr_outputs = vec![0u8.into(), 0u8.into(), 1u8.into()];
-    let iszero_outputs = vec![1u8.into(), 0u8.into(), 0u8.into()];
-
-    let binary_op_first_inputs = vec![0u8.into(), 1u8.into(), 2u8.into()];
-    let binary_op_second_inputs = vec![0u8.into(), 2u8.into(), 1u8.into()];
-
-    let cmp_outputs = vec![0u8.into(), u256_to_biguint(MINUS_ONE), 1u8.into()];
-    let add_outputs = vec![0u8.into(), 3u8.into(), 3u8.into()];
-    let addmul_outputs = vec![0u8.into(), 2u8.into(), 4u8.into()];
-    let mul_outputs = vec![0u8.into(), 2u8.into(), 2u8.into()];
-
-    vec![
-        unary_op_inputs,
-        shr_outputs,
-        iszero_outputs,
-        binary_op_first_inputs,
-        binary_op_second_inputs,
-        cmp_outputs,
-        add_outputs,
-        addmul_outputs,
-        mul_outputs,
-    ]
+fn test_data() -> Vec<BigUint> {
+    let mut data = vec![0u8.into(), 1u8.into(), u128::MAX.into()];
+    data.sort();
+    data
 }
 
 fn pad_bignums(biguints: &[BigUint], length: usize) -> Vec<U256> {
@@ -98,6 +76,14 @@ fn prepare_bignum_min(_bit_size: usize) -> (BigUint, U256, Vec<U256>) {
     (a, length, a_limbs)
 }
 
+fn prepare_bignum_from_test_data(i: usize) -> (BigUint, U256, Vec<U256>) {
+    let a = test_data()[i].clone();
+    let length: U256 = bignum_len(&a).into();
+    let a_limbs = biguint_to_mem_vec(a.clone());
+
+    (a, length, a_limbs)
+}
+
 fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let (a, b) = gen_two_bignums_ordered(bit_size);
     let length: U256 = bignum_len(&a).into();
@@ -136,6 +122,15 @@ fn prepare_two_bignums_diff(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U25
 fn prepare_two_bignums_zero(_bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
     let a = BigUint::zero();
     let b = BigUint::zero();
+    let length: U256 = bignum_len(&a).into();
+    let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
+
+    (a, b, length, memory)
+}
+
+fn prepare_two_bignums_from_test_data(i: usize, j: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
+    let a = test_data()[i].clone();
+    let b = test_data()[j].clone();
     let length: U256 = bignum_len(&a).into();
     let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
@@ -375,6 +370,11 @@ fn test_shr_bignum_all() -> Result<()> {
     test_shr_bignum(&prepare_bignum_max)?;
     test_shr_bignum(&prepare_bignum_min)?;
 
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        test_shr_bignum(&|_| prepare_bignum_from_test_data(i))?;
+    }
+
     Ok(())
 }
 
@@ -383,6 +383,11 @@ fn test_iszero_bignum_all() -> Result<()> {
     test_iszero_bignum(&prepare_bignum_random)?;
     test_iszero_bignum(&prepare_bignum_max)?;
     // No need to test for min, since it is zero.
+
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        test_iszero_bignum(&|_| prepare_bignum_from_test_data(i))?;
+    }
 
     Ok(())
 }
@@ -393,6 +398,13 @@ fn test_cmp_bignum_all() -> Result<()> {
     test_cmp_bignum(&prepare_two_bignums_max)?;
     test_cmp_bignum(&prepare_two_bignums_min)?;
     test_cmp_bignum(&prepare_two_bignums_diff)?;
+
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        for j in 0..i {
+            test_cmp_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+        }
+    }
 
     Ok(())
 }
@@ -405,6 +417,13 @@ fn test_add_bignum_all() -> Result<()> {
     test_add_bignum(&prepare_two_bignums_diff)?;
     test_add_bignum(&prepare_two_bignums_zero)?;
 
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        for j in 0..i {
+            test_add_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -416,6 +435,13 @@ fn test_addmul_bignum_all() -> Result<()> {
     test_addmul_bignum(&prepare_two_bignums_diff)?;
     test_addmul_bignum(&prepare_two_bignums_zero)?;
 
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        for j in 0..i {
+            test_addmul_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -426,6 +452,13 @@ fn test_mul_bignum_all() -> Result<()> {
     test_mul_bignum(&prepare_two_bignums_min)?;
     test_mul_bignum(&prepare_two_bignums_diff)?;
     test_mul_bignum(&prepare_two_bignums_zero)?;
+
+    let test_data = test_data();
+    for i in 0..test_data.len() {
+        for j in 0..i {
+            test_mul_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+        }
+    }
 
     Ok(())
 }
