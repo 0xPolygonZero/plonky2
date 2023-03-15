@@ -8,6 +8,7 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use crate::bls381_arithmetic::{Fp381, BLS_BASE};
 use crate::bn254_arithmetic::BN_BASE;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
@@ -436,6 +437,90 @@ impl<'a> Interpreter<'a> {
         let y = self.pop() % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
         self.push((x + (BN_BASE - y)) % BN_BASE);
+    }
+
+    #[allow(dead_code)]
+    fn run_addfp381_lo(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (x + y) % BLS_BASE;
+
+        self.push(U256(z.0[0..4].try_into().unwrap()));
+    }
+
+    #[allow(dead_code)]
+    fn run_addfp381_hi(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (x + y) % BLS_BASE;
+
+        self.push(U256(z.0[4..].try_into().unwrap()));
+    }
+
+    #[allow(dead_code)]
+    fn run_mulfp254_lo(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (Fp381 {val: x} * Fp381 {val: y}).val;
+
+        self.push(U256(z.0[0..4].try_into().unwrap()));
+    }
+
+    #[allow(dead_code)]
+    fn run_mulfp254_hi(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (Fp381 {val: x} * Fp381 {val: y}).val;
+
+        self.push(U256(z.0[4..].try_into().unwrap()));
+    }
+
+    #[allow(dead_code)]
+    fn run_subfp381_lo(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (BLS_BASE + x - y) % BLS_BASE;
+
+        self.push(U256(z.0[0..4].try_into().unwrap()));
+    }
+
+    #[allow(dead_code)]
+    fn run_subfp381_hi(&mut self) {
+        let x1 = self.pop();
+        let x0 = self.pop();
+        let y1 = self.pop();
+        let y0 = self.pop();
+
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = (BLS_BASE + x - y) % BLS_BASE;
+
+        self.push(U256(z.0[4..].try_into().unwrap()));
     }
 
     fn run_div(&mut self) {
