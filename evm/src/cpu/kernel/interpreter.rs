@@ -450,7 +450,7 @@ impl<'a> Interpreter<'a> {
         let y = U512::from(y0) + (U512::from(y1) << 256);
         let z = (x + y) % BLS_BASE;
 
-        self.push(U256(z.0[0..4].try_into().unwrap()));
+        self.push(U256(z.0[4..].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
@@ -464,7 +464,7 @@ impl<'a> Interpreter<'a> {
         let y = U512::from(y0) + (U512::from(y1) << 256);
         let z = (x + y) % BLS_BASE;
 
-        self.push(U256(z.0[4..].try_into().unwrap()));
+        self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
@@ -476,9 +476,9 @@ impl<'a> Interpreter<'a> {
 
         let x = U512::from(x0) + (U512::from(x1) << 256);
         let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (Fp381 {val: x} * Fp381 {val: y}).val;
+        let z = (Fp381 { val: x } * Fp381 { val: y }).val;
 
-        self.push(U256(z.0[0..4].try_into().unwrap()));
+        self.push(U256(z.0[4..].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
@@ -490,9 +490,9 @@ impl<'a> Interpreter<'a> {
 
         let x = U512::from(x0) + (U512::from(x1) << 256);
         let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (Fp381 {val: x} * Fp381 {val: y}).val;
+        let z = (Fp381 { val: x } * Fp381 { val: y }).val;
 
-        self.push(U256(z.0[4..].try_into().unwrap()));
+        self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
@@ -506,7 +506,7 @@ impl<'a> Interpreter<'a> {
         let y = U512::from(y0) + (U512::from(y1) << 256);
         let z = (BLS_BASE + x - y) % BLS_BASE;
 
-        self.push(U256(z.0[0..4].try_into().unwrap()));
+        self.push(U256(z.0[4..].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
@@ -520,7 +520,7 @@ impl<'a> Interpreter<'a> {
         let y = U512::from(y0) + (U512::from(y1) << 256);
         let z = (BLS_BASE + x - y) % BLS_BASE;
 
-        self.push(U256(z.0[4..].try_into().unwrap()));
+        self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     fn run_div(&mut self) {
