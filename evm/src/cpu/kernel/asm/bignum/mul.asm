@@ -14,27 +14,27 @@ global mul_bignum:
     // stack: n=len, len, a_start_loc, bi=b_start_loc, output_cur=output_loc, retdest
 mul_loop:
     // stack: n, len, a_start_loc, bi, output_cur, retdest
-    PUSH mul_return
-    // stack: mul_return, n, len, a_start_loc, bi, output_cur, retdest
+    PUSH mul_addmul_return
+    // stack: mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
     DUP5
-    // stack: bi, mul_return, n, len, a_start_loc, bi, output_cur, retdest
+    // stack: bi, mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
     %mload_kernel_general
-    // stack: b[i], mul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
     DUP5
-    // stack: a_start_loc, b[i], mul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
     DUP8
-    // stack: output_loc, a_start_loc, b[i], mul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: output_loc, a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
     DUP6
-    // stack: len, output_loc, a_start_loc, b[i], mul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: len, output_loc, a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
     %jump(addmul_bignum)
-mul_return:
-    // stack: carry, n, len, a_start_loc, bi, output_cur, retdest
+mul_addmul_return:
+    // stack: carry_limb, n, len, a_start_loc, bi, output_cur, retdest
     DUP6
-    // stack: output_cur, carry, n, len, a_start_loc, bi, output_cur, retdest
+    // stack: output_cur, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
     DUP4
-    // stack: len, output_cur, carry, n, len, a_start_loc, bi, output_cur, retdest
+    // stack: len, output_cur, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
     ADD
-    // stack: output_cur + len, carry, n, len, a_start_loc, bi, output_cur, retdest
+    // stack: output_cur + len, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
     %mstore_kernel_general
     // stack: n, len, a_start_loc, bi, output_cur, retdest
     %decrement

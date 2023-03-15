@@ -291,9 +291,9 @@ where
     interpreter.run()?;
 
     // Determine actual result.
-    let carry = interpreter.stack()[0];
+    let carry_limb = interpreter.stack()[0];
     let mut new_memory = interpreter.get_kernel_general_memory();
-    new_memory[len] = carry;
+    new_memory[len] = carry_limb;
     let actual_result: Vec<_> = new_memory[..expected_result.len()].into();
 
     // Compare.
