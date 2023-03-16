@@ -297,30 +297,30 @@
 
 // given u32 bytestring abcd return dcba
 %macro reverse_bytes_u32
-    // stack:                   abcd
+    // stack:              abcd
     DUP1
     PUSH 28
     BYTE
-    // stack:                a, abcd
+    // stack:           a, abcd
     DUP2
     PUSH 29
     BYTE
     %shl_const(8)
-    // stack:            b0, a, abcd 
+    // stack:       b0, a, abcd 
     DUP3
     PUSH 30
     BYTE
     %shl_const(16)
-    // stack:       c00, b0, a, abcd
+    // stack:  c00, b0, a, abcd
     SWAP3
     PUSH 31
     BYTE
     %shl_const(24)
-    // stack:       d000, b0, a, c00
+    // stack:  d000, b0, a, c00
     ADD // OR
     ADD // OR
     ADD // OR
-    // stack:                   dcba
+    // stack:              dcba
 %endmacro
 
 %macro reverse_bytes_u64

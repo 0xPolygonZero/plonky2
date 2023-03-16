@@ -72,7 +72,7 @@ post_rol:
 
 
 %macro get_round
-    // stack: sides, rounds
+    // stack:        sides , rounds
     %mul_const(5)  
     PUSH 10  
     SUB  

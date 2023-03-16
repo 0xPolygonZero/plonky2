@@ -1,12 +1,14 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
+use std::ops::Range;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use crate::bn254_arithmetic::BN_BASE;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -22,14 +24,6 @@ type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
-
-/// Order of the BN254 base field.
-const BN_BASE: U256 = U256([
-    4332616871279656263,
-    10917124144477883021,
-    13281191951274694749,
-    3486998266802970665,
-]);
 
 impl MemoryState {
     pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
@@ -265,6 +259,18 @@ impl<'a> Interpreter<'a> {
     fn stack_mut(&mut self) -> &mut Vec<U256> {
         &mut self.generation_state.memory.contexts[self.context].segments[Segment::Stack as usize]
             .content
+    }
+
+    pub fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
+        let mut output: Vec<U256> = vec![];
+        for i in range {
+            let term = self
+                .generation_state
+                .memory
+                .get(MemoryAddress::new(0, segment, i));
+            output.push(term);
+        }
+        output
     }
 
     pub(crate) fn push(&mut self, x: U256) {
