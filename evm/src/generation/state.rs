@@ -39,7 +39,7 @@ pub(crate) struct GenerationState<F: Field> {
     /// useful to see the actual addresses for debugging. Here we store the mapping for all known
     /// addresses.
     pub(crate) state_key_to_address: HashMap<H256, Address>,
-    
+
     /// Prover inputs containing the result of a MODMUL-related operation, in reverse order so that the next
     /// input can be obtained via `pop()`.
     pub(crate) bignum_modmul_prover_inputs: Vec<U256>,
