@@ -5,6 +5,11 @@
 // Returns 1 if a > b, 0 if a == b, and -1 (that is, 2^256 - 1) if a < b.
 global cmp_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
+    DUP1
+    // stack: len, len, a_start_loc, b_start_loc, retdest
+    ISZERO
+    %jumpi(equal)
+    // stack: len, a_start_loc, b_start_loc, retdest
     SWAP1
     // stack: a_start_loc, len, b_start_loc, retdest
     DUP2
