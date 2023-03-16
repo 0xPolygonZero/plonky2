@@ -170,8 +170,8 @@ pub(crate) fn mem_vec_to_biguint(x: &[U256]) -> BigUint {
 pub(crate) fn biguint_to_le_limbs(x: BigUint) -> Vec<u128> {
     let mut digits = x.to_u32_digits();
 
-    // Pad to a multiple of 8.
-    digits.resize((digits.len() + 7) / 8 * 8, 0);
+    // Pad to a multiple of 4.
+    digits.resize((digits.len() + 3) / 4 * 4, 0);
 
     digits
         .chunks(4)
