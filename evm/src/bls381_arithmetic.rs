@@ -105,10 +105,11 @@ impl Mul for Fp {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        let b256: U512 = U512([0, 0, 0, 0, 1, 0, 0, 0]);
         // x1, y1 are at most (q-1) // 2^256 < 2^125
-        let (x1, x0) = self.val.div_mod(b256);
-        let (y1, y0) = other.val.div_mod(b256);
+        let x1 = U512(self.val.0[..4].try_into().unwrap());
+        let x0 = U512(self.val.0[4..].try_into().unwrap());
+        let y1 = U512(other.val.0[..4].try_into().unwrap());
+        let y0 = U512(other.val.0[4..].try_into().unwrap());
 
         let z00 = Fp {
             val: x0.saturating_mul(y0) % BLS_BASE,
