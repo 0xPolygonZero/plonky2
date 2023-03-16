@@ -171,7 +171,7 @@ fn test_add_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<(
     if carry_limb > 0.into() {
         new_memory[len] = carry_limb;
     }
-    
+
     let expected_output = biguint_to_mem_vec(expected_output);
     let output = &new_memory[a_start_loc..a_start_loc + expected_output.len()];
     assert_eq!(output, expected_output);
@@ -197,7 +197,7 @@ fn test_addmul_bignum(a: BigUint, b: BigUint, c: u128, expected_output: BigUint)
     if carry_limb > 0.into() {
         new_memory[len] = carry_limb;
     }
-    
+
     let expected_output = biguint_to_mem_vec(expected_output);
     let output = &new_memory[a_start_loc..a_start_loc + expected_output.len()];
     assert_eq!(output, expected_output);
