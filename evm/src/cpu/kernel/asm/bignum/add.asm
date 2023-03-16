@@ -29,25 +29,22 @@ add_loop:
     // stack: (a[cur] + b[cur] + carry) // 2^128, a[cur] + b[cur] + carry, i, a_cur_loc, b_cur_loc, retdest
     SWAP1
     // stack: a[cur] + b[cur] + carry, (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
-    %shl_const(128)
-    %shr_const(128)
+    %mod_const(0x100000000000000000000000000000000)
     // stack: c[cur] = (a[cur] + b[cur] + carry) % 2^128, carry_new = (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
     DUP4
     // stack: a_cur_loc, c[cur], carry_new, i, a_cur_loc, b_cur_loc, retdest
     %mstore_kernel_general
     // stack: carry_new, i, a_cur_loc, b_cur_loc, retdest
-    %stack (c, i, a, b) -> (a, b, c, i)
-    // stack: a_cur_loc, b_cur_loc, carry_new, i, retdest
+    SWAP2
     %increment
-    // stack: a_cur_loc + 1, b_cur_loc, carry_new, i, retdest
+    SWAP2
+    // stack: carry_new, i, a_cur_loc + 1, b_cur_loc, retdest
+    SWAP3
+    %increment
+    SWAP3
+    // stack: carry_new, i, a_cur_loc + 1, b_cur_loc + 1, retdest
     SWAP1
-    // stack: b_cur_loc, a_cur_loc + 1, carry_new, i, retdest
-    %increment
-    // stack: b_cur_loc + 1, a_cur_loc + 1, carry_new, i, retdest
-    %stack (b, a, c, i) -> (i, c, a, b)
-    // stack: i, carry_new, a_cur_loc + 1, b_cur_loc + 1, retdest
     %decrement
-    // stack: i - 1, carry_new, a_cur_loc + 1, b_cur_loc + 1, retdest
     SWAP1
     // stack: carry_new, i - 1, a_cur_loc + 1, b_cur_loc + 1, retdest
     DUP2
