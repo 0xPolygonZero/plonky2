@@ -2,7 +2,9 @@ global blake2b_compression:
     // stack: retdest
     PUSH 0
     // stack: cur_block = 0, retdest
-    %blake2b_initial_hash_value
+    PUSH compression_loop
+    // stack: compression_loop, cur_block, retdest
+    %jump(blake2b_initial_hash_value)
 compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     
@@ -181,40 +183,20 @@ compression_loop:
     POP
     POP
     // stack: cur_block, retdest
-    %blake2b_internal_state_addr
-    // stack: start, cur_block, retdest
-    PUSH 0
-    // stack: round=0, start, cur_block, retdest
 
     // Run 12 rounds of G functions.
-    %rep 12
-        // stack: round, start, cur_block, retdest
-        %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
-        %call_blake2b_g_function(1, 5, 9, 13, 2, 3)
-        %call_blake2b_g_function(2, 6, 10, 14, 4, 5)
-        %call_blake2b_g_function(3, 7, 11, 15, 6, 7)
-        %call_blake2b_g_function(0, 5, 10, 15, 8, 9)
-        %call_blake2b_g_function(1, 6, 11, 12, 10, 11)
-        %call_blake2b_g_function(2, 7, 8, 13, 12, 13)
-        %call_blake2b_g_function(3, 4, 9, 14, 14, 15)
-        // stack: round, start, cur_block, retdest
-        %increment
-        // stack: round + 1, start, cur_block, retdest
-    %endrep
-    // stack: 12, start, cur_block, retdest
-    POP
-    POP
-
+    PUSH g_functions_return
+    // stack: g_functions_return, cur_block, retdest
+    %blake2b_internal_state_addr
+    // stack: start, g_functions_return, cur_block, retdest
+    %jump(run_12_rounds_g_function)
+g_functions_return:
     // Finalize hash value.
     // stack: cur_block, retdest
-    %blake2b_generate_new_hash_value(7)
-    %blake2b_generate_new_hash_value(6)
-    %blake2b_generate_new_hash_value(5)
-    %blake2b_generate_new_hash_value(4)
-    %blake2b_generate_new_hash_value(3)
-    %blake2b_generate_new_hash_value(2)
-    %blake2b_generate_new_hash_value(1)
-    %blake2b_generate_new_hash_value(0)
+    PUSH hash_generate_return
+    // stack: hash_generate_return, cur_block, retdest
+    %jump(blake2b_generate_all_hash_values)
+hash_generate_return:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     DUP9
     // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
