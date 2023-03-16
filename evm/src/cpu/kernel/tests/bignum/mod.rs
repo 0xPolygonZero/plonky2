@@ -274,12 +274,10 @@ fn test_cmp_bignum_all() -> Result<()> {
     for bit_size in BIT_SIZES_TO_TEST {
         let a = gen_bignum(bit_size);
         let b = gen_bignum(bit_size);
-        let output = if a < b {
-            MINUS_ONE
-        } else if a == b {
-            0.into()
-        } else {
-            1.into()
+        let output = match a.cmp(&b) {
+            Ordering::Less => U256::MINUS_ONE,
+            Ordering::Equal => 0.into(),
+            Ordering::Greater => 1.into(),
         };
         test_cmp_bignum(a, b, output)?;
 
