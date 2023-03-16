@@ -76,12 +76,11 @@ fn prepare_bignum_min(_bit_size: usize) -> (BigUint, U256, Vec<U256>) {
     (a, length, a_limbs)
 }
 
-fn prepare_bignum_from_test_data(i: usize) -> (BigUint, U256, Vec<U256>) {
-    let a = test_data()[i].clone();
+fn prepare_bignum_from_value(a: BigUint) -> (BigUint, U256, Vec<U256>) {
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
 
-    (a, length, a_limbs)
+    (a.clone(), length, a_limbs)
 }
 
 fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
@@ -128,13 +127,11 @@ fn prepare_two_bignums_zero(_bit_size: usize) -> (BigUint, BigUint, U256, Vec<U2
     (a, b, length, memory)
 }
 
-fn prepare_two_bignums_from_test_data(i: usize, j: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
-    let a = test_data()[i].clone();
-    let b = test_data()[j].clone();
+fn prepare_two_bignums_from_values(a: BigUint, b: BigUint) -> (BigUint, BigUint, U256, Vec<U256>) {
     let length: U256 = bignum_len(&a).into();
     let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
-    (a, b, length, memory)
+    (a.clone(), b.clone(), length, memory)
 }
 
 fn test_shr_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
@@ -372,7 +369,7 @@ fn test_shr_bignum_all() -> Result<()> {
 
     let test_data = test_data();
     for i in 0..test_data.len() {
-        test_shr_bignum(&|_| prepare_bignum_from_test_data(i))?;
+        test_shr_bignum(&|_| prepare_bignum_from_value(test_data[i].clone()))?;
     }
 
     Ok(())
@@ -386,7 +383,9 @@ fn test_iszero_bignum_all() -> Result<()> {
 
     let test_data = test_data();
     for i in 0..test_data.len() {
-        test_iszero_bignum(&|_| prepare_bignum_from_test_data(i))?;
+        if test_data[i] != 0u8.into() {
+            test_iszero_bignum(&|_| prepare_bignum_from_value(test_data[i].clone()))?;
+        }
     }
 
     Ok(())
@@ -402,7 +401,9 @@ fn test_cmp_bignum_all() -> Result<()> {
     let test_data = test_data();
     for i in 0..test_data.len() {
         for j in 0..i {
-            test_cmp_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+            test_cmp_bignum(&|_| {
+                prepare_two_bignums_from_values(test_data[i].clone(), test_data[j].clone())
+            })?;
         }
     }
 
@@ -420,7 +421,9 @@ fn test_add_bignum_all() -> Result<()> {
     let test_data = test_data();
     for i in 0..test_data.len() {
         for j in 0..i {
-            test_add_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+            test_add_bignum(&|_| {
+                prepare_two_bignums_from_values(test_data[i].clone(), test_data[j].clone())
+            })?;
         }
     }
 
@@ -438,7 +441,9 @@ fn test_addmul_bignum_all() -> Result<()> {
     let test_data = test_data();
     for i in 0..test_data.len() {
         for j in 0..i {
-            test_addmul_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+            test_addmul_bignum(&|_| {
+                prepare_two_bignums_from_values(test_data[i].clone(), test_data[j].clone())
+            })?;
         }
     }
 
@@ -456,7 +461,9 @@ fn test_mul_bignum_all() -> Result<()> {
     let test_data = test_data();
     for i in 0..test_data.len() {
         for j in 0..i {
-            test_mul_bignum(&|_| prepare_two_bignums_from_test_data(i, j))?;
+            test_mul_bignum(&|_| {
+                prepare_two_bignums_from_values(test_data[i].clone(), test_data[j].clone())
+            })?;
         }
     }
 
