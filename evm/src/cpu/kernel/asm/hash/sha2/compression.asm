@@ -132,53 +132,11 @@ compression_end_block:
     // stack: a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], retdest
     PUSH 0
     // stack: 0, a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0], b[0], c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: a[0], a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, 0, b[0], c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    %add_u32
-    // stack: a[0]+a[64], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, 0, b[0], c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP12
-    // stack: 0, b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0], c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: b[0], b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], 0, c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    %add_u32
-    // stack: b[0]+b[64], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], 0, c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP12
-    // stack: 0, c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: c[0], c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], 0, d[0], e[0], f[0], g[0], h[0], retdest
-    %add_u32
-    // stack: c[0]+c[64], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], 0, d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP12
-    // stack: 0, d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0], e[0], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: d[0], d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], 0, e[0], f[0], g[0], h[0], retdest
-    %add_u32
-    // stack: d[0]+d[64], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], 0, e[0], f[0], g[0], h[0], retdest
-    SWAP12
-    // stack: 0, e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: e[0], e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], 0, f[0], g[0], h[0], retdest
-    %add_u32
-    // stack: e[0]+e[64], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], 0, f[0], g[0], h[0], retdest
-    SWAP12
-    // stack: 0, f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0], g[0], h[0], retdest
-    SWAP13
-    // stack: f[0], f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], 0, g[0], h[0], retdest
-    %add_u32
-    // stack: f[0]+f[64], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], 0, g[0], h[0], retdest
-    SWAP12
-    // stack: 0, g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0], h[0], retdest
-    SWAP13
-    // stack: g[0], g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], 0, h[0], retdest
-    %add_u32
-    // stack: g[0]+g[64], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], 0, h[0], retdest
-    SWAP12
-    // stack: 0, h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0], retdest
-    SWAP13
-    // stack: h[0], h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], 0, retdest
-    %add_u32
-    // stack: h[0]+h[64], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], 0, retdest
-    SWAP12
+    %rep 8
+        SWAP13
+        %add_u32
+        SWAP12
+    %endrep
     // stack: 0, num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], retdest
     POP
     // stack: num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], retdest
