@@ -46,6 +46,13 @@ pub struct GenerationInputs {
     pub contract_code: HashMap<H256, Vec<u8>>,
 
     pub block_metadata: BlockMetadata,
+
+    /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
+    /// only state keys). This is only useful for debugging, so that we can return addresses in the
+    /// post-state rather than state keys. (See `GenerationOutputs`, and in particular
+    /// `AddressOrStateKey`.) If the caller is not interested in the post-state, this can be left
+    /// empty.
+    pub addresses: Vec<Address>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]

@@ -101,6 +101,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         tries: tries_before,
         contract_code,
         block_metadata,
+        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);

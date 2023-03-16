@@ -30,6 +30,11 @@ pub struct AccountOutput {
 }
 
 pub(crate) fn get_outputs<F: Field>(state: &mut GenerationState<F>) -> GenerationOutputs {
+    // First observe all addresses passed in the by caller.
+    for address in state.inputs.addresses.clone() {
+        state.observe_address(address);
+    }
+
     let account_map = read_trie::<AccountTrieRecord>(
         &state.memory,
         state.memory.read_global_metadata(StateTrieRoot).as_usize(),

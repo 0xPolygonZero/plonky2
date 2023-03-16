@@ -75,6 +75,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         tries: tries_before,
         contract_code: HashMap::new(),
         block_metadata,
+        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);

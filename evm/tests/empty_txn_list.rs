@@ -48,6 +48,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         },
         contract_code: HashMap::new(),
         block_metadata,
+        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
