@@ -290,10 +290,12 @@ where
     // Run add function.
     interpreter.run()?;
 
-    // Determine actual sum.
+    // Determine actual sum, appending the final carry if nonzero.
     let carry_limb = interpreter.stack()[0];
     let mut new_memory = interpreter.get_kernel_general_memory();
-    new_memory[len] = carry_limb;
+    if carry_limb > 0.into() {
+        new_memory[len] = carry_limb;
+    }
     let actual_sum: Vec<_> = new_memory[..expected_sum.len()].into();
 
     // Compare.
