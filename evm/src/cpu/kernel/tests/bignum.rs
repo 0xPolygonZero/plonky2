@@ -80,7 +80,7 @@ fn prepare_bignum_from_value(a: BigUint) -> (BigUint, U256, Vec<U256>) {
     let length: U256 = bignum_len(&a).into();
     let a_limbs = biguint_to_mem_vec(a.clone());
 
-    (a.clone(), length, a_limbs)
+    (a, length, a_limbs)
 }
 
 fn prepare_two_bignums_random(bit_size: usize) -> (BigUint, BigUint, U256, Vec<U256>) {
@@ -131,7 +131,7 @@ fn prepare_two_bignums_from_values(a: BigUint, b: BigUint) -> (BigUint, BigUint,
     let length: U256 = bignum_len(&a).into();
     let memory = pad_bignums(&[a.clone(), b.clone()], length.try_into().unwrap());
 
-    (a.clone(), b.clone(), length, memory)
+    (a, b, length, memory)
 }
 
 fn test_shr_bignum<F>(prepare_bignum_fn: &F) -> Result<()>
