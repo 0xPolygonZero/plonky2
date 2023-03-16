@@ -263,19 +263,19 @@ compression_end:
     POP
     // stack: a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64], scratch_space_addr, message_schedule_addr, i, retdest
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     %shl_const(32)
-    OR
+    ADD // OR
     // stack: concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), scratch_space_addr, message_schedule_addr, i, retdest
     SWAP3
     // stack: i, scratch_space_addr, message_schedule_addr, concat(a[0]+a[64], b[0]+b[64], c[0]+c[64], d[0]+d[64], e[0]+e[64], f[0]+f[64], g[0]+g[64], h[0]+h[64]), retdest
