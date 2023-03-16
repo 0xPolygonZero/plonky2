@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -38,19 +38,25 @@ fn full_path(filename: &str) -> PathBuf {
 fn test_data(filename: &str) -> Vec<BigUint> {
     let file = File::open(full_path(filename)).unwrap();
     let lines = BufReader::new(file).lines();
-    lines.map(|line| BigUint::parse_bytes(&line.unwrap().as_bytes(), 10).unwrap()).collect()
+    lines
+        .map(|line| BigUint::parse_bytes(&line.unwrap().as_bytes(), 10).unwrap())
+        .collect()
 }
 
 fn test_data_u128(filename: &str) -> Vec<u128> {
     let file = File::open(full_path(filename)).unwrap();
     let lines = BufReader::new(file).lines();
-    lines.map(|line| line.unwrap().parse::<u128>().unwrap()).collect()
+    lines
+        .map(|line| line.unwrap().parse::<u128>().unwrap())
+        .collect()
 }
 
 fn test_data_u256(filename: &str) -> Vec<U256> {
     let file = File::open(full_path(filename)).unwrap();
     let lines = BufReader::new(file).lines();
-    lines.map(|line| U256::from_dec_str(&line.unwrap()).unwrap()).collect()
+    lines
+        .map(|line| U256::from_dec_str(&line.unwrap()).unwrap())
+        .collect()
 }
 
 // Convert each biguint to a vector of bignum limbs, pad to the given length, and concatenate.
@@ -95,27 +101,33 @@ fn run_test(fn_label: &str, memory: Vec<U256>, stack: Vec<U256>) -> Result<(Vec<
     Ok((new_memory, interpreter.stack().to_vec()))
 }
 
-fn test_shr_bignum(input: BigUint, expected_output: BigUint) -> Result<()>
-{
+fn test_shr_bignum(input: BigUint, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&input);
     let memory = biguint_to_mem_vec(input.clone());
-    
-    let input_start_loc = 0;
-    let (new_memory, _new_stack) = run_test("shr_bignum", memory, vec![len.into(), input_start_loc.into()])?;
 
-    let output = mem_vec_to_biguint(&new_memory[input_start_loc..input_start_loc+len]);
+    let input_start_loc = 0;
+    let (new_memory, _new_stack) = run_test(
+        "shr_bignum",
+        memory,
+        vec![len.into(), input_start_loc.into()],
+    )?;
+
+    let output = mem_vec_to_biguint(&new_memory[input_start_loc..input_start_loc + len]);
     assert_eq!(output, expected_output);
 
     Ok(())
 }
 
-fn test_iszero_bignum(input: BigUint, expected_output: U256) -> Result<()>
-{
+fn test_iszero_bignum(input: BigUint, expected_output: U256) -> Result<()> {
     let len = bignum_len(&input);
     let memory = biguint_to_mem_vec(input.clone());
-    
+
     let input_start_loc = 0;
-    let (_new_memory, new_stack) = run_test("iszero_bignum", memory, vec![len.into(), input_start_loc.into()])?;
+    let (_new_memory, new_stack) = run_test(
+        "iszero_bignum",
+        memory,
+        vec![len.into(), input_start_loc.into()],
+    )?;
 
     let output = new_stack[0];
     assert_eq!(output, expected_output);
@@ -123,14 +135,17 @@ fn test_iszero_bignum(input: BigUint, expected_output: U256) -> Result<()>
     Ok(())
 }
 
-fn test_cmp_bignum(a: BigUint, b: BigUint, expected_output: U256) -> Result<()>
-{
+fn test_cmp_bignum(a: BigUint, b: BigUint, expected_output: U256) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let memory = pad_bignums(&[a.clone(), b.clone()], len);
 
     let a_start_loc = 0;
     let b_start_loc = len;
-    let (_new_memory, new_stack) = run_test("cmp_bignum", memory, vec![len.into(), a_start_loc.into(), b_start_loc.into()])?;
+    let (_new_memory, new_stack) = run_test(
+        "cmp_bignum",
+        memory,
+        vec![len.into(), a_start_loc.into(), b_start_loc.into()],
+    )?;
 
     let output = new_stack[0];
     assert_eq!(output, expected_output);
@@ -138,49 +153,54 @@ fn test_cmp_bignum(a: BigUint, b: BigUint, expected_output: U256) -> Result<()>
     Ok(())
 }
 
-fn test_add_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<()>
-{
+fn test_add_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let memory = pad_bignums(&[a.clone(), b.clone()], len);
 
     let a_start_loc = 0;
     let b_start_loc = len;
-    let (mut new_memory, new_stack) = run_test("add_bignum", memory, vec![len.into(), a_start_loc.into(), b_start_loc.into()])?;
+    let (mut new_memory, new_stack) = run_test(
+        "add_bignum",
+        memory,
+        vec![len.into(), a_start_loc.into(), b_start_loc.into()],
+    )?;
 
     // Determine actual sum, appending the final carry if nonzero.
     let carry_limb = new_stack[0];
     if carry_limb > 0.into() {
         new_memory[len] = carry_limb;
     }
-    let output = mem_vec_to_biguint(&new_memory[a_start_loc..a_start_loc+len]);
+    let output = mem_vec_to_biguint(&new_memory[a_start_loc..a_start_loc + len]);
     assert_eq!(output, expected_output);
 
     Ok(())
 }
 
-fn test_addmul_bignum(a: BigUint, b: BigUint, c: u128, expected_output: BigUint) -> Result<()>
-{
+fn test_addmul_bignum(a: BigUint, b: BigUint, c: u128, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let mut memory = pad_bignums(&[a.clone(), b.clone()], len);
     memory.splice(len..len, vec![0.into(); 2].iter().cloned());
 
     let a_start_loc = 0;
     let b_start_loc = len + 2;
-    let (mut new_memory, new_stack) = run_test("addmul_bignum", memory, vec![len.into(), a_start_loc.into(), b_start_loc.into(), c.into()])?;
+    let (mut new_memory, new_stack) = run_test(
+        "addmul_bignum",
+        memory,
+        vec![len.into(), a_start_loc.into(), b_start_loc.into(), c.into()],
+    )?;
 
     // Determine actual sum, appending the final carry if nonzero.
     let carry_limb = new_stack[0];
     if carry_limb > 0.into() {
         new_memory[len] = carry_limb;
     }
-    let output = mem_vec_to_biguint(&new_memory[a_start_loc..a_start_loc+len]);
+    let output = mem_vec_to_biguint(&new_memory[a_start_loc..a_start_loc + len]);
     assert_eq!(output, expected_output);
 
     Ok(())
 }
 
-fn test_mul_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<()>
-{
+fn test_mul_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let output_len = len * 2;
     let memory = pad_bignums(&[a.clone(), b.clone()], len);
@@ -188,9 +208,18 @@ fn test_mul_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<(
     let a_start_loc = 0;
     let b_start_loc = len;
     let output_start_loc = 2 * len;
-    let (new_memory, _new_stack) = run_test("mul_bignum", memory, vec![len.into(), a_start_loc.into(), b_start_loc.into(), output_start_loc.into()])?;
+    let (new_memory, _new_stack) = run_test(
+        "mul_bignum",
+        memory,
+        vec![
+            len.into(),
+            a_start_loc.into(),
+            b_start_loc.into(),
+            output_start_loc.into(),
+        ],
+    )?;
 
-    let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc+output_len]);
+    let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc + output_len]);
     assert_eq!(output, expected_output);
 
     Ok(())
@@ -245,7 +274,13 @@ fn test_cmp_bignum_all() -> Result<()> {
     for bit_size in BIT_SIZES_TO_TEST {
         let a = gen_bignum(bit_size);
         let b = gen_bignum(bit_size);
-        let output = if a < b { MINUS_ONE } else if a == b { 0.into() } else { 1.into() };
+        let output = if a < b {
+            MINUS_ONE
+        } else if a == b {
+            0.into()
+        } else {
+            1.into()
+        };
         test_cmp_bignum(a, b, output)?;
 
         let a = max_bignum(bit_size);
