@@ -70,11 +70,15 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         ..BlockMetadata::default()
     };
 
+    let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
+
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
         tries: tries_before,
-        contract_code: HashMap::new(),
+        contract_code,
         block_metadata,
+        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
