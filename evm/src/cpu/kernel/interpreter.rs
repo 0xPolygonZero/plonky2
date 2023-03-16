@@ -440,7 +440,7 @@ impl<'a> Interpreter<'a> {
     }
 
     #[allow(dead_code)]
-    fn run_addfp381_lo(&mut self) {
+    fn run_addfp381(&mut self) {
         let x1 = self.pop();
         let x0 = self.pop();
         let y1 = self.pop();
@@ -451,24 +451,11 @@ impl<'a> Interpreter<'a> {
         let z = (x + y) % BLS_BASE;
 
         self.push(U256(z.0[4..].try_into().unwrap()));
-    }
-
-    #[allow(dead_code)]
-    fn run_addfp381_hi(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (x + y) % BLS_BASE;
-
         self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
-    fn run_mulfp254_lo(&mut self) {
+    fn run_mulfp381(&mut self) {
         let x1 = self.pop();
         let x0 = self.pop();
         let y1 = self.pop();
@@ -479,24 +466,11 @@ impl<'a> Interpreter<'a> {
         let z = (Fp381 { val: x } * Fp381 { val: y }).val;
 
         self.push(U256(z.0[4..].try_into().unwrap()));
-    }
-
-    #[allow(dead_code)]
-    fn run_mulfp254_hi(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (Fp381 { val: x } * Fp381 { val: y }).val;
-
         self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     #[allow(dead_code)]
-    fn run_subfp381_lo(&mut self) {
+    fn run_subfp381(&mut self) {
         let x1 = self.pop();
         let x0 = self.pop();
         let y1 = self.pop();
@@ -507,19 +481,6 @@ impl<'a> Interpreter<'a> {
         let z = (BLS_BASE + x - y) % BLS_BASE;
 
         self.push(U256(z.0[4..].try_into().unwrap()));
-    }
-
-    #[allow(dead_code)]
-    fn run_subfp381_hi(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (BLS_BASE + x - y) % BLS_BASE;
-
         self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
