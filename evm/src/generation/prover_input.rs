@@ -1,15 +1,18 @@
+use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
+use crate::bn254_arithmetic::Fp12;
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
-use crate::witness::util::stack_peek;
+use crate::memory::segments::Segment::BnPairing;
+use crate::witness::util::{kernel_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
 /// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
@@ -27,6 +30,7 @@ impl<F: Field> GenerationState<F> {
         match input_fn.0[0].as_str() {
             "end_of_txns" => self.run_end_of_txns(),
             "ff" => self.run_ff(input_fn),
+            "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "account_code" => self.run_account_code(input_fn),
@@ -50,6 +54,31 @@ impl<F: Field> GenerationState<F> {
         let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
         let x = stack_peek(self, 0).expect("Empty stack");
         field.op(op, x)
+    }
+
+    /// Finite field extension operations.
+    fn run_ffe(&self, input_fn: &ProverInputFn) -> U256 {
+        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+        let n = input_fn.0[2]
+            .as_str()
+            .split('_')
+            .nth(1)
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
+
+        let f: [U256; 12] = match field {
+            Bn254Base => {
+                let mut f: [U256; 12] = [U256::zero(); 12];
+                for i in 0..12 {
+                    f[i] = kernel_peek(self, BnPairing, ptr + i);
+                }
+                f
+            }
+            _ => todo!(),
+        };
+        field.field_extension_inverse(n, f)
     }
 
     /// MPT data.
@@ -175,6 +204,12 @@ impl EvmField {
             "Only naive sqrt implementation for now. If needed implement Tonelli-Shanks."
         );
         modexp(x, q, n)
+    }
+
+    fn field_extension_inverse(&self, n: usize, f: [U256; 12]) -> U256 {
+        let f: Fp12 = unsafe { transmute(f) };
+        let f_inv: [U256; 12] = unsafe { transmute(f.inv()) };
+        f_inv[n]
     }
 }
 
