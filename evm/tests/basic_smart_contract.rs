@@ -95,7 +95,9 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     };
 
     let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
+
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
         tries: tries_before,

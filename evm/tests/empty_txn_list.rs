@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::PartialTrie;
+use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -38,6 +39,9 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let txns_trie_root = transactions_trie.calc_hash();
     let receipts_trie_root = receipts_trie.calc_hash();
 
+    let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
+
     let inputs = GenerationInputs {
         signed_txns: vec![],
         tries: TrieInputs {
@@ -46,7 +50,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
             receipts_trie,
             storage_tries,
         },
-        contract_code: HashMap::new(),
+        contract_code,
         block_metadata,
         addresses: vec![],
     };
