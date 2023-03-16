@@ -34,7 +34,7 @@
     // stack: rotr(x, 18), x, rotr(x, 7)
     SWAP1
     // stack: x, rotr(x, 18), rotr(x, 7)
-    %shr_const(3)
+    %div_const(8) // equivalent to %shr_const(3)
     // stack: shr(x, 3), rotr(x, 18), rotr(x, 7)
     XOR
     XOR

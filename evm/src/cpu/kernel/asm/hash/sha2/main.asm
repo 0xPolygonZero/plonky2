@@ -31,7 +31,7 @@ global sha2_pad:
     DUP1
     // stack: num_bytes, num_bytes, retdest
     %add_const(8)
-    %shr_const(6)
+    %div_const(64)
     
     %increment
     // stack: num_blocks = (num_bytes+8)//64 + 1, num_bytes, retdest
