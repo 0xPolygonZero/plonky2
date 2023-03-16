@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -275,7 +276,7 @@ fn test_cmp_bignum_all() -> Result<()> {
         let a = gen_bignum(bit_size);
         let b = gen_bignum(bit_size);
         let output = match a.cmp(&b) {
-            Ordering::Less => U256::MINUS_ONE,
+            Ordering::Less => MINUS_ONE,
             Ordering::Equal => 0.into(),
             Ordering::Greater => 1.into(),
         };
