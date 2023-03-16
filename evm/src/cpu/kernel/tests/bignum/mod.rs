@@ -36,7 +36,7 @@ fn full_path(filename: &str) -> PathBuf {
     path
 }
 
-fn test_data(filename: &str) -> Vec<BigUint> {
+fn test_data_biguint(filename: &str) -> Vec<BigUint> {
     let file = File::open(full_path(filename)).unwrap();
     let lines = BufReader::new(file).lines();
     lines
@@ -242,8 +242,8 @@ fn test_shr_bignum_all() -> Result<()> {
         test_shr_bignum(input, output)?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
-    let shr_outputs = test_data(TEST_DATA_SHR_OUTPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let shr_outputs = test_data_biguint(TEST_DATA_SHR_OUTPUTS);
     for (input, output) in inputs.iter().zip(shr_outputs.iter()) {
         test_shr_bignum(input.clone(), output.clone())?;
     }
@@ -263,7 +263,7 @@ fn test_iszero_bignum_all() -> Result<()> {
         test_iszero_bignum(input, output.into())?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let iszero_outputs = test_data_u256(TEST_DATA_ISZERO_OUTPUTS);
     let mut iszero_outputs_iter = iszero_outputs.iter();
     for input in inputs {
@@ -292,7 +292,7 @@ fn test_cmp_bignum_all() -> Result<()> {
         test_cmp_bignum(a, b, output)?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let cmp_outputs = test_data_u256(TEST_DATA_CMP_OUTPUTS);
     let mut cmp_outputs_iter = cmp_outputs.iter();
     for a in inputs.clone() {
@@ -319,8 +319,8 @@ fn test_add_bignum_all() -> Result<()> {
         test_add_bignum(a, b, output)?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
-    let add_outputs = test_data(TEST_DATA_ADD_OUTPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let add_outputs = test_data_biguint(TEST_DATA_ADD_OUTPUTS);
     let mut add_outputs_iter = add_outputs.iter();
     for a in inputs.clone() {
         for b in inputs.clone() {
@@ -350,9 +350,9 @@ fn test_addmul_bignum_all() -> Result<()> {
         test_addmul_bignum(a, b, c, output)?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let u128_inputs = test_data_u128(TEST_DATA_U128_INPUTS);
-    let addmul_outputs = test_data(TEST_DATA_ADDMUL_OUTPUTS);
+    let addmul_outputs = test_data_biguint(TEST_DATA_ADDMUL_OUTPUTS);
     let mut addmul_outputs_iter = addmul_outputs.iter();
     for a in inputs.clone() {
         for b in inputs.clone() {
@@ -380,8 +380,8 @@ fn test_mul_bignum_all() -> Result<()> {
         test_mul_bignum(a, b, output)?;
     }
 
-    let inputs = test_data(TEST_DATA_BIGNUM_INPUTS);
-    let mul_outputs = test_data(TEST_DATA_MUL_OUTPUTS);
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let mul_outputs = test_data_biguint(TEST_DATA_MUL_OUTPUTS);
     let mut mul_outputs_iter = mul_outputs.iter();
     for a in inputs.clone() {
         for b in inputs.clone() {
