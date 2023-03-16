@@ -10,8 +10,7 @@ macro_rules! test_field_arithmetic {
 
             use num::bigint::BigUint;
             use rand::rngs::OsRng;
-            use rand::Rng;
-            use rand::RngCore;
+            use rand::{Rng, RngCore};
             use $crate::types::{Field, Sample};
 
             #[test]
