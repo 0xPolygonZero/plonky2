@@ -123,6 +123,11 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
+    assert!(
+        state.mpt_prover_inputs.is_empty(),
+        "All MPT data should have been consumed"
+    );
+
     log::info!(
         "Trace lengths (before padding): {:?}",
         state.traces.checkpoint()

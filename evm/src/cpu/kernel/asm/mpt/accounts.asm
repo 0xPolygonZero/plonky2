@@ -38,8 +38,8 @@ global make_account_copy:
 
     DUP2                %mload_trie_data %append_to_trie_data
     DUP2  %add_const(1) %mload_trie_data %append_to_trie_data
-    DUP2  %add_const(3) %mload_trie_data %append_to_trie_data
-    SWAP1 %add_const(4) %mload_trie_data %append_to_trie_data
+    DUP2  %add_const(2) %mload_trie_data %append_to_trie_data
+    SWAP1 %add_const(3) %mload_trie_data %append_to_trie_data
 
     // stack: new_account_ptr, retdest
     SWAP1

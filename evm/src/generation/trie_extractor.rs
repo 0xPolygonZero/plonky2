@@ -10,6 +10,7 @@ use crate::memory::segments::Segment;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 
 /// Account data as it's stored in the state trie, with a pointer to the storage trie.
+#[derive(Debug)]
 pub(crate) struct AccountTrieRecord {
     pub(crate) nonce: u64,
     pub(crate) balance: U256,
