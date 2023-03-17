@@ -97,4 +97,10 @@ impl<F: Field> GenerationState<F> {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
     }
+
+    pub(crate) fn stack(&self) -> Vec<U256> {
+        (0..self.registers.stack_len)
+            .map(|i| stack_peek(self, i).unwrap())
+            .collect()
+    }
 }

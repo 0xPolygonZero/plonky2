@@ -73,6 +73,7 @@ global deduct_eth_insufficient_balance:
 
 // Pre stack: addr, amount, redest
 // Post stack: (empty)
+// TODO: Should it be copy-on-write instead of mutating the trie?
 global add_eth:
     // stack: addr, amount, retdest
     DUP1 %mpt_read_state_trie
