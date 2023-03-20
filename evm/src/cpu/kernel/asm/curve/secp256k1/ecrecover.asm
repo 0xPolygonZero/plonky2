@@ -106,19 +106,7 @@ ecdsa_after_precompute_loop_end:
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
     // stack: PKx, PKy, retdest
-    PUSH 0
-    // stack: 0, PKx, PKy, retdest
-    MSTORE // TODO: switch to kernel memory (like `%mstore_kernel(@SEGMENT_KERNEL_GENERAL)`).
-    // stack: PKy, retdest
-    PUSH 0x20
-    // stack: 0x20, PKy, retdest
-    MSTORE
-    // stack: retdest
-    PUSH 0x40
-    // stack: 0x40, retdest
-    PUSH 0
-    // stack: 0, 0x40, retdest
-    KECCAK256
+    %keccak256_u256_pair
     // stack: hash, retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffff
     // stack: 2^160-1, hash, retdest

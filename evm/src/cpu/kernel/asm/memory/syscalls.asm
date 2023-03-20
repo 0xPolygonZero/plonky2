@@ -1,5 +1,7 @@
 global sys_mload:
     // stack: kexit_info, offset
+    DUP2 %ensure_reasonable_offset
+    // stack: kexit_info, offset
     %charge_gas_const(@GAS_VERYLOW)
     // stack: kexit_info, offset
     DUP2 %add_const(32)
@@ -45,6 +47,8 @@ global sys_mload:
 
 global sys_mstore:
     // stack: kexit_info, offset, value
+    DUP2 %ensure_reasonable_offset
+    // stack: kexit_info, offset, value
     %charge_gas_const(@GAS_VERYLOW)
     // stack: kexit_info, offset, value
     DUP2 %add_const(32)
@@ -87,6 +91,8 @@ global sys_mstore:
     EXIT_KERNEL
 
 global sys_mstore8:
+    // stack: kexit_info, offset, value
+    DUP2 %ensure_reasonable_offset
     // stack: kexit_info, offset, value
     %charge_gas_const(@GAS_VERYLOW)
     // stack: kexit_info, offset, value

@@ -147,3 +147,16 @@ global sys_msize:
     ADD
     // stack: cost = num_words^2 / 512 + num_words * GAS_MEMORY
 %endmacro
+
+// Faults if the given offset is "unreasonable", i.e. the associated memory expansion cost
+// would exceed any reasonable block limit.
+// We do this to avoid overflows in future gas-related calculations.
+%macro ensure_reasonable_offset
+    // stack: offset
+    // The memory expansion cost, (50000000 / 32)^2 / 512, is around 2^32 gas,
+    // i.e. greater than any reasonable block limit.
+    %gt_const(50000000)
+    // stack: is_unreasonable
+    %jumpi(fault_exception)
+    // stack: (empty)
+%endmacro

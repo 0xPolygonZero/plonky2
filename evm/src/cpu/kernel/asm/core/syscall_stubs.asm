@@ -60,16 +60,6 @@ global sys_selfbalance:
     PANIC
 global sys_basefee:
     PANIC
-global sys_gas:
-    // stack: kexit_info
-    DUP1 %shr_const(192)
-    // stack: gas_used, kexit_info
-    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
-    // stack: gas_limit, gas_used, kexit_info
-    SUB
-    // stack: gas_remaining, kexit_info
-    SWAP1
-    EXIT_KERNEL
 global sys_log0:
     PANIC
 global sys_log1:

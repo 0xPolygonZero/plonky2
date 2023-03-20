@@ -17,6 +17,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/call.asm"),
         include_str!("asm/core/create.asm"),
         include_str!("asm/core/create_addresses.asm"),
+        include_str!("asm/core/gas.asm"),
         include_str!("asm/core/intrinsic_gas.asm"),
         include_str!("asm/core/invalid.asm"),
         include_str!("asm/core/jumpdest_analysis.asm"),
