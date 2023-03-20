@@ -27,7 +27,7 @@ const TEST_DATA_ADD_OUTPUTS: &str = "add_outputs";
 const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 
-const BIT_SIZES_TO_TEST: [usize; 4] = [128, 256, 512, 1000];
+const BIT_SIZES_TO_TEST: [usize; 15] = [0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415];
 
 fn full_path(filename: &str) -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -259,7 +259,7 @@ fn test_iszero_bignum_all() -> Result<()> {
         test_iszero_bignum(input, output.into())?;
 
         let input = max_bignum(bit_size);
-        let output = 0;
+        let output = bit_size.is_zero() as u8;
         test_iszero_bignum(input, output.into())?;
     }
 
@@ -295,8 +295,8 @@ fn test_cmp_bignum_all() -> Result<()> {
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let cmp_outputs = test_data_u256(TEST_DATA_CMP_OUTPUTS);
     let mut cmp_outputs_iter = cmp_outputs.iter();
-    for a in inputs.clone() {
-        for b in inputs.clone() {
+    for a in &inputs {
+        for b in &inputs {
             let output = cmp_outputs_iter.next().unwrap();
             test_cmp_bignum(a.clone(), b.clone(), *output)?;
         }
@@ -322,8 +322,8 @@ fn test_add_bignum_all() -> Result<()> {
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let add_outputs = test_data_biguint(TEST_DATA_ADD_OUTPUTS);
     let mut add_outputs_iter = add_outputs.iter();
-    for a in inputs.clone() {
-        for b in inputs.clone() {
+    for a in &inputs {
+        for b in &inputs {
             let output = add_outputs_iter.next().unwrap();
             test_add_bignum(a.clone(), b.clone(), output.clone())?;
         }
@@ -354,11 +354,11 @@ fn test_addmul_bignum_all() -> Result<()> {
     let u128_inputs = test_data_u128(TEST_DATA_U128_INPUTS);
     let addmul_outputs = test_data_biguint(TEST_DATA_ADDMUL_OUTPUTS);
     let mut addmul_outputs_iter = addmul_outputs.iter();
-    for a in inputs.clone() {
-        for b in inputs.clone() {
-            for c in u128_inputs.clone() {
+    for a in &inputs {
+        for b in &inputs {
+            for c in &u128_inputs {
                 let output = addmul_outputs_iter.next().unwrap();
-                test_addmul_bignum(a.clone(), b.clone(), c, output.clone())?;
+                test_addmul_bignum(a.clone(), b.clone(), c.clone(), output.clone())?;
             }
         }
     }
@@ -383,8 +383,8 @@ fn test_mul_bignum_all() -> Result<()> {
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let mul_outputs = test_data_biguint(TEST_DATA_MUL_OUTPUTS);
     let mut mul_outputs_iter = mul_outputs.iter();
-    for a in inputs.clone() {
-        for b in inputs.clone() {
+    for a in &inputs {
+        for b in &inputs {
             let output = mul_outputs_iter.next().unwrap();
             test_mul_bignum(a.clone(), b.clone(), output.clone())?;
         }
