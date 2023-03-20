@@ -40,6 +40,8 @@
 
 global sys_address:
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %address
     // stack: address, kexit_info
     SWAP1
@@ -50,6 +52,8 @@ global sys_address:
 %endmacro
 
 global sys_caller:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %caller
     // stack: caller, kexit_info
@@ -66,12 +70,16 @@ global sys_caller:
 
 global sys_codesize:
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %codesize
     // stack: codesize, kexit_info
     SWAP1
     EXIT_KERNEL
 
 global sys_callvalue:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %callvalue
     // stack: callvalue, kexit_info
@@ -88,6 +96,8 @@ global sys_callvalue:
 %endmacro
 
 global sys_msize:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %msize
     // stack: msize, kexit_info

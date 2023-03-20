@@ -44,6 +44,8 @@ global sys_gaslimit:
 global sys_chainid:
     // TODO: Return the block's chain ID instead of the txn's, even though they should match.
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)
     // stack: chain_id, kexit_info
     SWAP1

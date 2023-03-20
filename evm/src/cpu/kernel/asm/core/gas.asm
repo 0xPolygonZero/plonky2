@@ -47,3 +47,12 @@ global sys_gas:
     // stack: kexit_info'
     EXIT_KERNEL
 %endmacro
+
+global sys_gasprice:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    // stack: gas_price, kexit_info
+    SWAP1
+    EXIT_KERNEL

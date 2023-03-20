@@ -1,5 +1,6 @@
 global sys_keccak256:
     // stack: kexit_info, offset, len
+    // TODO: Charge gas.
     %stack (kexit_info, offset, len) -> (offset, len, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
