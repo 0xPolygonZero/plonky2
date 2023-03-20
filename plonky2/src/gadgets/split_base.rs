@@ -38,7 +38,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_bits = bits.len();
         assert!(
             num_bits <= log_floor(F::ORDER, 2),
-            "{num_bits} bits may overflow the field"
+            "{} bits may overflow the field",
+            num_bits
         );
         if num_bits == 0 {
             return self.zero();

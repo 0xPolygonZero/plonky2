@@ -89,7 +89,8 @@ pub(crate) fn generate_partial_witness<
 
     assert_eq!(
         remaining_generators, 0,
-        "{remaining_generators} generators weren't run",
+        "{} generators weren't run",
+        remaining_generators,
     );
 
     witness

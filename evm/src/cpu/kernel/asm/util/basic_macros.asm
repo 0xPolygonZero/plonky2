@@ -50,14 +50,6 @@
     %endrep
 %endmacro
 
-%macro neq
-    // stack: x, y
-    EQ
-    // stack: x == y
-    ISZERO
-    // stack: x != y
-%endmacro
-
 %macro and_const(c)
     // stack: input, ...
     PUSH $c

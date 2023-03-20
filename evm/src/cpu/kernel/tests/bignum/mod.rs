@@ -360,7 +360,7 @@ fn test_addmul_bignum_all() -> Result<()> {
         for b in &inputs {
             for c in &u128_inputs {
                 let output = addmul_outputs_iter.next().unwrap();
-                test_addmul_bignum(a.clone(), b.clone(), c.clone(), output.clone())?;
+                test_addmul_bignum(a.clone(), b.clone(), *c, output.clone())?;
             }
         }
     }
