@@ -35,8 +35,6 @@ global sys_returndatasize:
     PANIC
 global sys_returndatacopy:
     PANIC
-global sys_extcodehash:
-    PANIC
 global sys_blockhash:
     PANIC
 global sys_coinbase:

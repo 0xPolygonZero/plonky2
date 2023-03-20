@@ -23,8 +23,8 @@ pub(crate) enum ContextMetadata {
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
     /// we need to revert a context.
     StateTrieCheckpointPointer = 9,
-    /// Size of the active main memory.
-    MSize = 10,
+    /// Size of the active main memory, in (32 byte) words.
+    MemWords = 10,
     StackSize = 11,
     /// The gas limit for this call (not the entire transaction).
     GasLimit = 12,
@@ -45,7 +45,7 @@ impl ContextMetadata {
             Self::CallValue,
             Self::Static,
             Self::StateTrieCheckpointPointer,
-            Self::MSize,
+            Self::MemWords,
             Self::StackSize,
             Self::GasLimit,
         ]
@@ -64,7 +64,7 @@ impl ContextMetadata {
             ContextMetadata::CallValue => "CTX_METADATA_CALL_VALUE",
             ContextMetadata::Static => "CTX_METADATA_STATIC",
             ContextMetadata::StateTrieCheckpointPointer => "CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR",
-            ContextMetadata::MSize => "CTX_METADATA_MSIZE",
+            ContextMetadata::MemWords => "CTX_METADATA_MEM_WORDS",
             ContextMetadata::StackSize => "CTX_METADATA_STACK_SIZE",
             ContextMetadata::GasLimit => "CTX_METADATA_GAS_LIMIT",
         }

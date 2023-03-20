@@ -355,22 +355,26 @@
 %endmacro
 
 // Charge gas.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns:
-//   new syscall info
 %macro charge_gas
+    // stack: gas, kexit_info
     %shl_const(192)
     ADD
+    // stack: kexit_info'
+%endmacro
+
+// Charge a constant amount of gas.
+%macro charge_gas_const(gas)
+    // stack: kexit_info
+    PUSH $gas
+    // stack: gas, kexit_info
+    %charge_gas
+    // stack: kexit_info'
 %endmacro
 
 // Charge gas and exit kernel code.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns: nothing
 %macro charge_gas_and_exit
+    // stack: gas, kexit_info
     %charge_gas
+    // stack: kexit_info'
     EXIT_KERNEL
 %endmacro
