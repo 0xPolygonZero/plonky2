@@ -40,6 +40,8 @@
 
 global sys_address:
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %address
     // stack: address, kexit_info
     SWAP1
@@ -50,6 +52,8 @@ global sys_address:
 %endmacro
 
 global sys_caller:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %caller
     // stack: caller, kexit_info
@@ -66,6 +70,8 @@ global sys_caller:
 
 global sys_codesize:
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %codesize
     // stack: codesize, kexit_info
     SWAP1
@@ -73,33 +79,94 @@ global sys_codesize:
 
 global sys_callvalue:
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %callvalue
     // stack: callvalue, kexit_info
     SWAP1
     EXIT_KERNEL
 
+%macro mem_words
+    %mload_context_metadata(@CTX_METADATA_MEM_WORDS)
+%endmacro
+
 %macro msize
-    %mload_context_metadata(@CTX_METADATA_MSIZE)
+    %mem_words
+    %mul_const(32)
 %endmacro
 
 global sys_msize:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %msize
     // stack: msize, kexit_info
     SWAP1
     EXIT_KERNEL
 
-%macro update_msize
-    // stack: offset
-    %add_const(32)
-    // stack: 32 + offset
+%macro update_mem_words
+    // stack: num_words, kexit_info
+    %mem_words
+    // stack: old_num_words, num_words, kexit_info
+    DUP2 DUP2 GT
+    // stack: old_num_words > num_words, old_num_words, num_words, kexit_info
+    %jumpi(%%end)
+    // stack: old_num_words, num_words, kexit_info
+    %memory_cost
+    // stack: old_cost, num_words, kexit_info
+    SWAP1
+    // stack: num_words, old_cost, kexit_info
+    DUP1 %mstore_context_metadata(@CTX_METADATA_MEM_WORDS)
+    // stack: num_words, old_cost, kexit_info
+    %memory_cost
+    // stack: new_cost, old_cost, kexit_info
+    SUB
+    // stack: additional_cost, kexit_info
+    %charge_gas
+%%end:
+    // stack: kexit_info
+%endmacro
+
+%macro update_mem_bytes
+    // stack: num_bytes, kexit_info
+    %num_bytes_to_num_words
+    // stack: num_words, kexit_info
+    %update_mem_words
+    // stack: kexit_info
+%endmacro
+
+%macro num_bytes_to_num_words
+    // stack: num_bytes
+    %add_const(31)
+    // stack: 31 + num_bytes
     %div_const(32)
-    // stack: (offset+32)/32 = ceil_div_usize(offset+1, 32)
-    %mul_const(32)
-    // stack: ceil_div_usize(offset+1, 32) * 32
-    %msize
-    // stack: current_msize, ceil_div_usize(offset+1, 32) * 32
-    %max
-    // stack: new_msize
-    %mstore_context_metadata(@CTX_METADATA_MSIZE)
+    // stack: (num_bytes + 31) / 32
+%endmacro
+
+%macro memory_cost
+    // stack: num_words
+    DUP1
+    // stack: num_words, msize
+    %mul_const(@GAS_MEMORY)
+    // stack: num_words * GAS_MEMORY, msize
+    SWAP1
+    // stack: num_words, num_words * GAS_MEMORY
+    %square
+    %div_const(512)
+    // stack: num_words^2 / 512, num_words * GAS_MEMORY
+    ADD
+    // stack: cost = num_words^2 / 512 + num_words * GAS_MEMORY
+%endmacro
+
+// Faults if the given offset is "unreasonable", i.e. the associated memory expansion cost
+// would exceed any reasonable block limit.
+// We do this to avoid overflows in future gas-related calculations.
+%macro ensure_reasonable_offset
+    // stack: offset
+    // The memory expansion cost, (50000000 / 32)^2 / 512, is around 2^32 gas,
+    // i.e. greater than any reasonable block limit.
+    %gt_const(50000000)
+    // stack: is_unreasonable
+    %jumpi(fault_exception)
+    // stack: (empty)
 %endmacro

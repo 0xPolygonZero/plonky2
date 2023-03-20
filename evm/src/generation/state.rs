@@ -1,12 +1,17 @@
-use ethereum_types::U256;
+use std::collections::HashMap;
+
+use ethereum_types::{Address, H160, H256, U256};
+use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::witness::memory::MemoryState;
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
+use crate::witness::util::stack_peek;
 
 pub(crate) struct GenerationStateCheckpoint {
     pub(crate) registers: RegistersState,
@@ -29,6 +34,11 @@ pub(crate) struct GenerationState<F: Field> {
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
+
+    /// The state trie only stores state keys, which are hashes of addresses, but sometimes it is
+    /// useful to see the actual addresses for debugging. Here we store the mapping for all known
+    /// addresses.
+    pub(crate) state_key_to_address: HashMap<H256, Address>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -53,7 +63,27 @@ impl<F: Field> GenerationState<F> {
             next_txn_index: 0,
             mpt_prover_inputs,
             rlp_prover_inputs,
+            state_key_to_address: HashMap::new(),
         }
+    }
+
+    /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
+    /// special location.
+    pub fn jump_to(&mut self, dst: usize) {
+        self.registers.program_counter = dst;
+        if dst == KERNEL.global_labels["observe_new_address"] {
+            let address = stack_peek(self, 0).expect("Empty stack");
+            let mut address_bytes = [0; 20];
+            address.to_big_endian(&mut address_bytes);
+            self.observe_address(H160(address_bytes));
+        }
+    }
+
+    /// Observe the given address, so that we will be able to recognize the associated state key.
+    /// This is just for debugging purposes.
+    pub fn observe_address(&mut self, address: Address) {
+        let state_key = keccak(address.0);
+        self.state_key_to_address.insert(state_key, address);
     }
 
     pub fn checkpoint(&self) -> GenerationStateCheckpoint {
@@ -66,5 +96,12 @@ impl<F: Field> GenerationState<F> {
     pub fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
+    }
+
+    pub(crate) fn stack(&self) -> Vec<U256> {
+        const MAX_TO_SHOW: usize = 10;
+        (0..self.registers.stack_len.min(MAX_TO_SHOW))
+            .map(|i| stack_peek(self, i).unwrap())
+            .collect()
     }
 }

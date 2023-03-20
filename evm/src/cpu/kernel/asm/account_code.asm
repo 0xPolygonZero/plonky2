@@ -1,6 +1,12 @@
-retzero:
-    %stack (account_ptr, retdest) -> (retdest, 0)
-    JUMP
+global sys_extcodehash:
+    // stack: kexit_info, address
+    // TODO: Charge gas.
+    SWAP1
+    // stack: address, kexit_info
+    %extcodehash
+    // stack: hash, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 global extcodehash:
     // stack: address, retdest
@@ -12,6 +18,9 @@ global extcodehash:
     %mload_trie_data
     // stack: codehash, retdest
     SWAP1 JUMP
+retzero:
+    %stack (account_ptr, retdest) -> (retdest, 0)
+    JUMP
 
 %macro extcodehash
     %stack (address) -> (address, %%after)
@@ -32,6 +41,7 @@ global extcodehash:
 
 global sys_extcodesize:
     // stack: kexit_info, address
+    // TODO: Charge gas.
     SWAP1
     // stack: address, kexit_info
     %extcodesize
@@ -61,6 +71,8 @@ global extcodesize:
 // Pre stack: kexit_info, address, dest_offset, offset, size
 // Post stack: (empty)
 global sys_extcodecopy:
+    // TODO: Call %update_mem_bytes to expand memory.
+    // TODO: Charge other gas.
     %stack (kexit_info, address, dest_offset, offset, size)
         -> (address, dest_offset, offset, size, kexit_info)
     %extcodecopy
@@ -104,7 +116,7 @@ extcodecopy_loop:
     // stack: opcode, offset, code_size, dest_offset, i, size, retdest
     DUP4
     // stack: dest_offset, opcode, offset, code_size, dest_offset, i, size, retdest
-    %mstore_main
+    %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: offset, code_size, dest_offset, i, size, retdest
     %increment
     // stack: offset+1, code_size, dest_offset, i, size, retdest

@@ -17,25 +17,15 @@ global sys_balance:
     PANIC
 global sys_origin:
     PANIC
-global sys_calldataload:
-    PANIC
 global sys_calldatasize:
     PANIC
 global sys_calldatacopy:
     PANIC
 global sys_codecopy:
     PANIC
-global sys_gasprice:
-    // stack: kexit_info
-    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
-    // stack: gas_price, kexit_info
-    SWAP1
-    EXIT_KERNEL
 global sys_returndatasize:
     PANIC
 global sys_returndatacopy:
-    PANIC
-global sys_extcodehash:
     PANIC
 global sys_blockhash:
     PANIC
@@ -54,6 +44,8 @@ global sys_gaslimit:
 global sys_chainid:
     // TODO: Return the block's chain ID instead of the txn's, even though they should match.
     // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)
     // stack: chain_id, kexit_info
     SWAP1
@@ -62,16 +54,6 @@ global sys_selfbalance:
     PANIC
 global sys_basefee:
     PANIC
-global sys_gas:
-    // stack: kexit_info
-    DUP1 %shr_const(192)
-    // stack: gas_used, kexit_info
-    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
-    // stack: gas_limit, gas_used, kexit_info
-    SUB
-    // stack: gas_remaining, kexit_info
-    SWAP1
-    EXIT_KERNEL
 global sys_log0:
     PANIC
 global sys_log1:

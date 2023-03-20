@@ -1,6 +1,6 @@
 use eth_trie_utils::partial_trie::PartialTrie;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum PartialTrieType {
     Empty = 0,
     Hash = 1,

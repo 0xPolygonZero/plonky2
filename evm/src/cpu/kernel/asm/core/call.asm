@@ -3,6 +3,7 @@
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -27,6 +28,7 @@ global sys_call:
 // given account. In particular the storage remains the same.
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -50,6 +52,7 @@ global sys_callcode:
 // CALL if the value sent is not 0.
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
 
@@ -70,6 +73,7 @@ global sys_staticcall:
 // value remain the same.
 global sys_delegatecall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
 

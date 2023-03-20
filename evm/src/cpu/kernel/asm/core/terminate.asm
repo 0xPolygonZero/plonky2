@@ -20,6 +20,7 @@ global sys_return:
 
 global sys_selfdestruct:
     // stack: kexit_info
+    // TODO: Charge gas.
     %consume_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas
@@ -37,7 +38,7 @@ global sys_revert:
     PUSH 0 // success
     %jump(terminate_common)
 
-// The execution is in an exceptional halt-ing state if
+// The execution is in an exceptional halting state if
 // - there is insufficient gas
 // - the instruction is invalid
 // - there are insufficient stack items

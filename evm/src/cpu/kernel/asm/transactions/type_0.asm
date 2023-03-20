@@ -84,62 +84,64 @@ type_0_compute_signed_data:
     // otherwise, it is
     //     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data]))
 
+    %alloc_rlp_block
+    // stack: rlp_start, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)
-    // stack: nonce, retdest
-    PUSH 9 // We start at 9 to leave room to prepend the largest possible RLP list header.
-    // stack: rlp_pos, nonce, retdest
+    // stack: nonce, rlp_start, retdest
+    DUP2
+    // stack: rlp_pos, nonce, rlp_start, retdest
     %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
     SWAP1 %encode_rlp_160
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_VALUE)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     // Encode txn data.
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     PUSH 0 // ADDR.virt
     PUSH @SEGMENT_TXN_DATA
     PUSH 0 // ADDR.context
-    // stack: ADDR: 3, len, rlp_pos, retdest
+    // stack: ADDR: 3, len, rlp_pos, rlp_start, retdest
     PUSH after_serializing_txn_data
-    // stack: after_serializing_txn_data, ADDR: 3, len, rlp_pos, retdest
+    // stack: after_serializing_txn_data, ADDR: 3, len, rlp_pos, rlp_start, retdest
     SWAP5
-    // stack: rlp_pos, ADDR: 3, len, after_serializing_txn_data, retdest
+    // stack: rlp_pos, ADDR: 3, len, after_serializing_txn_data, rlp_start, retdest
     %jump(encode_rlp_string)
 
 after_serializing_txn_data:
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
     %mload_txn_field(@TXN_FIELD_CHAIN_ID_PRESENT)
     ISZERO %jumpi(finish_rlp_list)
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     PUSH 0
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
     PUSH 0
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos, rlp_start, retdest
 
 finish_rlp_list:
     %prepend_rlp_list_prefix
-    // stack: start_pos, rlp_len, retdest
+    // stack: prefix_start_pos, rlp_len, retdest
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context
     // stack: ADDR: 3, rlp_len, retdest

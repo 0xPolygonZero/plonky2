@@ -1,5 +1,13 @@
 global sys_mload:
     // stack: kexit_info, offset
+    DUP2 %ensure_reasonable_offset
+    // stack: kexit_info, offset
+    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, offset
+    DUP2 %add_const(32)
+    // stack: expanded_num_bytes, kexit_info, offset
+    %update_mem_bytes
+    // stack: kexit_info, offset
     PUSH 0 // acc = 0
     // stack: acc, kexit_info, offset
     DUP3 %add_const( 0) %mload_current(@SEGMENT_MAIN_MEMORY) %shl_const(0xf8) ADD
@@ -39,6 +47,14 @@ global sys_mload:
 
 global sys_mstore:
     // stack: kexit_info, offset, value
+    DUP2 %ensure_reasonable_offset
+    // stack: kexit_info, offset, value
+    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, offset, value
+    DUP2 %add_const(32)
+    // stack: expanded_num_bytes, kexit_info, offset, value
+    %update_mem_bytes
+    // stack: kexit_info, offset, value
     DUP3 PUSH  0 BYTE DUP3 %add_const( 0) %mstore_current(@SEGMENT_MAIN_MEMORY)
     DUP3 PUSH  1 BYTE DUP3 %add_const( 1) %mstore_current(@SEGMENT_MAIN_MEMORY)
     DUP3 PUSH  2 BYTE DUP3 %add_const( 2) %mstore_current(@SEGMENT_MAIN_MEMORY)
@@ -76,7 +92,29 @@ global sys_mstore:
 
 global sys_mstore8:
     // stack: kexit_info, offset, value
+    DUP2 %ensure_reasonable_offset
+    // stack: kexit_info, offset, value
+    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, offset, value
+    DUP2 %increment
+    // stack: expanded_num_bytes, kexit_info, offset, value
+    %update_mem_bytes
+    // stack: kexit_info, offset, value
     %stack (kexit_info, offset, value) -> (offset, value, kexit_info)
     %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: kexit_info
     EXIT_KERNEL
+
+global sys_calldataload:
+    // stack: kexit_info, i
+    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, i
+    %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
+    GET_CONTEXT
+    // stack: ADDR: 3, 32, sys_calldataload_after_mload_packing, kexit_info
+    %jump(mload_packing)
+sys_calldataload_after_mload_packing:
+    // stack: value, kexit_info
+    SWAP1
+    EXIT_KERNEL
+    PANIC

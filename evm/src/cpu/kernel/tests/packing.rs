@@ -7,7 +7,7 @@ use crate::memory::segments::Segment;
 
 #[test]
 fn test_mload_packing_1_byte() -> Result<()> {
-    let mstore_unpacking = KERNEL.global_labels["mload_packing"];
+    let mload_packing = KERNEL.global_labels["mload_packing"];
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 1.into();
@@ -16,7 +16,7 @@ fn test_mload_packing_1_byte() -> Result<()> {
     let context = 0.into();
     let initial_stack = vec![retdest, len, offset, segment, context];
 
-    let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0, 0, 0xAB]);
 
     interpreter.run()?;
@@ -27,7 +27,7 @@ fn test_mload_packing_1_byte() -> Result<()> {
 
 #[test]
 fn test_mload_packing_3_bytes() -> Result<()> {
-    let mstore_unpacking = KERNEL.global_labels["mload_packing"];
+    let mload_packing = KERNEL.global_labels["mload_packing"];
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 3.into();
@@ -36,7 +36,7 @@ fn test_mload_packing_3_bytes() -> Result<()> {
     let context = 0.into();
     let initial_stack = vec![retdest, len, offset, segment, context];
 
-    let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0, 0, 0xAB, 0xCD, 0xEF]);
 
     interpreter.run()?;
@@ -47,7 +47,7 @@ fn test_mload_packing_3_bytes() -> Result<()> {
 
 #[test]
 fn test_mload_packing_32_bytes() -> Result<()> {
-    let mstore_unpacking = KERNEL.global_labels["mload_packing"];
+    let mload_packing = KERNEL.global_labels["mload_packing"];
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 32.into();
@@ -56,7 +56,7 @@ fn test_mload_packing_32_bytes() -> Result<()> {
     let context = 0.into();
     let initial_stack = vec![retdest, len, offset, segment, context];
 
-    let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0xFF; 32]);
 
     interpreter.run()?;
