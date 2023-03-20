@@ -8,13 +8,13 @@
 
 pub mod all_stark;
 pub mod arithmetic;
-pub mod bls381_arithmetic;
 pub mod bn254_arithmetic;
 pub mod bn254_pairing;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
 pub mod cross_table_lookup;
+pub mod extension_tower;
 pub mod fixed_recursive_verifier;
 pub mod generation;
 mod get_challenges;
