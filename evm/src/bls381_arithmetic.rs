@@ -1,9 +1,8 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::U512;
-
-// use rand::distributions::{Distribution, Standard};
-// use rand::Rng;
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 pub trait FieldExt:
     Sized
@@ -43,14 +42,14 @@ impl Fp {
     }
 }
 
-// impl Distribution<Fp> for Standard {
-//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
-//         let xs = rng.gen::<[u64; 8]>();
-//         Fp {
-//             val: U512(xs) % BLS_BASE,
-//         }
-//     }
-// }
+impl Distribution<Fp> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
+        let xs = rng.gen::<[u64; 8]>();
+        Fp {
+            val: U512(xs) % BLS_BASE,
+        }
+    }
+}
 
 impl Add for Fp {
     type Output = Self;
@@ -105,11 +104,11 @@ impl Mul for Fp {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        // x1, y1 are at most (q-1) // 2^256 < 2^125
-        let x1 = U512(self.val.0[..4].try_into().unwrap());
-        let x0 = U512(self.val.0[4..].try_into().unwrap());
-        let y1 = U512(other.val.0[..4].try_into().unwrap());
-        let y0 = U512(other.val.0[4..].try_into().unwrap());
+        // x1, y1 are at most ((q-1) // 2^256) < 2^125
+        let x0 = U512(self.val.0[..4].try_into().unwrap());
+        let x1 = U512(self.val.0[4..].try_into().unwrap());
+        let y0 = U512(other.val.0[..4].try_into().unwrap());
+        let y1 = U512(other.val.0[4..].try_into().unwrap());
 
         let z00 = Fp {
             val: x0.saturating_mul(y0) % BLS_BASE,
@@ -169,12 +168,15 @@ where
     pub im: T,
 }
 
-// impl<T: Distribution<T>> Distribution<Fp2<T>> for Standard {
-//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2<T> {
-//         let (re, im) = rng.gen::<(T, T)>();
-//         Fp2 { re, im }
-//     }
-// }
+impl<T: Distribution<T> + FieldExt> Distribution<Fp2<T>> for Standard
+where
+    Standard: Distribution<T>,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2<T> {
+        let (re, im) = rng.gen::<(T, T)>();
+        Fp2 { re, im }
+    }
+}
 
 impl<T: FieldExt> Add for Fp2<T> {
     type Output = Self;
@@ -300,12 +302,15 @@ where
     pub t2: Fp2<T>,
 }
 
-// impl<T: Distribution<T>> Distribution<Fp6<T>> for Standard {
-//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6<T> {
-//         let (t0, t1, t2) = rng.gen::<(Fp2<T>, Fp2<T>, Fp2<T>)>();
-//         Fp6 { t0, t1, t2 }
-//     }
-// }
+impl<T: Distribution<T> + FieldExt> Distribution<Fp6<T>> for Standard
+where
+    Standard: Distribution<T>,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6<T> {
+        let (t0, t1, t2) = rng.gen::<(Fp2<T>, Fp2<T>, Fp2<T>)>();
+        Fp6 { t0, t1, t2 }
+    }
+}
 
 impl<T: FieldExt> Add for Fp6<T> {
     type Output = Self;
@@ -506,12 +511,15 @@ impl<T: FieldExt + Adj> FieldExt for Fp12<T> {
     }
 }
 
-// impl<T: Distribution<T>> Distribution<Fp12<T>> for Standard {
-//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
-//         let (z0, z1) = rng.gen::<(Fp6, Fp6)>();
-//         Fp12 { z0, z1 }
-//     }
-// }
+impl<T: Distribution<T> + FieldExt> Distribution<Fp12<T>> for Standard
+where
+    Standard: Distribution<T>,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
+        let (z0, z1) = rng.gen::<(Fp6<T>, Fp6<T>)>();
+        Fp12 { z0, z1 }
+    }
+}
 
 impl<T: FieldExt> Add for Fp12<T> {
     type Output = Self;
