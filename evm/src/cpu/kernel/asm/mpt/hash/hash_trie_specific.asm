@@ -13,6 +13,17 @@ global mpt_hash_state_trie:
 %%after:
 %endmacro
 
+global mpt_hash_storage_trie:
+    // stack: node_ptr, retdest
+    %stack (node_ptr) -> (node_ptr, encode_storage_value)
+    %jump(mpt_hash)
+
+%macro mpt_hash_storage_trie
+    PUSH %%after
+    %jump(mpt_hash_storage_trie)
+%%after:
+%endmacro
+
 global mpt_hash_txn_trie:
     // stack: retdest
     PUSH encode_txn
@@ -88,11 +99,21 @@ encode_account_after_hash_storage_trie:
     SWAP1
     JUMP
 
-encode_txn:
+global encode_txn:
     PANIC // TODO
 
-encode_receipt:
+global encode_receipt:
     PANIC // TODO
 
-encode_storage_value:
-    PANIC // TODO: RLP encode as variable-len scalar?
+global encode_storage_value:
+    // stack: rlp_pos, value_ptr, retdest
+    SWAP1 %mload_trie_data SWAP1
+    // stack: rlp_pos, value, retdest
+    // The YP says storage trie is a map "... to the RLP-encoded 256-bit integer values"
+    // which seems to imply that this should be %encode_rlp_256. But %encode_rlp_scalar
+    // causes the tests to pass, so it seems storage values should be treated as variable-
+    // length after all.
+    %encode_rlp_scalar
+    // stack: rlp_pos', retdest
+    SWAP1
+    JUMP

@@ -1,4 +1,5 @@
-use itertools::Itertools;
+use anyhow::bail;
+use log::log_enabled;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -10,7 +11,7 @@ use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
-use crate::witness::util::{mem_read_code_with_log_and_fill, stack_peek};
+use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
 fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
@@ -116,10 +117,13 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xa2, _) => Ok(Operation::Syscall(opcode)),
         (0xa3, _) => Ok(Operation::Syscall(opcode)),
         (0xa4, _) => Ok(Operation::Syscall(opcode)),
-        (0xa5, _) => panic!(
-            "Kernel panic at {}",
-            KERNEL.offset_name(registers.program_counter)
-        ),
+        (0xa5, _) => {
+            log::warn!(
+                "Kernel panic at {}",
+                KERNEL.offset_name(registers.program_counter),
+            );
+            Err(ProgramError::KernelPanic)
+        }
         (0xf0, _) => Ok(Operation::Syscall(opcode)),
         (0xf1, _) => Ok(Operation::Syscall(opcode)),
         (0xf2, _) => Ok(Operation::Syscall(opcode)),
@@ -257,8 +261,12 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 }
 
 fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+    // The logic below is a bit costly, so skip it if debug logs aren't enabled.
+    if !log_enabled!(log::Level::Debug) {
+        return;
+    }
+
     let pc = state.registers.program_counter;
-    // TODO: This is affecting performance...
     let is_interesting_offset = KERNEL
         .offset_label(pc)
         .filter(|label| !label.starts_with("halt_pc"))
@@ -275,19 +283,17 @@ fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operatio
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
-        (0..state.registers.stack_len)
-            .map(|i| stack_peek(state, i).unwrap())
-            .collect_vec()
+        state.stack()
     );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }
 
-fn handle_error<F: Field>(_state: &mut GenerationState<F>) {
-    todo!("generation for exception handling is not implemented");
+fn handle_error<F: Field>(_state: &mut GenerationState<F>) -> anyhow::Result<()> {
+    bail!("TODO: generation for exception handling is not implemented");
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
+pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state);
 
@@ -296,11 +302,17 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) {
             state
                 .memory
                 .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+            Ok(())
         }
         Err(e) => {
             if state.registers.is_kernel {
                 let offset_name = KERNEL.offset_name(state.registers.program_counter);
-                panic!("exception in kernel mode at {}: {:?}", offset_name, e);
+                bail!(
+                    "{:?} in kernel at pc={}, stack={:?}",
+                    e,
+                    offset_name,
+                    state.stack()
+                );
             }
             state.rollback(checkpoint);
             handle_error(state)

@@ -200,7 +200,7 @@ pub(crate) fn generate_jump<F: Field>(
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
-    state.registers.program_counter = dst as usize;
+    state.jump_to(dst as usize);
     Ok(())
 }
 
@@ -224,7 +224,7 @@ pub(crate) fn generate_jumpi<F: Field>(
         let dst: u32 = dst
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-        state.registers.program_counter = dst as usize;
+        state.jump_to(dst as usize);
     } else {
         row.general.jumps_mut().should_jump = F::ZERO;
         row.general.jumps_mut().cond_sum_pinv = F::ZERO;
@@ -589,7 +589,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     state.registers.gas_used = gas_used_val;
     log::debug!(
         "Exiting to {}, is_kernel={}",
-        KERNEL.offset_name(program_counter),
+        program_counter,
         is_kernel_mode
     );
 

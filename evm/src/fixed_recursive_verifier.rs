@@ -182,7 +182,7 @@ where
 
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_config());
         let recursive_proofs =
-            core::array::from_fn(|i| builder.add_virtual_proof_with_pis::<C>(inner_common_data[i]));
+            core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
             PublicInputs::from_vec(&recursive_proofs[i].public_inputs, stark_config)
         });
@@ -303,8 +303,8 @@ where
         let common = &root.circuit.common;
         let root_vk = builder.constant_verifier_data(&root.circuit.verifier_only);
         let is_agg = builder.add_virtual_bool_target_safe();
-        let agg_proof = builder.add_virtual_proof_with_pis::<C>(common);
-        let evm_proof = builder.add_virtual_proof_with_pis::<C>(common);
+        let agg_proof = builder.add_virtual_proof_with_pis(common);
+        let evm_proof = builder.add_virtual_proof_with_pis(common);
         builder
             .conditionally_verify_cyclic_proof::<C>(
                 is_agg, &agg_proof, &evm_proof, &root_vk, common,
@@ -330,8 +330,8 @@ where
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
         let has_parent_block = builder.add_virtual_bool_target_safe();
-        let parent_block_proof = builder.add_virtual_proof_with_pis::<C>(&expected_common_data);
-        let agg_root_proof = builder.add_virtual_proof_with_pis::<C>(&agg.circuit.common);
+        let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
+        let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
@@ -579,7 +579,7 @@ where
             }
 
             let mut builder = CircuitBuilder::new(shrinking_config());
-            let proof_with_pis_target = builder.add_virtual_proof_with_pis::<C>(&last.common);
+            let proof_with_pis_target = builder.add_virtual_proof_with_pis(&last.common);
             let last_vk = builder.constant_verifier_data(&last.verifier_only);
             builder.verify_proof::<C>(&proof_with_pis_target, &last_vk, &last.common);
             builder.register_public_inputs(&proof_with_pis_target.public_inputs); // carry PIs forward

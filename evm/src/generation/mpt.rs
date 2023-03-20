@@ -156,8 +156,9 @@ pub(crate) fn mpt_prover_inputs_state_trie(
             } = account;
 
             let storage_hash_only = PartialTrie::Hash(storage_root);
+            let merged_key = key.merge_nibbles(nibbles);
             let storage_trie: &PartialTrie = storage_tries_by_state_key
-                .get(&key)
+                .get(&merged_key)
                 .copied()
                 .unwrap_or(&storage_hash_only);
 

@@ -1,12 +1,14 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
+use std::ops::Range;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use crate::bn254_arithmetic::BN_BASE;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -22,14 +24,6 @@ type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
-
-/// Order of the BN254 base field.
-const BN_BASE: U256 = U256([
-    4332616871279656263,
-    10917124144477883021,
-    13281191951274694749,
-    3486998266802970665,
-]);
 
 impl MemoryState {
     pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
@@ -63,6 +57,32 @@ pub fn run_interpreter(
         initial_stack,
         &KERNEL.prover_inputs,
     )
+}
+
+pub struct InterpreterMemoryInitialization {
+    pub label: String,
+    pub stack: Vec<U256>,
+    pub segment: Segment,
+    pub memory: Vec<(usize, Vec<U256>)>,
+}
+
+pub fn run_interpreter_with_memory(
+    memory_init: InterpreterMemoryInitialization,
+) -> anyhow::Result<Interpreter<'static>> {
+    let label = KERNEL.global_labels[&memory_init.label];
+    let mut stack = memory_init.stack;
+    stack.reverse();
+    let mut interpreter = Interpreter::new_with_kernel(label, stack);
+    for (pointer, data) in memory_init.memory {
+        for (i, term) in data.iter().enumerate() {
+            interpreter.generation_state.memory.set(
+                MemoryAddress::new(0, memory_init.segment, pointer + i),
+                *term,
+            )
+        }
+    }
+    interpreter.run()?;
+    Ok(interpreter)
 }
 
 pub fn run<'a>(
@@ -223,6 +243,18 @@ impl<'a> Interpreter<'a> {
             .content
     }
 
+    pub fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
+        let mut output: Vec<U256> = vec![];
+        for i in range {
+            let term = self
+                .generation_state
+                .memory
+                .get(MemoryAddress::new(0, segment, i));
+            output.push(term);
+        }
+        output
+    }
+
     pub(crate) fn push(&mut self, x: U256) {
         self.stack_mut().push(x);
         self.generation_state.registers.stack_len += 1;
@@ -247,6 +279,7 @@ impl<'a> Interpreter<'a> {
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
+
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
             0x01 => self.run_add(),                                     // "ADD",
@@ -324,7 +357,7 @@ impl<'a> Interpreter<'a> {
             0xa2 => todo!(),                                            // "LOG2",
             0xa3 => todo!(),                                            // "LOG3",
             0xa4 => todo!(),                                            // "LOG4",
-            0xa5 => bail!("Executed PANIC"),                            // "PANIC",
+            0xa5 => bail!("Executed PANIC, stack={:?}", self.stack()),  // "PANIC",
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
@@ -676,7 +709,7 @@ impl<'a> Interpreter<'a> {
         self.push(
             self.generation_state.memory.contexts[self.context].segments
                 [Segment::ContextMetadata as usize]
-                .get(ContextMetadata::MSize as usize),
+                .get(ContextMetadata::MemWords as usize),
         )
     }
 

@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
-pub(crate) enum Segment {
+pub enum Segment {
     /// Contains EVM bytecode.
     Code = 0,
     /// The program stack.
@@ -43,10 +43,11 @@ pub(crate) enum Segment {
     BnWnafA = 19,
     BnWnafB = 20,
     BnTableQ = 21,
+    BnPairing = 22,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 22;
+    pub(crate) const COUNT: usize = 23;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -72,6 +73,7 @@ impl Segment {
             Self::BnWnafA,
             Self::BnWnafB,
             Self::BnTableQ,
+            Self::BnPairing,
         ]
     }
 
@@ -100,6 +102,7 @@ impl Segment {
             Segment::BnWnafA => "SEGMENT_KERNEL_BN_WNAF_A",
             Segment::BnWnafB => "SEGMENT_KERNEL_BN_WNAF_B",
             Segment::BnTableQ => "SEGMENT_KERNEL_BN_TABLE_Q",
+            Segment::BnPairing => "SEGMENT_KERNEL_BN_PAIRING",
         }
     }
 
@@ -128,6 +131,7 @@ impl Segment {
             Segment::BnWnafA => 8,
             Segment::BnWnafB => 8,
             Segment::BnTableQ => 256,
+            Segment::BnPairing => 256,
         }
     }
 }
