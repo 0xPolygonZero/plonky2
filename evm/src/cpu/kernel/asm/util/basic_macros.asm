@@ -353,28 +353,3 @@
     %endrep
     // stack: a || b || c || d
 %endmacro
-
-// Charge gas.
-%macro charge_gas
-    // stack: gas, kexit_info
-    %shl_const(192)
-    ADD
-    // stack: kexit_info'
-%endmacro
-
-// Charge a constant amount of gas.
-%macro charge_gas_const(gas)
-    // stack: kexit_info
-    PUSH $gas
-    // stack: gas, kexit_info
-    %charge_gas
-    // stack: kexit_info'
-%endmacro
-
-// Charge gas and exit kernel code.
-%macro charge_gas_and_exit
-    // stack: gas, kexit_info
-    %charge_gas
-    // stack: kexit_info'
-    EXIT_KERNEL
-%endmacro
