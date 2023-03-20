@@ -30,77 +30,77 @@ pub const BLS_BASE: U512 = U512([
 ]);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp {
+pub struct Fp381 {
     pub val: U512,
 }
 
-impl Fp {
-    pub fn new(val: usize) -> Fp {
-        Fp {
+impl Fp381 {
+    pub fn new(val: usize) -> Fp381 {
+        Fp381 {
             val: U512::from(val),
         }
     }
 }
 
-impl Distribution<Fp> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
+impl Distribution<Fp381> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp381 {
         let xs = rng.gen::<[u64; 8]>();
-        Fp {
+        Fp381 {
             val: U512(xs) % BLS_BASE,
         }
     }
 }
 
-impl Add for Fp {
+impl Add for Fp381 {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Fp {
+        Fp381 {
             val: (self.val + other.val) % BLS_BASE,
         }
     }
 }
 
-impl Neg for Fp {
+impl Neg for Fp381 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        Fp {
+        Fp381 {
             val: (BLS_BASE - self.val) % BLS_BASE,
         }
     }
 }
 
-impl Sub for Fp {
+impl Sub for Fp381 {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        Fp {
+        Fp381 {
             val: (BLS_BASE + self.val - other.val) % BLS_BASE,
         }
     }
 }
 
-impl Fp {
-    fn lsh_128(self) -> Fp {
+impl Fp381 {
+    fn lsh_128(self) -> Fp381 {
         let b128: U512 = U512([0, 0, 1, 0, 0, 0, 0, 0]);
         // since BLS_BASE < 2^384, multiplying by 2^128 doesn't overflow the U512
-        Fp {
+        Fp381 {
             val: self.val.saturating_mul(b128) % BLS_BASE,
         }
     }
 
-    fn lsh_256(self) -> Fp {
+    fn lsh_256(self) -> Fp381 {
         self.lsh_128().lsh_128()
     }
 
-    fn lsh_512(self) -> Fp {
+    fn lsh_512(self) -> Fp381 {
         self.lsh_256().lsh_256()
     }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Mul for Fp {
+impl Mul for Fp381 {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -110,16 +110,16 @@ impl Mul for Fp {
         let y0 = U512(other.val.0[..4].try_into().unwrap());
         let y1 = U512(other.val.0[4..].try_into().unwrap());
 
-        let z00 = Fp {
+        let z00 = Fp381 {
             val: x0.saturating_mul(y0) % BLS_BASE,
         };
-        let z01 = Fp {
+        let z01 = Fp381 {
             val: x0.saturating_mul(y1),
         };
-        let z10 = Fp {
+        let z10 = Fp381 {
             val: x1.saturating_mul(y0),
         };
-        let z11 = Fp {
+        let z11 = Fp381 {
             val: x1.saturating_mul(y1),
         };
 
@@ -127,16 +127,16 @@ impl Mul for Fp {
     }
 }
 
-impl FieldExt for Fp {
-    const ZERO: Self = Fp { val: U512::zero() };
-    const UNIT: Self = Fp { val: U512::one() };
-    fn inv(self) -> Fp {
+impl FieldExt for Fp381 {
+    const ZERO: Self = Fp381 { val: U512::zero() };
+    const UNIT: Self = Fp381 { val: U512::one() };
+    fn inv(self) -> Fp381 {
         exp_fp(self, BLS_BASE - 2)
     }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Div for Fp {
+impl Div for Fp381 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -144,9 +144,9 @@ impl Div for Fp {
     }
 }
 
-fn exp_fp(x: Fp, e: U512) -> Fp {
+fn exp_fp(x: Fp381, e: U512) -> Fp381 {
     let mut current = x;
-    let mut product = Fp { val: U512::one() };
+    let mut product = Fp381 { val: U512::one() };
 
     for j in 0..512 {
         if e.bit(j) {
@@ -168,8 +168,9 @@ where
     pub im: T,
 }
 
-impl<T: Distribution<T> + FieldExt> Distribution<Fp2<T>> for Standard
+impl<T> Distribution<Fp2<T>> for Standard
 where
+    T: Distribution<T> + FieldExt,
     Standard: Distribution<T>,
 {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp2<T> {
@@ -281,7 +282,7 @@ pub trait Adj {
 
 /// Helper function which multiplies by the Fp2 element
 /// whose cube root we will adjoin in the next extension
-impl<T: FieldExt> Adj for Fp2<T> {
+impl Adj for Fp2<Fp381> {
     fn mul_adj(self) -> Self {
         Fp2 {
             re: self.re - self.im,
@@ -296,14 +297,17 @@ impl<T: FieldExt> Adj for Fp2<T> {
 pub struct Fp6<T>
 where
     T: FieldExt,
+    Fp2<T>: Adj,
 {
     pub t0: Fp2<T>,
     pub t1: Fp2<T>,
     pub t2: Fp2<T>,
 }
 
-impl<T: Distribution<T> + FieldExt> Distribution<Fp6<T>> for Standard
+impl<T> Distribution<Fp6<T>> for Standard
 where
+    T: Distribution<T> + FieldExt,
+    Fp2<T>: Adj,
     Standard: Distribution<T>,
 {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp6<T> {
@@ -312,7 +316,11 @@ where
     }
 }
 
-impl<T: FieldExt> Add for Fp6<T> {
+impl<T> Add for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -324,7 +332,11 @@ impl<T: FieldExt> Add for Fp6<T> {
     }
 }
 
-impl<T: FieldExt> Neg for Fp6<T> {
+impl<T> Neg for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -336,7 +348,11 @@ impl<T: FieldExt> Neg for Fp6<T> {
     }
 }
 
-impl<T: FieldExt> Sub for Fp6<T> {
+impl<T> Sub for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -348,7 +364,11 @@ impl<T: FieldExt> Sub for Fp6<T> {
     }
 }
 
-impl<T: FieldExt> Mul for Fp6<T> {
+impl<T> Mul for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -360,7 +380,11 @@ impl<T: FieldExt> Mul for Fp6<T> {
     }
 }
 
-impl<T: FieldExt> Fp6<T> {
+impl<T> Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     // This function scalar multiplies an Fp6 by an Fp2
     fn scale(self, x: Fp2<T>) -> Fp6<T> {
         Fp6 {
@@ -371,7 +395,11 @@ impl<T: FieldExt> Fp6<T> {
     }
 }
 
-impl<T: FieldExt + Adj> Fp6<T> {
+impl<T> Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     /// This function multiplies an Fp6 element by t, and hence shifts the bases,
     /// where the t^2 coefficient picks up a factor of 1+i as the 1 coefficient of the output
     fn sh(self) -> Fp6<T> {
@@ -383,12 +411,20 @@ impl<T: FieldExt + Adj> Fp6<T> {
     }
 }
 
-impl<T: FieldExt> Fp6<T> {
+impl<T> Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     const FROB_T: [[Fp2<T>; 6]; 2] = [[Fp2::<T>::ZERO; 6]; 2];
     const FROB_Z: [Fp2<T>; 12] = [Fp2::<T>::ZERO; 12];
 }
 
-impl<T: FieldExt> Fp6<T> {
+impl<T> Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     /// The nth frobenius endomorphism of a p^q field is given by mapping
     ///     x to x^(p^n)
     /// which sends a + bt + ct^2: Fp6 to
@@ -418,7 +454,11 @@ impl<T: FieldExt> Fp6<T> {
     }
 }
 
-impl<T: FieldExt> FieldExt for Fp6<T> {
+impl<T> FieldExt for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     const ZERO: Fp6<T> = Fp6 {
         t0: Fp2::<T>::ZERO,
         t1: Fp2::<T>::ZERO,
@@ -457,7 +497,11 @@ impl<T: FieldExt> FieldExt for Fp6<T> {
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl<T: FieldExt> Div for Fp6<T> {
+impl<T> Div for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -471,12 +515,17 @@ impl<T: FieldExt> Div for Fp6<T> {
 pub struct Fp12<T>
 where
     T: FieldExt,
+    Fp2<T>: Adj,
 {
     pub z0: Fp6<T>,
     pub z1: Fp6<T>,
 }
 
-impl<T: FieldExt + Adj> FieldExt for Fp12<T> {
+impl<T> FieldExt for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     const ZERO: Fp12<T> = Fp12 {
         z0: Fp6::<T>::ZERO,
         z1: Fp6::<T>::ZERO,
@@ -511,8 +560,10 @@ impl<T: FieldExt + Adj> FieldExt for Fp12<T> {
     }
 }
 
-impl<T: Distribution<T> + FieldExt> Distribution<Fp12<T>> for Standard
+impl<T> Distribution<Fp12<T>> for Standard
 where
+    T: Distribution<T> + FieldExt,
+    Fp2<T>: Adj,
     Standard: Distribution<T>,
 {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp12<T> {
@@ -521,7 +572,11 @@ where
     }
 }
 
-impl<T: FieldExt> Add for Fp12<T> {
+impl<T> Add for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -532,7 +587,11 @@ impl<T: FieldExt> Add for Fp12<T> {
     }
 }
 
-impl<T: FieldExt> Neg for Fp12<T> {
+impl<T> Neg for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -543,7 +602,11 @@ impl<T: FieldExt> Neg for Fp12<T> {
     }
 }
 
-impl<T: FieldExt> Sub for Fp12<T> {
+impl<T> Sub for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -554,7 +617,11 @@ impl<T: FieldExt> Sub for Fp12<T> {
     }
 }
 
-impl<T: FieldExt + Adj> Mul for Fp12<T> {
+impl<T> Mul for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -568,7 +635,11 @@ impl<T: FieldExt + Adj> Mul for Fp12<T> {
     }
 }
 
-impl<T: FieldExt> Fp12<T> {
+impl<T> Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     // This function scalar multiplies an Fp12 by an Fp6
     fn scale(self, x: Fp6<T>) -> Fp12<T> {
         Fp12 {
@@ -585,7 +656,11 @@ impl<T: FieldExt> Fp12<T> {
     }
 }
 
-impl<T: FieldExt> Fp12<T> {
+impl<T> Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     /// The nth frobenius endomorphism of a p^q field is given by mapping
     ///     x to x^(p^n)
     /// which sends a + bz: Fp12 to
@@ -601,7 +676,11 @@ impl<T: FieldExt> Fp12<T> {
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl<T: FieldExt + Adj> Div for Fp12<T> {
+impl<T> Div for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
