@@ -73,4 +73,13 @@ recursion_return:
     jump
 
 global sys_exp:
-    PANIC // TODO: Implement.
+    // x, e, return_info
+    swap1
+    push sys_exp_return
+    swap2
+    // x, e, sys_exp_return, return_info
+    jump exp
+sys_exp_return:
+    // stack: pow(x, e), return_info
+    swap1
+    exit_kernel
