@@ -13,8 +13,6 @@ global sys_sgt:
     PANIC
 global sys_sar:
     PANIC
-global sys_balance:
-    PANIC
 global sys_origin:
     PANIC
 global sys_calldatasize:
@@ -50,8 +48,6 @@ global sys_chainid:
     // stack: chain_id, kexit_info
     SWAP1
     EXIT_KERNEL
-global sys_selfbalance:
-    PANIC
 global sys_basefee:
     PANIC
 global sys_log0:
