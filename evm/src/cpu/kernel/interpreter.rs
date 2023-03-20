@@ -709,7 +709,7 @@ impl<'a> Interpreter<'a> {
         self.push(
             self.generation_state.memory.contexts[self.context].segments
                 [Segment::ContextMetadata as usize]
-                .get(ContextMetadata::MSize as usize),
+                .get(ContextMetadata::MemWords as usize),
         )
     }
 
