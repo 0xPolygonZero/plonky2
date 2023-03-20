@@ -162,14 +162,14 @@ pub(crate) fn mem_vec_to_biguint(x: &[U256]) -> BigUint {
 }
 
 pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
-    let mut digits = x.to_u32_digits();
+    let num_limbs = ((x.bits() + 127) / 128) as usize;
 
-    // Pad to a multiple of 4.
-    digits.resize((digits.len() + 3) / 4 * 4, 0);
+    let mut digits = x.iter_u64_digits();
 
-    digits
-        .chunks(4)
-        .map(|c| (c[3] as u128) << 96 | (c[2] as u128) << 64 | (c[1] as u128) << 32 | c[0] as u128)
-        .map(|n| n.into())
-        .collect()
+    let mut mem_vec = Vec::with_capacity(num_limbs);
+    while let Some(lo) = digits.next() {
+        let hi = digits.next().unwrap_or(0);
+        mem_vec.push(U256::from(lo as u128 | (hi as u128) << 64));
+    }
+    mem_vec
 }
