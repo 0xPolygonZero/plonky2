@@ -40,8 +40,8 @@ pub(crate) struct GenerationState<F: Field> {
     /// addresses.
     pub(crate) state_key_to_address: HashMap<H256, Address>,
 
-    /// Prover inputs containing the result of a MODMUL-related operation, in reverse order so that the next
-    /// input can be obtained via `pop()`.
+    /// Prover inputs containing the result of a MODMUL-related operation, in little-endian order (so that
+    /// inputs are obtained in big-endian order via `pop()`).
     pub(crate) bignum_modmul_prover_inputs: Vec<U256>,
 }
 
