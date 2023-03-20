@@ -20,6 +20,7 @@ global sys_return:
 
 global sys_selfdestruct:
     // stack: kexit_info
+    // TODO: Charge gas.
     %consume_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas

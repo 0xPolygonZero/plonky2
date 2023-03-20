@@ -104,3 +104,17 @@ global sys_mstore8:
     %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: kexit_info
     EXIT_KERNEL
+
+global sys_calldataload:
+    // stack: kexit_info, i
+    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, i
+    %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
+    GET_CONTEXT
+    // stack: ADDR: 3, 32, sys_calldataload_after_mload_packing, kexit_info
+    %jump(mload_packing)
+sys_calldataload_after_mload_packing:
+    // stack: value, kexit_info
+    SWAP1
+    EXIT_KERNEL
+    PANIC
