@@ -63,7 +63,7 @@ global extcodesize:
 
 %macro extcodecopy
     // stack: address, dest_offset, offset, size
-    %stack (dest_offset, offset, size) -> (dest_offset, offset, size, %%after)
+    %stack (address, dest_offset, offset, size) -> (address, dest_offset, offset, size, %%after)
     %jump(extcodecopy)
 %%after:
 %endmacro
