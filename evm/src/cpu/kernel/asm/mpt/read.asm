@@ -23,6 +23,7 @@ global mpt_read_state_trie:
 // - the virtual address of the trie to search in
 // - the number of nibbles in the key (should start at 64)
 // - the key, as a U256
+// - return destination
 //
 // This function returns a pointer to the value, or 0 if the key is not found.
 global mpt_read:
@@ -43,13 +44,13 @@ global mpt_read:
     // it means the prover failed to provide necessary Merkle data, so panic.
     PANIC
 
-mpt_read_empty:
+global mpt_read_empty:
     // Return 0 to indicate that the value was not found.
     %stack (node_type, node_payload_ptr, num_nibbles, key, retdest)
         -> (retdest, 0)
     JUMP
 
-mpt_read_branch:
+global mpt_read_branch:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     POP
     // stack: node_payload_ptr, num_nibbles, key, retdest
@@ -71,7 +72,7 @@ mpt_read_branch:
     // stack: child_ptr, num_nibbles, key, retdest
     %jump(mpt_read) // recurse
 
-mpt_read_branch_end_of_key:
+global mpt_read_branch_end_of_key:
     %stack (node_payload_ptr, num_nibbles, key, retdest) -> (node_payload_ptr, retdest)
     // stack: node_payload_ptr, retdest
     %add_const(16) // skip over the 16 child nodes
@@ -81,7 +82,7 @@ mpt_read_branch_end_of_key:
     SWAP1
     JUMP
 
-mpt_read_extension:
+global mpt_read_extension:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     %stack (node_type, node_payload_ptr, num_nibbles, key)
         -> (num_nibbles, key, node_payload_ptr)
@@ -100,8 +101,9 @@ mpt_read_extension:
     // stack: node_key, key_part, key_part, future_nibbles, key, node_payload_ptr, retdest
     EQ // does the first part of our key match the node's key?
     %jumpi(mpt_read_extension_found)
+global mpt_read_extension_not_found:
     // Not found; return 0.
-    %stack (key_part, future_nibbles, node_payload_ptr, retdest) -> (retdest, 0)
+    %stack (key_part, future_nibbles, key, node_payload_ptr, retdest) -> (retdest, 0)
     JUMP
 mpt_read_extension_found:
     // stack: key_part, future_nibbles, key, node_payload_ptr, retdest
@@ -135,6 +137,7 @@ mpt_read_leaf:
     AND
     // stack: keys_match && num_nibbles_match, node_payload_ptr, retdest
     %jumpi(mpt_read_leaf_found)
+global mpt_read_leaf_not_found:
     // Not found; return 0.
     %stack (node_payload_ptr, retdest) -> (retdest, 0)
     JUMP

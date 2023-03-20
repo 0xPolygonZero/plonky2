@@ -589,7 +589,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     state.registers.gas_used = gas_used_val;
     log::debug!(
         "Exiting to {}, is_kernel={}",
-        KERNEL.offset_name(program_counter),
+        program_counter,
         is_kernel_mode
     );
 

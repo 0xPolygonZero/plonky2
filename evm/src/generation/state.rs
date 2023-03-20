@@ -99,7 +99,8 @@ impl<F: Field> GenerationState<F> {
     }
 
     pub(crate) fn stack(&self) -> Vec<U256> {
-        (0..self.registers.stack_len)
+        const MAX_TO_SHOW: usize = 10;
+        (0..self.registers.stack_len.min(MAX_TO_SHOW))
             .map(|i| stack_peek(self, i).unwrap())
             .collect()
     }

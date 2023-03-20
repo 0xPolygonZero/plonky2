@@ -10,6 +10,23 @@
     // stack: (empty)
 %endmacro
 
+%macro alloc_rlp_block
+    // stack: (empty)
+    %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
+    // stack: block_start
+    // In our model it's fine to use memory in a sparse way, as long as the gaps aren't larger than
+    // 2^16 or so. So instead of the caller specifying the size of the block they need, we'll just
+    // allocate 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
+    DUP1 %add_const(0x10000)
+    // stack: block_end, block_start
+    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
+    // stack: block_start
+    // We leave an extra 9 bytes, so that callers can later prepend a prefix before block_start.
+    // (9 is the length of the longest possible RLP list prefix.)
+    %add_const(9)
+    // stack: block_start
+%endmacro
+
 %macro get_trie_data_size
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)

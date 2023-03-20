@@ -6,10 +6,13 @@ pub(crate) enum GlobalMetadata {
     /// give each new context a unique ID, so that its memory will be zero-initialized.
     LargestContext = 0,
     /// The size of active memory, in bytes.
-    MemorySize = 2,
+    MemorySize = 1,
     /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
     /// appending additional trie data.
-    TrieDataSize = 3,
+    TrieDataSize = 2,
+    /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
+    /// appending additional trie data.
+    RlpDataSize = 3,
     /// A pointer to the root of the state trie within the `TrieData` buffer.
     StateTrieRoot = 4,
     /// A pointer to the root of the transaction trie within the `TrieData` buffer.
@@ -45,13 +48,14 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 21;
+    pub(crate) const COUNT: usize = 22;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
             Self::LargestContext,
             Self::MemorySize,
             Self::TrieDataSize,
+            Self::RlpDataSize,
             Self::StateTrieRoot,
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
@@ -79,6 +83,7 @@ impl GlobalMetadata {
             Self::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
             Self::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
             Self::TrieDataSize => "GLOBAL_METADATA_TRIE_DATA_SIZE",
+            Self::RlpDataSize => "GLOBAL_METADATA_RLP_DATA_SIZE",
             Self::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
             Self::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             Self::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
