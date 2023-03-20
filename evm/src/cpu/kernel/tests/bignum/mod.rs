@@ -27,7 +27,9 @@ const TEST_DATA_ADD_OUTPUTS: &str = "add_outputs";
 const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 
-const BIT_SIZES_TO_TEST: [usize; 15] = [0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415];
+const BIT_SIZES_TO_TEST: [usize; 15] = [
+    0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415,
+];
 
 fn full_path(filename: &str) -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
