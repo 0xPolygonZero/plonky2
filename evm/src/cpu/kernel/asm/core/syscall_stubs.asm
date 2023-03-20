@@ -17,20 +17,12 @@ global sys_balance:
     PANIC
 global sys_origin:
     PANIC
-global sys_calldataload:
-    PANIC
 global sys_calldatasize:
     PANIC
 global sys_calldatacopy:
     PANIC
 global sys_codecopy:
     PANIC
-global sys_gasprice:
-    // stack: kexit_info
-    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
-    // stack: gas_price, kexit_info
-    SWAP1
-    EXIT_KERNEL
 global sys_returndatasize:
     PANIC
 global sys_returndatacopy:
