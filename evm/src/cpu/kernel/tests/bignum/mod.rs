@@ -282,7 +282,7 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
     let scratch_3 = 7 * len; // size 2*len
     let scratch_4 = 9 * len; // size 2*len
     let scratch_5 = 11 * len; // size 2*len
-    let (new_memory, new_stack) = run_test(
+    let (new_memory, _new_stack) = run_test(
         "modexp_bignum",
         memory,
         vec![
@@ -478,7 +478,7 @@ fn test_modmul_bignum_all() -> Result<()> {
             let output = a.clone() * b.clone() % m.clone();
             test_modmul_bignum(a, b, m, output)?;
         }
-        
+
         let a = max_bignum(bit_size);
         let b = max_bignum(bit_size);
         let m = max_bignum(bit_size);
@@ -519,7 +519,7 @@ fn test_modexp_bignum_all() -> Result<()> {
                 dbg!(b.clone(), e.clone(), m.clone(), output.clone());
                 test_modexp_bignum(b, e, m, output)?;
             }
-            
+
             let b = max_bignum(*bit_size);
             let e = max_bignum(*exp_bit_size);
             let m = max_bignum(*bit_size);

@@ -153,7 +153,7 @@ impl<F: Field> GenerationState<F> {
 
             let (remainder, quotient) =
                 self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
-            
+
             dbg!(remainder.clone(), quotient.clone());
 
             self.bignum_modmul_result_limbs = remainder
