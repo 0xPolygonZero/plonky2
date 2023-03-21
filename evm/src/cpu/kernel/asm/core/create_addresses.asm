@@ -19,6 +19,7 @@ global get_create_address:
     PUSH 0 // context
     // stack: RLP_ADDR: 3, rlp_len, retdest
     KECCAK_GENERAL
+    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
     // stack: address, retdest
     %observe_new_address
     SWAP1
