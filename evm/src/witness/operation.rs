@@ -111,7 +111,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = len.as_usize();
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt);
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -608,7 +608,7 @@ pub(crate) fn generate_mload_general<F: Field>(
 
     let (val, log_read) = mem_read_gp_with_log_and_fill(
         3,
-        MemoryAddress::new_u256s(context, segment, virt),
+        MemoryAddress::new_u256s(context, segment, virt)?,
         state,
         &mut row,
     );
