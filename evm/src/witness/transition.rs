@@ -108,6 +108,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x57, _) => Ok(Operation::Jumpi),
         (0x58, _) => Ok(Operation::Pc),
         (0x59, _) => Ok(Operation::Syscall(opcode)),
+        (0x5a, _) => Ok(Operation::Syscall(opcode)),
         (0x5b, _) => Ok(Operation::Jumpdest),
         (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
