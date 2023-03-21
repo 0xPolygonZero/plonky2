@@ -9,7 +9,7 @@ use crate::cpu::kernel::interpreter::{
 // use crate::bn254_pairing::{
 //     gen_fp12_sparse, invariant_exponent, miller_loop, tate, Curve, TwistedCurve,
 // };
-use crate::extension_tower::{Fp12, Stack, BN254};
+use crate::extension_tower::{Fp12, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -21,43 +21,47 @@ fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
         .collect::<Vec<U256>>()
 }
 
-// fn setup_mul_fp6_test(f: Fp6, g: Fp6, label: &str) -> InterpreterMemoryInitialization {
-//     let mut stack = f.on_stack();
-//     if label == "mul_fp254_6" {
-//         stack.extend(g.on_stack());
-//     }
-//     stack.push(U256::from(0xdeadbeefu32));
-//     InterpreterMemoryInitialization {
-//         label: label.to_string(),
-//         stack,
-//         segment: BnPairing,
-//         memory: vec![],
-//     }
-// }
+fn setup_mul_fp6_test(
+    f: Fp6<BN254>,
+    g: Fp6<BN254>,
+    label: &str,
+) -> InterpreterMemoryInitialization {
+    let mut stack = f.on_stack();
+    if label == "mul_fp254_6" {
+        stack.extend(g.on_stack());
+    }
+    stack.push(U256::from(0xdeadbeefu32));
+    InterpreterMemoryInitialization {
+        label: label.to_string(),
+        stack,
+        segment: BnPairing,
+        memory: vec![],
+    }
+}
 
-// #[test]
-// fn test_mul_fp6() -> Result<()> {
-//     let mut rng = rand::thread_rng();
-//     let f: Fp6 = rng.gen::<Fp6>();
-//     let g: Fp6 = rng.gen::<Fp6>();
+#[test]
+fn test_mul_fp6() -> Result<()> {
+    let mut rng = rand::thread_rng();
+    let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
+    let g: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
 
-//     let setup_normal: InterpreterMemoryInitialization = setup_mul_fp6_test(f, g, "mul_fp254_6");
-//     let setup_square: InterpreterMemoryInitialization = setup_mul_fp6_test(f, f, "square_fp254_6");
+    let setup_normal: InterpreterMemoryInitialization = setup_mul_fp6_test(f, g, "mul_fp254_6");
+    let setup_square: InterpreterMemoryInitialization = setup_mul_fp6_test(f, f, "square_fp254_6");
 
-//     let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
-//     let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
+    let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
+    let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
 
-//     let out_normal: Vec<U256> = extract_stack(intrptr_normal);
-//     let out_square: Vec<U256> = extract_stack(intrptr_square);
+    let out_normal: Vec<U256> = extract_stack(intrptr_normal);
+    let out_square: Vec<U256> = extract_stack(intrptr_square);
 
-//     let exp_normal: Vec<U256> = (f * g).on_stack();
-//     let exp_square: Vec<U256> = (f * f).on_stack();
+    let exp_normal: Vec<U256> = (f * g).on_stack();
+    let exp_square: Vec<U256> = (f * f).on_stack();
 
-//     assert_eq!(out_normal, exp_normal);
-//     assert_eq!(out_square, exp_square);
+    assert_eq!(out_normal, exp_normal);
+    assert_eq!(out_square, exp_square);
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 fn setup_mul_fp12_test(
     out: usize,
@@ -120,28 +124,28 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-// fn setup_frob_fp6_test(f: Fp6, n: usize) -> InterpreterMemoryInitialization {
-//     InterpreterMemoryInitialization {
-//         label: String::from("test_frob_fp254_6_") + &(n.to_string()),
-//         stack: f.on_stack(),
-//         segment: BnPairing,
-//         memory: vec![],
-//     }
-// }
+fn setup_frob_fp6_test(f: Fp6<BN254>, n: usize) -> InterpreterMemoryInitialization {
+    InterpreterMemoryInitialization {
+        label: String::from("test_frob_fp254_6_") + &(n.to_string()),
+        stack: f.on_stack(),
+        segment: BnPairing,
+        memory: vec![],
+    }
+}
 
-// #[test]
-// fn test_frob_fp6() -> Result<()> {
-//     let mut rng = rand::thread_rng();
-//     let f: Fp6 = rng.gen::<Fp6>();
-//     for n in 1..4 {
-//         let setup_frob = setup_frob_fp6_test(f, n);
-//         let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
-//         let out_frob: Vec<U256> = extract_stack(intrptr_frob);
-//         let exp_frob: Vec<U256> = f.frob(n).on_stack();
-//         assert_eq!(out_frob, exp_frob);
-//     }
-//     Ok(())
-// }
+#[test]
+fn test_frob_fp6() -> Result<()> {
+    let mut rng = rand::thread_rng();
+    let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
+    for n in 1..4 {
+        let setup_frob = setup_frob_fp6_test(f, n);
+        let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
+        let out_frob: Vec<U256> = extract_stack(intrptr_frob);
+        let exp_frob: Vec<U256> = f.frob(n).on_stack();
+        assert_eq!(out_frob, exp_frob);
+    }
+    Ok(())
+}
 
 fn setup_frob_fp12_test(ptr: usize, f: Fp12<BN254>, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
