@@ -31,10 +31,10 @@ modmul_remainder_loop:
     // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     EQ
     // stack: i+1==length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
-    ISZERO
+    SUB // functions as NEQ
     // stack: i+1!=length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     %jumpi(modmul_remainder_loop)
-modmul_remainder_end:
+// end of modmul_remainder_loop
     // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     POP
 
@@ -60,10 +60,10 @@ modmul_quotient_loop:
     DUP2
     DUP2
     // stack: i+1, length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
-    %neq
+    SUB // functions as NEQ
     // stack: i+1!=length, i+1, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     %jumpi(modmul_quotient_loop)
-modmul_quotient_end:
+// end of modmul_quotient_loop
     // stack: i, length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
     POP
     // stack: length, a_start_loc, b_start_loc, m_start_loc, output_loc, scratch_1, scratch_2, scratch_3, retdest
