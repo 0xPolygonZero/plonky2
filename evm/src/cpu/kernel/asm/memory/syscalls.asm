@@ -121,16 +121,14 @@ sys_calldataload_after_mload_packing:
 
 // Macro for {CALLDATA,CODE,RETURNDATA}COPY (W_copy in Yellow Paper).
 %macro wcopy(segment)
-    %charge_gas_const(@GAS_VERYLOW)
+    // stack: kexit_info, dest_offset, offset, size
+    DUP4 %num_bytes_to_num_words %mul_const(@GAS_COPY) %add_const(@GAS_VERYLOW) %charge_gas
+
     %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, dest_offset, offset, size, kexit_info)
     ADD
     // stack: expanded_num_bytes, dest_offset, offset, size, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
-    // stack: dest_offset, offset, size, kexit_info
-    DUP3 %num_bytes_to_num_words
-    // stack: word_size, dest_offset, offset, size, kexit_info
-    %mul_const(@GAS_COPY) %charge_gas
 
     GET_CONTEXT
     %stack (context, dest_offset, offset, size, kexit_info) ->
@@ -147,5 +145,5 @@ global sys_calldatacopy:
 global sys_codecopy:
     %wcopy(@SEGMENT_CODE)
 
-global sys_returndatacopy
+global sys_returndatacopy:
     %wcopy(@SEGMENT_RETURNDATA)
