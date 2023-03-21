@@ -37,7 +37,7 @@ impl<F: Field> GenerationState<F> {
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "account_code" => self.run_account_code(input_fn),
-            "bignum_modmul" => self.run_bignum_modmul(input_fn),
+            "bignum_modmul" => self.run_bignum_modmul(),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -128,11 +128,12 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    // Bignum modular multiplication related code.
-    fn run_bignum_modmul(&mut self, input_fn: &ProverInputFn) -> U256 {
-        if self.bignum_modmul_prover_inputs.is_empty() {
-            let function = input_fn.0[1].as_str();
-
+    // Bignum modular multiplication.
+    // On the first call, calculates the remainder and quotient of the given inputs.
+    // These are stored, as limbs, in self.bignum_modmul_result_limbs.
+    // Subsequent calls return one limb at a time, in order (first remainder and then quotient).
+    fn run_bignum_modmul(&mut self) -> U256 {
+        if self.bignum_modmul_result_limbs.is_empty() {
             let len = stack_peek(self, 1)
                 .expect("Stack does not have enough items")
                 .try_into()
@@ -150,34 +151,31 @@ impl<F: Field> GenerationState<F> {
                 .try_into()
                 .unwrap();
 
-            let result = match function {
-                "remainder" => {
-                    self.bignum_modmul_remainder(len, a_start_loc, b_start_loc, m_start_loc)
-                }
-                "quotient" => {
-                    self.bignum_modmul_quotient(len, a_start_loc, b_start_loc, m_start_loc)
-                }
-                _ => panic!("Invalid prover input function."),
-            };
+            let (remainder, quotient) =
+                self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
+            
+            dbg!(remainder.clone(), quotient.clone());
 
-            self.bignum_modmul_prover_inputs = result
+            self.bignum_modmul_result_limbs = remainder
                 .iter()
                 .cloned()
                 .pad_using(len, |_| 0.into())
+                .chain(quotient.iter().cloned().pad_using(len, |_| 0.into()))
                 .collect();
-            self.bignum_modmul_prover_inputs.reverse();
+            dbg!(self.bignum_modmul_result_limbs.clone());
+            self.bignum_modmul_result_limbs.reverse();
         }
 
-        self.bignum_modmul_prover_inputs.pop().unwrap()
+        self.bignum_modmul_result_limbs.pop().unwrap()
     }
 
-    fn bignum_modmul_remainder(
+    fn bignum_modmul(
         &mut self,
         len: usize,
         a_start_loc: usize,
         b_start_loc: usize,
         m_start_loc: usize,
-    ) -> Vec<U256> {
+    ) -> (Vec<U256>, Vec<U256>) {
         let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
             [a_start_loc..a_start_loc + len];
         let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
@@ -189,30 +187,12 @@ impl<F: Field> GenerationState<F> {
         let b_biguint = mem_vec_to_biguint(b);
         let m_biguint = mem_vec_to_biguint(m);
 
-        let result_biguint = (a_biguint * b_biguint) % m_biguint;
-        biguint_to_mem_vec(result_biguint)
-    }
+        dbg!(a_biguint.clone(), b_biguint.clone(), m_biguint.clone());
 
-    fn bignum_modmul_quotient(
-        &mut self,
-        len: usize,
-        a_start_loc: usize,
-        b_start_loc: usize,
-        m_start_loc: usize,
-    ) -> Vec<U256> {
-        let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [a_start_loc..a_start_loc + len];
-        let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [b_start_loc..b_start_loc + len];
-        let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
-            [m_start_loc..m_start_loc + len];
-
-        let a_biguint = mem_vec_to_biguint(a);
-        let b_biguint = mem_vec_to_biguint(b);
-        let m_biguint = mem_vec_to_biguint(m);
-
-        let result_biguint = (a_biguint * b_biguint) / m_biguint;
-        biguint_to_mem_vec(result_biguint)
+        let prod = a_biguint * b_biguint;
+        let quo = prod.clone() / m_biguint.clone();
+        let rem = prod - quo.clone() * m_biguint;
+        (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
     }
 }
 

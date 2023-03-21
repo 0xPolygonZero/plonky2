@@ -40,9 +40,10 @@ pub(crate) struct GenerationState<F: Field> {
     /// addresses.
     pub(crate) state_key_to_address: HashMap<H256, Address>,
 
-    /// Prover inputs containing the result of a MODMUL-related operation, in little-endian order (so that
-    /// inputs are obtained in big-endian order via `pop()`).
-    pub(crate) bignum_modmul_prover_inputs: Vec<U256>,
+    /// Prover inputs containing the result of a MODMUL operation, in little-endian order (so that
+    /// inputs are obtained in big-endian order via `pop()`). Contains both the remainder and the
+    /// quotient, in that order.
+    pub(crate) bignum_modmul_result_limbs: Vec<U256>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -58,7 +59,7 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
-        let bignum_modmul_prover_inputs = Vec::new();
+        let bignum_modmul_result_limbs = Vec::new();
 
         Self {
             inputs,
@@ -69,7 +70,7 @@ impl<F: Field> GenerationState<F> {
             mpt_prover_inputs,
             rlp_prover_inputs,
             state_key_to_address: HashMap::new(),
-            bignum_modmul_prover_inputs,
+            bignum_modmul_result_limbs,
         }
     }
 

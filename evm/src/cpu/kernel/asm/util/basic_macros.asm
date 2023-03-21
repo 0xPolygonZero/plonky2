@@ -50,6 +50,18 @@
     %endrep
 %endmacro
 
+%macro pop9
+    %rep 9
+        POP
+    %endrep
+%endmacro
+
+%macro pop10
+    %rep 10
+        POP
+    %endrep
+%endmacro
+
 %macro and_const(c)
     // stack: input, ...
     PUSH $c

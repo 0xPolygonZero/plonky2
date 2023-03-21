@@ -399,9 +399,9 @@ impl<'a> Interpreter<'a> {
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
         {
-            println!("At {}, stack={:?}", self.offset_name(), self.stack());
+            // println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {label}");
+            // println!("At {label}");
         }
 
         Ok(())

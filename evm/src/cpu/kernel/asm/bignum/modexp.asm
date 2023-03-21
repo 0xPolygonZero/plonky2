@@ -8,6 +8,9 @@
 // All of scratch_2..scratch_5 must have size 2 * length and be initialized with zeroes.
 global modexp_bignum:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1 (=scratch_1), s2, s3, s4, s5, retdest
+    DUP1
+    ISZERO
+    %jumpi(len_zero)
 
     // We store the repeated-squares accumulator x_i in scratch_1, starting with x_0 := b.
     DUP1
@@ -125,10 +128,11 @@ modexp_iszero_return:
     %jumpi(modexp_loop)
 // end of modexp_loop
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %rep 10
-        POP
-    %endrep
+    %pop10
     // stack: retdest
     JUMP
-
-
+len_zero:
+    // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %pop10
+    // stack: retdest
+    JUMP
