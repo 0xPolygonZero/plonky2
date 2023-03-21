@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use ethereum_types::U512;
+use ethereum_types::{U256, U512};
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
@@ -18,6 +18,102 @@ pub trait FieldExt:
     fn inv(self) -> Self;
 }
 
+pub const BN_BASE: U256 = U256([
+    0x3c208c16d87cfd47,
+    0x97816a916871ca8d,
+    0xb85045b68181585d,
+    0x30644e72e131a029,
+]);
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct BN254 {
+    pub val: U256,
+}
+
+impl BN254 {
+    pub fn new(val: usize) -> BN254 {
+        BN254 {
+            val: U256::from(val),
+        }
+    }
+}
+
+impl Distribution<BN254> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BN254 {
+        let xs = rng.gen::<[u64; 4]>();
+        BN254 {
+            val: U256(xs) % BN_BASE,
+        }
+    }
+}
+
+impl Add for BN254 {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        BN254 {
+            val: (self.val + other.val) % BN_BASE,
+        }
+    }
+}
+
+impl Neg for BN254 {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        BN254 {
+            val: (BN_BASE - self.val) % BN_BASE,
+        }
+    }
+}
+
+impl Sub for BN254 {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        BN254 {
+            val: (BN_BASE + self.val - other.val) % BN_BASE,
+        }
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
+impl Mul for BN254 {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        BN254 {
+            val: U256::try_from((self.val).full_mul(other.val) % BN_BASE).unwrap(),
+        }
+    }
+}
+
+impl FieldExt for BN254 {
+    const ZERO: Self = BN254 { val: U256::zero() };
+    const UNIT: Self = BN254 { val: U256::one() };
+    fn inv(self) -> BN254 {
+        let exp = BN_BASE - 2;
+        let mut current = self;
+        let mut product = BN254 { val: U256::one() };
+        for j in 0..256 {
+            if exp.bit(j) {
+                product = product * current;
+            }
+            current = current * current;
+        }
+        product
+    }
+}
+
+#[allow(clippy::suspicious_arithmetic_impl)]
+impl Div for BN254 {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self * rhs.inv()
+    }
+}
+
 pub const BLS_BASE: U512 = U512([
     0xb9feffffffffaaab,
     0x1eabfffeb153ffff,
@@ -30,77 +126,77 @@ pub const BLS_BASE: U512 = U512([
 ]);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp381 {
+pub struct BLS381 {
     pub val: U512,
 }
 
-impl Fp381 {
-    pub fn new(val: usize) -> Fp381 {
-        Fp381 {
+impl BLS381 {
+    pub fn new(val: usize) -> BLS381 {
+        BLS381 {
             val: U512::from(val),
         }
     }
 }
 
-impl Distribution<Fp381> for Standard {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp381 {
+impl Distribution<BLS381> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BLS381 {
         let xs = rng.gen::<[u64; 8]>();
-        Fp381 {
+        BLS381 {
             val: U512(xs) % BLS_BASE,
         }
     }
 }
 
-impl Add for Fp381 {
+impl Add for BLS381 {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Fp381 {
+        BLS381 {
             val: (self.val + other.val) % BLS_BASE,
         }
     }
 }
 
-impl Neg for Fp381 {
+impl Neg for BLS381 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        Fp381 {
+        BLS381 {
             val: (BLS_BASE - self.val) % BLS_BASE,
         }
     }
 }
 
-impl Sub for Fp381 {
+impl Sub for BLS381 {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        Fp381 {
+        BLS381 {
             val: (BLS_BASE + self.val - other.val) % BLS_BASE,
         }
     }
 }
 
-impl Fp381 {
-    fn lsh_128(self) -> Fp381 {
+impl BLS381 {
+    fn lsh_128(self) -> BLS381 {
         let b128: U512 = U512([0, 0, 1, 0, 0, 0, 0, 0]);
         // since BLS_BASE < 2^384, multiplying by 2^128 doesn't overflow the U512
-        Fp381 {
+        BLS381 {
             val: self.val.saturating_mul(b128) % BLS_BASE,
         }
     }
 
-    fn lsh_256(self) -> Fp381 {
+    fn lsh_256(self) -> BLS381 {
         self.lsh_128().lsh_128()
     }
 
-    fn lsh_512(self) -> Fp381 {
+    fn lsh_512(self) -> BLS381 {
         self.lsh_256().lsh_256()
     }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Mul for Fp381 {
+impl Mul for BLS381 {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
@@ -110,16 +206,16 @@ impl Mul for Fp381 {
         let y0 = U512(other.val.0[..4].try_into().unwrap());
         let y1 = U512(other.val.0[4..].try_into().unwrap());
 
-        let z00 = Fp381 {
+        let z00 = BLS381 {
             val: x0.saturating_mul(y0) % BLS_BASE,
         };
-        let z01 = Fp381 {
+        let z01 = BLS381 {
             val: x0.saturating_mul(y1),
         };
-        let z10 = Fp381 {
+        let z10 = BLS381 {
             val: x1.saturating_mul(y0),
         };
-        let z11 = Fp381 {
+        let z11 = BLS381 {
             val: x1.saturating_mul(y1),
         };
 
@@ -127,34 +223,31 @@ impl Mul for Fp381 {
     }
 }
 
-impl FieldExt for Fp381 {
-    const ZERO: Self = Fp381 { val: U512::zero() };
-    const UNIT: Self = Fp381 { val: U512::one() };
-    fn inv(self) -> Fp381 {
-        exp_fp(self, BLS_BASE - 2)
+impl FieldExt for BLS381 {
+    const ZERO: Self = BLS381 { val: U512::zero() };
+    const UNIT: Self = BLS381 { val: U512::one() };
+    fn inv(self) -> BLS381 {
+        let exp = BLS_BASE - 2;
+        let mut current = self;
+        let mut product = BLS381 { val: U512::one() };
+
+        for j in 0..512 {
+            if exp.bit(j) {
+                product = product * current;
+            }
+            current = current * current;
+        }
+        product
     }
 }
 
 #[allow(clippy::suspicious_arithmetic_impl)]
-impl Div for Fp381 {
+impl Div for BLS381 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         self * rhs.inv()
     }
-}
-
-fn exp_fp(x: Fp381, e: U512) -> Fp381 {
-    let mut current = x;
-    let mut product = Fp381 { val: U512::one() };
-
-    for j in 0..512 {
-        if e.bit(j) {
-            product = product * current;
-        }
-        current = current * current;
-    }
-    product
 }
 
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to Fp
@@ -276,13 +369,23 @@ impl<T: FieldExt> Div for Fp2<T> {
     }
 }
 
+/// Helper function which multiplies by the Fp2 element
+/// whose cube root we will adjoin in the next extension
 pub trait Adj {
     fn mul_adj(self) -> Self;
 }
 
-/// Helper function which multiplies by the Fp2 element
-/// whose cube root we will adjoin in the next extension
-impl Adj for Fp2<Fp381> {
+impl Adj for Fp2<BN254> {
+    fn mul_adj(self) -> Self {
+        let nine = BN254::new(9);
+        Fp2 {
+            re: nine * self.re - self.im,
+            im: self.re + nine * self.im,
+        }
+    }
+}
+
+impl Adj for Fp2<BLS381> {
     fn mul_adj(self) -> Self {
         Fp2 {
             re: self.re - self.im,
