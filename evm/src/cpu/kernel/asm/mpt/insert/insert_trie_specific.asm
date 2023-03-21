@@ -15,3 +15,9 @@ mpt_insert_state_trie_save:
     // stack: updated_node_ptr, retdest
     %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     JUMP
+
+%macro mpt_insert_state_trie
+    %stack (key, value_ptr) -> (key, value_ptr, %%after)
+    %jump(mpt_insert_state_trie)
+%%after:
+%endmacro
