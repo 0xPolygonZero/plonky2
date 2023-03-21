@@ -102,7 +102,7 @@ type_0_compute_signed_data:
     // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
-    SWAP1 %encode_rlp_160
+    SWAP1 %encode_rlp_scalar
     // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_VALUE)
