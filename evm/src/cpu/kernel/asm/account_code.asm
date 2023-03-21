@@ -145,6 +145,7 @@ global load_code:
     JUMP
 load_code_ctd:
     // stack: codehash, ctx, segment, retdest
+    DUP1 ISZERO %jumpi(load_code_non_existent_account)
     PROVER_INPUT(account_code::length)
     // stack: code_size, codehash, ctx, segment, retdest
     PUSH 0
@@ -176,4 +177,8 @@ load_code_check:
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_size
     %assert_eq
+    JUMP
+
+load_code_non_existent_account:
+    %stack (codehash, ctx, segment, retdest) -> (retdest, 0)
     JUMP

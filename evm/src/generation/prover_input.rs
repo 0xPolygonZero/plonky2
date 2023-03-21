@@ -102,10 +102,6 @@ impl<F: Field> GenerationState<F> {
                 // Return length of code.
                 // stack: codehash, ...
                 let codehash = stack_peek(self, 0).expect("Empty stack");
-                // Extcodehash returns 0 if the account does not exist or is empty.
-                if codehash.is_zero() {
-                    return U256::zero();
-                }
                 self.inputs
                     .contract_code
                     .get(&H256::from_uint(&codehash))
