@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethereum_types::{Address, H160, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
@@ -72,10 +72,10 @@ impl<F: Field> GenerationState<F> {
     pub fn jump_to(&mut self, dst: usize) {
         self.registers.program_counter = dst;
         if dst == KERNEL.global_labels["observe_new_address"] {
-            let address = stack_peek(self, 0).expect("Empty stack");
-            let mut address_bytes = [0; 20];
-            address.to_big_endian(&mut address_bytes);
-            self.observe_address(H160(address_bytes));
+            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_h256 = H256::from_uint(&tip_u256);
+            let tip_h160 = H160::from(tip_h256);
+            self.observe_address(tip_h160);
         }
     }
 
