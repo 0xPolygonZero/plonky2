@@ -210,10 +210,10 @@ impl Mul for BLS381 {
 
     fn mul(self, other: Self) -> Self {
         // x1, y1 are at most ((q-1) // 2^256) < 2^125
-        let x0 = U512(self.val.0[..4].try_into().unwrap());
-        let x1 = U512(self.val.0[4..].try_into().unwrap());
-        let y0 = U512(other.val.0[..4].try_into().unwrap());
-        let y1 = U512(other.val.0[4..].try_into().unwrap());
+        let x0 = U512::from(self.lo());
+        let x1 = U512::from(self.hi());
+        let y0 = U512::from(other.lo());
+        let y1 = U512::from(other.hi());
 
         let z00 = BLS381 {
             val: x0.saturating_mul(y0) % BLS_BASE,
