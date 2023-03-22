@@ -125,7 +125,7 @@ sys_calldataload_after_mload_packing:
     DUP4 %num_bytes_to_num_words %mul_const(@GAS_COPY) %add_const(@GAS_VERYLOW) %charge_gas
 
     %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, dest_offset, offset, size, kexit_info)
-    ADD
+    ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
     // stack: expanded_num_bytes, dest_offset, offset, size, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
