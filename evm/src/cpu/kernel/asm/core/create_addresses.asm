@@ -38,9 +38,9 @@ global get_create_address:
 // Pre stack: sender, salt, code_hash, retdest
 // Post stack: address
 global get_create2_address:
-    // stack: sender, salt, code_hash, retdest
+    // stack: sender, code_hash, salt, retdest
     PUSH 0xff PUSH 0 %mstore_kernel_general
-    %stack (sender, salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 1, sender, 20, get_create2_address_contd, salt, code_hash, retdest)
+    %stack (sender, code_hash, salt, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 1, sender, 20, get_create2_address_contd, salt, code_hash, retdest)
     %jump(mstore_unpacking)
 get_create2_address_contd:
     POP
