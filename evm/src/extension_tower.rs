@@ -137,6 +137,14 @@ impl BLS381 {
             val: U512::from(val),
         }
     }
+
+    pub fn lo(self) -> U256 {
+        U256(self.val.0[..4].try_into().unwrap())
+    }
+
+    pub fn hi(self) -> U256 {
+        U256(self.val.0[4..].try_into().unwrap())
+    }
 }
 
 impl Distribution<BLS381> for Standard {

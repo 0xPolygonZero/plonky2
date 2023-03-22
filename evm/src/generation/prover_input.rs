@@ -2,12 +2,12 @@ use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{BigEndianHash, H256, U256, U512};
 use plonky2::field::types::Field;
 
-use crate::extension_tower::{FieldExt, Fp12, BN254};
+use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
-    Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
+    Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
@@ -30,6 +30,7 @@ impl<F: Field> GenerationState<F> {
         match input_fn.0[0].as_str() {
             "end_of_txns" => self.run_end_of_txns(),
             "ff" => self.run_ff(input_fn),
+            "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
@@ -54,6 +55,24 @@ impl<F: Field> GenerationState<F> {
         let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
         let x = stack_peek(self, 0).expect("Empty stack");
         field.op(op, x)
+    }
+
+    /// Special finite field operations.
+    fn run_sf(&self, input_fn: &ProverInputFn) -> U256 {
+        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+        let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
+        let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
+        let xs: [U256; 4] = match field {
+            Bn254Base => {
+                let mut xs: [U256; 4] = [U256::zero(); 4];
+                for i in 0..4 {
+                    xs[i] = kernel_peek(self, BnPairing, ptr + i);
+                }
+                xs
+            }
+            _ => todo!(),
+        };
+        field.op(op, xs)
     }
 
     /// Finite field extension operations.
@@ -126,6 +145,8 @@ impl<F: Field> GenerationState<F> {
 }
 
 enum EvmField {
+    Bls381Base,
+    Bls381Scalar,
     Bn254Base,
     Bn254Scalar,
     Secp256k1Base,
@@ -142,6 +163,8 @@ impl FromStr for EvmField {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
+            "bls381_base" => Bls381Base,
+            "bls381_scalar" => Bls381Scalar,
             "bn254_base" => Bn254Base,
             "bn254_scalar" => Bn254Scalar,
             "secp256k1_base" => Secp256k1Base,
@@ -166,6 +189,8 @@ impl FromStr for FieldOp {
 impl EvmField {
     fn order(&self) -> U256 {
         match self {
+            EvmField::Bls381Base => todo!(),
+            EvmField::Bls381Scalar => todo!(),
             EvmField::Bn254Base => {
                 U256::from_str("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47")
                     .unwrap()
@@ -204,6 +229,54 @@ impl EvmField {
             "Only naive sqrt implementation for now. If needed implement Tonelli-Shanks."
         );
         modexp(x, q, n)
+    }
+
+    fn add_lo(&self, inputs: [U256; 4]) -> U256 {
+        let [y1, x0, x1, y0] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } + BLS381 { val: y };
+        z.lo()
+    }
+
+    fn add_hi(&self, inputs: [U256; 4]) -> U256 {
+        let [x0, x1, y0, y1] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } + BLS381 { val: y };
+        z.hi()
+    }
+
+    fn mul_lo(&self, inputs: [U256; 4]) -> U256 {
+        let [y1, x0, x1, y0] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } * BLS381 { val: y };
+        z.lo()
+    }
+
+    fn mul_hi(&self, inputs: [U256; 4]) -> U256 {
+        let [x0, x1, y0, y1] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } * BLS381 { val: y };
+        z.hi()
+    }
+
+    fn sub_lo(&self, inputs: [U256; 4]) -> U256 {
+        let [y1, x0, x1, y0] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } - BLS381 { val: y };
+        z.lo()
+    }
+
+    fn sub_hi(&self, inputs: [U256; 4]) -> U256 {
+        let [x0, x1, y0, y1] = inputs;
+        let x = U512::from(x0) + (U512::from(x1) << 256);
+        let y = U512::from(y0) + (U512::from(y1) << 256);
+        let z = BLS381 { val: x } - BLS381 { val: y };
+        z.hi()
     }
 
     fn field_extension_inverse(&self, n: usize, f: [U256; 12]) -> U256 {
