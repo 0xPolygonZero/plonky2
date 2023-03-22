@@ -74,6 +74,31 @@ recursion_return:
 
 global sys_exp:
     // x, e, return_info
+    push 248
+sys_exp_gas_loop:
+    // stack: shift, x, e, return_info
+    dup3
+    dup2
+    shr
+    // stack: e >> shift, shift, x, e, return_info
+    %jumpi(sys_exp_gas_end)
+    // stack: shift, x, e, return_info
+    %sub_const(8)
+    // stack: shift := shift - 8, x, e, return_info
+    dup1
+    %jumpi(sys_exp_gas_loop)
+sys_exp_gas_end:
+    // stack: shift_bits, x, e, return_info
+    %div_const(8)
+    // stack: index_of_nz_byte := shift_bits / 8, x, e, return_info
+    %add_const(1)
+    // stack: byte_size_of_e := index_of_nz_byte + 1, x, e, return_info
+    %mul_const(@GAS_EXPBYTE)
+    %add_const(@GAS_EXP)
+    // stack: 10 + 50 * byte_size_of_e, x, e, return_info
+    %charge_gas
+
+    // x, e, return_info
     swap1
     push sys_exp_return
     swap2
