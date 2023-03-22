@@ -48,19 +48,6 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
     res
 }
 
-/// As for cpu_arith_data_link but also checks that the output is
-/// the single column columns::GENERAL_REGISTER_BIT.
-fn cpu_arith_data_link_bitout<F: Field>(ops: &[usize], in_regs: &[Range<usize>]) -> Vec<Column<F>> {
-    let mut res = cpu_arith_data_link(ops, in_regs);
-    // Output is contained in column GENERAL_REGISTER_BIT, but the
-    // result is a U256, so all the other columns must be zero.
-    res.push(Column::single(columns::GENERAL_REGISTER_BIT));
-    for _ in 1..(columns::N_LIMBS / 2) {
-        res.push(Column::zero());
-    }
-    res
-}
-
 /// Create the Arithmetic Table whose columns are those of the
 /// operations listed in `ops` whose inputs and outputs are given by
 /// `regs`, where each element of `regs` is a range of columns
@@ -74,59 +61,20 @@ fn ctl_link_ops_rows<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> TableWit
     )
 }
 
-/// Create the Arithmetic Table whose columns are those of the
-/// operations listed in `ops` whose inputs are given by `regs`, where
-/// each element of `regs` is a range of columns corresponding to a
-/// 256-bit input register (also `ops` is used as the operation
-/// filter). This function assumes that the output is a single bit
-/// found at column columns::GENERAL_REGISTER_BIT.
-fn ctl_link_ops_rows_bitout<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> TableWithColumns<F> {
-    TableWithColumns::new(
-        Table::Arithmetic,
-        cpu_arith_data_link_bitout(ops, regs),
-        Some(Column::sum(ops)),
-    )
-}
-
-// Each ctl_<OPS>_rows() function produces the Table of Columns
-// corresponding to the operations OPS. Each of these functions has a
-// corresponding function in cpu_stark.rs with the same name; together
-// they define the mapping from data received in CPU table Columns and
-// data received in arithmetic table columns.
-
-pub fn ctl_add_mul_rows<F: Field>() -> TableWithColumns<F> {
+pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     ctl_link_ops_rows(
-        &[columns::IS_ADD, columns::IS_MUL],
+        &[
+            columns::IS_ADD,
+            columns::IS_SUB,
+            columns::IS_MUL,
+            columns::IS_LT,
+            columns::IS_GT,
+        ],
         &[
             columns::GENERAL_REGISTER_0,
             columns::GENERAL_REGISTER_1,
-            columns::GENERAL_REGISTER_2,
+            columns::GENERAL_REGISTER_3,
         ],
-    )
-}
-
-pub fn ctl_sub_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[columns::IS_SUB],
-        &[
-            columns::GENERAL_REGISTER_2,
-            columns::GENERAL_REGISTER_0,
-            columns::GENERAL_REGISTER_1,
-        ],
-    )
-}
-
-pub fn ctl_lt_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows_bitout(
-        &[columns::IS_LT],
-        &[columns::GENERAL_REGISTER_2, columns::GENERAL_REGISTER_0],
-    )
-}
-
-pub fn ctl_gt_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows_bitout(
-        &[columns::IS_GT],
-        &[columns::GENERAL_REGISTER_0, columns::GENERAL_REGISTER_2],
     )
 }
 
@@ -421,20 +369,17 @@ mod tests {
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
 
-        // Wrap the single value GENERAL_REGISTER_BIT in a Range.
-        let cmp_range = columns::GENERAL_REGISTER_BIT..columns::GENERAL_REGISTER_BIT + 1;
-
         // Each operation has a single word answer that we can check
         let expected_output = [
             // Row (some ops take two rows), col, expected
-            (0, &columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
+            (0, &columns::GENERAL_REGISTER_3, 579), // ADD_OUTPUT
             (1, &columns::MODULAR_OUTPUT, 703),
             (3, &columns::MODULAR_OUTPUT, 794),
             (5, &columns::MUL_OUTPUT, 56088),
             (6, &columns::MODULAR_OUTPUT, 11),
-            (8, &cmp_range, 0),
-            (9, &cmp_range, 1),
-            (10, &cmp_range, 0),
+            (8, &columns::GENERAL_REGISTER_3, 0),
+            (9, &columns::GENERAL_REGISTER_3, 1),
+            (10, &columns::GENERAL_REGISTER_3, 0),
             (11, &columns::DIV_OUTPUT, 9),
         ];
 

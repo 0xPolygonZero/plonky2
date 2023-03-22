@@ -383,7 +383,8 @@ fn modular_constr_poly<P: PackedField>(
     //   modulus + out_aux_red == output + is_less_than*2^256
     //
     // and we are given output = out_aux_red when modulus is zero.
-    let is_less_than = P::ONES - mod_is_zero * lv[IS_DIV];
+    let mut is_less_than = [P::ZEROS; N_LIMBS];
+    is_less_than[0] = P::ONES - mod_is_zero * lv[IS_DIV];
     // NB: output and modulus in lv while out_aux_red and
     // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
@@ -393,7 +394,7 @@ fn modular_constr_poly<P: PackedField>(
         &modulus,
         out_aux_red,
         &output,
-        is_less_than,
+        &is_less_than,
         true,
     );
     // restore output[0]
@@ -537,7 +538,9 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
 
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     let one = builder.one_extension();
-    let is_less_than =
+    let zero = builder.zero_extension();
+    let mut is_less_than = [zero; N_LIMBS];
+    is_less_than[0] =
         builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
 
     eval_ext_circuit_addcy(
@@ -547,7 +550,7 @@ fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, const D: usize>
         &modulus,
         out_aux_red,
         &output,
-        is_less_than,
+        &is_less_than,
         true,
     );
     output[0] = builder.sub_extension(output[0], div_denom_is_zero);

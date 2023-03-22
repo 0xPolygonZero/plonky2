@@ -98,10 +98,7 @@ impl Table {
 
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     let mut ctls = vec![
-        ctl_add_mul(),
-        ctl_sub(),
-        ctl_lt(),
-        ctl_gt(),
+        ctl_arithmetic(),
         ctl_modops(),
         ctl_bn254ops(),
         ctl_div(),
@@ -112,8 +109,8 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_memory(),
     ];
     // TODO: Some CTLs temporarily disabled while we get them working.
+    disable_ctl(&mut ctls[5]);
     disable_ctl(&mut ctls[8]);
-    disable_ctl(&mut ctls[11]);
     ctls
 }
 
@@ -124,31 +121,10 @@ fn disable_ctl<F: Field>(ctl: &mut CrossTableLookup<F>) {
     ctl.looked_table.filter_column = Some(Column::zero());
 }
 
-fn ctl_add_mul<F: Field>() -> CrossTableLookup<F> {
+fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
-        vec![cpu_stark::ctl_add_mul_rows()],
-        arithmetic_stark::ctl_add_mul_rows(),
-    )
-}
-
-fn ctl_sub<F: Field>() -> CrossTableLookup<F> {
-    CrossTableLookup::new(
-        vec![cpu_stark::ctl_sub_rows()],
-        arithmetic_stark::ctl_sub_rows(),
-    )
-}
-
-fn ctl_lt<F: Field>() -> CrossTableLookup<F> {
-    CrossTableLookup::new(
-        vec![cpu_stark::ctl_lt_rows()],
-        arithmetic_stark::ctl_lt_rows(),
-    )
-}
-
-fn ctl_gt<F: Field>() -> CrossTableLookup<F> {
-    CrossTableLookup::new(
-        vec![cpu_stark::ctl_gt_rows()],
-        arithmetic_stark::ctl_gt_rows(),
+        vec![cpu_stark::ctl_arithmetic_rows()],
+        arithmetic_stark::ctl_arithmetic_rows(),
     )
 }
 
