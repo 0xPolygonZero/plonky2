@@ -103,6 +103,16 @@ fn u256_signextend(byte: U256, value: U256) -> U256 {
     u256_sar(U256::from(bit_offset), value << bit_offset)
 }
 
+fn u256_byte(index: U256, value: U256) -> U256 {
+    const MAX_IDX: usize = 31;
+    if index > U256::from(MAX_IDX) {
+        U256::zero()
+    } else {
+        let index = MAX_IDX - index.as_usize();
+        U256::from(value.byte(index))
+    }
+}
+
 // Reference: Hacker's Delight, 2013, 2nd edition, §2-12.
 fn u256_slt(x: U256, y: U256) -> U256 {
     let top_bit: U256 = U256::one() << 255;
@@ -152,6 +162,11 @@ fn test_smod() {
 #[test]
 fn test_signextend() {
     run_test("_sys_signextend", u256_signextend, "SIGNEXTEND");
+}
+
+#[test]
+fn test_byte() {
+    run_test("_sys_byte", u256_byte, "BYTE");
 }
 
 #[test]

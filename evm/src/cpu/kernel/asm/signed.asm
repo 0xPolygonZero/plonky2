@@ -93,13 +93,17 @@ sys_smod_pos_x:
 
 
 // BYTE returns byte N of value, where N=0 corresponds to bits
-// [248,256) ... N=31 corresponds to bits [0,31); i.e. N is the Nth
-// byte of value when it is considered as BIG-endian.
+// [248,256) ... N=31 corresponds to bits [0,8); i.e. N is the Nth
+// byte of value when it is considered as BIG-endian bytes (but not
+// big-endian bits).
 global _sys_byte:
     // Stack: N, value, return_info
+    PUSH 32
+    %min
+    // Stack: N := min(32, N), value, return_info
     %mul_const(8)
-    // Stack:  8*N, value, return_info
     SHL
+    // Stack: value << 8*N, return_info
     PUSH 248
     SHR
     // Stack: (value << 8*N) >> 248, return_info
