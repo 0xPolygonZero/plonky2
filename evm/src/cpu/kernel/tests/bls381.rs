@@ -1,5 +1,5 @@
 use anyhow::Result;
-use ethereum_types::{U512};
+use ethereum_types::U512;
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
