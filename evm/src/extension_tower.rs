@@ -1186,6 +1186,12 @@ pub trait Stack {
     fn on_stack(self) -> Vec<U256>;
 }
 
+impl Stack for BLS381 {
+    fn on_stack(self) -> Vec<U256> {
+        vec![self.lo(), self.hi()]
+    }
+}
+
 impl Stack for Fp6<BN254> {
     fn on_stack(self) -> Vec<U256> {
         let f: [U256; 6] = unsafe { transmute(self) };
