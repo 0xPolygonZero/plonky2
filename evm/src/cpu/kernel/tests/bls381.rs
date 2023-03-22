@@ -1,9 +1,9 @@
 use anyhow::Result;
-use ethereum_types::{U256, U512};
+use ethereum_types::{U512};
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
-    run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
+    run_interpreter_with_memory, InterpreterMemoryInitialization,
 };
 use crate::extension_tower::{Stack, BLS381};
 use crate::memory::segments::Segment::KernelGeneral;
