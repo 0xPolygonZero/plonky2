@@ -91,8 +91,13 @@ sys_exp_gas_end:
     // stack: shift_bits, x, e, return_info
     %div_const(8)
     // stack: index_of_nz_byte := shift_bits / 8, x, e, return_info
-    %add_const(1)
-    // stack: byte_size_of_e := index_of_nz_byte + 1, x, e, return_info
+    dup3
+    iszero
+    push 1
+    sub
+    // stack: e_non_zero := 1 - e_is_zero, index_of_nz_byte, x, e, return_info
+    add
+    // stack: byte_size_of_e := index_of_nz_byte + e_non_zero, x, e, return_info
     %mul_const(@GAS_EXPBYTE)
     %add_const(@GAS_EXP)
     // stack: 10 + 50 * byte_size_of_e, x, e, return_info
