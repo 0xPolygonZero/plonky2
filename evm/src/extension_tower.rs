@@ -370,8 +370,8 @@ impl<T: FieldExt> Div for Fp2<T> {
     }
 }
 
-/// This trait defines the method which multiplies 
-/// by the Fp2 element t^3 whose cube root we will 
+/// This trait defines the method which multiplies
+/// by the Fp2 element t^3 whose cube root we will
 /// adjoin in the subsequent cubic extension.
 /// For BN254 this is 9+i, and for BLS381 it is 1+i.
 /// It also defines the relevant FROB constants,
