@@ -5,46 +5,46 @@
 // else SDIV(a, b) = sgn(a/b) * floor(|a/b|).
 global _sys_sdiv:
     // stack: num, denom, return_info
-    dup1
-    push 0x8000000000000000000000000000000000000000000000000000000000000000
-    gt
+    DUP1
+    PUSH 0x8000000000000000000000000000000000000000000000000000000000000000
+    GT
     // stack: num_is_nonneg := sign_bit > num, num, denom, return_info
-    dup1
+    DUP1
     %jumpi(sys_sdiv_nonneg_num)
     // stack: num_is_nonneg, num, denom, return_info
-    swap1
-    push 0
-    sub
-    swap1
+    SWAP1
+    PUSH 0
+    SUB
+    SWAP1
     // stack: num_is_nonneg, num := -num, denom, return_info
 sys_sdiv_nonneg_num:
-    swap2
-    dup1
-    push 0x8000000000000000000000000000000000000000000000000000000000000000
-    gt
+    SWAP2
+    DUP1
+    PUSH 0x8000000000000000000000000000000000000000000000000000000000000000
+    GT
     // stack: denom_is_nonneg := sign_bit > denom, denom, num, num_is_nonneg, return_info
-    dup1
+    DUP1
     %jumpi(sys_sdiv_nonneg_denom)
     // stack: denom_is_nonneg, denom, num, num_is_nonneg, return_info
-    swap1
-    push 0
-    sub
+    SWAP1
+    PUSH 0
+    SUB
     // stack: denom := -denom, denom_is_nonneg, num, num_is_nonneg, return_info
-    swap1
+    SWAP1
 sys_sdiv_nonneg_denom:
     // stack: denom_is_nonneg, denom, num, num_is_nonneg, return_info
-    swap2
-    div
+    SWAP2
+    DIV
     // stack: num / denom, denom_is_nonneg, num_is_nonneg, return_info
-    swap2
-    eq
+    SWAP2
+    EQ
     // stack: denom_is_nonneg == num_is_nonneg, num / denom, return_info
     %jumpi(sys_sdiv_same_sign)
-    push 0
-    sub
+    PUSH 0
+    SUB
 sys_sdiv_same_sign:
-    swap1
-    jump
+    SWAP1
+    JUMP
 
 
 // SMOD(a, b): signed "modulo remainder" operation.
@@ -53,43 +53,44 @@ sys_sdiv_same_sign:
 // else SMOD(a, 0) = 0.
 global _sys_smod:
     // stack: x, mod, return_info
-    push 0x8000000000000000000000000000000000000000000000000000000000000000
+    PUSH 0x8000000000000000000000000000000000000000000000000000000000000000
     // stack: sign_bit, x, mod, return_info
-    dup1
-    dup4
-    lt
+    DUP1
+    DUP4
+    LT
     // stack: mod < sign_bit, sign_bit, x, mod, return_info
     %jumpi(sys_smod_pos_mod)
     // mod is negative, so we negate it
     // sign_bit, x, mod, return_info
-    swap2
-    push 0
-    sub
-    swap2
+    SWAP2
+    PUSH 0
+    SUB
+    SWAP2
     // sign_bit, x, mod := 0 - mod, return_info
 sys_smod_pos_mod:
     // At this point, we know that mod is non-negative.
-    dup2
-    lt
+    DUP2
+    LT
     // stack: x < sign_bit, x, mod, return_info
     %jumpi(sys_smod_pos_x)
     // x is negative, so let's negate it
     // stack: x, mod, return_info
-    push 0
-    sub
+    PUSH 0
+    SUB
     // stack: x := 0 - x, mod, return_info
-    mod
+    MOD
     // negate the result
-    push 0
-    sub
-    swap1
-    jump
+    PUSH 0
+    SUB
+    SWAP1
+    JUMP
 sys_smod_pos_x:
     // Both x and mod are non-negative
     // stack: x, mod, return_info
-    mod
-    swap1
-    jump
+    MOD
+    SWAP1
+    JUMP
+
 
 // BYTE returns byte N of value, where N=0 corresponds to bits
 // [248,256) ... N=31 corresponds to bits [0,31); i.e. N is the Nth
@@ -98,32 +99,34 @@ global _sys_byte:
     // Stack: N, value, return_info
     %mul_const(8)
     // Stack:  8*N, value, return_info
-    shl
-    push 248
-    shr
+    SHL
+    PUSH 248
+    SHR
     // Stack: (value << 8*N) >> 248, return_info
-    swap1
-    jump
+    SWAP1
+    JUMP
+
 
 // SIGNEXTEND from the Nth byte of value, where the bytes of value are
 // considered in LITTLE-endian order. Just a SHL followed by a SAR.
 global _sys_signextend:
     // Stack: N, value, return_info
     // Handle N >= 31, which is a no-op.
-    push 31
+    PUSH 31
     %min
     // Stack: min(31, N), value, return_info
     %increment
     %mul_const(8)
     // Stack: 8*(N + 1), value, return_info
-    push 256
-    sub
+    PUSH 256
+    SUB
     // Stack: 256 - 8*(N + 1), value, return_info
     %stack(bits, value, return_info) -> (bits, value, bits, return_info)
-    shl
-    swap1
+    SHL
+    SWAP1
     // Stack: bits, value << bits, return_info
     // fall through to sys_sar
+
 
 // SAR, i.e. shift arithmetic right, shifts `value` `shift` bits to
 // the right, preserving sign by filling with the most significant bit.
@@ -136,32 +139,34 @@ global _sys_sar:
     // replace shift with min(shift, 255)
 
     // Stack: shift, value, return_info
-    push 255
+    PUSH 255
     %min
     // Stack: min(shift, 255), value, return_info
 
     // Now assume shift < 256.
     // Stack: shift, value, return_info
-    push 0x8000000000000000000000000000000000000000000000000000000000000000
-    dup2
-    shr
+    PUSH 0x8000000000000000000000000000000000000000000000000000000000000000
+    DUP2
+    SHR
     // Stack: 2^255 >> shift, shift, value, return_info
-    swap2
+    SWAP2
     %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + value, shift, 2^255 >> shift, return_info
-    swap1
-    shr
-    sub
+    SWAP1
+    SHR
+    SUB
     // Stack: ((2^255 + value) >> shift) - (2^255 >> shift), return_info
-    swap1
-    jump
+    SWAP1
+    JUMP
+
 
 // SGT, i.e. signed greater than, returns 1 if lhs > rhs as signed
 // integers, 0 otherwise.
 //
 // Just swap argument order and fall through to signed less than.
 global _sys_sgt:
-    swap1
+    SWAP1
+
 
 // SLT, i.e. signed less than, returns 1 if lhs < rhs as signed
 // integers, 0 otherwise.
@@ -173,13 +178,13 @@ global _sys_slt:
     // Stack: lhs, rhs, return_info
     %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + lhs, rhs, return_info
-    swap1
+    SWAP1
     %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + rhs, 2^255 + lhs, return_info
-    gt
+    GT
     // Stack: 2^255 + lhs < 2^255 + rhs, return_info
-    swap1
-    jump
+    SWAP1
+    JUMP
 
 
 /// These are the global entry-points for the signed system
@@ -194,38 +199,38 @@ global _sys_slt:
 global sys_sdiv:
     %charge_gas_const(@GAS_LOW)
     %stack(x, y, kernel_return) -> (_sys_sdiv, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_smod:
     %charge_gas_const(@GAS_LOW)
     %stack(x, y, kernel_return) -> (_sys_smod, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_byte:
     %charge_gas_const(@GAS_VERYLOW)
     %stack(x, y, kernel_return) -> (_sys_byte, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_signextend:
     %charge_gas_const(@GAS_LOW)
     %stack(x, y, kernel_return) -> (_sys_signextend, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_sar:
     %charge_gas_const(@GAS_VERYLOW)
     %stack(x, y, kernel_return) -> (_sys_sar, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_slt:
     %charge_gas_const(@GAS_VERYLOW)
     %stack(x, y, kernel_return) -> (_sys_slt, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 global sys_sgt:
     %charge_gas_const(@GAS_VERYLOW)
     %stack(x, y, kernel_return) -> (_sys_sgt, x, y, _syscall_return, kernel_return)
-    jump
+    JUMP
 
 _syscall_return:
-    swap1
-    exit_kernel
+    SWAP1
+    EXIT_KERNEL
