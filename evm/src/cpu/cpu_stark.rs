@@ -96,20 +96,14 @@ fn ternops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
 // The ctl_<OPS>_rows() functions below produce the CPU table
 // corresponding to the OPS operations.
 
-pub fn ctl_add_mul_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.add, COL_MAP.op.mul])
-}
-
-pub fn ctl_sub_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.sub])
-}
-
-pub fn ctl_lt_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.lt])
-}
-
-pub fn ctl_gt_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.gt])
+pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
+    binops_table(&[
+        COL_MAP.op.add,
+        COL_MAP.op.sub,
+        COL_MAP.op.mul,
+        COL_MAP.op.lt,
+        COL_MAP.op.gt,
+    ])
 }
 
 pub fn ctl_modops_rows<F: Field>() -> TableWithColumns<F> {
