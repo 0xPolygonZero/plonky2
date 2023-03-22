@@ -7,7 +7,7 @@ use crate::cpu::kernel::interpreter::Interpreter;
 ///
 /// The result includes 0, ±1, ±2^(16i ± 1) for i = 0..15, and ±2^255
 /// and then each of those ±1. No attempt has been made to avoid
-/// duplicates.
+/// duplicates. Total length is 288.
 fn test_inputs() -> Vec<U256> {
     let mut res = vec![U256::zero(), U256::one()];
     for i in 1..16 {
@@ -141,30 +141,30 @@ fn test_sdiv() {
     let y = U256::zero().overflowing_sub(U256::one()).0; // -1
     assert_eq!(u256_sdiv(x, y), x); // SDIV(-2^255, -1) = -2^255.
 
-    run_test("sys_sdiv", u256_sdiv, "SDIV");
+    run_test("_sys_sdiv", u256_sdiv, "SDIV");
 }
 
 #[test]
 fn test_smod() {
-    run_test("sys_smod", u256_smod, "SMOD");
+    run_test("_sys_smod", u256_smod, "SMOD");
 }
 
 #[test]
 fn test_signextend() {
-    run_test("sys_signextend", u256_signextend, "SIGNEXTEND");
+    run_test("_sys_signextend", u256_signextend, "SIGNEXTEND");
 }
 
 #[test]
 fn test_sar() {
-    run_test("sys_sar", u256_sar, "SAR");
+    run_test("_sys_sar", u256_sar, "SAR");
 }
 
 #[test]
 fn test_slt() {
-    run_test("sys_slt", u256_slt, "SLT");
+    run_test("_sys_slt", u256_slt, "SLT");
 }
 
 #[test]
 fn test_sgt() {
-    run_test("sys_sgt", u256_sgt, "SGT");
+    run_test("_sys_sgt", u256_sgt, "SGT");
 }

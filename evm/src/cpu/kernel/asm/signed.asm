@@ -3,7 +3,7 @@
 // If b = 0, then SDIV(a, b) = 0,
 // else if a = -2^255 and b = -1, then SDIV(a, b) = -2^255
 // else SDIV(a, b) = sgn(a/b) * floor(|a/b|).
-global sys_sdiv:
+global _sys_sdiv:
     // stack: num, denom, return_info
     dup1
     push 0x8000000000000000000000000000000000000000000000000000000000000000
@@ -44,7 +44,6 @@ sys_sdiv_nonneg_denom:
     sub
 sys_sdiv_same_sign:
     swap1
-    //FIXME: exit_kernel
     jump
 
 
@@ -52,7 +51,7 @@ sys_sdiv_same_sign:
 //
 // If b != 0, then SMOD(a, b) = sgn(a) * MOD(|a|, |b|),
 // else SMOD(a, 0) = 0.
-global sys_smod:
+global _sys_smod:
     // stack: x, mod, return_info
     push 0x8000000000000000000000000000000000000000000000000000000000000000
     // stack: sign_bit, x, mod, return_info
@@ -84,20 +83,18 @@ sys_smod_pos_mod:
     push 0
     sub
     swap1
-    //FIXME: exit_kernel
     jump
 sys_smod_pos_x:
     // Both x and mod are non-negative
     // stack: x, mod, return_info
     mod
     swap1
-    //FIXME: exit_kernel
     jump
 
 // BYTE returns byte N of value, where N=0 corresponds to bits
 // [248,256) ... N=31 corresponds to bits [0,31); i.e. N is the Nth
 // byte of value when it is considered as BIG-endian.
-global sys_byte:
+global _sys_byte:
     // Stack: N, value, return_info
     %mul_const(8)
     // Stack:  8*N, value, return_info
@@ -106,12 +103,11 @@ global sys_byte:
     shr
     // Stack: (value << 8*N) >> 248, return_info
     swap1
-    //FIXME: exit_kernel
     jump
 
 // SIGNEXTEND from the Nth byte of value, where the bytes of value are
 // considered in LITTLE-endian order. Just a SHL followed by a SAR.
-global sys_signextend:
+global _sys_signextend:
     // Stack: N, value, return_info
     // Handle N >= 31, which is a no-op.
     push 31
@@ -135,7 +131,7 @@ global sys_signextend:
 // Trick: x >>s i = (x + sign_bit >>u i) - (sign_bit >>u i),
 //   where >>s is arithmetic shift and >>u is logical shift.
 // Reference: Hacker's Delight, 2013, 2nd edition, §2-7.
-global sys_sar:
+global _sys_sar:
     // SAR(shift, value) is the same for all shift >= 255, so we
     // replace shift with min(shift, 255)
 
@@ -158,14 +154,13 @@ global sys_sar:
     sub
     // Stack: ((2^255 + value) >> shift) - (2^255 >> shift), return_info
     swap1
-    //FIXME: exit_kernel
     jump
 
 // SGT, i.e. signed greater than, returns 1 if lhs > rhs as signed
 // integers, 0 otherwise.
 //
 // Just swap argument order and fall through to signed less than.
-global sys_sgt:
+global _sys_sgt:
     swap1
 
 // SLT, i.e. signed less than, returns 1 if lhs < rhs as signed
@@ -174,7 +169,7 @@ global sys_sgt:
 // Trick: x <s y iff (x ^ sign_bit) <u (y ^ sign bit),
 //   where <s is signed comparison and <u is unsigned comparison.
 // Reference: Hacker's Delight, 2013, 2nd edition, §2-12.
-global sys_slt:
+global _sys_slt:
     // Stack: lhs, rhs, return_info
     %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + lhs, rhs, return_info
@@ -184,5 +179,45 @@ global sys_slt:
     gt
     // Stack: 2^255 + lhs < 2^255 + rhs, return_info
     swap1
-    //FIXME: exit_kernel
     jump
+
+/// These are the global entry-points for the signed system
+/// calls. They just delegate to a subroutine with the same name
+/// preceded by an underscore.
+///
+/// NB: The only reason to structure things this way is so that the
+/// test suite can call the _sys_opcode versions, since the test_suite
+/// uses our interpreter which doesn't handle `EXIT_KERNEL` in a way
+/// that allows for easy testing. The cost is two extra JUMPs per call.
+
+global sys_sdiv:
+    %stack(x, y, kernel_return) -> (_sys_sdiv, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_smod:
+    %stack(x, y, kernel_return) -> (_sys_smod, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_byte:
+    %stack(x, y, kernel_return) -> (_sys_byte, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_signextend:
+    %stack(x, y, kernel_return) -> (_sys_signextend, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_sar:
+    %stack(x, y, kernel_return) -> (_sys_sar, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_slt:
+    %stack(x, y, kernel_return) -> (_sys_slt, x, y, syscall_return, kernel_return)
+    jump
+
+global sys_sgt:
+    %stack(x, y, kernel_return) -> (_sys_sgt, x, y, syscall_return, kernel_return)
+    jump
+
+global syscall_return:
+    swap1
+    exit_kernel
