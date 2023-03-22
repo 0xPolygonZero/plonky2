@@ -5,7 +5,7 @@ use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
-use crate::bn254_arithmetic::Fp12;
+use crate::extension_tower::{FieldExt, Fp12, BN254};
 use crate::generation::prover_input::EvmField::{
     Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
@@ -207,7 +207,7 @@ impl EvmField {
     }
 
     fn field_extension_inverse(&self, n: usize, f: [U256; 12]) -> U256 {
-        let f: Fp12 = unsafe { transmute(f) };
+        let f: Fp12<BN254> = unsafe { transmute(f) };
         let f_inv: [U256; 12] = unsafe { transmute(f.inv()) };
         f_inv[n]
     }
