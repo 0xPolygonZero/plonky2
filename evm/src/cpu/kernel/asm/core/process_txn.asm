@@ -179,8 +179,14 @@ global process_message_txn_code_loaded:
     %non_intrinisic_gas %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
-    // TODO: Copy TXN_DATA to CALLDATA
+    // Set calldatasize and copy txn data to calldata.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
+    %set_new_ctx_calldata_size
+    %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
+    %jump(memcpy)
 
+process_message_txn_code_loaded_finish:
     %enter_new_ctx
     // (Old context) stack: new_ctx, retdest
 
