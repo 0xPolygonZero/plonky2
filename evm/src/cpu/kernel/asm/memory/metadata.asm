@@ -201,7 +201,7 @@ global sys_basefee:
     // stack: old_num_words, num_words, kexit_info
     DUP2 DUP2 GT
     // stack: old_num_words > num_words, old_num_words, num_words, kexit_info
-    %jumpi(%%end)
+    %jumpi(%%no_update)
     // stack: old_num_words, num_words, kexit_info
     %memory_cost
     // stack: old_cost, num_words, kexit_info
@@ -214,6 +214,10 @@ global sys_basefee:
     SUB
     // stack: additional_cost, kexit_info
     %charge_gas
+    %jump(%%end)
+%%no_update:
+    // stack: old_num_words, num_words, kexit_info
+    %pop2
 %%end:
     // stack: kexit_info
 %endmacro
