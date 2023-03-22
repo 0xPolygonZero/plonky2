@@ -407,9 +407,9 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn offset_name(&self) -> String {
-        KERNEL.offset_name(self.generation_state.registers.program_counter)
-    }
+    // fn offset_name(&self) -> String {
+    //     KERNEL.offset_name(self.generation_state.registers.program_counter)
+    // }
 
     fn offset_label(&self) -> Option<String> {
         KERNEL.offset_label(self.generation_state.registers.program_counter)
