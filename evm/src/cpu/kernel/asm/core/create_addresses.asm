@@ -34,15 +34,28 @@ global get_create_address:
 
 // Computes the address for a contract based on the CREATE2 rule, i.e.
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
-//
+// Clobbers @SEGMENT_KERNEL_GENERAL.
 // Pre stack: sender, salt, code_hash, retdest
 // Post stack: address
 global get_create2_address:
     // stack: sender, salt, code_hash, retdest
-    // TODO: Replace with actual implementation.
-    %pop3
-    PUSH 123
+    PUSH 0xff PUSH 0 %mstore_kernel_general
+    %stack (sender, salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 1, sender, 20, get_create2_address_contd, salt, code_hash, retdest)
+    %jump(mstore_unpacking)
+global get_create2_address_contd:
+    POP
+    %stack (salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 21, salt, 32, get_create2_address_contd2, code_hash, retdest)
+    %jump(mstore_unpacking)
+global get_create2_address_contd2:
+    POP
+    %stack (code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 53, code_hash, 32, get_create2_address_finish, retdest)
+    %jump(mstore_unpacking)
+global get_create2_address_finish:
+    POP
+    %stack (retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 85, retdest) // context, segment, offset, len
+    KECCAK_GENERAL
     // stack: address, retdest
+    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
     %observe_new_address
     SWAP1
     JUMP
