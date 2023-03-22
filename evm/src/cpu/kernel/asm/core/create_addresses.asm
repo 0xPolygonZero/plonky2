@@ -42,15 +42,15 @@ global get_create2_address:
     PUSH 0xff PUSH 0 %mstore_kernel_general
     %stack (sender, salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 1, sender, 20, get_create2_address_contd, salt, code_hash, retdest)
     %jump(mstore_unpacking)
-global get_create2_address_contd:
+get_create2_address_contd:
     POP
     %stack (salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 21, salt, 32, get_create2_address_contd2, code_hash, retdest)
     %jump(mstore_unpacking)
-global get_create2_address_contd2:
+get_create2_address_contd2:
     POP
     %stack (code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 53, code_hash, 32, get_create2_address_finish, retdest)
     %jump(mstore_unpacking)
-global get_create2_address_finish:
+get_create2_address_finish:
     POP
     %stack (retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 85, retdest) // context, segment, offset, len
     KECCAK_GENERAL
