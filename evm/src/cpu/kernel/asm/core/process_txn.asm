@@ -50,23 +50,76 @@ global process_based_on_type:
 
 global process_contract_creation_txn:
     // stack: retdest
-    PUSH process_contract_creation_txn_after_create
-    // stack: process_contract_creation_txn_after_create, retdest
-    %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: code_len, process_contract_creation_txn_after_create, retdest
-    PUSH 0
-    // stack: code_offset, code_len, process_contract_creation_txn_after_create, retdest
-    PUSH @SEGMENT_TXN_DATA
-    // stack: code_segment, code_offset, code_len, process_contract_creation_txn_after_create, retdest
-    PUSH 0 // context
-    // stack: CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
+
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: origin, retdest
+    DUP1 %nonce
+    // stack: origin_nonce, origin, retdest
+    SWAP1
+    // stack: origin, origin_nonce, retdest
+    %get_create_address
+    // stack: address, retdest
+
+    // Deduct value from caller.
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    // stack: sender, endowment, CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
-    %jump(create)
+    %deduct_eth
+    // stack: deduct_eth_status, address, retdest
+    %jumpi(panic)
+    // stack: address, retdest
 
-global process_contract_creation_txn_after_create:
-    // stack: new_address, retdest
+    // Write the new account's data to MPT data, and get a pointer to it.
+    %get_trie_data_size
+    // stack: account_ptr, address, retdest
+    PUSH 1 %append_to_trie_data // nonce = 1
+    // stack: account_ptr, address, retdest
+    DUP2 %balance %mload_txn_field(@TXN_FIELD_VALUE) ADD %append_to_trie_data // balance = old_balance + txn_value
+    // stack: account_ptr, address, retdest
+    PUSH 0 %append_to_trie_data // storage_root = nil
+    // stack: account_ptr, address, retdest
+    PUSH @EMPTY_STRING_HASH %append_to_trie_data // code_hash = keccak('')
+    // stack: account_ptr, address, retdest
+    DUP2
+    // stack: address, account_ptr, address, retdest
+    %mpt_insert_state_trie
+    // stack: address, retdest
+
+    %create_context
+    // stack: new_ctx, address, retdest
+
+    // Copy the code from txdata to the new context's code segment.
+    PUSH process_contract_creation_txn_after_code_loaded
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    PUSH 0 // SRC.offset
+    PUSH @SEGMENT_TXN_DATA // SRC.segment
+    PUSH 0 // SRC.context
+    PUSH 0 // DST.offset
+    PUSH @SEGMENT_CODE // DST.segment
+    DUP7 // DST.context = new_ctx
+    %jump(memcpy)
+
+process_contract_creation_txn_after_code_loaded:
+    // stack: new_ctx, address, retdest
+
+    // Each line in the block below does not change the stack.
+    DUP2 %set_new_ctx_addr
+    %mload_txn_field(@TXN_FIELD_ORIGIN) %set_new_ctx_caller
+    %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
+    %set_new_ctx_parent_ctx
+    %set_new_ctx_parent_pc(process_contract_creation_txn_after_constructor)
+    %non_intrinisic_gas %set_new_ctx_gas_limit
+    // stack: new_ctx, address, retdest
+
+    %enter_new_ctx
+    // (Old context) stack: new_ctx, address, retdest
+
+global process_contract_creation_txn_after_constructor:
+    // stack: success, leftover_gas, new_ctx, address, retdest
+    POP // TODO: Success will go into the receipt when we support that.
+    // stack: leftover_gas, new_ctx, address, retdest
+    %pay_coinbase_and_refund_sender
+    // stack: new_ctx, address, retdest
+    POP
     POP
     JUMP
 
@@ -105,9 +158,8 @@ global process_message_txn_insufficient_balance:
 
 global process_message_txn_return:
     // stack: retdest
-    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
-    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    SUB
+    // Since no code was executed, the leftover gas is the non-intrinsic gas.
+    %non_intrinisic_gas
     // stack: leftover_gas, retdest
     %pay_coinbase_and_refund_sender
     // stack: retdest
@@ -124,18 +176,13 @@ global process_message_txn_code_loaded:
     %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(process_message_txn_after_call)
-    // stack: new_ctx, retdest
-
-    // The gas provided to the callee is gas_limit - intrinsic_gas.
-    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
-    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    SUB
-    %set_new_ctx_gas_limit
+    %non_intrinisic_gas %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
     // TODO: Copy TXN_DATA to CALLDATA
 
     %enter_new_ctx
+    // (Old context) stack: new_ctx, retdest
 
 global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
@@ -205,4 +252,12 @@ global process_message_txn_after_call:
     %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
     %mstore_txn_field(@TXN_FIELD_COMPUTED_PRIORITY_FEE_PER_GAS)
     // stack: (empty)
+%endmacro
+
+%macro non_intrinisic_gas
+    // stack: (empty)
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    // stack: gas_limit - intrinsic_gas
 %endmacro

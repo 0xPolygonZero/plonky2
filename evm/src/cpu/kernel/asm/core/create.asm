@@ -1,3 +1,7 @@
+// TODO: This file needs to be cleaned up.
+// `create` is no longer being used for contract-creation txns,
+// so it can be inlined. Also need to set metadata on new ctx.
+
 // The CREATE syscall.
 //
 // Pre stack: kexit_info, value, code_offset, code_len
@@ -24,8 +28,8 @@ sys_create_finish:
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create:
     // stack: sender, endowment, CODE_ADDR, code_len, retdest
-    // TODO: Charge gas.
-    DUP1 %get_nonce
+    DUP1 %nonce
+
     // stack: nonce, sender, endowment, CODE_ADDR, code_len, retdest
     // Call get_create_address and have it return to create_inner.
     %stack (nonce, sender)
@@ -67,12 +71,14 @@ sys_create2_finish:
 // Pre stack: address, sender, endowment, CODE_ADDR, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
-create_inner:
+global create_inner:
     // stack: address, sender, endowment, CODE_ADDR, code_len, retdest
     %stack (address, sender, endowment)
         -> (sender, address, endowment, sender, address)
-    // TODO: Need to handle insufficient balance failure.
+
     %transfer_eth
+    // stack: transfer_eth_status, sender, address, CODE_ADDR, code_len, retdest
+    %jumpi(fault_exception)
     // stack: sender, address, CODE_ADDR, code_len, retdest
 
     %increment_nonce
