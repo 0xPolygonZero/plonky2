@@ -8,11 +8,11 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
-use crate::extension_tower::BN_BASE;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
+use crate::extension_tower::BN_BASE;
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
