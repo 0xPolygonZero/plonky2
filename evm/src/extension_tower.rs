@@ -370,8 +370,13 @@ impl<T: FieldExt> Div for Fp2<T> {
     }
 }
 
-/// Helper function which multiplies by the Fp2 element
-/// whose cube root we will adjoin in the next extension
+/// This trait defines the method which multiplies 
+/// by the Fp2 element t^3 whose cube root we will 
+/// adjoin in the subsequent cubic extension.
+/// For BN254 this is 9+i, and for BLS381 it is 1+i.
+/// It also defines the relevant FROB constants,
+/// given by t^(p^n) and t^(p^2n) for various n,
+/// used to compute the frobenius operations.
 pub trait Adj: Sized {
     fn mul_adj(self) -> Self;
     const FROB_T: [[Self; 6]; 2];
