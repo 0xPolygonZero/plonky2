@@ -1,22 +1,35 @@
+// TODO: This file needs to be cleaned up.
+// `create` is no longer being used for contract-creation txns,
+// so it can be inlined. Also need to set metadata on new ctx.
+
 // The CREATE syscall.
 //
-// Pre stack: value, CODE_ADDR, code_len, retdest
+// Pre stack: kexit_info, value, code_offset, code_len
 // Post stack: address
 global sys_create:
+    // TODO: Charge gas.
+    %stack (kexit_info, value, code_offset, code_len)
+        -> (value, 0, @SEGMENT_MAIN_MEMORY, code_offset, code_len)
     %address
+    // stack: sender, value, CODE_ADDR: 3, code_len, sys_create_finish, kexit_info
     %jump(create)
+sys_create_finish:
+    // stack: address, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 // Create a new contract account with the traditional address scheme, i.e.
 //     address = KEC(RLP(sender, nonce))[12:]
 // This can be used both for the CREATE instruction and for contract-creation
 // transactions.
 //
-// Pre stack: sender, endowment, CODE_ADDR, code_len, retdest
+// Pre stack: sender, endowment, CODE_ADDR: 3, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create:
     // stack: sender, endowment, CODE_ADDR, code_len, retdest
-    DUP1 %get_nonce
+    DUP1 %nonce
+
     // stack: nonce, sender, endowment, CODE_ADDR, code_len, retdest
     // Call get_create_address and have it return to create_inner.
     %stack (nonce, sender)
@@ -26,30 +39,46 @@ global create:
 // CREATE2; see EIP-1014. Address will be
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
 //
-// Pre stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
+// Pre stack: kexit_info, value, code_offset, code_len, salt
 // Post stack: address
-// Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global sys_create2:
-    // stack: sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
-    DUP7 DUP7 DUP7 DUP7 // CODE_ADDR: 3, code_len
+    // stack: kexit_info, value, code_offset, code_len, salt
+    // TODO: Charge gas.
+    SWAP4
+    %stack (salt) -> (salt, sys_create2_got_address)
+    // stack: salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
+    DUP4 // code_len
+    DUP4 // code_offset
+    PUSH @SEGMENT_MAIN_MEMORY
+    PUSH 0 // context
     KECCAK_GENERAL
-    // stack: code_hash, sender, endowment, salt, CODE_ADDR: 3, code_len, retdest
-
-    // Call get_create2_address and have it return to create_inner.
-    %stack (code_hash, sender, endowment, salt)
-        -> (sender, salt, code_hash, create_inner, sender, endowment)
-    // stack: sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
+    // stack: hash, salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
+    %address
+    // stack: sender, hash, salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
     %jump(get_create2_address)
+sys_create2_got_address:
+    // stack: address, value, code_offset, code_len, kexit_info
+    %address
+    %stack (sender, address, value, code_offset, code_len, kexit_info)
+        -> (address, sender, value, 0, @SEGMENT_MAIN_MEMORY, code_offset, code_len,
+            sys_create2_finish, kexit_info)
+    %jump(create_inner)
+sys_create2_finish:
+    // stack: address, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 // Pre stack: address, sender, endowment, CODE_ADDR, code_len, retdest
 // Post stack: address
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
-create_inner:
+global create_inner:
     // stack: address, sender, endowment, CODE_ADDR, code_len, retdest
     %stack (address, sender, endowment)
         -> (sender, address, endowment, sender, address)
-    // TODO: Need to handle insufficient balance failure.
+
     %transfer_eth
+    // stack: transfer_eth_status, sender, address, CODE_ADDR, code_len, retdest
+    %jumpi(fault_exception)
     // stack: sender, address, CODE_ADDR, code_len, retdest
 
     %increment_nonce

@@ -309,9 +309,9 @@
     BYTE
     %shl_const(24)
     // stack:  d000, b0, a, c00
-    OR 
-    OR
-    OR
+    ADD // OR
+    ADD // OR
+    ADD // OR
     // stack:              dcba
 %endmacro
 
@@ -332,7 +332,7 @@
     %reverse_bytes_u32
     // stack: word_lo_inverted, word_hi_inverted
     %shl_const(32)
-    OR
+    ADD // OR
     // stack: word_inverted
 %endmacro
 
@@ -341,28 +341,7 @@
     // stack: a, b, c, d
     %rep 3
         %shl_const(64)
-        OR
+        ADD // OR
     %endrep
     // stack: a || b || c || d
-%endmacro
-
-// Charge gas.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns:
-//   new syscall info
-%macro charge_gas
-    %shl_const(192)
-    ADD
-%endmacro
-
-// Charge gas and exit kernel code.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns: nothing
-%macro charge_gas_and_exit
-    %charge_gas
-    EXIT_KERNEL
 %endmacro

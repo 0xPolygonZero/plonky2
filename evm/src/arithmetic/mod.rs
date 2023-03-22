@@ -1,7 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
-use crate::bn254_arithmetic::BN_BASE;
+use crate::extension_tower::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
 mod addcy;

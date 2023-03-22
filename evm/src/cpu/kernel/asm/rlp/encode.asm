@@ -196,66 +196,65 @@ encode_rlp_list_prefix_large_done_writing_len:
 %%after:
 %endmacro
 
-// Given an RLP list payload which starts at position 9 and ends at the given
-// position, prepend the appropriate RLP list prefix. Returns the updated start
-// position, as well as the length of the RLP data (including the newly-added
-// prefix).
+// Given an RLP list payload which starts and ends at the given positions,
+// prepend the appropriate RLP list prefix. Returns the updated start position,
+// as well as the length of the RLP data (including the newly-added prefix).
 //
-// (We sometimes start list payloads at position 9 because 9 is the length of
-// the longest possible RLP list prefix.)
-//
-// Pre stack: end_pos, retdest
-// Post stack: start_pos, rlp_len
+// Pre stack: end_pos, start_pos, retdest
+// Post stack: prefix_start_pos, rlp_len
 global prepend_rlp_list_prefix:
-    // stack: end_pos, retdest
-    // Since the list payload starts at position 9, payload_len = end_pos - 9.
-    PUSH 9 DUP2 SUB
-    // stack: payload_len, end_pos, retdest
+    // stack: end_pos, start_pos, retdest
+    DUP2 DUP2 SUB // end_pos - start_pos
+    // stack: payload_len, end_pos, start_pos, retdest
     DUP1 %gt_const(55)
     %jumpi(prepend_rlp_list_prefix_big)
 
     // If we got here, we have a small list, so we prepend 0xc0 + len at position 8.
-    // stack: payload_len, end_pos, retdest
-    %add_const(0xc0)
-    // stack: prefix_byte, end_pos, retdest
-    PUSH 8 // offset
+    // stack: payload_len, end_pos, start_pos, retdest
+    DUP1 %add_const(0xc0)
+    // stack: prefix_byte, payload_len, end_pos, start_pos, retdest
+    DUP4 %decrement // offset of prefix
     %mstore_rlp
-    // stack: end_pos, retdest
-    %sub_const(8)
-    // stack: rlp_len, retdest
-    PUSH 8 // start_pos
-    %stack (start_pos, rlp_len, retdest) -> (retdest, start_pos, rlp_len)
+    // stack: payload_len, end_pos, start_pos, retdest
+    %increment
+    // stack: rlp_len, end_pos, start_pos, retdest
+    SWAP2 %decrement
+    // stack: prefix_start_pos, end_pos, rlp_len, retdest
+    %stack (prefix_start_pos, end_pos, rlp_len, retdest) -> (retdest, prefix_start_pos, rlp_len)
     JUMP
 
 prepend_rlp_list_prefix_big:
     // We have a large list, so we prepend 0xf7 + len_of_len at position
-    // 8 - len_of_len, followed by the length itself.
-    // stack: payload_len, end_pos, retdest
+    //     prefix_start_pos = start_pos - 1 - len_of_len
+    // followed by the length itself.
+    // stack: payload_len, end_pos, start_pos, retdest
     DUP1 %num_bytes
-    // stack: len_of_len, payload_len, end_pos, retdest
+    // stack: len_of_len, payload_len, end_pos, start_pos, retdest
     DUP1
-    PUSH 8
+    DUP5 %decrement // start_pos - 1
     SUB
-    // stack: start_pos, len_of_len, payload_len, end_pos, retdest
-    DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[start_pos] = 0xf7 + len_of_len
-    DUP1 %increment // start_len_pos = start_pos + 1
-    %stack (start_len_pos, start_pos, len_of_len, payload_len, end_pos, retdest)
+    // stack: prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest
+    DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[prefix_start_pos] = 0xf7 + len_of_len
+    // stack: prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest
+    DUP1 %increment // start_len_pos = prefix_start_pos + 1
+    %stack (start_len_pos, prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest)
         -> (start_len_pos, payload_len, len_of_len,
             prepend_rlp_list_prefix_big_done_writing_len,
-            start_pos, end_pos, retdest)
+            prefix_start_pos, end_pos, retdest)
     %jump(mstore_unpacking_rlp)
 prepend_rlp_list_prefix_big_done_writing_len:
-    // stack: 9, start_pos, end_pos, retdest
-    %stack (_9, start_pos, end_pos) -> (end_pos, start_pos, start_pos)
-    // stack: end_pos, start_pos, start_pos, retdest
+    // stack: start_pos, prefix_start_pos, end_pos, retdest
+    %stack (start_pos, prefix_start_pos, end_pos)
+        -> (end_pos, prefix_start_pos, prefix_start_pos)
+    // stack: end_pos, prefix_start_pos, prefix_start_pos, retdest
     SUB
-    // stack: rlp_len, start_pos, retdest
-    %stack (rlp_len, start_pos, retdest) -> (retdest, start_pos, rlp_len)
+    // stack: rlp_len, prefix_start_pos, retdest
+    %stack (rlp_len, prefix_start_pos, retdest) -> (retdest, prefix_start_pos, rlp_len)
     JUMP
 
 // Convenience macro to call prepend_rlp_list_prefix and return where we left off.
 %macro prepend_rlp_list_prefix
-    %stack (end_pos) -> (end_pos, %%after)
+    %stack (end_pos, start_pos) -> (end_pos, start_pos, %%after)
     %jump(prepend_rlp_list_prefix)
 %%after:
 %endmacro

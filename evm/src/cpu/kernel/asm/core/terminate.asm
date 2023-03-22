@@ -20,6 +20,7 @@ global sys_return:
 
 global sys_selfdestruct:
     // stack: kexit_info
+    // TODO: Charge gas.
     %consume_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas
@@ -37,7 +38,7 @@ global sys_revert:
     PUSH 0 // success
     %jump(terminate_common)
 
-// The execution is in an exceptional halt-ing state if
+// The execution is in an exceptional halting state if
 // - there is insufficient gas
 // - the instruction is invalid
 // - there are insufficient stack items
@@ -96,6 +97,15 @@ global terminate_common:
     %shr_const(192)
     // stack: gas_used
     %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
+    // stack: gas_limit, gas_used
+    SWAP1
+    // stack: gas_used, gas_limit
+    DUP2 DUP2 LT
+    // stack: gas_used < gas_limit, gas_used, gas_limit
+    SWAP2
+    // stack: gas_limit, gas_used, gas_used < gas_limit
     SUB
-    // stack: leftover_gas
+    // stack: gas_limit - gas_used, gas_used < gas_limit
+    MUL
+    // stack: leftover_gas = (gas_limit - gas_used) * (gas_used < gas_limit)
 %endmacro

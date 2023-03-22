@@ -8,8 +8,7 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
-use crate::bls381_arithmetic::{Fp381, BLS_BASE};
-use crate::bn254_arithmetic::BN_BASE;
+use crate::extension_tower::BN_BASE;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -189,6 +188,12 @@ impl<'a> Interpreter<'a> {
         &mut self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
+    pub(crate) fn get_memory_segment(&self, segment: Segment) -> Vec<U256> {
+        self.generation_state.memory.contexts[0].segments[segment as usize]
+            .content
+            .clone()
+    }
+
     pub(crate) fn get_memory_segment_bytes(&self, segment: Segment) -> Vec<u8> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
@@ -197,8 +202,20 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
+    pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
+        self.get_memory_segment(Segment::KernelGeneral)
+    }
+
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
         self.get_memory_segment_bytes(Segment::RlpRaw)
+    }
+
+    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
+    }
+
+    pub(crate) fn set_kernel_general_memory(&mut self, memory: Vec<U256>) {
+        self.set_memory_segment(Segment::KernelGeneral, memory)
     }
 
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
@@ -280,6 +297,7 @@ impl<'a> Interpreter<'a> {
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
+
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
             0x01 => self.run_add(),                                     // "ADD",
@@ -357,7 +375,7 @@ impl<'a> Interpreter<'a> {
             0xa2 => todo!(),                                            // "LOG2",
             0xa3 => todo!(),                                            // "LOG3",
             0xa4 => todo!(),                                            // "LOG4",
-            0xa5 => bail!("Executed PANIC"),                            // "PANIC",
+            0xa5 => bail!("Executed PANIC, stack={:?}", self.stack()),  // "PANIC",
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
@@ -437,51 +455,6 @@ impl<'a> Interpreter<'a> {
         let y = self.pop() % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
         self.push((x + (BN_BASE - y)) % BN_BASE);
-    }
-
-    #[allow(dead_code)]
-    fn run_addfp381(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (x + y) % BLS_BASE;
-
-        self.push(U256(z.0[4..].try_into().unwrap()));
-        self.push(U256(z.0[..4].try_into().unwrap()));
-    }
-
-    #[allow(dead_code)]
-    fn run_mulfp381(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (Fp381 { val: x } * Fp381 { val: y }).val;
-
-        self.push(U256(z.0[4..].try_into().unwrap()));
-        self.push(U256(z.0[..4].try_into().unwrap()));
-    }
-
-    #[allow(dead_code)]
-    fn run_subfp381(&mut self) {
-        let x1 = self.pop();
-        let x0 = self.pop();
-        let y1 = self.pop();
-        let y0 = self.pop();
-
-        let x = U512::from(x0) + (U512::from(x1) << 256);
-        let y = U512::from(y0) + (U512::from(y1) << 256);
-        let z = (BLS_BASE + x - y) % BLS_BASE;
-
-        self.push(U256(z.0[4..].try_into().unwrap()));
-        self.push(U256(z.0[..4].try_into().unwrap()));
     }
 
     fn run_div(&mut self) {
@@ -754,7 +727,7 @@ impl<'a> Interpreter<'a> {
         self.push(
             self.generation_state.memory.contexts[self.context].segments
                 [Segment::ContextMetadata as usize]
-                .get(ContextMetadata::MSize as usize),
+                .get(ContextMetadata::MemWords as usize),
         )
     }
 
