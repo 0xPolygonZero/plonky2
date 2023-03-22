@@ -1,18 +1,6 @@
 // Labels for unimplemented syscalls to make the kernel assemble.
 // Each label should be removed from this file once it is implemented.
 
-global sys_sdiv:
-    PANIC
-global sys_smod:
-    PANIC
-global sys_signextend:
-    PANIC
-global sys_slt:
-    PANIC
-global sys_sgt:
-    PANIC
-global sys_sar:
-    PANIC
 global sys_balance:
     PANIC
 global sys_origin:

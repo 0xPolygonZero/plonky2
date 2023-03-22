@@ -2,11 +2,11 @@
 //
 // If b = 0, then SDIV(a, b) = 0,
 // else if a = -2^255 and b = -1, then SDIV(a, b) = -2^255
-// eles SDIV(a, b) = sgn(a/b) * floor(|a/b|).
+// else SDIV(a, b) = sgn(a/b) * floor(|a/b|).
 global sys_sdiv:
     // stack: num, denom, return_info
     dup1
-    push @TOP_BIT_MASK@
+    push 0x8000000000000000000000000000000000000000000000000000000000000000
     gt
     // stack: num_is_nonneg := sign_bit > num, num, denom, return_info
     dup1
@@ -20,16 +20,16 @@ global sys_sdiv:
 sys_sdiv_nonneg_num:
     swap2
     dup1
-    push @TOP_BIT_MASK@
+    push 0x8000000000000000000000000000000000000000000000000000000000000000
     gt
     // stack: denom_is_nonneg := sign_bit > denom, denom, num, num_is_nonneg, return_info
     dup1
     %jumpi(sys_sdiv_nonneg_denom)
-    // stack: denom_is_nonneg, denom, num_is_nonneg, num, return_info
+    // stack: denom_is_nonneg, denom, num, num_is_nonneg, return_info
     swap1
     push 0
     sub
-    // stack: denom := -denom, denom_is_nonneg, num_is_nonneg, num, return_info
+    // stack: denom := -denom, denom_is_nonneg, num, num_is_nonneg, return_info
     swap1
 sys_sdiv_nonneg_denom:
     // stack: denom_is_nonneg, denom, num, num_is_nonneg, return_info
@@ -43,7 +43,9 @@ sys_sdiv_nonneg_denom:
     push 0
     sub
 sys_sdiv_same_sign:
-    exit_kernel
+    swap1
+    //FIXME: exit_kernel
+    jump
 
 
 // SMOD(a, b): signed "modulo remainder" operation.
@@ -52,7 +54,7 @@ sys_sdiv_same_sign:
 // else SMOD(a, 0) = 0.
 global sys_smod:
     // stack: x, mod, return_info
-    push @TOP_BIT_MASK@
+    push 0x8000000000000000000000000000000000000000000000000000000000000000
     // stack: sign_bit, x, mod, return_info
     dup1
     dup4
@@ -82,13 +84,15 @@ sys_smod_pos_mod:
     push 0
     sub
     swap1
-    exit_kernel
+    //FIXME: exit_kernel
+    jump
 sys_smod_pos_x:
     // Both x and mod are non-negative
     // stack: x, mod, return_info
     mod
     swap1
-    exit_kernel
+    //FIXME: exit_kernel
+    jump
 
 // BYTE returns byte N of value, where N=0 corresponds to bits
 // [248,256) ... N=31 corresponds to bits [0,31); i.e. N is the Nth
@@ -102,7 +106,8 @@ global sys_byte:
     shr
     // Stack: (value << 8*N) >> 248, return_info
     swap1
-    exit_kernel
+    //FIXME: exit_kernel
+    jump
 
 // SIGNEXTEND from the Nth byte of value, where the bytes of value are
 // considered in LITTLE-endian order. Just a SHL followed by a SAR.
@@ -110,8 +115,8 @@ global sys_signextend:
     // Stack: N, value, return_info
     // Handle N >= 31, which is a no-op.
     push 31
-    %max
-    // Stack: max(31, N), value, return_info
+    %min
+    // Stack: min(31, N), value, return_info
     %increment
     %mul_const(8)
     // Stack: 8*(N + 1), value, return_info
@@ -141,19 +146,20 @@ global sys_sar:
 
     // Now assume shift < 256.
     // Stack: shift, value, return_info
-    push @TOP_BIT_MASK@
+    push 0x8000000000000000000000000000000000000000000000000000000000000000
     dup2
     shr
     // Stack: 2^255 >> shift, shift, value, return_info
     swap2
-    %add_const(@TOP_BIT_MASK@)
+    %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + value, shift, 2^255 >> shift, return_info
     swap1
     shr
     sub
     // Stack: ((2^255 + value) >> shift) - (2^255 >> shift), return_info
     swap1
-    exit_kernel
+    //FIXME: exit_kernel
+    jump
 
 // SGT, i.e. signed greater than, returns 1 if lhs > rhs as signed
 // integers, 0 otherwise.
@@ -170,12 +176,13 @@ global sys_sgt:
 // Reference: Hacker's Delight, 2013, 2nd edition, §2-12.
 global sys_slt:
     // Stack: lhs, rhs, return_info
-    %add_const(@TOP_BIT_MASK@)
+    %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + lhs, rhs, return_info
     swap1
-    %add_const(@TOP_BIT_MASK@)
+    %add_const(0x8000000000000000000000000000000000000000000000000000000000000000)
     // Stack: 2^255 + rhs, 2^255 + lhs, return_info
     gt
     // Stack: 2^255 + lhs < 2^255 + rhs, return_info
     swap1
-    exit_kernel
+    //FIXME: exit_kernel
+    jump

@@ -8,6 +8,7 @@ mod hash;
 mod mpt;
 mod packing;
 mod rlp;
+mod signed_syscalls;
 mod transaction_parsing;
 
 use std::str::FromStr;
