@@ -35,7 +35,7 @@ global get_create_address:
 // Computes the address for a contract based on the CREATE2 rule, i.e.
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
 // Clobbers @SEGMENT_KERNEL_GENERAL.
-// Pre stack: sender, salt, code_hash, retdest
+// Pre stack: sender, code_hash, salt, retdest
 // Post stack: address
 global get_create2_address:
     // stack: sender, code_hash, salt, retdest
