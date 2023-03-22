@@ -47,10 +47,10 @@ global sys_create2:
     SWAP4
     %stack (salt) -> (salt, sys_create2_got_address)
     // stack: salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
-    DUP4 // code_len
-    DUP4 // code_offset
+    DUP5 // code_len
+    DUP5 // code_offset
     PUSH @SEGMENT_MAIN_MEMORY
-    PUSH 0 // context
+    GET_CONTEXT
     KECCAK_GENERAL
     // stack: hash, salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
     %address
