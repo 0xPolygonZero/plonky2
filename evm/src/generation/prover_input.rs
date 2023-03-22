@@ -60,19 +60,25 @@ impl<F: Field> GenerationState<F> {
     /// Special finite field operations.
     fn run_sf(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
-        let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
-        let xs: [U256; 4] = match field {
+        let inputs: [U256; 4] = match field {
             Bn254Base => {
-                let mut xs: [U256; 4] = [U256::zero(); 4];
+                let mut inputs: [U256; 4] = [U256::zero(); 4];
                 for i in 0..4 {
-                    xs[i] = kernel_peek(self, BnPairing, ptr + i);
+                    inputs[i] = stack_peek(self, i).expect("Empty stack");
                 }
-                xs
+                inputs
             }
             _ => todo!(),
         };
-        field.op(op, xs)
+        match input_fn.0[2].as_str() {
+            "add_lo" => field.add_lo(inputs),
+            "add_hi" => field.add_hi(inputs),
+            "mul_lo" => field.mul_lo(inputs),
+            "mul_hi" => field.mul_hi(inputs),
+            "sub_lo" => field.sub_lo(inputs),
+            "sub_hi" => field.sub_hi(inputs),
+            _ => todo!(),
+        }
     }
 
     /// Finite field extension operations.
