@@ -181,6 +181,7 @@ global _sys_slt:
     swap1
     jump
 
+
 /// These are the global entry-points for the signed system
 /// calls. They just delegate to a subroutine with the same name
 /// preceded by an underscore.
@@ -191,33 +192,40 @@ global _sys_slt:
 /// that allows for easy testing. The cost is two extra JUMPs per call.
 
 global sys_sdiv:
-    %stack(x, y, kernel_return) -> (_sys_sdiv, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_LOW)
+    %stack(x, y, kernel_return) -> (_sys_sdiv, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_smod:
-    %stack(x, y, kernel_return) -> (_sys_smod, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_LOW)
+    %stack(x, y, kernel_return) -> (_sys_smod, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_byte:
-    %stack(x, y, kernel_return) -> (_sys_byte, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_VERYLOW)
+    %stack(x, y, kernel_return) -> (_sys_byte, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_signextend:
-    %stack(x, y, kernel_return) -> (_sys_signextend, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_LOW)
+    %stack(x, y, kernel_return) -> (_sys_signextend, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_sar:
-    %stack(x, y, kernel_return) -> (_sys_sar, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_VERYLOW)
+    %stack(x, y, kernel_return) -> (_sys_sar, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_slt:
-    %stack(x, y, kernel_return) -> (_sys_slt, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_VERYLOW)
+    %stack(x, y, kernel_return) -> (_sys_slt, x, y, _syscall_return, kernel_return)
     jump
 
 global sys_sgt:
-    %stack(x, y, kernel_return) -> (_sys_sgt, x, y, syscall_return, kernel_return)
+    %charge_gas_const(@GAS_VERYLOW)
+    %stack(x, y, kernel_return) -> (_sys_sgt, x, y, _syscall_return, kernel_return)
     jump
 
-global syscall_return:
+_syscall_return:
     swap1
     exit_kernel
