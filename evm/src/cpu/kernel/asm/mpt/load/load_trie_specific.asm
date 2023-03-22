@@ -37,4 +37,7 @@ global mpt_load_receipt_trie_value:
 
 global mpt_load_storage_trie_value:
     // stack: retdest
-    PANIC // TODO
+    PROVER_INPUT(mpt)
+    %append_to_trie_data
+    // stack: retdest
+    JUMP
