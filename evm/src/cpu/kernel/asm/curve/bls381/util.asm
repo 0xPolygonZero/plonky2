@@ -45,9 +45,9 @@ global test_add_fp381:
     %jump(0xdeadbeef)
 
 global test_mul_fp381:
-    %add_fp381
+    %mul_fp381
     %jump(0xdeadbeef)
 
 global test_sub_fp381:
-    %add_fp381
+    %sub_fp381
     %jump(0xdeadbeef)

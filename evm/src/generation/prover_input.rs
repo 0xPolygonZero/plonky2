@@ -61,7 +61,7 @@ impl<F: Field> GenerationState<F> {
     fn run_sf(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
         let inputs: [U256; 4] = match field {
-            Bn254Base => {
+            Bls381Base => {
                 let mut inputs: [U256; 4] = [U256::zero(); 4];
                 for i in 0..4 {
                     inputs[i] = stack_peek(self, i).expect("Empty stack");
