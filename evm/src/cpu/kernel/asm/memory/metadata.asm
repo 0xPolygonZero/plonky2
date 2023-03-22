@@ -104,6 +104,97 @@ global sys_msize:
     SWAP1
     EXIT_KERNEL
 
+%macro calldatasize
+    %mload_context_metadata(@CTX_METADATA_CALLDATA_SIZE)
+%endmacro
+
+global sys_calldatasize:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %calldatasize
+    // stack: calldatasize, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro returndatasize
+    %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+%endmacro
+
+global sys_returndatasize:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %returndatasize
+    // stack: returndatasize, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro coinbase
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
+%endmacro
+
+global sys_coinbase:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %coinbase
+    // stack: coinbase, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro timestamp
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_TIMESTAMP)
+%endmacro
+
+global sys_timestamp:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %timestamp
+    // stack: timestamp, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro blocknumber
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_NUMBER)
+%endmacro
+
+global sys_number:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blocknumber
+    // stack: blocknumber, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro blockgaslimit
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_LIMIT)
+%endmacro
+
+global sys_gaslimit:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blockgaslimit
+    // stack: blockgaslimit, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+%macro basefee
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
+%endmacro
+
+global sys_basefee:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %basefee
+    // stack: basefee, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 %macro update_mem_words
     // stack: num_words, kexit_info
     %mem_words

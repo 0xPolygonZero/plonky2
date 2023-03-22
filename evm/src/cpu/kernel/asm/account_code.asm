@@ -55,12 +55,6 @@ global extcodesize:
     // stack: extcodesize(address), retdest
     SWAP1 JUMP
 
-%macro codecopy
-    // stack: dest_offset, offset, size
-    %address
-    %extcodecopy
-%endmacro
-
 %macro extcodecopy
     // stack: address, dest_offset, offset, size
     %stack (address, dest_offset, offset, size) -> (address, dest_offset, offset, size, %%after)
