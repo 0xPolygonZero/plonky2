@@ -104,7 +104,7 @@ fn test_get_create2_address() -> Result<()> {
         expected_addr,
     } in create2_test_cases()
     {
-        let initial_stack = vec![retaddr, U256::from(code_hash.0), salt, sender];
+        let initial_stack = vec![retaddr, salt, U256::from(code_hash.0), sender];
         let mut interpreter = Interpreter::new_with_kernel(get_create2_address, initial_stack);
         interpreter.run()?;
 
