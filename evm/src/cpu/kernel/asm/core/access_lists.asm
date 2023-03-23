@@ -1,3 +1,10 @@
+%macro insert_accessed_addresses
+    %stack (addr) -> (addr, %%after)
+    %jump(insert_accessed_addresses)
+%%after:
+    // stack: (addr in accessed_address)
+%endmacro
+
 global insert_accessed_addresses:
     // stack: addr, retdest
     PUSH 0 %mload_current(@SEGMENT_ACCESSED_ADDRESSES)
@@ -29,6 +36,13 @@ insert_accessed_addresses_found:
     %stack (i, len, addr, retdest) -> (retdest, 0) // Return 0 to indicate that the address was already present.
     JUMP
 
+
+%macro insert_accessed_storage_keys
+    %stack (addr, key) -> (addr, key, %%after)
+    %jump(insert_accessed_storage_keys)
+%%after:
+    // stack: ((addr, key) in accessed_storage_keys)
+%endmacro
 
 global insert_accessed_storage_keys:
     // stack: addr, key, retdest
