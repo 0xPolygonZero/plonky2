@@ -557,7 +557,11 @@ impl<'a> Interpreter<'a> {
     fn run_shl(&mut self) {
         let shift = self.pop();
         let value = self.pop();
-        self.push(value << shift.min(U256::from(256usize)));
+        self.push(if shift < U256::from(256usize) {
+            value << shift
+        } else {
+            U256::zero()
+        });
     }
 
     fn run_shr(&mut self) {

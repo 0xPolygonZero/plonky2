@@ -73,41 +73,28 @@ recursion_return:
     jump
 
 global sys_exp:
-    // x, e, return_info
-    push 248
-sys_exp_gas_loop:
+    // stack: x, e, return_info
+    push 0
     // stack: shift, x, e, return_info
+    %jump(sys_exp_gas_loop_enter)
+sys_exp_gas_loop:
+    %add_const(8)
+sys_exp_gas_loop_enter:
     dup3
     dup2
     shr
     // stack: e >> shift, shift, x, e, return_info
-    %jumpi(sys_exp_gas_end)
-    // stack: shift, x, e, return_info
-    %sub_const(8)
-    // stack: shift := shift - 8, x, e, return_info
-    dup1
     %jumpi(sys_exp_gas_loop)
-sys_exp_gas_end:
     // stack: shift_bits, x, e, return_info
     %div_const(8)
-    // stack: index_of_nz_byte := shift_bits / 8, x, e, return_info
-    dup3
-    iszero
-    push 1
-    sub
-    // stack: e_non_zero := 1 - e_is_zero, index_of_nz_byte, x, e, return_info
-    add
-    // stack: byte_size_of_e := index_of_nz_byte + e_non_zero, x, e, return_info
+    // stack: byte_size_of_e := shift_bits / 8, x, e, return_info
     %mul_const(@GAS_EXPBYTE)
     %add_const(@GAS_EXP)
-    // stack: 10 + 50 * byte_size_of_e, x, e, return_info
+    // stack: gas_cost := 10 + 50 * byte_size_of_e, x, e, return_info
+    %stack(gas_cost, x, e, return_info) -> (gas_cost, return_info, x, e)
     %charge_gas
 
-    // x, e, return_info
-    swap1
-    push sys_exp_return
-    swap2
-    // x, e, sys_exp_return, return_info
+    %stack(return_info, x, e) -> (x, e, sys_exp_return, return_info)
     jump exp
 sys_exp_return:
     // stack: pow(x, e), return_info

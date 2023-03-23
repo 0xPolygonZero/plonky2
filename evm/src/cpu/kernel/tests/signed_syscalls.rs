@@ -6,10 +6,10 @@ use crate::cpu::kernel::interpreter::Interpreter;
 /// Generate a list of inputs suitable for testing the signed operations
 ///
 /// The result includes 0, ±1, ±2^(16i ± 1) for i = 0..15, and ±2^255
-/// and then each of those ±1. No attempt has been made to avoid
-/// duplicates. Total length is 288.
+/// and then each of those ±1. Little attempt has been made to avoid
+/// duplicates. Total length is 279.
 fn test_inputs() -> Vec<U256> {
-    let mut res = vec![U256::zero(), U256::one()];
+    let mut res = vec![U256::zero()];
     for i in 1..16 {
         res.push(U256::one() << (16 * i));
         res.push(U256::one() << (16 * i + 1));
@@ -18,9 +18,9 @@ fn test_inputs() -> Vec<U256> {
     res.push(U256::one() << 255);
 
     let n = res.len();
-    for i in 0..n {
+    for i in 1..n {
         // push -res[i]
-        res.push(U256::zero().overflowing_sub(res[i]).0);
+        res.push(res[i].overflowing_neg().0);
     }
 
     let n = res.len();
@@ -54,11 +54,7 @@ fn u256_abs_sgn(x: U256) -> (U256, bool) {
     let is_neg = x.bit(255);
 
     // negate x if it's negative
-    let x = if is_neg {
-        U256::zero().overflowing_sub(x).0
-    } else {
-        x
-    };
+    let x = if is_neg { x.overflowing_neg().0 } else { x };
     (x, is_neg)
 }
 
@@ -71,7 +67,7 @@ fn u256_sdiv(x: U256, y: U256) -> U256 {
         let quot = abs_x / abs_y;
         // negate the quotient if arguments had opposite signs
         if x_is_neg != y_is_neg {
-            U256::zero().overflowing_sub(quot).0
+            quot.overflowing_neg().0
         } else {
             quot
         }
@@ -88,7 +84,7 @@ fn u256_smod(x: U256, y: U256) -> U256 {
         let rem = abs_x % abs_y;
         // negate the remainder if dividend was negative
         if x_is_neg {
-            U256::zero().overflowing_sub(rem).0
+            rem.overflowing_neg().0
         } else {
             rem
         }
@@ -148,7 +144,7 @@ fn run_test(fn_label: &str, expected_fn: fn(U256, U256) -> U256, opname: &str) {
 fn test_sdiv() {
     // Double-check that the expected output calculation is correct in the special case.
     let x = U256::one() << 255; // -2^255
-    let y = U256::zero().overflowing_sub(U256::one()).0; // -1
+    let y = U256::one().overflowing_neg().0; // -1
     assert_eq!(u256_sdiv(x, y), x); // SDIV(-2^255, -1) = -2^255.
 
     run_test("_sys_sdiv", u256_sdiv, "SDIV");
