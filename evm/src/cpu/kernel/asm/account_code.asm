@@ -90,6 +90,7 @@ global sys_extcodecopy:
     // TODO: Charge other gas.
     %stack (kexit_info, address, dest_offset, offset, size)
         -> (address, dest_offset, offset, size, kexit_info)
+    %u256_to_addr DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
     %extcodecopy
     // stack: kexit_info
     EXIT_KERNEL

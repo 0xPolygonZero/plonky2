@@ -21,6 +21,7 @@ global sys_return:
 global sys_selfdestruct:
     // stack: kexit_info
     // TODO: Charge gas.
+    // TODO: Add address to the access list.
     %consume_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas
