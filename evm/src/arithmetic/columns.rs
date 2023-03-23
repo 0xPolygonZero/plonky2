@@ -57,6 +57,12 @@ pub(crate) const GENERAL_REGISTER_2: Range<usize> =
 pub(crate) const GENERAL_REGISTER_3: Range<usize> =
     GENERAL_REGISTER_2.end..GENERAL_REGISTER_2.end + N_LIMBS;
 
+pub(crate) const INPUT_REGISTER_0: Range<usize> = GENERAL_REGISTER_0;
+pub(crate) const INPUT_REGISTER_1: Range<usize> = GENERAL_REGISTER_1;
+pub(crate) const INPUT_REGISTER_2: Range<usize> = GENERAL_REGISTER_2;
+pub(crate) const OUTPUT_REGISTER: Range<usize> = GENERAL_REGISTER_3;
+pub(crate) const AUX_INPUT_REGISTER: Range<usize> = GENERAL_REGISTER_4;
+
 // NB: Only one of these two sets of columns will be used for a given operation
 const GENERAL_REGISTER_4: Range<usize> = GENERAL_REGISTER_3.end..GENERAL_REGISTER_3.end + N_LIMBS;
 const GENERAL_REGISTER_4_DBL: Range<usize> =

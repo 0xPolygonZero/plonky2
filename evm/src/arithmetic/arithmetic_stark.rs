@@ -69,11 +69,14 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
             columns::IS_MUL,
             columns::IS_LT,
             columns::IS_GT,
+            columns::IS_ADDFP254,
+            columns::IS_MULFP254,
+            columns::IS_SUBFP254,
         ],
         &[
-            columns::GENERAL_REGISTER_0,
-            columns::GENERAL_REGISTER_1,
-            columns::GENERAL_REGISTER_3,
+            columns::INPUT_REGISTER_0,
+            columns::INPUT_REGISTER_1,
+            columns::OUTPUT_REGISTER,
         ],
     )
 }
@@ -107,21 +110,6 @@ pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
         &[
             columns::MODULAR_INPUT_0,
             columns::MODULAR_MODULUS,
-            columns::MODULAR_OUTPUT,
-        ],
-    )
-}
-
-pub fn ctl_bn254ops_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[
-            columns::IS_ADDFP254,
-            columns::IS_MULFP254,
-            columns::IS_SUBFP254,
-        ],
-        &[
-            columns::MODULAR_INPUT_0,
-            columns::MODULAR_INPUT_1,
             columns::MODULAR_OUTPUT,
         ],
     )

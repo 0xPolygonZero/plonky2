@@ -28,50 +28,35 @@ use crate::arithmetic::utils::u256_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.
-///
-/// A row consists of four values, GENERAL_REGISTER_[012] and
-/// GENERAL_REGISTER_BIT. The interpretation of these values for each
-/// operation is as follows:
-///
-/// ADD: REGISTER_0 + REGISTER_1, output in REGISTER_2, ignore REGISTER_BIT
-/// SUB: REGISTER_2 - REGISTER_0, output in REGISTER_1, ignore REGISTER_BIT
-///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
-///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
 pub(crate) fn generate<F: PrimeField64>(
     lv: &mut [F],
     filter: usize,
     left_in: U256,
     right_in: U256,
 ) {
+    u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+
     match filter {
         IS_ADD => {
-            // x + y == z + cy*2^256
             let (result, cy) = left_in.overflowing_add(right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in); // y
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], U256::from(cy as u32));
-            u256_to_array(&mut lv[GENERAL_REGISTER_3], result); // z
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER], U256::from(cy as u32));
+            u256_to_array(&mut lv[OUTPUT_REGISTER], result);
         }
         IS_SUB => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], U256::from(cy as u32));
-            u256_to_array(&mut lv[GENERAL_REGISTER_3], diff);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER], U256::from(cy as u32));
+            u256_to_array(&mut lv[OUTPUT_REGISTER], diff);
         }
         IS_LT => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], diff);
-            u256_to_array(&mut lv[GENERAL_REGISTER_3], U256::from(cy as u32));
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER], diff);
+            u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
         }
         IS_GT => {
             let (diff, cy) = right_in.overflowing_sub(left_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], diff);
-            u256_to_array(&mut lv[GENERAL_REGISTER_3], U256::from(cy as u32));
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER], diff);
+            u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
         }
         _ => panic!("unexpected operation filter"),
     };
@@ -171,16 +156,16 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let in0 = &lv[GENERAL_REGISTER_0];
-    let in1 = &lv[GENERAL_REGISTER_1];
-    let in2 = &lv[GENERAL_REGISTER_2];
-    let out = &lv[GENERAL_REGISTER_3];
+    let in0 = &lv[INPUT_REGISTER_0];
+    let in1 = &lv[INPUT_REGISTER_1];
+    let out = &lv[OUTPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER];
 
     // x + y = z + w*2^256
-    eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, in2, false);
-    eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, in2, false);
-    eval_packed_generic_addcy(yield_constr, is_lt, in1, in2, in0, out, false);
-    eval_packed_generic_addcy(yield_constr, is_gt, in0, in2, in1, out, false);
+    eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
+    eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[allow(clippy::needless_collect)]
@@ -259,15 +244,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let in0 = &lv[GENERAL_REGISTER_0];
-    let in1 = &lv[GENERAL_REGISTER_1];
-    let in2 = &lv[GENERAL_REGISTER_2];
-    let out = &lv[GENERAL_REGISTER_3];
+    let in0 = &lv[INPUT_REGISTER_0];
+    let in1 = &lv[INPUT_REGISTER_1];
+    let out = &lv[OUTPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER];
 
-    eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, in2, false);
-    eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, in2, false);
-    eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, in2, in0, out, false);
-    eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, in2, in1, out, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[cfg(test)]
@@ -360,7 +345,7 @@ mod tests {
                 u256_to_array(&mut expected_limbs, expected);
                 assert!(expected_limbs
                     .iter()
-                    .zip(&lv[GENERAL_REGISTER_3])
+                    .zip(&lv[OUTPUT_REGISTER])
                     .all(|(x, y)| x == y));
             }
         }

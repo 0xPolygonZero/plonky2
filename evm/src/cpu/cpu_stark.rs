@@ -103,6 +103,9 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.mul,
         COL_MAP.op.lt,
         COL_MAP.op.gt,
+        COL_MAP.op.addfp254,
+        COL_MAP.op.mulfp254,
+        COL_MAP.op.subfp254,
     ])
 }
 
@@ -116,14 +119,6 @@ pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
 
 pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
     binops_table(&[COL_MAP.op.mod_])
-}
-
-pub fn ctl_bn254ops_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-    ])
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
