@@ -4,11 +4,9 @@ use anyhow::Result;
 use ethereum_types::{Address, U256};
 use rand::{thread_rng, Rng};
 
-use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::{
-    run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
+    run_interpreter_with_memory, InterpreterMemoryInitialization,
 };
-use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::{AccessedAddresses, AccessedStorageKeys};
 use crate::witness::memory::MemoryAddress;
 
