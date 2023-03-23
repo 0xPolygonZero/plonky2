@@ -10,14 +10,14 @@
     %stack (addr) -> (addr, %%after)
     %jump(insert_accessed_addresses)
 %%after:
-    // stack: (addr in accessed_address)
+    // stack: cold_access
 %endmacro
 
 %macro insert_accessed_addresses_no_return
     %stack (addr) -> (addr, %%after)
     %jump(insert_accessed_addresses)
 %%after:
-    // stack: (addr in accessed_address)
+    // stack: cold_access
     POP
 %endmacro
 
@@ -59,7 +59,7 @@ insert_accessed_addresses_found:
     %stack (addr, key) -> (addr, key, %%after)
     %jump(insert_accessed_storage_keys)
 %%after:
-    // stack: ((addr, key) in accessed_storage_keys)
+    // stack: cold_access
 %endmacro
 
 /// Inserts the storage key into the access list if it is not already present.
