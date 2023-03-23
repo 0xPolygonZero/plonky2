@@ -151,7 +151,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 36] = [
+const GAS_CONSTANTS: [(&str, u16); 37] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -163,6 +163,7 @@ const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ACCESSLISTADDRESS", 2_400),
     ("GAS_ACCESSLISTSTORAGE", 1_900),
     ("GAS_COLDACCOUNTACCESS", 2_600),
+    ("GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS", 2_500),
     ("GAS_COLDSLOAD", 2_100),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),

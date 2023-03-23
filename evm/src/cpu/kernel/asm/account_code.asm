@@ -1,8 +1,18 @@
 global sys_extcodehash:
     // stack: kexit_info, address
-    // TODO: Charge gas.
-    SWAP1
+    SWAP1 %u256_to_addr
     // stack: address, kexit_info
+    DUP1 %insert_accessed_addresses
+    // stack: address in access_list, address, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
+    %charge_gas
+    // stack: kexit_info, address
+
+    SWAP1
     %extcodehash
     // stack: hash, kexit_info
     SWAP1
@@ -41,7 +51,18 @@ retzero:
 
 global sys_extcodesize:
     // stack: kexit_info, address
-    // TODO: Charge gas.
+    SWAP1 %u256_to_addr
+    // stack: address, kexit_info
+    DUP1 %insert_accessed_addresses
+    // stack: address in access_list, address, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
+    %charge_gas
+    // stack: kexit_info, address
+
     SWAP1
     // stack: address, kexit_info
     %extcodesize
