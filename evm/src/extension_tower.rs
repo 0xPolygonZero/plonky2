@@ -6,8 +6,7 @@ use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
 pub trait FieldExt:
-    Sized
-    + Copy
+    Copy
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -325,15 +324,19 @@ impl<T: FieldExt> Mul for Fp2<T> {
     }
 }
 
-impl<T: FieldExt> Fp2<T> {
-    /// This function scalar multiplies an Fp2 by an BN254
-    pub fn scale(self, x: T) -> Self {
+/// This function scalar multiplies an Fp2 by an Fp
+impl<T: FieldExt> Mul<T> for Fp2<T> {
+    type Output = Fp2<T>;
+
+    fn mul(self, other: T) -> Self {
         Fp2 {
-            re: x * self.re,
-            im: x * self.im,
+            re: other * self.re,
+            im: other * self.im,
         }
     }
+}
 
+impl<T: FieldExt> Fp2<T> {
     /// Return the complex conjugate z' of z: Fp2
     /// This also happens to be the frobenius map
     ///     z -> z^p
@@ -365,7 +368,7 @@ impl<T: FieldExt> FieldExt for Fp2<T> {
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     fn inv(self) -> Fp2<T> {
         let norm_sq = self.norm_sq();
-        self.conj().scale(norm_sq.inv())
+        self.conj() * norm_sq.inv()
     }
 }
 
@@ -888,17 +891,19 @@ where
     }
 }
 
-impl<T> Fp6<T>
+/// This function scalar multiplies an Fp6 by an Fp2
+impl<T> Mul<Fp2<T>> for Fp6<T>
 where
     T: FieldExt,
     Fp2<T>: Adj,
 {
-    // This function scalar multiplies an Fp6 by an Fp2
-    fn scale(self, x: Fp2<T>) -> Fp6<T> {
+    type Output = Fp6<T>;
+
+    fn mul(self, other: Fp2<T>) -> Self {
         Fp6 {
-            t0: x * self.t0,
-            t1: x * self.t1,
-            t2: x * self.t2,
+            t0: other * self.t0,
+            t1: other * self.t1,
+            t2: other * self.t2,
         }
     }
 }
@@ -989,9 +994,9 @@ where
         let prod_13 = self.frob(1) * self.frob(3);
         let prod_135 = (prod_13 * self.frob(5)).t0;
         let phi = prod_135.norm_sq();
-        let prod_odds_over_phi = prod_135.scale(phi.inv());
+        let prod_odds_over_phi = prod_135 * phi.inv();
         let prod_24 = prod_13.frob(1);
-        prod_24.scale(prod_odds_over_phi)
+        prod_24 * prod_odds_over_phi
     }
 }
 
@@ -1052,10 +1057,10 @@ where
         let prod_1379 = prod_17 * prod_17.frob(2);
         let prod_odds = (prod_1379 * prod_17.frob(4)).t0;
         let phi = prod_odds.norm_sq();
-        let prod_odds_over_phi = prod_odds.scale(phi.inv());
+        let prod_odds_over_phi = prod_odds * phi.inv();
         let prod_evens_except_six = prod_1379.frob(1);
-        let prod_except_six = prod_evens_except_six.scale(prod_odds_over_phi);
-        self.conj().scale(prod_except_six)
+        let prod_except_six = prod_evens_except_six * prod_odds_over_phi;
+        self.conj() * prod_except_six
     }
 }
 
@@ -1134,19 +1139,27 @@ where
     }
 }
 
+/// This function scalar multiplies an Fp12 by an Fp6
+impl<T> Mul<Fp6<T>> for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+{
+    type Output = Fp12<T>;
+
+    fn mul(self, other: Fp6<T>) -> Self {
+        Fp12 {
+            z0: other * self.z0,
+            z1: other * self.z1,
+        }
+    }
+}
+
 impl<T> Fp12<T>
 where
     T: FieldExt,
     Fp2<T>: Adj,
 {
-    // This function scalar multiplies an Fp12 by an Fp6
-    fn scale(self, x: Fp6<T>) -> Fp12<T> {
-        Fp12 {
-            z0: x * self.z0,
-            z1: x * self.z1,
-        }
-    }
-
     fn conj(self) -> Fp12<T> {
         Fp12 {
             z0: self.z0,
@@ -1169,7 +1182,7 @@ where
         let n = n % 12;
         Fp12 {
             z0: self.z0.frob(n),
-            z1: self.z1.frob(n).scale(Fp2::<T>::FROB_Z[n]),
+            z1: self.z1.frob(n) * (Fp2::<T>::FROB_Z[n]),
         }
     }
 }

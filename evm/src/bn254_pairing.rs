@@ -69,14 +69,14 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
 pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
     let cx = -BN254::new(3) * p.x * p.x;
     let cy = BN254::new(2) * p.y;
-    sparse_embed(p.y * p.y - BN254::new(9), q.x.scale(cx), q.y.scale(cy))
+    sparse_embed(p.y * p.y - BN254::new(9), q.x * cx, q.y * cy)
 }
 
 /// The sloped line function for adding two points
 pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12<BN254> {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
-    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x.scale(cx), q.y.scale(cy))
+    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x * cx, q.y * cy)
 }
 
 /// The tangent and cord functions output sparse Fp12 elements.
