@@ -5,7 +5,6 @@
 
 global sys_sload:
     // stack: kexit_info, slot
-    // TODO: Charge gas.
     SWAP1
     // stack: slot, kexit_info
     DUP1 %address
