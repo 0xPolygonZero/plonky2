@@ -138,6 +138,16 @@ global process_message_txn:
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
+    // Add precompiles to accessed addresses.
+    PUSH @ECREC %insert_accessed_addresses
+    PUSH @SHA256 %insert_accessed_addresses
+    PUSH @RIP160 %insert_accessed_addresses
+    PUSH @ID %insert_accessed_addresses
+    PUSH @EXPMOD %insert_accessed_addresses
+    PUSH @BN_ADD %insert_accessed_addresses
+    PUSH @BN_MUL %insert_accessed_addresses
+    PUSH @SNARKV %insert_accessed_addresses
+    PUSH @BLAKE2_F %insert_accessed_addresses
     // TODO: Handle precompiles.
 
     // If to's code is empty, return.

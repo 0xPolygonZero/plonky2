@@ -190,3 +190,15 @@ const GAS_CONSTANTS: [(&str, u16); 37] = [
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
 ];
+
+const PRECOMPILES: [(&str, u16); 9] = [
+    ("ECREC", 1),
+    ("SHA256", 2),
+    ("RIP160", 3),
+    ("ID", 4),
+    ("EXPMOD", 5),
+    ("BN_ADD", 6),
+    ("BN_MUL", 7),
+    ("SNARKV", 8),
+    ("BLAKE2_F", 9),
+];
