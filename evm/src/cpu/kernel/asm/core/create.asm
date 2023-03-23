@@ -73,6 +73,7 @@ sys_create2_finish:
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create_inner:
     // stack: address, sender, endowment, CODE_ADDR, code_len, retdest
+    DUP1 %insert_accessed_addresses_no_return
     %stack (address, sender, endowment)
         -> (sender, address, endowment, sender, address)
 
