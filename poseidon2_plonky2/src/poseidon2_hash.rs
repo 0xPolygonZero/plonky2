@@ -186,25 +186,24 @@ impl<F: RichField + Poseidon2> AlgebraicHasher<F> for Poseidon2Hash {
             .try_into()
             .unwrap()
     }
-
-    // Dummy
-    /*fn permute_swapped_c<const D: usize>(
-        inputs: [Target; COMPRESSION_WIDTH],
-        _: BoolTarget,
-        _: &mut CircuitBuilder<F, D>,
-    ) -> [Target; COMPRESSION_WIDTH]
-        where
-            F: RichField + Extendable<D>,
-    {
-        inputs
-    }*/
 }
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use plonky2::field::types::Field;
+    use plonky2::hash::hash_types::RichField;
     use plonky2::hash::hashing::SPONGE_WIDTH;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
+    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+    use plonky2::plonk::proof::ProofWithPublicInputs;
     use super::Poseidon2;
+    use anyhow::Result;
+    use plonky2::field::extension::Extendable;
+    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+    use plonky2::plonk::prover::prove;
+    use plonky2::util::timing::TimingTree;
+    use log::Level;
 
     pub(crate) fn check_test_vectors<F: Field>(
         test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,
@@ -237,5 +236,110 @@ pub(crate) mod test_helpers {
         for i in 0..SPONGE_WIDTH {
             assert_eq!(output[i], output[i]); // Dummy check
         }
+    }
+
+    pub(crate) fn prove_circuit_with_poseidon2
+    <
+        F: RichField + Poseidon2 + Extendable<D>,
+        C: GenericConfig<D, F=F>,
+        const D: usize,
+        H: Hasher<F> + AlgebraicHasher<F>
+    >
+    (
+        config: CircuitConfig,
+        num_ops: usize,
+        _hasher: H,
+        print_timing: bool,
+    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)> {
+        let mut builder = CircuitBuilder::<F,D>::new(config);
+        let init_t = builder.add_virtual_public_input();
+        let mut res_t = builder.add_virtual_target();
+        builder.connect(init_t, res_t);
+        let hash_targets = (0..SPONGE_WIDTH-1).map(|_|
+            builder.add_virtual_target()
+        ).collect::<Vec<_>>();
+        for _ in 0..num_ops {
+            res_t = builder.mul(res_t, res_t);
+            let mut to_be_hashed_elements = vec![res_t];
+            to_be_hashed_elements.extend_from_slice(hash_targets.as_slice());
+            res_t = builder.hash_or_noop::<H>(to_be_hashed_elements).elements[0]
+        }
+        let out_t = builder.add_virtual_public_input();
+        let is_eq_t = builder.is_equal(out_t, res_t);
+        builder.assert_one(is_eq_t.target);
+
+        let data = builder.build::<C>();
+
+        let mut pw = PartialWitness::<F>::new();
+        let input = F::rand();
+        pw.set_target(init_t, input);
+
+        let input_hash_elements = hash_targets.iter().map(|&hash_t| {
+            let elem = F::rand();
+            pw.set_target(hash_t, elem);
+            elem
+        }).collect::<Vec<_>>();
+
+        let mut res = input.clone();
+        for _ in 0..num_ops {
+            res = res.mul(res);
+            let mut to_be_hashed_elements = vec![res];
+            to_be_hashed_elements.extend_from_slice(input_hash_elements.as_slice());
+            res = H::hash_no_pad(to_be_hashed_elements.as_slice()).elements[0]
+        }
+
+        pw.set_target(out_t, res);
+
+        let proof = if print_timing {
+            let mut timing = TimingTree::new("prove", Level::Debug);
+            let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+            timing.print();
+            proof
+        } else {
+            data.prove(pw)?
+        };
+
+        assert_eq!(proof.public_inputs[0], input);
+        assert_eq!(proof.public_inputs[1], res);
+
+        Ok((data, proof))
+    }
+
+    pub(crate) fn recursive_proof<
+        F: RichField + Poseidon2 + Extendable<D>,
+        C: GenericConfig<D, F=F>,
+        InnerC: GenericConfig<D, F = F>,
+        const D: usize,
+    >(
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+        inner_cd: &CircuitData<F,InnerC,D>,
+        config: &CircuitConfig,
+    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)>
+        where
+            InnerC::Hasher: AlgebraicHasher<F>,
+    {
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut pw = PartialWitness::new();
+        let pt = builder.add_virtual_proof_with_pis(&inner_cd.common);
+        pw.set_proof_with_pis_target(&pt, &inner_proof);
+
+        let inner_data = builder.add_virtual_verifier_data(inner_cd.common.config.fri_config.cap_height);
+        pw.set_cap_target(
+            &inner_data.constants_sigmas_cap,
+            &inner_cd.verifier_only.constants_sigmas_cap,
+        );
+        pw.set_hash_target(inner_data.circuit_digest, inner_cd.verifier_only.circuit_digest);
+
+        for &pi_t in pt.public_inputs.iter() {
+            let t = builder.add_virtual_public_input();
+            builder.connect(pi_t, t);
+        }
+        builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd.common);
+        let data = builder.build::<C>();
+
+        let proof = data.prove(pw)?;
+
+        Ok((data, proof))
+
     }
 }
