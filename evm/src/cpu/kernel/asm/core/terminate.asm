@@ -96,21 +96,3 @@ global terminate_common:
 
     // stack: parent_pc, success, leftover_gas
     JUMP
-
-%macro leftover_gas
-    // stack: kexit_info
-    %shr_const(192)
-    // stack: gas_used
-    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
-    // stack: gas_limit, gas_used
-    SWAP1
-    // stack: gas_used, gas_limit
-    DUP2 DUP2 LT
-    // stack: gas_used < gas_limit, gas_used, gas_limit
-    SWAP2
-    // stack: gas_limit, gas_used, gas_used < gas_limit
-    SUB
-    // stack: gas_limit - gas_used, gas_used < gas_limit
-    MUL
-    // stack: leftover_gas = (gas_limit - gas_used) * (gas_used < gas_limit)
-%endmacro

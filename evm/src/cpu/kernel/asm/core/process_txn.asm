@@ -68,22 +68,15 @@ global process_contract_creation_txn:
     %jumpi(panic)
     // stack: address, retdest
 
-    // Write the new account's data to MPT data, and get a pointer to it.
-    %get_trie_data_size
-    // stack: account_ptr, address, retdest
-    PUSH 1 %append_to_trie_data // nonce = 1
-    // stack: account_ptr, address, retdest
-    DUP2 %balance %mload_txn_field(@TXN_FIELD_VALUE) ADD %append_to_trie_data // balance = old_balance + txn_value
-    // stack: account_ptr, address, retdest
-    PUSH 0 %append_to_trie_data // storage_root = nil
-    // stack: account_ptr, address, retdest
-    PUSH @EMPTY_STRING_HASH %append_to_trie_data // code_hash = keccak('')
-    // stack: account_ptr, address, retdest
-    DUP2
-    // stack: address, account_ptr, address, retdest
-    %addr_to_state_key
-    // stack: state_key, account_ptr, address, retdest
-    %mpt_insert_state_trie
+    // Create the new contract account in the state trie.
+    DUP1
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    // stack: value, address, address, retdest
+    %create_contract_account
+    // stack: status, address, retdest
+    // It should be impossible to create address collisions with a contract creation txn,
+    // since the address was derived from nonce, unlike with CREATE2.
+    %jumpi(panic)
     // stack: address, retdest
 
     %create_context
