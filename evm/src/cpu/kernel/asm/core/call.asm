@@ -4,7 +4,12 @@
 global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     // TODO: Charge gas.
-    DUP3 %u256_to_addr %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -30,7 +35,12 @@ global sys_call:
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     // TODO: Charge gas.
-    DUP3 %u256_to_addr %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -55,7 +65,12 @@ global sys_callcode:
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     // TODO: Charge gas.
-    DUP3 %u256_to_addr %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
 
@@ -77,7 +92,12 @@ global sys_staticcall:
 global sys_delegatecall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     // TODO: Charge gas.
-    DUP3 %u256_to_addr %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
 
