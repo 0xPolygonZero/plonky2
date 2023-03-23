@@ -81,6 +81,8 @@ global process_contract_creation_txn:
     // stack: account_ptr, address, retdest
     DUP2
     // stack: address, account_ptr, address, retdest
+    %addr_to_state_key
+    // stack: state_key, account_ptr, address, retdest
     %mpt_insert_state_trie
     // stack: address, retdest
 
