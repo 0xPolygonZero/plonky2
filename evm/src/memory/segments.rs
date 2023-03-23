@@ -44,7 +44,9 @@ pub enum Segment {
     BnWnafB = 20,
     BnTableQ = 21,
     BnPairing = 22,
+    /// List of addresses that have been accessed in the current transaction.
     AccessedAddresses = 23,
+    /// List of storage keys that have been accessed in the current transaction.
     AccessedStorageKeys = 24,
 }
 

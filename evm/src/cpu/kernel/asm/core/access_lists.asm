@@ -1,3 +1,11 @@
+/// Access lists for addresses and storage keys.
+/// The access lists are stored in a single array, with the length of the array in front of it.
+/// For storage keys, the address and key are stored as two consecutive elements.
+/// The array is stored in the SEGMENT_ACCESSED_ADDRESSES segment for addresses and in the SEGMENT_ACCESSED_STORAGE_KEYS segment for storage keys.
+/// Searching and inserting is done by doing a linear search through the array.
+/// If the address/storage key isn't found in the array, it is inserted at the end.
+/// TODO: Look into using a more efficient data structure for the access lists.
+
 %macro insert_accessed_addresses
     %stack (addr) -> (addr, %%after)
     %jump(insert_accessed_addresses)
@@ -13,6 +21,8 @@
     POP
 %endmacro
 
+/// Inserts the address into the access list if it is not already present.
+/// Return 1 if the address was inserted, 0 if it was already present.
 global insert_accessed_addresses:
     // stack: addr, retdest
     PUSH 0 %mload_current(@SEGMENT_ACCESSED_ADDRESSES)
@@ -52,6 +62,8 @@ insert_accessed_addresses_found:
     // stack: ((addr, key) in accessed_storage_keys)
 %endmacro
 
+/// Inserts the storage key into the access list if it is not already present.
+/// Return 1 if the storage key was inserted, 0 if it was already present.
 global insert_accessed_storage_keys:
     // stack: addr, key, retdest
     PUSH 0 %mload_current(@SEGMENT_ACCESSED_STORAGE_KEYS)
