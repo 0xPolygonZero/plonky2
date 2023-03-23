@@ -2,13 +2,13 @@ use std::ops::Add;
 
 use rand::Rng;
 
-use crate::bn254_arithmetic::{Fp, Fp12, Fp2, Fp6, UNIT_FP12, ZERO_FP, ZERO_FP2};
+use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, BN254};
 
-// The curve consists of pairs (x, y): (Fp, Fp) | y^2 = x^3 + 2
+// The curve consists of pairs (x, y): (BN254, BN254) | y^2 = x^3 + 2
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Curve {
-    pub x: Fp,
-    pub y: Fp,
+    pub x: BN254,
+    pub y: BN254,
 }
 
 /// Standard addition formula for elliptic curves, restricted to the cases  
@@ -19,7 +19,7 @@ impl Add for Curve {
 
     fn add(self, other: Self) -> Self {
         let m = if self == other {
-            Fp::new(3) * self.x * self.x / (Fp::new(2) * self.y)
+            BN254::new(3) * self.x * self.x / (BN254::new(2) * self.y)
         } else {
             (other.y - self.y) / (other.x - self.x)
         };
@@ -34,12 +34,12 @@ impl Add for Curve {
 // The twisted curve consists of pairs (x, y): (Fp2, Fp2) | y^2 = x^3 + 3/(9 + i)
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TwistedCurve {
-    pub x: Fp2,
-    pub y: Fp2,
+    pub x: Fp2<BN254>,
+    pub y: Fp2<BN254>,
 }
 
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
-pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
+pub fn tate(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
     let miller_output = miller_loop(p, q);
     invariant_exponent(miller_output)
 }
@@ -47,10 +47,10 @@ pub fn tate(p: Curve, q: TwistedCurve) -> Fp12 {
 /// Standard code for miller loop, can be found on page 99 at this url:
 /// https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107
 /// where EXP is a hardcoding of the array of Booleans that the loop traverses
-pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
+pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
     let mut r = p;
-    let mut acc = UNIT_FP12;
-    let mut line;
+    let mut acc: Fp12<BN254> = Fp12::<BN254>::UNIT;
+    let mut line: Fp12<BN254>;
 
     for i in EXP {
         line = tangent(r, q);
@@ -66,42 +66,46 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12 {
 }
 
 /// The sloped line function for doubling a point
-pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12 {
-    let cx = -Fp::new(3) * p.x * p.x;
-    let cy = Fp::new(2) * p.y;
-    sparse_embed(p.y * p.y - Fp::new(9), q.x.scale(cx), q.y.scale(cy))
+pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
+    let cx = -BN254::new(3) * p.x * p.x;
+    let cy = BN254::new(2) * p.y;
+    sparse_embed(p.y * p.y - BN254::new(9), q.x * cx, q.y * cy)
 }
 
 /// The sloped line function for adding two points
-pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12 {
+pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12<BN254> {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
-    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x.scale(cx), q.y.scale(cy))
+    sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x * cx, q.y * cy)
 }
 
 /// The tangent and cord functions output sparse Fp12 elements.
 /// This map embeds the nonzero coefficients into an Fp12.
-pub fn sparse_embed(g000: Fp, g01: Fp2, g11: Fp2) -> Fp12 {
+pub fn sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN254> {
     let g0 = Fp6 {
         t0: Fp2 {
             re: g000,
-            im: ZERO_FP,
+            im: BN254::ZERO,
         },
         t1: g01,
-        t2: ZERO_FP2,
+        t2: Fp2::<BN254>::ZERO,
     };
 
     let g1 = Fp6 {
-        t0: ZERO_FP2,
+        t0: Fp2::<BN254>::ZERO,
         t1: g11,
-        t2: ZERO_FP2,
+        t2: Fp2::<BN254>::ZERO,
     };
 
     Fp12 { z0: g0, z1: g1 }
 }
 
-pub fn gen_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12 {
-    sparse_embed(rng.gen::<Fp>(), rng.gen::<Fp2>(), rng.gen::<Fp2>())
+pub fn gen_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12<BN254> {
+    sparse_embed(
+        rng.gen::<BN254>(),
+        rng.gen::<Fp2<BN254>>(),
+        rng.gen::<Fp2<BN254>>(),
+    )
 }
 
 /// The output y of the miller loop is not an invariant,
@@ -116,7 +120,7 @@ pub fn gen_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12 {
 ///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
 /// where 0 < a0, a1, a2 < p. Then the final power is given by
 ///     y = y_3 * (y^a2)_2 * (y^-a1)_1 * (y^-a0)
-pub fn invariant_exponent(f: Fp12) -> Fp12 {
+pub fn invariant_exponent(f: Fp12<BN254>) -> Fp12<BN254> {
     let mut y = f.frob(6) / f;
     y = y.frob(2) * y;
     let (y_a2, y_a1, y_a0) = get_custom_powers(y);
@@ -134,11 +138,11 @@ pub fn invariant_exponent(f: Fp12) -> Fp12 {
 ///     EXPS4 = [(a4[i], a2[i], a0[i]) for i in       0..len(a4)]
 ///     EXPS2 = [       (a2[i], a0[i]) for i in len(a4)..len(a2)]
 ///     EXPS0 = [               a0[i]  for i in len(a2)..len(a0)]
-fn get_custom_powers(f: Fp12) -> (Fp12, Fp12, Fp12) {
-    let mut sq: Fp12 = f;
-    let mut y0: Fp12 = UNIT_FP12;
-    let mut y2: Fp12 = UNIT_FP12;
-    let mut y4: Fp12 = UNIT_FP12;
+fn get_custom_powers(f: Fp12<BN254>) -> (Fp12<BN254>, Fp12<BN254>, Fp12<BN254>) {
+    let mut sq: Fp12<BN254> = f;
+    let mut y0: Fp12<BN254> = Fp12::<BN254>::UNIT;
+    let mut y2: Fp12<BN254> = Fp12::<BN254>::UNIT;
+    let mut y4: Fp12<BN254> = Fp12::<BN254>::UNIT;
 
     // proceed via standard squaring algorithm for exponentiation
 

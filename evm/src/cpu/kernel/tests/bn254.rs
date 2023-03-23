@@ -2,13 +2,13 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-use crate::bn254_arithmetic::{Fp, Fp12, Fp2, Fp6};
 use crate::bn254_pairing::{
     gen_fp12_sparse, invariant_exponent, miller_loop, tate, Curve, TwistedCurve,
 };
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
+use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -20,7 +20,11 @@ fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
         .collect::<Vec<U256>>()
 }
 
-fn setup_mul_fp6_test(f: Fp6, g: Fp6, label: &str) -> InterpreterMemoryInitialization {
+fn setup_mul_fp6_test(
+    f: Fp6<BN254>,
+    g: Fp6<BN254>,
+    label: &str,
+) -> InterpreterMemoryInitialization {
     let mut stack = f.on_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.on_stack());
@@ -37,8 +41,8 @@ fn setup_mul_fp6_test(f: Fp6, g: Fp6, label: &str) -> InterpreterMemoryInitializ
 #[test]
 fn test_mul_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
-    let f: Fp6 = rng.gen::<Fp6>();
-    let g: Fp6 = rng.gen::<Fp6>();
+    let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
+    let g: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
 
     let setup_normal: InterpreterMemoryInitialization = setup_mul_fp6_test(f, g, "mul_fp254_6");
     let setup_square: InterpreterMemoryInitialization = setup_mul_fp6_test(f, f, "square_fp254_6");
@@ -60,8 +64,8 @@ fn test_mul_fp6() -> Result<()> {
 
 fn setup_mul_fp12_test(
     out: usize,
-    f: Fp12,
-    g: Fp12,
+    f: Fp12<BN254>,
+    g: Fp12<BN254>,
     label: &str,
 ) -> InterpreterMemoryInitialization {
     let in0: usize = 200;
@@ -89,9 +93,9 @@ fn test_mul_fp12() -> Result<()> {
     let out: usize = 224;
 
     let mut rng = rand::thread_rng();
-    let f: Fp12 = rng.gen::<Fp12>();
-    let g: Fp12 = rng.gen::<Fp12>();
-    let h: Fp12 = gen_fp12_sparse(&mut rng);
+    let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
+    let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
+    let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
 
     let setup_normal: InterpreterMemoryInitialization =
         setup_mul_fp12_test(out, f, g, "mul_fp254_12");
@@ -119,7 +123,7 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-fn setup_frob_fp6_test(f: Fp6, n: usize) -> InterpreterMemoryInitialization {
+fn setup_frob_fp6_test(f: Fp6<BN254>, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
         label: String::from("test_frob_fp254_6_") + &(n.to_string()),
         stack: f.on_stack(),
@@ -131,7 +135,7 @@ fn setup_frob_fp6_test(f: Fp6, n: usize) -> InterpreterMemoryInitialization {
 #[test]
 fn test_frob_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
-    let f: Fp6 = rng.gen::<Fp6>();
+    let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     for n in 1..4 {
         let setup_frob = setup_frob_fp6_test(f, n);
         let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
@@ -142,7 +146,7 @@ fn test_frob_fp6() -> Result<()> {
     Ok(())
 }
 
-fn setup_frob_fp12_test(ptr: usize, f: Fp12, n: usize) -> InterpreterMemoryInitialization {
+fn setup_frob_fp12_test(ptr: usize, f: Fp12<BN254>, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
         label: String::from("test_frob_fp254_12_") + &(n.to_string()),
         stack: vec![U256::from(ptr)],
@@ -155,7 +159,7 @@ fn setup_frob_fp12_test(ptr: usize, f: Fp12, n: usize) -> InterpreterMemoryIniti
 fn test_frob_fp12() -> Result<()> {
     let ptr: usize = 200;
     let mut rng = rand::thread_rng();
-    let f: Fp12 = rng.gen::<Fp12>();
+    let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     for n in [1, 2, 3, 6] {
         let setup_frob = setup_frob_fp12_test(ptr, f, n);
         let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
@@ -171,7 +175,7 @@ fn test_inv_fp12() -> Result<()> {
     let ptr: usize = 200;
     let inv: usize = 212;
     let mut rng = rand::thread_rng();
-    let f: Fp12 = rng.gen::<Fp12>();
+    let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
     let setup = InterpreterMemoryInitialization {
         label: "inv_fp254_12".to_string(),
@@ -192,7 +196,7 @@ fn test_inv_fp12() -> Result<()> {
 fn test_invariant_exponent() -> Result<()> {
     let ptr: usize = 200;
     let mut rng = rand::thread_rng();
-    let f: Fp12 = rng.gen::<Fp12>();
+    let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_invariant_exponent".to_string(),
@@ -213,8 +217,8 @@ fn test_invariant_exponent() -> Result<()> {
 // The curve is cyclic with generator (1, 2)
 pub const CURVE_GENERATOR: Curve = {
     Curve {
-        x: Fp { val: U256::one() },
-        y: Fp {
+        x: BN254 { val: U256::one() },
+        y: BN254 {
             val: U256([2, 0, 0, 0]),
         },
     }
@@ -224,7 +228,7 @@ pub const CURVE_GENERATOR: Curve = {
 pub const TWISTED_GENERATOR: TwistedCurve = {
     TwistedCurve {
         x: Fp2 {
-            re: Fp {
+            re: BN254 {
                 val: U256([
                     0x46debd5cd992f6ed,
                     0x674322d4f75edadd,
@@ -232,7 +236,7 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
                     0x1800deef121f1e76,
                 ]),
             },
-            im: Fp {
+            im: BN254 {
                 val: U256([
                     0x97e485b7aef312c2,
                     0xf1aa493335a9e712,
@@ -242,7 +246,7 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
             },
         },
         y: Fp2 {
-            re: Fp {
+            re: BN254 {
                 val: U256([
                     0x4ce6cc0166fa7daa,
                     0xe3d1e7690c43d37b,
@@ -250,7 +254,7 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
                     0x12c85ea5db8c6deb,
                 ]),
             },
-            im: Fp {
+            im: BN254 {
                 val: U256([
                     0x55acdadcd122975b,
                     0xbc4b313370b38ef3,
