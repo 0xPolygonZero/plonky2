@@ -129,7 +129,9 @@ global process_message_txn:
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_TO)
+    DUP1 %insert_accessed_addresses
     %mload_txn_field(@TXN_FIELD_ORIGIN)
+    DUP1 %insert_accessed_addresses
     // stack: from, to, amount, retdest
     %transfer_eth
     // stack: transfer_eth_status, retdest
