@@ -130,7 +130,7 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
             AccessedStorageKeys,
-            2 * n + 1
+            2 * n + 1,
         )),
         U256::from(storage_key_not_in_list.0 .0.as_slice())
     );
@@ -138,7 +138,7 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
             AccessedStorageKeys,
-            2 * n + 2
+            2 * n + 2,
         )),
         storage_key_not_in_list.1
     );

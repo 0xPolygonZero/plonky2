@@ -1,5 +1,5 @@
 /// Access lists for addresses and storage keys.
-/// The access lists are stored in a single array, with the length of the array in front of it.
+/// The access list is stored in an array, with the length of the array in front of it.
 /// For storage keys, the address and key are stored as two consecutive elements.
 /// The array is stored in the SEGMENT_ACCESSED_ADDRESSES segment for addresses and in the SEGMENT_ACCESSED_STORAGE_KEYS segment for storage keys.
 /// Searching and inserting is done by doing a linear search through the array.
