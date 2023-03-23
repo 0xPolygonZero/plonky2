@@ -5,6 +5,14 @@
     // stack: (addr in accessed_address)
 %endmacro
 
+%macro insert_accessed_addresses_no_return
+    %stack (addr) -> (addr, %%after)
+    %jump(insert_accessed_addresses)
+%%after:
+    // stack: (addr in accessed_address)
+    POP
+%endmacro
+
 global insert_accessed_addresses:
     // stack: addr, retdest
     PUSH 0 %mload_current(@SEGMENT_ACCESSED_ADDRESSES)

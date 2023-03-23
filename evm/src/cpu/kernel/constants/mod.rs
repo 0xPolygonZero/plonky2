@@ -32,6 +32,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in PRECOMPILES {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }

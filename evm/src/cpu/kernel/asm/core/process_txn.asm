@@ -129,9 +129,9 @@ global process_message_txn:
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_TO)
-    DUP1 %insert_accessed_addresses
+    DUP1 %insert_accessed_addresses_no_return
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    DUP1 %insert_accessed_addresses
+    DUP1 %insert_accessed_addresses_no_return
     // stack: from, to, amount, retdest
     %transfer_eth
     // stack: transfer_eth_status, retdest
@@ -139,15 +139,15 @@ global process_message_txn:
     // stack: retdest
 
     // Add precompiles to accessed addresses.
-    PUSH @ECREC %insert_accessed_addresses
-    PUSH @SHA256 %insert_accessed_addresses
-    PUSH @RIP160 %insert_accessed_addresses
-    PUSH @ID %insert_accessed_addresses
-    PUSH @EXPMOD %insert_accessed_addresses
-    PUSH @BN_ADD %insert_accessed_addresses
-    PUSH @BN_MUL %insert_accessed_addresses
-    PUSH @SNARKV %insert_accessed_addresses
-    PUSH @BLAKE2_F %insert_accessed_addresses
+    PUSH @ECREC %insert_accessed_addresses_no_return
+    PUSH @SHA256 %insert_accessed_addresses_no_return
+    PUSH @RIP160 %insert_accessed_addresses_no_return
+    PUSH @ID %insert_accessed_addresses_no_return
+    PUSH @EXPMOD %insert_accessed_addresses_no_return
+    PUSH @BN_ADD %insert_accessed_addresses_no_return
+    PUSH @BN_MUL %insert_accessed_addresses_no_return
+    PUSH @SNARKV %insert_accessed_addresses_no_return
+    PUSH @BLAKE2_F %insert_accessed_addresses_no_return
     // TODO: Handle precompiles.
 
     // If to's code is empty, return.
