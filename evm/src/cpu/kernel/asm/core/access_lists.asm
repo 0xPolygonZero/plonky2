@@ -14,10 +14,7 @@
 %endmacro
 
 %macro insert_accessed_addresses_no_return
-    %stack (addr) -> (addr, %%after)
-    %jump(insert_accessed_addresses)
-%%after:
-    // stack: cold_access
+    %insert_accessed_addresses
     POP
 %endmacro
 
