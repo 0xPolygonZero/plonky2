@@ -1,7 +1,8 @@
 /// Access lists for addresses and storage keys.
-/// The access list is stored in an array, with the length of the array in front of it.
+/// The access list is stored in an array. The length of the array is stored in the global metadata.
 /// For storage keys, the address and key are stored as two consecutive elements.
 /// The array is stored in the SEGMENT_ACCESSED_ADDRESSES segment for addresses and in the SEGMENT_ACCESSED_STORAGE_KEYS segment for storage keys.
+/// Both arrays are stored in the kernel memory (context=0).
 /// Searching and inserting is done by doing a linear search through the array.
 /// If the address/storage key isn't found in the array, it is inserted at the end.
 /// TODO: Look into using a more efficient data structure for the access lists.
@@ -22,15 +23,14 @@
 /// Return 1 if the address was inserted, 0 if it was already present.
 global insert_accessed_addresses:
     // stack: addr, retdest
-    PUSH 0 %mload_current(@SEGMENT_ACCESSED_ADDRESSES)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
     // stack: len, addr, retdest
-    %increment
-    PUSH 1
+    PUSH 0
 insert_accessed_addresses_loop:
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(insert_address)
     // stack: i, len, addr, retdest
-    DUP1 %mload_current(@SEGMENT_ACCESSED_ADDRESSES)
+    DUP1 %mload_kernel(@SEGMENT_ACCESSED_ADDRESSES)
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -41,9 +41,10 @@ insert_accessed_addresses_loop:
 
 insert_address:
     %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
-    %mstore_current(@SEGMENT_ACCESSED_ADDRESSES) // Store new address at the end of the array.
+    %mstore_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Store new address at the end of the array.
     // stack: len, retdest
-    PUSH 0 %mstore_current(@SEGMENT_ACCESSED_ADDRESSES) // Store new length in front of the array.
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Store new length.
     PUSH 1 // Return 1 to indicate that the address was inserted.
     SWAP1 JUMP
 
@@ -63,17 +64,16 @@ insert_accessed_addresses_found:
 /// Return 1 if the storage key was inserted, 0 if it was already present.
 global insert_accessed_storage_keys:
     // stack: addr, key, retdest
-    PUSH 0 %mload_current(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     // stack: len, addr, key, retdest
-    %increment
-    PUSH 1
+    PUSH 0
 insert_accessed_storage_keys_loop:
     %stack (i, len, addr, key, retdest) -> (i, len, i, len, addr, key, retdest)
     EQ %jumpi(insert_storage_key)
     // stack: i, len, addr, key, retdest
-    DUP1 %increment %mload_current(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_key, i, len, addr, key, retdest
-    DUP2 %mload_current(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_addr, loaded_key, i, len, addr, key, retdest
     DUP5 EQ
     // stack: loaded_addr==addr, loaded_key, i, len, addr, key, retdest
@@ -89,10 +89,11 @@ insert_storage_key:
     // stack: i, len, addr, key, retdest
     DUP1 %increment
     %stack (i_plus_1, i, len, addr, key, retdest) -> (i, addr, i_plus_1, key, i_plus_1, retdest)
-    %mstore_current(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new address at the end of the array.
-    %mstore_current(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new key after that
+    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new address at the end of the array.
+    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new key after that
     // stack: i_plus_1, retdest
-    PUSH 0 %mstore_current(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new length in front of the array.
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length in front of the array.
     PUSH 1 // Return 1 to indicate that the storage key was inserted.
     SWAP1 JUMP
 
