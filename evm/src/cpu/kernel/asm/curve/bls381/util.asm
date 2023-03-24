@@ -51,3 +51,40 @@ global test_mul_fp381:
 global test_sub_fp381:
     %sub_fp381
     %jump(0xdeadbeef)
+
+
+%macro add_fp381_2
+    // stack:         x: 2, x_: 2, y: 2, y_: 2
+    %stack (x: 2, x_: 2, y: 2, y_: 2) -> (y_, x_, y, x)
+    // stack:         y_: 2, x_: 2, y: 2, x: 2
+    %add_fp381
+    // stack:                z_: 2, y: 2, x: 2
+    %stack (z_: 2, y: 2, x: 2) -> (x, y, z_)
+    // stack:                x: 2, y: 2, z_: 2
+    %add_fp381
+    // stack:                      z: 2, z_: 2
+%endmacro
+
+%macro mul_fp381_2
+    // stack:         x: 2, x_: 2, y: 2, y_: 2
+    %stack (x: 2, x_: 2, y: 2, y_: 2) -> (y_, x_, y, x)
+    // stack:         y_: 2, x_: 2, y: 2, x: 2
+    %add_fp381
+    // stack:                z_: 2, y: 2, x: 2
+    %stack (z_: 2, y: 2, x: 2) -> (x, y, z_)
+    // stack:                x: 2, y: 2, z_: 2
+    %add_fp381
+    // stack:                      z: 2, z_: 2
+%endmacro
+
+%macro sub_fp381_2
+    // stack:         x: 2, x_: 2, y: 2, y_: 2
+    %stack (x: 2, x_: 2, y: 2, y_: 2) -> (y_, x_, y, x)
+    // stack:         y_: 2, x_: 2, y: 2, x: 2
+    %add_fp381
+    // stack:                z_: 2, y: 2, x: 2
+    %stack (z_: 2, y: 2, x: 2) -> (x, y, z_)
+    // stack:                x: 2, y: 2, z_: 2
+    %add_fp381
+    // stack:                      z: 2, z_: 2
+%endmacro
