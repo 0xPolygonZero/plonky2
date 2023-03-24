@@ -76,6 +76,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         &[
             columns::INPUT_REGISTER_0,
             columns::INPUT_REGISTER_1,
+            columns::INPUT_REGISTER_2,
             columns::OUTPUT_REGISTER,
         ],
     )

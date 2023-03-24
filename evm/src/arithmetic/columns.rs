@@ -87,8 +87,9 @@ pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
 pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_REGISTER_0;
 pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_REGISTER_1;
 pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_REGISTER_3;
-pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = GENERAL_REGISTER_2;
-pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = GENERAL_REGISTER_4;
+pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = GENERAL_REGISTER_4;
+pub(crate) const MUL_AUX_INPUT_HI: Range<usize> =
+    GENERAL_REGISTER_4.end..GENERAL_REGISTER_4.end + N_LIMBS;
 
 // MULMOD takes 4 * N_LIMBS + 3 * 2*N_LIMBS + N_LIMBS = 176 columns
 // but split over two rows of 96 columns and 80 columns.

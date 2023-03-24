@@ -97,7 +97,7 @@ fn ternops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
 // corresponding to the OPS operations.
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[
+    ternops_table(&[
         COL_MAP.op.add,
         COL_MAP.op.sub,
         COL_MAP.op.mul,

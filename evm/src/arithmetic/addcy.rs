@@ -36,6 +36,7 @@ pub(crate) fn generate<F: PrimeField64>(
 ) {
     u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
     u256_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_2], U256::zero());
 
     match filter {
         IS_ADD => {
