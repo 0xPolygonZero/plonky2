@@ -13,7 +13,28 @@ serial_test = "1.0.0"
 unroll = "0.1.5"
 
 [dev-dependencies]
+criterion = {version = "0.4.0", default-features = false }
 env_logger = "0.10.0"
 log = "0.4.17"
 serde_cbor = "0.11.2"
+tynm = { version = "0.1.6", default-features = false }
+
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = "0.5.0"
+
+[[bench]]
+name = "hashing"
+harness = false
+
+[[bench]]
+name = "merkle"
+harness = false
+
+[[bench]]
+name = "base_proof"
+harness = false
+
+[[bench]]
+name = "recursion"
+harness = false
 
