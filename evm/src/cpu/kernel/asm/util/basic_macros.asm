@@ -345,3 +345,8 @@
     %endrep
     // stack: a || b || c || d
 %endmacro
+
+%macro u256_to_addr
+    // stack: x
+    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
+%endmacro

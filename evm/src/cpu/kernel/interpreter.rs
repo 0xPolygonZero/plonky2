@@ -59,6 +59,7 @@ pub fn run_interpreter(
     )
 }
 
+#[derive(Clone)]
 pub struct InterpreterMemoryInitialization {
     pub label: String,
     pub stack: Vec<U256>,
