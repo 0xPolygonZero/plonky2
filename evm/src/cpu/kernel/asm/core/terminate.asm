@@ -10,7 +10,10 @@ global sys_stop:
     %jump(terminate_common)
 
 global sys_return:
-    // stack: kexit_info
+    // stack: kexit_info, offset, size
+    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
+    %stack (kexit_info, offset, size) -> (kexit_info)
+
     %leftover_gas
     // stack: leftover_gas
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
@@ -23,10 +26,10 @@ global sys_selfdestruct:
     SWAP1 %u256_to_addr
     DUP1 %insert_accessed_addresses_no_return // TODO: Use return value in gas calculation.
     // stack: address, kexit_info
-    SWAP1
-    // TODO: Charge gas.
+    POP // TODO: Transfer balance to address.
+    // stack: kexit_info
     // TODO: Add address to the access list.
-    %consume_gas_const(@GAS_SELFDESTRUCT)
+    %charge_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas
     // TODO: Destroy account.
@@ -34,7 +37,10 @@ global sys_selfdestruct:
     %jump(terminate_common)
 
 global sys_revert:
-    // stack: kexit_info
+    // stack: kexit_info, offset, size
+    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
+    %stack (kexit_info, offset, size) -> (kexit_info)
+
     %leftover_gas
     // stack: leftover_gas
     // TODO: Revert state changes.
