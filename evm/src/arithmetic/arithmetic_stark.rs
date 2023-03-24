@@ -72,24 +72,15 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
             columns::IS_ADDFP254,
             columns::IS_MULFP254,
             columns::IS_SUBFP254,
+            columns::IS_ADDMOD,
+            columns::IS_MULMOD,
+            columns::IS_SUBMOD,
         ],
         &[
             columns::INPUT_REGISTER_0,
             columns::INPUT_REGISTER_1,
             columns::INPUT_REGISTER_2,
             columns::OUTPUT_REGISTER,
-        ],
-    )
-}
-
-pub fn ctl_modops_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[columns::IS_ADDMOD, columns::IS_MULMOD, columns::IS_SUBMOD],
-        &[
-            columns::MODULAR_INPUT_0,
-            columns::MODULAR_INPUT_1,
-            columns::MODULAR_MODULUS,
-            columns::MODULAR_OUTPUT,
         ],
     )
 }

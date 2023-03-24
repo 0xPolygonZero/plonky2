@@ -106,11 +106,10 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.addfp254,
         COL_MAP.op.mulfp254,
         COL_MAP.op.subfp254,
+        COL_MAP.op.addmod,
+        COL_MAP.op.mulmod,
+        COL_MAP.op.submod,
     ])
-}
-
-pub fn ctl_modops_rows<F: Field>() -> TableWithColumns<F> {
-    ternops_table(&[COL_MAP.op.addmod, COL_MAP.op.mulmod, COL_MAP.op.submod])
 }
 
 pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
