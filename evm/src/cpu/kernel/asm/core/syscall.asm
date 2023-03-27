@@ -28,7 +28,7 @@ global syscall_jumptable:
     JUMPTABLE panic // or is implemented natively
     JUMPTABLE panic // xor is implemented natively
     JUMPTABLE panic // not is implemented natively
-    JUMPTABLE sys_byte
+    JUMPTABLE panic // byte is implemented natively
     JUMPTABLE panic // shl is implemented natively
     JUMPTABLE panic // shr is implemented natively
     JUMPTABLE sys_sar
