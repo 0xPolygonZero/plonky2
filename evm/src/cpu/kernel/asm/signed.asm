@@ -191,11 +191,6 @@ global sys_smod:
     %stack(x, y, kernel_return) -> (_sys_smod, x, y, _syscall_return, kernel_return)
     JUMP
 
-global sys_byte:
-    %charge_gas_const(@GAS_VERYLOW)
-    %stack(x, y, kernel_return) -> (_sys_byte, x, y, _syscall_return, kernel_return)
-    JUMP
-
 global sys_signextend:
     %charge_gas_const(@GAS_LOW)
     %stack(x, y, kernel_return) -> (_sys_signextend, x, y, _syscall_return, kernel_return)
