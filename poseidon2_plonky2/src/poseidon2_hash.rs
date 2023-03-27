@@ -194,7 +194,7 @@ pub trait Poseidon2: PrimeField64 {
                 stored[l] += state_u128[4 * j + l];
             }
         }
-        for i in 0..state_u128.len() {
+        for i in 0..WIDTH {
             state_u128[i] += stored[i % 4];
             state_[i] = Self::from_noncanonical_u128(state_u128[i]);
         }
@@ -242,7 +242,7 @@ pub trait Poseidon2: PrimeField64 {
                 stored[l] += state[4 * j + l];
             }
         }
-        for i in 0..state.len() {
+        for i in 0..WIDTH {
             state[i] += stored[i % 4];
         }
 
@@ -299,14 +299,14 @@ pub trait Poseidon2: PrimeField64 {
                 stored[l] = builder.add_extension(stored[l], state[4 * j + l]);
             }
         }
-        for i in 0..state.len() {
+        for i in 0..WIDTH {
             state[i] = builder.add_extension(state[i], stored[i % 4]);
         }
     }
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn internal_matrix(state_: &mut [Self; WIDTH]) {
+    fn internal_matrix(state: &mut [Self; WIDTH]) {
 
         // This computes the mutliplication with the matrix
         // M_I =
@@ -316,17 +316,19 @@ pub trait Poseidon2: PrimeField64 {
         // [  1     1   1   ...   r_t]
         // for pseudo-random values r_1, r_2, ..., r_t. Note that for efficiency in Self::INTERNAL_MATRIX_DIAG_M_1 only r_1 - 1, r_2 - 1, ..., r_t - 1 are stored
         // Compute input sum
-        let mut sum = state_[0].to_noncanonical_u64() as u128;
-        state_
+        let mut sum = state[0].to_noncanonical_u64() as u128;
+        state
             .iter()
             .skip(1)
             .take(WIDTH-1)
             .for_each(|el| sum += (*el).to_noncanonical_u64() as u128);
-        let f_sum = Self::from_noncanonical_u128(sum);
+        let f_sum = Self::from_noncanonical_u128(
+            state.iter().fold(0u128, |sum, el| sum + el.to_noncanonical_u64() as u128)
+        );
         // Add sum + diag entry * element to each element
         for i in 0..WIDTH {
-            state_[i] *= Self::from_canonical_u64(Self::INTERNAL_MATRIX_DIAG_M_1[i]);
-            state_[i] += f_sum;
+            state[i] *= Self::from_canonical_u64(Self::INTERNAL_MATRIX_DIAG_M_1[i]);
+            state[i] += f_sum;
         }
     }
 
@@ -334,15 +336,8 @@ pub trait Poseidon2: PrimeField64 {
     fn internal_matrix_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
     ) {
-        let t = WIDTH;
-
         // Compute input sum
-        let mut sum = state[0];
-        state
-            .iter()
-            .skip(1)
-            .take(t-1)
-            .for_each(|el| sum += *el);
+        let sum = state.iter().fold(F::ZERO, |sum, el| sum + *el);
         // Add sum + diag entry * element to each element
         for i in 0..state.len() {
             state[i] *= F::from_canonical_u64(Self::INTERNAL_MATRIX_DIAG_M_1[i]);
@@ -510,9 +505,6 @@ impl<F: RichField + Poseidon2> PlonkyPermutation<F> for Poseidon2Permutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
         F::poseidon2(input)
     }
-    /*fn permute_c(_: [F; COMPRESSION_WIDTH]) -> [F; COMPRESSION_WIDTH] {
-        [F::ZERO; COMPRESSION_WIDTH]
-    }*/
 }
 
 /// Poseidon2 hash function.
@@ -586,14 +578,14 @@ pub(crate) mod test_helpers {
     ) where
         F: Poseidon2,
     {
-        for (input_, expected_output_) in test_vectors.into_iter() {
-            let mut input = [F::ZERO; SPONGE_WIDTH];
+        for (input, expected_output) in test_vectors.into_iter() {
+            let mut state = [F::ZERO; SPONGE_WIDTH];
             for i in 0..SPONGE_WIDTH {
-                input[i] = F::from_canonical_u64(input_[i]);
+                state[i] = F::from_canonical_u64(input[i]);
             }
-            let output = F::poseidon2(input);
+            let output = F::poseidon2(state);
             for i in 0..SPONGE_WIDTH {
-                let ex_output = F::from_canonical_u64(expected_output_[i]); // Adjust!
+                let ex_output = F::from_canonical_u64(expected_output[i]); // Adjust!
                 assert_eq!(output[i], ex_output);
             }
         }
