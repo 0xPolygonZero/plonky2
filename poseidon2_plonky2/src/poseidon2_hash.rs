@@ -316,12 +316,6 @@ pub trait Poseidon2: PrimeField64 {
         // [  1     1   1   ...   r_t]
         // for pseudo-random values r_1, r_2, ..., r_t. Note that for efficiency in Self::INTERNAL_MATRIX_DIAG_M_1 only r_1 - 1, r_2 - 1, ..., r_t - 1 are stored
         // Compute input sum
-        let mut sum = state[0].to_noncanonical_u64() as u128;
-        state
-            .iter()
-            .skip(1)
-            .take(WIDTH-1)
-            .for_each(|el| sum += (*el).to_noncanonical_u64() as u128);
         let f_sum = Self::from_noncanonical_u128(
             state.iter().fold(0u128, |sum, el| sum + el.to_noncanonical_u64() as u128)
         );
