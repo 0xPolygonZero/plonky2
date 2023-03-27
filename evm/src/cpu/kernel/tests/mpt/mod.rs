@@ -1,7 +1,8 @@
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
+use eth_trie_utils::nibbles::Nibbles;
 use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::generation::mpt::AccountRlp;
+use crate::{Node, PartialTrie};
 
 mod hash;
 mod hex_prefix;
@@ -47,9 +48,9 @@ pub(crate) fn test_account_2_rlp() -> Vec<u8> {
 
 /// A `PartialTrie` where an extension node leads to a leaf node containing an account.
 pub(crate) fn extension_to_leaf(value: Vec<u8>) -> PartialTrie {
-    PartialTrie::Extension {
+    Node::Extension {
         nibbles: 0xABC_u64.into(),
-        child: PartialTrie::Leaf {
+        child: Node::Leaf {
             nibbles: Nibbles {
                 count: 3,
                 packed: 0xDEF.into(),
@@ -58,4 +59,5 @@ pub(crate) fn extension_to_leaf(value: Vec<u8>) -> PartialTrie {
         }
         .into(),
     }
+    .into()
 }

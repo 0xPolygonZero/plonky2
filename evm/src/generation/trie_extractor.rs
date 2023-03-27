@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use eth_trie_utils::partial_trie::Nibbles;
+use eth_trie_utils::nibbles::Nibbles;
 use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;

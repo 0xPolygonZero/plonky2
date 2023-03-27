@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use eth_trie_utils::partial_trie::PartialTrie;
+use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
@@ -12,13 +12,14 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::memory::segments::Segment;
+use crate::{Node, PartialTrie};
 
 // Test account with a given code hash.
 fn test_account(code: &[u8]) -> AccountRlp {
     AccountRlp {
         nonce: U256::from(1111),
         balance: U256::from(2222),
-        storage_root: PartialTrie::Empty.calc_hash(),
+        storage_root: PartialTrie::from(Node::Empty).hash(),
         code_hash: keccak(code),
     }
 }
@@ -96,7 +97,7 @@ fn prepare_interpreter(
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
     state_trie.insert(k, rlp::encode(account).to_vec());
-    let expected_state_trie_hash = state_trie.calc_hash();
+    let expected_state_trie_hash = state_trie.hash();
     assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())

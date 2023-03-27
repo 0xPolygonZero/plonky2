@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
@@ -24,6 +23,7 @@ use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
+use crate::PartialTrie;
 
 pub mod mpt;
 pub mod outputs;
