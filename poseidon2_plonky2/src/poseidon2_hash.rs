@@ -598,7 +598,7 @@ pub(crate) mod test_helpers {
             }
         }
     }
-    
+
     pub(crate) fn check_consistency<F: Field>()
         where
             F: Poseidon2,
