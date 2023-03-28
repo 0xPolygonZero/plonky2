@@ -1,5 +1,5 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
@@ -9,14 +9,14 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
-use crate::{Node, PartialTrie};
+use crate::Node;
 
 // Test account with a given code hash.
 fn test_account(balance: U256) -> AccountRlp {
     AccountRlp {
         nonce: U256::from(1111),
         balance,
-        storage_root: PartialTrie::from(Node::Empty).hash(),
+        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
         code_hash: H256::from_uint(&U256::from(8888)),
     }
 }
@@ -31,7 +31,7 @@ fn prepare_interpreter(
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
-    let mut state_trie: PartialTrie = Default::default();
+    let mut state_trie: HashedPartialTrie = Default::default();
     let trie_inputs = Default::default();
 
     interpreter.generation_state.registers.program_counter = load_all_mpts;

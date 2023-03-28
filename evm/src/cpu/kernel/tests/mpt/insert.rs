@@ -1,6 +1,6 @@
 use anyhow::Result;
 use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{BigEndianHash, H256};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -11,7 +11,7 @@ use crate::cpu::kernel::tests::mpt::{
 };
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
-use crate::{Node, PartialTrie};
+use crate::Node;
 
 #[test]
 fn mpt_insert_empty() -> Result<()> {
@@ -152,11 +152,15 @@ fn mpt_insert_branch_to_leaf_same_key() -> Result<()> {
 
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
 /// accompanying trie data. An empty trie's storage_root is used instead.
-fn test_state_trie(mut state_trie: PartialTrie, k: Nibbles, mut account: AccountRlp) -> Result<()> {
+fn test_state_trie(
+    mut state_trie: HashedPartialTrie,
+    k: Nibbles,
+    mut account: AccountRlp,
+) -> Result<()> {
     assert_eq!(k.count, 64);
 
     // Ignore any storage_root; see documentation note.
-    account.storage_root = PartialTrie::from(Node::Empty).hash();
+    account.storage_root = HashedPartialTrie::from(Node::Empty).hash();
 
     let trie_inputs = TrieInputs {
         state_trie: state_trie.clone(),

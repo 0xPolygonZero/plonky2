@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::Address;
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -17,7 +17,7 @@ use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
-use plonky2_evm::{Node, PartialTrie};
+use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -60,7 +60,7 @@ fn add11_yml() -> anyhow::Result<()> {
         ..AccountRlp::default()
     };
 
-    let mut state_trie_before = PartialTrie::from(Node::Empty);
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
     state_trie_before.insert(
         beneficiary_nibbles,
         rlp::encode(&beneficiary_account_before).to_vec(),
@@ -112,7 +112,7 @@ fn add11_yml() -> anyhow::Result<()> {
         balance: 0xde0b6b3a76586a0u64.into(),
         code_hash,
         // Storage map: { 0 => 2 }
-        storage_root: PartialTrie::from(Node::Leaf {
+        storage_root: HashedPartialTrie::from(Node::Leaf {
             nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
             value: vec![2],
         })
@@ -120,7 +120,7 @@ fn add11_yml() -> anyhow::Result<()> {
         ..AccountRlp::default()
     };
 
-    let mut expected_state_trie_after = PartialTrie::from(Node::Empty);
+    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
     expected_state_trie_after.insert(
         beneficiary_nibbles,
         rlp::encode(&beneficiary_account_after).to_vec(),

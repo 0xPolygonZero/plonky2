@@ -43,5 +43,4 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-pub type PartialTrie = HashedPartialTrie;
-pub type Node = eth_trie_utils::partial_trie::Node<PartialTrie>;
+pub type Node = eth_trie_utils::partial_trie::Node<HashedPartialTrie>;

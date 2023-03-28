@@ -1,5 +1,5 @@
 use anyhow::Result;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256};
 
 use crate::cpu::kernel::aggregator::KERNEL;

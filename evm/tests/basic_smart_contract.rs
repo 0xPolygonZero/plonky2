@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -18,7 +18,7 @@ use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
-use plonky2_evm::{Node, PartialTrie};
+use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -113,7 +113,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    let expected_state_trie_after: PartialTrie = {
+    let expected_state_trie_after: HashedPartialTrie = {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + code_gas + txdata_gas;
 

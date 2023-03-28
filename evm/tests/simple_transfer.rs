@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -17,7 +17,7 @@ use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
-use plonky2_evm::{Node, PartialTrie};
+use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -47,7 +47,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
-        storage_root: PartialTrie::from(Node::Empty).hash(),
+        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
         code_hash: keccak([]),
     };
     let to_account_before = AccountRlp::default();
@@ -59,8 +59,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     .into();
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
-        transactions_trie: PartialTrie::from(Node::Empty),
-        receipts_trie: PartialTrie::from(Node::Empty),
+        transactions_trie: HashedPartialTrie::from(Node::Empty),
+        receipts_trie: HashedPartialTrie::from(Node::Empty),
         storage_tries: vec![],
     };
 
@@ -88,7 +88,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    let expected_state_trie_after: PartialTrie = {
+    let expected_state_trie_after: HashedPartialTrie = {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + txdata_gas;
 

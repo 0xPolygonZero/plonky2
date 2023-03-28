@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::PartialTrie as PartialTrieTrait;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
-use crate::{Node, PartialTrie};
+use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
 pub struct AccountRlp {
@@ -24,7 +24,7 @@ impl Default for AccountRlp {
         Self {
             nonce: U256::zero(),
             balance: U256::zero(),
-            storage_root: PartialTrie::from(Node::Empty).hash(),
+            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
             code_hash: keccak([]),
         }
     }
@@ -73,7 +73,7 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
 /// is serialized as `(TYPE_LEAF, key, value)`, where key is a `(nibbles, depth)` pair and `value`
 /// is a variable-length structure which depends on which trie we're dealing with.
 pub(crate) fn mpt_prover_inputs<F>(
-    trie: &PartialTrie,
+    trie: &HashedPartialTrie,
     prover_inputs: &mut Vec<U256>,
     parse_value: &F,
 ) where
@@ -113,10 +113,10 @@ pub(crate) fn mpt_prover_inputs<F>(
 /// Like `mpt_prover_inputs`, but for the state trie, which is a bit unique since each value
 /// leads to a storage trie which we recursively traverse.
 pub(crate) fn mpt_prover_inputs_state_trie(
-    trie: &PartialTrie,
+    trie: &HashedPartialTrie,
     key: Nibbles,
     prover_inputs: &mut Vec<U256>,
-    storage_tries_by_state_key: &HashMap<Nibbles, &PartialTrie>,
+    storage_tries_by_state_key: &HashMap<Nibbles, &HashedPartialTrie>,
 ) {
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
     match trie.deref() {
@@ -159,9 +159,9 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                 code_hash,
             } = account;
 
-            let storage_hash_only = PartialTrie::new(Node::Hash(storage_root));
+            let storage_hash_only = HashedPartialTrie::new(Node::Hash(storage_root));
             let merged_key = key.merge_nibbles(nibbles);
-            let storage_trie: &PartialTrie = storage_tries_by_state_key
+            let storage_trie: &HashedPartialTrie = storage_tries_by_state_key
                 .get(&merged_key)
                 .copied()
                 .unwrap_or(&storage_hash_only);
