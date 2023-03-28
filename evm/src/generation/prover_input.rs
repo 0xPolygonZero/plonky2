@@ -61,13 +61,9 @@ impl<F: Field> GenerationState<F> {
     fn run_sf(&self, input_fn: &ProverInputFn) -> U256 {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
         let inputs: [U256; 4] = match field {
-            Bls381Base => {
-                let mut inputs: [U256; 4] = [U256::zero(); 4];
-                for i in 0..4 {
-                    inputs[i] = stack_peek(self, i).expect("Empty stack");
-                }
-                inputs
-            }
+            Bls381Base => std::array::from_fn(|i| {
+                stack_peek(self, i).expect("Insufficient number of items on stack")
+            }),
             _ => todo!(),
         };
         match input_fn.0[2].as_str() {
@@ -91,16 +87,12 @@ impl<F: Field> GenerationState<F> {
             .unwrap()
             .parse::<usize>()
             .unwrap();
-        let ptr = stack_peek(self, 11 - n).expect("Empty stack").as_usize();
+        let ptr = stack_peek(self, 11 - n)
+            .expect("Insufficient number of items on stack")
+            .as_usize();
 
         let f: [U256; 12] = match field {
-            Bn254Base => {
-                let mut f: [U256; 12] = [U256::zero(); 12];
-                for i in 0..12 {
-                    f[i] = kernel_peek(self, BnPairing, ptr + i);
-                }
-                f
-            }
+            Bn254Base => std::array::from_fn(|i| kernel_peek(self, BnPairing, ptr + i)),
             _ => todo!(),
         };
         field.field_extension_inverse(n, f)

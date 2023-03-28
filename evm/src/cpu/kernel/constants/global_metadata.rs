@@ -45,10 +45,14 @@ pub(crate) enum GlobalMetadata {
 
     /// Gas to refund at the end of the transaction.
     RefundCounter = 22,
+    /// Length of the addresses access list.
+    AccessedAddressesLen = 23,
+    /// Length of the storage keys access list.
+    AccessedStorageKeysLen = 24,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 22;
+    pub(crate) const COUNT: usize = 24;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -74,6 +78,8 @@ impl GlobalMetadata {
             Self::BlockChainId,
             Self::BlockBaseFee,
             Self::RefundCounter,
+            Self::AccessedAddressesLen,
+            Self::AccessedStorageKeysLen,
         ]
     }
 
@@ -102,6 +108,8 @@ impl GlobalMetadata {
             Self::BlockChainId => "GLOBAL_METADATA_BLOCK_CHAIN_ID",
             Self::BlockBaseFee => "GLOBAL_METADATA_BLOCK_BASE_FEE",
             Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
+            Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
+            Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
         }
     }
 }

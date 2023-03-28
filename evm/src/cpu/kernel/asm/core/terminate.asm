@@ -19,8 +19,13 @@ global sys_return:
     %jump(terminate_common)
 
 global sys_selfdestruct:
-    // stack: kexit_info
+    // stack: kexit_info, address
+    SWAP1 %u256_to_addr
+    DUP1 %insert_accessed_addresses_no_return // TODO: Use return value in gas calculation.
+    // stack: address, kexit_info
+    SWAP1
     // TODO: Charge gas.
+    // TODO: Add address to the access list.
     %consume_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas

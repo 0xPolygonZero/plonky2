@@ -5,9 +5,19 @@
 
 global sys_sload:
     // stack: kexit_info, slot
-    // TODO: Charge gas.
     SWAP1
     // stack: slot, kexit_info
+    DUP1 %address
+    // stack: addr, slot, slot, kexit_info
+    %insert_accessed_storage_keys PUSH @GAS_COLDSLOAD_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    %stack (gas, slot, kexit_info) -> (gas, kexit_info, slot)
+    %charge_gas
+    // stack: kexit_info, slot
+
+    SWAP1
     %stack (slot) -> (slot, after_storage_read)
     %slot_to_storage_key
     // stack: storage_key, after_storage_read, kexit_info
