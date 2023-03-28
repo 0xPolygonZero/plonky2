@@ -113,52 +113,7 @@ modmul_return_2:
     %jump(add_bignum)
 modmul_return_3:
     // stack: carry, len, a_loc, b_loc, s2, s3, retdest
-    ISZERO
-    %jumpi(no_carry)
-
-    // stack: len, a_loc, b_loc, s2, s3, retdest
-    DUP4
-    DUP2
-    ADD
-    // stack: cur_loc=s2 + len, len, a_loc, b_loc, s2, s3, retdest
-increment_loop:
-    // stack: cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    DUP1
-    %mload_kernel_general
-    // stack: val, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    %increment
-    DUP1
-    // stack: val+1, val+1, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    %eq_const(@BIGNUM_LIMB_BASE)
-    DUP1
-    ISZERO
-    // stack: val+1!=limb_base, val+1==limb_base, val+1, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    SWAP1
-    SWAP2
-    // stack: val+1, val+1!=limb_base, val+1==limb_base, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    MUL
-    // stack: to_write=(val+1)*(val+1!=limb_base), continue=val+1==limb_base, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    DUP3
-    // stack: cur_loc, to_write, continue, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    %mstore_kernel_general
-    // stack: continue, cur_loc, len, a_loc, b_loc, s2, s3, retdest
-    SWAP1
-    %increment
-    DUP1
-    DUP8
-    // stack: s3, cur_loc + 1, cur_loc + 1, continue, len, a_loc, b_loc, s2, s3, retdest
-    EQ
-    ISZERO
-    // stack: cur_loc + 1 != s3, cur_loc + 1, continue, len, a_loc, b_loc, s2, s3, retdest
-    SWAP1
-    SWAP2
-    // stack: continue, cur_loc + 1 != s3, cur_loc + 1, len, a_loc, b_loc, s2, s3, retdest
-    MUL
-    // stack: new_continue=continue*(cur_loc + 1 != s3), cur_loc + 1, len, a_loc, b_loc, s2, s3, retdest
-    %jumpi(increment_loop)
-    // stack: cur_loc + 1, len, a_loc, b_loc, s2, s3, retdest
     POP
-no_carry:
     // stack: len, a_loc, b_loc, s2, s3, retdest
 
     // STEP 5:
