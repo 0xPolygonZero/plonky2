@@ -47,10 +47,10 @@ global sys_create2:
     SWAP4
     %stack (salt) -> (salt, sys_create2_got_address)
     // stack: salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
-    DUP4 // code_len
-    DUP4 // code_offset
+    DUP5 // code_len
+    DUP5 // code_offset
     PUSH @SEGMENT_MAIN_MEMORY
-    PUSH 0 // context
+    GET_CONTEXT
     KECCAK_GENERAL
     // stack: hash, salt, sys_create2_got_address, value, code_offset, code_len, kexit_info
     %address
@@ -73,6 +73,7 @@ sys_create2_finish:
 // Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global create_inner:
     // stack: address, sender, endowment, CODE_ADDR, code_len, retdest
+    DUP1 %insert_accessed_addresses_no_return
     %stack (address, sender, endowment)
         -> (sender, address, endowment, sender, address)
 

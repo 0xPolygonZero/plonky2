@@ -32,6 +32,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in PRECOMPILES {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -151,7 +155,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 36] = [
+const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -163,7 +167,9 @@ const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ACCESSLISTADDRESS", 2_400),
     ("GAS_ACCESSLISTSTORAGE", 1_900),
     ("GAS_COLDACCOUNTACCESS", 2_600),
+    ("GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS", 2_500),
     ("GAS_COLDSLOAD", 2_100),
+    ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
     ("REFUND_SCLEAR", 15_000),
@@ -188,4 +194,16 @@ const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_KECCAK256WORD", 6),
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
+];
+
+const PRECOMPILES: [(&str, u16); 9] = [
+    ("ECREC", 1),
+    ("SHA256", 2),
+    ("RIP160", 3),
+    ("ID", 4),
+    ("EXPMOD", 5),
+    ("BN_ADD", 6),
+    ("BN_MUL", 7),
+    ("SNARKV", 8),
+    ("BLAKE2_F", 9),
 ];

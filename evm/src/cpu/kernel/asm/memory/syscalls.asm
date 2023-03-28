@@ -124,14 +124,14 @@ sys_calldataload_after_mload_packing:
     // stack: kexit_info, dest_offset, offset, size
     DUP4 %num_bytes_to_num_words %mul_const(@GAS_COPY) %add_const(@GAS_VERYLOW) %charge_gas
 
-    %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, dest_offset, offset, size, kexit_info)
+    %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, kexit_info, dest_offset, offset, size)
     ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
-    // stack: expanded_num_bytes, dest_offset, offset, size, kexit_info
+    // stack: expanded_num_bytes, kexit_info, dest_offset, offset, size, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
     GET_CONTEXT
-    %stack (context, dest_offset, offset, size, kexit_info) ->
+    %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, $segment, offset, size, %%after, kexit_info)
     %jump(memcpy)
 %%after:
