@@ -5,12 +5,19 @@
 // a, b, and m must have the same length.
 // output_loc must have size length; scratch_2 must have size 2*length.
 // Both scratch_2 and scratch_3 have size 2*length and be initialized with zeroes.
+
+// The prover provides x := (a * b) % m, which is the output of this function.
+// The prover also provides k := (a * b) / m, stored in scratch space.
+// We then check that x + k * m = a * b, by computing both of those using
+// bignum arithmetic, storing the results in scratch space.
+// We assert equality between those two, limb by limb.
 global modmul_bignum:
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1 (=scratch_1), s2, s3, retdest
     DUP1
     ISZERO
     %jumpi(len_zero)
     
+    // STEP 1:
     // The prover provides x := (a * b) % m, which we store in output_loc.
     
     PUSH 0
@@ -36,6 +43,7 @@ modmul_remainder_loop:
     // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     POP
 
+    // STEP 2:
     // The prover provides k := (a * b) / m, which we store in scratch_1.
 
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -67,9 +75,11 @@ modmul_quotient_loop:
     %pop2
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
 
-    // Verification step 1: calculate x + k * m.
+    // STEP 3:
+    // We calculate x + k * m.
 
-    // Store k * m in scratch_2.
+    // STEP 3.1:
+    // Multiply k with m and store k * m in scratch_2.
     PUSH modmul_return_1
     %stack (return, len, a, b, m, out, s1, s2) -> (len, s1, m, s2, return, len, a, b, out, s2)
     // stack: len, s1, m_loc, s2, modmul_return_1, len, a_loc, b_loc, out_loc, s2, s3, retdest
@@ -77,6 +87,7 @@ modmul_quotient_loop:
 modmul_return_1:
     // stack: len, a_loc, b_loc, out_loc, s2, s3, retdest
 
+    // STEP 3.2:
     // Add x into k * m (in scratch_2).
     PUSH modmul_return_2
     %stack (return, len, a, b, out, s2) -> (len, s2, out, return, len, a, b, s2)
@@ -132,9 +143,10 @@ increment_loop:
 no_carry:
     // stack: len, a_loc, b_loc, s2, s3, retdest
 
-    // Calculate a * b.
+    // STEP 4:
+    // We calculate a * b.
 
-    // Store a * b in scratch_3.
+    // Multiply a with b and store a * b in scratch_3.
     PUSH modmul_return_3
     %stack (return, len, a, b, s2, s3) -> (len, a, b, s3, return, len, s2, s3)
     // stack: len, a_loc, b_loc, s3, modmul_return_3, len, s2, s3, retdest
@@ -142,7 +154,9 @@ no_carry:
 modmul_return_3:
     // stack: len, s2, s3, retdest
 
+    // STEP 5:
     // Check that x + k * m = a * b.
+
     // Walk through scratch_2 and scratch_3, checking that they are equal.
     // stack: n=len, i=s2, j=s3, retdest
 modmul_check_loop:
@@ -172,6 +186,7 @@ modmul_check_loop:
     %pop3
     // stack: retdest
     JUMP
+
 len_zero:
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %pop8

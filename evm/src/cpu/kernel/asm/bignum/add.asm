@@ -56,6 +56,7 @@ add_end:
     SWAP1
     // stack: retdest, carry_new
     JUMP
+
 len_zero:
     // stack: len, a_start_loc, b_start_loc, retdest
     %pop3
