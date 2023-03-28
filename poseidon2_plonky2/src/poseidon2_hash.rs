@@ -346,9 +346,6 @@ pub trait Poseidon2: PrimeField64 {
         where
             Self: RichField + Extendable<D>,
     {
-        // In contrast to the Poseidon circuit, we *may not need* PoseidonMdsGate, because the number of constraints will fit regardless
-        // Check!
-
         // Compute input sum
         let mut sum = state[0];
         for i in 1..state.len() {
