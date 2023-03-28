@@ -1,6 +1,6 @@
 mod allocator;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::keccak::KeccakHash;
@@ -18,13 +18,16 @@ pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion) {
         type_name::<F>(),
         type_name::<H>()
     ));
-    group.sample_size(10);
+    group.sample_size(30);
 
     for size_log in [13, 14, 15] {
         let size = 1 << size_log;
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let leaves = vec![F::rand_vec(ELEMS_PER_LEAF); size];
-            b.iter(|| MerkleTree::<F, H>::new(leaves.clone(), 0));
+            b.iter_batched(
+                || vec![F::rand_vec(ELEMS_PER_LEAF); size],
+                |leaves| MerkleTree::<F, H>::new(leaves, 0),
+                BatchSize::SmallInput,
+            );
         });
     }
 }

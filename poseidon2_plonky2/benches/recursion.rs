@@ -15,7 +15,7 @@ use anyhow::Result;
 
 mod circuits;
 
-macro_rules! fancy_print {
+macro_rules! pretty_print {
     ($($arg:tt)*) => {
         print!("\x1b[0;36mINFO ===========>\x1b[0m ");
         println!($($arg)*);
@@ -176,7 +176,7 @@ where
 
         let shrink_circuit = ShrinkCircuit::<F, C, InnerC, D>::build_shrink_circuit(inner_cd, config.clone());
 
-        fancy_print!("shrink steps: {}", shrink_circuit.num_shrink_steps());
+        pretty_print!("shrink steps: {}", shrink_circuit.num_shrink_steps());
 
         let inner_cd = base_circuit.get_circuit_data();
 

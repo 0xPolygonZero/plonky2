@@ -1,5 +1,4 @@
-//! Implementation of the Poseidon2 hash function as described in
-//! <https://eprint.iacr.org/YYYY/NNN.pdf>
+//! Implementation of the Poseidon2 hash function and the traits necessary to employ it in Plonky2
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -16,9 +15,9 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, Hasher};
 
-// The number of full rounds and partial rounds is given by the
-// calc_round_numbers.py script. They happen to be the same for both
-// width 8 and width 12 with s-box x^7.
+/// The number of full rounds and partial rounds is given by the
+/// calc_round_numbers.py script. They happen to be the same for both
+/// width 8 and width 12 with s-box x^7.
 //
 // NB: Changing any of these values will require regenerating all of
 // the precomputed constant arrays in this file.
@@ -34,10 +33,6 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // WARNING: The AVX2 Goldilocks specialization relies on all round constants being in
     // 0..0xfffeeac900011537. If these constants are randomly regenerated, there is a ~.6% chance
     // that this condition will no longer hold.
-    //
-    // WARNING: If these are changed in any way, then all the
-    // implementations of Poseidon must be regenerated. See comments
-    // in `poseidon2_goldilocks.rs`.
     0xe034a8785fd284a7, 0xe2463f1ea42e1b80, 0x048742e681ae290a, 0xe4af50ade990154c,
     0x8b13ffaaf4f78f8a, 0xe3fbead7dccd8d63, 0x631a47705eb92bf8, 0x88fbbb8698548659,
     0x74cd2003b0f349c9, 0xe16a3df6764a3f5d, 0x57ce63971a71aaa2, 0xdc1f7fd3e7823051,
@@ -132,16 +127,18 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 
 const WIDTH: usize = SPONGE_WIDTH;
 pub trait Poseidon2: PrimeField64 {
-    // Total number of round constants required: width of the input
-    // times number of rounds.
+    /// Total number of round constants required: width of the input
+    /// times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
 
-    // We only need INTERNAL_MATRIX_DIAG_M_1 here, specifying the diagonal - 1 of the internal matrix
+    /// We only need INTERNAL_MATRIX_DIAG_M_1 here, specifying the diagonal - 1 of the internal matrix
     const INTERNAL_MATRIX_DIAG_M_1: [u64; WIDTH];
 
+    /// Compute the product between the state vector and the matrix employed in full rounds of
+    /// the permutation
     #[inline(always)]
     #[unroll_for_loops]
-    fn external_matrix(state_: &mut[Self; WIDTH]) {
+    fn external_matrix(state: &mut[Self; WIDTH]) {
         // Applying cheap 4x4 MDS matrix to each 4-element part of the state
         // The matrix in this case is:
         // M_4 =
@@ -151,7 +148,7 @@ pub trait Poseidon2: PrimeField64 {
         // [1   1   4   6]
         // The computation is shown in more detail in https://tosc.iacr.org/index.php/ToSC/article/view/888/839, Figure 13 (M_{4,4}^{8,4} with alpha = 2)
         let t4 = WIDTH / 4;
-        let mut state_u128: Vec<u128> = state_.iter().map(|&e| e.to_canonical_u64() as u128).collect();
+        let mut state_u128: Vec<u128> = state.iter().map(|&e| e.to_canonical_u64() as u128).collect();
         for i in 0..t4 {
             let start_index = i * 4;
             let mut t_0 = state_u128[start_index];
@@ -196,7 +193,7 @@ pub trait Poseidon2: PrimeField64 {
         }
         for i in 0..WIDTH {
             state_u128[i] += stored[i % 4];
-            state_[i] = Self::from_noncanonical_u128(state_u128[i]);
+            state[i] = Self::from_noncanonical_u128(state_u128[i]);
         }
     }
 
@@ -304,6 +301,8 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    /// Compute the product between the state vector and the matrix employed in partial rounds of
+    /// the permutation
     #[inline(always)]
     #[unroll_for_loops]
     fn internal_matrix(state: &mut [Self; WIDTH]) {
@@ -362,6 +361,7 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    /// Add round constant to `state` for round `round_ctr`
     #[inline(always)]
     #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
@@ -401,6 +401,7 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    /// Apply the sbox to a single state element
     #[inline(always)]
     fn sbox_monomial<F: FieldExtension<D, BaseField = Self>, const D: usize>(x: F) -> F {
         // x |--> x^7
@@ -422,6 +423,7 @@ pub trait Poseidon2: PrimeField64 {
         builder.exp_u64_extension(x, 7)
     }
 
+    /// Apply the sbox-layer to the whole state of the permutation
     #[inline(always)]
     #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
@@ -453,6 +455,8 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    /// Apply half of the overall full rounds of the permutation. It can be employed to perform
+    /// both the first and the second half of the full rounds, depending on the value of `round_ctr`
     #[inline]
     fn full_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..HALF_N_FULL_ROUNDS {
@@ -463,6 +467,7 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    /// Apply the partial rounds of the permutation
     #[inline]
     fn partial_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         let mut constant_counter = HALF_N_FULL_ROUNDS * WIDTH;
@@ -476,7 +481,15 @@ pub trait Poseidon2: PrimeField64 {
         }
         *round_ctr += N_PARTIAL_ROUNDS;
     }
-
+    /// Apply the entire Poseidon2 permutation to `input`
+    ///
+    /// ```rust
+    /// use plonky2::field::goldilocks_field::GoldilocksField as F;
+    /// use plonky2::field::types::Sample;
+    /// use poseidon2_plonky2::poseidon2_hash::Poseidon2;
+    ///
+    /// let output = F::poseidon2(F::rand_array());
+    /// ```
     #[inline]
     fn poseidon2(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
@@ -494,6 +507,7 @@ pub trait Poseidon2: PrimeField64 {
     }
 }
 
+/// Poseidon2 permutation
 pub struct Poseidon2Permutation;
 impl<F: RichField + Poseidon2> PlonkyPermutation<F> for Poseidon2Permutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
@@ -584,8 +598,7 @@ pub(crate) mod test_helpers {
             }
         }
     }
-
-    // TODO: Remove later
+    
     pub(crate) fn check_consistency<F: Field>()
         where
             F: Poseidon2,

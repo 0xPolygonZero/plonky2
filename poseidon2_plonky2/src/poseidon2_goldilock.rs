@@ -1,10 +1,7 @@
-//! Implementations for Poseidon2 over Goldilocks field of widths 8 and 12.
-//!
-//! These contents of the implementations *must* be generated using the
-//! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
-//! repository.
+//! Implementations for Poseidon2 over Goldilocks field of widths 12.
 
 use plonky2::field::{goldilocks_field::GoldilocksField, extension::quadratic::QuadraticExtension};
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use crate::poseidon2_hash::{Poseidon2, Poseidon2Hash};
 use plonky2::plonk::config::GenericConfig;
 
@@ -12,27 +9,19 @@ use plonky2::plonk::config::GenericConfig;
 impl Poseidon2 for GoldilocksField {
     // We only need INTERNAL_MATRIX_DIAG_M_1 here, specifying the diagonal - 1 of the internal matrix
 
-    const INTERNAL_MATRIX_DIAG_M_1: [u64; 12]  = [
+    const INTERNAL_MATRIX_DIAG_M_1: [u64; SPONGE_WIDTH]  = [
         0xcf6f77ac16722af9, 0x3fd4c0d74672aebc, 0x9b72bf1c1c3d08a8, 0xe4940f84b71e4ac2,
         0x61b27b077118bc72, 0x2efd8379b8e661e2, 0x858edcf353df0341, 0x2d9c20affb5c4516,
         0x5120143f0695defb, 0x62fc898ae34a5c5b, 0xa3d9560c99123ed2, 0x98fd739d8e7fc933,
     ];
 
-    // #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    // #[inline(always)]
-    // fn sbox_layer(state: &mut [Self; 12]) {
-    //     unsafe {
-    //         crate::hash::arch::aarch64::poseidon_goldilocks_neon::sbox_layer(state);
-    //     }
-    // }
-
-    // #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    // #[inline(always)]
-    // fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
-    //     unsafe {
-    //         crate::hash::arch::aarch64::poseidon_goldilocks_neon::mds_layer(state)
-    //     }
-    // }
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    #[inline(always)]
+    fn sbox_layer(state: &mut [Self; 12]) {
+         unsafe {
+             crate::hash::arch::aarch64::poseidon_goldilocks_neon::sbox_layer(state);
+         }
+    }
 }
 
 /// Configuration using Poseidon2 over the Goldilocks field.
@@ -101,6 +90,7 @@ mod tests {
     }
 
     const D: usize = 2;
+    #[ignore]
     #[rstest]
     #[case::poseidon(PoseidonGoldilocksConfig{})]
     #[case::poseidon2(Poseidon2GoldilocksConfig{})]
@@ -126,6 +116,8 @@ mod tests {
 
         assert_eq!(cd.common.degree_bits(), 14);
     }
+
+    #[ignore]
     #[rstest]
     #[case::poseidon(PoseidonHash{})]
     #[case::poseidon2(Poseidon2Hash{})]

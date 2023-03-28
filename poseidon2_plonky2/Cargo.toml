@@ -16,6 +16,7 @@ unroll = "0.1.5"
 criterion = {version = "0.4.0", default-features = false }
 env_logger = "0.10.0"
 log = "0.4.17"
+rand_chacha = "0.3.1"
 serde_cbor = "0.11.2"
 tynm = { version = "0.1.6", default-features = false }
 

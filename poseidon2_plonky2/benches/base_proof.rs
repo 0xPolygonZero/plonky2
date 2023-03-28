@@ -36,8 +36,6 @@ fn bench_base_proof<
 
         let base_circuit = BaseCircuit::<F, C, D, H>::build_base_circuit(config.clone(), degree);
 
-        assert_eq!(base_circuit.get_circuit_data().common.degree_bits(), degree);
-
         group.bench_function(
             format!("prove for degree {}", degree).as_str(),
             |b| b.iter_batched(

@@ -59,6 +59,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
 
         let data = builder.build::<C>();
 
+        assert_eq!(data.common.degree_bits(), degree);
+
         Self {
             private_input: to_be_hashed_t,
             public_input: init_t,

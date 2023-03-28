@@ -1,3 +1,5 @@
+//! Implementation of a Plonky2 gate for an entire Poseidon2 permutation over a state of width 12
+
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -148,10 +150,10 @@ impl<F: RichField + Extendable<D> + Poseidon2, const D: usize> Gate<F, D> for Po
         }
 
         // Partial rounds.
-        let mut constant_counter = poseidon2::HALF_N_FULL_ROUNDS * SPONGE_WIDTH;
         for r in 0..(poseidon2::N_PARTIAL_ROUNDS) {
-            state[0] += F::Extension::from_canonical_u64(poseidon2::ALL_ROUND_CONSTANTS[constant_counter]);
-            constant_counter += SPONGE_WIDTH;
+            state[0] += F::Extension::from_canonical_u64(poseidon2::ALL_ROUND_CONSTANTS[
+                poseidon2::HALF_N_FULL_ROUNDS * SPONGE_WIDTH + r * SPONGE_WIDTH
+                ]);
             let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
             constraints.push(state[0] - sbox_in);
             state[0] = <F as Poseidon2>::sbox_monomial(sbox_in);
