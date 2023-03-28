@@ -28,7 +28,7 @@ const TEST_DATA_ADD_OUTPUTS: &str = "add_outputs";
 const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 const TEST_DATA_MODMUL_OUTPUTS: &str = "modmul_outputs";
-// const TEST_DATA_MODEXP_OUTPUTS: &str = "modexp_outputs";
+const TEST_DATA_MODEXP_OUTPUTS: &str = "modexp_outputs";
 
 const BIT_SIZES_TO_TEST: [usize; 15] = [
     0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415,
@@ -529,19 +529,19 @@ fn test_modexp_bignum_all() -> Result<()> {
         }
     }
 
-    // let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
-    // let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
-    // let mut modexp_outputs_iter = modexp_outputs.iter();
-    // for b in &inputs {
-    //     // Include only smaller exponents, to keep tests from becoming too slow.
-    //     for e in &inputs[..7] {
-    //         // For m, skip the first input, which is zero.
-    //         for m in &inputs[1..] {
-    //             let output = modexp_outputs_iter.next().unwrap();
-    //             test_modexp_bignum(b.clone(), e.clone(), m.clone(), output.clone())?;
-    //         }
-    //     }
-    // }
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let mut modexp_outputs_iter = modexp_outputs.iter();
+    for b in &inputs {
+        // Include only smaller exponents, to keep tests from becoming too slow.
+        for e in &inputs[..7] {
+            // For m, skip the first input, which is zero.
+            for m in &inputs[1..] {
+                let output = modexp_outputs_iter.next().unwrap();
+                test_modexp_bignum(b.clone(), e.clone(), m.clone(), output.clone())?;
+            }
+        }
+    }
 
     Ok(())
 }
