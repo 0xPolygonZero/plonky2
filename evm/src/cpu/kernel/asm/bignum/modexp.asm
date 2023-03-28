@@ -6,6 +6,7 @@
 // b, e, and m must have the same length.
 // output_loc must have size length and be initialized with zeroes; scratch_1 must have size length.
 // All of scratch_2..scratch_5 must have size 2 * length and be initialized with zeroes.
+// Also, scratch_2..scratch_5 must be CONSECUTIVE in memory.
 global modexp_bignum:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1 (=scratch_1), s2, s3, s4, s5, retdest
     DUP1
