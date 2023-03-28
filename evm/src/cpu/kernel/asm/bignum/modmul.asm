@@ -3,8 +3,8 @@
 
 // Stores a * b % m in output_loc, leaving a, b, and m unchanged.
 // a, b, and m must have the same length.
-// Both output_loc and scratch_1 must have size length.
-// Both scratch_2 and scratch_3 have size 2 * length and be initialized with zeroes.
+// output_loc must have size length; scratch_2 must have size 2*length.
+// Both scratch_2 and scratch_3 have size 2*length and be initialized with zeroes.
 global modmul_bignum:
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1 (=scratch_1), s2, s3, retdest
     DUP1
@@ -39,28 +39,32 @@ modmul_remainder_loop:
     // The prover provides k := (a * b) / m, which we store in scratch_1.
 
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    DUP1
+    // stack: len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    %mul_const(2)
+    // stack: 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     PUSH 0
-    // stack: i=0, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: i=0, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
 modmul_quotient_loop:
-    // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     PROVER_INPUT(bignum_modmul)
-    // stack: PI, i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    DUP8
+    // stack: PI, i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    DUP9
     DUP3
     ADD
-    // stack: s1[i], PI, i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: s1[i], PI, i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %mstore_kernel_general
-    // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %increment
     DUP2
     DUP2
-    // stack: i+1, len, i+1, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: i+1, 2*len, i+1, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     SUB // functions as NEQ
-    // stack: i+1!=len, i+1, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // stack: i+1!=2*len, i+1, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %jumpi(modmul_quotient_loop)
 // end of modmul_quotient_loop
-    // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    POP
+    // stack: i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    %pop2
     // stack: len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
 
     // Verification step 1: calculate x + k * m.

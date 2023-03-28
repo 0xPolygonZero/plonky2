@@ -154,15 +154,12 @@ impl<F: Field> GenerationState<F> {
             let (remainder, quotient) =
                 self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
 
-            dbg!(remainder.clone(), quotient.clone());
-
             self.bignum_modmul_result_limbs = remainder
                 .iter()
                 .cloned()
                 .pad_using(len, |_| 0.into())
-                .chain(quotient.iter().cloned().pad_using(len, |_| 0.into()))
+                .chain(quotient.iter().cloned().pad_using(2 * len, |_| 0.into()))
                 .collect();
-            dbg!(self.bignum_modmul_result_limbs.clone());
             self.bignum_modmul_result_limbs.reverse();
         }
 
@@ -187,11 +184,10 @@ impl<F: Field> GenerationState<F> {
         let b_biguint = mem_vec_to_biguint(b);
         let m_biguint = mem_vec_to_biguint(m);
 
-        dbg!(a_biguint.clone(), b_biguint.clone(), m_biguint.clone());
-
         let prod = a_biguint * b_biguint;
         let quo = prod.clone() / m_biguint.clone();
         let rem = prod - quo.clone() * m_biguint;
+
         (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
     }
 }

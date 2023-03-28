@@ -375,7 +375,11 @@ impl<'a> Interpreter<'a> {
             0xa2 => todo!(),                                            // "LOG2",
             0xa3 => todo!(),                                            // "LOG3",
             0xa4 => todo!(),                                            // "LOG4",
-            0xa5 => bail!("Executed PANIC, stack={:?}", self.stack()),  // "PANIC",
+            0xa5 => bail!(
+                "Executed PANIC, stack={:?}, memory={:?}",
+                self.stack(),
+                self.get_kernel_general_memory()
+            ), // "PANIC",
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
