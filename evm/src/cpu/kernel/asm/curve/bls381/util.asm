@@ -54,61 +54,62 @@ global test_sub_fp381:
 
 
 global add_fp381_2:
-    // stack:         x: 2, x_: 2, y: 2, y_: 2
-    %stack (x: 2, x_: 2, y: 2, y_: 2) -> (y_, x_, y, x)
-    // stack:         y_: 2, x_: 2, y: 2, x: 2
+    // stack: x_re, x_im, y_re, y_im, jumpdest
+    %stack (x_re: 2, x_im: 2, y_re: 2, y_im: 2) -> (y_im, x_im, y_re, x_re)
+    // stack: y_im, x_im, y_re, x_re, jumpdest
     %add_fp381
-    // stack:                z_: 2, y: 2, x: 2
-    %stack (z_: 2, y: 2, x: 2) -> (x, y, z_)
-    // stack:                x: 2, y: 2, z_: 2
+    // stack:       z_im, y_re, x_re, jumpdest
+    %stack (z_im: 2, y_re: 2, x_re: 2) -> (x_re, y_re, z_im)
+    // stack:       x_re, y_re, z_im, jumpdest
     %add_fp381
-    // stack:                      z: 2, z_: 2
-    %jump(0xdeadbeef)
+    // stack:             z_re, z_im, jumpdest
+    %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
+    JUMP
 
 global mul_fp381_2:
-    // stack:             a, b, c, d
+    // stack:                          x_re, x_im, y_re, y_im, jumpdest
     DUP4
     DUP4
-    // stack:          b, a, b, c, d
+    // stack:                    x_im, x_re, x_im, y_re, y_im, jumpdest
     DUP8
     DUP8
-    // stack:       c, b, a, b, c, d
+    // stack:              y_re, x_im, x_re, x_im, y_re, y_im, jumpdest
     DUP12
     DUP12
-    // stack:    d, c, b, a, b, c, d
+    // stack:        y_im, y_re, x_im, x_re, x_im, y_re, y_im, jumpdest
     DUP8
     DUP8
-    // stack: a, d, c, b, a, b, c, d
-
-    // stack: a, d, c, b, a, b, c, d
+    // stack: x_re , y_im, y_re, x_im, x_re, x_im, y_re, y_im, jumpdest
     %mul_fp381
-    // stack:   ad, c, b, a, b, c, d
-    %stack (ad: 2, c: 2, b: 2) ->  (b, c, ad)
-    // stack:   b, c, ad, a, b, c, d
+    // stack: x_re * y_im, y_re, x_im, x_re, x_im, y_re, y_im, jumpdest
+    %stack (v: 2, y_re: 2, x_im: 2) ->  (x_im, y_re, v)
+    // stack:  x_im , y_re, x_re*y_im, x_re, x_im, y_re, y_im, jumpdest
     %mul_fp381
-    // stack:     bc, ad, a, b, c, d
+    // stack:  x_im * y_re, x_re*y_im, x_re, x_im, y_re, y_im, jumpdest
     %add_fp381
-    // stack:       z_im, a, b, c, d
-    %stack (z_im: 2, a: 2, b: 2, c: 2, d: 2) -> (b, d, c, a, z_im)
-    // stack:       b, d, c, a, z_im
+    // stack:                    z_im, x_re, x_im, y_re, y_im, jumpdest
+    %stack (z_im: 2, x_re: 2, x_im: 2, y_re: 2, y_im: 2) -> (x_im, y_im, y_re, x_re, z_im)
+    // stack:                   x_im , y_im, y_re, x_re, z_im, jumpdest
     %mul_fp381
-    // stack:         bd, c, a, z_im
-    %stack (bd: 2, c: 2, a: 2) -> (a, c, bd)
-    // stack:         a, c, bd, z_im
+    // stack:                   x_im * y_im, y_re, x_re, z_im, jumpdest
+    %stack (v: 2, y_re: 2, x_re: 2) -> (x_re, y_re, v)
+    // stack:                    x_re , y_re, x_im*y_im, z_im, jumpdest
     %mul_fp381
-    // stack:           ac, bd, z_im
+    // stack:                    x_re * y_re, x_im*y_im, z_im, jumpdest
     %sub_fp381
-    // stack:             z_re, z_im
-    %jump(0xdeadbeef)
+    // stack:                                      z_re, z_im, jumpdest
+    %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
+    JUMP
 
 global sub_fp381_2:
-    // stack:         x: 2, x_: 2, y: 2, y_: 2
-    %stack (x: 2, x_: 2, y: 2, y_: 2) -> (x_, y_, y, x)
-    // stack:         x_: 2, y_: 2, y: 2, x: 2
+    // stack: x_re, x_im, y_re, y_im, jumpdest
+    %stack (x_re: 2, x_im: 2, y_re: 2, y_im: 2) -> (x_im, y_im, y_re, x_re)
+    // stack: x_im, y_im, y_re, x_re, jumpdest
     %sub_fp381
-    // stack:                z_: 2, y: 2, x: 2
-    %stack (z_: 2, y: 2, x: 2) -> (x, y, z_)
-    // stack:                x: 2, y: 2, z_: 2
+    // stack:       z_im, y_re, x_re, jumpdest
+    %stack (z_im: 2, y_re: 2, x_re: 2) -> (x_re, y_re, z_im)
+    // stack:       x_re, y_re, z_im, jumpdest
     %sub_fp381
-    // stack:                      z: 2, z_: 2
-    %jump(0xdeadbeef)
+    // stack:             z_re, z_im, jumpdest
+    %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
+    JUMP

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ethereum_types::U256;
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
@@ -41,6 +42,7 @@ fn test_bls_ops() -> Result<()> {
 fn run_and_return_bls_fp2(label: String, x: Fp2<BLS381>, y: Fp2<BLS381>) -> Fp2<BLS381> {
     let mut stack = x.to_stack();
     stack.extend(y.to_stack());
+    stack.push(U256::from(0xdeadbeefu32));
     let setup = InterpreterMemoryInitialization {
         label,
         stack,
