@@ -144,6 +144,13 @@ impl BLS381 {
     pub fn hi(self) -> U256 {
         U256(self.val.0[4..].try_into().unwrap())
     }
+
+    pub fn from_limbs(hi: U256, lo: U256) -> BLS381 {
+        let mut val = [0u64; 8];
+        val[..4].copy_from_slice(&lo.0);
+        val[4..].copy_from_slice(&hi.0);
+        BLS381 { val: U512(val) }
+    }
 }
 
 impl Distribution<BLS381> for Standard {

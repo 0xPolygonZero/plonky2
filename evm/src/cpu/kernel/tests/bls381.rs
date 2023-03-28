@@ -1,5 +1,4 @@
 use anyhow::Result;
-use ethereum_types::U512;
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
@@ -19,9 +18,7 @@ fn run_and_return_bls(label: String, x: BLS381, y: BLS381) -> BLS381 {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output = interpreter.stack();
-    BLS381 {
-        val: U512::from(output[1]) + (U512::from(output[0]) << 256),
-    }
+    BLS381::from_limbs(output[0], output[1])
 }
 
 #[test]
