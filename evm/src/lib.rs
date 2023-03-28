@@ -34,6 +34,7 @@ pub mod vars;
 pub mod verifier;
 pub mod witness;
 
+use eth_trie_utils::partial_trie::HashedPartialTrie;
 // Set up Jemalloc
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
@@ -41,3 +42,5 @@ use jemallocator::Jemalloc;
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+pub type Node = eth_trie_utils::partial_trie::Node<HashedPartialTrie>;

@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
+use eth_trie_utils::nibbles::Nibbles;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::Address;
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -16,6 +17,7 @@ use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
+use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -58,7 +60,7 @@ fn add11_yml() -> anyhow::Result<()> {
         ..AccountRlp::default()
     };
 
-    let mut state_trie_before = PartialTrie::Empty;
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
     state_trie_before.insert(
         beneficiary_nibbles,
         rlp::encode(&beneficiary_account_before).to_vec(),
@@ -68,9 +70,9 @@ fn add11_yml() -> anyhow::Result<()> {
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
-        transactions_trie: PartialTrie::Empty,
-        receipts_trie: PartialTrie::Empty,
-        storage_tries: vec![(Address::from_slice(&to), PartialTrie::Empty)],
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(Address::from_slice(&to), Node::Empty.into())],
     };
 
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
@@ -110,15 +112,15 @@ fn add11_yml() -> anyhow::Result<()> {
         balance: 0xde0b6b3a76586a0u64.into(),
         code_hash,
         // Storage map: { 0 => 2 }
-        storage_root: PartialTrie::Leaf {
+        storage_root: HashedPartialTrie::from(Node::Leaf {
             nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
             value: vec![2],
-        }
-        .calc_hash(),
+        })
+        .hash(),
         ..AccountRlp::default()
     };
 
-    let mut expected_state_trie_after = PartialTrie::Empty;
+    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
     expected_state_trie_after.insert(
         beneficiary_nibbles,
         rlp::encode(&beneficiary_account_after).to_vec(),
@@ -128,7 +130,7 @@ fn add11_yml() -> anyhow::Result<()> {
 
     assert_eq!(
         proof.public_values.trie_roots_after.state_root,
-        expected_state_trie_after.calc_hash()
+        expected_state_trie_after.hash()
     );
 
     verify_proof(&all_stark, proof, &config)
