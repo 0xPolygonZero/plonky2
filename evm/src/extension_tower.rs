@@ -144,13 +144,6 @@ impl BLS381 {
     pub fn hi(self) -> U256 {
         U256(self.val.0[4..].try_into().unwrap())
     }
-
-    pub fn from_limbs(hi: U256, lo: U256) -> BLS381 {
-        let mut val = [0u64; 8];
-        val[..4].copy_from_slice(&lo.0);
-        val[4..].copy_from_slice(&hi.0);
-        BLS381 { val: U512(val) }
-    }
 }
 
 impl Distribution<BLS381> for Standard {
@@ -1208,25 +1201,60 @@ where
 }
 
 pub trait Stack {
-    fn on_stack(self) -> Vec<U256>;
+    fn to_stack(self) -> Vec<U256>;
+
+    fn from_stack(stack: &[U256]) -> Self;
 }
 
 impl Stack for BLS381 {
-    fn on_stack(self) -> Vec<U256> {
+    fn to_stack(self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
+    }
+
+    fn from_stack(stack: &[U256]) -> BLS381 {
+        let mut val = [0u64; 8];
+        val[..4].copy_from_slice(&stack[1].0);
+        val[4..].copy_from_slice(&stack[0].0);
+        BLS381 { val: U512(val) }
+    }
+}
+
+impl Stack for Fp2<BLS381> {
+    fn to_stack(self) -> Vec<U256> {
+        let mut res = self.re.to_stack();
+        res.extend(self.im.to_stack());
+        res
+    }
+
+    fn from_stack(stack: &[U256]) -> Fp2<BLS381> {
+        let re = BLS381::from_stack(&stack[2..4]);
+        let im = BLS381::from_stack(&stack[0..2]);
+        Fp2 { re, im }
     }
 }
 
 impl Stack for Fp6<BN254> {
-    fn on_stack(self) -> Vec<U256> {
+    fn to_stack(self) -> Vec<U256> {
         let f: [U256; 6] = unsafe { transmute(self) };
         f.into_iter().collect()
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let mut f = [U256::zero(); 6];
+        f.copy_from_slice(stack);
+        unsafe { transmute(f) }
     }
 }
 
 impl Stack for Fp12<BN254> {
-    fn on_stack(self) -> Vec<U256> {
+    fn to_stack(self) -> Vec<U256> {
         let f: [U256; 12] = unsafe { transmute(self) };
         f.into_iter().collect()
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let mut f = [U256::zero(); 12];
+        f.copy_from_slice(stack);
+        unsafe { transmute(f) }
     }
 }

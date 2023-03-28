@@ -25,9 +25,9 @@ fn setup_mul_fp6_test(
     g: Fp6<BN254>,
     label: &str,
 ) -> InterpreterMemoryInitialization {
-    let mut stack = f.on_stack();
+    let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
-        stack.extend(g.on_stack());
+        stack.extend(g.to_stack());
     }
     stack.push(U256::from(0xdeadbeefu32));
     InterpreterMemoryInitialization {
@@ -53,8 +53,8 @@ fn test_mul_fp6() -> Result<()> {
     let out_normal: Vec<U256> = extract_stack(intrptr_normal);
     let out_square: Vec<U256> = extract_stack(intrptr_square);
 
-    let exp_normal: Vec<U256> = (f * g).on_stack();
-    let exp_square: Vec<U256> = (f * f).on_stack();
+    let exp_normal: Vec<U256> = (f * g).to_stack();
+    let exp_square: Vec<U256> = (f * f).to_stack();
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_square, exp_square);
@@ -84,7 +84,7 @@ fn setup_mul_fp12_test(
         label: label.to_string(),
         stack,
         segment: BnPairing,
-        memory: vec![(in0, f.on_stack()), (in1, g.on_stack())],
+        memory: vec![(in0, f.to_stack()), (in1, g.to_stack())],
     }
 }
 
@@ -112,9 +112,9 @@ fn test_mul_fp12() -> Result<()> {
     let out_sparse: Vec<U256> = intrptr_sparse.extract_kernel_memory(BnPairing, out..out + 12);
     let out_square: Vec<U256> = intrptr_square.extract_kernel_memory(BnPairing, out..out + 12);
 
-    let exp_normal: Vec<U256> = (f * g).on_stack();
-    let exp_sparse: Vec<U256> = (f * h).on_stack();
-    let exp_square: Vec<U256> = (f * f).on_stack();
+    let exp_normal: Vec<U256> = (f * g).to_stack();
+    let exp_sparse: Vec<U256> = (f * h).to_stack();
+    let exp_square: Vec<U256> = (f * f).to_stack();
 
     assert_eq!(out_normal, exp_normal);
     assert_eq!(out_sparse, exp_sparse);
@@ -126,7 +126,7 @@ fn test_mul_fp12() -> Result<()> {
 fn setup_frob_fp6_test(f: Fp6<BN254>, n: usize) -> InterpreterMemoryInitialization {
     InterpreterMemoryInitialization {
         label: String::from("test_frob_fp254_6_") + &(n.to_string()),
-        stack: f.on_stack(),
+        stack: f.to_stack(),
         segment: BnPairing,
         memory: vec![],
     }
@@ -140,7 +140,7 @@ fn test_frob_fp6() -> Result<()> {
         let setup_frob = setup_frob_fp6_test(f, n);
         let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
         let out_frob: Vec<U256> = extract_stack(intrptr_frob);
-        let exp_frob: Vec<U256> = f.frob(n).on_stack();
+        let exp_frob: Vec<U256> = f.frob(n).to_stack();
         assert_eq!(out_frob, exp_frob);
     }
     Ok(())
@@ -151,7 +151,7 @@ fn setup_frob_fp12_test(ptr: usize, f: Fp12<BN254>, n: usize) -> InterpreterMemo
         label: String::from("test_frob_fp254_12_") + &(n.to_string()),
         stack: vec![U256::from(ptr)],
         segment: BnPairing,
-        memory: vec![(ptr, f.on_stack())],
+        memory: vec![(ptr, f.to_stack())],
     }
 }
 
@@ -164,7 +164,7 @@ fn test_frob_fp12() -> Result<()> {
         let setup_frob = setup_frob_fp12_test(ptr, f, n);
         let intrptr_frob: Interpreter = run_interpreter_with_memory(setup_frob).unwrap();
         let out_frob: Vec<U256> = intrptr_frob.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-        let exp_frob: Vec<U256> = f.frob(n).on_stack();
+        let exp_frob: Vec<U256> = f.frob(n).to_stack();
         assert_eq!(out_frob, exp_frob);
     }
     Ok(())
@@ -181,11 +181,11 @@ fn test_inv_fp12() -> Result<()> {
         label: "inv_fp254_12".to_string(),
         stack: vec![U256::from(ptr), U256::from(inv), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
-        memory: vec![(ptr, f.on_stack())],
+        memory: vec![(ptr, f.to_stack())],
     };
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, inv..inv + 12);
-    let expected: Vec<U256> = f.inv().on_stack();
+    let expected: Vec<U256> = f.inv().to_stack();
 
     assert_eq!(output, expected);
 
@@ -202,12 +202,12 @@ fn test_invariant_exponent() -> Result<()> {
         label: "bn254_invariant_exponent".to_string(),
         stack: vec![U256::from(ptr), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
-        memory: vec![(ptr, f.on_stack())],
+        memory: vec![(ptr, f.to_stack())],
     };
 
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let expected: Vec<U256> = invariant_exponent(f).on_stack();
+    let expected: Vec<U256> = invariant_exponent(f).to_stack();
 
     assert_eq!(output, expected);
 
@@ -287,7 +287,7 @@ fn test_miller() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
+    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).to_stack();
 
     assert_eq!(output, expected);
 
@@ -315,7 +315,7 @@ fn test_tate() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
+    let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).to_stack();
 
     assert_eq!(output, expected);
 
