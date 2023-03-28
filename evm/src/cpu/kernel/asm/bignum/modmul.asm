@@ -50,11 +50,11 @@ modmul_remainder_loop:
     // We check that x < m.
 
     PUSH modmul_return_1
-    DUP5
-    DUP7
+    DUP6
+    DUP6
     DUP4
-    // stack: len, out_loc, m_loc, modmul_return_1, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    // Should return 1 iff the value at out_loc > the value at m_loc; in other words, if x < m.
+    // stack: len, m_loc, out_loc, modmul_return_1, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
+    // Should return 1 iff the value at m_loc > the value at out_loc; in other words, if x < m.
     %jump(cmp_bignum)
 modmul_return_1:
     // stack: cmp_result, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
