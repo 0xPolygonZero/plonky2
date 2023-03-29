@@ -3,6 +3,7 @@
 // Mutate the state trie, inserting the given key-value pair.
 // Pre stack: key, value_ptr, retdest
 // Post stack: (empty)
+// TODO: Have this take an address and do %mpt_insert_state_trie? To match mpt_read_state_trie.
 global mpt_insert_state_trie:
     // stack: key, value_ptr, retdest
     %stack (key, value_ptr)

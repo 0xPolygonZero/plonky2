@@ -56,3 +56,45 @@ global sys_gasprice:
     // stack: gas_price, kexit_info
     SWAP1
     EXIT_KERNEL
+
+// Checks how much gas is remaining in this context, given the current kexit_info.
+%macro leftover_gas
+    // stack: kexit_info
+    %shr_const(192)
+    // stack: gas_used
+    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
+    // stack: gas_limit, gas_used
+    SWAP1
+    // stack: gas_used, gas_limit
+    DUP2 DUP2 LT
+    // stack: gas_used < gas_limit, gas_used, gas_limit
+    SWAP2
+    // stack: gas_limit, gas_used, gas_used < gas_limit
+    SUB
+    // stack: gas_limit - gas_used, gas_used < gas_limit
+    MUL
+    // stack: leftover_gas = (gas_limit - gas_used) * (gas_used < gas_limit)
+%endmacro
+
+// Given the current kexit_info, drains all but one 64th of its remaining gas.
+// Returns how much gas was drained.
+%macro drain_all_but_one_64th_gas
+    // stack: kexit_info
+    DUP1 %leftover_gas
+    // stack: leftover_gas, kexit_info
+    %all_but_one_64th
+    // stack: all_but_one_64th, kexit_info
+    %stack (all_but_one_64th, kexit_info) -> (all_but_one_64th, kexit_info, all_but_one_64th)
+    %charge_gas
+    // stack: kexit_info, drained_gas
+%endmacro
+
+// This is L(n), the "all but one 64th" function in the yellowpaper, i.e.
+//     L(n) = n - floor(n / 64)
+%macro all_but_one_64th
+    // stack: n
+    DUP1 %div_const(64)
+    // stack: floor(n / 64), n
+    SWAP1 SUB
+    // stack: n - floor(n / 64)
+%endmacro
