@@ -94,6 +94,11 @@ global sys_extcodecopy:
     MUL
     PUSH @GAS_WARMACCESS
     ADD
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+
+    DUP5
+    // stack: size, Gaccess, address, dest_offset, offset, size, kexit_info
+    ISZERO %jumpi(sys_extcodecopy_empty)
 
     // stack: Gaccess, address, dest_offset, offset, size, kexit_info
     DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD
@@ -110,6 +115,12 @@ global sys_extcodecopy:
     %extcodecopy
     // stack: kexit_info
     EXIT_KERNEL
+
+sys_extcodecopy_empty:
+    %stack (Gaccess, address, dest_offset, offset, size, kexit_info) -> (Gaccess, kexit_info)
+    %charge_gas
+    EXIT_KERNEL
+
 
 // Pre stack: address, dest_offset, offset, size, retdest
 // Post stack: (empty)
