@@ -5,7 +5,7 @@
     // stack: value, address
     DUP2 %mpt_read_state_trie
     // stack: existing_account_ptr, value, address
-    // If the account doesn't exist, there's need to check its balance or nonce,
+    // If the account doesn't exist, there's no need to check its balance or nonce,
     // so we can skip ahead, setting existing_balance = existing_account_ptr = 0.
     DUP1 ISZERO %jumpi(%%do_insert)
 

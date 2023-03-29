@@ -7,9 +7,7 @@ global sys_create:
     // stack: kexit_info, value, code_offset, code_len
     // TODO: Charge gas.
     %stack (kexit_info, value, code_offset, code_len)
-        -> (value, code_offset, code_len, kexit_info)
-    PUSH sys_create_got_address
-    // stack: sys_create_got_address, value, code_offset, code_len, kexit_info
+        -> (sys_create_got_address, value, code_offset, code_len, kexit_info)
     %address
     // stack: sender, sys_create_got_address, value, code_offset, code_len, kexit_info
     DUP1 %nonce
