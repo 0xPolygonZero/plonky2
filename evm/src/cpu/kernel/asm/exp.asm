@@ -73,4 +73,30 @@ recursion_return:
     jump
 
 global sys_exp:
-    PANIC // TODO: Implement.
+    // stack: x, e, return_info
+    push 0
+    // stack: shift, x, e, return_info
+    %jump(sys_exp_gas_loop_enter)
+sys_exp_gas_loop:
+    %add_const(8)
+sys_exp_gas_loop_enter:
+    dup3
+    dup2
+    shr
+    // stack: e >> shift, shift, x, e, return_info
+    %jumpi(sys_exp_gas_loop)
+    // stack: shift_bits, x, e, return_info
+    %div_const(8)
+    // stack: byte_size_of_e := shift_bits / 8, x, e, return_info
+    %mul_const(@GAS_EXPBYTE)
+    %add_const(@GAS_EXP)
+    // stack: gas_cost := 10 + 50 * byte_size_of_e, x, e, return_info
+    %stack(gas_cost, x, e, return_info) -> (gas_cost, return_info, x, e)
+    %charge_gas
+
+    %stack(return_info, x, e) -> (x, e, sys_exp_return, return_info)
+    jump exp
+sys_exp_return:
+    // stack: pow(x, e), return_info
+    swap1
+    exit_kernel
