@@ -86,14 +86,41 @@ global extcodesize:
 // Pre stack: kexit_info, address, dest_offset, offset, size
 // Post stack: (empty)
 global sys_extcodecopy:
-    // TODO: Call %update_mem_bytes to expand memory.
-    // TODO: Charge other gas.
     %stack (kexit_info, address, dest_offset, offset, size)
         -> (address, dest_offset, offset, size, kexit_info)
-    %u256_to_addr DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    %u256_to_addr DUP1 %insert_accessed_addresses
+    // stack: cold_access, address, dest_offset, offset, size, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+
+    DUP5
+    // stack: size, Gaccess, address, dest_offset, offset, size, kexit_info
+    ISZERO %jumpi(sys_extcodecopy_empty)
+
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD
+    %stack (gas, address, dest_offset, offset, size, kexit_info) -> (gas, kexit_info, address, dest_offset, offset, size)
+    %charge_gas
+
+    %stack (kexit_info, address, dest_offset, offset, size) -> (dest_offset, size, kexit_info, address, dest_offset, offset, size)
+    ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
+    // stack: expanded_num_bytes, kexit_info, address, dest_offset, offset, size
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+
+    %stack (kexit_info, address, dest_offset, offset, size) -> (address, dest_offset, offset, size, kexit_info)
     %extcodecopy
     // stack: kexit_info
     EXIT_KERNEL
+
+sys_extcodecopy_empty:
+    %stack (Gaccess, address, dest_offset, offset, size, kexit_info) -> (Gaccess, kexit_info)
+    %charge_gas
+    EXIT_KERNEL
+
 
 // Pre stack: address, dest_offset, offset, size, retdest
 // Post stack: (empty)
