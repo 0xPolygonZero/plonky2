@@ -30,3 +30,41 @@
     // If there is no "to" field, then this is a contract creation.
     // stack: to == 0
 %endmacro
+
+// Returns 1 if the account is non-existent, 0 otherwise.
+%macro is_non_existent
+    // stack: addr
+    %mpt_read_state_trie
+    ISZERO
+%endmacro
+
+// Returns 1 if the account is empty, 0 otherwise.
+%macro is_empty
+    // stack: addr
+    %mpt_read_state_trie
+    // stack: account_ptr
+    DUP1 ISZERO %jumpi(%%false)
+    // stack: account_ptr
+    DUP1 %mload_trie_data
+    // stack: nonce, account_ptr
+    ISZERO NOT %jumpi(%%false)
+    %increment DUP1 %mload_trie_data
+    // stack: balance, balance_ptr
+    ISZERO NOT %jumpi(%%false)
+    %add_const(2) %mload_trie_data
+    // stack: code_hash
+    PUSH @EMPTY_STRING_HASH
+    EQ
+%%false:
+    // stack: account_ptr
+    POP
+    PUSH 0
+%endmacro
+
+// Returns 1 if the account is dead (i.e., empty or non-existent), 0 otherwise.
+%macro is_dead
+    // stack: addr
+    DUP1 %is_non_existent
+    SWAP1 %is_empty
+    ADD
+%endmacro
