@@ -361,40 +361,242 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
-        _yield_constr: &mut ConstraintConsumer<P>,
+        yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let _local_values: &KeccakSpongeColumnsView<P> = vars.local_values.borrow();
+        let local_values: &KeccakSpongeColumnsView<P> = vars.local_values.borrow();
+        let next_values: &KeccakSpongeColumnsView<P> = vars.next_values.borrow();
 
-        // TODO: Each flag (full-input block, final block or implied dummy flag) must be boolean.
-        // TODO: before_rate_bits, block_bits and is_final_input_len must contain booleans.
+        // Each flag (full-input block, final block or implied dummy flag) must be boolean.
+        let is_full_input_block = local_values.is_full_input_block;
+        yield_constr.constraint(is_full_input_block * (is_full_input_block - P::ONES));
 
-        // TODO: Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
+        let is_final_block = local_values.is_final_block;
+        yield_constr.constraint(is_final_block * (is_final_block - P::ONES));
 
-        // TODO: If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
-        // TODO: If this is a final block, the next row's original sponge state should be 0 and already_absorbed_bytes = 0.
+        for &is_final_len in local_values.is_final_input_len.iter() {
+            yield_constr.constraint(is_final_len * (is_final_len - P::ONES));
+        }
 
-        // TODO: If this is a full-input block, the next row's address, time and len must match.
-        // TODO: If this is a full-input block, the next row's "before" should match our "after" state.
-        // TODO: If this is a full-input block, the next row's already_absorbed_bytes should be ours plus 136.
+        // Ensure that full-input block and final block flags are not set to 1 at the same time.
+        yield_constr.constraint(is_final_block * is_full_input_block);
 
-        // TODO: A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
+        // Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
+        let is_final_input_len_sum: P = local_values.is_final_input_len.iter().copied().sum();
+        yield_constr.constraint(is_final_input_len_sum - is_final_block);
 
-        // TODO: is_final_input_len implies `len - already_absorbed == i`.
+        // If this is a full-input block, is_final_input_len should contain all 0s.
+        yield_constr.constraint(is_full_input_block * is_final_input_len_sum);
+
+        // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
+        let already_absorbed_bytes = local_values.already_absorbed_bytes;
+        yield_constr.constraint_first_row(already_absorbed_bytes);
+        for &original_rate_elem in local_values.original_rate_u32s.iter() {
+            yield_constr.constraint_first_row(original_rate_elem);
+        }
+        for &original_capacity_elem in local_values.original_capacity_u32s.iter() {
+            yield_constr.constraint_first_row(original_capacity_elem);
+        }
+
+        // If this is a final block, the next row's original sponge state should be 0 and already_absorbed_bytes = 0.
+        yield_constr.constraint_transition(is_final_block * next_values.already_absorbed_bytes);
+        for &original_rate_elem in next_values.original_rate_u32s.iter() {
+            yield_constr.constraint_transition(is_final_block * original_rate_elem);
+        }
+        for &original_capacity_elem in next_values.original_capacity_u32s.iter() {
+            yield_constr.constraint_transition(is_final_block * original_capacity_elem);
+        }
+
+        // If this is a full-input block, the next row's address, time and len must match as well as its timestamp.
+        yield_constr.constraint_transition(
+            is_full_input_block * (local_values.context - next_values.context),
+        );
+        yield_constr.constraint_transition(
+            is_full_input_block * (local_values.segment - next_values.segment),
+        );
+        yield_constr
+            .constraint_transition(is_full_input_block * (local_values.virt - next_values.virt));
+        yield_constr.constraint_transition(
+            is_full_input_block * (local_values.timestamp - next_values.timestamp),
+        );
+
+        // If this is a full-input block, the next row's "before" should match our "after" state.
+        for (&current_after, &next_before) in local_values
+            .updated_state_u32s
+            .iter()
+            .zip(next_values.original_rate_u32s.iter())
+        {
+            yield_constr.constraint_transition(is_full_input_block * (next_before - current_after));
+        }
+        for (&current_after, &next_before) in local_values
+            .updated_state_u32s
+            .iter()
+            .skip(KECCAK_RATE_U32S)
+            .zip(next_values.original_capacity_u32s.iter())
+        {
+            yield_constr.constraint_transition(is_full_input_block * (next_before - current_after));
+        }
+
+        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus 136.
+        yield_constr.constraint_transition(
+            is_full_input_block
+                * (already_absorbed_bytes + P::from(FE::from_canonical_u64(136))
+                    - next_values.already_absorbed_bytes),
+        );
+
+        // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
+        let is_dummy = P::ONES - is_full_input_block - is_final_block;
+        yield_constr.constraint_transition(
+            is_dummy * (next_values.is_full_input_block + next_values.is_final_block),
+        );
+
+        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
+        let offset = local_values.len - already_absorbed_bytes;
+        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
+            let entry_match = offset - P::from(FE::from_canonical_usize(i));
+            yield_constr.constraint(is_final_len * entry_match);
+        }
     }
 
     fn eval_ext_circuit(
         &self,
-        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
-        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let _local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> =
-            vars.local_values.borrow();
+        let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.local_values.borrow();
+        let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.next_values.borrow();
 
-        // TODO
+        let one = builder.one_extension();
+
+        // Each flag (full-input block, final block or implied dummy flag) must be boolean.
+        let is_full_input_block = local_values.is_full_input_block;
+        let constraint = builder.mul_sub_extension(
+            is_full_input_block,
+            is_full_input_block,
+            is_full_input_block,
+        );
+        yield_constr.constraint(builder, constraint);
+
+        let is_final_block = local_values.is_final_block;
+        let constraint = builder.mul_sub_extension(is_final_block, is_final_block, is_final_block);
+        yield_constr.constraint(builder, constraint);
+
+        for &is_final_len in local_values.is_final_input_len.iter() {
+            let constraint = builder.mul_sub_extension(is_final_len, is_final_len, is_final_len);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // Ensure that full-input block and final block flags are not set to 1 at the same time.
+        let constraint = builder.mul_extension(is_final_block, is_full_input_block);
+        yield_constr.constraint(builder, constraint);
+
+        // Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
+        let mut is_final_input_len_sum = builder.add_extension(
+            local_values.is_final_input_len[0],
+            local_values.is_final_input_len[1],
+        );
+        for &input_len in local_values.is_final_input_len.iter().skip(2) {
+            is_final_input_len_sum = builder.add_extension(is_final_input_len_sum, input_len);
+        }
+        let constraint = builder.sub_extension(is_final_input_len_sum, is_final_block);
+        yield_constr.constraint(builder, constraint);
+
+        // If this is a full-input block, is_final_input_len should contain all 0s.
+        let constraint = builder.mul_extension(is_full_input_block, is_final_input_len_sum);
+        yield_constr.constraint(builder, constraint);
+
+        // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
+        let already_absorbed_bytes = local_values.already_absorbed_bytes;
+        yield_constr.constraint_first_row(builder, already_absorbed_bytes);
+        for &original_rate_elem in local_values.original_rate_u32s.iter() {
+            yield_constr.constraint_first_row(builder, original_rate_elem);
+        }
+        for &original_capacity_elem in local_values.original_capacity_u32s.iter() {
+            yield_constr.constraint_first_row(builder, original_capacity_elem);
+        }
+
+        // If this is a final block, the next row's original sponge state should be 0 and already_absorbed_bytes = 0.
+        let constraint = builder.mul_extension(is_final_block, next_values.already_absorbed_bytes);
+        yield_constr.constraint_transition(builder, constraint);
+        for &original_rate_elem in next_values.original_rate_u32s.iter() {
+            let constraint = builder.mul_extension(is_final_block, original_rate_elem);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+        for &original_capacity_elem in next_values.original_capacity_u32s.iter() {
+            let constraint = builder.mul_extension(is_final_block, original_capacity_elem);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+
+        // If this is a full-input block, the next row's address, time and len must match as well as its timestamp.
+        let context_diff = builder.sub_extension(local_values.context, next_values.context);
+        let constraint = builder.mul_extension(is_full_input_block, context_diff);
+        yield_constr.constraint_transition(builder, constraint);
+
+        let segment_diff = builder.sub_extension(local_values.segment, next_values.segment);
+        let constraint = builder.mul_extension(is_full_input_block, segment_diff);
+        yield_constr.constraint_transition(builder, constraint);
+
+        let virt_diff = builder.sub_extension(local_values.virt, next_values.virt);
+        let constraint = builder.mul_extension(is_full_input_block, virt_diff);
+        yield_constr.constraint_transition(builder, constraint);
+
+        let timestamp_diff = builder.sub_extension(local_values.timestamp, next_values.timestamp);
+        let constraint = builder.mul_extension(is_full_input_block, timestamp_diff);
+        yield_constr.constraint_transition(builder, constraint);
+
+        // If this is a full-input block, the next row's "before" should match our "after" state.
+        for (&current_after, &next_before) in local_values
+            .updated_state_u32s
+            .iter()
+            .zip(next_values.original_rate_u32s.iter())
+        {
+            let diff = builder.sub_extension(next_before, current_after);
+            let constraint = builder.mul_extension(is_full_input_block, diff);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+        for (&current_after, &next_before) in local_values
+            .updated_state_u32s
+            .iter()
+            .skip(KECCAK_RATE_U32S)
+            .zip(next_values.original_capacity_u32s.iter())
+        {
+            let diff = builder.sub_extension(next_before, current_after);
+            let constraint = builder.mul_extension(is_full_input_block, diff);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+
+        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus 136.
+        let absorbed_bytes =
+            builder.add_const_extension(already_absorbed_bytes, F::from_canonical_u64(136));
+        let absorbed_diff =
+            builder.sub_extension(absorbed_bytes, next_values.already_absorbed_bytes);
+        let constraint = builder.mul_extension(is_full_input_block, absorbed_diff);
+        yield_constr.constraint_transition(builder, constraint);
+
+        // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
+        let is_dummy = {
+            let tmp = builder.sub_extension(one, is_final_block);
+            builder.sub_extension(tmp, is_full_input_block)
+        };
+        let constraint = {
+            let tmp =
+                builder.add_extension(next_values.is_final_block, next_values.is_full_input_block);
+            builder.mul_extension(is_dummy, tmp)
+        };
+        yield_constr.constraint_transition(builder, constraint);
+
+        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
+        let offset = builder.sub_extension(local_values.len, already_absorbed_bytes);
+        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
+            let index = builder.constant_extension(F::from_canonical_usize(i).into());
+            let entry_match = builder.sub_extension(offset, index);
+
+            let constraint = builder.mul_extension(is_final_len, entry_match);
+            yield_constr.constraint(builder, constraint);
+        }
     }
 
     fn constraint_degree(&self) -> usize {
