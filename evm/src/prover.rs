@@ -75,6 +75,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     [(); C::Hasher::HASH_SIZE]:,
+    [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,

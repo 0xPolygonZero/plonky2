@@ -124,8 +124,8 @@ use super::columns;
 use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
-use crate::arithmetic::BN_BASE_ORDER;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::extension_tower::BN_BASE;
 
 const BN254_MODULUS_LIMBS: [u16; N_LIMBS] = [
     0xfd47, 0xd87c, 0x8c16, 0x3c20, 0xca8d, 0x6871, 0x6a91, 0x9781, 0x585d, 0x8181, 0x45b6, 0xb850,
@@ -320,7 +320,7 @@ pub(crate) fn generate<F: PrimeField64>(
     ]
     .contains(&filter)
     {
-        debug_assert!(modulus == BN_BASE_ORDER);
+        debug_assert!(modulus == BN_BASE);
     }
 
     // Inputs are all in [0, 2^16), so the "as i64" conversion is safe.
@@ -656,8 +656,8 @@ mod tests {
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::arithmetic::BN_BASE_ORDER;
     use crate::constraint_consumer::ConstraintConsumer;
+    use crate::extension_tower::BN_BASE;
 
     const N_RND_TESTS: usize = 1000;
     const MODULAR_OPS: [usize; 6] = [
@@ -724,7 +724,7 @@ mod tests {
                 let input1 = U256::from(rng.gen::<[u8; 32]>());
 
                 let modulus = if [IS_ADDFP254, IS_MULFP254, IS_SUBFP254].contains(&op_filter) {
-                    BN_BASE_ORDER
+                    BN_BASE
                 } else {
                     let mut modulus_limbs = [0u8; 32];
                     // For the second half of the tests, set the top
