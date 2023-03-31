@@ -47,10 +47,10 @@
     // stack: account_ptr
     DUP1 %mload_trie_data
     // stack: nonce, account_ptr
-    ISZERO NOT %jumpi(%%false)
+    ISZERO %not_bit %jumpi(%%false)
     %increment DUP1 %mload_trie_data
     // stack: balance, balance_ptr
-    ISZERO NOT %jumpi(%%false)
+    ISZERO %not_bit %jumpi(%%false)
     %add_const(2) %mload_trie_data
     // stack: code_hash
     PUSH @EMPTY_STRING_HASH

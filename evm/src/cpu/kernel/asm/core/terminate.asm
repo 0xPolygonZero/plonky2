@@ -35,7 +35,7 @@ global sys_selfdestruct:
     %mul_const(@GAS_COLDACCOUNTACCESS)
     DUP2
     // stack: balance, gas_coldaccess, balance, address, recipient, kexit_info
-    ISZERO NOT
+    ISZERO %not_bit
     // stack: balance!=0, gas_coldaccess, balance, address, recipient, kexit_info
     DUP5 %is_dead MUL %mul_const(@GAS_NEWACCOUNT)
     // stack: gas_newaccount, gas_coldaccess, balance, address, recipient, kexit_info
