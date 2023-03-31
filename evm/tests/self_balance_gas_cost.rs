@@ -127,7 +127,6 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
     expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
 
-    dbg!(&proof.public_values.trie_roots_after.state_root);
     assert_eq!(
         proof.public_values.trie_roots_after.state_root,
         expected_state_trie_after.hash()
