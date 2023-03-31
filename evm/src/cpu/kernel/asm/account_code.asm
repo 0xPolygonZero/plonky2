@@ -1,6 +1,22 @@
-retzero:
-    %stack (account_ptr, retdest) -> (retdest, 0)
-    JUMP
+global sys_extcodehash:
+    // stack: kexit_info, address
+    SWAP1 %u256_to_addr
+    // stack: address, kexit_info
+    DUP1 %insert_accessed_addresses
+    // stack: cold_access, address, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
+    %charge_gas
+    // stack: kexit_info, address
+
+    SWAP1
+    %extcodehash
+    // stack: hash, kexit_info
+    SWAP1
+    EXIT_KERNEL
 
 global extcodehash:
     // stack: address, retdest
@@ -12,6 +28,9 @@ global extcodehash:
     %mload_trie_data
     // stack: codehash, retdest
     SWAP1 JUMP
+retzero:
+    %stack (account_ptr, retdest) -> (retdest, 0)
+    JUMP
 
 %macro extcodehash
     %stack (address) -> (address, %%after)
@@ -32,6 +51,18 @@ global extcodehash:
 
 global sys_extcodesize:
     // stack: kexit_info, address
+    SWAP1 %u256_to_addr
+    // stack: address, kexit_info
+    DUP1 %insert_accessed_addresses
+    // stack: cold_access, address, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
+    %charge_gas
+    // stack: kexit_info, address
+
     SWAP1
     // stack: address, kexit_info
     %extcodesize
@@ -45,15 +76,9 @@ global extcodesize:
     // stack: extcodesize(address), retdest
     SWAP1 JUMP
 
-%macro codecopy
-    // stack: dest_offset, offset, size
-    %address
-    %extcodecopy
-%endmacro
-
 %macro extcodecopy
     // stack: address, dest_offset, offset, size
-    %stack (dest_offset, offset, size) -> (dest_offset, offset, size, %%after)
+    %stack (address, dest_offset, offset, size) -> (address, dest_offset, offset, size, %%after)
     %jump(extcodecopy)
 %%after:
 %endmacro
@@ -63,9 +88,39 @@ global extcodesize:
 global sys_extcodecopy:
     %stack (kexit_info, address, dest_offset, offset, size)
         -> (address, dest_offset, offset, size, kexit_info)
+    %u256_to_addr DUP1 %insert_accessed_addresses
+    // stack: cold_access, address, dest_offset, offset, size, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+
+    DUP5
+    // stack: size, Gaccess, address, dest_offset, offset, size, kexit_info
+    ISZERO %jumpi(sys_extcodecopy_empty)
+
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD
+    %stack (gas, address, dest_offset, offset, size, kexit_info) -> (gas, kexit_info, address, dest_offset, offset, size)
+    %charge_gas
+
+    %stack (kexit_info, address, dest_offset, offset, size) -> (dest_offset, size, kexit_info, address, dest_offset, offset, size)
+    ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
+    // stack: expanded_num_bytes, kexit_info, address, dest_offset, offset, size
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+
+    %stack (kexit_info, address, dest_offset, offset, size) -> (address, dest_offset, offset, size, kexit_info)
     %extcodecopy
     // stack: kexit_info
     EXIT_KERNEL
+
+sys_extcodecopy_empty:
+    %stack (Gaccess, address, dest_offset, offset, size, kexit_info) -> (Gaccess, kexit_info)
+    %charge_gas
+    EXIT_KERNEL
+
 
 // Pre stack: address, dest_offset, offset, size, retdest
 // Post stack: (empty)
@@ -104,7 +159,7 @@ extcodecopy_loop:
     // stack: opcode, offset, code_size, dest_offset, i, size, retdest
     DUP4
     // stack: dest_offset, opcode, offset, code_size, dest_offset, i, size, retdest
-    %mstore_main
+    %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: offset, code_size, dest_offset, i, size, retdest
     %increment
     // stack: offset+1, code_size, dest_offset, i, size, retdest
@@ -133,6 +188,7 @@ global load_code:
     JUMP
 load_code_ctd:
     // stack: codehash, ctx, segment, retdest
+    DUP1 ISZERO %jumpi(load_code_non_existent_account)
     PROVER_INPUT(account_code::length)
     // stack: code_size, codehash, ctx, segment, retdest
     PUSH 0
@@ -164,4 +220,8 @@ load_code_check:
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_size
     %assert_eq
+    JUMP
+
+load_code_non_existent_account:
+    %stack (codehash, ctx, segment, retdest) -> (retdest, 0)
     JUMP

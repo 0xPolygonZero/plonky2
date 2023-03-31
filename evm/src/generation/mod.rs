@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{Address, BigEndianHash, H256};
+use eth_trie_utils::partial_trie::HashedPartialTrie;
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -18,24 +18,24 @@ use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata::StateTrieRoot;
-use crate::generation::mpt::AccountRlp;
+use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
-use crate::generation::trie_extractor::read_state_trie_value;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
-use crate::witness::memory::MemoryAddress;
+use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
 pub mod mpt;
+pub mod outputs;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
-use crate::generation::trie_extractor::read_trie;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+use crate::witness::util::mem_write_log;
+
 /// Inputs needed for trace generation.
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
 
@@ -46,25 +46,63 @@ pub struct GenerationInputs {
     pub contract_code: HashMap<H256, Vec<u8>>,
 
     pub block_metadata: BlockMetadata,
+
+    /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
+    /// only state keys). This is only useful for debugging, so that we can return addresses in the
+    /// post-state rather than state keys. (See `GenerationOutputs`, and in particular
+    /// `AddressOrStateKey`.) If the caller is not interested in the post-state, this can be left
+    /// empty.
+    pub addresses: Vec<Address>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct TrieInputs {
     /// A partial version of the state trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub state_trie: PartialTrie,
+    pub state_trie: HashedPartialTrie,
 
     /// A partial version of the transaction trie prior to these transactions. It should include all
     /// nodes that will be accessed by these transactions.
-    pub transactions_trie: PartialTrie,
+    pub transactions_trie: HashedPartialTrie,
 
     /// A partial version of the receipt trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub receipts_trie: PartialTrie,
+    pub receipts_trie: HashedPartialTrie,
 
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
-    pub storage_tries: Vec<(Address, PartialTrie)>,
+    pub storage_tries: Vec<(Address, HashedPartialTrie)>,
+}
+
+fn apply_metadata_memops<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+    metadata: &BlockMetadata,
+) {
+    let fields = [
+        (
+            GlobalMetadata::BlockBeneficiary,
+            U256::from_big_endian(&metadata.block_beneficiary.0),
+        ),
+        (GlobalMetadata::BlockTimestamp, metadata.block_timestamp),
+        (GlobalMetadata::BlockNumber, metadata.block_number),
+        (GlobalMetadata::BlockDifficulty, metadata.block_difficulty),
+        (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
+        (GlobalMetadata::BlockChainId, metadata.block_chain_id),
+        (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
+    ];
+
+    let channel = MemoryChannel::GeneralPurpose(0);
+    let ops = fields.map(|(field, val)| {
+        mem_write_log(
+            channel,
+            MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+            state,
+            val,
+        )
+    });
+
+    state.memory.apply_ops(&ops);
+    state.traces.memory_ops.extend(ops);
 }
 
 pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
@@ -72,35 +110,32 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
-) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
+) -> anyhow::Result<(
+    [Vec<PolynomialValues<F>>; NUM_TABLES],
+    PublicValues,
+    GenerationOutputs,
+)> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
+
+    apply_metadata_memops(&mut state, &inputs.block_metadata);
 
     generate_bootstrap_kernel::<F>(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
+
+    assert!(
+        state.mpt_prover_inputs.is_empty(),
+        "All MPT data should have been consumed"
+    );
 
     log::info!(
         "Trace lengths (before padding): {:?}",
         state.traces.checkpoint()
     );
 
-    let read_metadata = |field| {
-        state.memory.get(MemoryAddress::new(
-            0,
-            Segment::GlobalMetadata,
-            field as usize,
-        ))
-    };
+    let outputs = get_outputs(&mut state);
 
-    log::debug!(
-        "Updated state trie:\n{:#?}",
-        read_trie::<F, AccountRlp, D>(
-            &state.memory,
-            read_metadata(StateTrieRoot).as_usize(),
-            read_state_trie_value
-        )
-    );
-
+    let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
         state_root: H256::from_uint(&read_metadata(StateTrieRootDigestBefore)),
         transactions_root: H256::from_uint(&read_metadata(TransactionTrieRootDigestBefore)),
@@ -123,7 +158,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "convert trace data to tables",
         state.traces.into_tables(all_stark, config, timing)
     );
-    Ok((tables, public_values))
+    Ok((tables, public_values, outputs))
 }
 
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(

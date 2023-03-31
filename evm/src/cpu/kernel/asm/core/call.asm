@@ -3,6 +3,13 @@
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
+    SWAP2
+    // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -27,6 +34,13 @@ global sys_call:
 // given account. In particular the storage remains the same.
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
+    SWAP2
+    // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
 
@@ -50,6 +64,13 @@ global sys_callcode:
 // CALL if the value sent is not 0.
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
+    SWAP2
+    // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
+    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
 
@@ -69,6 +90,13 @@ global sys_staticcall:
 // given account. In particular the storage, the current sender and the current
 // value remain the same.
 global sys_delegatecall:
+    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // TODO: Charge gas.
+    SWAP2
+    // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
+    %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
+    SWAP2
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
@@ -144,7 +172,7 @@ global after_call_instruction:
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
     %stack (gas_limit, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, gas_limit, new_ctx)
+        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_GAS_LIMIT, gas_limit, new_ctx)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro

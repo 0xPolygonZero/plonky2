@@ -55,16 +55,13 @@ gen_message_schedule_from_block_0_loop:
     // stack: counter, output_addr - 4, block[0] >> 32, block[1], retdest
     %decrement
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_from_block_0_end)
-    %jump(gen_message_schedule_from_block_0_loop)
+    %jumpi(gen_message_schedule_from_block_0_loop)
 gen_message_schedule_from_block_0_end:
     // stack: old counter=0, output_addr, block[0], block[1], retdest
     POP
-    PUSH 8
-    // stack: counter=8, output_addr, block[0], block[1], retdest
-    %stack (counter, out, b0, b1) -> (out, counter, b1, b0)
-    // stack: output_addr, counter, block[1], block[0], retdest
+    // stack: output_addr, block[0], block[1], retdest
+    %stack (out, b0, b1) -> (out, 8, b1, b0)
+    // stack: output_addr, counter=8, block[1], block[0], retdest
     %add_const(64)
     // stack: output_addr + 64, counter, block[1], block[0], retdest
     SWAP1
@@ -96,9 +93,7 @@ gen_message_schedule_from_block_1_loop:
     // stack: counter, output_addr - 4, block[1] >> 32, block[0], retdest
     %decrement
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_from_block_1_end)
-    %jump(gen_message_schedule_from_block_1_loop)
+    %jumpi(gen_message_schedule_from_block_1_loop)
 gen_message_schedule_from_block_1_end:
     // stack: old counter=0, output_addr, block[1], block[0], retdest
     POP
@@ -118,11 +113,7 @@ gen_message_schedule_remaining_loop:
     // stack: output_addr, counter, block[0], block[1], retdest
     DUP1
     // stack: output_addr, output_addr, counter, block[0], block[1], retdest
-    PUSH 2
-    PUSH 4
-    MUL
-    SWAP1
-    SUB
+    %sub_const(8)
     // stack: output_addr - 2*4, output_addr, counter, block[0], block[1], retdest
     %mload_kernel_general_u32
     // stack: x[output_addr - 2*4], output_addr, counter, block[0], block[1], retdest
@@ -132,11 +123,7 @@ gen_message_schedule_remaining_loop:
     // stack: output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     DUP1
     // stack: output_addr, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    PUSH 7
-    PUSH 4
-    MUL
-    SWAP1
-    SUB
+    %sub_const(28)
     // stack: output_addr - 7*4, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     %mload_kernel_general_u32
     // stack: x[output_addr - 7*4], output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
@@ -144,11 +131,7 @@ gen_message_schedule_remaining_loop:
     // stack: output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     DUP1
     // stack: output_addr, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    PUSH 15
-    PUSH 4
-    MUL
-    SWAP1
-    SUB
+    %sub_const(60)
     // stack: output_addr - 15*4, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     %mload_kernel_general_u32
     // stack: x[output_addr - 15*4], output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
@@ -158,11 +141,7 @@ gen_message_schedule_remaining_loop:
     // stack: output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     DUP1
     // stack: output_addr, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    PUSH 16
-    PUSH 4
-    MUL
-    SWAP1
-    SUB
+    %sub_const(64)
     // stack: output_addr - 16*4, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     %mload_kernel_general_u32
     // stack: x[output_addr - 16*4], output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
@@ -185,9 +164,7 @@ gen_message_schedule_remaining_loop:
     %decrement
     // stack: counter - 1, output_addr + 4, block[0], block[1], retdest
     DUP1
-    ISZERO
-    %jumpi(gen_message_schedule_remaining_end)
-    %jump(gen_message_schedule_remaining_loop)
+    %jumpi(gen_message_schedule_remaining_loop)
 gen_message_schedule_remaining_end:
     // stack: counter=0, output_addr, block[0], block[1], retdest
     %pop4
@@ -230,9 +207,7 @@ gen_all_message_schedules_loop_end:
     // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     DUP2
     // stack: counter - 1, cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
-    ISZERO
-    %jumpi(gen_all_message_schedules_end)
-    %jump(gen_all_message_schedules_loop)
+    %jumpi(gen_all_message_schedules_loop)
 gen_all_message_schedules_end:
     // stack: cur_addr + 64, counter - 1, cur_output_addr + 256, output_addr, retdest
     %pop3

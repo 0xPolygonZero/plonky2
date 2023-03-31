@@ -1,6 +1,7 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use std::collections::HashMap;
+use std::ops::Range;
 
 use anyhow::{anyhow, bail, ensure};
 use ethereum_types::{U256, U512};
@@ -11,6 +12,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
+use crate::extension_tower::BN_BASE;
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
@@ -22,14 +24,6 @@ type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
-
-/// Order of the BN254 base field.
-const BN_BASE: U256 = U256([
-    4332616871279656263,
-    10917124144477883021,
-    13281191951274694749,
-    3486998266802970665,
-]);
 
 impl MemoryState {
     pub(crate) fn mload_general(&self, context: usize, segment: Segment, offset: usize) -> U256 {
@@ -65,6 +59,7 @@ pub fn run_interpreter(
     )
 }
 
+#[derive(Clone)]
 pub struct InterpreterMemoryInitialization {
     pub label: String,
     pub stack: Vec<U256>,
@@ -194,6 +189,12 @@ impl<'a> Interpreter<'a> {
         &mut self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }
 
+    pub(crate) fn get_memory_segment(&self, segment: Segment) -> Vec<U256> {
+        self.generation_state.memory.contexts[0].segments[segment as usize]
+            .content
+            .clone()
+    }
+
     pub(crate) fn get_memory_segment_bytes(&self, segment: Segment) -> Vec<u8> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
@@ -202,8 +203,20 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
+    pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
+        self.get_memory_segment(Segment::KernelGeneral)
+    }
+
     pub(crate) fn get_rlp_memory(&self) -> Vec<u8> {
         self.get_memory_segment_bytes(Segment::RlpRaw)
+    }
+
+    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
+    }
+
+    pub(crate) fn set_kernel_general_memory(&mut self, memory: Vec<U256>) {
+        self.set_memory_segment(Segment::KernelGeneral, memory)
     }
 
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
@@ -249,6 +262,18 @@ impl<'a> Interpreter<'a> {
             .content
     }
 
+    pub fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
+        let mut output: Vec<U256> = vec![];
+        for i in range {
+            let term = self
+                .generation_state
+                .memory
+                .get(MemoryAddress::new(0, segment, i));
+            output.push(term);
+        }
+        output
+    }
+
     pub(crate) fn push(&mut self, x: U256) {
         self.stack_mut().push(x);
         self.generation_state.registers.stack_len += 1;
@@ -273,6 +298,7 @@ impl<'a> Interpreter<'a> {
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
+
         match opcode {
             0x00 => self.run_stop(),                                    // "STOP",
             0x01 => self.run_add(),                                     // "ADD",
@@ -350,7 +376,7 @@ impl<'a> Interpreter<'a> {
             0xa2 => todo!(),                                            // "LOG2",
             0xa3 => todo!(),                                            // "LOG3",
             0xa4 => todo!(),                                            // "LOG4",
-            0xa5 => bail!("Executed PANIC"),                            // "PANIC",
+            0xa5 => bail!("Executed PANIC, stack={:?}", self.stack()),  // "PANIC",
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
@@ -359,7 +385,6 @@ impl<'a> Interpreter<'a> {
             0xf5 => todo!(),                                            // "CREATE2",
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
             0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
-            0xf8 => todo!(),                                            // "CONSUME_GAS",
             0xf9 => todo!(),                                            // "EXIT_KERNEL",
             0xfa => todo!(),                                            // "STATICCALL",
             0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
@@ -532,7 +557,11 @@ impl<'a> Interpreter<'a> {
     fn run_shl(&mut self) {
         let shift = self.pop();
         let value = self.pop();
-        self.push(value << shift);
+        self.push(if shift < U256::from(256usize) {
+            value << shift
+        } else {
+            U256::zero()
+        });
     }
 
     fn run_shr(&mut self) {
@@ -702,7 +731,7 @@ impl<'a> Interpreter<'a> {
         self.push(
             self.generation_state.memory.contexts[self.context].segments
                 [Segment::ContextMetadata as usize]
-                .get(ContextMetadata::MSize as usize),
+                .get(ContextMetadata::MemWords as usize),
         )
     }
 
@@ -940,7 +969,6 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0xf5 => "CREATE2",
         0xf6 => "GET_CONTEXT",
         0xf7 => "SET_CONTEXT",
-        0xf8 => "CONSUME_GAS",
         0xf9 => "EXIT_KERNEL",
         0xfa => "STATICCALL",
         0xfb => "MLOAD_GENERAL",

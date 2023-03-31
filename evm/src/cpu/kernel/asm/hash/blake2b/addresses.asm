@@ -1,19 +1,3 @@
-// Load the initial hash value (the IV, but with params XOR'd into the first word).
-%macro blake2b_initial_hash_value
-    %blake2b_iv_i(7)
-    %blake2b_iv_i(6)
-    %blake2b_iv_i(5)
-    %blake2b_iv_i(4)
-    %blake2b_iv_i(3)
-    %blake2b_iv_i(2)
-    %blake2b_iv_i(1)
-    // stack: IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
-    PUSH 0x01010040 // params: key = 00, digest_size = 64 = 0x40
-    %blake2b_iv_i(0)
-    XOR
-    // stack: IV_0 ^ params, IV_1, IV_2, IV_3, IV_4, IV_5, IV_6, IV_7
-%endmacro
-
 // Address where the working version of the hash value is stored.
 %macro blake2b_hash_value_addr
     PUSH 0

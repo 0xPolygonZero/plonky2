@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-use eth_trie_utils::partial_trie::PartialTrie;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -13,6 +14,7 @@ use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
+use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -29,14 +31,17 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata::default();
 
-    let state_trie = PartialTrie::Empty;
-    let transactions_trie = PartialTrie::Empty;
-    let receipts_trie = PartialTrie::Empty;
+    let state_trie = HashedPartialTrie::from(Node::Empty);
+    let transactions_trie = HashedPartialTrie::from(Node::Empty);
+    let receipts_trie = HashedPartialTrie::from(Node::Empty);
     let storage_tries = vec![];
 
-    let state_trie_root = state_trie.calc_hash();
-    let txns_trie_root = transactions_trie.calc_hash();
-    let receipts_trie_root = receipts_trie.calc_hash();
+    let state_trie_root = state_trie.hash();
+    let txns_trie_root = transactions_trie.hash();
+    let receipts_trie_root = receipts_trie.hash();
+
+    let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
 
     let inputs = GenerationInputs {
         signed_txns: vec![],
@@ -46,8 +51,9 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
             receipts_trie,
             storage_tries,
         },
-        contract_code: HashMap::new(),
+        contract_code,
         block_metadata,
+        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);

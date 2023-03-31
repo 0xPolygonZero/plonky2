@@ -122,7 +122,6 @@ pub fn get_opcode(mnemonic: &str) -> u8 {
         "CREATE2" => 0xf5,
         "GET_CONTEXT" => 0xf6,
         "SET_CONTEXT" => 0xf7,
-        "CONSUME_GAS" => 0xf8,
         "EXIT_KERNEL" => 0xf9,
         "STATICCALL" => 0xfa,
         "MLOAD_GENERAL" => 0xfb,

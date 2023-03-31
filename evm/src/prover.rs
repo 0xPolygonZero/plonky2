@@ -26,6 +26,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
+use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
@@ -58,13 +59,36 @@ where
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
+    let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
+    Ok(proof)
+}
+
+/// Generate traces, then create all STARK proofs. Returns information about the post-state,
+/// intended for debugging, in addition to the proof.
+pub fn prove_with_outputs<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    inputs: GenerationInputs,
+    timing: &mut TimingTree,
+) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    [(); C::Hasher::HASH_SIZE]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+{
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values) = timed!(
+    let (traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, inputs, config, timing)?
     );
-    prove_with_traces(all_stark, config, traces, public_values, timing)
+    let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
+    Ok((proof, outputs))
 }
 
 /// Compute all STARK proofs.
