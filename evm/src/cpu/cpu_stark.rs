@@ -100,7 +100,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(Table::Cpu, ctl_data_ternops(&OPS), Some(Column::sum(&OPS)))
+    TableWithColumns::new(Table::Cpu, ctl_data_ternops(&OPS), Some(Column::sum(OPS)))
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;

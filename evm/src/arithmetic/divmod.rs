@@ -260,12 +260,10 @@ mod tests {
 
                 let result = if input1 == U256::zero() {
                     U256::zero()
+                } else if op_filter == IS_DIV {
+                    input0 / input1
                 } else {
-                    if op_filter == IS_DIV {
-                        input0 / input1
-                    } else {
-                        input0 % input1
-                    }
+                    input0 % input1
                 };
                 generate(&mut lv, &mut nv, op_filter, input0, input1, result);
 
