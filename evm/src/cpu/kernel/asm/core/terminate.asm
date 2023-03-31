@@ -22,17 +22,60 @@ global sys_return:
     %jump(terminate_common)
 
 global sys_selfdestruct:
-    // stack: kexit_info, address
+    // stack: kexit_info, recipient
     SWAP1 %u256_to_addr
-    DUP1 %insert_accessed_addresses_no_return // TODO: Use return value in gas calculation.
-    // stack: address, kexit_info
-    POP // TODO: Transfer balance to address.
+    %address DUP1 %balance
+
+    // Insert recipient into the accessed addresses list.
+    // stack: balance, address, recipient, kexit_info
+    DUP3 %insert_accessed_addresses
+
+    // Compute gas.
+    // stack: cold_access, balance, address, recipient, kexit_info
+    %mul_const(@GAS_COLDACCOUNTACCESS)
+    DUP2
+    // stack: balance, gas_coldaccess, balance, address, recipient, kexit_info
+    ISZERO %not_bit
+    // stack: balance!=0, gas_coldaccess, balance, address, recipient, kexit_info
+    DUP5 %is_dead MUL %mul_const(@GAS_NEWACCOUNT)
+    // stack: gas_newaccount, gas_coldaccess, balance, address, recipient, kexit_info
+    ADD %add_const(@GAS_SELFDESTRUCT)
+    %stack (gas, balance, address, recipient, kexit_info) -> (gas, kexit_info, balance, address, recipient)
+    %charge_gas
+    %stack (kexit_info, balance, address, recipient) -> (balance, address, recipient, kexit_info)
+
+    // Insert address into the selfdestruct set.
+    // stack: balance, address, recipient, kexit_info
+    DUP2 %insert_selfdestruct_set
+
+    // Set the balance of the address to 0.
+    // stack: balance, address, recipient, kexit_info
+    PUSH 0
+    // stack: 0, balance, address, recipient, kexit_info
+    DUP3 %mpt_read_state_trie
+    // stack: account_ptr, 0, balance, address, recipient, kexit_info
+    %add_const(1)
+    // stack: balance_ptr, 0, balance, address, recipient, kexit_info
+    %mstore_trie_data // TODO: This should be a copy-on-write operation.
+
+    // If the recipient is the same as the address, then we're done.
+    // Otherwise, send the balance to the recipient.
+    %stack (balance, address, recipient, kexit_info) -> (address, recipient, recipient, balance, kexit_info)
+    EQ %jumpi(sys_selfdestruct_same_addr)
+    // stack: recipient, balance, kexit_info
+    %add_eth
+
     // stack: kexit_info
-    // TODO: Add address to the access list.
-    %charge_gas_const(@GAS_SELFDESTRUCT)
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Destroy account.
+    PUSH 1 // success
+    %jump(terminate_common)
+
+sys_selfdestruct_same_addr:
+    // stack: recipient, balance, kexit_info
+    %pop2
+    %leftover_gas
+    // stack: leftover_gas
     PUSH 1 // success
     %jump(terminate_common)
 

@@ -345,3 +345,11 @@
     // stack: x
     %mod_const(0x10000000000000000000000000000000000000000) // 2^160
 %endmacro
+
+%macro not_bit
+    // stack: b
+    PUSH 1
+    // stack: 1, b
+    SUB
+    // stack: 1 - b
+%endmacro
