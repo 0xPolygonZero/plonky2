@@ -91,7 +91,6 @@ impl Table {
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     let mut ctls = vec![ctl_keccak_sponge(), ctl_keccak(), ctl_logic(), ctl_memory()];
     // TODO: Some CTLs temporarily disabled while we get them working.
-    disable_ctl(&mut ctls[0]);
     disable_ctl(&mut ctls[3]);
     ctls
 }
