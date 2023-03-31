@@ -48,62 +48,39 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
     res
 }
 
-/// Create the Arithmetic Table whose columns are those of the
-/// operations listed in `ops` whose inputs and outputs are given by
-/// `regs`, where each element of `regs` is a range of columns
-/// corresponding to a 256-bit input or output register (also `ops` is
-/// used as the operation filter).
-fn ctl_link_ops_rows<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> TableWithColumns<F> {
+pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
+    const ARITH_OPS: [usize; 13] = [
+        columns::IS_ADD,
+        columns::IS_SUB,
+        columns::IS_MUL,
+        columns::IS_LT,
+        columns::IS_GT,
+        columns::IS_ADDFP254,
+        columns::IS_MULFP254,
+        columns::IS_SUBFP254,
+        columns::IS_ADDMOD,
+        columns::IS_MULMOD,
+        columns::IS_SUBMOD,
+        columns::IS_DIV,
+        columns::IS_MOD,
+    ];
+
+    const REGISTER_MAP: [Range<usize>; 4] = [
+        columns::INPUT_REGISTER_0,
+        columns::INPUT_REGISTER_1,
+        columns::INPUT_REGISTER_2,
+        columns::OUTPUT_REGISTER,
+    ];
+
+    // Create the Arithmetic Table whose columns are those of the
+    // operations listed in `ops` whose inputs and outputs are given
+    // by `regs`, where each element of `regs` is a range of columns
+    // corresponding to a 256-bit input or output register (also `ops`
+    // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(ops, regs),
-        Some(Column::sum(ops)),
-    )
-}
-
-pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[
-            columns::IS_ADD,
-            columns::IS_SUB,
-            columns::IS_MUL,
-            columns::IS_LT,
-            columns::IS_GT,
-            columns::IS_ADDFP254,
-            columns::IS_MULFP254,
-            columns::IS_SUBFP254,
-            columns::IS_ADDMOD,
-            columns::IS_MULMOD,
-            columns::IS_SUBMOD,
-        ],
-        &[
-            columns::INPUT_REGISTER_0,
-            columns::INPUT_REGISTER_1,
-            columns::INPUT_REGISTER_2,
-            columns::OUTPUT_REGISTER,
-        ],
-    )
-}
-
-pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[columns::IS_DIV],
-        &[
-            columns::DIV_NUMERATOR,
-            columns::DIV_DENOMINATOR,
-            columns::DIV_OUTPUT,
-        ],
-    )
-}
-
-pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
-    ctl_link_ops_rows(
-        &[columns::IS_MOD],
-        &[
-            columns::MODULAR_INPUT_0,
-            columns::MODULAR_MODULUS,
-            columns::MODULAR_OUTPUT,
-        ],
+        cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
+        Some(Column::sum(ARITH_OPS)),
     )
 }
 

@@ -110,11 +110,6 @@ pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_REGISTER_2;
 // Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
 pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 
-pub(crate) const DIV_NUMERATOR: Range<usize> = MODULAR_INPUT_0;
-pub(crate) const DIV_DENOMINATOR: Range<usize> = MODULAR_MODULUS;
-pub(crate) const DIV_OUTPUT: Range<usize> =
-    MODULAR_QUO_INPUT.start..MODULAR_QUO_INPUT.start + N_LIMBS;
-
 // Need one column for the table, then two columns for every value
 // that needs to be range checked in the trace, namely the permutation
 // of the column and the permutation of the range. The two

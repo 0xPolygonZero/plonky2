@@ -79,25 +79,8 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
 }
 
-/// Create the CPU Table whose columns are those with the two inputs
-/// and one output of the binary operations listed in `ops` (also
-/// `ops` is used as the operation filter).
-fn binops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
-    TableWithColumns::new(Table::Cpu, ctl_data_binops(ops), Some(Column::sum(ops)))
-}
-
-/// Create the CPU Table whose columns are those with the three inputs
-/// and one output of the ternary operations listed in `ops` (also
-/// `ops` is used as the operation filter).
-fn ternops_table<F: Field>(ops: &[usize]) -> TableWithColumns<F> {
-    TableWithColumns::new(Table::Cpu, ctl_data_ternops(ops), Some(Column::sum(ops)))
-}
-
-// The ctl_<OPS>_rows() functions below produce the CPU table
-// corresponding to the OPS operations.
-
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    ternops_table(&[
+    const OPS: [usize; 13] = [
         COL_MAP.op.add,
         COL_MAP.op.sub,
         COL_MAP.op.mul,
@@ -109,15 +92,15 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.addmod,
         COL_MAP.op.mulmod,
         COL_MAP.op.submod,
-    ])
-}
-
-pub fn ctl_div_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.div])
-}
-
-pub fn ctl_mod_rows<F: Field>() -> TableWithColumns<F> {
-    binops_table(&[COL_MAP.op.mod_])
+        COL_MAP.op.div,
+        COL_MAP.op.mod_,
+    ];
+    // Create the CPU Table whose columns are those with the three
+    // inputs and one output of the ternary operations listed in `ops`
+    // (also `ops` is used as the operation filter). The list of
+    // operations includes binary operations which will simply ignore
+    // the third input.
+    TableWithColumns::new(Table::Cpu, ctl_data_ternops(&OPS), Some(Column::sum(&OPS)))
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
