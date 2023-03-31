@@ -12,7 +12,7 @@ use plonky2::util::transpose;
 use static_assertions::const_assert;
 
 use crate::all_stark::Table;
-use crate::arithmetic::{addcy, columns, modular, mul, Operation};
+use crate::arithmetic::{addcy, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
@@ -204,7 +204,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_packed_generic(lv, yield_constr);
         addcy::eval_packed_generic(lv, yield_constr);
-        modular::eval_packed_generic(lv, nv, yield_constr);
+        divmod::eval_packed(lv, nv, yield_constr);
+        modular::eval_packed(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -234,6 +235,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_ext_circuit(builder, lv, yield_constr);
         addcy::eval_ext_circuit(builder, lv, yield_constr);
+        divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
@@ -266,6 +268,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
+    use crate::arithmetic::columns::OUTPUT_REGISTER;
     use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -351,21 +354,21 @@ mod tests {
 
         // Each operation has a single word answer that we can check
         let expected_output = [
-            // Row (some ops take two rows), col, expected
-            (0, &columns::GENERAL_REGISTER_3, 579), // ADD_OUTPUT
-            (1, &columns::MODULAR_OUTPUT, 703),
-            (3, &columns::MODULAR_OUTPUT, 794),
-            (5, &columns::MUL_OUTPUT, 56088),
-            (6, &columns::MODULAR_OUTPUT, 11),
-            (8, &columns::GENERAL_REGISTER_3, 0),
-            (9, &columns::GENERAL_REGISTER_3, 1),
-            (10, &columns::GENERAL_REGISTER_3, 0),
-            (11, &columns::DIV_OUTPUT, 9),
+            // Row (some ops take two rows), expected
+            (0, 579), // ADD_OUTPUT
+            (1, 703),
+            (3, 794),
+            (5, 56088),
+            (6, 11),
+            (8, 0),
+            (9, 1),
+            (10, 0),
+            (11, 9),
         ];
 
-        for (row, col, expected) in expected_output {
+        for (row, expected) in expected_output {
             // First register should match expected value...
-            let first = col.start;
+            let first = OUTPUT_REGISTER.start;
             let out = pols[first].values[row].to_canonical_u64();
             assert_eq!(
                 out, expected,
@@ -373,7 +376,7 @@ mod tests {
                 first, row, expected, out,
             );
             // ...other registers should be zero
-            let rest = col.start + 1..col.end;
+            let rest = OUTPUT_REGISTER.start + 1..OUTPUT_REGISTER.end;
             assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
         }
     }

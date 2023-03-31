@@ -4,6 +4,7 @@ use plonky2::field::types::PrimeField64;
 use crate::util::{addmod, mulmod, submod};
 
 mod addcy;
+mod divmod;
 mod modular;
 mod mul;
 mod utils;
@@ -208,7 +209,9 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, None)
         }
         BinaryOperator::Div | BinaryOperator::Mod => {
-            ternary_op_to_rows::<F>(op.row_filter(), input0, U256::zero(), input1, result)
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
+            (row, Some(nv))
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
             ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE_ORDER, result)
