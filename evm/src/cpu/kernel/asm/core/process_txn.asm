@@ -113,6 +113,7 @@ global process_contract_creation_txn_after_constructor:
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, address, retdest
     POP
     POP
@@ -196,6 +197,7 @@ global process_message_txn_after_call:
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, retdest
     %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, retdest
     POP
     JUMP
