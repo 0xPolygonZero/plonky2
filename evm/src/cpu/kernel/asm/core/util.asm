@@ -55,10 +55,12 @@
     // stack: code_hash
     PUSH @EMPTY_STRING_HASH
     EQ
+    %jump(%%after)
 %%false:
     // stack: account_ptr
     POP
     PUSH 0
+%%after:
 %endmacro
 
 // Returns 1 if the account is dead (i.e., empty or non-existent), 0 otherwise.
@@ -66,5 +68,5 @@
     // stack: addr
     DUP1 %is_non_existent
     SWAP1 %is_empty
-    ADD
+    ADD // OR
 %endmacro

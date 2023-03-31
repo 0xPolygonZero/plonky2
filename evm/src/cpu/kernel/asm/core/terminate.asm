@@ -56,7 +56,7 @@ global sys_selfdestruct:
     // stack: account_ptr, 0, balance, address, recipient, kexit_info
     %add_const(1)
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
-    %mstore_trie_data
+    %mstore_trie_data // TODO: This should be a copy-on-write operation.
 
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.

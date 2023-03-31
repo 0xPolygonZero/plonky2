@@ -82,8 +82,9 @@ global add_eth:
     JUMP
 global add_eth_new_account:
     // stack: null_account_ptr, addr, amount, retdest
-    DUP3 ISZERO %jumpi(add_eth_new_account_zero)
     POP
+    // stack: addr, amount, retdest
+    DUP2 ISZERO %jumpi(add_eth_new_account_zero)
     %get_trie_data_size // pointer to new account we're about to create
     // stack: new_account_ptr, addr, amount, retdest
     SWAP2
@@ -99,8 +100,8 @@ global add_eth_new_account:
     %jump(mpt_insert_state_trie)
 
 add_eth_new_account_zero:
-    // stack: null_account_ptr, addr, amount, retdest
-    %pop3 JUMP
+    // stack: addr, amount, retdest
+    %pop2 JUMP
 
 // Convenience macro to call add_eth and return where we left off.
 %macro add_eth
