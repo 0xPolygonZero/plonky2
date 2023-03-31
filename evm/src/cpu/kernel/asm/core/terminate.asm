@@ -24,7 +24,7 @@ global sys_return:
 global sys_selfdestruct:
     // stack: kexit_info, recipient
     SWAP1 %u256_to_addr
-    %address %balance
+    %address DUP1 %balance
 
     // Insert recipient into the accessed addresses list.
     // stack: balance, address, recipient, kexit_info
