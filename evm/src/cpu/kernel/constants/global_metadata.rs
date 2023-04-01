@@ -49,8 +49,8 @@ pub(crate) enum GlobalMetadata {
     AccessedAddressesLen = 23,
     /// Length of the storage keys access list.
     AccessedStorageKeysLen = 24,
-    /// Length of the self-destruct set.
-    SelfDestructSetLen = 25,
+    /// Length of the self-destruct list.
+    SelfDestructListLen = 25,
 }
 
 impl GlobalMetadata {
@@ -82,7 +82,7 @@ impl GlobalMetadata {
             Self::RefundCounter,
             Self::AccessedAddressesLen,
             Self::AccessedStorageKeysLen,
-            Self::SelfDestructSetLen,
+            Self::SelfDestructListLen,
         ]
     }
 
@@ -113,7 +113,7 @@ impl GlobalMetadata {
             Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
-            Self::SelfDestructSetLen => "GLOBAL_METADATA_SELFDESTRUCT_SET_LEN",
+            Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
         }
     }
 }

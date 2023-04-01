@@ -46,7 +46,7 @@ global sys_selfdestruct:
 
     // Insert address into the selfdestruct set.
     // stack: balance, address, recipient, kexit_info
-    DUP2 %insert_selfdestruct_set
+    DUP2 %insert_selfdestruct_list
 
     // Set the balance of the address to 0.
     // stack: balance, address, recipient, kexit_info
