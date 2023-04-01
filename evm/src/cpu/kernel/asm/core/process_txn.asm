@@ -20,11 +20,44 @@ global process_normalized_txn:
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %assert_ge
 
-    // TODO: Check that txn nonce matches account nonce.
-    // TODO: Assert nonce is correct.
-    // TODO: Assert sender has no code.
-    // TODO: Assert sender balance >= gas_limit * gas_price + value.
-    // TODO: Assert chain ID matches block metadata?
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender, retdest
+
+    // Check that txn nonce matches account nonce.
+     DUP1 %nonce
+    // stack: sender_nonce, sender, retdest
+    %mload_txn_field(@TXN_FIELD_NONCE)
+    // stack: tx_nonce, sender_nonce, sender, retdest
+    %assert_eq
+    // stack: sender, retdest
+
+    // Assert sender has no code.
+    DUP1 %ext_code_empty %assert_nonzero
+    // stack: sender, retdest
+
+    // Assert sender balance >= gas_limit * gas_price + value.
+    %balance
+    // stack: sender_balance, retdest
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    MUL
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    ADD
+    %assert_le
+    // stack: retdest
+
+    // Assert chain ID matches block metadata
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID_PRESENT)
+    // stack: chain_id_present, retdest
+    DUP1
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID)
+    // stack: tx_chain_id, chain_id_present, chain_id_present, retdest
+    MUL SWAP1
+    // stack: chain_id_present, filtered_tx_chain_id, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+    MUL
+    // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
+    %assert_eq
     // stack: retdest
 
 global buy_gas:
