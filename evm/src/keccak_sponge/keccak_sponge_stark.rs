@@ -170,7 +170,6 @@ pub struct KeccakSpongeStark<F, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
-    #[allow(unused)] // TODO: Should be used soon.
     pub(crate) fn generate_trace(
         &self,
         operations: Vec<KeccakSpongeOp>,
