@@ -23,45 +23,39 @@ use crate::plonk::proof::{
 };
 use crate::util::reverse_bits;
 
-fn get_challenges<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
->(
-    public_inputs_hash: <<C as GenericConfig<HCO, HCI, D>>::InnerHasher as Hasher<F, HCI>>::Hash,
-    wires_cap: &MerkleCap<F, HCO, C::Hasher>,
-    plonk_zs_partial_products_cap: &MerkleCap<F, HCO, C::Hasher>,
-    quotient_polys_cap: &MerkleCap<F, HCO, C::Hasher>,
+fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
+    wires_cap: &MerkleCap<F, C::HCO, C::Hasher>,
+    plonk_zs_partial_products_cap: &MerkleCap<F, C::HCO, C::Hasher>,
+    quotient_polys_cap: &MerkleCap<F, C::HCO, C::Hasher>,
     openings: &OpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
+    commit_phase_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
-    circuit_digest: &<<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<C::F, HCO>>::Hash,
+    circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
     common_data: &CommonCircuitData<F, D>,
 ) -> anyhow::Result<ProofChallenges<F, D>>
 where
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
 
-    let mut challenger = Challenger::<F, HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<HCO, C::Hasher>(*circuit_digest);
-    challenger.observe_hash::<HCI, C::InnerHasher>(public_inputs_hash);
+    challenger.observe_hash::<C::HCO, C::Hasher>(*circuit_digest);
+    challenger.observe_hash::<C::HCI, C::InnerHasher>(public_inputs_hash);
 
-    challenger.observe_cap::<HCO, C::Hasher>(wires_cap);
+    challenger.observe_cap::<C::HCO, C::Hasher>(wires_cap);
     let plonk_betas = challenger.get_n_challenges(num_challenges);
     let plonk_gammas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap::<HCO, C::Hasher>(plonk_zs_partial_products_cap);
+    challenger.observe_cap::<C::HCO, C::Hasher>(plonk_zs_partial_products_cap);
     let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap::<HCO, C::Hasher>(quotient_polys_cap);
+    challenger.observe_cap::<C::HCO, C::Hasher>(quotient_polys_cap);
     let plonk_zeta = challenger.get_extension_challenge::<D>();
 
     challenger.observe_openings(&openings.to_fri_openings());
@@ -71,7 +65,7 @@ where
         plonk_gammas,
         plonk_alphas,
         plonk_zeta,
-        fri_challenges: challenger.fri_challenges::<HCI, C, D>(
+        fri_challenges: challenger.fri_challenges::<C, D>(
             commit_phase_merkle_caps,
             final_poly,
             pow_witness,
@@ -81,22 +75,17 @@ where
     })
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > ProofWithPublicInputs<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    ProofWithPublicInputs<F, C, D>
 {
     pub(crate) fn fri_query_indices(
         &self,
-        circuit_digest: &<<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<C::F, HCO>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Vec<usize>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         Ok(self
             .get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?
@@ -107,13 +96,13 @@ impl<
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
-        public_inputs_hash: <<C as GenericConfig<HCO, HCI, D>>::InnerHasher as Hasher<F, HCI>>::Hash,
-        circuit_digest: &<<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<C::F, HCO>>::Hash,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let Proof {
             wires_cap,
@@ -129,7 +118,7 @@ impl<
                 },
         } = &self.proof;
 
-        get_challenges::<F, HCO, HCI, C, D>(
+        get_challenges::<F, C, D>(
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -144,24 +133,19 @@ impl<
     }
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > CompressedProofWithPublicInputs<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    CompressedProofWithPublicInputs<F, C, D>
 {
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
-        public_inputs_hash: <<C as GenericConfig<HCO, HCI, D>>::InnerHasher as Hasher<F, HCI>>::Hash,
-        circuit_digest: &<<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<C::F, HCO>>::Hash,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let CompressedProof {
             wires_cap,
@@ -177,7 +161,7 @@ impl<
                 },
         } = &self.proof;
 
-        get_challenges::<F, HCO, HCI, C, D>(
+        get_challenges::<F, C, D>(
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -222,7 +206,7 @@ impl<
         for &(mut x_index) in fri_query_indices {
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-            let mut old_eval = fri_combine_initial::<F, HCO, HCI, C, D>(
+            let mut old_eval = fri_combine_initial::<F, C, D>(
                 &common_data.get_fri_instance(*plonk_zeta),
                 &self
                     .proof
@@ -268,7 +252,7 @@ impl<
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn get_challenges<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+    fn get_challenges<C: GenericConfig<D, F = F>>(
         &mut self,
         public_inputs_hash: HashOutTarget,
         wires_cap: &MerkleCapTarget,
@@ -282,14 +266,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_common_data: &CommonCircuitData<F, D>,
     ) -> ProofChallengesTarget<D>
     where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let config = &inner_common_data.config;
         let num_challenges = config.num_challenges;
 
-        let mut challenger = RecursiveChallenger::<F, HCO, C::Hasher, D>::new(self);
+        let mut challenger = RecursiveChallenger::<F, C::HCO, C::Hasher, D>::new(self);
 
         // Observe the instance.
         challenger.observe_hash(&inner_circuit_digest);
@@ -324,12 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 impl<const D: usize> ProofWithPublicInputsTarget<D> {
-    pub(crate) fn get_challenges<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         public_inputs_hash: HashOutTarget,
@@ -337,9 +316,9 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
         inner_common_data: &CommonCircuitData<F, D>,
     ) -> ProofChallengesTarget<D>
     where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let ProofTarget {
             wires_cap,
@@ -355,7 +334,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
                 },
         } = &self.proof;
 
-        builder.get_challenges::<HCO, HCI, C>(
+        builder.get_challenges::<C>(
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,

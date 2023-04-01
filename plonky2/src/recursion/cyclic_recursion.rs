@@ -14,12 +14,10 @@ use crate::plonk::circuit_data::{
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
-impl<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D>, const D: usize>
-    VerifierOnlyCircuitData<HCO, HCI, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
     fn from_slice(slice: &[C::F], common_data: &CommonCircuitData<C::F, D>) -> Result<Self>
     where
-        C::Hasher: AlgebraicHasher<C::F, HCO>,
+        C::Hasher: AlgebraicHasher<C::F, C::HCO>,
     {
         // The structure of the public inputs is `[..., circuit_digest, constants_sigmas_cap]`.
         let cap_len = common_data.config.fri_config.num_cap_elements();
@@ -82,11 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// that the verification key matches.
     ///
     /// WARNING: Do not register any public input after calling this! TODO: relax this
-    pub fn conditionally_verify_cyclic_proof<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    pub fn conditionally_verify_cyclic_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         condition: BoolTarget,
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
@@ -95,9 +89,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let verifier_data = self
             .verifier_data_public_input
@@ -125,7 +119,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Verify the cyclic proof if `condition` is set to true, otherwise verify the other proof.
-        self.conditionally_verify_proof::<HCO, HCI, C>(
+        self.conditionally_verify_proof::<C>(
             condition,
             cyclic_proof_with_pis,
             &verifier_data,
@@ -142,26 +136,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Ok(())
     }
 
-    pub fn conditionally_verify_cyclic_proof_or_dummy<
-        HCO,
-        HCI,
-        C: GenericConfig<HCO, HCI, D, F = F> + 'static,
-    >(
+    pub fn conditionally_verify_cyclic_proof_or_dummy<C: GenericConfig<D, F = F> + 'static>(
         &mut self,
         condition: BoolTarget,
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        HCO: HashConfig + 'static,
-        HCI: HashConfig + 'static,
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
-            self.dummy_proof_and_vk::<HCO, HCI, C>(common_data)?;
-        self.conditionally_verify_cyclic_proof::<HCO, HCI, C>(
+            self.dummy_proof_and_vk::<C>(common_data)?;
+        self.conditionally_verify_cyclic_proof::<C>(
             condition,
             cyclic_proof_with_pis,
             &dummy_proof_with_pis_target,
@@ -176,22 +164,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 /// Checks that the purported verifier data in the public inputs match the real verifier data.
 pub fn check_cyclic_proof_verifier_data<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
+    proof: &ProofWithPublicInputs<F, C, D>,
+    verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
-    C::Hasher: AlgebraicHasher<F, HCO>,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
-    let pis =
-        VerifierOnlyCircuitData::<HCO, HCI, C, D>::from_slice(&proof.public_inputs, common_data)?;
+    let pis = VerifierOnlyCircuitData::<C, D>::from_slice(&proof.public_inputs, common_data)?;
     ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
     ensure!(verifier_data.circuit_digest == pis.circuit_digest);
 
@@ -220,37 +205,35 @@ mod tests {
     // Generates `CommonCircuitData` usable for recursion.
     fn common_data_for_recursion<
         F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
+        C: GenericConfig<D, F = F>,
         const D: usize,
     >() -> CommonCircuitData<F, D>
     where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let config = CircuitConfig::standard_recursion_config();
         let builder = CircuitBuilder::<F, D>::new(config);
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
-        builder.verify_proof::<HCO, HCI, C>(&proof, &verifier_data, &data.common);
-        let data = builder.build::<HCO, HCI, C>();
+        builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
+        let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
-        builder.verify_proof::<HCO, HCI, C>(&proof, &verifier_data, &data.common);
+        builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
         while builder.num_gates() < 1 << 12 {
             builder.add_gate(NoopGate, vec![]);
         }
-        builder.build::<HCO, HCI, C>().common
+        builder.build::<C>().common
     }
 
     /// Uses cyclic recursion to build a hash chain.
@@ -263,9 +246,7 @@ mod tests {
     fn test_cyclic_recursion() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -281,7 +262,7 @@ mod tests {
         builder.register_public_inputs(&current_hash_out.elements);
         let counter = builder.add_virtual_public_input();
 
-        let mut common_data = common_data_for_recursion::<F, HCO, HCI, C, D>();
+        let mut common_data = common_data_for_recursion::<F, C, D>();
         let verifier_data_target = builder.add_verifier_data_public_inputs();
         common_data.num_public_inputs = builder.num_public_inputs();
 
@@ -308,19 +289,19 @@ mod tests {
         let new_counter = builder.mul_add(condition.target, inner_cyclic_counter, one);
         builder.connect(counter, new_counter);
 
-        builder.conditionally_verify_cyclic_proof_or_dummy::<HCO, HCI, C>(
+        builder.conditionally_verify_cyclic_proof_or_dummy::<C>(
             condition,
             &inner_cyclic_proof_with_pis,
             &common_data,
         )?;
 
-        let cyclic_circuit_data = builder.build::<HCO, HCI, C>();
+        let cyclic_circuit_data = builder.build::<C>();
 
         let mut pw = PartialWitness::new();
         let initial_hash = [F::ZERO, F::ONE, F::TWO, F::from_canonical_usize(3)];
         let initial_hash_pis = initial_hash.into_iter().enumerate().collect();
         pw.set_bool_target(condition, false);
-        pw.set_proof_with_pis_target::<HCO, HCI, C, D>(
+        pw.set_proof_with_pis_target::<C, D>(
             &inner_cyclic_proof_with_pis,
             &cyclic_base_proof(
                 &common_data,

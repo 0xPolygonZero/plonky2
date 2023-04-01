@@ -27,27 +27,17 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transp
 pub const SALT_SIZE: usize = 4;
 
 /// Represents a FRI oracle, i.e. a batch of polynomials which have been Merklized.
-pub struct PolynomialBatch<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
-> {
+pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+{
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, HCO, C::Hasher>,
+    pub merkle_tree: MerkleTree<F, C::HCO, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > PolynomialBatch<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    PolynomialBatch<F, C, D>
 {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn from_values(
@@ -59,7 +49,7 @@ impl<
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self
     where
-        [(); HCO::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
     {
         let coeffs = timed!(
             timing,
@@ -87,7 +77,7 @@ impl<
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self
     where
-        [(); HCO::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
     {
         let degree = polynomials[0].len();
         let lde_values = timed!(
@@ -178,13 +168,13 @@ impl<
     pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
-        challenger: &mut Challenger<F, HCO, C::Hasher>,
+        challenger: &mut Challenger<F, C::HCO, C::Hasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
-    ) -> FriProof<F, HCO, C::Hasher, D>
+    ) -> FriProof<F, C::HCO, C::Hasher, D>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
@@ -223,7 +213,7 @@ impl<
             lde_final_poly.coset_fft(F::coset_shift().into())
         );
 
-        let fri_proof = fri_proof::<F, HCO, HCI, C, D>(
+        let fri_proof = fri_proof::<F, C, D>(
             &oracles
                 .par_iter()
                 .map(|c| &c.merkle_tree)

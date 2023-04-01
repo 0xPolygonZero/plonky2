@@ -21,29 +21,18 @@ use crate::permutation::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
-pub struct AllProof<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
-> where
-    [(); HCO::WIDTH]:,
+pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+where
+    [(); C::HCO::WIDTH]:,
 {
-    pub stark_proofs: [StarkProofWithMetadata<F, HCO, HCI, C, D>; NUM_TABLES],
+    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     pub public_values: PublicValues,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > AllProof<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D>
 where
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
@@ -117,48 +106,33 @@ pub struct BlockMetadataTarget {
 }
 
 #[derive(Debug, Clone)]
-pub struct StarkProof<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
-> {
+pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, HCO, C::Hasher>,
+    pub trace_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_ctl_zs_cap: MerkleCap<F, HCO, C::Hasher>,
+    pub permutation_ctl_zs_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, HCO, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, HCO, C::Hasher, D>,
+    pub opening_proof: FriProof<F, C::HCO, C::Hasher, D>,
 }
 
 /// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
 /// creating a recursive wrapper proof around a STARK proof.
 #[derive(Debug, Clone)]
-pub struct StarkProofWithMetadata<F, HCO, HCI, C, const D: usize>
+pub struct StarkProofWithMetadata<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    [(); HCO::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
-    pub(crate) init_challenger_state: [F; HCO::WIDTH],
-    pub(crate) proof: StarkProof<F, HCO, HCI, C, D>,
+    pub(crate) init_challenger_state: [F; C::HCO::WIDTH],
+    pub(crate) proof: StarkProof<F, C, D>,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > StarkProof<F, HCO, HCI, C, D>
-{
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
@@ -232,22 +206,22 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
-    pub fn new<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+    pub fn new<C: GenericConfig<D, F = F>>(
         zeta: F::Extension,
         g: F,
-        trace_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
-        permutation_ctl_zs_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
-        quotient_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
+        trace_commitment: &PolynomialBatch<F, C, D>,
+        permutation_ctl_zs_commitment: &PolynomialBatch<F, C, D>,
+        quotient_commitment: &PolynomialBatch<F, C, D>,
         degree_bits: usize,
         num_permutation_zs: usize,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, HCO, HCI, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
-        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, HCO, HCI, C, D>| {
+        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.eval(z))

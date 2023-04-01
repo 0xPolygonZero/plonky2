@@ -5,7 +5,7 @@ use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
 /// An example of using Plonky2 to prove a statement of the form
 /// "I know the 100th element of the Fibonacci sequence, starting with constants a and b."
@@ -13,9 +13,7 @@ use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHa
 fn main() -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    type HCO = PoseidonHashConfig;
-    type HCI = HCO;
-    type F = <C as GenericConfig<HCO, HCI, D>>::F;
+    type F = <C as GenericConfig<D>>::F;
 
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -41,7 +39,7 @@ fn main() -> Result<()> {
     pw.set_target(initial_a, F::ZERO);
     pw.set_target(initial_b, F::ONE);
 
-    let data = builder.build::<HCO, HCI, C>();
+    let data = builder.build::<C>();
     let proof = data.prove(pw)?;
 
     println!(

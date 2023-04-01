@@ -14,15 +14,9 @@ use crate::permutation::{
 };
 use crate::proof::*;
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > AllProof<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D>
 where
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
@@ -31,10 +25,10 @@ where
         config: &StarkConfig,
     ) -> AllProofChallenges<F, D>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        let mut challenger = Challenger::<F, HCO, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
@@ -67,12 +61,12 @@ where
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllChallengerState<F, HCO, D>
+    ) -> AllChallengerState<F, C::HCO, D>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        let mut challenger = Challenger::<F, HCO, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
@@ -104,24 +98,22 @@ where
     }
 }
 
-impl<F, HCO, HCI, C, const D: usize> StarkProof<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> StarkProof<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
-        challenger: &mut Challenger<F, HCO, C::Hasher>,
+        challenger: &mut Challenger<F, C::HCO, C::Hasher>,
         stark_use_permutation: bool,
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let degree_bits = self.recover_degree_bits(config);
 
@@ -162,7 +154,7 @@ where
             permutation_challenge_sets,
             stark_alphas,
             stark_zeta,
-            fri_challenges: challenger.fri_challenges::<HCI, C, D>(
+            fri_challenges: challenger.fri_challenges::<C, D>(
                 commit_phase_merkle_caps,
                 final_poly,
                 *pow_witness,
@@ -174,23 +166,18 @@ where
 }
 
 impl<const D: usize> StarkProofTarget<D> {
-    pub(crate) fn get_challenges<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        challenger: &mut RecursiveChallenger<F, HCO, C::Hasher, D>,
+        challenger: &mut RecursiveChallenger<F, C::HCO, C::Hasher, D>,
         stark_use_permutation: bool,
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let StarkProofTarget {
             permutation_ctl_zs_cap,

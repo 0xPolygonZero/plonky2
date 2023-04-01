@@ -30,23 +30,21 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-pub fn prove<F, HCO, HCI, C, S, const D: usize>(
+pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
     trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
-) -> Result<StarkProofWithPublicInputs<F, HCO, HCI, C, D>>
+) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -61,7 +59,7 @@ where
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
-        PolynomialBatch::<F, HCO, HCI, C, D>::from_values(
+        PolynomialBatch::<F, C, D>::from_values(
             // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
             // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
             trace_poly_values.clone(),
@@ -116,7 +114,7 @@ where
     }
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, HCO, HCI, C, S, D>(
+    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
         &stark,
         &trace_commitment,
         &permutation_zs_commitment_challenges,
@@ -200,11 +198,11 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the Stark constraints.
-fn compute_quotient_polys<'a, F, P, HCO, HCI, C, S, const D: usize>(
+fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, HCO, HCI, C, D>,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_zs_commitment_challenges: &'a Option<(
-        PolynomialBatch<F, HCO, HCI, C, D>,
+        PolynomialBatch<F, C, D>,
         Vec<PermutationChallengeSet<F>>,
     )>,
     public_inputs: [F; S::PUBLIC_INPUTS],
@@ -215,9 +213,7 @@ fn compute_quotient_polys<'a, F, P, HCO, HCI, C, S, const D: usize>(
 where
     F: RichField + Extendable<D>,
     P: PackedField<Scalar = F>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,

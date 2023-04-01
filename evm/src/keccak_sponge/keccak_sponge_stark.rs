@@ -411,7 +411,7 @@ mod tests {
     use keccak_hash::keccak;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::PrimeField64;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::keccak_sponge::columns::KeccakSpongeColumnsView;
     use crate::keccak_sponge::keccak_sponge_stark::{KeccakSpongeOp, KeccakSpongeStark};
@@ -423,9 +423,7 @@ mod tests {
     fn test_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = KeccakSpongeStark<F, D>;
 
         let stark = S::default();
@@ -436,13 +434,11 @@ mod tests {
     fn test_stark_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = KeccakSpongeStark<F, D>;
 
         let stark = S::default();
-        test_stark_circuit_constraints::<F, HCO, HCI, C, S, D>(stark)
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
     #[test]

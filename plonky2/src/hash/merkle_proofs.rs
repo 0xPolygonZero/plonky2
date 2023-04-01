@@ -187,7 +187,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
@@ -198,9 +198,7 @@ mod tests {
     fn test_recursive_merkle_proof() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -209,9 +207,10 @@ mod tests {
         let n = 1 << log_n;
         let cap_height = 1;
         let leaves = random_data::<F>(n, 7);
-        let tree = MerkleTree::<F, HCO, <C as GenericConfig<HCO, HCI, D>>::Hasher>::new(
-            leaves, cap_height,
-        );
+        let tree =
+            MerkleTree::<F, <C as GenericConfig<D>>::HCO, <C as GenericConfig<D>>::Hasher>::new(
+                leaves, cap_height,
+            );
         let i: usize = OsRng.gen_range(0..n);
         let proof = tree.prove(i);
 
@@ -233,11 +232,11 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof_to_cap::<HCI, <C as GenericConfig<HCO, HCI, D>>::InnerHasher>(
+        builder.verify_merkle_proof_to_cap::<<C as GenericConfig<D>>::HCI, <C as GenericConfig<D>>::InnerHasher>(
             data, &i_bits, &cap_t, &proof_t,
         );
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

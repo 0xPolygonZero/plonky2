@@ -124,22 +124,21 @@ mod tests {
     use super::*;
     use crate::field::types::Sample;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_path_compression() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         let h = 10;
         let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
-        let mt = MerkleTree::<F, HCO, <C as GenericConfig<HCO, HCI, D>>::Hasher>::new(
-            vs.clone(),
-            cap_height,
-        );
+        let mt =
+            MerkleTree::<F, <C as GenericConfig<D>>::HCO, <C as GenericConfig<D>>::Hasher>::new(
+                vs.clone(),
+                cap_height,
+            );
 
         let mut rng = OsRng;
         let k = rng.gen_range(1..=1 << h);

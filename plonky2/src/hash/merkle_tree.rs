@@ -223,26 +223,20 @@ mod tests {
     use super::*;
     use crate::field::extension::Extendable;
     use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    >(
+    fn verify_all_leaves<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         leaves: Vec<Vec<F>>,
         cap_height: usize,
     ) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
     {
-        let tree = MerkleTree::<F, HCO, C::Hasher>::new(leaves.clone(), cap_height);
+        let tree = MerkleTree::<F, C::HCO, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);
             verify_merkle_proof_to_cap(leaf, i, &tree.cap, &proof)?;
@@ -255,15 +249,13 @@ mod tests {
     fn test_cap_height_too_big() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let log_n = 8;
         let cap_height = log_n + 1; // Should panic if `cap_height > len_n`.
 
         let leaves = random_data::<F>(1 << log_n, 7);
-        let _ = MerkleTree::<F, HCO, <C as GenericConfig<HCO, HCI, D>>::Hasher>::new(
+        let _ = MerkleTree::<F, <C as GenericConfig<D>>::HCO, <C as GenericConfig<D>>::Hasher>::new(
             leaves, cap_height,
         );
     }
@@ -272,15 +264,13 @@ mod tests {
     fn test_cap_height_eq_log2_len() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let log_n = 8;
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves::<F, HCO, HCI, C, D>(leaves, log_n)?;
+        verify_all_leaves::<F, C, D>(leaves, log_n)?;
 
         Ok(())
     }
@@ -289,15 +279,13 @@ mod tests {
     fn test_merkle_trees() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let log_n = 8;
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves::<F, HCO, HCI, C, D>(leaves, 1)?;
+        verify_all_leaves::<F, C, D>(leaves, 1)?;
 
         Ok(())
     }

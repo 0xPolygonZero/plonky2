@@ -45,33 +45,29 @@ const THRESHOLD_DEGREE_BITS: usize = 13;
 /// `degree_bits`, this contains a chain of recursive circuits for shrinking that STARK from
 /// `degree_bits` to a constant `THRESHOLD_DEGREE_BITS`. It also contains a special root circuit
 /// for combining each STARK's shrunk wrapper proof into a single proof.
-pub struct AllRecursiveCircuits<F, HCO, HCI, C, const D: usize>
+pub struct AllRecursiveCircuits<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    [(); HCO::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
-    pub root: RootCircuitData<F, HCO, HCI, C, D>,
-    pub aggregation: AggregationCircuitData<F, HCO, HCI, C, D>,
+    pub root: RootCircuitData<F, C, D>,
+    pub aggregation: AggregationCircuitData<F, C, D>,
     /// The block circuit, which verifies an aggregation root proof and a previous block proof.
-    pub block: BlockCircuitData<F, HCO, HCI, C, D>,
+    pub block: BlockCircuitData<F, C, D>,
     /// Holds chains of circuits for each table and for each initial `degree_bits`.
-    by_table: [RecursiveCircuitsForTable<F, HCO, HCI, C, D>; NUM_TABLES],
+    by_table: [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
 }
 
 /// Data for the EVM root circuit, which is used to combine each STARK's shrunk wrapper proof
 /// into a single proof.
-pub struct RootCircuitData<F, HCO, HCI, C, const D: usize>
+pub struct RootCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, HCO, HCI, C, D>,
+    circuit: CircuitData<F, C, D>,
     proof_with_pis: [ProofWithPublicInputsTarget<D>; NUM_TABLES],
     /// For each table, various inner circuits may be used depending on the initial table size.
     /// This target holds the index of the circuit (within `final_circuits()`) that was used.
@@ -83,14 +79,12 @@ where
 
 /// Data for the aggregation circuit, which is used to compress two proofs into one. Each inner
 /// proof can be either an EVM root proof or another aggregation proof.
-pub struct AggregationCircuitData<F, HCO, HCI, C, const D: usize>
+pub struct AggregationCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, HCO, HCI, C, D>,
+    circuit: CircuitData<F, C, D>,
     lhs: AggregationChildTarget<D>,
     rhs: AggregationChildTarget<D>,
     cyclic_vk: VerifierCircuitTarget,
@@ -102,35 +96,31 @@ pub struct AggregationChildTarget<const D: usize> {
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
-pub struct BlockCircuitData<F, HCO, HCI, C, const D: usize>
+pub struct BlockCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, HCO, HCI, C, D>,
+    circuit: CircuitData<F, C, D>,
     has_parent_block: BoolTarget,
     parent_block_proof: ProofWithPublicInputsTarget<D>,
     agg_root_proof: ProofWithPublicInputsTarget<D>,
     cyclic_vk: VerifierCircuitTarget,
 }
 
-impl<F, HCO, HCI, C, const D: usize> AllRecursiveCircuits<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> AllRecursiveCircuits<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig + 'static,
-    HCI: HashConfig + 'static,
-    C: GenericConfig<HCO, HCI, D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     /// Preprocess all recursive circuits used by the system.
     pub fn new(
@@ -187,9 +177,9 @@ where
     }
 
     fn create_root_circuit(
-        by_table: &[RecursiveCircuitsForTable<F, HCO, HCI, C, D>; NUM_TABLES],
+        by_table: &[RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
         stark_config: &StarkConfig,
-    ) -> RootCircuitData<F, HCO, HCI, C, D> {
+    ) -> RootCircuitData<F, C, D> {
         let inner_common_data: [_; NUM_TABLES] =
             core::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
 
@@ -197,11 +187,14 @@ where
         let recursive_proofs =
             core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<Target, HCO>::from_vec(&recursive_proofs[i].public_inputs, stark_config)
+            PublicInputs::<Target, C::HCO>::from_vec(
+                &recursive_proofs[i].public_inputs,
+                stark_config,
+            )
         });
         let index_verifier_data = core::array::from_fn(|_i| builder.add_virtual_target());
 
-        let mut challenger = RecursiveChallenger::<F, HCO, C::Hasher, D>::new(&mut builder);
+        let mut challenger = RecursiveChallenger::<F, C::HCO, C::Hasher, D>::new(&mut builder);
         for pi in &pis {
             for h in &pi.trace_cap {
                 challenger.observe_elements(h);
@@ -227,12 +220,12 @@ where
         }
 
         let state = challenger.compact(&mut builder);
-        for k in 0..HCO::WIDTH {
+        for k in 0..C::HCO::WIDTH {
             builder.connect(state[k], pis[0].challenger_state_before[k]);
         }
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
-            for k in 0..HCO::WIDTH {
+            for k in 0..C::HCO::WIDTH {
                 builder.connect(
                     pis[i].challenger_state_before[k],
                     pis[i - 1].challenger_state_after[k],
@@ -268,7 +261,7 @@ where
             let inner_verifier_data =
                 builder.random_access_verifier_data(index_verifier_data[i], possible_vks);
 
-            builder.verify_proof::<HCO, HCI, C>(
+            builder.verify_proof::<C>(
                 &recursive_proofs[i],
                 &inner_verifier_data,
                 inner_common_data[i],
@@ -280,7 +273,7 @@ where
         let cyclic_vk = builder.add_verifier_data_public_inputs();
 
         RootCircuitData {
-            circuit: builder.build::<HCO, HCI, C>(),
+            circuit: builder.build::<C>(),
             proof_with_pis: recursive_proofs,
             index_verifier_data,
             cyclic_vk,
@@ -288,8 +281,8 @@ where
     }
 
     fn create_aggregation_circuit(
-        root: &RootCircuitData<F, HCO, HCI, C, D>,
-    ) -> AggregationCircuitData<F, HCO, HCI, C, D> {
+        root: &RootCircuitData<F, C, D>,
+    ) -> AggregationCircuitData<F, C, D> {
         let mut builder = CircuitBuilder::<F, D>::new(root.circuit.common.config.clone());
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         let lhs = Self::add_agg_child(&mut builder, root);
@@ -300,7 +293,7 @@ where
             builder.add_gate(NoopGate, vec![]);
         }
 
-        let circuit = builder.build::<HCO, HCI, C>();
+        let circuit = builder.build::<C>();
         AggregationCircuitData {
             circuit,
             lhs,
@@ -311,7 +304,7 @@ where
 
     fn add_agg_child(
         builder: &mut CircuitBuilder<F, D>,
-        root: &RootCircuitData<F, HCO, HCI, C, D>,
+        root: &RootCircuitData<F, C, D>,
     ) -> AggregationChildTarget<D> {
         let common = &root.circuit.common;
         let root_vk = builder.constant_verifier_data(&root.circuit.verifier_only);
@@ -319,7 +312,7 @@ where
         let agg_proof = builder.add_virtual_proof_with_pis(common);
         let evm_proof = builder.add_virtual_proof_with_pis(common);
         builder
-            .conditionally_verify_cyclic_proof::<HCO, HCI, C>(
+            .conditionally_verify_cyclic_proof::<C>(
                 is_agg, &agg_proof, &evm_proof, &root_vk, common,
             )
             .expect("Failed to build cyclic recursion circuit");
@@ -330,9 +323,7 @@ where
         }
     }
 
-    fn create_block_circuit(
-        agg: &AggregationCircuitData<F, HCO, HCI, C, D>,
-    ) -> BlockCircuitData<F, HCO, HCI, C, D> {
+    fn create_block_circuit(agg: &AggregationCircuitData<F, C, D>) -> BlockCircuitData<F, C, D> {
         // The block circuit is similar to the agg circuit; both verify two inner proofs.
         // We need to adjust a few things, but it's easier than making a new CommonCircuitData.
         let expected_common_data = CommonCircuitData {
@@ -350,7 +341,7 @@ where
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
-            .conditionally_verify_cyclic_proof_or_dummy::<HCO, HCI, C>(
+            .conditionally_verify_cyclic_proof_or_dummy::<C>(
                 has_parent_block,
                 &parent_block_proof,
                 &expected_common_data,
@@ -358,13 +349,9 @@ where
             .expect("Failed to build cyclic recursion circuit");
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
-        builder.verify_proof::<HCO, HCI, C>(
-            &agg_root_proof,
-            &agg_verifier_data,
-            &agg.circuit.common,
-        );
+        builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
 
-        let circuit = builder.build::<HCO, HCI, C>();
+        let circuit = builder.build::<C>();
         BlockCircuitData {
             circuit,
             has_parent_block,
@@ -381,8 +368,8 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
-        let all_proof = prove::<F, HCO, HCI, C, D>(all_stark, config, generation_inputs, timing)?;
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
@@ -411,20 +398,17 @@ where
         self.root.circuit.prove(root_inputs)
     }
 
-    pub fn verify_root(
-        &self,
-        agg_proof: ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> anyhow::Result<()> {
+    pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
         self.root.circuit.verify(agg_proof)
     }
 
     pub fn prove_aggregation(
         &self,
         lhs_is_agg: bool,
-        lhs_proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
+        lhs_proof: &ProofWithPublicInputs<F, C, D>,
         rhs_is_agg: bool,
-        rhs_proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
+        rhs_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut agg_inputs = PartialWitness::new();
 
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
@@ -445,7 +429,7 @@ where
 
     pub fn verify_aggregation(
         &self,
-        agg_proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
+        agg_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
         self.aggregation.circuit.verify(agg_proof.clone())?;
         check_cyclic_proof_verifier_data(
@@ -457,9 +441,9 @@ where
 
     pub fn prove_block(
         &self,
-        opt_parent_block_proof: Option<&ProofWithPublicInputs<F, HCO, HCI, C, D>>,
-        agg_root_proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
+        opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
+        agg_root_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut block_inputs = PartialWitness::new();
 
         block_inputs.set_bool_target(
@@ -479,10 +463,7 @@ where
         self.block.circuit.prove(block_inputs)
     }
 
-    pub fn verify_block(
-        &self,
-        block_proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> anyhow::Result<()> {
+    pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
         self.block.circuit.verify(block_proof.clone())?;
         check_cyclic_proof_verifier_data(
             block_proof,
@@ -492,29 +473,25 @@ where
     }
 }
 
-struct RecursiveCircuitsForTable<F, HCO, HCI, C, const D: usize>
+struct RecursiveCircuitsForTable<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    [(); HCO::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     /// A map from `log_2(height)` to a chain of shrinking recursion circuits starting at that
     /// height.
-    by_stark_size: BTreeMap<usize, RecursiveCircuitsForTableSize<F, HCO, HCI, C, D>>,
+    by_stark_size: BTreeMap<usize, RecursiveCircuitsForTableSize<F, C, D>>,
 }
 
-impl<F, HCO, HCI, C, const D: usize> RecursiveCircuitsForTable<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> RecursiveCircuitsForTable<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     fn new<S: Stark<F, D>>(
         table: Table,
@@ -545,7 +522,7 @@ where
 
     /// For each initial `degree_bits`, get the final circuit at the end of that shrinking chain.
     /// Each of these final circuits should have degree `THRESHOLD_DEGREE_BITS`.
-    fn final_circuits(&self) -> Vec<&CircuitData<F, HCO, HCI, C, D>> {
+    fn final_circuits(&self) -> Vec<&CircuitData<F, C, D>> {
         self.by_stark_size
             .values()
             .map(|chain| {
@@ -561,28 +538,24 @@ where
 
 /// A chain of shrinking wrapper circuits, ending with a final circuit with `degree_bits`
 /// `THRESHOLD_DEGREE_BITS`.
-struct RecursiveCircuitsForTableSize<F, HCO, HCI, C, const D: usize>
+struct RecursiveCircuitsForTableSize<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    [(); HCO::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
-    initial_wrapper: StarkWrapperCircuit<F, HCO, HCI, C, D>,
-    shrinking_wrappers: Vec<PlonkWrapperCircuit<F, HCO, HCI, C, D>>,
+    initial_wrapper: StarkWrapperCircuit<F, C, D>,
+    shrinking_wrappers: Vec<PlonkWrapperCircuit<F, C, D>>,
 }
 
-impl<F, HCO, HCI, C, const D: usize> RecursiveCircuitsForTableSize<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> RecursiveCircuitsForTableSize<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     fn new<S: Stark<F, D>>(
         table: Table,
@@ -609,7 +582,7 @@ where
         loop {
             let last = shrinking_wrappers
                 .last()
-                .map(|wrapper: &PlonkWrapperCircuit<F, HCO, HCI, C, D>| &wrapper.circuit)
+                .map(|wrapper: &PlonkWrapperCircuit<F, C, D>| &wrapper.circuit)
                 .unwrap_or(&initial_wrapper.circuit);
             let last_degree_bits = last.common.degree_bits();
             assert!(last_degree_bits >= THRESHOLD_DEGREE_BITS);
@@ -620,10 +593,10 @@ where
             let mut builder = CircuitBuilder::new(shrinking_config());
             let proof_with_pis_target = builder.add_virtual_proof_with_pis(&last.common);
             let last_vk = builder.constant_verifier_data(&last.verifier_only);
-            builder.verify_proof::<HCO, HCI, C>(&proof_with_pis_target, &last_vk, &last.common);
+            builder.verify_proof::<C>(&proof_with_pis_target, &last_vk, &last.common);
             builder.register_public_inputs(&proof_with_pis_target.public_inputs); // carry PIs forward
             add_common_recursion_gates(&mut builder);
-            let circuit = builder.build::<HCO, HCI, C>();
+            let circuit = builder.build::<C>();
 
             assert!(
                 circuit.common.degree_bits() < last_degree_bits,
@@ -645,9 +618,9 @@ where
 
     fn shrink(
         &self,
-        stark_proof_with_metadata: &StarkProofWithMetadata<F, HCO, HCI, C, D>,
+        stark_proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut proof = self
             .initial_wrapper
             .prove(stark_proof_with_metadata, ctl_challenges)?;

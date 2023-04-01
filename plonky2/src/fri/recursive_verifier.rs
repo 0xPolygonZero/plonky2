@@ -99,11 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    pub fn verify_fri_proof<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
         openings: &FriOpeningsTarget<D>,
@@ -112,8 +108,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         params: &FriParams,
     ) where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
     {
         if let Some(max_arity_bits) = params.max_arity_bits() {
             self.check_recursion_config(max_arity_bits);
@@ -166,7 +162,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self,
                 level,
                 &format!("verify one (of {num_queries}) query rounds"),
-                self.fri_verifier_query_round::<HCO, HCI, C>(
+                self.fri_verifier_query_round::<C>(
                     instance,
                     challenges,
                     &precomputed_reduced_evals,
@@ -254,11 +250,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
-    fn fri_verifier_query_round<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
         challenges: &FriChallengesTarget<D>,
@@ -270,8 +262,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
     ) where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
     {
         let n_log = log2_strict(n);
 
@@ -285,7 +277,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check FRI initial proof",
-            self.fri_verify_initial_proof::<HCO, C::Hasher>(
+            self.fri_verify_initial_proof::<C::HCO, C::Hasher>(
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
@@ -345,7 +337,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof_to_cap_with_cap_index::<HCO, C::Hasher>(
+                self.verify_merkle_proof_to_cap_with_cap_index::<C::HCO, C::Hasher>(
                     flatten_target(evals),
                     &coset_index_bits,
                     cap_index,

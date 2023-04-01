@@ -79,9 +79,7 @@ where
 /// Tests that the circuit constraints imposed by the given STARK are coherent with the native constraints.
 pub fn test_stark_circuit_constraints<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -89,8 +87,8 @@ pub fn test_stark_circuit_constraints<
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {
@@ -148,7 +146,7 @@ where
     let native_eval_t = builder.constant_extension(native_eval);
     builder.connect_extension(circuit_eval, native_eval_t);
 
-    let data = builder.build::<HCO, HCI, C>();
+    let data = builder.build::<C>();
     let proof = data.prove(pw)?;
     data.verify(proof)
 }

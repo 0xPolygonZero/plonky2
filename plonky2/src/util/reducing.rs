@@ -280,16 +280,14 @@ mod tests {
     use crate::field::types::Sample;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_reduce_gadget_base(n: usize) -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -311,7 +309,7 @@ mod tests {
 
         builder.connect_extension(manual_reduce, circuit_reduce);
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -320,10 +318,8 @@ mod tests {
     fn test_reduce_gadget(n: usize) -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -343,7 +339,7 @@ mod tests {
 
         builder.connect_extension(manual_reduce, circuit_reduce);
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

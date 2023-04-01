@@ -21,11 +21,7 @@ use crate::with_context;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verify `proof0` if `condition` else verify `proof1`.
     /// `proof0` and `proof1` are assumed to use the same `CommonCircuitData`.
-    pub fn conditionally_verify_proof<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         condition: BoolTarget,
         proof_with_pis0: &ProofWithPublicInputsTarget<D>,
@@ -34,9 +30,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data1: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let selected_proof =
             self.select_proof_with_pis(condition, proof_with_pis0, proof_with_pis1);
@@ -53,19 +49,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ),
         };
 
-        self.verify_proof::<HCO, HCI, C>(
-            &selected_proof,
-            &selected_verifier_data,
-            inner_common_data,
-        );
+        self.verify_proof::<C>(&selected_proof, &selected_verifier_data, inner_common_data);
     }
 
     /// Conditionally verify a proof with a new generated dummy proof.
-    pub fn conditionally_verify_proof_or_dummy<
-        HCO,
-        HCI,
-        C: GenericConfig<HCO, HCI, D, F = F> + 'static,
-    >(
+    pub fn conditionally_verify_proof_or_dummy<C: GenericConfig<D, F = F> + 'static>(
         &mut self,
         condition: BoolTarget,
         proof_with_pis: &ProofWithPublicInputsTarget<D>,
@@ -73,15 +61,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()>
     where
-        HCO: HashConfig + 'static,
-        HCI: HashConfig + 'static,
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
-            self.dummy_proof_and_vk::<HCO, HCI, C>(inner_common_data)?;
-        self.conditionally_verify_proof::<HCO, HCI, C>(
+            self.dummy_proof_and_vk::<C>(inner_common_data)?;
+        self.conditionally_verify_proof::<C>(
             condition,
             proof_with_pis,
             inner_verifier_data,
@@ -361,7 +347,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::recursion::dummy_circuit::{dummy_circuit, dummy_proof};
 
     #[test]
@@ -369,9 +355,7 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
         // Generate proof.
@@ -384,7 +368,7 @@ mod tests {
         for _ in 0..64 {
             builder.add_gate(NoopGate, vec![]);
         }
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
 
@@ -398,7 +382,7 @@ mod tests {
         let pt = builder.add_virtual_proof_with_pis(&data.common);
         pw.set_proof_with_pis_target(&pt, &proof);
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target::<HCO, HCI, C, D>(&dummy_pt, &dummy_proof);
+        pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
         let inner_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&inner_data, &data.verifier_only);
@@ -406,7 +390,7 @@ mod tests {
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only);
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
-        builder.conditionally_verify_proof::<HCO, HCI, C>(
+        builder.conditionally_verify_proof::<C>(
             b,
             &pt,
             &inner_data,
@@ -416,7 +400,7 @@ mod tests {
         );
 
         builder.print_gate_counts(100);
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof)
     }

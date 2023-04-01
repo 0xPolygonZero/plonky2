@@ -72,18 +72,13 @@ pub trait WitnessWrite<F: Field> {
 
     /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
     /// `ProofWithPublicInputs`.
-    fn set_proof_with_pis_target<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    >(
+    fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
-        proof_with_pis: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F, HCO>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         let ProofWithPublicInputs {
             proof,
@@ -103,18 +98,13 @@ pub trait WitnessWrite<F: Field> {
     }
 
     /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    >(
+    fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof_target: &ProofTarget<D>,
-        proof: &Proof<F, HCO, HCI, C, D>,
+        proof: &Proof<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F, HCO>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
         self.set_cap_target(
@@ -147,18 +137,13 @@ pub trait WitnessWrite<F: Field> {
         }
     }
 
-    fn set_verifier_data_target<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    >(
+    fn set_verifier_data_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         vdt: &VerifierCircuitTarget,
-        vd: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
+        vd: &VerifierOnlyCircuitData<C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F, HCO>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap);
         self.set_hash_target(vdt.circuit_digest, vd.circuit_digest);

@@ -576,20 +576,15 @@ mod tests {
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{
-        GenericConfig, KeccakGoldilocksConfig, KeccakHashConfig, PoseidonGoldilocksConfig,
-        PoseidonHashConfig,
-    };
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_mul_many() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -614,7 +609,7 @@ mod tests {
         builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -624,10 +619,8 @@ mod tests {
     fn test_div_extension() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_zk_config();
 
@@ -643,7 +636,7 @@ mod tests {
         let comp_zt = builder.div_extension(xt, yt);
         builder.connect_extension(zt, comp_zt);
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -653,10 +646,8 @@ mod tests {
     fn test_mul_algebra() -> Result<()> {
         const D: usize = 2;
         type C = KeccakGoldilocksConfig;
-        type HCO = KeccakHashConfig;
-        type HCI = PoseidonHashConfig;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        type FF = <C as GenericConfig<HCO, HCI, D>>::FE;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -683,7 +674,7 @@ mod tests {
             pw.set_extension_target(zt.0[i], z.0[i]);
         }
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

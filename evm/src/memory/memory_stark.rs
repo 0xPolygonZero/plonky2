@@ -462,7 +462,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 #[cfg(test)]
 pub(crate) mod tests {
     use anyhow::Result;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::memory::memory_stark::MemoryStark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
@@ -471,9 +471,7 @@ pub(crate) mod tests {
     fn test_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = MemoryStark<F, D>;
 
         let stark = S {
@@ -486,14 +484,12 @@ pub(crate) mod tests {
     fn test_stark_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = MemoryStark<F, D>;
 
         let stark = S {
             f: Default::default(),
         };
-        test_stark_circuit_constraints::<F, HCO, HCI, C, S, D>(stark)
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 }

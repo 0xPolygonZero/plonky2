@@ -42,25 +42,23 @@ use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 /// Generate traces, then create all STARK proofs.
-pub fn prove<F, HCO, HCI, C, const D: usize>(
+pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     inputs: GenerationInputs,
     timing: &mut TimingTree,
-) -> Result<AllProof<F, HCO, HCI, C, D>>
+) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
     Ok(proof)
@@ -68,25 +66,23 @@ where
 
 /// Generate traces, then create all STARK proofs. Returns information about the post-state,
 /// intended for debugging, in addition to the proof.
-pub fn prove_with_outputs<F, HCO, HCI, C, const D: usize>(
+pub fn prove_with_outputs<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     inputs: GenerationInputs,
     timing: &mut TimingTree,
-) -> Result<(AllProof<F, HCO, HCI, C, D>, GenerationOutputs)>
+) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
@@ -99,26 +95,24 @@ where
 }
 
 /// Compute all STARK proofs.
-pub(crate) fn prove_with_traces<F, HCO, HCI, C, const D: usize>(
+pub(crate) fn prove_with_traces<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     public_values: PublicValues,
     timing: &mut TimingTree,
-) -> Result<AllProof<F, HCO, HCI, C, D>>
+) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
@@ -133,7 +127,7 @@ where
                 timed!(
                     timing,
                     &format!("compute trace commitment for {:?}", table),
-                    PolynomialBatch::<F, HCO, HCI, C, D>::from_values(
+                    PolynomialBatch::<F, C, D>::from_values(
                         // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
                         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
                         trace.clone(),
@@ -152,7 +146,7 @@ where
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
         .collect::<Vec<_>>();
-    let mut challenger = Challenger::<F, HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
@@ -189,28 +183,26 @@ where
     })
 }
 
-fn prove_with_commitments<F, HCO, HCI, C, const D: usize>(
+fn prove_with_commitments<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
-    trace_commitments: Vec<PolynomialBatch<F, HCO, HCI, C, D>>,
+    trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
-    challenger: &mut Challenger<F, HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<[StarkProofWithMetadata<F, HCO, HCI, C, D>; NUM_TABLES]>
+) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let cpu_proof = timed!(
         timing,
@@ -287,24 +279,22 @@ where
 }
 
 /// Compute proof for a single STARK table.
-pub(crate) fn prove_single_table<F, HCO, HCI, C, S, const D: usize>(
+pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
-    trace_commitment: &PolynomialBatch<F, HCO, HCI, C, D>,
+    trace_commitment: &PolynomialBatch<F, C, D>,
     ctl_data: &CtlData<F>,
-    challenger: &mut Challenger<F, HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     timing: &mut TimingTree,
-) -> Result<StarkProofWithMetadata<F, HCO, HCI, C, D>>
+) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -377,7 +367,7 @@ where
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
-        compute_quotient_polys::<F, <F as Packable>::Packing, HCO, HCI, C, S, D>(
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
             stark,
             trace_commitment,
             &permutation_ctl_zs_commitment,
@@ -474,10 +464,10 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the Stark constraints.
-fn compute_quotient_polys<'a, F, P, HCO, HCI, C, S, const D: usize>(
+fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, HCO, HCI, C, D>,
-    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, HCO, HCI, C, D>,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
@@ -488,9 +478,7 @@ fn compute_quotient_polys<'a, F, P, HCO, HCI, C, S, const D: usize>(
 where
     F: RichField + Extendable<D>,
     P: PackedField<Scalar = F>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
 {
@@ -613,10 +601,10 @@ where
 
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
-fn check_constraints<'a, F, HCO, HCI, C, S, const D: usize>(
+fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, HCO, HCI, C, D>,
-    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, HCO, HCI, C, D>,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
@@ -625,9 +613,7 @@ fn check_constraints<'a, F, HCO, HCI, C, S, const D: usize>(
     config: &StarkConfig,
 ) where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
 {
@@ -645,7 +631,7 @@ fn check_constraints<'a, F, HCO, HCI, C, S, const D: usize>(
     let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
 
     // Get the evaluations of a batch of polynomials over our subgroup.
-    let get_subgroup_evals = |comm: &PolynomialBatch<F, HCO, HCI, C, D>| -> Vec<Vec<F>> {
+    let get_subgroup_evals = |comm: &PolynomialBatch<F, C, D>| -> Vec<Vec<F>> {
         let values = comm
             .polynomials
             .par_iter()

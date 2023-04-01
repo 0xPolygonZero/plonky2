@@ -107,35 +107,21 @@ impl CircuitConfig {
 }
 
 /// Circuit data required by the prover or the verifier.
-pub struct CircuitData<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
-> {
-    pub prover_only: ProverOnlyCircuitData<F, HCO, HCI, C, D>,
-    pub verifier_only: VerifierOnlyCircuitData<HCO, HCI, C, D>,
+pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
     pub common: CommonCircuitData<F, D>,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > CircuitData<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    CircuitData<F, C, D>
 {
-    pub fn prove(
-        &self,
-        inputs: PartialWitness<F>,
-    ) -> Result<ProofWithPublicInputs<F, HCO, HCI, C, D>>
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        prove::<F, HCO, HCI, C, D>(
+        prove::<F, C, D>(
             &self.prover_only,
             &self.common,
             inputs,
@@ -143,48 +129,48 @@ impl<
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, HCO, HCI, C, D>) -> Result<()>
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        verify::<F, HCO, HCI, C, D>(proof_with_pis, &self.verifier_only, &self.common)
+        verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, HCO, HCI, C, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 
     pub fn compress(
         &self,
-        proof: ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> Result<CompressedProofWithPublicInputs<F, HCO, HCI, C, D>>
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> Result<CompressedProofWithPublicInputs<F, C, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         proof.compress(&self.verifier_only.circuit_digest, &self.common)
     }
 
     pub fn decompress(
         &self,
-        proof: CompressedProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, HCO, HCI, C, D>>
+        proof: CompressedProofWithPublicInputs<F, C, D>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
 
-    pub fn verifier_data(&self) -> VerifierCircuitData<F, HCO, HCI, C, D> {
+    pub fn verifier_data(&self) -> VerifierCircuitData<F, C, D> {
         let CircuitData {
             verifier_only,
             common,
@@ -196,7 +182,7 @@ impl<
         }
     }
 
-    pub fn prover_data(self) -> ProverCircuitData<F, HCO, HCI, C, D> {
+    pub fn prover_data(self) -> ProverCircuitData<F, C, D> {
         let CircuitData {
             prover_only,
             common,
@@ -218,32 +204,22 @@ impl<
 /// construct a more minimal prover structure and convert back and forth.
 pub struct ProverCircuitData<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub prover_only: ProverOnlyCircuitData<F, HCO, HCI, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
     pub common: CommonCircuitData<F, D>,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > ProverCircuitData<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    ProverCircuitData<F, C, D>
 {
-    pub fn prove(
-        &self,
-        inputs: PartialWitness<F>,
-    ) -> Result<ProofWithPublicInputs<F, HCO, HCI, C, D>>
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        prove::<F, HCO, HCI, C, D>(
+        prove::<F, C, D>(
             &self.prover_only,
             &self.common,
             inputs,
@@ -256,38 +232,31 @@ impl<
 #[derive(Debug)]
 pub struct VerifierCircuitData<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub verifier_only: VerifierOnlyCircuitData<HCO, HCI, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
     pub common: CommonCircuitData<F, D>,
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > VerifierCircuitData<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    VerifierCircuitData<F, C, D>
 {
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, HCO, HCI, C, D>) -> Result<()>
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        verify::<F, HCO, HCI, C, D>(proof_with_pis, &self.verifier_only, &self.common)
+        verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, HCO, HCI, C, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
@@ -296,9 +265,7 @@ impl<
 /// Circuit data required by the prover, but not the verifier.
 pub struct ProverOnlyCircuitData<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 > {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -306,7 +273,7 @@ pub struct ProverOnlyCircuitData<
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: PolynomialBatch<F, HCO, HCI, C, D>,
+    pub constants_sigmas_commitment: PolynomialBatch<F, C, D>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
@@ -320,22 +287,17 @@ pub struct ProverOnlyCircuitData<
     pub fft_root_table: Option<FftRootTable<F>>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<F, HCO>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F, C::HCO>>::Hash,
 }
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct VerifierOnlyCircuitData<
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D>,
-    const D: usize,
-> {
+pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub constants_sigmas_cap: MerkleCap<C::F, HCO, C::Hasher>,
+    pub constants_sigmas_cap: MerkleCap<C::F, C::HCO, C::Hasher>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<HCO, HCI, D>>::Hasher as Hasher<C::F, HCO>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
 }
 
 /// Circuit data required by both the prover and the verifier.

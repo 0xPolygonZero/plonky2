@@ -515,7 +515,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn wire_indices() {
@@ -543,9 +543,7 @@ mod tests {
     fn generated_output() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig {
             num_wires: 143,
@@ -555,7 +553,7 @@ mod tests {
         type Gate = PoseidonGate<F, D>;
         let gate = Gate::new();
         let row = builder.add_gate(gate, vec![]);
-        let circuit = builder.build_prover::<HCO, HCI, C>();
+        let circuit = builder.build_prover::<C>();
 
         let permutation_inputs = (0..SPONGE_WIDTH)
             .map(F::from_canonical_usize)
@@ -603,10 +601,8 @@ mod tests {
     fn eval_fns() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         let gate = PoseidonGate::<F, 2>::new();
-        test_eval_fns::<F, HCO, HCI, C, _, D>(gate)
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }

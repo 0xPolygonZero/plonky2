@@ -93,17 +93,21 @@ pub trait AlgebraicHasher<F: RichField, HC: HashConfig>: Hasher<F, HC, Hash = Ha
 }
 
 /// Generic configuration trait.
-pub trait GenericConfig<HCO: HashConfig, HCI: HashConfig, const D: usize>:
+pub trait GenericConfig<const D: usize>:
     Debug + Clone + Sync + Sized + Send + Eq + PartialEq
 {
     /// Main field.
     type F: RichField + Extendable<D, Extension = Self::FE>;
     /// Field extension of degree D of the main field.
     type FE: FieldExtension<D, BaseField = Self::F>;
+    /// Hash configuration for this GenericConfig's `Hasher`.
+    type HCO: HashConfig;
+    /// Hash configuration for this GenericConfig's `InnerHasher`.
+    type HCI: HashConfig;
     /// Hash function used for building Merkle trees.
-    type Hasher: Hasher<Self::F, HCO>;
+    type Hasher: Hasher<Self::F, Self::HCO>;
     /// Algebraic hash function used for the challenger and hashing public inputs.
-    type InnerHasher: AlgebraicHasher<Self::F, HCI>;
+    type InnerHasher: AlgebraicHasher<Self::F, Self::HCI>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -115,9 +119,11 @@ impl HashConfig for PoseidonHashConfig {
 /// Configuration using Poseidon over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PoseidonGoldilocksConfig;
-impl GenericConfig<PoseidonHashConfig, PoseidonHashConfig, 2> for PoseidonGoldilocksConfig {
+impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
+    type HCO = PoseidonHashConfig;
+    type HCI = PoseidonHashConfig;
     type Hasher = PoseidonHash;
     type InnerHasher = PoseidonHash;
 }
@@ -131,9 +137,11 @@ impl HashConfig for KeccakHashConfig {
 /// Configuration using truncated Keccak over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct KeccakGoldilocksConfig;
-impl GenericConfig<KeccakHashConfig, PoseidonHashConfig, 2> for KeccakGoldilocksConfig {
+impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
+    type HCO = KeccakHashConfig;
+    type HCI = PoseidonHashConfig;
     type Hasher = KeccakHash<25>;
     type InnerHasher = PoseidonHash;
 }

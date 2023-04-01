@@ -43,12 +43,10 @@ use crate::vars::StarkEvaluationTargets;
 /// Table-wise recursive proofs of an `AllProof`.
 pub struct RecursiveAllProof<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub recursive_proofs: [ProofWithPublicInputs<F, HCO, HCI, C, D>; NUM_TABLES],
+    pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
 }
 
 pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug, HC: HashConfig>
@@ -102,30 +100,28 @@ where
     }
 }
 
-impl<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    > RecursiveAllProof<F, HCO, HCI, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    RecursiveAllProof<F, C, D>
 {
     /// Verify every recursive proof.
     pub fn verify(
         self,
-        verifier_data: &[VerifierCircuitData<F, HCO, HCI, C, D>; NUM_TABLES],
+        verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
         cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
     ) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<F, HCO>::from_vec(&self.recursive_proofs[i].public_inputs, inner_config)
+            PublicInputs::<F, C::HCO>::from_vec(
+                &self.recursive_proofs[i].public_inputs,
+                inner_config,
+            )
         });
 
-        let mut challenger = Challenger::<F, HCO, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
         for pi in &pis {
             for h in &pi.trace_cap {
                 challenger.observe_elements(h);
@@ -161,36 +157,32 @@ impl<
 }
 
 /// Represents a circuit which recursively verifies a STARK proof.
-pub(crate) struct StarkWrapperCircuit<F, HCO: HashConfig, HCI: HashConfig, C, const D: usize>
+pub(crate) struct StarkWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    [(); HCO::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
-    pub(crate) circuit: CircuitData<F, HCO, HCI, C, D>,
+    pub(crate) circuit: CircuitData<F, C, D>,
     pub(crate) stark_proof_target: StarkProofTarget<D>,
     pub(crate) ctl_challenges_target: GrandProductChallengeSet<Target>,
-    pub(crate) init_challenger_state_target: [Target; HCO::WIDTH],
+    pub(crate) init_challenger_state_target: [Target; C::HCO::WIDTH],
     pub(crate) zero_target: Target,
 }
 
-impl<F, HCO, HCI, C, const D: usize> StarkWrapperCircuit<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> StarkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    C::Hasher: AlgebraicHasher<F, HCO>,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     pub(crate) fn prove(
         &self,
-        proof_with_metadata: &StarkProofWithMetadata<F, HCO, HCI, C, D>,
+        proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
-    ) -> Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut inputs = PartialWitness::new();
 
         set_stark_proof_target(
@@ -220,31 +212,27 @@ where
 }
 
 /// Represents a circuit which recursively verifies a PLONK proof.
-pub(crate) struct PlonkWrapperCircuit<F, HCO, HCI, C, const D: usize>
+pub(crate) struct PlonkWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
-    pub(crate) circuit: CircuitData<F, HCO, HCI, C, D>,
+    pub(crate) circuit: CircuitData<F, C, D>,
     pub(crate) proof_with_pis_target: ProofWithPublicInputsTarget<D>,
 }
 
-impl<F, HCO, HCI, C, const D: usize> PlonkWrapperCircuit<F, HCO, HCI, C, D>
+impl<F, C, const D: usize> PlonkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    C::Hasher: AlgebraicHasher<F, HCO>,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     pub(crate) fn prove(
         &self,
-        proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, HCO, HCI, C, D>> {
+        proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut inputs = PartialWitness::new();
         inputs.set_proof_with_pis_target(&self.proof_with_pis_target, proof);
         self.circuit.prove(inputs)
@@ -254,9 +242,7 @@ where
 /// Returns the recursive Stark circuit.
 pub(crate) fn recursive_stark_circuit<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -267,12 +253,12 @@ pub(crate) fn recursive_stark_circuit<
     inner_config: &StarkConfig,
     circuit_config: &CircuitConfig,
     min_degree_bits: usize,
-) -> StarkWrapperCircuit<F, HCO, HCI, C, D>
+) -> StarkWrapperCircuit<F, C, D>
 where
     [(); S::COLUMNS]:,
-    C::Hasher: AlgebraicHasher<F, HCO>,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let zero_target = builder.zero();
@@ -311,8 +297,8 @@ where
 
     let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
     let mut challenger =
-        RecursiveChallenger::<F, HCO, C::Hasher, D>::from_state(init_challenger_state_target);
-    let challenges = proof_target.get_challenges::<F, HCO, HCI, C>(
+        RecursiveChallenger::<F, C::HCO, C::Hasher, D>::from_state(init_challenger_state_target);
+    let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
         num_permutation_zs > 0,
@@ -324,7 +310,7 @@ where
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
 
-    verify_stark_proof_with_challenges_circuit::<F, HCO, HCI, C, _, D>(
+    verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
         stark,
         &proof_target,
@@ -340,7 +326,7 @@ where
         builder.add_gate(NoopGate, vec![]);
     }
 
-    let circuit = builder.build::<HCO, HCI, C>();
+    let circuit = builder.build::<C>();
     StarkWrapperCircuit {
         circuit,
         stark_proof_target: proof_target,
@@ -364,9 +350,7 @@ pub(crate) fn add_common_recursion_gates<F: RichField + Extendable<D>, const D: 
 /// Recursively verifies an inner proof.
 fn verify_stark_proof_with_challenges_circuit<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -377,9 +361,9 @@ fn verify_stark_proof_with_challenges_circuit<
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); S::COLUMNS]:,
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -463,7 +447,7 @@ fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_last.len(),
         inner_config,
     );
-    builder.verify_fri_proof::<HCO, HCI, C>(
+    builder.verify_fri_proof::<C>(
         &fri_instance,
         &proof.openings.to_fri_openings(zero),
         &challenges.fri_challenges,
@@ -591,23 +575,14 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     }
 }
 
-pub(crate) fn set_stark_proof_target<
-    F,
-    HCO,
-    HCI,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    W,
-    const D: usize,
->(
+pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
-    proof: &StarkProof<F, HCO, HCI, C, D>,
+    proof: &StarkProof<F, C, D>,
     zero: Target,
 ) where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);

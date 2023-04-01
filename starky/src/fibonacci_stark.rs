@@ -131,9 +131,7 @@ mod tests {
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{
-        AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig,
-    };
+    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
@@ -156,9 +154,7 @@ mod tests {
     fn test_fibonacci_stark() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
@@ -166,7 +162,7 @@ mod tests {
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof = prove::<F, HCO, HCI, C, S, D>(
+        let proof = prove::<F, C, S, D>(
             stark,
             &config,
             trace,
@@ -181,9 +177,7 @@ mod tests {
     fn test_fibonacci_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
         let num_rows = 1 << 5;
@@ -195,14 +189,12 @@ mod tests {
     fn test_fibonacci_stark_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
-        test_stark_circuit_constraints::<F, HCO, HCI, C, S, D>(stark)
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
     #[test]
@@ -210,9 +202,7 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
@@ -220,7 +210,7 @@ mod tests {
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof = prove::<F, HCO, HCI, C, S, D>(
+        let proof = prove::<F, C, S, D>(
             stark,
             &config,
             trace,
@@ -229,33 +219,29 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, HCO, HCI, HCO, HCI, C, S, C, D>(stark, proof, &config, true)
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
     }
 
     fn recursive_proof<
         F: RichField + Extendable<D>,
-        HCOO: HashConfig,
-        HCOI: HashConfig,
-        HCIO: HashConfig,
-        HCII: HashConfig,
-        C: GenericConfig<HCOO, HCOI, D, F = F>,
+        C: GenericConfig<D, F = F>,
         S: Stark<F, D> + Copy,
-        InnerC: GenericConfig<HCIO, HCII, D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
         stark: S,
-        inner_proof: StarkProofWithPublicInputs<F, HCIO, HCII, InnerC, D>,
+        inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
         inner_config: &StarkConfig,
         print_gate_counts: bool,
     ) -> Result<()>
     where
-        InnerC::Hasher: AlgebraicHasher<F, HCIO>,
+        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
         [(); S::COLUMNS]:,
         [(); S::PUBLIC_INPUTS]:,
-        [(); HCOO::WIDTH]:,
-        [(); HCOI::WIDTH]:,
-        [(); HCIO::WIDTH]:,
-        [(); HCII::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+        [(); InnerC::HCO::WIDTH]:,
+        [(); InnerC::HCI::WIDTH]:,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
@@ -264,18 +250,13 @@ mod tests {
         let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
 
-        verify_stark_proof_circuit::<F, HCIO, HCII, InnerC, S, D>(
-            &mut builder,
-            stark,
-            pt,
-            inner_config,
-        );
+        verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
         }
 
-        let data = builder.build::<HCOO, HCOI, C>();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof)
     }

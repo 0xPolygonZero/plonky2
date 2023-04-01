@@ -6,7 +6,6 @@ use core::marker::PhantomData;
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::HashConfig;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -19,13 +18,11 @@ use crate::plonk::config::GenericConfig;
 pub(crate) fn generate_partial_witness<
     'a,
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     inputs: PartialWitness<F>,
-    prover_data: &'a ProverOnlyCircuitData<F, HCO, HCI, C, D>,
+    prover_data: &'a ProverOnlyCircuitData<F, C, D>,
     common_data: &'a CommonCircuitData<F, D>,
 ) -> PartitionWitness<'a, F> {
     let config = &common_data.config;

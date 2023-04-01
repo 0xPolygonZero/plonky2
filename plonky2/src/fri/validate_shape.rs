@@ -5,20 +5,17 @@ use crate::fri::proof::{FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::structure::FriInstanceInfo;
 use crate::fri::FriParams;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::HashConfig;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::salt_size;
 
-pub(crate) fn validate_fri_proof_shape<F, HCO, HCI, C, const D: usize>(
-    proof: &FriProof<F, HCO, C::Hasher, D>,
+pub(crate) fn validate_fri_proof_shape<F, C, const D: usize>(
+    proof: &FriProof<F, C::HCO, C::Hasher, D>,
     instance: &FriInstanceInfo<F, D>,
     params: &FriParams,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
 {
     let FriProof {
         commit_phase_merkle_caps,

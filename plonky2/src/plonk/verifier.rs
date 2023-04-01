@@ -13,20 +13,14 @@ use crate::plonk::validate_shape::validate_proof_with_pis_shape;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
-pub(crate) fn verify<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
->(
-    proof_with_pis: ProofWithPublicInputs<F, HCO, HCI, C, D>,
-    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
+pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    proof_with_pis: ProofWithPublicInputs<F, C, D>,
+    verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     validate_proof_with_pis_shape(&proof_with_pis, common_data)?;
 
@@ -37,7 +31,7 @@ where
         common_data,
     )?;
 
-    verify_with_challenges::<F, HCO, HCI, C, D>(
+    verify_with_challenges::<F, C, D>(
         proof_with_pis.proof,
         public_inputs_hash,
         challenges,
@@ -48,19 +42,17 @@ where
 
 pub(crate) fn verify_with_challenges<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    proof: Proof<F, HCO, HCI, C, D>,
-    public_inputs_hash: <<C as GenericConfig<HCO, HCI, D>>::InnerHasher as Hasher<F, HCI>>::Hash,
+    proof: Proof<F, C, D>,
+    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
     challenges: ProofChallenges<F, D>,
-    verifier_data: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
+    verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
@@ -113,7 +105,7 @@ where
         proof.quotient_polys_cap,
     ];
 
-    verify_fri_proof::<F, HCO, HCI, C, D>(
+    verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,

@@ -28,9 +28,7 @@ use crate::vars::StarkEvaluationTargets;
 
 pub fn verify_stark_proof_circuit<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -39,21 +37,21 @@ pub fn verify_stark_proof_circuit<
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, HCO, HCI, C, S>(builder, &stark, inner_config)
+        proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)
     );
 
-    verify_stark_proof_with_challenges_circuit::<F, HCO, HCI, C, S, D>(
+    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
         builder,
         stark,
         proof_with_pis,
@@ -66,9 +64,7 @@ pub fn verify_stark_proof_circuit<
 /// Recursively verifies an inner proof.
 fn verify_stark_proof_with_challenges_circuit<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
@@ -79,10 +75,10 @@ fn verify_stark_proof_with_challenges_circuit<
     inner_config: &StarkConfig,
     degree_bits: usize,
 ) where
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
     check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();
@@ -169,7 +165,7 @@ fn verify_stark_proof_with_challenges_circuit<
         F::primitive_root_of_unity(degree_bits),
         inner_config,
     );
-    builder.verify_fri_proof::<HCO, HCI, C>(
+    builder.verify_fri_proof::<C>(
         &fri_instance,
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
@@ -267,22 +263,13 @@ fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, co
     }
 }
 
-pub fn set_stark_proof_with_pis_target<
-    F,
-    HCO,
-    HCI,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    W,
-    const D: usize,
->(
+pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
-    stark_proof_with_pis: &StarkProofWithPublicInputs<F, HCO, HCI, C, D>,
+    stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
 ) where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     W: Witness<F>,
 {
     let StarkProofWithPublicInputs {
@@ -302,22 +289,13 @@ pub fn set_stark_proof_with_pis_target<
     set_stark_proof_target(witness, pt, proof);
 }
 
-pub fn set_stark_proof_target<
-    F,
-    HCO,
-    HCI,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    W,
-    const D: usize,
->(
+pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
-    proof: &StarkProof<F, HCO, HCI, C, D>,
+    proof: &StarkProof<F, C, D>,
 ) where
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C::Hasher: AlgebraicHasher<F, HCO>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);

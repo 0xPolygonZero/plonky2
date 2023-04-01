@@ -89,17 +89,15 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
 
 pub fn test_eval_fns<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     G: Gate<F, D>,
     const D: usize,
 >(
     gate: G,
 ) -> Result<()>
 where
-    [(); HCO::WIDTH]:,
-    [(); HCI::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
     let wires_base = F::rand_vec(gate.num_wires());
@@ -164,7 +162,7 @@ where
     let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
     pw.set_extension_targets(&evals_t, &evals);
 
-    let data = builder.build::<HCO, HCI, C>();
+    let data = builder.build::<C>();
     let proof = data.prove(pw)?;
-    verify::<F, HCO, HCI, C, D>(proof, &data.verifier_only, &data.common)
+    verify::<F, C, D>(proof, &data.verifier_only, &data.common)
 }

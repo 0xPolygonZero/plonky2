@@ -390,17 +390,18 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn no_duplicate_challenges() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
-        let mut challenger =
-            Challenger::<F, HCI, <C as GenericConfig<HCO, HCI, D>>::InnerHasher>::new();
+        type F = <C as GenericConfig<D>>::F;
+        let mut challenger = Challenger::<
+            F,
+            <C as GenericConfig<D>>::HCI,
+            <C as GenericConfig<D>>::InnerHasher,
+        >::new();
         let mut challenges = Vec::new();
 
         for i in 1..10 {
@@ -421,9 +422,7 @@ mod tests {
     fn test_consistency() {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
@@ -436,8 +435,11 @@ mod tests {
             .map(|&n| F::rand_vec(n))
             .collect();
 
-        let mut challenger =
-            Challenger::<F, HCI, <C as GenericConfig<HCO, HCI, D>>::InnerHasher>::new();
+        let mut challenger = Challenger::<
+            F,
+            <C as GenericConfig<D>>::HCI,
+            <C as GenericConfig<D>>::InnerHasher,
+        >::new();
         let mut outputs_per_round: Vec<Vec<F>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             challenger.observe_elements(inputs);
@@ -446,10 +448,12 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let mut recursive_challenger =
-            RecursiveChallenger::<F, HCI, <C as GenericConfig<HCO, HCI, D>>::InnerHasher, D>::new(
-                &mut builder,
-            );
+        let mut recursive_challenger = RecursiveChallenger::<
+            F,
+            <C as GenericConfig<D>>::HCI,
+            <C as GenericConfig<D>>::InnerHasher,
+            D,
+        >::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             recursive_challenger.observe_elements(&builder.constants(inputs));
@@ -457,7 +461,7 @@ mod tests {
                 recursive_challenger.get_n_challenges(&mut builder, num_outputs_per_round[r]),
             );
         }
-        let circuit = builder.build::<HCO, HCI, C>();
+        let circuit = builder.build::<C>();
         let inputs = PartialWitness::new();
         let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round

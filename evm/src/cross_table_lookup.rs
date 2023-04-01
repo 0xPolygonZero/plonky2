@@ -323,18 +323,14 @@ where
 impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
-    pub(crate) fn from_proofs<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
-        proofs: &[StarkProofWithMetadata<F, HCO, HCI, C, D>; NUM_TABLES],
+    pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
+        proofs: &[StarkProofWithMetadata<F, C, D>; NUM_TABLES],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_permutation_zs: &[usize; NUM_TABLES],
     ) -> [Vec<Self>; NUM_TABLES]
     where
-        [(); HCO::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
     {
         let mut ctl_zs = proofs
             .iter()

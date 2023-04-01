@@ -59,24 +59,18 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub fn verify_fri_proof<
-    F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
-    const D: usize,
->(
+pub fn verify_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     instance: &FriInstanceInfo<F, D>,
     openings: &FriOpenings<F, D>,
     challenges: &FriChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
-    proof: &FriProof<F, HCO, C::Hasher, D>,
+    initial_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
+    proof: &FriProof<F, C::HCO, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()>
 where
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
-    validate_fri_proof_shape::<F, HCO, HCI, C, D>(proof, instance, params)?;
+    validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
     let n = params.lde_size();
@@ -97,7 +91,7 @@ where
         .iter()
         .zip(&proof.query_round_proofs)
     {
-        fri_verifier_query_round::<F, HCO, HCI, C, D>(
+        fri_verifier_query_round::<F, C, D>(
             instance,
             challenges,
             &precomputed_reduced_evals,
@@ -130,13 +124,11 @@ where
 
 pub(crate) fn fri_combine_initial<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
-    proof: &FriInitialTreeProof<F, HCO, C::Hasher>,
+    proof: &FriInitialTreeProof<F, C::HCO, C::Hasher>,
     alpha: F::Extension,
     subgroup_x: F,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
@@ -173,25 +165,23 @@ pub(crate) fn fri_combine_initial<
 
 fn fri_verifier_query_round<
     F: RichField + Extendable<D>,
-    HCO: HashConfig,
-    HCI: HashConfig,
-    C: GenericConfig<HCO, HCI, D, F = F>,
+    C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
     challenges: &FriChallenges<F, D>,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
-    proof: &FriProof<F, HCO, C::Hasher, D>,
+    initial_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
+    proof: &FriProof<F, C::HCO, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
-    round_proof: &FriQueryRound<F, HCO, C::Hasher, D>,
+    round_proof: &FriQueryRound<F, C::HCO, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()>
 where
-    [(); HCO::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
 {
-    fri_verify_initial_proof::<F, HCO, C::Hasher>(
+    fri_verify_initial_proof::<F, C::HCO, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
@@ -203,7 +193,7 @@ where
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial::<F, HCO, HCI, C, D>(
+    let mut old_eval = fri_combine_initial::<F, C, D>(
         instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
@@ -232,7 +222,7 @@ where
             challenges.fri_betas[i],
         );
 
-        verify_merkle_proof_to_cap::<F, HCO, C::Hasher>(
+        verify_merkle_proof_to_cap::<F, C::HCO, C::Hasher>(
             flatten(evals),
             coset_index,
             &proof.commit_phase_merkle_caps[i],

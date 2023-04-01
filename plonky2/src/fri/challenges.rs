@@ -26,9 +26,9 @@ where
         }
     }
 
-    pub fn fri_challenges<HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>, const D: usize>(
+    pub fn fri_challenges<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        commit_phase_merkle_caps: &[MerkleCap<F, HCO, C::Hasher>],
+        commit_phase_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
         final_poly: &PolynomialCoeffs<F::Extension>,
         pow_witness: F,
         degree_bits: usize,
@@ -36,8 +36,8 @@ where
     ) -> FriChallenges<F, D>
     where
         F: RichField + Extendable<D>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let num_fri_queries = config.num_query_rounds;
         let lde_size = 1 << (degree_bits + config.rate_bits);
@@ -48,7 +48,7 @@ where
         let fri_betas = commit_phase_merkle_caps
             .iter()
             .map(|cap| {
-                self.observe_cap::<HCO, C::Hasher>(cap);
+                self.observe_cap::<C::HCO, C::Hasher>(cap);
                 self.get_extension_challenge::<D>()
             })
             .collect();

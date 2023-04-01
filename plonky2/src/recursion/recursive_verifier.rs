@@ -15,30 +15,30 @@ use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
-    pub fn verify_proof<HCO: HashConfig, HCI: HashConfig, C: GenericConfig<HCO, HCI, D, F = F>>(
+    pub fn verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         proof_with_pis: &ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         assert_eq!(
             proof_with_pis.public_inputs.len(),
             inner_common_data.num_public_inputs
         );
-        let public_inputs_hash =
-            self.hash_n_to_hash_no_pad::<HCI, C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges::<F, HCO, HCI, C>(
+        let public_inputs_hash = self
+            .hash_n_to_hash_no_pad::<C::HCI, C::InnerHasher>(proof_with_pis.public_inputs.clone());
+        let challenges = proof_with_pis.get_challenges::<F, C>(
             self,
             public_inputs_hash,
             inner_verifier_data.circuit_digest,
             inner_common_data,
         );
 
-        self.verify_proof_with_challenges::<HCO, HCI, C>(
+        self.verify_proof_with_challenges::<C>(
             &proof_with_pis.proof,
             public_inputs_hash,
             challenges,
@@ -48,11 +48,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Recursively verifies an inner proof.
-    fn verify_proof_with_challenges<
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-    >(
+    fn verify_proof_with_challenges<C: GenericConfig<D, F = F>>(
         &mut self,
         proof: &ProofTarget<D>,
         public_inputs_hash: HashOutTarget,
@@ -60,8 +56,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, HCO>,
-        [(); HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
     {
         let one = self.one_extension();
 
@@ -123,7 +119,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "verify FRI proof",
-            self.verify_fri_proof::<HCO, HCI, C>(
+            self.verify_fri_proof::<C>(
                 &fri_instance,
                 &proof.openings.to_fri_openings(),
                 &challenges.fri_challenges,
@@ -195,10 +191,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{
-        GenericConfig, KeccakGoldilocksConfig, KeccakHashConfig, PoseidonGoldilocksConfig,
-        PoseidonHashConfig,
-    };
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -208,15 +201,12 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, HCO, HCI, C, D>(&config, 4_000)?;
-        let (proof, vd, cd) = recursive_proof::<F, HCO, HCI, HCO, HCI, C, C, D>(
-            proof, vd, cd, &config, None, true, true,
-        )?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
@@ -227,32 +217,22 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type HCO = PoseidonHashConfig;
-        type HCI = HCO;
-        type F = <C as GenericConfig<HCO, HCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
         // Start with a degree 2^14 proof
-        let (proof, vd, cd) = dummy_proof::<F, HCO, HCI, C, D>(&config, 16_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
         assert_eq!(cd.degree_bits(), 14);
 
         // Shrink it to 2^13.
-        let (proof, vd, cd) = recursive_proof::<F, HCO, HCI, HCO, HCI, C, C, D>(
-            proof,
-            vd,
-            cd,
-            &config,
-            Some(13),
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits(), 13);
 
         // Shrink it to 2^12.
-        let (proof, vd, cd) = recursive_proof::<F, HCO, HCI, HCO, HCI, C, C, D>(
-            proof, vd, cd, &config, None, true, true,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         assert_eq!(cd.degree_bits(), 12);
 
         test_serialization(&proof, &vd, &cd)?;
@@ -269,28 +249,17 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
-        type HCCO = PoseidonHashConfig;
-        type HCCI = HCCO;
-        type HCKCO = KeccakHashConfig;
-        type HCKCI = HCCI;
-        type F = <C as GenericConfig<HCCO, HCCI, D>>::F;
+        type F = <C as GenericConfig<D>>::F;
 
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // An initial dummy proof.
-        let (proof, vd, cd) = dummy_proof::<F, HCCO, HCCI, C, D>(&standard_config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
         assert_eq!(cd.degree_bits(), 12);
 
         // A standard recursive proof.
-        let (proof, vd, cd) = recursive_proof::<F, HCCO, HCCI, HCCO, HCCI, C, C, D>(
-            proof,
-            vd,
-            cd,
-            &standard_config,
-            None,
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &standard_config, None, false, false)?;
         assert_eq!(cd.degree_bits(), 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
@@ -303,15 +272,8 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, HCCO, HCCI, HCCO, HCCI, C, C, D>(
-            proof,
-            vd,
-            cd,
-            &high_rate_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
         assert_eq!(cd.degree_bits(), 12);
 
         // A final proof, optimized for size.
@@ -326,15 +288,8 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, HCKCO, HCKCI, HCCO, HCCI, KC, C, D>(
-            proof,
-            vd,
-            cd,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
         assert_eq!(cd.degree_bits(), 12, "final proof too large");
 
         test_serialization(&proof, &vd, &cd)?;
@@ -348,55 +303,43 @@ mod tests {
         const D: usize = 2;
         type PC = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
-        type HCCO = PoseidonHashConfig;
-        type HCCI = HCCO;
-        type HCKCO = KeccakHashConfig;
-        type HCKCI = HCCI;
-        type F = <PC as GenericConfig<HCCO, HCCI, D>>::F;
+        type F = <PC as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
-        let (proof, vd, cd) = dummy_proof::<F, HCCO, HCCI, PC, D>(&config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
-        let (proof, vd, cd) = recursive_proof::<F, HCCO, HCCI, HCCO, HCCI, PC, PC, D>(
-            proof, vd, cd, &config, None, false, false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &vd, &cd)?;
 
-        let (proof, vd, cd) = recursive_proof::<F, HCKCO, HCKCI, HCCO, HCCI, KC, PC, D>(
-            proof, vd, cd, &config, None, false, false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &vd, &cd)?;
 
         Ok(())
     }
 
-    type Proof<F, HCO, HCI, C, const D: usize> = (
-        ProofWithPublicInputs<F, HCO, HCI, C, D>,
-        VerifierOnlyCircuitData<HCO, HCI, C, D>,
+    type Proof<F, C, const D: usize> = (
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
         CommonCircuitData<F, D>,
     );
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
-    fn dummy_proof<
-        F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
-        const D: usize,
-    >(
+    fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<Proof<F, HCO, HCI, C, D>>
+    ) -> Result<Proof<F, C, D>>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
         }
 
-        let data = builder.build::<HCO, HCI, C>();
+        let data = builder.build::<C>();
         let inputs = PartialWitness::new();
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
@@ -406,28 +349,24 @@ mod tests {
 
     fn recursive_proof<
         F: RichField + Extendable<D>,
-        HCOO: HashConfig,
-        HCOI: HashConfig,
-        HCIO: HashConfig,
-        HCII: HashConfig,
-        C: GenericConfig<HCOO, HCOI, D, F = F>,
-        InnerC: GenericConfig<HCIO, HCII, D, F = F>,
+        C: GenericConfig<D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
-        inner_proof: ProofWithPublicInputs<F, HCIO, HCII, InnerC, D>,
-        inner_vd: VerifierOnlyCircuitData<HCIO, HCII, InnerC, D>,
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+        inner_vd: VerifierOnlyCircuitData<InnerC, D>,
         inner_cd: CommonCircuitData<F, D>,
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
-    ) -> Result<Proof<F, HCOO, HCOI, C, D>>
+    ) -> Result<Proof<F, C, D>>
     where
-        InnerC::Hasher: AlgebraicHasher<F, HCIO>,
-        [(); HCOO::WIDTH]:,
-        [(); HCOI::WIDTH]:,
-        [(); HCIO::WIDTH]:,
-        [(); HCII::WIDTH]:,
+        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+        [(); InnerC::HCO::WIDTH]:,
+        [(); InnerC::HCI::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -441,7 +380,7 @@ mod tests {
         );
         pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
 
-        builder.verify_proof::<HCIO, HCII, InnerC>(&pt, &inner_data, &inner_cd);
+        builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
@@ -457,7 +396,7 @@ mod tests {
             }
         }
 
-        let data = builder.build::<HCOO, HCOI, C>();
+        let data = builder.build::<C>();
 
         let mut timing = TimingTree::new("prove", Level::Debug);
         let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -473,18 +412,16 @@ mod tests {
     /// Test serialization and print some size info.
     fn test_serialization<
         F: RichField + Extendable<D>,
-        HCO: HashConfig,
-        HCI: HashConfig,
-        C: GenericConfig<HCO, HCI, D, F = F>,
+        C: GenericConfig<D, F = F>,
         const D: usize,
     >(
-        proof: &ProofWithPublicInputs<F, HCO, HCI, C, D>,
-        vd: &VerifierOnlyCircuitData<HCO, HCI, C, D>,
+        proof: &ProofWithPublicInputs<F, C, D>,
+        vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        [(); HCO::WIDTH]:,
-        [(); HCI::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
