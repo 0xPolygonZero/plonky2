@@ -35,10 +35,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H>
 where
     [(); HC::WIDTH]:,
 {
-    pub fn new() -> Challenger<F, HC, H>
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn new() -> Challenger<F, HC, H> {
         Challenger {
             sponge_state: [F::ZERO; HC::WIDTH],
             input_buffer: Vec::with_capacity(HC::RATE),
@@ -47,10 +44,7 @@ where
         }
     }
 
-    pub fn observe_element(&mut self, element: F)
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_element(&mut self, element: F) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
 
@@ -64,15 +58,11 @@ where
     pub fn observe_extension_element<const D: usize>(&mut self, element: &F::Extension)
     where
         F: RichField + Extendable<D>,
-        [(); HC::WIDTH]:,
     {
         self.observe_elements(&element.to_basefield_array());
     }
 
-    pub fn observe_elements(&mut self, elements: &[F])
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_elements(&mut self, elements: &[F]) {
         for &element in elements {
             self.observe_element(element);
         }
@@ -88,26 +78,20 @@ where
         }
     }
 
-    pub fn observe_hash<OHC: HashConfig, OH: Hasher<F, OHC>>(&mut self, hash: OH::Hash)
-    where
-        [(); OHC::WIDTH]:,
-    {
+    pub fn observe_hash<OHC: HashConfig, OH: Hasher<F, OHC>>(&mut self, hash: OH::Hash) {
         self.observe_elements(&hash.to_vec())
     }
 
-    pub fn observe_cap<OHC: HashConfig, OH: Hasher<F, OHC>>(&mut self, cap: &MerkleCap<F, OHC, OH>)
-    where
-        [(); OHC::WIDTH]:,
-    {
+    pub fn observe_cap<OHC: HashConfig, OH: Hasher<F, OHC>>(
+        &mut self,
+        cap: &MerkleCap<F, OHC, OH>,
+    ) {
         for &hash in &cap.0 {
             self.observe_hash::<OHC, OH>(hash);
         }
     }
 
-    pub fn get_challenge(&mut self) -> F
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_challenge(&mut self) -> F {
         // If we have buffered inputs, we must perform a duplexing so that the challenge will
         // reflect them. Or if we've run out of outputs, we must perform a duplexing to get more.
         if !self.input_buffer.is_empty() || self.output_buffer.is_empty() {
@@ -119,17 +103,11 @@ where
             .expect("Output buffer should be non-empty")
     }
 
-    pub fn get_n_challenges(&mut self, n: usize) -> Vec<F>
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_n_challenges(&mut self, n: usize) -> Vec<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
 
-    pub fn get_hash(&mut self) -> HashOut<F>
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_hash(&mut self) -> HashOut<F> {
         HashOut {
             elements: [
                 self.get_challenge(),
@@ -143,7 +121,6 @@ where
     pub fn get_extension_challenge<const D: usize>(&mut self) -> F::Extension
     where
         F: RichField + Extendable<D>,
-        [(); HC::WIDTH]:,
     {
         let mut arr = [F::ZERO; D];
         arr.copy_from_slice(&self.get_n_challenges(D));
@@ -153,7 +130,6 @@ where
     pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
     where
         F: RichField + Extendable<D>,
-        [(); HC::WIDTH]:,
     {
         (0..n)
             .map(|_| self.get_extension_challenge::<D>())
@@ -162,10 +138,7 @@ where
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
-    fn duplexing(&mut self)
-    where
-        [(); HC::WIDTH]:,
-    {
+    fn duplexing(&mut self) {
         assert!(self.input_buffer.len() <= HC::RATE);
 
         // Overwrite the first r elements with the inputs. This differs from a standard sponge,
@@ -196,10 +169,7 @@ impl<F: RichField, HC: HashConfig, H: AlgebraicHasher<F, HC>> Default for Challe
 where
     [(); HC::WIDTH]:,
 {
-    fn default() -> Self
-    where
-        [(); HC::WIDTH]:,
-    {
+    fn default() -> Self {
         Self::new()
     }
 }
@@ -226,10 +196,7 @@ impl<F: RichField + Extendable<D>, HC: HashConfig, H: AlgebraicHasher<F, HC>, co
 where
     [(); HC::WIDTH]:,
 {
-    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         Self {
             sponge_state: [zero; HC::WIDTH],
@@ -248,61 +215,40 @@ where
         }
     }
 
-    pub(crate) fn observe_element(&mut self, target: Target)
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub(crate) fn observe_element(&mut self, target: Target) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
 
         self.input_buffer.push(target);
     }
 
-    pub fn observe_elements(&mut self, targets: &[Target])
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_elements(&mut self, targets: &[Target]) {
         for &target in targets {
             self.observe_element(target);
         }
     }
 
-    pub fn observe_hash(&mut self, hash: &HashOutTarget)
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_hash(&mut self, hash: &HashOutTarget) {
         self.observe_elements(&hash.elements)
     }
 
-    pub fn observe_cap(&mut self, cap: &MerkleCapTarget)
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_cap(&mut self, cap: &MerkleCapTarget) {
         for hash in &cap.0 {
             self.observe_hash(hash)
         }
     }
 
-    pub fn observe_extension_element(&mut self, element: ExtensionTarget<D>)
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_extension_element(&mut self, element: ExtensionTarget<D>) {
         self.observe_elements(&element.0);
     }
 
-    pub fn observe_extension_elements(&mut self, elements: &[ExtensionTarget<D>])
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn observe_extension_elements(&mut self, elements: &[ExtensionTarget<D>]) {
         for &element in elements {
             self.observe_extension_element(element);
         }
     }
 
-    pub fn get_challenge(&mut self, builder: &mut CircuitBuilder<F, D>) -> Target
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_challenge(&mut self, builder: &mut CircuitBuilder<F, D>) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {
@@ -316,17 +262,15 @@ where
             .expect("Output buffer should be non-empty")
     }
 
-    pub fn get_n_challenges(&mut self, builder: &mut CircuitBuilder<F, D>, n: usize) -> Vec<Target>
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_n_challenges(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        n: usize,
+    ) -> Vec<Target> {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
-    pub fn get_hash(&mut self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget
-    where
-        [(); HC::WIDTH]:,
-    {
+    pub fn get_hash(&mut self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         HashOutTarget {
             elements: [
                 self.get_challenge(builder),
@@ -340,19 +284,13 @@ where
     pub fn get_extension_challenge(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> ExtensionTarget<D>
-    where
-        [(); HC::WIDTH]:,
-    {
+    ) -> ExtensionTarget<D> {
         self.get_n_challenges(builder, D).try_into().unwrap()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
-    fn absorb_buffered_inputs(&mut self, builder: &mut CircuitBuilder<F, D>)
-    where
-        [(); HC::WIDTH]:,
-    {
+    fn absorb_buffered_inputs(&mut self, builder: &mut CircuitBuilder<F, D>) {
         if self.input_buffer.is_empty() {
             return;
         }
