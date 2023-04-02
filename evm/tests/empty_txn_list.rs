@@ -96,7 +96,11 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     verify_proof(&all_stark, proof, &config)?;
 
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(&all_stark, 9..18, &config);
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
+        &config,
+    );
 
     {
         let gate_serializer = DefaultGateSerializer;

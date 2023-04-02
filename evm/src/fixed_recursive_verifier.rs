@@ -339,41 +339,41 @@ where
     /// Preprocess all recursive circuits used by the system.
     pub fn new(
         all_stark: &AllStark<F, D>,
-        degree_bits_range: Range<usize>,
+        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
         stark_config: &StarkConfig,
     ) -> Self {
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[0].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[1].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[2].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[3].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_range,
+            degree_bits_ranges[4].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
