@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use core::marker::PhantomData;
 
 use anyhow::Result;
