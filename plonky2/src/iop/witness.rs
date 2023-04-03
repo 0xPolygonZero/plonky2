@@ -9,6 +9,7 @@ use crate::field::types::Field;
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -27,10 +28,10 @@ pub trait WitnessWrite<F: Field> {
             .for_each(|(&t, x)| self.set_target(t, x));
     }
 
-    fn set_cap_target<H: AlgebraicHasher<F>>(
+    fn set_cap_target<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
         &mut self,
         ct: &MerkleCapTarget,
-        value: &MerkleCap<F, H>,
+        value: &MerkleCap<F, HC, H>,
     ) where
         F: RichField,
     {
@@ -77,7 +78,7 @@ pub trait WitnessWrite<F: Field> {
         proof_with_pis: &ProofWithPublicInputs<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         let ProofWithPublicInputs {
             proof,
@@ -103,7 +104,7 @@ pub trait WitnessWrite<F: Field> {
         proof: &Proof<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
         self.set_cap_target(
@@ -142,7 +143,7 @@ pub trait WitnessWrite<F: Field> {
         vd: &VerifierOnlyCircuitData<C, D>,
     ) where
         F: RichField + Extendable<D>,
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap);
         self.set_hash_target(vdt.circuit_digest, vd.circuit_digest);
@@ -224,10 +225,14 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
         }
     }
 
-    fn get_merkle_cap_target<H: Hasher<F>>(&self, cap_target: MerkleCapTarget) -> MerkleCap<F, H>
+    fn get_merkle_cap_target<HC, H: Hasher<F, HC>>(
+        &self,
+        cap_target: MerkleCapTarget,
+    ) -> MerkleCap<F, HC, H>
     where
         F: RichField,
-        H: AlgebraicHasher<F>,
+        HC: HashConfig,
+        H: AlgebraicHasher<F, HC>,
     {
         let cap = cap_target
             .0

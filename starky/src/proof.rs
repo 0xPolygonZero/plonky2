@@ -23,15 +23,15 @@ use crate::permutation::PermutationChallengeSet;
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_zs_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub permutation_zs_cap: Option<MerkleCap<F, C::HCO, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::Hasher, D>,
+    pub opening_proof: FriProof<F, C::HCO, C::Hasher, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
@@ -88,11 +88,11 @@ pub struct CompressedStarkProof<
     const D: usize,
 > {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<F, C::HCO, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
+    pub opening_proof: CompressedFriProof<F, C::HCO, C::Hasher, D>,
 }
 
 pub struct CompressedStarkProofWithPublicInputs<

@@ -6,7 +6,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::SPONGE_WIDTH;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
@@ -50,6 +50,7 @@ pub struct AllRecursiveCircuits<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
     pub root: RootCircuitData<F, C, D>,
@@ -112,7 +113,7 @@ impl<F, C, const D: usize> AllRecursiveCircuits<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
@@ -120,6 +121,8 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     /// Preprocess all recursive circuits used by the system.
     pub fn new(
@@ -193,11 +196,14 @@ where
         let recursive_proofs =
             core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::from_vec(&recursive_proofs[i].public_inputs, stark_config)
+            PublicInputs::<Target, C::HCO>::from_vec(
+                &recursive_proofs[i].public_inputs,
+                stark_config,
+            )
         });
         let index_verifier_data = core::array::from_fn(|_i| builder.add_virtual_target());
 
-        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(&mut builder);
+        let mut challenger = RecursiveChallenger::<F, C::HCO, C::Hasher, D>::new(&mut builder);
         for pi in &pis {
             for h in &pi.trace_cap {
                 challenger.observe_elements(h);
@@ -223,12 +229,12 @@ where
         }
 
         let state = challenger.compact(&mut builder);
-        for k in 0..SPONGE_WIDTH {
+        for k in 0..C::HCO::WIDTH {
             builder.connect(state[k], pis[0].challenger_state_before[k]);
         }
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
-            for k in 0..SPONGE_WIDTH {
+            for k in 0..C::HCO::WIDTH {
                 builder.connect(
                     pis[i].challenger_state_before[k],
                     pis[i - 1].challenger_state_after[k],
@@ -276,7 +282,7 @@ where
         let cyclic_vk = builder.add_verifier_data_public_inputs();
 
         RootCircuitData {
-            circuit: builder.build(),
+            circuit: builder.build::<C>(),
             proof_with_pis: recursive_proofs,
             index_verifier_data,
             cyclic_vk,
@@ -480,6 +486,7 @@ struct RecursiveCircuitsForTable<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     /// A map from `log_2(height)` to a chain of shrinking recursion circuits starting at that
     /// height.
@@ -490,8 +497,10 @@ impl<F, C, const D: usize> RecursiveCircuitsForTable<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     fn new<S: Stark<F, D>>(
         table: Table,
@@ -542,6 +551,7 @@ struct RecursiveCircuitsForTableSize<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     initial_wrapper: StarkWrapperCircuit<F, C, D>,
     shrinking_wrappers: Vec<PlonkWrapperCircuit<F, C, D>>,
@@ -551,8 +561,10 @@ impl<F, C, const D: usize> RecursiveCircuitsForTableSize<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); C::Hasher::HASH_SIZE]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     fn new<S: Stark<F, D>>(
         table: Table,
@@ -593,7 +605,7 @@ where
             builder.verify_proof::<C>(&proof_with_pis_target, &last_vk, &last.common);
             builder.register_public_inputs(&proof_with_pis_target.public_inputs); // carry PIs forward
             add_common_recursion_gates(&mut builder);
-            let circuit = builder.build();
+            let circuit = builder.build::<C>();
 
             assert!(
                 circuit.common.degree_bits() < last_degree_bits,

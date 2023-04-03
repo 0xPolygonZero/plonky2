@@ -37,7 +37,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/transfer.asm"),
         include_str!("asm/core/util.asm"),
         include_str!("asm/core/access_lists.asm"),
-        include_str!("asm/core/selfdestruct_set.asm"),
+        include_str!("asm/core/selfdestruct_list.asm"),
         include_str!("asm/curve/bls381/util.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/constants.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/curve_add.asm"),

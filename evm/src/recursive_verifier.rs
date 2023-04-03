@@ -9,14 +9,14 @@ use plonky2::gates::exponentiation::ExponentiationGate;
 use plonky2::gates::gate::GateRef;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::SPONGE_WIDTH;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
@@ -49,12 +49,15 @@ pub struct RecursiveAllProof<
     pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
 }
 
-pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug> {
+pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug, HC: HashConfig>
+where
+    [(); HC::WIDTH]:,
+{
     pub(crate) trace_cap: Vec<Vec<T>>,
     pub(crate) ctl_zs_last: Vec<T>,
     pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
-    pub(crate) challenger_state_before: [T; SPONGE_WIDTH],
-    pub(crate) challenger_state_after: [T; SPONGE_WIDTH],
+    pub(crate) challenger_state_before: [T; HC::WIDTH],
+    pub(crate) challenger_state_after: [T; HC::WIDTH],
 }
 
 /// Similar to the unstable `Iterator::next_chunk`. Could be replaced with that when it's stable.
@@ -66,7 +69,10 @@ fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [
         .expect("Not enough elements")
 }
 
-impl<T: Copy + Eq + PartialEq + Debug> PublicInputs<T> {
+impl<T: Copy + Eq + PartialEq + Debug, HC: HashConfig> PublicInputs<T, HC>
+where
+    [(); HC::WIDTH]:,
+{
     pub(crate) fn from_vec(v: &[T], config: &StarkConfig) -> Self {
         let mut iter = v.iter().copied();
         let trace_cap = (0..config.fri_config.num_cap_elements())
@@ -105,13 +111,17 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         inner_config: &StarkConfig,
     ) -> Result<()>
     where
-        [(); C::Hasher::HASH_SIZE]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::from_vec(&self.recursive_proofs[i].public_inputs, inner_config)
+            PublicInputs::<F, C::HCO>::from_vec(
+                &self.recursive_proofs[i].public_inputs,
+                inner_config,
+            )
         });
 
-        let mut challenger = Challenger::<F, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
         for pi in &pis {
             for h in &pi.trace_cap {
                 challenger.observe_elements(h);
@@ -151,11 +161,12 @@ pub(crate) struct StarkWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
 {
     pub(crate) circuit: CircuitData<F, C, D>,
     pub(crate) stark_proof_target: StarkProofTarget<D>,
     pub(crate) ctl_challenges_target: GrandProductChallengeSet<Target>,
-    pub(crate) init_challenger_state_target: [Target; SPONGE_WIDTH],
+    pub(crate) init_challenger_state_target: [Target; C::HCO::WIDTH],
     pub(crate) zero_target: Target,
 }
 
@@ -163,7 +174,9 @@ impl<F, C, const D: usize> StarkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     pub(crate) fn prove(
         &self,
@@ -212,7 +225,9 @@ impl<F, C, const D: usize> PlonkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     pub(crate) fn prove(
         &self,
@@ -241,8 +256,9 @@ pub(crate) fn recursive_stark_circuit<
 ) -> StarkWrapperCircuit<F, C, D>
 where
     [(); S::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let zero_target = builder.zero();
@@ -281,7 +297,7 @@ where
 
     let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
     let mut challenger =
-        RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
+        RecursiveChallenger::<F, C::HCO, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
@@ -345,8 +361,9 @@ fn verify_stark_proof_with_challenges_circuit<
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     [(); S::COLUMNS]:,
+    [(); C::HCO::WIDTH]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -565,7 +582,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     zero: Target,
 ) where
     F: RichField + Extendable<D>,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);

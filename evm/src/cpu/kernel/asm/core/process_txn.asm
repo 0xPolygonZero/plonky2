@@ -20,11 +20,44 @@ global process_normalized_txn:
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %assert_ge
 
-    // TODO: Check that txn nonce matches account nonce.
-    // TODO: Assert nonce is correct.
-    // TODO: Assert sender has no code.
-    // TODO: Assert sender balance >= gas_limit * gas_price + value.
-    // TODO: Assert chain ID matches block metadata?
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender, retdest
+
+    // Check that txn nonce matches account nonce.
+     DUP1 %nonce
+    // stack: sender_nonce, sender, retdest
+    %mload_txn_field(@TXN_FIELD_NONCE)
+    // stack: tx_nonce, sender_nonce, sender, retdest
+    %assert_eq
+    // stack: sender, retdest
+
+    // Assert sender has no code.
+    DUP1 %ext_code_empty %assert_nonzero
+    // stack: sender, retdest
+
+    // Assert sender balance >= gas_limit * gas_price + value.
+    %balance
+    // stack: sender_balance, retdest
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    MUL
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    ADD
+    %assert_le
+    // stack: retdest
+
+    // Assert chain ID matches block metadata
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID_PRESENT)
+    // stack: chain_id_present, retdest
+    DUP1
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID)
+    // stack: tx_chain_id, chain_id_present, chain_id_present, retdest
+    MUL SWAP1
+    // stack: chain_id_present, filtered_tx_chain_id, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+    MUL
+    // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
+    %assert_eq
     // stack: retdest
 
 global buy_gas:
@@ -113,6 +146,7 @@ global process_contract_creation_txn_after_constructor:
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, address, retdest
     POP
     POP
@@ -186,8 +220,14 @@ global process_message_txn_code_loaded:
     %non_intrinisic_gas %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
-    // TODO: Copy TXN_DATA to CALLDATA
+    // Set calldatasize and copy txn data to calldata.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
+    %set_new_ctx_calldata_size
+    %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
+    %jump(memcpy)
 
+process_message_txn_code_loaded_finish:
     %enter_new_ctx
     // (Old context) stack: new_ctx, retdest
 
@@ -196,6 +236,7 @@ global process_message_txn_after_call:
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, retdest
     %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, retdest
     POP
     JUMP

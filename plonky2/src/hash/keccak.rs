@@ -7,16 +7,23 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 
 use crate::hash::hash_types::{BytesHash, RichField};
-use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
-use crate::plonk::config::Hasher;
+use crate::hash::hashing::PlonkyPermutation;
+use crate::plonk::config::{Hasher, KeccakHashConfig};
 use crate::util::serialization::Write;
+
+pub const SPONGE_RATE: usize = 8;
+pub const SPONGE_CAPACITY: usize = 4;
+pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 /// Keccak-256 pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
 /// where `H` is the Keccak-256 hash.
 pub struct KeccakPermutation;
-impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+impl<F: RichField> PlonkyPermutation<F, KeccakHashConfig> for KeccakPermutation {
+    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH]
+    where
+        [(); SPONGE_WIDTH]:,
+    {
         let mut state = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
         for i in 0..SPONGE_WIDTH {
             state[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
@@ -53,8 +60,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
-
-impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
+impl<F: RichField, const N: usize> Hasher<F, KeccakHashConfig> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
     type Permutation = KeccakPermutation;

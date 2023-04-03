@@ -7,6 +7,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
@@ -30,7 +31,9 @@ pub fn cyclic_base_proof<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let pis_len = common_data.num_public_inputs;
     let cap_elements = common_data.config.fri_config.num_cap_elements();
@@ -46,19 +49,27 @@ where
 
     // TODO: A bit wasteful to build a dummy circuit here. We could potentially use a proof that
     // just consists of zeros, apart from public inputs.
-    dummy_proof(&dummy_circuit(common_data), nonzero_public_inputs).unwrap()
+    dummy_proof::<F, C, D>(
+        &dummy_circuit::<F, C, D>(common_data),
+        nonzero_public_inputs,
+    )
+    .unwrap()
 }
 
 /// Generate a proof for a dummy circuit. The `public_inputs` parameter let the caller specify
 /// certain public inputs (identified by their indices) which should be given specific values.
 /// The rest will default to zero.
-pub(crate) fn dummy_proof<F, C, const D: usize>(
+pub(crate) fn dummy_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     circuit: &CircuitData<F, C, D>,
     nonzero_public_inputs: HashMap<usize, F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let mut pw = PartialWitness::new();
     for i in 0..circuit.common.num_public_inputs {
@@ -75,7 +86,11 @@ pub(crate) fn dummy_circuit<
     const D: usize,
 >(
     common_data: &CommonCircuitData<F, D>,
-) -> CircuitData<F, C, D> {
+) -> CircuitData<F, C, D>
+where
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
+{
     let config = common_data.config.clone();
     assert!(
         !common_data.config.zero_knowledge,
@@ -109,10 +124,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<(ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let dummy_circuit = dummy_circuit::<F, C, D>(common_data);
-        let dummy_proof_with_pis = dummy_proof(&dummy_circuit, HashMap::new())?;
+        let dummy_proof_with_pis = dummy_proof::<F, C, D>(&dummy_circuit, HashMap::new())?;
         let dummy_proof_with_pis_target = self.add_virtual_proof_with_pis(common_data);
         let dummy_verifier_data_target =
             self.add_virtual_verifier_data(self.config.fri_config.cap_height);
@@ -144,7 +161,7 @@ impl<F, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
 {
     fn dependencies(&self) -> Vec<Target> {
         vec![]

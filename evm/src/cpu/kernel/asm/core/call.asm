@@ -169,6 +169,14 @@ global after_call_instruction:
     // stack: new_ctx
 %endmacro
 
+%macro set_new_ctx_calldata_size
+    // stack: calldata_size, new_ctx
+    %stack (calldata_size, new_ctx)
+        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, calldata_size, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
     %stack (gas_limit, new_ctx)
