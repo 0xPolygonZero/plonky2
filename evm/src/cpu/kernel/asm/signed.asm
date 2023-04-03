@@ -183,32 +183,32 @@ global _sys_slt:
 
 global sys_sdiv:
     %charge_gas_const(@GAS_LOW)
-    %stack(x, y, kernel_return) -> (_sys_sdiv, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_sdiv, x, y, _syscall_return, kernel_return)
     JUMP
 
 global sys_smod:
     %charge_gas_const(@GAS_LOW)
-    %stack(x, y, kernel_return) -> (_sys_smod, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_smod, x, y, _syscall_return, kernel_return)
     JUMP
 
 global sys_signextend:
     %charge_gas_const(@GAS_LOW)
-    %stack(x, y, kernel_return) -> (_sys_signextend, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_signextend, x, y, _syscall_return, kernel_return)
     JUMP
 
 global sys_sar:
     %charge_gas_const(@GAS_VERYLOW)
-    %stack(x, y, kernel_return) -> (_sys_sar, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_sar, x, y, _syscall_return, kernel_return)
     JUMP
 
 global sys_slt:
     %charge_gas_const(@GAS_VERYLOW)
-    %stack(x, y, kernel_return) -> (_sys_slt, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_slt, x, y, _syscall_return, kernel_return)
     JUMP
 
 global sys_sgt:
     %charge_gas_const(@GAS_VERYLOW)
-    %stack(x, y, kernel_return) -> (_sys_sgt, x, y, _syscall_return, kernel_return)
+    %stack(kernel_return, x, y) -> (_sys_sgt, x, y, _syscall_return, kernel_return)
     JUMP
 
 _syscall_return:
