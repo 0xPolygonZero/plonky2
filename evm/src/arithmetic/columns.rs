@@ -49,33 +49,28 @@ pub(crate) const START_SHARED_COLS: usize = IS_GT + 1;
 pub(crate) const NUM_SHARED_COLS: usize = 6 * N_LIMBS;
 pub(crate) const SHARED_COLS: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + NUM_SHARED_COLS;
 
-pub(crate) const GENERAL_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
-pub(crate) const GENERAL_REGISTER_1: Range<usize> =
-    GENERAL_REGISTER_0.end..GENERAL_REGISTER_0.end + N_LIMBS;
-pub(crate) const GENERAL_REGISTER_2: Range<usize> =
-    GENERAL_REGISTER_1.end..GENERAL_REGISTER_1.end + N_LIMBS;
-pub(crate) const GENERAL_REGISTER_3: Range<usize> =
-    GENERAL_REGISTER_2.end..GENERAL_REGISTER_2.end + N_LIMBS;
+pub(crate) const INPUT_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
+pub(crate) const INPUT_REGISTER_1: Range<usize> =
+    INPUT_REGISTER_0.end..INPUT_REGISTER_0.end + N_LIMBS;
+pub(crate) const INPUT_REGISTER_2: Range<usize> =
+    INPUT_REGISTER_1.end..INPUT_REGISTER_1.end + N_LIMBS;
+pub(crate) const OUTPUT_REGISTER: Range<usize> =
+    INPUT_REGISTER_2.end..INPUT_REGISTER_2.end + N_LIMBS;
 
-pub(crate) const INPUT_REGISTER_0: Range<usize> = GENERAL_REGISTER_0;
-pub(crate) const INPUT_REGISTER_1: Range<usize> = GENERAL_REGISTER_1;
-pub(crate) const INPUT_REGISTER_2: Range<usize> = GENERAL_REGISTER_2;
-pub(crate) const OUTPUT_REGISTER: Range<usize> = GENERAL_REGISTER_3;
-pub(crate) const AUX_INPUT_REGISTER: Range<usize> = GENERAL_REGISTER_4;
-
-// NB: Only one of these two sets of columns will be used for a given operation
-const GENERAL_REGISTER_4: Range<usize> = GENERAL_REGISTER_3.end..GENERAL_REGISTER_3.end + N_LIMBS;
-const GENERAL_REGISTER_4_DBL: Range<usize> =
-    GENERAL_REGISTER_3.end..GENERAL_REGISTER_3.end + 2 * N_LIMBS;
+// NB: Only one of AUX_INPUT_REGISTER_[01] or AUX_INPUT_REGISTER_DBL
+// will be used for a given operation since they overlap
+pub(crate) const AUX_INPUT_REGISTER_0: Range<usize> =
+    OUTPUT_REGISTER.end..OUTPUT_REGISTER.end + N_LIMBS;
+pub(crate) const AUX_INPUT_REGISTER_1: Range<usize> =
+    AUX_INPUT_REGISTER_0.end..AUX_INPUT_REGISTER_0.end + N_LIMBS;
+pub(crate) const AUX_INPUT_REGISTER_DBL: Range<usize> =
+    OUTPUT_REGISTER.end..OUTPUT_REGISTER.end + 2 * N_LIMBS;
 
 // The auxiliary input columns overlap the general input columns
 // because they correspond to the values in the second row for modular
 // operations.
 const AUX_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LIMBS;
 const AUX_REGISTER_1: Range<usize> = AUX_REGISTER_0.end..AUX_REGISTER_0.end + 2 * N_LIMBS;
-// These auxiliary input columns are awkwardly split across two rows,
-// with the first half after the general input columns and the second
-// half after the auxiliary input columns.
 const AUX_REGISTER_2: Range<usize> = AUX_REGISTER_1.end..AUX_REGISTER_1.end + 2 * N_LIMBS - 1;
 
 // Each element c of {MUL,MODULAR}_AUX_REGISTER is -2^20 <= c <= 2^20;
@@ -84,12 +79,8 @@ const AUX_REGISTER_2: Range<usize> = AUX_REGISTER_1.end..AUX_REGISTER_1.end + 2 
 pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
 
 // MUL takes 5 * N_LIMBS = 80 columns
-pub(crate) const MUL_INPUT_0: Range<usize> = GENERAL_REGISTER_0;
-pub(crate) const MUL_INPUT_1: Range<usize> = GENERAL_REGISTER_1;
-pub(crate) const MUL_OUTPUT: Range<usize> = GENERAL_REGISTER_3;
-pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = GENERAL_REGISTER_4;
-pub(crate) const MUL_AUX_INPUT_HI: Range<usize> =
-    GENERAL_REGISTER_4.end..GENERAL_REGISTER_4.end + N_LIMBS;
+pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = AUX_INPUT_REGISTER_0;
+pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = AUX_INPUT_REGISTER_1;
 
 // MULMOD takes 4 * N_LIMBS + 3 * 2*N_LIMBS + N_LIMBS = 176 columns
 // but split over two rows of 96 columns and 80 columns.
@@ -97,11 +88,11 @@ pub(crate) const MUL_AUX_INPUT_HI: Range<usize> =
 // ADDMOD, SUBMOD, MOD and DIV are currently implemented in terms of
 // the general modular code, so they also take 144 columns (also split
 // over two rows).
-pub(crate) const MODULAR_INPUT_0: Range<usize> = GENERAL_REGISTER_0;
-pub(crate) const MODULAR_INPUT_1: Range<usize> = GENERAL_REGISTER_1;
-pub(crate) const MODULAR_MODULUS: Range<usize> = GENERAL_REGISTER_2;
-pub(crate) const MODULAR_OUTPUT: Range<usize> = GENERAL_REGISTER_3;
-pub(crate) const MODULAR_QUO_INPUT: Range<usize> = GENERAL_REGISTER_4_DBL;
+pub(crate) const MODULAR_INPUT_0: Range<usize> = INPUT_REGISTER_0;
+pub(crate) const MODULAR_INPUT_1: Range<usize> = INPUT_REGISTER_1;
+pub(crate) const MODULAR_MODULUS: Range<usize> = INPUT_REGISTER_2;
+pub(crate) const MODULAR_OUTPUT: Range<usize> = OUTPUT_REGISTER;
+pub(crate) const MODULAR_QUO_INPUT: Range<usize> = AUX_INPUT_REGISTER_DBL;
 pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_REGISTER_0;
 // NB: Last value is not used in AUX, it is used in MOD_IS_ZERO
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_REGISTER_1.start;

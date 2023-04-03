@@ -53,14 +53,14 @@ pub(crate) fn generate<F: PrimeField64>(
                     .all(|(x, y)| x == y),
                 "computed output doesn't match expected"
             );
-            lv[AUX_INPUT_REGISTER].copy_from_slice(&out);
+            lv[AUX_INPUT_REGISTER_0].copy_from_slice(&out);
         }
         IS_MOD => {
             debug_assert!(
                 lv[OUTPUT_REGISTER].iter().zip(&out).all(|(x, y)| x == y),
                 "computed output doesn't match expected"
             );
-            lv[AUX_INPUT_REGISTER].copy_from_slice(&quo_input[..N_LIMBS]);
+            lv[AUX_INPUT_REGISTER_0].copy_from_slice(&quo_input[..N_LIMBS]);
         }
         _ => panic!("expected filter to be IS_DIV or IS_MOD but it was {filter}"),
     };
@@ -110,14 +110,14 @@ pub(crate) fn eval_packed<P: PackedField>(
         yield_constr,
         lv[IS_DIV],
         OUTPUT_REGISTER,
-        AUX_INPUT_REGISTER,
+        AUX_INPUT_REGISTER_0,
     );
     eval_packed_divmod_helper(
         lv,
         nv,
         yield_constr,
         lv[IS_MOD],
-        AUX_INPUT_REGISTER,
+        AUX_INPUT_REGISTER_0,
         OUTPUT_REGISTER,
     );
 }
@@ -168,7 +168,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
         lv[IS_DIV],
         OUTPUT_REGISTER,
-        AUX_INPUT_REGISTER,
+        AUX_INPUT_REGISTER_0,
     );
     eval_ext_circuit_divmod_helper(
         builder,
@@ -176,7 +176,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         nv,
         yield_constr,
         lv[IS_MOD],
-        AUX_INPUT_REGISTER,
+        AUX_INPUT_REGISTER_0,
         OUTPUT_REGISTER,
     );
 }

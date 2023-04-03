@@ -41,22 +41,22 @@ pub(crate) fn generate<F: PrimeField64>(
     match filter {
         IS_ADD => {
             let (result, cy) = left_in.overflowing_add(right_in);
-            u256_to_array(&mut lv[AUX_INPUT_REGISTER], U256::from(cy as u32));
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], U256::from(cy as u32));
             u256_to_array(&mut lv[OUTPUT_REGISTER], result);
         }
         IS_SUB => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
-            u256_to_array(&mut lv[AUX_INPUT_REGISTER], U256::from(cy as u32));
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], U256::from(cy as u32));
             u256_to_array(&mut lv[OUTPUT_REGISTER], diff);
         }
         IS_LT => {
             let (diff, cy) = left_in.overflowing_sub(right_in);
-            u256_to_array(&mut lv[AUX_INPUT_REGISTER], diff);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
             u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
         }
         IS_GT => {
             let (diff, cy) = right_in.overflowing_sub(left_in);
-            u256_to_array(&mut lv[AUX_INPUT_REGISTER], diff);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
             u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
         }
         _ => panic!("unexpected operation filter"),
@@ -160,7 +160,7 @@ pub fn eval_packed_generic<P: PackedField>(
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
     let out = &lv[OUTPUT_REGISTER];
-    let aux = &lv[AUX_INPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER_0];
 
     // x + y = z + w*2^256
     eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
@@ -248,7 +248,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
     let out = &lv[OUTPUT_REGISTER];
-    let aux = &lv[AUX_INPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER_0];
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
