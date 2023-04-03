@@ -122,7 +122,12 @@ sys_calldataload_after_mload_packing:
 // Macro for {CALLDATA,CODE,RETURNDATA}COPY (W_copy in Yellow Paper).
 %macro wcopy(segment)
     // stack: kexit_info, dest_offset, offset, size
-    DUP4 %num_bytes_to_num_words %mul_const(@GAS_COPY) %add_const(@GAS_VERYLOW) %charge_gas
+    PUSH @GAS_VERYLOW
+    DUP5
+    // stack: size, Gverylow, kexit_info, dest_offset, offset, size
+    ISZERO %jumpi(%%wcopy_empty)
+    // stack: Gverylow, kexit_info, dest_offset, offset, size
+    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
 
     %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, kexit_info, dest_offset, offset, size)
     ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
@@ -136,6 +141,11 @@ sys_calldataload_after_mload_packing:
     %jump(memcpy)
 %%after:
     // stack: kexit_info
+    EXIT_KERNEL
+%%wcopy_empty:
+    // stack: Gverylow, kexit_info, dest_offset, offset, size
+    %charge_gas
+    %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
     EXIT_KERNEL
 %endmacro
 

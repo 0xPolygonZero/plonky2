@@ -19,7 +19,8 @@ global get_create_address:
     PUSH 0 // context
     // stack: RLP_ADDR: 3, rlp_len, retdest
     KECCAK_GENERAL
-    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
+    // stack: hash, retdest
+    %u256_to_addr
     // stack: address, retdest
     %observe_new_address
     SWAP1
@@ -54,8 +55,9 @@ get_create2_address_finish:
     POP
     %stack (retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 85, retdest) // context, segment, offset, len
     KECCAK_GENERAL
+    // stack: hash, retdest
+    %u256_to_addr
     // stack: address, retdest
-    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
     %observe_new_address
     SWAP1
     JUMP

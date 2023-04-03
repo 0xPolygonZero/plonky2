@@ -5,15 +5,16 @@ use hashbrown::HashMap;
 use num::Integer;
 
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::Hasher;
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
-pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
+pub(crate) fn compress_merkle_proofs<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     cap_height: usize,
     indices: &[usize],
-    proofs: &[MerkleProof<F, H>],
-) -> Vec<MerkleProof<F, H>> {
+    proofs: &[MerkleProof<F, HC, H>],
+) -> Vec<MerkleProof<F, HC, H>> {
     assert!(!proofs.is_empty());
     let height = cap_height + proofs[0].siblings.len();
     let num_leaves = 1 << height;
@@ -53,13 +54,16 @@ pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
 
 /// Decompress compressed Merkle proofs.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
-pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
+pub(crate) fn decompress_merkle_proofs<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
-    compressed_proofs: &[MerkleProof<F, H>],
+    compressed_proofs: &[MerkleProof<F, HC, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>> {
+) -> Vec<MerkleProof<F, HC, H>>
+where
+    [(); HC::WIDTH]:,
+{
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
@@ -130,7 +134,11 @@ mod tests {
         let h = 10;
         let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
-        let mt = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(vs.clone(), cap_height);
+        let mt =
+            MerkleTree::<F, <C as GenericConfig<D>>::HCO, <C as GenericConfig<D>>::Hasher>::new(
+                vs.clone(),
+                cap_height,
+            );
 
         let mut rng = OsRng;
         let k = rng.gen_range(1..=1 << h);

@@ -48,10 +48,12 @@ pub enum Segment {
     AccessedAddresses = 23,
     /// List of storage keys that have been accessed in the current transaction.
     AccessedStorageKeys = 24,
+    /// List of addresses that have called SELFDESTRUCT in the current transaction.
+    SelfDestructList = 25,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 25;
+    pub(crate) const COUNT: usize = 26;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -80,6 +82,7 @@ impl Segment {
             Self::BnPairing,
             Self::AccessedAddresses,
             Self::AccessedStorageKeys,
+            Self::SelfDestructList,
         ]
     }
 
@@ -111,6 +114,7 @@ impl Segment {
             Segment::BnPairing => "SEGMENT_KERNEL_BN_PAIRING",
             Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
+            Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
         }
     }
 
@@ -142,6 +146,7 @@ impl Segment {
             Segment::BnPairing => 256,
             Segment::AccessedAddresses => 256,
             Segment::AccessedStorageKeys => 256,
+            Segment::SelfDestructList => 256,
         }
     }
 }

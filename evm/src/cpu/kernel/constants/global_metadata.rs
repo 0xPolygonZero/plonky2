@@ -49,10 +49,12 @@ pub(crate) enum GlobalMetadata {
     AccessedAddressesLen = 23,
     /// Length of the storage keys access list.
     AccessedStorageKeysLen = 24,
+    /// Length of the self-destruct list.
+    SelfDestructListLen = 25,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 24;
+    pub(crate) const COUNT: usize = 25;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -80,6 +82,7 @@ impl GlobalMetadata {
             Self::RefundCounter,
             Self::AccessedAddressesLen,
             Self::AccessedStorageKeysLen,
+            Self::SelfDestructListLen,
         ]
     }
 
@@ -110,6 +113,7 @@ impl GlobalMetadata {
             Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
+            Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
         }
     }
 }

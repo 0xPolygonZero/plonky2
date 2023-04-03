@@ -1,6 +1,20 @@
 global sys_keccak256:
     // stack: kexit_info, offset, len
-    // TODO: Charge gas.
+    PUSH @GAS_KECCAK256
+    DUP4
+    // stack: len, static_gas, kexit_info, offset, len
+    ISZERO %jumpi(sys_keccak256_empty)
+    // stack: static_gas, kexit_info, offset, len
+    DUP4 %num_bytes_to_num_words %mul_const(@GAS_KECCAK256WORD)
+    ADD
+    %charge_gas
+    // stack: kexit_info, offset, len
+
+    %stack (kexit_info, offset, len) -> (offset, len, kexit_info, offset, len)
+    ADD // TODO: need to check for overflow?
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+
     %stack (kexit_info, offset, len) -> (offset, len, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
@@ -8,6 +22,12 @@ global sys_keccak256:
     KECCAK_GENERAL
     // stack: hash, kexit_info
     SWAP1
+    EXIT_KERNEL
+
+sys_keccak256_empty:
+    // stack: static_gas, kexit_info, offset, len
+    %charge_gas
+    %stack (kexit_info, offset, len) -> (kexit_info, @EMPTY_STRING_HASH)
     EXIT_KERNEL
 
 // Computes Keccak256(input_word). Clobbers @SEGMENT_KERNEL_GENERAL.

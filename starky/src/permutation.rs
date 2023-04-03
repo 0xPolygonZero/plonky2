@@ -10,6 +10,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -149,29 +150,38 @@ fn poly_product_elementwise<F: Field>(
     product
 }
 
-fn get_permutation_challenge<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-) -> PermutationChallenge<F> {
+fn get_permutation_challenge<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
+    challenger: &mut Challenger<F, HC, H>,
+) -> PermutationChallenge<F>
+where
+    [(); HC::WIDTH]:,
+{
     let beta = challenger.get_challenge();
     let gamma = challenger.get_challenge();
     PermutationChallenge { beta, gamma }
 }
 
-fn get_permutation_challenge_set<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
+fn get_permutation_challenge_set<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
+    challenger: &mut Challenger<F, HC, H>,
     num_challenges: usize,
-) -> PermutationChallengeSet<F> {
+) -> PermutationChallengeSet<F>
+where
+    [(); HC::WIDTH]:,
+{
     let challenges = (0..num_challenges)
         .map(|_| get_permutation_challenge(challenger))
         .collect();
     PermutationChallengeSet { challenges }
 }
 
-pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
+pub(crate) fn get_n_permutation_challenge_sets<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
+    challenger: &mut Challenger<F, HC, H>,
     num_challenges: usize,
     num_sets: usize,
-) -> Vec<PermutationChallengeSet<F>> {
+) -> Vec<PermutationChallengeSet<F>>
+where
+    [(); HC::WIDTH]:,
+{
     (0..num_sets)
         .map(|_| get_permutation_challenge_set(challenger, num_challenges))
         .collect()
@@ -179,12 +189,16 @@ pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
 
 fn get_permutation_challenge_target<
     F: RichField + Extendable<D>,
-    H: AlgebraicHasher<F>,
+    HC: HashConfig,
+    H: AlgebraicHasher<F, HC>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, H, D>,
-) -> PermutationChallenge<Target> {
+    challenger: &mut RecursiveChallenger<F, HC, H, D>,
+) -> PermutationChallenge<Target>
+where
+    [(); HC::WIDTH]:,
+{
     let beta = challenger.get_challenge(builder);
     let gamma = challenger.get_challenge(builder);
     PermutationChallenge { beta, gamma }
@@ -192,13 +206,17 @@ fn get_permutation_challenge_target<
 
 fn get_permutation_challenge_set_target<
     F: RichField + Extendable<D>,
-    H: AlgebraicHasher<F>,
+    HC: HashConfig,
+    H: AlgebraicHasher<F, HC>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, H, D>,
+    challenger: &mut RecursiveChallenger<F, HC, H, D>,
     num_challenges: usize,
-) -> PermutationChallengeSet<Target> {
+) -> PermutationChallengeSet<Target>
+where
+    [(); HC::WIDTH]:,
+{
     let challenges = (0..num_challenges)
         .map(|_| get_permutation_challenge_target(builder, challenger))
         .collect();
@@ -207,14 +225,18 @@ fn get_permutation_challenge_set_target<
 
 pub(crate) fn get_n_permutation_challenge_sets_target<
     F: RichField + Extendable<D>,
-    H: AlgebraicHasher<F>,
+    HC: HashConfig,
+    H: AlgebraicHasher<F, HC>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, H, D>,
+    challenger: &mut RecursiveChallenger<F, HC, H, D>,
     num_challenges: usize,
     num_sets: usize,
-) -> Vec<PermutationChallengeSet<Target>> {
+) -> Vec<PermutationChallengeSet<Target>>
+where
+    [(); HC::WIDTH]:,
+{
     (0..num_sets)
         .map(|_| get_permutation_challenge_set_target(builder, challenger, num_challenges))
         .collect()

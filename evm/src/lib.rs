@@ -3,6 +3,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::upper_case_acronyms)]
 #![feature(let_chains)]
 #![feature(generic_const_exprs)]
 
@@ -34,6 +35,7 @@ pub mod vars;
 pub mod verifier;
 pub mod witness;
 
+use eth_trie_utils::partial_trie::HashedPartialTrie;
 // Set up Jemalloc
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
@@ -41,3 +43,5 @@ use jemallocator::Jemalloc;
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+pub type Node = eth_trie_utils::partial_trie::Node<HashedPartialTrie>;

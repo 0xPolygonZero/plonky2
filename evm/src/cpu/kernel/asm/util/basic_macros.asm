@@ -160,11 +160,6 @@
     // stack: input >= c, ...
 %endmacro
 
-%macro consume_gas_const(c)
-    PUSH $c
-    CONSUME_GAS
-%endmacro
-
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z
@@ -349,4 +344,12 @@
 %macro u256_to_addr
     // stack: x
     %mod_const(0x10000000000000000000000000000000000000000) // 2^160
+%endmacro
+
+%macro not_bit
+    // stack: b
+    PUSH 1
+    // stack: 1, b
+    SUB
+    // stack: 1 - b
 %endmacro

@@ -1,6 +1,5 @@
-#![allow(clippy::upper_case_acronyms)]
-
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -25,9 +24,9 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-/// The `add11_yml` test case from https://github.com/ethereum/tests
+/// The `selfBalanceGasCost` test case from https://github.com/ethereum/tests
 #[test]
-fn add11_yml() -> anyhow::Result<()> {
+fn self_balance_gas_cost() -> anyhow::Result<()> {
     init_logger();
 
     let all_stark = AllStark::<F, D>::default();
@@ -35,7 +34,7 @@ fn add11_yml() -> anyhow::Result<()> {
 
     let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
     let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
-    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+    let to = hex!("1000000000000000000000000000000000000000");
 
     let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
@@ -45,19 +44,17 @@ fn add11_yml() -> anyhow::Result<()> {
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
     let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
-    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
+    let code = [
+        0x5a, 0x47, 0x5a, 0x90, 0x50, 0x90, 0x03, 0x60, 0x02, 0x90, 0x03, 0x60, 0x01, 0x55, 0x00,
+    ];
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
+    let beneficiary_account_before = AccountRlp::default();
     let sender_account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
+        balance: 0x3635c9adc5dea00000u128.into(),
         ..AccountRlp::default()
     };
     let to_account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
         code_hash,
         ..AccountRlp::default()
     };
@@ -77,7 +74,7 @@ fn add11_yml() -> anyhow::Result<()> {
         storage_tries: vec![(Address::from_slice(&to), Node::Empty.into())],
     };
 
-    let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
+    let txn = hex!("f861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b");
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
@@ -101,22 +98,22 @@ fn add11_yml() -> anyhow::Result<()> {
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    let beneficiary_account_after = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
+    let beneficiary_account_after = AccountRlp::default();
     let sender_account_after = AccountRlp {
-        balance: 0xde0b6b3a75be550u64.into(),
+        balance: 999999999999999568680u128.into(),
         nonce: 1.into(),
         ..AccountRlp::default()
     };
     let to_account_after = AccountRlp {
-        balance: 0xde0b6b3a76586a0u64.into(),
         code_hash,
-        // Storage map: { 0 => 2 }
+        // Storage map: { 1 => 5 }
         storage_root: HashedPartialTrie::from(Node::Leaf {
-            nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
-            value: vec![2],
+            // TODO: Could do keccak(pad32(1))
+            nibbles: Nibbles::from_str(
+                "0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
+            )
+            .unwrap(),
+            value: vec![5],
         })
         .hash(),
         ..AccountRlp::default()

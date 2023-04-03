@@ -10,7 +10,10 @@ global sys_stop:
     %jump(terminate_common)
 
 global sys_return:
-    // stack: kexit_info
+    // stack: kexit_info, offset, size
+    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
+    %stack (kexit_info, offset, size) -> (kexit_info)
+
     %leftover_gas
     // stack: leftover_gas
     // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
@@ -19,22 +22,68 @@ global sys_return:
     %jump(terminate_common)
 
 global sys_selfdestruct:
-    // stack: kexit_info, address
+    // stack: kexit_info, recipient
     SWAP1 %u256_to_addr
-    DUP1 %insert_accessed_addresses_no_return // TODO: Use return value in gas calculation.
-    // stack: address, kexit_info
-    SWAP1
-    // TODO: Charge gas.
-    // TODO: Add address to the access list.
-    %consume_gas_const(@GAS_SELFDESTRUCT)
+    %address DUP1 %balance
+
+    // Insert recipient into the accessed addresses list.
+    // stack: balance, address, recipient, kexit_info
+    DUP3 %insert_accessed_addresses
+
+    // Compute gas.
+    // stack: cold_access, balance, address, recipient, kexit_info
+    %mul_const(@GAS_COLDACCOUNTACCESS)
+    DUP2
+    // stack: balance, gas_coldaccess, balance, address, recipient, kexit_info
+    ISZERO %not_bit
+    // stack: balance!=0, gas_coldaccess, balance, address, recipient, kexit_info
+    DUP5 %is_dead MUL %mul_const(@GAS_NEWACCOUNT)
+    // stack: gas_newaccount, gas_coldaccess, balance, address, recipient, kexit_info
+    ADD %add_const(@GAS_SELFDESTRUCT)
+    %stack (gas, balance, address, recipient, kexit_info) -> (gas, kexit_info, balance, address, recipient)
+    %charge_gas
+    %stack (kexit_info, balance, address, recipient) -> (balance, address, recipient, kexit_info)
+
+    // Insert address into the selfdestruct set.
+    // stack: balance, address, recipient, kexit_info
+    DUP2 %insert_selfdestruct_list
+
+    // Set the balance of the address to 0.
+    // stack: balance, address, recipient, kexit_info
+    PUSH 0
+    // stack: 0, balance, address, recipient, kexit_info
+    DUP3 %mpt_read_state_trie
+    // stack: account_ptr, 0, balance, address, recipient, kexit_info
+    %add_const(1)
+    // stack: balance_ptr, 0, balance, address, recipient, kexit_info
+    %mstore_trie_data // TODO: This should be a copy-on-write operation.
+
+    // If the recipient is the same as the address, then we're done.
+    // Otherwise, send the balance to the recipient.
+    %stack (balance, address, recipient, kexit_info) -> (address, recipient, recipient, balance, kexit_info)
+    EQ %jumpi(sys_selfdestruct_same_addr)
+    // stack: recipient, balance, kexit_info
+    %add_eth
+
+    // stack: kexit_info
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Destroy account.
+    PUSH 1 // success
+    %jump(terminate_common)
+
+sys_selfdestruct_same_addr:
+    // stack: recipient, balance, kexit_info
+    %pop2
+    %leftover_gas
+    // stack: leftover_gas
     PUSH 1 // success
     %jump(terminate_common)
 
 global sys_revert:
-    // stack: kexit_info
+    // stack: kexit_info, offset, size
+    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
+    %stack (kexit_info, offset, size) -> (kexit_info)
+
     %leftover_gas
     // stack: leftover_gas
     // TODO: Revert state changes.
@@ -96,21 +145,3 @@ global terminate_common:
 
     // stack: parent_pc, success, leftover_gas
     JUMP
-
-%macro leftover_gas
-    // stack: kexit_info
-    %shr_const(192)
-    // stack: gas_used
-    %mload_context_metadata(@CTX_METADATA_GAS_LIMIT)
-    // stack: gas_limit, gas_used
-    SWAP1
-    // stack: gas_used, gas_limit
-    DUP2 DUP2 LT
-    // stack: gas_used < gas_limit, gas_used, gas_limit
-    SWAP2
-    // stack: gas_limit, gas_used, gas_used < gas_limit
-    SUB
-    // stack: gas_limit - gas_used, gas_used < gas_limit
-    MUL
-    // stack: leftover_gas = (gas_limit - gas_used) * (gas_used < gas_limit)
-%endmacro

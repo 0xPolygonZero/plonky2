@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use eth_trie_utils::partial_trie::PartialTrie;
+use eth_trie_utils::partial_trie::HashedPartialTrie;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
@@ -59,19 +59,19 @@ pub struct GenerationInputs {
 pub struct TrieInputs {
     /// A partial version of the state trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub state_trie: PartialTrie,
+    pub state_trie: HashedPartialTrie,
 
     /// A partial version of the transaction trie prior to these transactions. It should include all
     /// nodes that will be accessed by these transactions.
-    pub transactions_trie: PartialTrie,
+    pub transactions_trie: HashedPartialTrie,
 
     /// A partial version of the receipt trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub receipts_trie: PartialTrie,
+    pub receipts_trie: HashedPartialTrie,
 
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
-    pub storage_tries: Vec<(Address, PartialTrie)>,
+    pub storage_tries: Vec<(Address, HashedPartialTrie)>,
 }
 
 fn apply_metadata_memops<F: RichField + Extendable<D>, const D: usize>(
