@@ -100,8 +100,8 @@ global sys_mstore8:
     // stack: expanded_num_bytes, kexit_info, offset, value
     %update_mem_bytes
     // stack: kexit_info, offset, value
-    %stack (kexit_info, offset, value) -> (value, offset, kexit_info)
-    %mod_const(0x100) SWAP1
+    %stack (kexit_info, offset, value) -> (value, 0x100, offset, kexit_info)
+    MOD SWAP1
     %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: kexit_info
     EXIT_KERNEL
