@@ -8,7 +8,7 @@ use crate::cpu::kernel::interpreter::{
 use crate::extension_tower::{Fp2, Stack, BLS381};
 use crate::memory::segments::Segment::KernelGeneral;
 
-fn run_and_return_bls(label: &str, x: BLS381, y: BLS381) -> BLS381 {
+fn run_bls_ops(label: &str, x: BLS381, y: BLS381) -> BLS381 {
     let mut stack = x.to_stack();
     stack.extend(y.to_stack());
     let setup = InterpreterMemoryInitialization {
@@ -28,9 +28,9 @@ fn test_bls_ops() -> Result<()> {
     let x: BLS381 = rng.gen::<BLS381>();
     let y: BLS381 = rng.gen::<BLS381>();
 
-    let output_add = run_and_return_bls("test_add_fp381", x, y);
-    let output_mul = run_and_return_bls("test_mul_fp381", x, y);
-    let output_sub = run_and_return_bls("test_sub_fp381", x, y);
+    let output_add = run_bls_ops("test_add_fp381", x, y);
+    let output_mul = run_bls_ops("test_mul_fp381", x, y);
+    let output_sub = run_bls_ops("test_sub_fp381", x, y);
 
     assert_eq!(output_add, x + y);
     assert_eq!(output_mul, x * y);
@@ -39,7 +39,7 @@ fn test_bls_ops() -> Result<()> {
     Ok(())
 }
 
-fn run_and_return_bls_fp2(label: &str, x: Fp2<BLS381>, y: Fp2<BLS381>) -> Fp2<BLS381> {
+fn run_bls_fp2_ops(label: &str, x: Fp2<BLS381>, y: Fp2<BLS381>) -> Fp2<BLS381> {
     let mut stack = x.to_stack();
     stack.extend(y.to_stack());
     stack.push(U256::from(0xdeadbeefu32));
@@ -60,9 +60,9 @@ fn test_bls_fp2() -> Result<()> {
     let x: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();
     let y: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();
 
-    let output_add = run_and_return_bls_fp2("add_fp381_2", x, y);
-    let output_mul = run_and_return_bls_fp2("mul_fp381_2", x, y);
-    let output_sub = run_and_return_bls_fp2("sub_fp381_2", x, y);
+    let output_add = run_bls_fp2_ops("add_fp381_2", x, y);
+    let output_mul = run_bls_fp2_ops("mul_fp381_2", x, y);
+    let output_sub = run_bls_fp2_ops("sub_fp381_2", x, y);
 
     assert_eq!(output_add, x + y);
     assert_eq!(output_mul, x * y);
