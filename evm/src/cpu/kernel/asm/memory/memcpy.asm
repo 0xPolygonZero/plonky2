@@ -47,24 +47,3 @@ memcpy_finish:
     %pop7
     // stack: retdest
     JUMP
-
-// Copies zeros to `[addr..addr+count]` in the given context and segment.
-global zerocpy:
-    // stack: context, segment, addr, count, retdest
-    %stack (context, segment, addr, count, retdest) -> (0, count, context, segment, addr, retdest)
-zerocpy_loop:
-    // stack: i, count, context, segment, addr, retdest
-    DUP2 DUP2 EQ %jumpi(zerocpy_finish)
-    %stack (i, count, context, segment, addr, retdest) -> (context, segment, addr, 0, addr, i, count, context, segment, retdest)
-    MSTORE_GENERAL
-    // stack: addr, i, count, context, segment, retdest
-    %increment
-    SWAP1
-    %increment
-    %stack (i, addr, count, context, segment, retdest) -> (i, count, context, segment, addr, retdest)
-    %jump(zerocpy_loop)
-
-zerocpy_finish:
-    // stack: i, count, context, segment, addr, retdest
-    %pop5
-    JUMP

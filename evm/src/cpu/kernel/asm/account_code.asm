@@ -132,6 +132,10 @@ global extcodecopy:
 
 extcodecopy_contd:
     // stack: code_size, size, offset, dest_offset, retdest
+    DUP1 DUP4
+    // stack: offset, code_size, code_size, size, offset, dest_offset, retdest
+    GT %jumpi(extcodecopy_large_offset)
+    // stack: code_size, size, offset, dest_offset, retdest
     SWAP1
     // stack: size, code_size, offset, dest_offset, retdest
     PUSH 0
@@ -178,6 +182,11 @@ extcodecopy_end:
     %stack (i, size, code_size, offset, dest_offset, retdest) -> (retdest)
     JUMP
 
+extcodecopy_large_offset:
+    // stack: code_size, size, offset, dest_offset, retdest
+    GET_CONTEXT
+    %stack (context, code_size, size, offset, dest_offset, retdest) -> (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, size, retdest)
+    %jump(memset)
 
 // Loads the code at `address` into memory, at the given context and segment, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.

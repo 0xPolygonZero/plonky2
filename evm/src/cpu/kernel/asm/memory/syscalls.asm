@@ -162,8 +162,8 @@ sys_calldataload_after_mload_packing:
     // stack: kexit_info, dest_offset, offset, size
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, %%after, kexit_info)
-    %jump(zerocpy)
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, size, %%after, kexit_info)
+    %jump(memset)
 %endmacro
 
 global sys_calldatacopy:
