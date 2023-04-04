@@ -11,16 +11,8 @@ use crate::cpu::kernel::interpreter::{
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
-fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
-    interpreter
-        .stack()
-        .iter()
-        .rev()
-        .cloned()
-        .collect::<Vec<U256>>()
-}
 
-fn run_and_return_bn_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
+fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
     let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.to_stack());
@@ -38,13 +30,13 @@ fn run_and_return_bn_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254
 }
 
 #[test]
-fn test_mul_fp6() -> Result<()> {
+fn test_bn_mul_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     let g: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
 
-    let output_normal: Fp6<BN254> = run_and_return_bn_fp6(f, g, "mul_fp254_6");
-    let output_square: Fp6<BN254> = run_and_return_bn_fp6(f, f, "square_fp254_6");
+    let output_normal: Fp6<BN254> = run_bn_mul_fp6(f, g, "mul_fp254_6");
+    let output_square: Fp6<BN254> = run_bn_mul_fp6(f, f, "square_fp254_6");
 
     assert_eq!(output_normal, f * g);
     assert_eq!(output_square, f * f);
@@ -52,11 +44,7 @@ fn test_mul_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_and_return_bn_fp12(
-    f: Fp12<BN254>,
-    g: Fp12<BN254>,
-    label: &str,
-) -> Fp12<BN254> {
+fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Fp12<BN254> {
     let in0: usize = 200;
     let in1: usize = 212;
     let out: usize = 224;
@@ -82,15 +70,15 @@ fn run_and_return_bn_fp12(
 }
 
 #[test]
-fn test_mul_fp12() -> Result<()> {
+fn test_bn_mul_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
 
-    let output_normal = run_and_return_bn_fp12(f, g, "mul_fp254_12");
-    let output_sparse = run_and_return_bn_fp12(f, h, "mul_fp254_12_sparse");
-    let output_square = run_and_return_bn_fp12(f, f, "square_fp254_12");
+    let output_normal = run_bn_mul_fp12(f, g, "mul_fp254_12");
+    let output_sparse = run_bn_mul_fp12(f, h, "mul_fp254_12_sparse");
+    let output_square = run_bn_mul_fp12(f, f, "square_fp254_12");
 
     assert_eq!(output_normal, f * g);
     assert_eq!(output_sparse, f * h);
@@ -99,7 +87,7 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-fn run_and_return_frob_fp6(n: usize, f: Fp6<BN254>) -> Fp6<BN254> {
+fn run_bn_frob_fp6(n: usize, f: Fp6<BN254>) -> Fp6<BN254> {
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_6_{}", n.to_string()),
         stack: f.to_stack(),
@@ -112,17 +100,17 @@ fn run_and_return_frob_fp6(n: usize, f: Fp6<BN254>) -> Fp6<BN254> {
 }
 
 #[test]
-fn test_frob_fp6() -> Result<()> {
+fn test_bn_frob_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     for n in 1..4 {
-        let output = run_and_return_frob_fp6(n, f);
+        let output = run_bn_frob_fp6(n, f);
         assert_eq!(output, f.frob(n));
     }
     Ok(())
 }
 
-fn setup_frob_fp12_test(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
+fn run_bn_frob_fp12(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
     let ptr: usize = 200;
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_12_{}", n.to_string()),
@@ -140,14 +128,14 @@ fn test_frob_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     for n in [1, 2, 3, 6] {
-        let output = setup_frob_fp12_test(n, f);
+        let output = run_bn_frob_fp12(n, f);
         assert_eq!(output, f.frob(n));
     }
     Ok(())
 }
 
 #[test]
-fn test_inv_fp12() -> Result<()> {
+fn test_bn_inv_fp12() -> Result<()> {
     let ptr: usize = 200;
     let inv: usize = 212;
     let mut rng = rand::thread_rng();
@@ -161,15 +149,15 @@ fn test_inv_fp12() -> Result<()> {
     };
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, inv..inv + 12);
-    let expected: Vec<U256> = f.inv().to_stack();
+    let output = Fp12::<BN254>::from_stack(&output);
 
-    assert_eq!(output, expected);
+    assert_eq!(output, f.inv());
 
     Ok(())
 }
 
 #[test]
-fn test_invariant_exponent() -> Result<()> {
+fn test_bn_final_exponentiation() -> Result<()> {
     let ptr: usize = 200;
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
@@ -243,7 +231,7 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
 };
 
 #[test]
-fn test_miller() -> Result<()> {
+fn test_bn_miller_loop() -> Result<()> {
     let ptr: usize = 200;
     let out: usize = 206;
     let inputs: Vec<U256> = vec![
@@ -271,7 +259,7 @@ fn test_miller() -> Result<()> {
 }
 
 #[test]
-fn test_tate() -> Result<()> {
+fn test_bn_tate_pairing() -> Result<()> {
     let ptr: usize = 200;
     let out: usize = 206;
     let inputs: Vec<U256> = vec![
