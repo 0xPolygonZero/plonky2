@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
+use itertools::Itertools;
 use plonky2::field::types::Field;
 
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
@@ -11,7 +12,9 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
+use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
 use crate::witness::util::{kernel_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -35,6 +38,7 @@ impl<F: Field> GenerationState<F> {
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "account_code" => self.run_account_code(input_fn),
+            "bignum_modmul" => self.run_bignum_modmul(),
             _ => panic!("Unrecognized prover input function."),
         }
     }
@@ -139,6 +143,69 @@ impl<F: Field> GenerationState<F> {
             }
             _ => panic!("Invalid prover input function."),
         }
+    }
+
+    // Bignum modular multiplication.
+    // On the first call, calculates the remainder and quotient of the given inputs.
+    // These are stored, as limbs, in self.bignum_modmul_result_limbs.
+    // Subsequent calls return one limb at a time, in order (first remainder and then quotient).
+    fn run_bignum_modmul(&mut self) -> U256 {
+        if self.bignum_modmul_result_limbs.is_empty() {
+            let len = stack_peek(self, 1)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let a_start_loc = stack_peek(self, 2)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let b_start_loc = stack_peek(self, 3)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+            let m_start_loc = stack_peek(self, 4)
+                .expect("Stack does not have enough items")
+                .try_into()
+                .unwrap();
+
+            let (remainder, quotient) =
+                self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
+
+            self.bignum_modmul_result_limbs = remainder
+                .iter()
+                .cloned()
+                .pad_using(len, |_| 0.into())
+                .chain(quotient.iter().cloned().pad_using(2 * len, |_| 0.into()))
+                .collect();
+            self.bignum_modmul_result_limbs.reverse();
+        }
+
+        self.bignum_modmul_result_limbs.pop().unwrap()
+    }
+
+    fn bignum_modmul(
+        &mut self,
+        len: usize,
+        a_start_loc: usize,
+        b_start_loc: usize,
+        m_start_loc: usize,
+    ) -> (Vec<U256>, Vec<U256>) {
+        let a = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [a_start_loc..a_start_loc + len];
+        let b = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [b_start_loc..b_start_loc + len];
+        let m = &self.memory.contexts[0].segments[Segment::KernelGeneral as usize].content
+            [m_start_loc..m_start_loc + len];
+
+        let a_biguint = mem_vec_to_biguint(a);
+        let b_biguint = mem_vec_to_biguint(b);
+        let m_biguint = mem_vec_to_biguint(m);
+
+        let prod = a_biguint * b_biguint;
+        let quo = &prod / &m_biguint;
+        let rem = prod - m_biguint * &quo;
+
+        (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
     }
 }
 
