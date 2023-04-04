@@ -73,7 +73,7 @@ recursion_return:
     jump
 
 global sys_exp:
-    // stack: x, e, return_info
+    %stack (return_info, x, e) -> (x, e, return_info)
     push 0
     // stack: shift, x, e, return_info
     %jump(sys_exp_gas_loop_enter)
@@ -95,7 +95,7 @@ sys_exp_gas_loop_enter:
     %charge_gas
 
     %stack(return_info, x, e) -> (x, e, sys_exp_return, return_info)
-    jump exp
+    %jump(exp)
 sys_exp_return:
     // stack: pow(x, e), return_info
     swap1
