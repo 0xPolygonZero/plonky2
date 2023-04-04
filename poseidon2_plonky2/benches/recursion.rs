@@ -1,19 +1,24 @@
 #![feature(generic_const_exprs)]
 
 use std::marker::PhantomData;
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+
+use anyhow::Result;
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::extension::Extendable;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::{hash_types::RichField, hashing::HashConfig};
+use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget};
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
+};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
-use tynm::type_name;
 use poseidon2_plonky2::poseidon2_goldilock::Poseidon2GoldilocksConfig;
+use tynm::type_name;
+
 use crate::circuits::BaseCircuit;
-use anyhow::Result;
 
 mod circuits;
 
@@ -27,33 +32,35 @@ macro_rules! pretty_print {
 /// Data structure with all input/output targets and the `CircuitData` for each circuit employed
 /// to recursively shrink a proof up to the recursion threshold. The data structure contains a set
 /// of targets and a `CircuitData` for each shrink step
-struct ShrinkCircuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
-    InnerC: GenericConfig<D, F =F>,const D: usize> {
+struct ShrinkCircuit<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    InnerC: GenericConfig<D, F = F>,
+    const D: usize,
+> {
     proof_targets: Vec<ProofWithPublicInputsTarget<D>>,
-    circuit_data: Vec<CircuitData<F,C,D>>,
+    circuit_data: Vec<CircuitData<F, C, D>>,
     inner_data: Vec<VerifierCircuitTarget>,
     _inner_c: PhantomData<InnerC>,
 }
 
 const RECURSION_THRESHOLD: usize = 12;
 
-impl<F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    InnerC: GenericConfig<D, F =F>,
-    const D: usize> ShrinkCircuit<F,C,InnerC, D>
-    where
-        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-        [(); InnerC::HCO::WIDTH]:,
-        [(); InnerC::HCI::WIDTH]:,
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+impl<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
+        const D: usize,
+    > ShrinkCircuit<F, C, InnerC, D>
+where
+    InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+    [(); InnerC::HCO::WIDTH]:,
+    [(); InnerC::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
-    pub fn build_shrink_circuit(
-        inner_cd: &CommonCircuitData<F, D>,
-        config: CircuitConfig,
-    ) -> Self
-    {
+    pub fn build_shrink_circuit(inner_cd: &CommonCircuitData<F, D>, config: CircuitConfig) -> Self {
         let mut circuit_data = inner_cd;
         let mut shrink_circuit = Self {
             proof_targets: Vec::new(),
@@ -66,13 +73,13 @@ impl<F: RichField + Extendable<D>,
             //let mut pw = PartialWitness::new();
             let pt = builder.add_virtual_proof_with_pis(circuit_data);
 
-            let inner_data = builder.add_virtual_verifier_data(circuit_data.config.fri_config.cap_height);
+            let inner_data =
+                builder.add_virtual_verifier_data(circuit_data.config.fri_config.cap_height);
             if shrink_circuit.num_shrink_steps() > 0 {
                 builder.verify_proof::<C>(&pt, &inner_data, circuit_data);
             } else {
                 builder.verify_proof::<InnerC>(&pt, &inner_data, circuit_data);
             }
-
 
             for &pi_t in pt.public_inputs.iter() {
                 let t = builder.add_virtual_public_input();
@@ -90,42 +97,46 @@ impl<F: RichField + Extendable<D>,
         shrink_circuit
     }
 
-    fn set_witness<
-        GC: GenericConfig<D, F=F>
-    >(
+    fn set_witness<GC: GenericConfig<D, F = F>>(
         pw: &mut PartialWitness<F>,
-        proof: &ProofWithPublicInputs<F,GC, D>,
+        proof: &ProofWithPublicInputs<F, GC, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         inner_data: &VerifierCircuitTarget,
-        circuit_data: &CircuitData<F,GC,D>
-    )
-        where GC::Hasher: AlgebraicHasher<F, GC::HCO>
+        circuit_data: &CircuitData<F, GC, D>,
+    ) where
+        GC::Hasher: AlgebraicHasher<F, GC::HCO>,
     {
         pw.set_proof_with_pis_target(pt, proof);
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &circuit_data.verifier_only.constants_sigmas_cap,
         );
-        pw.set_hash_target(inner_data.circuit_digest, circuit_data.verifier_only.circuit_digest);
+        pw.set_hash_target(
+            inner_data.circuit_digest,
+            circuit_data.verifier_only.circuit_digest,
+        );
     }
 
     pub fn shrink_proof<'a>(
         &'a self,
-        inner_proof: ProofWithPublicInputs<F,InnerC,D>,
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
         inner_cd: &'a CircuitData<F, InnerC, D>,
-    ) -> Result<ProofWithPublicInputs<F,C,D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut proof = None;
         let mut circuit_data = None;
 
-        for ((pt, cd), inner_data) in self.proof_targets.iter().zip(self.circuit_data.iter()).zip(self.inner_data.iter()) {
+        for ((pt, cd), inner_data) in self
+            .proof_targets
+            .iter()
+            .zip(self.circuit_data.iter())
+            .zip(self.inner_data.iter())
+        {
             let mut pw = PartialWitness::new();
             match (proof, circuit_data) {
-                (None, None) => {
-                    Self::set_witness(&mut pw, &inner_proof, pt, inner_data, inner_cd)
-                },
+                (None, None) => Self::set_witness(&mut pw, &inner_proof, pt, inner_data, inner_cd),
                 (Some(inner_proof), Some(inner_cd)) => {
                     Self::set_witness(&mut pw, &inner_proof, pt, inner_data, inner_cd);
-                },
+                }
                 _ => unreachable!(),
             }
             proof = Some(cd.prove(pw)?);
@@ -139,19 +150,19 @@ impl<F: RichField + Extendable<D>,
         self.circuit_data.len()
     }
 
-    pub fn get_circuit_data(&self) -> &CircuitData<F,C,D> {
+    pub fn get_circuit_data(&self) -> &CircuitData<F, C, D> {
         self.circuit_data.last().unwrap()
     }
 }
 
-fn bench_recursive_proof
-<
+fn bench_recursive_proof<
     F: RichField + Extendable<D>,
     const D: usize,
     C: GenericConfig<D, F = F>,
-    InnerC: GenericConfig<D, F = F>
->(c: &mut Criterion)
-where
+    InnerC: GenericConfig<D, F = F>,
+>(
+    c: &mut Criterion,
+) where
     InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
     [(); InnerC::HCO::WIDTH]:,
     [(); InnerC::HCI::WIDTH]:,
@@ -168,7 +179,11 @@ where
     let config = CircuitConfig::standard_recursion_config();
 
     for degree in [13, 15] {
-        let base_circuit = BaseCircuit::<F, InnerC, D, InnerC::HCO, InnerC::Hasher>::build_base_circuit(config.clone(), degree);
+        let base_circuit =
+            BaseCircuit::<F, InnerC, D, InnerC::HCO, InnerC::Hasher>::build_base_circuit(
+                config.clone(),
+                degree,
+            );
 
         assert_eq!(base_circuit.get_circuit_data().common.degree_bits(), degree);
 
@@ -177,14 +192,19 @@ where
         let inner_cd = &base_circuit.get_circuit_data().common;
 
         group.bench_function(
-            format!("build circuit for degree {}", degree).as_str(), |b| b.iter_with_large_drop(
-                || {
-                    ShrinkCircuit::<F, C, InnerC, D>::build_shrink_circuit(inner_cd, config.clone());
-                }
-            )
+            format!("build circuit for degree {}", degree).as_str(),
+            |b| {
+                b.iter_with_large_drop(|| {
+                    ShrinkCircuit::<F, C, InnerC, D>::build_shrink_circuit(
+                        inner_cd,
+                        config.clone(),
+                    );
+                })
+            },
         );
 
-        let shrink_circuit = ShrinkCircuit::<F, C, InnerC, D>::build_shrink_circuit(inner_cd, config.clone());
+        let shrink_circuit =
+            ShrinkCircuit::<F, C, InnerC, D>::build_shrink_circuit(inner_cd, config.clone());
 
         pretty_print!("shrink steps: {}", shrink_circuit.num_shrink_steps());
 
@@ -192,11 +212,13 @@ where
 
         group.bench_function(
             format!("shrinking proof of degree {}", degree).as_str(),
-            |b| b.iter_batched(
-                || proof.clone(),
-                |proof| shrink_circuit.shrink_proof(proof, inner_cd).unwrap(),
-                BatchSize::PerIteration,
-            ),
+            |b| {
+                b.iter_batched(
+                    || proof.clone(),
+                    |proof| shrink_circuit.shrink_proof(proof, inner_cd).unwrap(),
+                    BatchSize::PerIteration,
+                )
+            },
         );
 
         let shrunk_proof = shrink_circuit.shrink_proof(proof, inner_cd).unwrap();
@@ -209,11 +231,13 @@ where
 
         group.bench_function(
             format!("verify proof for degree {}", degree).as_str(),
-            |b| b.iter_batched(
-                || shrunk_proof.clone(),
-                |proof| shrunk_cd.verify(proof).unwrap(),
-                BatchSize::PerIteration,
-            )
+            |b| {
+                b.iter_batched(
+                    || shrunk_proof.clone(),
+                    |proof| shrunk_cd.verify(proof).unwrap(),
+                    BatchSize::PerIteration,
+                )
+            },
         );
     }
 
@@ -228,7 +252,6 @@ fn benchmark(c: &mut Criterion) {
     bench_recursive_proof::<F, D, Poseidon2GoldilocksConfig, PoseidonGoldilocksConfig>(c);
     bench_recursive_proof::<F, D, Poseidon2GoldilocksConfig, Poseidon2GoldilocksConfig>(c);
 }
-
 
 criterion_group!(name = benches;
     config = Criterion::default().sample_size(10);

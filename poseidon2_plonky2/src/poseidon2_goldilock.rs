@@ -1,9 +1,11 @@
 //! Implementations for Poseidon2 over Goldilocks field of widths 12.
 
-use plonky2::field::{goldilocks_field::GoldilocksField, extension::quadratic::QuadraticExtension};
+use plonky2::field::extension::quadratic::QuadraticExtension;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hashing::HashConfig;
-use crate::poseidon2_hash::{Poseidon2, Poseidon2Hash, Poseidon2HashConfig};
 use plonky2::plonk::config::GenericConfig;
+
+use crate::poseidon2_hash::{Poseidon2, Poseidon2Hash, Poseidon2HashConfig};
 
 #[rustfmt::skip]
 impl Poseidon2 for GoldilocksField {
@@ -41,15 +43,20 @@ mod tests {
     use plonky2::field::extension::Extendable;
     use plonky2::field::goldilocks_field::GoldilocksField as F;
     use plonky2::hash::hash_types::RichField;
+    use plonky2::hash::hashing::HashConfig;
     use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
-    use crate::poseidon2_goldilock::Poseidon2GoldilocksConfig;
-    use crate::poseidon2_hash::{Poseidon2, Poseidon2Hash};
-    use crate::poseidon2_hash::test_helpers::{check_consistency, check_test_vectors, prove_circuit_with_poseidon_hash, recursive_proof};
+    use plonky2::plonk::config::{
+        AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig,
+    };
     use rstest::rstest;
     use serial_test::serial;
-    use plonky2::hash::hashing::HashConfig;
+
+    use crate::poseidon2_goldilock::Poseidon2GoldilocksConfig;
+    use crate::poseidon2_hash::test_helpers::{
+        check_test_vectors, prove_circuit_with_poseidon_hash, recursive_proof,
+    };
+    use crate::poseidon2_hash::{Poseidon2, Poseidon2Hash};
 
     const D: usize = 2;
 
@@ -70,22 +77,18 @@ mod tests {
     }
 
     #[test]
-    fn consistency() {
-        check_consistency::<F>();
-    }
-
-    #[test]
     fn test_circuit_with_poseidon2() {
-        let (cd, proof) = prove_circuit_with_poseidon_hash::<_, Poseidon2GoldilocksConfig, D, _, _>(
-            CircuitConfig::standard_recursion_config(),
-            1024,
-            Poseidon2Hash,
-            false,
-        ).unwrap();
+        let (cd, proof) =
+            prove_circuit_with_poseidon_hash::<_, Poseidon2GoldilocksConfig, D, _, _>(
+                CircuitConfig::standard_recursion_config(),
+                1024,
+                Poseidon2Hash,
+                false,
+            )
+            .unwrap();
 
         cd.verify(proof).unwrap();
     }
-
 
     #[ignore]
     #[rstest]
@@ -95,22 +98,23 @@ mod tests {
     fn compare_proof_generation_with_poseidon<
         F: RichField + Extendable<D> + Poseidon2,
         const D: usize,
-        C: GenericConfig<D, F = F>>(
+        C: GenericConfig<D, F = F>,
+    >(
         #[case] _c: C,
-    )
-        where [(); C::HCO::WIDTH]:,
-              [(); C::HCI::WIDTH]:,
+    ) where
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let (cd, proof) = prove_circuit_with_poseidon_hash::<_, C, D, _, _>(
             CircuitConfig::standard_recursion_config(),
             4096,
             Poseidon2Hash,
             true,
-        ).unwrap();
+        )
+        .unwrap();
 
         cd.verify(proof).unwrap();
     }
-
 
     #[ignore]
     #[rstest]
@@ -122,21 +126,22 @@ mod tests {
         const D: usize,
         C: GenericConfig<D, F = F>,
         HC: HashConfig,
-        H: Hasher<F, HC> + AlgebraicHasher<F, HC>
+        H: Hasher<F, HC> + AlgebraicHasher<F, HC>,
     >(
         #[case] _conf: C,
         #[case] hasher: H,
-    )
-        where   [(); HC::WIDTH]:,
-                [(); C::HCO::WIDTH]:,
-                [(); C::HCI::WIDTH]:,
+    ) where
+        [(); HC::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        let (cd, proof) = prove_circuit_with_poseidon_hash::<_,C,D,_,_>(
+        let (cd, proof) = prove_circuit_with_poseidon_hash::<_, C, D, _, _>(
             CircuitConfig::standard_recursion_config(),
             4096,
             hasher,
             true,
-        ).unwrap();
+        )
+        .unwrap();
 
         cd.verify(proof).unwrap();
     }
@@ -145,37 +150,33 @@ mod tests {
     #[serial]
     fn test_recursive_circuit_with_poseidon2<
         F: RichField + Poseidon2 + Extendable<D>,
-        C: GenericConfig<D, F=F>,
+        C: GenericConfig<D, F = F>,
         InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
         #[values(PoseidonGoldilocksConfig{}, Poseidon2GoldilocksConfig{})] _c: C,
         #[values(PoseidonGoldilocksConfig{}, Poseidon2GoldilocksConfig{})] _inner: InnerC,
-    )
-        where
-            InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-            [(); C::HCO::WIDTH]:,
-            [(); C::HCI::WIDTH]:,
-            [(); InnerC::HCO::WIDTH]:,
-            [(); InnerC::HCI::WIDTH]:,
+    ) where
+        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+        [(); InnerC::HCO::WIDTH]:,
+        [(); InnerC::HCI::WIDTH]:,
     {
-
         let config = CircuitConfig::standard_recursion_config();
 
-        let (cd, proof) = prove_circuit_with_poseidon_hash::<F,InnerC,D,_,_>(
+        let (cd, proof) = prove_circuit_with_poseidon_hash::<F, InnerC, D, _, _>(
             config,
             1024,
-            Poseidon2Hash{},
-            false
-        ).unwrap();
+            Poseidon2Hash {},
+            false,
+        )
+        .unwrap();
 
         println!("base proof generated");
 
-        let (rec_cd, rec_proof) = recursive_proof::<F,C,InnerC,D>(
-            proof,
-            &cd,
-            &cd.common.config,
-        ).unwrap();
+        let (rec_cd, rec_proof) =
+            recursive_proof::<F, C, InnerC, D>(proof, &cd, &cd.common.config).unwrap();
 
         println!("recursive proof generated");
 

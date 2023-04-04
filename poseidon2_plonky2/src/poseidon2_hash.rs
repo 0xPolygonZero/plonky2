@@ -3,17 +3,17 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use unroll::unroll_for_loops;
-
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::{Field, PrimeField64};
-use crate::poseidon2_gate::Poseidon2Gate;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::hash::hashing::{compress, hash_n_to_hash_no_pad, HashConfig, PlonkyPermutation};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, Hasher, PoseidonHashConfig};
+use unroll::unroll_for_loops;
+
+use crate::poseidon2_gate::Poseidon2Gate;
 
 /// The number of full rounds and partial rounds is given by the
 /// calc_round_numbers.py script. They happen to be the same for both
@@ -138,7 +138,7 @@ pub trait Poseidon2: PrimeField64 {
     /// the permutation
     #[inline(always)]
     #[unroll_for_loops]
-    fn external_matrix(state: &mut[Self; WIDTH]) {
+    fn external_matrix(state: &mut [Self; WIDTH]) {
         // Applying cheap 4x4 MDS matrix to each 4-element part of the state
         // The matrix in this case is:
         // M_4 =
@@ -182,7 +182,8 @@ pub trait Poseidon2: PrimeField64 {
         }
         for i in 0..WIDTH {
             state_u128[i] += stored[i % 4];
-            state[i] = Self::from_noncanonical_u96((state_u128[i] as u64, (state_u128[i] >> 64) as u32));
+            state[i] =
+                Self::from_noncanonical_u96((state_u128[i] as u64, (state_u128[i] >> 64) as u32));
         }
     }
 
@@ -231,16 +232,14 @@ pub trait Poseidon2: PrimeField64 {
         for i in 0..WIDTH {
             state[i] += stored[i % 4];
         }
-
     }
 
     /// Recursive version of `external_matrix`.
     fn external_matrix_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
-    )
-        where
-            Self: RichField + Extendable<D>,
+    ) where
+        Self: RichField + Extendable<D>,
     {
         // In contrast to the Poseidon circuit, we *may not need* PoseidonMdsGate, because the number of constraints will fit regardless
         // Check!
@@ -295,7 +294,6 @@ pub trait Poseidon2: PrimeField64 {
     #[inline(always)]
     #[unroll_for_loops]
     fn internal_matrix(state: &mut [Self; WIDTH]) {
-
         // This computes the mutliplication with the matrix
         // M_I =
         // [r_1     1   1   ...     1]
@@ -305,7 +303,9 @@ pub trait Poseidon2: PrimeField64 {
         // for pseudo-random values r_1, r_2, ..., r_t. Note that for efficiency in Self::INTERNAL_MATRIX_DIAG_M_1 only r_1 - 1, r_2 - 1, ..., r_t - 1 are stored
         // Compute input sum
         let f_sum = Self::from_noncanonical_u128(
-            state.iter().fold(0u128, |sum, el| sum + el.to_noncanonical_u64() as u128)
+            state
+                .iter()
+                .fold(0u128, |sum, el| sum + el.to_noncanonical_u64() as u128),
         );
         // Add sum + diag entry * element to each element
         for i in 0..WIDTH {
@@ -331,9 +331,8 @@ pub trait Poseidon2: PrimeField64 {
     fn internal_matrix_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
-    )
-        where
-            Self: RichField + Extendable<D>,
+    ) where
+        Self: RichField + Extendable<D>,
     {
         // Compute input sum
         let mut sum = state[0];
@@ -343,7 +342,11 @@ pub trait Poseidon2: PrimeField64 {
         // Add sum + diag entry * element to each element
         for i in 0..state.len() {
             // Computes `C * x + y`
-            state[i] = builder.mul_const_add_extension(Self::from_canonical_u64(<Self as Poseidon2>::INTERNAL_MATRIX_DIAG_M_1[i]), state[i], sum);
+            state[i] = builder.mul_const_add_extension(
+                Self::from_canonical_u64(<Self as Poseidon2>::INTERNAL_MATRIX_DIAG_M_1[i]),
+                state[i],
+                sum,
+            );
         }
     }
 
@@ -402,8 +405,8 @@ pub trait Poseidon2: PrimeField64 {
         builder: &mut CircuitBuilder<Self, D>,
         x: ExtensionTarget<D>,
     ) -> ExtensionTarget<D>
-        where
-            Self: RichField + Extendable<D>,
+    where
+        Self: RichField + Extendable<D>,
     {
         // x |--> x^7
         builder.exp_u64_extension(x, 7)
@@ -493,7 +496,7 @@ pub trait Poseidon2: PrimeField64 {
     }
 }
 
-/// Poseidon2 hash configuration: it is currently equal to PoseidonHashConfig, 
+/// Poseidon2 hash configuration: it is currently equal to PoseidonHashConfig,
 /// but an ad-hoc type is introduced to ease changes in the future
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Poseidon2HashConfig;
@@ -533,8 +536,8 @@ impl<F: RichField + Poseidon2> AlgebraicHasher<F, Poseidon2HashConfig> for Posei
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
     ) -> [Target; Poseidon2HashConfig::WIDTH]
-        where
-            F: RichField + Extendable<D>,
+    where
+        F: RichField + Extendable<D>,
     {
         let gate_type = Poseidon2Gate::<F, D>::new();
         let gate = builder.add_gate(gate_type, vec![]);
@@ -561,23 +564,27 @@ impl<F: RichField + Poseidon2> AlgebraicHasher<F, Poseidon2HashConfig> for Posei
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
+    use anyhow::Result;
+    use log::{info, Level};
+    use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
+    use plonky2::hash::hashing::HashConfig;
+    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
     use plonky2::plonk::proof::ProofWithPublicInputs;
-    use super::{Poseidon2, Poseidon2HashConfig};
-    use anyhow::Result;
-    use plonky2::field::extension::Extendable;
-    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::prover::prove;
     use plonky2::util::timing::TimingTree;
-    use log::{info, Level};
-    use plonky2::hash::hashing::HashConfig;
+
+    use super::{Poseidon2, Poseidon2HashConfig};
 
     pub(crate) fn check_test_vectors<F: Field>(
-        test_vectors: Vec<([u64; Poseidon2HashConfig::WIDTH], [u64; Poseidon2HashConfig::WIDTH])>,
+        test_vectors: Vec<(
+            [u64; Poseidon2HashConfig::WIDTH],
+            [u64; Poseidon2HashConfig::WIDTH],
+        )>,
     ) where
         F: Poseidon2,
     {
@@ -594,51 +601,37 @@ pub(crate) mod test_helpers {
         }
     }
 
-    pub(crate) fn check_consistency<F: Field>()
-        where
-            F: Poseidon2,
-    {
-        let mut input = [F::ZERO; Poseidon2HashConfig::WIDTH];
-        for i in 0..Poseidon2HashConfig::WIDTH {
-            input[i] = F::from_canonical_u64(i as u64);
-        }
-        let output = F::poseidon2(input);
-        for i in 0..Poseidon2HashConfig::WIDTH {
-            assert_eq!(output[i], output[i]); // Dummy check
-        }
-    }
-
-    pub(crate) fn prove_circuit_with_poseidon_hash
-    <
+    pub(crate) fn prove_circuit_with_poseidon_hash<
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F=F>,
+        C: GenericConfig<D, F = F>,
         const D: usize,
         HC: HashConfig,
-        H: Hasher<F, HC> + AlgebraicHasher<F, HC>
-    >
-    (
+        H: Hasher<F, HC> + AlgebraicHasher<F, HC>,
+    >(
         config: CircuitConfig,
         num_ops: usize,
         _hasher: H,
         print_timing: bool,
-    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)>
+    ) -> Result<(CircuitData<F, C, D>, ProofWithPublicInputs<F, C, D>)>
     where
-    [(); HC::WIDTH]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+        [(); HC::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
-        let mut builder = CircuitBuilder::<F,D>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
         let init_t = builder.add_virtual_public_input();
         let mut res_t = builder.add_virtual_target();
         builder.connect(init_t, res_t);
-        let hash_targets = (0..Poseidon2HashConfig::WIDTH-1).map(|_|
-            builder.add_virtual_target()
-        ).collect::<Vec<_>>();
+        let hash_targets = (0..Poseidon2HashConfig::WIDTH - 1)
+            .map(|_| builder.add_virtual_target())
+            .collect::<Vec<_>>();
         for _ in 0..num_ops {
             res_t = builder.mul(res_t, res_t);
             let mut to_be_hashed_elements = vec![res_t];
             to_be_hashed_elements.extend_from_slice(hash_targets.as_slice());
-            res_t = builder.hash_or_noop::<HC, H>(to_be_hashed_elements).elements[0]
+            res_t = builder
+                .hash_or_noop::<HC, H>(to_be_hashed_elements)
+                .elements[0]
         }
         let out_t = builder.add_virtual_public_input();
         let is_eq_t = builder.is_equal(out_t, res_t);
@@ -650,13 +643,16 @@ pub(crate) mod test_helpers {
         let input = F::rand();
         pw.set_target(init_t, input);
 
-        let input_hash_elements = hash_targets.iter().map(|&hash_t| {
-            let elem = F::rand();
-            pw.set_target(hash_t, elem);
-            elem
-        }).collect::<Vec<_>>();
+        let input_hash_elements = hash_targets
+            .iter()
+            .map(|&hash_t| {
+                let elem = F::rand();
+                pw.set_target(hash_t, elem);
+                elem
+            })
+            .collect::<Vec<_>>();
 
-        let mut res = input.clone();
+        let mut res = input;
         for _ in 0..num_ops {
             res = res.mul(res);
             let mut to_be_hashed_elements = vec![res];
@@ -685,32 +681,36 @@ pub(crate) mod test_helpers {
 
     pub(crate) fn recursive_proof<
         F: RichField + Poseidon2 + Extendable<D>,
-        C: GenericConfig<D, F=F>,
+        C: GenericConfig<D, F = F>,
         InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
         inner_proof: ProofWithPublicInputs<F, InnerC, D>,
-        inner_cd: &CircuitData<F,InnerC,D>,
+        inner_cd: &CircuitData<F, InnerC, D>,
         config: &CircuitConfig,
-    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)>
-        where
-            InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-            [(); C::HCO::WIDTH]:,
-            [(); C::HCI::WIDTH]:,
-            [(); InnerC::HCO::WIDTH]:,
-            [(); InnerC::HCI::WIDTH]:,
+    ) -> Result<(CircuitData<F, C, D>, ProofWithPublicInputs<F, C, D>)>
+    where
+        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+        [(); InnerC::HCO::WIDTH]:,
+        [(); InnerC::HCI::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&inner_cd.common);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
 
-        let inner_data = builder.add_virtual_verifier_data(inner_cd.common.config.fri_config.cap_height);
+        let inner_data =
+            builder.add_virtual_verifier_data(inner_cd.common.config.fri_config.cap_height);
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_cd.verifier_only.constants_sigmas_cap,
         );
-        pw.set_hash_target(inner_data.circuit_digest, inner_cd.verifier_only.circuit_digest);
+        pw.set_hash_target(
+            inner_data.circuit_digest,
+            inner_cd.verifier_only.circuit_digest,
+        );
 
         for &pi_t in pt.public_inputs.iter() {
             let t = builder.add_virtual_public_input();
@@ -722,6 +722,5 @@ pub(crate) mod test_helpers {
         let proof = data.prove(pw)?;
 
         Ok((data, proof))
-
     }
 }

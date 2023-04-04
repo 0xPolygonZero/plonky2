@@ -12,8 +12,6 @@ use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::HashConfig;
-use crate::poseidon2_hash as poseidon2;
-use crate::poseidon2_hash::{Poseidon2, Poseidon2HashConfig};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use plonky2::iop::target::Target;
@@ -21,6 +19,9 @@ use plonky2::iop::wire::Wire;
 use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+
+use crate::poseidon2_hash as poseidon2;
+use crate::poseidon2_hash::{Poseidon2, Poseidon2HashConfig};
 
 /// Evaluates a full Poseidon2 permutation with 12 state elements.
 ///
@@ -151,9 +152,11 @@ impl<F: RichField + Extendable<D> + Poseidon2, const D: usize> Gate<F, D> for Po
 
         // Partial rounds.
         for r in 0..(poseidon2::N_PARTIAL_ROUNDS) {
-            state[0] += F::Extension::from_canonical_u64(poseidon2::ALL_ROUND_CONSTANTS[
-                poseidon2::HALF_N_FULL_ROUNDS * Poseidon2HashConfig::WIDTH + r * Poseidon2HashConfig::WIDTH
-                ]);
+            state[0] += F::Extension::from_canonical_u64(
+                poseidon2::ALL_ROUND_CONSTANTS[poseidon2::HALF_N_FULL_ROUNDS
+                    * Poseidon2HashConfig::WIDTH
+                    + r * Poseidon2HashConfig::WIDTH],
+            );
             let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
             constraints.push(state[0] - sbox_in);
             state[0] = <F as Poseidon2>::sbox_monomial(sbox_in);
@@ -266,7 +269,6 @@ impl<F: RichField + Extendable<D> + Poseidon2, const D: usize> Gate<F, D> for Po
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         // Assert that `swap` is binary.
@@ -387,7 +389,7 @@ struct Poseidon2Generator<F: RichField + Extendable<D> + Poseidon2, const D: usi
 }
 
 impl<F: RichField + Extendable<D> + Poseidon2, const D: usize> SimpleGenerator<F>
-for Poseidon2Generator<F, D>
+    for Poseidon2Generator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
         (0..Poseidon2HashConfig::WIDTH)
@@ -477,20 +479,20 @@ for Poseidon2Generator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::Field;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
     use plonky2::hash::hashing::HashConfig;
-    use super::Poseidon2Gate;
-    use crate::poseidon2_hash::{Poseidon2, Poseidon2HashConfig};
     use plonky2::iop::target::Target;
     use plonky2::iop::wire::Wire;
     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::GenericConfig;
+
+    use super::Poseidon2Gate;
     use crate::poseidon2_goldilock::Poseidon2GoldilocksConfig;
+    use crate::poseidon2_hash::{Poseidon2, Poseidon2HashConfig};
 
     #[test]
     fn wire_indices() {
@@ -559,10 +561,10 @@ mod tests {
 
         let expected_outputs: [F; Poseidon2HashConfig::WIDTH] =
             F::poseidon2(permutation_inputs.try_into().unwrap());
-        expected_outputs.iter().zip(proof.public_inputs.iter())
-            .for_each(|(expected_out, out)|
-                assert_eq!(expected_out, out)
-            );
+        expected_outputs
+            .iter()
+            .zip(proof.public_inputs.iter())
+            .for_each(|(expected_out, out)| assert_eq!(expected_out, out));
     }
 
     #[test]
