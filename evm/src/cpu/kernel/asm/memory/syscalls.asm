@@ -121,7 +121,7 @@ sys_calldataload_after_mload_packing:
     PANIC
 
 // Macro for {CALLDATA,CODE,RETURNDATA}COPY (W_copy in Yellow Paper).
-%macro wcopy(segment)
+%macro wcopy(segment, context_metadata_size)
     // stack: kexit_info, dest_offset, offset, size
     PUSH @GAS_VERYLOW
     DUP5
@@ -136,25 +136,41 @@ sys_calldataload_after_mload_packing:
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
+    %mload_context_metadata($context_metadata_size)
+    // stack: total_size, kexit_info, dest_offset, offset, size
+    DUP4
+    // stack: offset, total_size, kexit_info, dest_offset, offset, size
+    GT %jumpi(%%wcopy_large_offset)
+
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, $segment, offset, size, %%after, kexit_info)
     %jump(memcpy)
+
 %%after:
     // stack: kexit_info
     EXIT_KERNEL
+
 %%wcopy_empty:
     // stack: Gverylow, kexit_info, dest_offset, offset, size
     %charge_gas
     %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
     EXIT_KERNEL
+
+%%wcopy_large_offset:
+    // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to copy zeros.
+    // stack: kexit_info, dest_offset, offset, size
+    GET_CONTEXT
+    %stack (context, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, %%after, kexit_info)
+    %jump(zerocpy)
 %endmacro
 
 global sys_calldatacopy:
-    %wcopy(@SEGMENT_CALLDATA)
+    %wcopy(@SEGMENT_CALLDATA, @CTX_METADATA_CALLDATA_SIZE)
 
 global sys_codecopy:
-    %wcopy(@SEGMENT_CODE)
+    %wcopy(@SEGMENT_CODE, @CTX_METADATA_CODE_SIZE)
 
 global sys_returndatacopy:
-    %wcopy(@SEGMENT_RETURNDATA)
+    %wcopy(@SEGMENT_RETURNDATA, @CTX_METADATA_RETURNDATA_SIZE)
