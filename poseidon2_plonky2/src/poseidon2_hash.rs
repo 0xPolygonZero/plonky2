@@ -174,16 +174,15 @@ pub trait Poseidon2: PrimeField64 {
         // [  M_4  2*M_4    M_4]
         // [  M_4    M_4  2*M_4]
         // using the results with M_4 obtained above
-        let mut stored = [0 as u128; 4];
+        let mut stored: [u128; 4] = state_u128[..4].try_into().unwrap();
         for l in 0..4 {
-            stored[l] = state_u128[l];
             for j in 1..t4 {
                 stored[l] += state_u128[4 * j + l];
             }
         }
         for i in 0..WIDTH {
             state_u128[i] += stored[i % 4];
-            state[i] = Self::from_noncanonical_u128(state_u128[i]);
+            state[i] = Self::from_noncanonical_u96((state_u128[i] as u64, (state_u128[i] >> 64) as u32));
         }
     }
 
