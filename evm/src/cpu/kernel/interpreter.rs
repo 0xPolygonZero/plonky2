@@ -405,7 +405,7 @@ impl<'a> Interpreter<'a> {
             .contains(&self.generation_state.registers.program_counter)
         {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
-        } else if let Some(_label) = self.offset_label() {
+        } else if let Some(label) = self.offset_label() {
             println!("At {label}");
         }
 
