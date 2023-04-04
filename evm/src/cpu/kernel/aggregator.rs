@@ -109,6 +109,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/mpt/util.asm"),
         include_str!("asm/rlp/decode.asm"),
         include_str!("asm/rlp/encode.asm"),
+        include_str!("asm/rlp/encode_rlp_scalar.asm"),
         include_str!("asm/rlp/encode_rlp_string.asm"),
         include_str!("asm/rlp/num_bytes.asm"),
         include_str!("asm/rlp/read_to_memory.asm"),
