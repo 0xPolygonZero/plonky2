@@ -1213,8 +1213,8 @@ impl Stack for BLS381 {
 
     fn from_stack(stack: &[U256]) -> BLS381 {
         let mut val = [0u64; 8];
-        val[..4].copy_from_slice(&stack[1].0);
-        val[4..].copy_from_slice(&stack[0].0);
+        val[..4].copy_from_slice(&stack[0].0);
+        val[4..].copy_from_slice(&stack[1].0);
         BLS381 { val: U512(val) }
     }
 }
@@ -1227,8 +1227,8 @@ impl Stack for Fp2<BLS381> {
     }
 
     fn from_stack(stack: &[U256]) -> Fp2<BLS381> {
-        let re = BLS381::from_stack(&stack[2..4]);
-        let im = BLS381::from_stack(&stack[0..2]);
+        let re = BLS381::from_stack(&stack[0..2]);
+        let im = BLS381::from_stack(&stack[2..4]);
         Fp2 { re, im }
     }
 }
@@ -1254,7 +1254,7 @@ impl Stack for Fp12<BN254> {
 
     fn from_stack(stack: &[U256]) -> Self {
         let mut f = [U256::zero(); 12];
-        f.copy_from_slice(stack);
+        f.copy_from_slice(stack);        
         unsafe { transmute(f) }
     }
 }

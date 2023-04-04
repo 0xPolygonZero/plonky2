@@ -20,22 +20,21 @@ fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
         .collect::<Vec<U256>>()
 }
 
-fn setup_mul_fp6_test(
-    f: Fp6<BN254>,
-    g: Fp6<BN254>,
-    label: &str,
-) -> InterpreterMemoryInitialization {
+fn run_and_return_bn_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
     let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.to_stack());
     }
     stack.push(U256::from(0xdeadbeefu32));
-    InterpreterMemoryInitialization {
+    let setup = InterpreterMemoryInitialization {
         label: label.to_string(),
         stack,
         segment: BnPairing,
         memory: vec![],
-    }
+    };
+    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let output: Vec<U256> = interpreter.stack().iter().rev().cloned().collect();
+    Fp6::<BN254>::from_stack(&output)
 }
 
 #[test]
@@ -44,32 +43,23 @@ fn test_mul_fp6() -> Result<()> {
     let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     let g: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
 
-    let setup_normal: InterpreterMemoryInitialization = setup_mul_fp6_test(f, g, "mul_fp254_6");
-    let setup_square: InterpreterMemoryInitialization = setup_mul_fp6_test(f, f, "square_fp254_6");
+    let output_mul: Fp6<BN254> = run_and_return_bn_fp6(f, g, "mul_fp254_6");
+    let output_square: Fp6<BN254> = run_and_return_bn_fp6(f, f, "square_fp254_6");
 
-    let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
-    let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
-
-    let out_normal: Vec<U256> = extract_stack(intrptr_normal);
-    let out_square: Vec<U256> = extract_stack(intrptr_square);
-
-    let exp_normal: Vec<U256> = (f * g).to_stack();
-    let exp_square: Vec<U256> = (f * f).to_stack();
-
-    assert_eq!(out_normal, exp_normal);
-    assert_eq!(out_square, exp_square);
+    assert_eq!(output_mul, f * g);
+    assert_eq!(output_square, f * f);
 
     Ok(())
 }
 
-fn setup_mul_fp12_test(
-    out: usize,
+fn run_and_return_bn_fp12(
     f: Fp12<BN254>,
     g: Fp12<BN254>,
     label: &str,
-) -> InterpreterMemoryInitialization {
+) -> Fp12<BN254> {
     let in0: usize = 200;
     let in1: usize = 212;
+    let out: usize = 224;
 
     let mut stack = vec![
         U256::from(in0),
@@ -80,45 +70,31 @@ fn setup_mul_fp12_test(
     if label == "square_fp254_12" {
         stack.remove(0);
     }
-    InterpreterMemoryInitialization {
+    let setup = InterpreterMemoryInitialization {
         label: label.to_string(),
         stack,
         segment: BnPairing,
         memory: vec![(in0, f.to_stack()), (in1, g.to_stack())],
-    }
+    };
+    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let output = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
+    Fp12::<BN254>::from_stack(&output)
 }
 
 #[test]
 fn test_mul_fp12() -> Result<()> {
-    let out: usize = 224;
-
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
 
-    let setup_normal: InterpreterMemoryInitialization =
-        setup_mul_fp12_test(out, f, g, "mul_fp254_12");
-    let setup_sparse: InterpreterMemoryInitialization =
-        setup_mul_fp12_test(out, f, h, "mul_fp254_12_sparse");
-    let setup_square: InterpreterMemoryInitialization =
-        setup_mul_fp12_test(out, f, f, "square_fp254_12");
+    let output_normal = run_and_return_bn_fp12(f, g, "mul_fp254_12");
+    let output_sparse = run_and_return_bn_fp12(f, h, "mul_fp254_12_sparse");
+    let output_square = run_and_return_bn_fp12(f, f, "square_fp254_12");
 
-    let intrptr_normal: Interpreter = run_interpreter_with_memory(setup_normal).unwrap();
-    let intrptr_sparse: Interpreter = run_interpreter_with_memory(setup_sparse).unwrap();
-    let intrptr_square: Interpreter = run_interpreter_with_memory(setup_square).unwrap();
-
-    let out_normal: Vec<U256> = intrptr_normal.extract_kernel_memory(BnPairing, out..out + 12);
-    let out_sparse: Vec<U256> = intrptr_sparse.extract_kernel_memory(BnPairing, out..out + 12);
-    let out_square: Vec<U256> = intrptr_square.extract_kernel_memory(BnPairing, out..out + 12);
-
-    let exp_normal: Vec<U256> = (f * g).to_stack();
-    let exp_sparse: Vec<U256> = (f * h).to_stack();
-    let exp_square: Vec<U256> = (f * f).to_stack();
-
-    assert_eq!(out_normal, exp_normal);
-    assert_eq!(out_sparse, exp_sparse);
-    assert_eq!(out_square, exp_square);
+    assert_eq!(output_normal, f * g);
+    assert_eq!(output_sparse, f * h);
+    assert_eq!(output_square, f * f);
 
     Ok(())
 }
