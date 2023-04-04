@@ -1206,6 +1206,32 @@ pub trait Stack {
     fn from_stack(stack: &[U256]) -> Self;
 }
 
+impl Stack for Fp6<BN254> {
+    fn to_stack(self) -> Vec<U256> {
+        let f: [U256; 6] = unsafe { transmute(self) };
+        f.into_iter().collect()
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let mut f = [U256::zero(); 6];
+        f.copy_from_slice(stack);
+        unsafe { transmute(f) }
+    }
+}
+
+impl Stack for Fp12<BN254> {
+    fn to_stack(self) -> Vec<U256> {
+        let f: [U256; 12] = unsafe { transmute(self) };
+        f.into_iter().collect()
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let mut f = [U256::zero(); 12];
+        f.copy_from_slice(stack);
+        unsafe { transmute(f) }
+    }
+}
+
 impl Stack for BLS381 {
     fn to_stack(self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
@@ -1233,28 +1259,32 @@ impl Stack for Fp2<BLS381> {
     }
 }
 
-impl Stack for Fp6<BN254> {
+impl Stack for Fp6<BLS381> {
     fn to_stack(self) -> Vec<U256> {
-        let f: [U256; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut res = self.t0.to_stack();
+        res.extend(self.t1.to_stack());
+        res.extend(self.t2.to_stack());
+        res
     }
 
-    fn from_stack(stack: &[U256]) -> Self {
-        let mut f = [U256::zero(); 6];
-        f.copy_from_slice(stack);
-        unsafe { transmute(f) }
+    fn from_stack(stack: &[U256]) -> Fp6<BLS381> {
+        let t0 = Fp2::<BLS381>::from_stack(&stack[0..4]);
+        let t1 = Fp2::<BLS381>::from_stack(&stack[4..8]);
+        let t2 = Fp2::<BLS381>::from_stack(&stack[8..12]);
+        Fp6 { t0, t1, t2 }
     }
 }
 
-impl Stack for Fp12<BN254> {
+impl Stack for Fp12<BLS381> {
     fn to_stack(self) -> Vec<U256> {
-        let f: [U256; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut res = self.z0.to_stack();
+        res.extend(self.z1.to_stack());
+        res
     }
 
-    fn from_stack(stack: &[U256]) -> Self {
-        let mut f = [U256::zero(); 12];
-        f.copy_from_slice(stack);        
-        unsafe { transmute(f) }
+    fn from_stack(stack: &[U256]) -> Fp12<BLS381> {
+        let z0 = Fp6::<BLS381>::from_stack(&stack[0..12]);
+        let z1 = Fp6::<BLS381>::from_stack(&stack[12..24]);
+        Fp12 { z0, z1 }
     }
 }
