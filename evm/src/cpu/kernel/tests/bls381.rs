@@ -55,7 +55,7 @@ fn run_bls_fp2_ops(label: &str, x: Fp2<BLS381>, y: Fp2<BLS381>) -> Fp2<BLS381> {
 }
 
 #[test]
-fn test_bls_fp2() -> Result<()> {
+fn test_bls_fp2_ops() -> Result<()> {
     let mut rng = rand::thread_rng();
     let x: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();
     let y: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();

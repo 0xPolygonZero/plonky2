@@ -11,7 +11,6 @@ use crate::cpu::kernel::interpreter::{
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
-
 fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
     let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
