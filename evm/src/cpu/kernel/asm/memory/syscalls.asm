@@ -158,7 +158,7 @@ sys_calldataload_after_mload_packing:
     EXIT_KERNEL
 
 %%wcopy_large_offset:
-    // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to copy zeros.
+    // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to write zeros.
     // stack: kexit_info, dest_offset, offset, size
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
