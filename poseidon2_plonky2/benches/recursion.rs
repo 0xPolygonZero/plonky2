@@ -1,8 +1,10 @@
+#![feature(generic_const_exprs)]
+
 use std::marker::PhantomData;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use plonky2::field::extension::Extendable;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::{hash_types::RichField, hashing::HashConfig};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget};
@@ -40,8 +42,12 @@ impl<F: RichField + Extendable<D>,
     InnerC: GenericConfig<D, F =F>,
     const D: usize> ShrinkCircuit<F,C,InnerC, D>
     where
-        InnerC::Hasher: AlgebraicHasher<F>,
-        C::Hasher: AlgebraicHasher<F>,
+        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+        [(); InnerC::HCO::WIDTH]:,
+        [(); InnerC::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
 {
     pub fn build_shrink_circuit(
         inner_cd: &CommonCircuitData<F, D>,
@@ -93,7 +99,7 @@ impl<F: RichField + Extendable<D>,
         inner_data: &VerifierCircuitTarget,
         circuit_data: &CircuitData<F,GC,D>
     )
-        where GC::Hasher: AlgebraicHasher<F>
+        where GC::Hasher: AlgebraicHasher<F, GC::HCO>
     {
         pw.set_proof_with_pis_target(pt, proof);
         pw.set_cap_target(
@@ -146,8 +152,12 @@ fn bench_recursive_proof
     InnerC: GenericConfig<D, F = F>
 >(c: &mut Criterion)
 where
-    C::Hasher: AlgebraicHasher<F>,
-    InnerC::Hasher: AlgebraicHasher<F>,
+    InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+    [(); InnerC::HCO::WIDTH]:,
+    [(); InnerC::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let mut group = c.benchmark_group(&format!(
         "recursive-proof<{}, {}>",
@@ -158,7 +168,7 @@ where
     let config = CircuitConfig::standard_recursion_config();
 
     for degree in [13, 15] {
-        let base_circuit = BaseCircuit::<F, InnerC, D, InnerC::Hasher>::build_base_circuit(config.clone(), degree);
+        let base_circuit = BaseCircuit::<F, InnerC, D, InnerC::HCO, InnerC::Hasher>::build_base_circuit(config.clone(), degree);
 
         assert_eq!(base_circuit.get_circuit_data().common.degree_bits(), degree);
 

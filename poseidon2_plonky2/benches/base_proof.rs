@@ -1,3 +1,5 @@
+#![feature(generic_const_exprs)]
+
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use plonky2::field::extension::Extendable;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -6,6 +8,7 @@ use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
 use tynm::type_name;
+use plonky2::hash::hashing::HashConfig;
 use poseidon2_plonky2::poseidon2_goldilock::Poseidon2GoldilocksConfig;
 use poseidon2_plonky2::poseidon2_hash::Poseidon2Hash;
 use crate::circuits::BaseCircuit;
@@ -16,8 +19,14 @@ fn bench_base_proof<
     F: RichField + Extendable<D>,
     const D: usize,
     C: GenericConfig<D, F = F>,
-    H: Hasher<F> + AlgebraicHasher<F>
->(c: &mut Criterion) {
+    HC: HashConfig,
+    H: Hasher<F, HC> + AlgebraicHasher<F, HC>
+>(c: &mut Criterion)
+    where
+        [(); HC::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+{
     let mut group = c.benchmark_group(&format!(
         "base-proof<{}, {}>",
         type_name::<C>(),
@@ -29,12 +38,12 @@ fn bench_base_proof<
         group.bench_function(
             format!("build circuit for degree {}", degree).as_str(), |b| b.iter_with_large_drop(
                 || {
-                    BaseCircuit::<F, C, D, H>::build_base_circuit(config.clone(), degree);
+                    BaseCircuit::<F, C, D, HC, H>::build_base_circuit(config.clone(), degree);
                 }
             )
         );
 
-        let base_circuit = BaseCircuit::<F, C, D, H>::build_base_circuit(config.clone(), degree);
+        let base_circuit = BaseCircuit::<F, C, D, HC, H>::build_base_circuit(config.clone(), degree);
 
         group.bench_function(
             format!("prove for degree {}", degree).as_str(),
@@ -63,10 +72,10 @@ fn bench_base_proof<
 fn benchmark(c: &mut Criterion) {
     const D: usize = 2;
     type F = GoldilocksField;
-    bench_base_proof::<F, D, PoseidonGoldilocksConfig, PoseidonHash>(c);
-    bench_base_proof::<F, D, Poseidon2GoldilocksConfig, PoseidonHash>(c);
-    bench_base_proof::<F, D, PoseidonGoldilocksConfig, Poseidon2Hash>(c);
-    bench_base_proof::<F, D, Poseidon2GoldilocksConfig, Poseidon2Hash>(c);
+    bench_base_proof::<F, D, PoseidonGoldilocksConfig, _, PoseidonHash>(c);
+    bench_base_proof::<F, D, Poseidon2GoldilocksConfig, _, PoseidonHash>(c);
+    bench_base_proof::<F, D, PoseidonGoldilocksConfig, _, Poseidon2Hash>(c);
+    bench_base_proof::<F, D, Poseidon2GoldilocksConfig, _, Poseidon2Hash>(c);
 }
 
 

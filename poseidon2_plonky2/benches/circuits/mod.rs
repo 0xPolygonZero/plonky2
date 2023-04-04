@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use plonky2::field::extension::Extendable;
 use plonky2::gates::arithmetic_base::ArithmeticGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::hash_n_to_m_no_pad;
+use plonky2::hash::hashing::{hash_n_to_m_no_pad, HashConfig};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -17,18 +17,25 @@ use anyhow::Result;
 /// The computation performed on the state was chosen to employ commonly used gates, such as
 /// arithmetic and hash ones
 pub struct BaseCircuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
-H: Hasher<F> + AlgebraicHasher<F>
+    HC: HashConfig,
+    H: Hasher<F, HC> + AlgebraicHasher<F, HC>
 > {
     private_input: Target,
     public_input: Target,
     public_output: Target,
     circuit_data: CircuitData<F, C, D>,
     num_powers: usize,
+    _hash_config: PhantomData<HC>,
     _hasher: PhantomData<H>
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
-    H: Hasher<F> + AlgebraicHasher<F>> BaseCircuit<F, C, D, H>
+    HC: HashConfig,
+    H: Hasher<F, HC> + AlgebraicHasher<F, HC>> BaseCircuit<F, C, D, HC, H>
+    where
+        [(); HC::WIDTH]:,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
 {
     pub fn build_base_circuit(
         config: CircuitConfig,
@@ -49,7 +56,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
         let to_be_hashed_t = builder.add_virtual_target();
         for _ in 0..powers {
             res_t = builder.mul(res_t, init_t);
-            res_t = builder.hash_n_to_m_no_pad::<H>(vec![res_t, to_be_hashed_t, zero, zero], 1)[0];
+            res_t = builder.hash_n_to_m_no_pad::<HC, H>(vec![res_t, to_be_hashed_t, zero, zero], 1)[0];
         }
 
         let out_t = builder.add_virtual_public_input();
@@ -67,6 +74,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
             public_output: out_t,
             circuit_data: data,
             num_powers: powers,
+            _hash_config: PhantomData::<HC>,
             _hasher: PhantomData::<H>,
         }
     }
@@ -85,7 +93,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize,
         let mut res = init.clone();
         for _ in 0..self.num_powers {
             res = res.mul(init.clone());
-            res = hash_n_to_m_no_pad::<_, H::Permutation>(
+            res = hash_n_to_m_no_pad::<_, HC, H::Permutation>(
                 &[res, to_be_hashed, F::ZERO, F::ZERO],
                 1,
             )[0];

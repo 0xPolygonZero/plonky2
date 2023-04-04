@@ -9,11 +9,11 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::{Field, PrimeField64};
 use crate::poseidon2_gate::Poseidon2Gate;
 use plonky2::hash::hash_types::{HashOut, RichField};
-use plonky2::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation, SPONGE_WIDTH};
+use plonky2::hash::hashing::{compress, hash_n_to_hash_no_pad, HashConfig, PlonkyPermutation};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, Hasher, PoseidonHashConfig};
 
 /// The number of full rounds and partial rounds is given by the
 /// calc_round_numbers.py script. They happen to be the same for both
@@ -125,7 +125,7 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0xc0c2e289afa75181, 0x1e4fa2ad948978b7, 0x2a226a127a0bb26a, 0xe61738a70357ce76,
 ];
 
-const WIDTH: usize = SPONGE_WIDTH;
+const WIDTH: usize = PoseidonHashConfig::WIDTH;
 pub trait Poseidon2: PrimeField64 {
     /// Total number of round constants required: width of the input
     /// times number of rounds.
@@ -494,10 +494,19 @@ pub trait Poseidon2: PrimeField64 {
     }
 }
 
+/// Poseidon2 hash configuration: it is currently equal to PoseidonHashConfig, 
+/// but an ad-hoc type is introduced to ease changes in the future
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Poseidon2HashConfig;
+impl HashConfig for Poseidon2HashConfig {
+    const RATE: usize = PoseidonHashConfig::RATE;
+    const WIDTH: usize = PoseidonHashConfig::WIDTH;
+}
+
 /// Poseidon2 permutation
 pub struct Poseidon2Permutation;
-impl<F: RichField + Poseidon2> PlonkyPermutation<F> for Poseidon2Permutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+impl<F: RichField + Poseidon2> PlonkyPermutation<F, Poseidon2HashConfig> for Poseidon2Permutation {
+    fn permute(input: [F; Poseidon2HashConfig::WIDTH]) -> [F; Poseidon2HashConfig::WIDTH] {
         F::poseidon2(input)
     }
 }
@@ -505,26 +514,26 @@ impl<F: RichField + Poseidon2> PlonkyPermutation<F> for Poseidon2Permutation {
 /// Poseidon2 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Poseidon2Hash;
-impl<F: RichField + Poseidon2> Hasher<F> for Poseidon2Hash {
+impl<F: RichField + Poseidon2> Hasher<F, Poseidon2HashConfig> for Poseidon2Hash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
     type Permutation = Poseidon2Permutation;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
+        hash_n_to_hash_no_pad::<F, Poseidon2HashConfig, Self::Permutation>(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, Self::Permutation>(left, right)
+        compress::<F, Poseidon2HashConfig, Self::Permutation>(left, right)
     }
 }
 
-impl<F: RichField + Poseidon2> AlgebraicHasher<F> for Poseidon2Hash {
+impl<F: RichField + Poseidon2> AlgebraicHasher<F, Poseidon2HashConfig> for Poseidon2Hash {
     fn permute_swapped<const D: usize>(
-        inputs: [Target; SPONGE_WIDTH],
+        inputs: [Target; Poseidon2HashConfig::WIDTH],
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
+    ) -> [Target; Poseidon2HashConfig::WIDTH]
         where
             F: RichField + Extendable<D>,
     {
@@ -536,14 +545,14 @@ impl<F: RichField + Poseidon2> AlgebraicHasher<F> for Poseidon2Hash {
         builder.connect(swap.target, swap_wire);
 
         // Route input wires.
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..Poseidon2HashConfig::WIDTH {
             let in_wire = Poseidon2Gate::<F, D>::wire_input(i);
             let in_wire = Target::wire(gate, in_wire);
             builder.connect(inputs[i], in_wire);
         }
 
         // Collect output wires.
-        (0..SPONGE_WIDTH)
+        (0..Poseidon2HashConfig::WIDTH)
             .map(|i| Target::wire(gate, Poseidon2Gate::<F, D>::wire_output(i)))
             .collect::<Vec<_>>()
             .try_into()
@@ -555,31 +564,31 @@ impl<F: RichField + Poseidon2> AlgebraicHasher<F> for Poseidon2Hash {
 pub(crate) mod test_helpers {
     use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
-    use plonky2::hash::hashing::SPONGE_WIDTH;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
     use plonky2::plonk::proof::ProofWithPublicInputs;
-    use super::Poseidon2;
+    use super::{Poseidon2, Poseidon2HashConfig};
     use anyhow::Result;
     use plonky2::field::extension::Extendable;
     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::prover::prove;
     use plonky2::util::timing::TimingTree;
-    use log::Level;
+    use log::{info, Level};
+    use plonky2::hash::hashing::HashConfig;
 
     pub(crate) fn check_test_vectors<F: Field>(
-        test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,
+        test_vectors: Vec<([u64; Poseidon2HashConfig::WIDTH], [u64; Poseidon2HashConfig::WIDTH])>,
     ) where
         F: Poseidon2,
     {
         for (input, expected_output) in test_vectors.into_iter() {
-            let mut state = [F::ZERO; SPONGE_WIDTH];
-            for i in 0..SPONGE_WIDTH {
+            let mut state = [F::ZERO; Poseidon2HashConfig::WIDTH];
+            for i in 0..Poseidon2HashConfig::WIDTH {
                 state[i] = F::from_canonical_u64(input[i]);
             }
             let output = F::poseidon2(state);
-            for i in 0..SPONGE_WIDTH {
+            for i in 0..Poseidon2HashConfig::WIDTH {
                 let ex_output = F::from_canonical_u64(expected_output[i]); // Adjust!
                 assert_eq!(output[i], ex_output);
             }
@@ -590,41 +599,47 @@ pub(crate) mod test_helpers {
         where
             F: Poseidon2,
     {
-        let mut input = [F::ZERO; SPONGE_WIDTH];
-        for i in 0..SPONGE_WIDTH {
+        let mut input = [F::ZERO; Poseidon2HashConfig::WIDTH];
+        for i in 0..Poseidon2HashConfig::WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
         }
         let output = F::poseidon2(input);
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..Poseidon2HashConfig::WIDTH {
             assert_eq!(output[i], output[i]); // Dummy check
         }
     }
 
-    pub(crate) fn prove_circuit_with_poseidon2
+    pub(crate) fn prove_circuit_with_poseidon_hash
     <
-        F: RichField + Poseidon2 + Extendable<D>,
+        F: RichField + Extendable<D>,
         C: GenericConfig<D, F=F>,
         const D: usize,
-        H: Hasher<F> + AlgebraicHasher<F>
+        HC: HashConfig,
+        H: Hasher<F, HC> + AlgebraicHasher<F, HC>
     >
     (
         config: CircuitConfig,
         num_ops: usize,
         _hasher: H,
         print_timing: bool,
-    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)> {
+    ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)>
+    where
+    [(); HC::WIDTH]:,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
+    {
         let mut builder = CircuitBuilder::<F,D>::new(config);
         let init_t = builder.add_virtual_public_input();
         let mut res_t = builder.add_virtual_target();
         builder.connect(init_t, res_t);
-        let hash_targets = (0..SPONGE_WIDTH-1).map(|_|
+        let hash_targets = (0..Poseidon2HashConfig::WIDTH-1).map(|_|
             builder.add_virtual_target()
         ).collect::<Vec<_>>();
         for _ in 0..num_ops {
             res_t = builder.mul(res_t, res_t);
             let mut to_be_hashed_elements = vec![res_t];
             to_be_hashed_elements.extend_from_slice(hash_targets.as_slice());
-            res_t = builder.hash_or_noop::<H>(to_be_hashed_elements).elements[0]
+            res_t = builder.hash_or_noop::<HC, H>(to_be_hashed_elements).elements[0]
         }
         let out_t = builder.add_virtual_public_input();
         let is_eq_t = builder.is_equal(out_t, res_t);
@@ -656,6 +671,8 @@ pub(crate) mod test_helpers {
             let mut timing = TimingTree::new("prove", Level::Debug);
             let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
             timing.print();
+            let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
+            info!("proof size: {}", proof_bytes.len());
             proof
         } else {
             data.prove(pw)?
@@ -678,7 +695,11 @@ pub(crate) mod test_helpers {
         config: &CircuitConfig,
     ) -> Result<(CircuitData<F,C,D>, ProofWithPublicInputs<F,C,D>)>
         where
-            InnerC::Hasher: AlgebraicHasher<F>,
+            InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
+            [(); C::HCO::WIDTH]:,
+            [(); C::HCI::WIDTH]:,
+            [(); InnerC::HCO::WIDTH]:,
+            [(); InnerC::HCI::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
