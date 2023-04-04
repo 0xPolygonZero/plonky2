@@ -9,11 +9,6 @@ use crate::field::types::Field;
 
 pub(crate) mod context_tree;
 pub(crate) mod partial_products;
-
-#[macro_use]
-pub mod gate_serialization;
-#[macro_use]
-pub mod generator_serialization;
 pub mod reducing;
 pub mod serialization;
 pub mod strided_view;

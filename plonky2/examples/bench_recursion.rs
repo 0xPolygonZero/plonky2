@@ -22,7 +22,7 @@ use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnl
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
-use plonky2::util::gate_serialization::default::DefaultGateSerializer;
+use plonky2::util::serialization::DefaultGateSerializer;
 use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
 use plonky2_maybe_rayon::rayon;

@@ -18,10 +18,10 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
-use plonky2::util::gate_serialization::GateSerializer;
-use plonky2::util::generator_serialization::WitnessGeneratorSerializer;
 use plonky2::util::reducing::ReducingFactorTarget;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
+use plonky2::util::serialization::{
+    Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+};
 use plonky2::with_context;
 use plonky2_util::log2_ceil;
 

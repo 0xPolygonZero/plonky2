@@ -115,7 +115,7 @@ pub mod default {
     };
     use crate::plonk::config::{AlgebraicHasher, GenericConfig};
     use crate::recursion::dummy_circuit::DummyProofGenerator;
-    use crate::util::generator_serialization::WitnessGeneratorSerializer;
+    use crate::util::serialization::WitnessGeneratorSerializer;
 
     pub struct DefaultGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
         pub _phantom: PhantomData<C>,
@@ -128,7 +128,7 @@ pub mod default {
         C::Hasher: AlgebraicHasher<F, C::HCO>,
     {
         impl_generator_serializer! {
-            DefaultGateSerializer,
+            DefaultGeneratorSerializer,
             DummyProofGenerator<F, C, D>,
             ArithmeticBaseGenerator<F, D>,
             ArithmeticExtensionGenerator<F, D>,

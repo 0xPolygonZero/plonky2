@@ -20,9 +20,9 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
-use plonky2::util::gate_serialization::GateSerializer;
-use plonky2::util::generator_serialization::WitnessGeneratorSerializer;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
+use plonky2::util::serialization::{
+    Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+};
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
 

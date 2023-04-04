@@ -30,9 +30,9 @@ use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
-use crate::util::gate_serialization::GateSerializer;
-use crate::util::generator_serialization::WitnessGeneratorSerializer;
-use crate::util::serialization::{Buffer, IoResult, Read, Write};
+use crate::util::serialization::{
+    Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+};
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

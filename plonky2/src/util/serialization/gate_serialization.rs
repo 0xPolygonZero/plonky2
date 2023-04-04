@@ -41,6 +41,10 @@ macro_rules! get_gate_tag_impl {
 }
 
 #[macro_export]
+/// Macro implementing the `GateSerializer` trait.
+/// To serialize a list of gates used for a circuit,
+/// this macro should be called with a struct on which to implement
+/// this as first argument, followed by all the targeted gates.
 macro_rules! impl_gate_serializer {
     ($target:ty, $($gate_types:ty),+) => {
         fn read_gate(&self, buf: &mut $crate::util::serialization::Buffer) -> $crate::util::serialization::IoResult<$crate::gates::gate::GateRef<F, D>> {
@@ -76,7 +80,7 @@ pub mod default {
     use crate::gates::reducing::ReducingGate;
     use crate::gates::reducing_extension::ReducingExtensionGate;
     use crate::hash::hash_types::RichField;
-    use crate::util::gate_serialization::GateSerializer;
+    use crate::util::serialization::GateSerializer;
 
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {

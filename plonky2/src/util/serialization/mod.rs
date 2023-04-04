@@ -1,3 +1,9 @@
+#[macro_use]
+pub mod generator_serialization;
+
+#[macro_use]
+pub mod gate_serialization;
+
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -6,10 +12,12 @@ use core::fmt::{Debug, Display, Formatter};
 use core::mem::size_of;
 use core::ops::Range;
 
+pub use gate_serialization::default::DefaultGateSerializer;
+pub use gate_serialization::GateSerializer;
+pub use generator_serialization::default::DefaultGeneratorSerializer;
+pub use generator_serialization::WitnessGeneratorSerializer;
 use hashbrown::HashMap;
 
-use super::gate_serialization::GateSerializer;
-use super::generator_serialization::WitnessGeneratorSerializer;
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::polynomial::PolynomialCoeffs;
 use crate::field::types::{Field64, PrimeField64};
