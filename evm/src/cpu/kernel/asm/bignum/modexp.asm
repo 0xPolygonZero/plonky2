@@ -128,10 +128,6 @@ modexp_iszero_return:
     // stack: e != 0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     %jumpi(modexp_loop)
 // end of modexp_loop
-    // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %pop10
-    // stack: retdest
-    JUMP
 len_zero:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     %pop10

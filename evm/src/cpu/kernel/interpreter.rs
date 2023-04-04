@@ -404,18 +404,17 @@ impl<'a> Interpreter<'a> {
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
         {
-            // TODO: uncomment
-            // println!("At {}, stack={:?}", self.offset_name(), self.stack());
+            println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(_label) = self.offset_label() {
-            // println!("At {label}");
+            println!("At {label}");
         }
 
         Ok(())
     }
 
-    // fn offset_name(&self) -> String {
-    //     KERNEL.offset_name(self.generation_state.registers.program_counter)
-    // }
+    fn offset_name(&self) -> String {
+        KERNEL.offset_name(self.generation_state.registers.program_counter)
+    }
 
     fn offset_label(&self) -> Option<String> {
         KERNEL.offset_label(self.generation_state.registers.program_counter)

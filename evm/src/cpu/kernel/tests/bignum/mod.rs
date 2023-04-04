@@ -475,7 +475,7 @@ fn test_modmul_bignum_all() -> Result<()> {
         let b = gen_bignum(bit_size);
         let m = gen_bignum(bit_size);
         if !m.is_zero() {
-            let output = a.clone() * b.clone() % m.clone();
+            let output = &a * &b % &m;
             test_modmul_bignum(a, b, m, output)?;
         }
 
@@ -483,20 +483,20 @@ fn test_modmul_bignum_all() -> Result<()> {
         let b = max_bignum(bit_size);
         let m = max_bignum(bit_size);
         if !m.is_zero() {
-            let output = a.clone() * b.clone() % m.clone();
+            let output = &a * &b % &m;
             test_modmul_bignum(a, b, m, output)?;
         }
     }
 
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let modmul_outputs = test_data_biguint(TEST_DATA_MODMUL_OUTPUTS);
-    let mut modmul_outputs_iter = modmul_outputs.iter();
+    let mut modmul_outputs_iter = modmul_outputs.into_iter();
     for a in &inputs {
         for b in &inputs {
             // For m, skip the first input, which is zero.
             for m in &inputs[1..] {
                 let output = modmul_outputs_iter.next().unwrap();
-                test_modmul_bignum(a.clone(), b.clone(), m.clone(), output.clone())?;
+                test_modmul_bignum(a.clone(), b.clone(), m.clone(), output)?;
             }
         }
     }
@@ -523,7 +523,7 @@ fn test_modexp_bignum_all() -> Result<()> {
             let e = max_bignum(*exp_bit_size);
             let m = max_bignum(*bit_size);
             if !m.is_zero() {
-                let output = b.clone().modpow(&e, &m);
+                let output = b.modpow(&e, &m);
                 test_modexp_bignum(b, e, m, output)?;
             }
         }
@@ -531,14 +531,14 @@ fn test_modexp_bignum_all() -> Result<()> {
 
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
     let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
-    let mut modexp_outputs_iter = modexp_outputs.iter();
+    let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..7] {
             // For m, skip the first input, which is zero.
             for m in &inputs[1..] {
                 let output = modexp_outputs_iter.next().unwrap();
-                test_modexp_bignum(b.clone(), e.clone(), m.clone(), output.clone())?;
+                test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
         }
     }

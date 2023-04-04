@@ -202,8 +202,8 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let prod = a_biguint * b_biguint;
-        let quo = prod.clone() / m_biguint.clone();
-        let rem = prod - quo.clone() * m_biguint;
+        let quo = &prod / &m_biguint;
+        let rem = prod - m_biguint * &quo;
 
         (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
     }
