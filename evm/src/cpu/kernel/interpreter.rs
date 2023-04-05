@@ -1,5 +1,6 @@
 //! An EVM interpreter for testing and debugging purposes.
 
+use core::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -305,7 +306,7 @@ impl<'a> Interpreter<'a> {
             0x02 => self.run_mul(),                                     // "MUL",
             0x03 => self.run_sub(),                                     // "SUB",
             0x04 => self.run_div(),                                     // "DIV",
-            0x05 => todo!(),                                            // "SDIV",
+            0x05 => self.run_sdiv(),                                    // "SDIV",
             0x06 => self.run_mod(),                                     // "MOD",
             0x07 => todo!(),                                            // "SMOD",
             0x08 => self.run_addmod(),                                  // "ADDMOD",
@@ -465,6 +466,41 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(if y.is_zero() { U256::zero() } else { x / y });
+    }
+
+    fn run_sdiv(&mut self) {
+        let mut x = self.pop();
+        let mut y = self.pop();
+
+        let y_is_zero = y.is_zero();
+
+        if y_is_zero {
+            self.push(U256::zero());
+        } else if y.eq(&MINUS_ONE) && x.eq(&MIN_VALUE) {
+            self.push(MIN_VALUE);
+        } else {
+            let x_is_pos = x.eq(&(x & SIGN_MASK));
+            let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+            // We compute the absolute quotient first,
+            // then adapt its sign based on the operands.
+            if !x_is_pos {
+                x = two_complement(x);
+            }
+            if !y_is_pos {
+                y = two_complement(y);
+            }
+            let div = x / y;
+            if div.eq(&U256::zero()) {
+                self.push(U256::zero());
+            }
+
+            self.push(if x_is_pos == y_is_pos {
+                div
+            } else {
+                two_complement(div)
+            });
+        }
     }
 
     fn run_mod(&mut self) {
@@ -836,6 +872,76 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.stack_len
     }
 }
+
+// Computes the two's complement of the given integer.
+fn two_complement(x: U256) -> U256 {
+    let flipped_bits = x ^ MINUS_ONE;
+    flipped_bits.overflowing_add(U256::one()).0
+}
+
+fn signed_cmp(x: U256, y: U256) -> Ordering {
+    let x_is_zero = x.is_zero();
+    let y_is_zero = y.is_zero();
+
+    if x_is_zero && y_is_zero {
+        return Ordering::Equal;
+    }
+
+    let x_is_pos = x.eq(&(x & SIGN_MASK));
+    let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+    if x_is_zero {
+        if y_is_pos {
+            return Ordering::Less;
+        } else {
+            return Ordering::Greater;
+        }
+    };
+
+    if y_is_zero {
+        if x_is_pos {
+            return Ordering::Greater;
+        } else {
+            return Ordering::Less;
+        }
+    };
+
+    match (x_is_pos, y_is_pos) {
+        (true, true) => x.cmp(&y),
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        (false, false) => x.cmp(&y).reverse(),
+    }
+}
+
+const MINUS_ZERO: U256 = U256([
+    0x0000000000000001,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x8000000000000000,
+]);
+
+const MINUS_ONE: U256 = U256([
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+]);
+
+/// -2^255 in two's complement representation consists in the MSB set to 1.
+const MIN_VALUE: U256 = U256([
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x8000000000000000,
+]);
+
+const SIGN_MASK: U256 = U256([
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0x7fffffffffffffff,
+]);
 
 /// Return the (ordered) JUMPDEST offsets in the code.
 fn find_jumpdests(code: &[u8]) -> Vec<usize> {
