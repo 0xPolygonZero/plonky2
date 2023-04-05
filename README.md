@@ -12,7 +12,7 @@ Polymer Labs has written up a helpful tutorial [here](https://polymerlabs.medium
 
 ## Examples
 
-A good starting point for how to use plonky2 for simple applications is the included examples:
+A good starting point for how to use Plonky2 for simple applications is the included examples:
 
 * [`factorial`](plonky2/examples/factorial.rs): Proving knowledge of 100!
 * [`fibonacci`](plonky2/examples/fibonacci.rs): Proving knowledge of the hundredth Fibonacci number
