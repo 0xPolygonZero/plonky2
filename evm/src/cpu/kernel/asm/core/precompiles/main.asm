@@ -10,70 +10,20 @@
 
 global handle_precompiles:
     // stack: addr, retdest
-    DUP1 %eq_const(@ECREC)  %jumpi(ecrec)
-    DUP1 %eq_const(@SHA256) %jumpi(sha256)
-    DUP1 %eq_const(@RIP160) %jumpi(rip160)
-    DUP1 %eq_const(@ID)     %jumpi(id)
-    DUP1 %eq_const(@EXPMOD) %jumpi(expmod)
-    DUP1 %eq_const(@BN_ADD) %jumpi(bn_add)
-    DUP1 %eq_const(@BN_MUL) %jumpi(bn_mul)
-    DUP1 %eq_const(@SNARKV) %jumpi(snarkv)
-    %eq_const(@BLAKE2_F) %jumpi(blake2_f)
+    DUP1 %eq_const(@ECREC)  %jumpi(precompile_ecrec)
+    DUP1 %eq_const(@SHA256) %jumpi(precompile_sha256)
+    DUP1 %eq_const(@RIP160) %jumpi(precompile_rip160)
+    DUP1 %eq_const(@ID)     %jumpi(precompile_id)
+    DUP1 %eq_const(@EXPMOD) %jumpi(precompile_expmod)
+    DUP1 %eq_const(@BN_ADD) %jumpi(precompile_bn_add)
+    DUP1 %eq_const(@BN_MUL) %jumpi(precompile_bn_mul)
+    DUP1 %eq_const(@SNARKV) %jumpi(precompile_snarkv)
+    %eq_const(@BLAKE2_F) %jumpi(precompile_blake2_f)
     // stack: retdest
     JUMP
 
 ecrec:
     // stack: addr, retdest
-
-sha256:
-    %stack (address, retdest, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
-        //(args_offset, args_size, ret_offset, ret_size, kexit_info)
-        (args_size, kexit_info, args_offset, args_size, ret_offset, ret_size)
-
-    %num_bytes_to_num_words
-    // stack: data_words_len
-    %mul_const(@SHA256_DYNAMIC_GAS)
-    PUSH @SHA256_STATIC_GAS
-    ADD
-    %charge_gas
-    %stack (kexit_info, args_offset, args_size, ret_offset, ret_size) ->
-        (args_offset, args_size, ret_offset, ret_size, kexit_info)
-
-
-    %zero_out_kernel_general
-
-    GET_CONTEXT
-    %stack (ctx, args_offset, args_size) ->
-        (
-        0, @SEGMENT_KERNEL_GENERAL, 1,              // DST
-        ctx, @SEGMENT_MAIN_MEMORY, args_offset,     // SRC
-        args_size, sha2,                            // count, retdest
-        0, args_size, sha256_contd                  // sha2 input: virt, num_bytes, retdest
-        )
-    %jump(memcpy)
-
-sha256_contd:
-    // stack: hash
-    GET_CONTEXT
-    %stack (ctx, hash) -> (ctx, @SEGMENT_RETURNDATA, 0, hash, 32, sha256_contd_bis)
-    %jump(mstore_unpacking)
-global sha256_contd_bis:
-    POP
-    // stack: ret_offset, ret_size, kexit_info
-    %jump(after_precompile)
-
-    /*
-    PUSH @SHA256_STATIC_GAS
-    // stack: static_gas, retdest
-    %mload_txn_field(@TXN_FIELD_DATA_LEN) // TODO: should be calldata len if this is used for an actual precompile call.
-    // stack: data_bytes_len, static_gas, retdest
-    %num_bytes_to_num_words
-    // stack: data_words_len, static_gas, retdest
-    %mul_const(@SHA256_DYNAMIC_GAS)
-    // stack: dynamic_gas, static_gas, retdest
-    ADD
-    SWAP1 JUMP
-    */
 
 rip160:
     // stack: addr, retdest
