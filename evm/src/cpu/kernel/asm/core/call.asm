@@ -7,6 +7,7 @@ global sys_call:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    DUP1 %handle_precompiles
     DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
     SWAP2
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -30,19 +31,41 @@ global sys_call:
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
+%macro copy_mem_to_calldata
+    // stack: new_ctx, args_offset, args_size
+    GET_CONTEXT
+    %stack (ctx, new_ctx, args_offset, args_size) ->
+        (
+        new_ctx, @SEGMENT_CALLDATA, 0,              // DST
+        ctx, @SEGMENT_MAIN_MEMORY, args_offset,     // SRC
+        args_size, %%after                         // count, retdest
+        )
+    %jump(memcpy)
+%%after:
+%endmacro
+
 // Creates a new sub context as if calling itself, but with the code of the
 // given account. In particular the storage remains the same.
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     // TODO: Charge gas.
+    PUSH 100 %charge_gas // TODO: Do this properly.
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    %handle_precompiles
     DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
     SWAP2
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP7
+    %stack (args_size, new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size, new_ctx)
+    MSTORE_GENERAL
+    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (new_ctx, args_offset, args_size, new_ctx, kexit_info, gas, address, value, ret_offset, ret_size)
+    %copy_mem_to_calldata
+    // stack: new_ctx, kexit_info, gas, address, value, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
     %address %set_new_ctx_addr

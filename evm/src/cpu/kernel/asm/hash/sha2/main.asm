@@ -6,7 +6,41 @@ global sha2:
     // stack: virt, num_bytes, virt, retdest
     %mstore_kernel_general
     // stack: virt, retdest
-    
+
+    PUSH 0 %mload_kernel_general POP
+    PUSH 1 %mload_kernel_general POP
+    PUSH 2 %mload_kernel_general POP
+    PUSH 3 %mload_kernel_general POP
+    PUSH 4 %mload_kernel_general POP
+    PUSH 5 %mload_kernel_general POP
+    PUSH 6 %mload_kernel_general POP
+    PUSH 7 %mload_kernel_general POP
+    PUSH 8 %mload_kernel_general POP
+    PUSH 9 %mload_kernel_general POP
+    PUSH 10 %mload_kernel_general POP
+    PUSH 11 %mload_kernel_general POP
+    PUSH 12 %mload_kernel_general POP
+    PUSH 13 %mload_kernel_general POP
+    PUSH 14 %mload_kernel_general POP
+    PUSH 15 %mload_kernel_general POP
+    PUSH 16 %mload_kernel_general POP
+    PUSH 17 %mload_kernel_general POP
+    PUSH 18 %mload_kernel_general POP
+    PUSH 19 %mload_kernel_general POP
+    PUSH 20 %mload_kernel_general POP
+    PUSH 21 %mload_kernel_general POP
+    PUSH 22 %mload_kernel_general POP
+    PUSH 23 %mload_kernel_general POP
+    PUSH 24 %mload_kernel_general POP
+    PUSH 25 %mload_kernel_general POP
+    PUSH 26 %mload_kernel_general POP
+    PUSH 27 %mload_kernel_general POP
+    PUSH 28 %mload_kernel_general POP
+    PUSH 29 %mload_kernel_general POP
+    PUSH 30 %mload_kernel_general POP
+    PUSH 31 %mload_kernel_general POP
+    PUSH 32 %mload_kernel_general POP
+
 
 // Precodition: input is in memory, starting at virt of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
