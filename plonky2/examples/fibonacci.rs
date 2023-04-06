@@ -1,5 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
+use std::fs;
+
 use anyhow::Result;
 use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
@@ -40,6 +42,10 @@ fn main() -> Result<()> {
     pw.set_target(initial_b, F::ONE);
 
     let data = builder.build::<C>();
+
+    let common_circuit_data_serialized = serde_json::to_string(&data.common).unwrap();
+    fs::write("common_circuit_data.json", common_circuit_data_serialized).expect("Unable to write file");
+
     let proof = data.prove(pw)?;
 
     println!(

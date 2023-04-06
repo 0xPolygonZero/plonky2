@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use core::ops::{Range, RangeFrom};
 
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;
@@ -35,7 +36,7 @@ use crate::util::serialization::{
 };
 use crate::util::timing::TimingTree;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -370,7 +371,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
 }
 
 /// Circuit data required by both the prover and the verifier.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
