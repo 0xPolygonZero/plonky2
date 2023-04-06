@@ -318,7 +318,7 @@ impl<'a> Interpreter<'a> {
             0x0e => self.run_subfp254(),                                // "SUBFP254",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
-            0x12 => todo!(),                                            // "SLT",
+            0x12 => self.run_slt(),                                     // "SLT",
             0x13 => todo!(),                                            // "SGT",
             0x14 => self.run_eq(),                                      // "EQ",
             0x15 => self.run_iszero(),                                  // "ISZERO",
@@ -575,6 +575,12 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push_bool(x > y);
+    }
+
+    fn run_slt(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push_bool(signed_cmp(x, y) == Ordering::Less);
     }
 
     fn run_eq(&mut self) {
@@ -942,13 +948,7 @@ fn signed_cmp(x: U256, y: U256) -> Ordering {
     }
 }
 
-const MINUS_ZERO: U256 = U256([
-    0x0000000000000001,
-    0x0000000000000000,
-    0x0000000000000000,
-    0x8000000000000000,
-]);
-
+/// -1 in two's complement representation consists in all bits set to 1.
 const MINUS_ONE: U256 = U256([
     0xffffffffffffffff,
     0xffffffffffffffff,
