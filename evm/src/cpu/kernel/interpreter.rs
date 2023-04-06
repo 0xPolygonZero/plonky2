@@ -319,7 +319,7 @@ impl<'a> Interpreter<'a> {
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
             0x12 => self.run_slt(),                                     // "SLT",
-            0x13 => todo!(),                                            // "SGT",
+            0x13 => self.run_sgt(),                                     // "SGT",
             0x14 => self.run_eq(),                                      // "EQ",
             0x15 => self.run_iszero(),                                  // "ISZERO",
             0x16 => self.run_and(),                                     // "AND",
@@ -581,6 +581,12 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push_bool(signed_cmp(x, y) == Ordering::Less);
+    }
+
+    fn run_sgt(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push_bool(signed_cmp(x, y) == Ordering::Greater);
     }
 
     fn run_eq(&mut self) {
