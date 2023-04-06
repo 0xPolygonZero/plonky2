@@ -308,7 +308,7 @@ impl<'a> Interpreter<'a> {
             0x04 => self.run_div(),                                     // "DIV",
             0x05 => self.run_sdiv(),                                    // "SDIV",
             0x06 => self.run_mod(),                                     // "MOD",
-            0x07 => todo!(),                                            // "SMOD",
+            0x07 => self.run_smod(),                                    // "SMOD",
             0x08 => self.run_addmod(),                                  // "ADDMOD",
             0x09 => self.run_mulmod(),                                  // "MULMOD",
             0x0a => self.run_exp(),                                     // "EXP",
@@ -507,6 +507,34 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(if y.is_zero() { U256::zero() } else { x % y });
+    }
+
+    fn run_smod(&mut self) {
+        let mut x = self.pop();
+        let mut y = self.pop();
+
+        if y.is_zero() {
+            self.push(U256::zero());
+        } else {
+            let x_is_pos = x.eq(&(x & SIGN_MASK));
+            let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+            // We compute the absolute remainder first,
+            // then adapt its sign based on the operands.
+            if !x_is_pos {
+                x = two_complement(x);
+            }
+            if !y_is_pos {
+                y = two_complement(y);
+            }
+            let rem = x % y;
+            if rem.eq(&U256::zero()) {
+                self.push(U256::zero());
+            }
+
+            // Remainder always has the same sign as the dividend.
+            self.push(if x_is_pos { rem } else { two_complement(rem) });
+        }
     }
 
     fn run_addmod(&mut self) {
