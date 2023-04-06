@@ -3,21 +3,44 @@
 
 global sys_stop:
     // stack: kexit_info
+    // Set the parent context's return data size to 0.
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
+
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE to 0.
     PUSH 1 // success
     %jump(terminate_common)
 
 global sys_return:
     // stack: kexit_info, offset, size
-    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
-    %stack (kexit_info, offset, size) -> (kexit_info)
+    %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
+    ADD // TODO: Check for overflow?
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
 
+    // Load the parent's context.
+    %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
+
+    // Store the return data size in the parent context's metadata.
+    %stack (parent_ctx, kexit_info, offset, size) ->
+        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    MSTORE_GENERAL
+    // stack: offset, size, parent_ctx, kexit_info
+
+    // Store the return data in the parent context's returndata segment.
+    GET_CONTEXT
+    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+        (
+        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
+        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        size, sys_return_finish, kexit_info // count, retdest, ...
+        )
+    %jump(memcpy)
+
+sys_return_finish:
+    // stack: kexit_info
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
-    // TODO: Copy returned memory to parent context's RETURNDATA.
     PUSH 1 // success
     %jump(terminate_common)
 
@@ -29,6 +52,9 @@ global sys_selfdestruct:
     // Insert recipient into the accessed addresses list.
     // stack: balance, address, recipient, kexit_info
     DUP3 %insert_accessed_addresses
+
+    // Set the parent context's return data size to 0.
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
 
     // Compute gas.
     // stack: cold_access, balance, address, recipient, kexit_info
@@ -81,14 +107,34 @@ sys_selfdestruct_same_addr:
 
 global sys_revert:
     // stack: kexit_info, offset, size
-    // TODO: For now we're ignoring the returned data. Need to return it to the parent context.
-    %stack (kexit_info, offset, size) -> (kexit_info)
+    %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
+    ADD // TODO: Check for overflow?
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
 
+    // Load the parent's context.
+    %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
+
+    // Store the return data size in the parent context's metadata.
+    %stack (parent_ctx, kexit_info, offset, size) ->
+        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    MSTORE_GENERAL
+    // stack: offset, size, parent_ctx, kexit_info
+
+    // Store the return data in the parent context's returndata segment.
+    GET_CONTEXT
+    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+        (
+        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
+        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        size, sys_revert_finish, kexit_info // count, retdest, ...
+        )
+    %jump(memcpy)
+
+sys_revert_finish:
     %leftover_gas
     // stack: leftover_gas
     // TODO: Revert state changes.
-    // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE.
-    // TODO: Copy returned memory to parent context's RETURNDATA.
     PUSH 0 // success
     %jump(terminate_common)
 
@@ -103,7 +149,8 @@ global fault_exception:
     // stack: (empty)
     PUSH 0 // leftover_gas
     // TODO: Revert state changes.
-    // TODO: Set parent context's CTX_METADATA_RETURNDATA_SIZE to 0.
+    // Set the parent context's return data size to 0.
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     PUSH 0 // success
     %jump(terminate_common)
 
