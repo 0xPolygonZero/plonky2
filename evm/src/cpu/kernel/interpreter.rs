@@ -329,7 +329,7 @@ impl<'a> Interpreter<'a> {
             0x1a => self.run_byte(),                                    // "BYTE",
             0x1b => self.run_shl(),                                     // "SHL",
             0x1c => self.run_shr(),                                     // "SHR",
-            0x1d => todo!(),                                            // "SAR",
+            0x1d => self.run_sar(),                                     // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
             0x30 => todo!(),                                            // "ADDRESS",
@@ -673,6 +673,30 @@ impl<'a> Interpreter<'a> {
         let shift = self.pop();
         let value = self.pop();
         self.push(value >> shift);
+    }
+
+    fn run_sar(&mut self) {
+        let shift = self.pop();
+        let value = self.pop();
+        let value_is_neg = !value.eq(&(value & SIGN_MASK));
+
+        if shift < U256::from(256usize) {
+            let shift = shift.low_u64() as usize;
+            let mask = !(MINUS_ONE >> shift);
+            let value_shifted = value >> shift;
+
+            if value_is_neg {
+                self.push(value_shifted | mask);
+            } else {
+                self.push(value_shifted);
+            };
+        } else {
+            self.push(if value_is_neg {
+                MINUS_ONE
+            } else {
+                U256::zero()
+            });
+        }
     }
 
     fn run_keccak256(&mut self) {
