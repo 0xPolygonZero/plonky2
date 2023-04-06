@@ -312,7 +312,7 @@ impl<'a> Interpreter<'a> {
             0x08 => self.run_addmod(),                                  // "ADDMOD",
             0x09 => self.run_mulmod(),                                  // "MULMOD",
             0x0a => self.run_exp(),                                     // "EXP",
-            0x0b => todo!(),                                            // "SIGNEXTEND",
+            0x0b => self.run_signextend(),                              // "SIGNEXTEND",
             0x0c => self.run_addfp254(),                                // "ADDFP254",
             0x0d => self.run_mulfp254(),                                // "MULFP254",
             0x0e => self.run_subfp254(),                                // "SUBFP254",
@@ -587,6 +587,31 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push_bool(signed_cmp(x, y) == Ordering::Greater);
+    }
+
+    fn run_signextend(&mut self) {
+        let n = self.pop();
+        let x = self.pop();
+        if n > U256::from(31) {
+            self.push(x);
+        } else {
+            let n = n.low_u64() as usize;
+            let num_bytes_prepend = 31 - n;
+
+            let mut x_bytes = [0u8; 32];
+            x.to_big_endian(&mut x_bytes);
+            let mut x_bytes = x_bytes[num_bytes_prepend..].to_vec();
+            let sign_bit = x_bytes[0] >> 7;
+
+            self.push(if sign_bit == 0 {
+                x_bytes.extend_from_slice(&vec![0; num_bytes_prepend]);
+                U256::from_big_endian(&x_bytes)
+            } else {
+                let mut tmp = vec![0xff; num_bytes_prepend];
+                tmp.extend_from_slice(&x_bytes);
+                U256::from_big_endian(&tmp)
+            });
+        }
     }
 
     fn run_eq(&mut self) {
