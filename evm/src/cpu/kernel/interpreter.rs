@@ -354,7 +354,7 @@ impl<'a> Interpreter<'a> {
             0x44 => self.run_difficulty(),                              // "DIFFICULTY",
             0x45 => todo!(),                                            // "GASLIMIT",
             0x46 => todo!(),                                            // "CHAINID",
-            0x48 => todo!(),                                            // "BASEFEE",
+            0x48 => self.run_basefee(),                                 // "BASEFEE",
             0x49 => self.run_prover_input()?,                           // "PROVER_INPUT",
             0x50 => self.run_pop(),                                     // "POP",
             0x51 => self.run_mload(),                                   // "MLOAD",
@@ -669,6 +669,10 @@ impl<'a> Interpreter<'a> {
 
     fn run_difficulty(&mut self) {
         self.push(self.get_global_metadata_field(GlobalMetadata::BlockDifficulty))
+    }
+
+    fn run_basefee(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockBaseFee))
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
