@@ -12,6 +12,7 @@ global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Consider call depth
 
     // Each line in the block below does not change the stack.
     DUP4 %set_new_ctx_addr
