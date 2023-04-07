@@ -80,12 +80,17 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
         vanishing_partial_products_terms.extend(partial_product_checks);
     }
 
+    // println!("{:?}", vanishing_z_1_terms.clone());
+    println!("{:?}", vanishing_partial_products_terms[0].clone());
+    // println!("{:?}", constraint_terms.clone());
+
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
         constraint_terms,
     ]
     .concat();
+    // println!("{:?}", vanishing_terms);
 
     let alphas = &alphas.iter().map(|&a| a.into()).collect::<Vec<_>>();
     plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas)
