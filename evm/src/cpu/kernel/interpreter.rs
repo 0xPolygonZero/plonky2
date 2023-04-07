@@ -332,10 +332,10 @@ impl<'a> Interpreter<'a> {
             0x1d => self.run_sar(),                                     // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
-            0x30 => todo!(),                                            // "ADDRESS",
+            0x30 => self.run_address(),                                 // "ADDRESS",
             0x31 => todo!(),                                            // "BALANCE",
-            0x32 => todo!(),                                            // "ORIGIN",
-            0x33 => todo!(),                                            // "CALLER",
+            0x32 => self.run_origin(),                                  // "ORIGIN",
+            0x33 => self.run_caller(),                                  // "CALLER",
             0x34 => self.run_callvalue(),                               // "CALLVALUE",
             0x35 => self.run_calldataload(),                            // "CALLDATALOAD",
             0x36 => self.run_calldatasize(),                            // "CALLDATASIZE",
@@ -732,6 +732,26 @@ impl<'a> Interpreter<'a> {
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()));
+    }
+
+    fn run_address(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::Address as usize),
+        )
+    }
+
+    fn run_origin(&mut self) {
+        self.push(self.get_txn_field(NormalizedTxnField::Origin))
+    }
+
+    fn run_caller(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::Caller as usize),
+        )
     }
 
     fn run_callvalue(&mut self) {
