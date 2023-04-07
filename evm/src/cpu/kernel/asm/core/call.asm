@@ -18,7 +18,7 @@ global sys_call:
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic)
+    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP3 %set_new_ctx_gas_limit
