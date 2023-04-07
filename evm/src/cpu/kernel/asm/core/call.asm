@@ -232,7 +232,7 @@ global after_call_instruction:
         (
             new_ctx, @SEGMENT_CALLDATA, 0,          // DST
             ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
-            args_size, %%after,                       // count, retdest
+            args_size, %%after,                     // count, retdest
             new_ctx, args_size
         )
     %jump(memcpy)
