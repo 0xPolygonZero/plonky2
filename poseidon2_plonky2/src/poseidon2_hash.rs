@@ -125,7 +125,75 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0xc0c2e289afa75181, 0x1e4fa2ad948978b7, 0x2a226a127a0bb26a, 0xe61738a70357ce76,
 ];
 
+// Applying cheap 4x4 MDS matrix to each 4-element part of the state
+// The matrix in this case is:
+// M_4 =
+// [5   7   1   3]
+// [4   6   1   1]
+// [1   3   5   7]
+// [1   1   4   6]
+// The computation is shown in more detail in https://tosc.iacr.org/index.php/ToSC/article/view/888/839, Figure 13 (M_{4,4}^{8,4} with alpha = 2)
+#[inline(always)]
+fn matrix_mul_block(x: &mut [u64]) {
+    let mut t_2 = x[1];
+    let mut t_3 = x[3];
+    let t_0 = x[0] + t_2;
+    let t_1 = x[2] + t_3;
+    t_2 = (t_2 << 1) + t_1;
+    t_3 = (t_3 << 1) + t_0;
+    let t_4 = (t_1 << 2) + t_3;
+    let t_5 = (t_0 << 2) + t_2;
+    let t_6 = t_3 + t_5;
+    let t_7 = t_2 + t_4;
+    x[0] = t_6;
+    x[1] = t_5;
+    x[2] = t_7;
+    x[3] = t_4;
+}
+
+#[inline(always)]
+#[unroll_for_loops]
+fn combine_m4_prods(x: &mut [u64], s: [u64; 4]) {
+    for i in 0..4 {
+        x[i] += s[i];
+    }
+}
+
 const WIDTH: usize = PoseidonHashConfig::WIDTH;
+const T4: usize = WIDTH/4;
+
+// Apply external matrix to a state vector with at most 32 bits elements.
+// This is employed to compute product with external matrix employing only native u64 integer
+// arithmetic for efficiency
+#[inline(always)]
+#[unroll_for_loops]
+fn external_matrix_with_u64_arithmetic(x: &mut [u64; WIDTH]) {
+    for i in 0..T4 {
+        matrix_mul_block(&mut x[i*4..(i+1)*4]);
+    }
+
+    // Applying second cheap matrix
+    // This completes the multiplication by
+    // M_E =
+    // [2*M_4    M_4    M_4]
+    // [  M_4  2*M_4    M_4]
+    // [  M_4    M_4  2*M_4]
+    // using the results with M_4 obtained above
+
+    // compute vector to be later used to combine M_4 multiplication results with current state x;
+    // this operation is performed without loops for efficiency
+    debug_assert_eq!(T4, 3);
+    let s0 = x[0] + x[4] + x[8];
+    let s1 = x[1] + x[5] + x[9];
+    let s2 = x[2] + x[6] + x[10];
+    let s3 = x[3] + x[7] + x[11];
+    let s = [s0,s1,s2,s3];
+
+    for i in 0..T4 {
+        combine_m4_prods(&mut x[i*4..(i+1)*4], s);
+    }
+}
+
 pub trait Poseidon2: PrimeField64 {
     /// Total number of round constants required: width of the input
     /// times number of rounds.
@@ -139,51 +207,20 @@ pub trait Poseidon2: PrimeField64 {
     #[inline(always)]
     #[unroll_for_loops]
     fn external_matrix(state: &mut [Self; WIDTH]) {
-        // Applying cheap 4x4 MDS matrix to each 4-element part of the state
-        // The matrix in this case is:
-        // M_4 =
-        // [5   7   1   3]
-        // [4   6   1   1]
-        // [1   3   5   7]
-        // [1   1   4   6]
-        // The computation is shown in more detail in https://tosc.iacr.org/index.php/ToSC/article/view/888/839, Figure 13 (M_{4,4}^{8,4} with alpha = 2)
-        let t4 = WIDTH / 4;
-        let mut state_u128: [u128; WIDTH] = [0u128; WIDTH];
-        for i in 0..t4 {
-            let start_index = i * 4;
-            let mut t_2 = state[start_index + 1].to_noncanonical_u64() as u128;
-            let mut t_3 = state[start_index + 3].to_noncanonical_u64() as u128;
-            let t_0 = state[start_index].to_noncanonical_u64() as u128 + t_2;
-            let t_1 = state[start_index + 2].to_noncanonical_u64() as u128 + t_3;
-            t_2 = (t_2 << 1) + t_1;
-            t_3 = (t_3 << 1) + t_0;
-            let t_4 = (t_1 << 2) + t_3;
-            let t_5 = (t_0 << 2) + t_2;
-            let t_6 = t_3 + t_5;
-            let t_7 = t_2 + t_4;
-            state_u128[start_index] = t_6;
-            state_u128[start_index + 1] = t_5;
-            state_u128[start_index + 2] = t_7;
-            state_u128[start_index + 3] = t_4;
-        }
-
-        // Applying second cheap matrix
-        // This completes the multiplication by
-        // M_E =
-        // [2*M_4    M_4    M_4]
-        // [  M_4  2*M_4    M_4]
-        // [  M_4    M_4  2*M_4]
-        // using the results with M_4 obtained above
-        let mut stored: [u128; 4] = state_u128[..4].try_into().unwrap();
-        for l in 0..4 {
-            for j in 1..t4 {
-                stored[l] += state_u128[4 * j + l];
-            }
-        }
+        let mut state_l = [0u64; WIDTH];
+        let mut state_h = [0u64; WIDTH];
         for i in 0..WIDTH {
-            state_u128[i] += stored[i % 4];
+            let state_u64 = state[i].to_noncanonical_u64();
+            state_h[i] = state_u64 >> 32;
+            state_l[i] = (state_u64 as u32) as u64;
+        }
+        external_matrix_with_u64_arithmetic(&mut state_l);
+        external_matrix_with_u64_arithmetic(&mut state_h);
+
+        for i in 0..WIDTH {
+            let (state_u64, carry) = state_l[i].overflowing_add(state_h[i] << 32);
             state[i] =
-                Self::from_noncanonical_u96((state_u128[i] as u64, (state_u128[i] >> 64) as u32));
+                Self::from_noncanonical_u96((state_u64, (state_h[i] >> 32) as u32 + carry as u32));
         }
     }
 
