@@ -21,7 +21,7 @@ global sys_call:
     DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
-    DUP3 %set_new_ctx_gas_limit
+    DUP3 %set_new_ctx_gas_limit // TODO: This is not correct in most cases. Use C_callgas as in the YP.
     DUP4 %set_new_ctx_code
 
     %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
