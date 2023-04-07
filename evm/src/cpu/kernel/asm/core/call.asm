@@ -125,10 +125,7 @@ global after_call_instruction:
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
 
     // The callee's terminal instruction will have populated RETURNDATA.
-    // TODO: Copy RETURNDATA to memory[ret_offset..ret_offset + ret_size].
-
-    %stack (kexit_info, new_ctx, success, ret_offset, ret_size)
-        -> (kexit_info, success)
+    %copy_returndata_to_mem
     EXIT_KERNEL
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
@@ -241,4 +238,18 @@ global after_call_instruction:
         (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size, new_ctx)
     MSTORE_GENERAL
     // stack: new_ctx
+%endmacro
+
+%macro copy_returndata_to_mem
+    // stack: kexit_info, new_ctx, success, ret_offset, ret_size
+    GET_CONTEXT
+    %stack (ctx, kexit_info, new_ctx, success, ret_offset, ret_size) ->
+        (
+            ctx, @SEGMENT_MAIN_MEMORY, ret_offset, // DST
+            ctx, @SEGMENT_RETURNDATA, 0,           // SRC
+            ret_size, %%after,                     // count, retdest
+            kexit_info, success
+        )
+    %jump(memcpy)
+%%after:
 %endmacro
