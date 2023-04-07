@@ -17,13 +17,15 @@ global sys_call:
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth
+    DUP5 DUP5 %address %transfer_eth %jumpi(panic)
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
+    DUP3 %set_new_ctx_gas_limit
+    DUP4 %set_new_ctx_code
 
-    // TODO: Copy memory[args_offset..args_offset + args_size] CALLDATA
-    // TODO: Set child gas
-    // TODO: Populate code and codesize field.
+    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
 
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -203,6 +205,16 @@ global after_call_instruction:
     // stack: new_ctx
 %endmacro
 
+%macro set_new_ctx_code
+    %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
+    %jump(load_code)
+%%after:
+    %stack (code_size, new_ctx)
+        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
 %macro enter_new_ctx
     // stack: new_ctx
     // Switch to the new context and go to usermode with PC=0.
@@ -211,4 +223,21 @@ global after_call_instruction:
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx
+%endmacro
+
+%macro copy_mem_to_calldata
+    GET_CONTEXT
+    %stack (ctx, new_ctx, args_offset, args_size, new_ctx) ->
+        (
+            new_ctx, @SEGMENT_CALLDATA, 0,          // DST
+            ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
+            args_size, %%after,                       // count, retdest
+            new_ctx, args_size
+        )
+    %jump(memcpy)
+%%after:
+    %stack (new_ctx, args_size) ->
+        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
 %endmacro
