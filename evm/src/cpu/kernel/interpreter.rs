@@ -349,7 +349,7 @@ impl<'a> Interpreter<'a> {
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
             0x41 => todo!(),                                            // "COINBASE",
-            0x42 => todo!(),                                            // "TIMESTAMP",
+            0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => todo!(),                                            // "NUMBER",
             0x44 => todo!(),                                            // "DIFFICULTY",
             0x45 => todo!(),                                            // "GASLIMIT",
@@ -657,6 +657,10 @@ impl<'a> Interpreter<'a> {
                 calldata_byte,
             );
         }
+    }
+
+    fn run_timestamp(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockTimestamp))
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
