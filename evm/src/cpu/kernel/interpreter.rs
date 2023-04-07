@@ -348,7 +348,7 @@ impl<'a> Interpreter<'a> {
             0x3e => todo!(),                                            // "RETURNDATACOPY",
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
-            0x41 => todo!(),                                            // "COINBASE",
+            0x41 => self.run_coinbase(),                                // "COINBASE",
             0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => self.run_number(),                                  // "NUMBER",
             0x44 => self.run_difficulty(),                              // "DIFFICULTY",
@@ -657,6 +657,10 @@ impl<'a> Interpreter<'a> {
                 calldata_byte,
             );
         }
+    }
+
+    fn run_coinbase(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockBeneficiary))
     }
 
     fn run_timestamp(&mut self) {
