@@ -352,7 +352,7 @@ impl<'a> Interpreter<'a> {
             0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => self.run_number(),                                  // "NUMBER",
             0x44 => self.run_difficulty(),                              // "DIFFICULTY",
-            0x45 => todo!(),                                            // "GASLIMIT",
+            0x45 => self.run_gaslimit(),                                // "GASLIMIT",
             0x46 => self.run_chainid(),                                 // "CHAINID",
             0x48 => self.run_basefee(),                                 // "BASEFEE",
             0x49 => self.run_prover_input()?,                           // "PROVER_INPUT",
@@ -673,6 +673,10 @@ impl<'a> Interpreter<'a> {
 
     fn run_difficulty(&mut self) {
         self.push(self.get_global_metadata_field(GlobalMetadata::BlockDifficulty))
+    }
+
+    fn run_gaslimit(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockGasLimit))
     }
 
     fn run_basefee(&mut self) {
