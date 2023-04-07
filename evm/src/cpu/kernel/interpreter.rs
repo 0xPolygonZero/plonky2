@@ -351,7 +351,7 @@ impl<'a> Interpreter<'a> {
             0x41 => todo!(),                                            // "COINBASE",
             0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => self.run_number(),                                  // "NUMBER",
-            0x44 => todo!(),                                            // "DIFFICULTY",
+            0x44 => self.run_difficulty(),                              // "DIFFICULTY",
             0x45 => todo!(),                                            // "GASLIMIT",
             0x46 => todo!(),                                            // "CHAINID",
             0x48 => todo!(),                                            // "BASEFEE",
@@ -665,6 +665,10 @@ impl<'a> Interpreter<'a> {
 
     fn run_number(&mut self) {
         self.push(self.get_global_metadata_field(GlobalMetadata::BlockNumber))
+    }
+
+    fn run_difficulty(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockDifficulty))
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
