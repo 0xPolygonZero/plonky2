@@ -87,7 +87,7 @@ global create_common:
 
 run_constructor:
     // stack: new_ctx, value, address, kexit_info
-    %set_new_ctx_value
+    SWAP1 %set_new_ctx_value
     // stack: new_ctx, address, kexit_info
 
     // Each line in the block below does not change the stack.
