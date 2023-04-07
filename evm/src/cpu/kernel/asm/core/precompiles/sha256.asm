@@ -1,6 +1,7 @@
 global precompile_sha256:
+    // How do we pay gas in this "new context"?
+    // stack: address, %%after, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (address, retdest, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
-        //(args_offset, args_size, ret_offset, ret_size, kexit_info)
         (args_size, kexit_info, args_offset, args_size, ret_offset, ret_size)
 
     %num_bytes_to_num_words

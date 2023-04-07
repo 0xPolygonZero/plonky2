@@ -1,8 +1,8 @@
 %macro handle_precompiles
-    // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     PUSH %%after
-    DUP2
-    // stack: address, %%after, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP5
+    // stack: address, %%after, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %jump(handle_precompiles)
 %%after:
     // stack: (empty)

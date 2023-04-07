@@ -53,7 +53,6 @@ global sys_callcode:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    %handle_precompiles
     DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
     SWAP2
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -75,6 +74,8 @@ global sys_callcode:
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
+    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    %handle_precompiles
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
