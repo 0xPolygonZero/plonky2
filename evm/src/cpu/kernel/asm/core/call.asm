@@ -12,17 +12,20 @@ global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // TODO: Consider call depth
 
     // Each line in the block below does not change the stack.
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth
+    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_pc(after_call_instruction)
+    DUP3 %set_new_ctx_gas_limit // TODO: This is not correct in most cases. Use C_callgas as in the YP.
+    DUP4 %set_new_ctx_code
 
-    // TODO: Copy memory[args_offset..args_offset + args_size] CALLDATA
-    // TODO: Set child gas
-    // TODO: Populate code and codesize field.
+    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
 
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -47,7 +50,7 @@ global sys_callcode:
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth
+    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_pc(after_call_instruction)
 
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -118,10 +121,7 @@ global after_call_instruction:
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
 
     // The callee's terminal instruction will have populated RETURNDATA.
-    // TODO: Copy RETURNDATA to memory[ret_offset..ret_offset + ret_size].
-
-    %stack (kexit_info, new_ctx, success, ret_offset, ret_size)
-        -> (kexit_info, success)
+    %copy_returndata_to_mem
     EXIT_KERNEL
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
@@ -199,6 +199,16 @@ global after_call_instruction:
     // stack: new_ctx
 %endmacro
 
+%macro set_new_ctx_code
+    %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
+    %jump(load_code)
+%%after:
+    %stack (code_size, new_ctx)
+        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
 %macro enter_new_ctx
     // stack: new_ctx
     // Switch to the new context and go to usermode with PC=0.
@@ -207,4 +217,36 @@ global after_call_instruction:
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx
+%endmacro
+
+%macro copy_mem_to_calldata
+    // stack: new_ctx, args_offset, args_size
+    GET_CONTEXT
+    %stack (ctx, new_ctx, args_offset, args_size) ->
+        (
+            new_ctx, @SEGMENT_CALLDATA, 0,          // DST
+            ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
+            args_size, %%after,                     // count, retdest
+            new_ctx, args_size
+        )
+    %jump(memcpy)
+%%after:
+    %stack (new_ctx, args_size) ->
+        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size)
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+%macro copy_returndata_to_mem
+    // stack: kexit_info, new_ctx, success, ret_offset, ret_size
+    GET_CONTEXT
+    %stack (ctx, kexit_info, new_ctx, success, ret_offset, ret_size) ->
+        (
+            ctx, @SEGMENT_MAIN_MEMORY, ret_offset, // DST
+            ctx, @SEGMENT_RETURNDATA, 0,           // SRC
+            ret_size, %%after,                     // count, retdest
+            kexit_info, success
+        )
+    %jump(memcpy)
+%%after:
 %endmacro
