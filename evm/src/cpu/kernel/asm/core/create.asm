@@ -93,7 +93,6 @@ run_constructor:
     // Each line in the block below does not change the stack.
     DUP2 %set_new_ctx_addr
     %address %set_new_ctx_caller
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_constructor)
     // stack: new_ctx, address, kexit_info
 
