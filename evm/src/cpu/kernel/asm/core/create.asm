@@ -87,13 +87,12 @@ global create_common:
 
 run_constructor:
     // stack: new_ctx, value, address, kexit_info
-    %set_new_ctx_value
+    SWAP1 %set_new_ctx_value
     // stack: new_ctx, address, kexit_info
 
     // Each line in the block below does not change the stack.
     DUP2 %set_new_ctx_addr
     %address %set_new_ctx_caller
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_constructor)
     // stack: new_ctx, address, kexit_info
 
