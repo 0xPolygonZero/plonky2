@@ -51,7 +51,7 @@ global sys_callcode:
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth
+    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
@@ -224,8 +224,9 @@ global after_call_instruction:
 %endmacro
 
 %macro copy_mem_to_calldata
+    // stack: new_ctx, args_offset, args_size
     GET_CONTEXT
-    %stack (ctx, new_ctx, args_offset, args_size, new_ctx) ->
+    %stack (ctx, new_ctx, args_offset, args_size) ->
         (
             new_ctx, @SEGMENT_CALLDATA, 0,          // DST
             ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
@@ -235,9 +236,9 @@ global after_call_instruction:
     %jump(memcpy)
 %%after:
     %stack (new_ctx, args_size) ->
-        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size, new_ctx)
+        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size)
     MSTORE_GENERAL
-    // stack: new_ctx
+    // stack: (empty)
 %endmacro
 
 %macro copy_returndata_to_mem
