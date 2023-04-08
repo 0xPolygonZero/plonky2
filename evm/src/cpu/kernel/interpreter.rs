@@ -348,13 +348,13 @@ impl<'a> Interpreter<'a> {
             0x3e => todo!(),                                            // "RETURNDATACOPY",
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
-            0x41 => todo!(),                                            // "COINBASE",
-            0x42 => todo!(),                                            // "TIMESTAMP",
-            0x43 => todo!(),                                            // "NUMBER",
-            0x44 => todo!(),                                            // "DIFFICULTY",
-            0x45 => todo!(),                                            // "GASLIMIT",
-            0x46 => todo!(),                                            // "CHAINID",
-            0x48 => todo!(),                                            // "BASEFEE",
+            0x41 => self.run_coinbase(),                                // "COINBASE",
+            0x42 => self.run_timestamp(),                               // "TIMESTAMP",
+            0x43 => self.run_number(),                                  // "NUMBER",
+            0x44 => self.run_difficulty(),                              // "DIFFICULTY",
+            0x45 => self.run_gaslimit(),                                // "GASLIMIT",
+            0x46 => self.run_chainid(),                                 // "CHAINID",
+            0x48 => self.run_basefee(),                                 // "BASEFEE",
             0x49 => self.run_prover_input()?,                           // "PROVER_INPUT",
             0x50 => self.run_pop(),                                     // "POP",
             0x51 => self.run_mload(),                                   // "MLOAD",
@@ -657,6 +657,34 @@ impl<'a> Interpreter<'a> {
                 calldata_byte,
             );
         }
+    }
+
+    fn run_coinbase(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockBeneficiary))
+    }
+
+    fn run_timestamp(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockTimestamp))
+    }
+
+    fn run_number(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockNumber))
+    }
+
+    fn run_difficulty(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockDifficulty))
+    }
+
+    fn run_gaslimit(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockGasLimit))
+    }
+
+    fn run_basefee(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockBaseFee))
+    }
+
+    fn run_chainid(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockChainId))
     }
 
     fn run_prover_input(&mut self) -> anyhow::Result<()> {
