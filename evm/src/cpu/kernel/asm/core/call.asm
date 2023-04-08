@@ -19,7 +19,6 @@ global sys_call:
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
     DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP3 %set_new_ctx_gas_limit // TODO: This is not correct in most cases. Use C_callgas as in the YP.
     DUP4 %set_new_ctx_code
@@ -52,7 +51,6 @@ global sys_callcode:
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
     DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -82,7 +80,6 @@ global sys_staticcall:
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     PUSH 0 %set_new_ctx_value
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -108,7 +105,6 @@ global sys_delegatecall:
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
