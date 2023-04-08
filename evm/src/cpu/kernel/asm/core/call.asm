@@ -18,7 +18,6 @@ global sys_call:
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
     DUP5 DUP5 %address %transfer_eth
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     // TODO: Copy memory[args_offset..args_offset + args_size] CALLDATA
@@ -49,7 +48,6 @@ global sys_callcode:
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
     DUP5 DUP5 %address %transfer_eth
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -79,7 +77,6 @@ global sys_staticcall:
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     PUSH 0 %set_new_ctx_value
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -105,7 +102,6 @@ global sys_delegatecall:
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_call_instruction)
 
     %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
