@@ -1,4 +1,4 @@
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::U256;
 use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
@@ -135,18 +135,9 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);
     channel.addr_virtual = F::from_canonical_usize(address.virt);
-    if row.is_keccak_sponge.is_one() {
-        // Retrieve hash value as it was computed and store the values in memory the same way the kernel hash is stored.
-        let val_h256 = H256::from_uint(&val).0;
-        let val_u32s: [u32; 8] = core::array::from_fn(|i| {
-            u32::from_le_bytes(core::array::from_fn(|j| val_h256[i * 4 + j]))
-        });
-        channel.value = val_u32s.map(F::from_canonical_u32);
-    } else {
-        for (i, limb) in val_limbs.into_iter().enumerate() {
-            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
-            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
-        }
+    for (i, limb) in val_limbs.into_iter().enumerate() {
+        channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+        channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
     }
 
     op
