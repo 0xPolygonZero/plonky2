@@ -68,6 +68,7 @@
     ADD // OR
 %endmacro
 
+// All but one 64th
 %macro L
     // stack: x
     DUP1 %div_const(64) SWAP1 SUB

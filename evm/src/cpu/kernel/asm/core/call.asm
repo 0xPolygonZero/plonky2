@@ -1,82 +1,24 @@
 // Handlers for call-like operations, namely CALL, CALLCODE, STATICCALL and DELEGATECALL.
 
-%macro call_charge_gas
-    // stack: cold_access, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
-    %add_const(@GAS_WARMACCESS)
-    // stack: Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 ISZERO PUSH 1 SUB
-    // stack: value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP1
-    %mul_const(@GAS_CALLVALUE)
-    // stack: Cxfer, value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    SWAP1
-    // stack: value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP4 %is_dead MUL
-    // stack: is_dead(address) and value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    %mul_const(@GAS_NEWACCOUNT)
-    // stack: Cnew, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    ADD ADD
-    // stack: Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP4 %leftover_gas
-    // stack: leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP2 DUP2 LT
-    // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 DUP2 MUL
-    // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    SWAP1 PUSH 1 SUB
-    // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP4 DUP4 SUB
-    // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    %L
-    // stack: L(leftover_gas - Cextra), leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    DUP7 %min MUL ADD
-    // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
-    ADD
-    %stack (C, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
-        (C, kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size)
-    %charge_gas
-    %stack (kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
-        (Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size)
-    DUP5 ISZERO PUSH 1 SUB
-    // stack: value!=0, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
-    %mul_const(@GAS_CALLSTIPEND) ADD
-    %stack (gas_limit, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
-        (kexit_info, gas_limit, address, value, args_offset, args_size, ret_offset, ret_size)
-%endmacro
-
-%macro checked_mem_expansion
-    // stack: size, offset, kexit_info
-    DUP1 ISZERO %jumpi(%%zero)
-    ADD
-    // stack: expanded_num_bytes, kexit_info
-    DUP1 %ensure_reasonable_offset
-    %update_mem_bytes
-    %jump(%%after)
-%%zero:
-    %pop2
-%%after:
-%endmacro
-
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
-    // TODO: Charge gas.
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_accessed_addresses // TODO: Use return value in gas calculation.
+    DUP1 %insert_accessed_addresses
+
     %call_charge_gas
-global wtf:
-    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %checked_mem_expansion
-    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %checked_mem_expansion
+
     %create_context
-    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     // TODO: Consider call depth
 
     // Each line in the block below does not change the stack.
@@ -85,15 +27,15 @@ global wtf:
     DUP5 %set_new_ctx_value
     DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_pc(after_call_instruction)
-    DUP3 %set_new_ctx_gas_limit // TODO: This is not correct in most cases. Use C_callgas as in the YP.
+    DUP3 %set_new_ctx_gas_limit
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-          (new_ctx, args_offset, args_size, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
 
-    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
-    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -313,5 +255,82 @@ global after_call_instruction:
             kexit_info, success
         )
     %jump(memcpy)
+%%after:
+%endmacro
+
+// Charge gas for *call opcodes and return the sub-context gas limit.
+%macro call_charge_gas
+    // Compute C_aaccess
+    // stack: cold_access, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
+    %add_const(@GAS_WARMACCESS)
+
+    // Compute C_xfer
+    // stack: Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 ISZERO PUSH 1 SUB
+    // stack: value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP1
+    %mul_const(@GAS_CALLVALUE)
+
+    // Compute C_new
+    // stack: Cxfer, value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    SWAP1
+    // stack: value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 %is_dead MUL
+    // stack: is_dead(address) and value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_NEWACCOUNT)
+    // stack: Cnew, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+
+    // Compute C_extra
+    ADD ADD
+
+
+    // Compute C_gascap
+    // stack: Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 %leftover_gas
+    // stack: leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP2 DUP2 LT
+    // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 DUP2 MUL
+    // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    SWAP1 PUSH 1 SUB
+    // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 DUP4 SUB
+    // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %L
+    // stack: L(leftover_gas - Cextra), leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP7 %min MUL ADD
+    // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+
+
+    // Compute C_call and charge for it.
+    %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
+    ADD
+    %stack (C_call, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
+        (C_call, kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size)
+    %charge_gas
+
+
+    // Compute C_callgas
+    %stack (kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
+        (Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size)
+    DUP5 ISZERO PUSH 1 SUB
+    // stack: value!=0, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_CALLSTIPEND) ADD
+    %stack (C_callgas, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
+        (kexit_info, C_callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+%endmacro
+
+// Checked memory expansion.
+%macro checked_mem_expansion
+    // stack: size, offset, kexit_info
+    DUP1 ISZERO %jumpi(%%zero)
+    ADD
+    // stack: expanded_num_bytes, kexit_info
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+    %jump(%%after)
+%%zero:
+    %pop2
 %%after:
 %endmacro
