@@ -345,8 +345,8 @@ impl<'a> Interpreter<'a> {
             0x3a => self.run_gasprice(),                                // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
-            0x3d => todo!(),                                            // "RETURNDATASIZE",
-            0x3e => todo!(),                                            // "RETURNDATACOPY",
+            0x3d => self.run_returndatasize(),                          // "RETURNDATASIZE",
+            0x3e => self.run_returndatacopy(),                          // "RETURNDATACOPY",
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
             0x41 => self.run_coinbase(),                                // "COINBASE",
@@ -832,6 +832,33 @@ impl<'a> Interpreter<'a> {
 
     fn run_gasprice(&mut self) {
         self.push(self.get_txn_field(NormalizedTxnField::ComputedFeePerGas))
+    }
+
+    fn run_returndatasize(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::ReturndataSize as usize),
+        )
+    }
+
+    fn run_returndatacopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let returndata_byte = self.generation_state.memory.mload_general(
+                self.context,
+                Segment::Returndata,
+                offset + i,
+            );
+            self.generation_state.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                returndata_byte,
+            );
+        }
     }
 
     fn run_coinbase(&mut self) {
