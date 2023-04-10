@@ -143,112 +143,110 @@ global sub_fp381_2:
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
     JUMP
 
-global add_fp381_6:
+%macro add_term_kernel
     // stack:           inA, inB, out, jumpdest
     DUP2
-    // stack:     inB0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:       B0, inA, inB, out, jumpdest
-    DUP3
-    // stack: inA0, B0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:   A0, B0, inA, inB, out, jumpdest
-    %add_fp381
-    // stack:       C0, inA, inB, out, jumpdest
-    DUP5
-    // stack: out0, C0, inA, inB, out, jumpdest
-    %mstore_bls
-
-    // stack:           inA, inB, out, jumpdest
-    DUP2
-    %add_const(2)
     // stack:     inB1, inA, inB, out, jumpdest
     %mload_bls
     // stack:       B1, inA, inB, out, jumpdest
     DUP3
-    %add_const(2)
     // stack: inA1, B1, inA, inB, out, jumpdest
     %mload_bls
     // stack:   A1, B1, inA, inB, out, jumpdest
     %add_fp381
     // stack:       C1, inA, inB, out, jumpdest
     DUP5
-    %add_const(2)
     // stack: out1, C1, inA, inB, out, jumpdest
     %mstore_bls
+%endmacro
 
+%macro add_term_kernel(n)
     // stack:           inA, inB, out, jumpdest
     DUP2
-    %add_const(4)
-    // stack:     inB2, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack:     inB1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:       B2, inA, inB, out, jumpdest
+    // stack:       B1, inA, inB, out, jumpdest
     DUP3
-    %add_const(4)
-    // stack: inA2, B2, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack: inA1, B1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:   A2, B2, inA, inB, out, jumpdest
+    // stack:   A1, B1, inA, inB, out, jumpdest
     %add_fp381
-    // stack:       C2, inA, inB, out, jumpdest
+    // stack:       C1, inA, inB, out, jumpdest
     DUP5
-    %add_const(4)
-    // stack: out2, C2, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack: out1, C1, inA, inB, out, jumpdest
     %mstore_bls
+%endmacro
 
+global add_fp381_6:
     // stack:           inA, inB, out, jumpdest
-    DUP2
-    %add_const(6)
-    // stack:     inB3, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:       B3, inA, inB, out, jumpdest
-    DUP3
-    %add_const(6)
-    // stack: inA3, B3, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:   A3, B3, inA, inB, out, jumpdest
-    %add_fp381
-    // stack:       C3, inA, inB, out, jumpdest
-    DUP5
-    %add_const(6)
-    // stack: out3, C3, inA, inB, out, jumpdest
-    %mstore_bls
+    %add_term_kernel                          
+    // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
+    %add_term_kernel(2)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
+    %add_term_kernel(4)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2,  0,  0,  0 ] }
+    %add_term_kernel(6)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3,  0,  0 ] }
+    %add_term_kernel(8)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4,  0 ] }
+    %add_term_kernel(10)                      
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4, C5 ] }
+    %pop3
+    JUMP
 
+%macro sub_term_kernel
     // stack:           inA, inB, out, jumpdest
     DUP2
-    %add_const(8)
-    // stack:     inB4, inA, inB, out, jumpdest
+    // stack:     inB1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:       B4, inA, inB, out, jumpdest
+    // stack:       B1, inA, inB, out, jumpdest
     DUP3
-    %add_const(8)
-    // stack: inA4, B4, inA, inB, out, jumpdest
+    // stack: inA1, B1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:   A4, B4, inA, inB, out, jumpdest
-    %add_fp381
-    // stack:       C4, inA, inB, out, jumpdest
+    // stack:   A1, B1, inA, inB, out, jumpdest
+    %sub_fp381
+    // stack:       C1, inA, inB, out, jumpdest
     DUP5
-    %add_const(8)
-    // stack: out4, C4, inA, inB, out, jumpdest
+    // stack: out1, C1, inA, inB, out, jumpdest
     %mstore_bls
-    
+%endmacro
+
+%macro sub_term_kernel(n)
     // stack:           inA, inB, out, jumpdest
     DUP2
-    %add_const(10)
-    // stack:     inB5, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack:     inB1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:       B5, inA, inB, out, jumpdest
+    // stack:       B1, inA, inB, out, jumpdest
     DUP3
-    %add_const(10)
-    // stack: inA5, B5, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack: inA1, B1, inA, inB, out, jumpdest
     %mload_bls
-    // stack:   A5, B5, inA, inB, out, jumpdest
-    %add_fp381
-    // stack:       C5, inA, inB, out, jumpdest
+    // stack:   A1, B1, inA, inB, out, jumpdest
+    %sub_fp381
+    // stack:       C1, inA, inB, out, jumpdest
     DUP5
-    %add_const(10)
-    // stack: out5, C5, inA, inB, out, jumpdest
+    %add_const($n)
+    // stack: out1, C1, inA, inB, out, jumpdest
     %mstore_bls
-    
+%endmacro
+
+global sub_fp381_6:
     // stack:           inA, inB, out, jumpdest
+    %sub_term_kernel                          
+    // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
+    %sub_term_kernel(2)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
+    %sub_term_kernel(4)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2,  0,  0,  0 ] }
+    %sub_term_kernel(6)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3,  0,  0 ] }
+    %sub_term_kernel(8)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4,  0 ] }
+    %sub_term_kernel(10)                      
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4, C5 ] }
     %pop3
     JUMP
