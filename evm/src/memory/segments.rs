@@ -132,7 +132,7 @@ impl Segment {
             Segment::KernelGeneral2 => 256,
             Segment::KernelAccountCode => 8,
             Segment::TxnFields => 256,
-            Segment::TxnData => 256,
+            Segment::TxnData => 8,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
             Segment::TrieEncodedChild => 256,

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+use hashbrown::HashMap;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
@@ -17,6 +18,7 @@ use plonky2::plonk::circuit_data::{
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
+use plonky2::recursion::dummy_circuit::cyclic_base_proof;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
 
@@ -453,6 +455,15 @@ where
         if let Some(parent_block_proof) = opt_parent_block_proof {
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
+        } else {
+            block_inputs.set_proof_with_pis_target(
+                &self.block.parent_block_proof,
+                &cyclic_base_proof(
+                    &self.block.circuit.common,
+                    &self.block.circuit.verifier_only,
+                    HashMap::new(),
+                ),
+            );
         }
 
         block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);

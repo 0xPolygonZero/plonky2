@@ -7,6 +7,24 @@ This repository was originally for Plonky2, a SNARK implementation based on tech
 
 For more details about the Plonky2 argument system, see this [writeup](plonky2/plonky2.pdf).
 
+Polymer Labs has written up a helpful tutorial [here](https://polymerlabs.medium.com/a-tutorial-on-writing-zk-proofs-with-plonky2-part-i-be5812f6b798)!
+
+
+## Examples
+
+A good starting point for how to use Plonky2 for simple applications is the included examples:
+
+* [`factorial`](plonky2/examples/factorial.rs): Proving knowledge of 100!
+* [`fibonacci`](plonky2/examples/fibonacci.rs): Proving knowledge of the hundredth Fibonacci number
+* [`range_check`](plonky2/examples/range_check.rs): Proving that a field element is in a given range
+* [`square_root`](plonky2/examples/square_root.rs): Proving knowledge of the square root of a given field element
+
+To run an example, use
+
+```sh
+cargo run --example <example_name>
+```
+
 
 ## Building
 

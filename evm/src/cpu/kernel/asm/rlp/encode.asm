@@ -1,55 +1,3 @@
-// RLP-encode a scalar, i.e. a variable-length integer.
-// Pre stack: pos, scalar, retdest
-// Post stack: pos
-global encode_rlp_scalar:
-    // stack: pos, scalar, retdest
-    // If scalar > 0x7f, this is the "medium" case.
-    DUP2
-    %gt_const(0x7f)
-    %jumpi(encode_rlp_scalar_medium)
-
-    // Else, if scalar != 0, this is the "small" case, where the value is its own encoding.
-    DUP2 %jumpi(encode_rlp_scalar_small)
-
-    // scalar = 0, so BE(scalar) is the empty string, which RLP encodes as a single byte 0x80.
-    // stack: pos, scalar, retdest
-    %stack (pos, scalar) -> (pos, 0x80, pos)
-    %mstore_rlp
-    // stack: pos, retdest
-    %increment
-    // stack: pos', retdest
-    SWAP1
-    JUMP
-
-encode_rlp_scalar_small:
-    // stack: pos, scalar, retdest
-    %stack (pos, scalar) -> (pos, scalar, pos)
-    // stack: pos, scalar, pos, retdest
-    %mstore_rlp
-    // stack: pos, retdest
-    %increment
-    // stack: pos', retdest
-    SWAP1
-    JUMP
-
-encode_rlp_scalar_medium:
-    // This is the "medium" case, where we write 0x80 + len followed by the
-    // (big-endian) scalar bytes. We first compute the minimal number of bytes
-    // needed to represent this scalar, then treat it as if it was a fixed-
-    // length string with that length.
-    // stack: pos, scalar, retdest
-    DUP2
-    %num_bytes
-    // stack: scalar_bytes, pos, scalar, retdest
-    %jump(encode_rlp_fixed)
-
-// Convenience macro to call encode_rlp_scalar and return where we left off.
-%macro encode_rlp_scalar
-    %stack (pos, scalar) -> (pos, scalar, %%after)
-    %jump(encode_rlp_scalar)
-%%after:
-%endmacro
-
 // RLP-encode a fixed-length 160 bit (20 byte) string. Assumes string < 2^160.
 // Pre stack: pos, string, retdest
 // Post stack: pos
@@ -79,7 +27,7 @@ global encode_rlp_256:
 %endmacro
 
 // RLP-encode a fixed-length string with the given byte length. Assumes string < 2^(8 * len).
-encode_rlp_fixed:
+global encode_rlp_fixed:
     // stack: len, pos, string, retdest
     DUP1
     %add_const(0x80)
@@ -98,6 +46,31 @@ encode_rlp_fixed_finish:
     // stack: pos', retdest
     SWAP1
     JUMP
+
+// Doubly-RLP-encode a fixed-length string with the given byte length.
+// I.e. writes encode(encode(string). Assumes string < 2^(8 * len).
+global doubly_encode_rlp_fixed:
+    // stack: len, pos, string, retdest
+    DUP1
+    %add_const(0x81)
+    // stack: first_byte, len, pos, string, retdest
+    DUP3
+    // stack: pos, first_byte, len, pos, string, retdest
+    %mstore_rlp
+    // stack: len, pos, string, retdest
+    DUP1
+    %add_const(0x80)
+    // stack: second_byte, len, original_pos, string, retdest
+    DUP3 %increment
+    // stack: pos', second_byte, len, pos, string, retdest
+    %mstore_rlp
+    // stack: len, pos, string, retdest
+    SWAP1
+    %add_const(2) // advance past the two prefix bytes
+    // stack: pos'', len, string, retdest
+    %stack (pos, len, string) -> (pos, string, len, encode_rlp_fixed_finish)
+    // stack: context, segment, pos'', string, len, encode_rlp_fixed_finish, retdest
+    %jump(mstore_unpacking_rlp)
 
 // Writes the RLP prefix for a string of the given length. This does not handle
 // the trivial encoding of certain single-byte strings, as handling that would
