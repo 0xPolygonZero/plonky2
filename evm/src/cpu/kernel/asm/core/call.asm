@@ -1,5 +1,54 @@
 // Handlers for call-like operations, namely CALL, CALLCODE, STATICCALL and DELEGATECALL.
 
+%macro call_charge_gas
+    // stack: cold_access, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
+    %add_const(@GAS_WARMACCESS)
+    // stack: Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 ISZERO PUSH 1 SUB
+    // stack: value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP1
+    %mul_const(@GAS_CALLVALUE)
+    // stack: Cxfer, value≠0, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    SWAP1
+    // stack: value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 %is_dead MUL
+    // stack: is_dead(address) and value≠0, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_NEWACCOUNT)
+    // stack: Cnew, Cxfer, Caaccess, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    ADD ADD
+    // stack: Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 %leftover_gas
+    // stack: leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP2 DUP2 LT
+    // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 DUP2 MUL
+    // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    SWAP1 PUSH 1 SUB
+    // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 DUP4 SUB
+    // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %L
+    // stack: L(leftover_gas - Cextra), leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    DUP7 %min MUL ADD
+    // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
+    ADD
+    %stack (C, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
+        (C, kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size)
+    %charge_gas
+    %stack (kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
+        (Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size)
+    DUP5 ISZERO PUSH 1 SUB
+    // stack: value!=0, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    %mul_const(@GAS_CALLSTIPEND) ADD
+    %stack (gas_limit, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
+        (kexit_info, gas_limit, address, value, args_offset, args_size, ret_offset, ret_size)
+    //%charge_gas
+    //%stack (kexit_info, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
+    //    (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+%endmacro
+
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -7,8 +56,10 @@ global sys_call:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
-    SWAP2
+    DUP1 %insert_accessed_addresses // TODO: Use return value in gas calculation.
+    %call_charge_gas
+global wtf:
+    //SWAP2
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -117,7 +168,7 @@ global after_call_instruction:
     SWAP3
     // stack: kexit_info, leftover_gas, new_ctx, success, ret_offset, ret_size
     // Add the leftover gas into the appropriate bits of kexit_info.
-    SWAP1 %shl_const(192) ADD
+    SWAP1 %shl_const(192) SWAP1 SUB
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
 
     // The callee's terminal instruction will have populated RETURNDATA.
