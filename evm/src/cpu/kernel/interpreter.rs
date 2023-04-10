@@ -342,7 +342,7 @@ impl<'a> Interpreter<'a> {
             0x37 => self.run_calldatacopy(),                            // "CALLDATACOPY",
             0x38 => todo!(),                                            // "CODESIZE",
             0x39 => todo!(),                                            // "CODECOPY",
-            0x3a => todo!(),                                            // "GASPRICE",
+            0x3a => self.run_gasprice(),                                // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
             0x3d => todo!(),                                            // "RETURNDATASIZE",
@@ -802,6 +802,10 @@ impl<'a> Interpreter<'a> {
                 calldata_byte,
             );
         }
+    }
+
+    fn run_gasprice(&mut self) {
+        self.push(self.get_txn_field(NormalizedTxnField::ComputedFeePerGas))
     }
 
     fn run_coinbase(&mut self) {
