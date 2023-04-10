@@ -6,7 +6,6 @@
 global add_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     DUP1
-    // stack: len, len, a_start_loc, b_start_loc, retdest
     ISZERO
     %jumpi(len_zero)
     // stack: len, a_start_loc, b_start_loc, retdest
@@ -57,6 +56,7 @@ add_end:
     SWAP1
     // stack: retdest, carry_new
     JUMP
+
 len_zero:
     // stack: len, a_start_loc, b_start_loc, retdest
     %pop3

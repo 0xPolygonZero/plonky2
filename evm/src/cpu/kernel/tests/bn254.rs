@@ -88,7 +88,7 @@ fn test_bn_mul_fp12() -> Result<()> {
 
 fn run_bn_frob_fp6(n: usize, f: Fp6<BN254>) -> Fp6<BN254> {
     let setup = InterpreterMemoryInitialization {
-        label: format!("test_frob_fp254_6_{}", n.to_string()),
+        label: format!("test_frob_fp254_6_{}", n),
         stack: f.to_stack(),
         segment: BnPairing,
         memory: vec![],
@@ -112,7 +112,7 @@ fn test_bn_frob_fp6() -> Result<()> {
 fn run_bn_frob_fp12(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
     let ptr: usize = 200;
     let setup = InterpreterMemoryInitialization {
-        label: format!("test_frob_fp254_12_{}", n.to_string()),
+        label: format!("test_frob_fp254_12_{}", n),
         stack: vec![U256::from(ptr)],
         segment: BnPairing,
         memory: vec![(ptr, f.to_stack())],

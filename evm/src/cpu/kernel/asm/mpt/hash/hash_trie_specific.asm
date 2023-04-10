@@ -19,7 +19,7 @@ global mpt_hash_storage_trie:
     %jump(mpt_hash)
 
 %macro mpt_hash_storage_trie
-    PUSH %%after
+    %stack (node_ptr) -> (node_ptr, %%after)
     %jump(mpt_hash_storage_trie)
 %%after:
 %endmacro
@@ -83,12 +83,9 @@ global encode_account:
     // stack: balance, rlp_pos_4, value_ptr, retdest
     SWAP1 %encode_rlp_scalar
     // stack: rlp_pos_5, value_ptr, retdest
-    PUSH encode_account_after_hash_storage_trie
-    PUSH encode_storage_value
-    DUP4 %add_const(2) %mload_trie_data // storage_root_ptr = value[2]
-    // stack: storage_root_ptr, encode_storage_value, encode_account_after_hash_storage_trie, rlp_pos_5, value_ptr, retdest
-    %jump(mpt_hash)
-encode_account_after_hash_storage_trie:
+    DUP2 %add_const(2) %mload_trie_data // storage_root_ptr = value[2]
+    // stack: storage_root_ptr, rlp_pos_5, value_ptr, retdest
+    %mpt_hash_storage_trie
     // stack: storage_root_digest, rlp_pos_5, value_ptr, retdest
     SWAP1 %encode_rlp_256
     // stack: rlp_pos_6, value_ptr, retdest
@@ -113,7 +110,7 @@ global encode_storage_value:
     // which seems to imply that this should be %encode_rlp_256. But %encode_rlp_scalar
     // causes the tests to pass, so it seems storage values should be treated as variable-
     // length after all.
-    %encode_rlp_scalar
+    %doubly_encode_rlp_scalar
     // stack: rlp_pos', retdest
     SWAP1
     JUMP

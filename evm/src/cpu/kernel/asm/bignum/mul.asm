@@ -57,6 +57,7 @@ mul_end:
     %pop5
     // stack: retdest
     JUMP
+
 len_zero:
     // stack: len, a_start_loc, b_start_loc, output_loc, retdest
     %pop4
