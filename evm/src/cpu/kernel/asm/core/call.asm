@@ -259,6 +259,7 @@ global after_call_instruction:
 %endmacro
 
 // Charge gas for *call opcodes and return the sub-context gas limit.
+// Doesn't include memory expansion costs.
 %macro call_charge_gas
     // Compute C_aaccess
     // stack: cold_access, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
@@ -284,7 +285,6 @@ global after_call_instruction:
     // Compute C_extra
     ADD ADD
 
-
     // Compute C_gascap
     // stack: Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     DUP4 %leftover_gas
@@ -302,14 +302,12 @@ global after_call_instruction:
     DUP7 %min MUL ADD
     // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
 
-
     // Compute C_call and charge for it.
     %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
     ADD
     %stack (C_call, Cgascap, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
         (C_call, kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size)
     %charge_gas
-
 
     // Compute C_callgas
     %stack (kexit_info, Cgascap, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
