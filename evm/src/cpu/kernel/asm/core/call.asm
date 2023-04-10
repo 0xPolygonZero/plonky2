@@ -44,9 +44,19 @@
     %mul_const(@GAS_CALLSTIPEND) ADD
     %stack (gas_limit, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size) ->
         (kexit_info, gas_limit, address, value, args_offset, args_size, ret_offset, ret_size)
-    //%charge_gas
-    //%stack (kexit_info, address, gas, value, args_offset, args_size, ret_offset, ret_size) ->
-    //    (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+%endmacro
+
+%macro checked_mem_expansion
+    // stack: size, offset, kexit_info
+    DUP1 ISZERO %jumpi(%%zero)
+    ADD
+    // stack: expanded_num_bytes, kexit_info
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+    %jump(%%after)
+%%zero:
+    %pop2
+%%after:
 %endmacro
 
 // Creates a new sub context and executes the code of the given account.
@@ -59,8 +69,12 @@ global sys_call:
     DUP1 %insert_accessed_addresses // TODO: Use return value in gas calculation.
     %call_charge_gas
 global wtf:
-    //SWAP2
-    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
     %create_context
     // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     // TODO: Consider call depth
