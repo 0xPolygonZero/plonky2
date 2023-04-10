@@ -117,8 +117,8 @@ fn run_bn_frob_fp12(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
         segment: BnPairing,
         memory: vec![(ptr, f.to_stack())],
     };
-    let interpeter: Interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = interpeter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
+    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
     Fp12::<BN254>::from_stack(&output)
 }
 

@@ -1,3 +1,31 @@
+// Load a single value---two terms---from KernelGeneral.
+%macro mload_bls
+    // stack:            offset
+    DUP1
+    %add_const(1)
+    // stack: offset_hi, offset_lo
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack: val_hi, offset_lo
+    SWAP1
+    // stack: offset_lo, val_hi
+    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack: val_lo, val_hi
+%endmacro
+
+%macro mstore_bls
+    // stack:            offset, val_lo, val_hi
+    SWAP1
+    // stack:            val_lo, offset, val_hi
+    DUP2
+    // stack: offset_lo, val_lo, offset, val_hi
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    // stack:                    offset, val_hi
+    %add_const(1)
+    // stack:                 offset_hi, val_hi
+    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+%endmacro
+
+
 %macro add_fp381
     // stack:         x0, x1, y0, y1
     PROVER_INPUT(sf::bls381_base::add_hi)
@@ -112,4 +140,114 @@ global sub_fp381_2:
     %sub_fp381
     // stack:             z_re, z_im, jumpdest
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
+    JUMP
+
+global add_fp381_6:
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    // stack:     inB0, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B0, inA, inB, out, jumpdest
+    DUP3
+    // stack: inA0, B0, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A0, B0, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C0, inA, inB, out, jumpdest
+    DUP5
+    // stack: out0, C0, inA, inB, out, jumpdest
+    %mstore_bls
+
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const(1)
+    // stack:     inB1, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B1, inA, inB, out, jumpdest
+    DUP3
+    %add_const(1)
+    // stack: inA1, B1, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A1, B1, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C1, inA, inB, out, jumpdest
+    DUP5
+    %add_const(1)
+    // stack: out1, C1, inA, inB, out, jumpdest
+    %mstore_bls
+
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const(2)
+    // stack:     inB2, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B2, inA, inB, out, jumpdest
+    DUP3
+    %add_const(2)
+    // stack: inA2, B2, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A2, B2, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C2, inA, inB, out, jumpdest
+    DUP5
+    %add_const(2)
+    // stack: out2, C2, inA, inB, out, jumpdest
+    %mstore_bls
+
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const(3)
+    // stack:     inB3, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B3, inA, inB, out, jumpdest
+    DUP3
+    %add_const(3)
+    // stack: inA3, B3, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A3, B3, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C3, inA, inB, out, jumpdest
+    DUP5
+    %add_const(3)
+    // stack: out3, C3, inA, inB, out, jumpdest
+    %mstore_bls
+
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const(4)
+    // stack:     inB4, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B4, inA, inB, out, jumpdest
+    DUP3
+    %add_const(4)
+    // stack: inA4, B4, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A4, B4, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C4, inA, inB, out, jumpdest
+    DUP5
+    %add_const(4)
+    // stack: out4, C4, inA, inB, out, jumpdest
+    %mstore_bls
+    
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const(5)
+    // stack:     inB5, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       B5, inA, inB, out, jumpdest
+    DUP3
+    %add_const(5)
+    // stack: inA5, B5, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   A5, B5, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       C5, inA, inB, out, jumpdest
+    DUP5
+    %add_const(5)
+    // stack: out5, C5, inA, inB, out, jumpdest
+    %mstore_bls
+    
+    // stack:           inA, inB, out, jumpdest
+    %pop3
     JUMP
