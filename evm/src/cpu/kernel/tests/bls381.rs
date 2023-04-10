@@ -99,7 +99,7 @@ fn test_bls_fp6_ops() -> Result<()> {
     let x: Fp6<BLS381> = rng.gen::<Fp6<BLS381>>();
     let y: Fp6<BLS381> = rng.gen::<Fp6<BLS381>>();
 
-    let output_add = run_bls_fp6_ops("add_fp381_2", x, y);
+    let output_add = run_bls_fp6_ops("add_fp381_6", x, y);
     // let output_mul = run_bls_fp6_ops("mul_fp381_2", x, y);
     // let output_sub = run_bls_fp6_ops("sub_fp381_2", x, y);
 
