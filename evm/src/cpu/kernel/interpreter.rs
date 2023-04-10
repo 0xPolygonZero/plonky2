@@ -340,8 +340,8 @@ impl<'a> Interpreter<'a> {
             0x35 => self.run_calldataload(),                            // "CALLDATALOAD",
             0x36 => self.run_calldatasize(),                            // "CALLDATASIZE",
             0x37 => self.run_calldatacopy(),                            // "CALLDATACOPY",
-            0x38 => todo!(),                                            // "CODESIZE",
-            0x39 => todo!(),                                            // "CODECOPY",
+            0x38 => self.run_codesize(),                                // "CODESIZE",
+            0x39 => self.run_codecopy(),                                // "CODECOPY",
             0x3a => self.run_gasprice(),                                // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
@@ -800,6 +800,32 @@ impl<'a> Interpreter<'a> {
                 Segment::MainMemory,
                 dest_offset + i,
                 calldata_byte,
+            );
+        }
+    }
+
+    fn run_codesize(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::CodeSize as usize),
+        )
+    }
+
+    fn run_codecopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let code_byte =
+                self.generation_state
+                    .memory
+                    .mload_general(self.context, Segment::Code, offset + i);
+            self.generation_state.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                code_byte,
             );
         }
     }
