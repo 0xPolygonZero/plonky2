@@ -4,6 +4,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::stack_bounds::{DECREMENTING_FLAGS, INCREMENTING_FLAGS, MAX_USER_STACK_SIZE};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
@@ -257,6 +258,24 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     }
 
     fill_op_flag(op, &mut row);
+
+    let check_underflow: F = DECREMENTING_FLAGS.map(|i| row[i]).into_iter().sum();
+    let check_overflow: F = INCREMENTING_FLAGS.map(|i| row[i]).into_iter().sum();
+    let no_check = F::ONE - (check_underflow + check_overflow);
+
+    let disallowed_len = check_overflow * F::from_canonical_usize(MAX_USER_STACK_SIZE) - no_check;
+    let diff = row.stack_len - disallowed_len;
+
+    let user_mode = F::ONE - row.is_kernel_mode;
+    let rhs = user_mode + check_underflow;
+
+    row.stack_len_bounds_aux = match diff.try_inverse() {
+        Some(diff_inv) => diff_inv * rhs, // `rhs` may be a value other than 1 or 0
+        None => {
+            assert_eq!(rhs, F::ZERO);
+            F::ZERO
+        }
+    };
 
     perform_op(state, op, row)
 }
