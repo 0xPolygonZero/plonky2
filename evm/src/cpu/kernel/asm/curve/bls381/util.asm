@@ -199,6 +199,7 @@ global mul_fp381_2:
     // stack:                                      z_re, z_im, jumpdest
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
     JUMP
+<<<<<<< HEAD
 
 
 %macro i1
@@ -321,3 +322,6 @@ global sub_fp381_6:
     // stack: outn, Cn, inA, inB, out, jumpdest
     %mstore_bls
 %endmacro
+=======
+    
+>>>>>>> b202196b5fa35b20a062cdf695bf68617b27881a
