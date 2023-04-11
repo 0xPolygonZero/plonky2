@@ -201,6 +201,19 @@ global mul_fp381_2:
     JUMP
 
 
+%macro i1
+    // stack:             x_re, x_im
+    %stack (x_re: 2, x_im: 2) -> (x_re, x_im, x_im, x_re)
+    // stack: x_re, x_im, x_im, x_re
+    %add_fp381
+    // stack:       z_im, x_im, x_re
+    %stack (z_im: 2, x_im: 2, x_re: 2) -> (x_re, x_im, z_im)
+    // stack:       x_re, x_im, z_im
+    %sub_fp381
+    // stack:             z_re, z_im
+%endmacro
+
+
 global add_fp381_6:
     // stack:           inA, inB, out, jumpdest  { out: [ 0,  0,  0,  0,  0,  0 ] }
     %add_term_kernel                          
