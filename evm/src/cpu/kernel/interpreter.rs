@@ -600,17 +600,17 @@ impl<'a> Interpreter<'a> {
 
             let mut x_bytes = [0u8; 32];
             x.to_big_endian(&mut x_bytes);
-            let mut x_bytes = x_bytes[num_bytes_prepend..].to_vec();
+            let x_bytes = x_bytes[num_bytes_prepend..].to_vec();
             let sign_bit = x_bytes[0] >> 7;
 
-            self.push(if sign_bit == 0 {
-                x_bytes.extend_from_slice(&vec![0; num_bytes_prepend]);
-                U256::from_big_endian(&x_bytes)
+            let mut bytes = if sign_bit == 0 {
+                vec![0; num_bytes_prepend]
             } else {
-                let mut tmp = vec![0xff; num_bytes_prepend];
-                tmp.extend_from_slice(&x_bytes);
-                U256::from_big_endian(&tmp)
-            });
+                vec![0xff; num_bytes_prepend]
+            };
+            bytes.extend_from_slice(&x_bytes);
+
+            self.push(U256::from_big_endian(&bytes));
         }
     }
 
