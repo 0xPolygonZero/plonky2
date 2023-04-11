@@ -473,13 +473,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         );
         yield_constr.constraint(builder, constraint);
 
-        let mut is_final_block = builder.add_extension(
-            local_values.is_final_input_len[0],
-            local_values.is_final_input_len[1],
-        );
-        for &input_len in local_values.is_final_input_len.iter().skip(2) {
-            is_final_block = builder.add_extension(is_final_block, input_len);
-        }
+        let is_final_block = builder.add_many_extension(local_values.is_final_input_len);
         let constraint = builder.mul_sub_extension(is_final_block, is_final_block, is_final_block);
         yield_constr.constraint(builder, constraint);
 
@@ -569,13 +563,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             let tmp = builder.sub_extension(one, is_final_block);
             builder.sub_extension(tmp, is_full_input_block)
         };
-        let mut next_is_final_block = builder.add_extension(
-            next_values.is_final_input_len[0],
-            next_values.is_final_input_len[1],
-        );
-        for &input_len in next_values.is_final_input_len.iter().skip(2) {
-            next_is_final_block = builder.add_extension(next_is_final_block, input_len);
-        }
+        let next_is_final_block = builder.add_many_extension(next_values.is_final_input_len);
         let constraint = {
             let tmp = builder.add_extension(next_is_final_block, next_values.is_full_input_block);
             builder.mul_extension(is_dummy, tmp)
