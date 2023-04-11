@@ -379,9 +379,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         // Ensure that full-input block and final block flags are not set to 1 at the same time.
         yield_constr.constraint(is_final_block * is_full_input_block);
 
-        // If this is a full-input block, is_final_input_len should contain all 0s.
-        yield_constr.constraint(is_full_input_block * is_final_block);
-
         // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
         let already_absorbed_bytes = local_values.already_absorbed_bytes;
         yield_constr.constraint_first_row(already_absorbed_bytes);
@@ -484,10 +481,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
         // Ensure that full-input block and final block flags are not set to 1 at the same time.
         let constraint = builder.mul_extension(is_final_block, is_full_input_block);
-        yield_constr.constraint(builder, constraint);
-
-        // If this is a full-input block, is_final_input_len should contain all 0s.
-        let constraint = builder.mul_extension(is_full_input_block, is_final_block);
         yield_constr.constraint(builder, constraint);
 
         // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
