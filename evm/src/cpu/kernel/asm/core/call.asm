@@ -2,7 +2,15 @@
 
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
+    // Check that the value is zero if the context is static.
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4 ISZERO %not_bit
+    // stack: value≠0, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    // stack: is_static, value≠0, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    MUL // Cheaper than AND
+    %jumpi(fault_exception)
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
@@ -140,6 +148,13 @@ global after_call_instruction:
     // stack: new_ctx
 %endmacro
 
+// Convenience macro for checking if the current context is static.
+// Called before state-changing opcodes.
+%macro check_static
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %jumpi(fault_exception)
+%endmacro
+
 %macro set_new_ctx_addr
     // stack: called_addr, new_ctx
     %stack (called_addr, new_ctx)
@@ -268,7 +283,7 @@ global after_call_instruction:
 
     // Compute C_xfer
     // stack: Caaccess, address, gas, kexit_info, value
-    DUP5 ISZERO PUSH 1 SUB
+    DUP5 ISZERO %not_bit
     // stack: value≠0, Caaccess, address, gas, kexit_info, value
     DUP1
     %mul_const(@GAS_CALLVALUE)
@@ -293,7 +308,7 @@ global after_call_instruction:
     // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
     DUP5 DUP2 MUL
     // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
-    SWAP1 PUSH 1 SUB
+    SWAP1 %not_bit
     // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
     DUP4 DUP4 SUB
     // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
@@ -312,7 +327,7 @@ global after_call_instruction:
     // Compute C_callgas
     %stack (kexit_info, Cgascap, address, gas, value) ->
         (Cgascap, address, gas, kexit_info, value)
-    DUP5 ISZERO PUSH 1 SUB
+    DUP5 ISZERO %not_bit
     // stack: value!=0, Cgascap, address, gas, kexit_info, value
     %mul_const(@GAS_CALLSTIPEND) ADD
     %stack (C_callgas, address, gas, kexit_info, value) ->

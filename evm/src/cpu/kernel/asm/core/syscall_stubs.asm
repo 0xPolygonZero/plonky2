@@ -16,12 +16,17 @@ global sys_chainid:
     SWAP1
     EXIT_KERNEL
 global sys_log0:
+    %check_static
     PANIC
 global sys_log1:
+    %check_static
     PANIC
 global sys_log2:
+    %check_static
     PANIC
 global sys_log3:
+    %check_static
     PANIC
 global sys_log4:
+    %check_static
     PANIC
