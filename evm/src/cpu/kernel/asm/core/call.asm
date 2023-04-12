@@ -312,6 +312,7 @@ global after_call_instruction:
 
 %macro copy_returndata_to_mem
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
+    DUP3 ISZERO %jumpi(%%failure)
     GET_CONTEXT
     %stack (ctx, kexit_info, new_ctx, success, ret_offset, ret_size) ->
         (
@@ -321,6 +322,8 @@ global after_call_instruction:
             kexit_info, success
         )
     %jump(memcpy)
+%%failure:
+    %stack (kexit_info, new_ctx, success, ret_offset, ret_size) -> (kexit_info, success)
 %%after:
 %endmacro
 

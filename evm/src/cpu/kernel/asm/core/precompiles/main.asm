@@ -22,6 +22,13 @@ global handle_precompiles:
     // stack: retdest
     JUMP
 
+global pop_and_return_success:
+    POP
+    %leftover_gas
+    // stack: leftover_gas
+    PUSH 1 // success
+    %jump(terminate_common)
+
 ecrec:
     // stack: addr, retdest
 

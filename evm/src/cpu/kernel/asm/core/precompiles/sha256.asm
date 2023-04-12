@@ -33,11 +33,5 @@ sha256_contd:
     // stack: hash, kexit_info
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, hash, 32, sha256_contd_bis)
+    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, hash, 32, pop_and_return_success)
     %jump(mstore_unpacking)
-global sha256_contd_bis:
-    POP
-    %leftover_gas
-    // stack: leftover_gas
-    PUSH 1 // success
-    %jump(terminate_common)

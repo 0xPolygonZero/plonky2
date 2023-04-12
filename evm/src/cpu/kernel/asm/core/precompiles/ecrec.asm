@@ -33,15 +33,9 @@ ecrec_contd5:
 
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, address, 32, ecrec_contd6)
+    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, address, 32, pop_and_return_success)
     %jump(mstore_unpacking)
-ecrec_contd6:
-    POP
-    %leftover_gas
-    // stack: leftover_gas
-    PUSH 1 // success
-    %jump(terminate_common)
 
 ecrec_bad_input:
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
-    %jump(ecrec_contd6)
+    %jump(pop_and_return_success)
