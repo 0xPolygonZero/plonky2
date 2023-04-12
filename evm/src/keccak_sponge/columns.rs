@@ -17,10 +17,6 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// not a padding byte; 0 otherwise.
     pub is_full_input_block: T,
 
-    /// 1 if this row represents the final block of a sponge, in which case some or all of the bytes
-    /// in the block will be padding bytes; 0 otherwise.
-    pub is_final_block: T,
-
     // The base address at which we will read the input block.
     pub context: T,
     pub segment: T,
