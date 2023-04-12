@@ -33,7 +33,6 @@ rand_chacha = "0.3.1"
 rlp = "0.5.1"
 rlp-derive = "0.1.0"
 serde = { version = "1.0.144", features = ["derive"] }
-
 static_assertions = "1.1.0"
 hashbrown = { version = "0.12.3" }
 tiny-keccak = "2.0.2"

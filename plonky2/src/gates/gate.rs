@@ -270,6 +270,7 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
 
 /// A gate's filter designed so that it is non-zero if `s = row`.
 fn compute_filter<K: Field>(row: usize, group_range: Range<usize>, s: K, many_selector: bool) -> K {
+    debug_assert!(group_range.contains(&row));
     group_range
         .filter(|&i| i != row)
         .chain(many_selector.then_some(UNUSED_SELECTOR))
