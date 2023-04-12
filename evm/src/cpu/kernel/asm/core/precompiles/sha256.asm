@@ -1,5 +1,4 @@
 global precompile_sha256:
-    // How do we pay gas in this "new context"?
     %stack (address, retdest, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (new_ctx, kexit_info, ret_offset, ret_size)
     DUP1
@@ -32,13 +31,12 @@ global precompile_sha256:
 
 sha256_contd:
     // stack: hash, kexit_info
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, hash, 32, sha256_contd_bis)
     %jump(mstore_unpacking)
 global sha256_contd_bis:
     POP
-    // stack: kexit_info
-    //%jump(after_precompile)
     %leftover_gas
     // stack: leftover_gas
     PUSH 1 // success
