@@ -43,25 +43,38 @@ global sys_call:
 // given account. In particular the storage remains the same.
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
-    // TODO: Charge gas.
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
-    SWAP2
-    // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP1 %insert_accessed_addresses
+
+    %call_charge_gas
+
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
+    // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
-    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
     %set_new_ctx_parent_pc(after_call_instruction)
+    DUP3 %set_new_ctx_gas_limit
+    DUP4 %set_new_ctx_code
 
-    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
-    %stack (new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
+
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -72,15 +85,25 @@ global sys_callcode:
 // CALL if the value sent is not 0.
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
-    // TODO: Charge gas.
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
-    SWAP2
-    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    DUP1 %insert_accessed_addresses
+
+    // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
+    %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
+    %call_charge_gas
+
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
+    // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
-    // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
     %set_static_true
@@ -88,8 +111,14 @@ global sys_staticcall:
     %address %set_new_ctx_caller
     PUSH 0 %set_new_ctx_value
     %set_new_ctx_parent_pc(after_call_instruction)
+    DUP3 %set_new_ctx_gas_limit
+    DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
+
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -98,23 +127,39 @@ global sys_staticcall:
 // value remain the same.
 global sys_delegatecall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
-    // TODO: Charge gas.
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_accessed_addresses POP // TODO: Use return value in gas calculation.
-    SWAP2
-    // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    DUP1 %insert_accessed_addresses
+
+    // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
+    %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
+    %call_charge_gas
+
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
+    // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
-    // stack: new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
     %set_new_ctx_parent_pc(after_call_instruction)
+    DUP3 %set_new_ctx_gas_limit
+    DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
+
+    %stack (new_ctx, kexit_info, callgas, address, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -210,9 +255,7 @@ global after_call_instruction:
     %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
     %jump(load_code)
 %%after:
-    %stack (code_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
-    MSTORE_GENERAL
+    %set_new_ctx_code_size
     // stack: new_ctx
 %endmacro
 
@@ -262,7 +305,7 @@ global after_call_instruction:
 // Doesn't include memory expansion costs.
 %macro call_charge_gas
     // Compute C_aaccess
-    // stack: cold_access, address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
+    // stack: cold_access, address, gas, kexit_info, value
     %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
     %add_const(@GAS_WARMACCESS)
 
