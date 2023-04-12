@@ -737,8 +737,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Standard build.
+
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
+    fn build_inner<C: GenericConfig<D, F = F>>(mut self, deterministic: bool) -> CircuitData<F, C, D>
     where
         [(); C::HCO::WIDTH]:,
         [(); C::HCI::WIDTH]:,
@@ -762,7 +764,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
-        // self.randomize_unused_pi_wires(pi_gate);
+        if !deterministic {
+            self.randomize_unused_pi_wires(pi_gate);
+        }
 
         // Make sure we have enough constant generators. If not, add a `ConstantGate`.
         while self.constants_to_targets.len() > self.constant_generators.len() {
@@ -943,6 +947,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             verifier_only,
             common,
         }
+    }
+
+    /// Standard build.    
+    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D>
+    where
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+    {
+        self.build_inner(false)
+    }
+
+    /// Build without randomizing PI wires
+    pub fn build_deterministic<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D>
+    where
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
+    {
+        self.build_inner(true)
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
