@@ -45,6 +45,7 @@ sys_return_finish:
     %jump(terminate_common)
 
 global sys_selfdestruct:
+    %check_static
     // stack: kexit_info, recipient
     SWAP1 %u256_to_addr
     %address DUP1 %balance

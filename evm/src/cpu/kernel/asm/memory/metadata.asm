@@ -283,3 +283,10 @@ global sys_basefee:
     %jumpi(fault_exception)
     // stack: (empty)
 %endmacro
+
+// Convenience macro for checking if the current context is static.
+// Called before state-changing opcodes.
+%macro check_static
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %jumpi(fault_exception)
+%endmacro
