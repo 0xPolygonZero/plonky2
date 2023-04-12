@@ -4,7 +4,6 @@ use std::fs;
 
 use anyhow::Result;
 use plonky2::field::types::Field;
-use plonky2::fri::verifier;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
@@ -45,10 +44,15 @@ fn main() -> Result<()> {
     let data = builder.build_deterministic::<C>();
 
     let common_circuit_data_serialized = serde_json::to_string(&data.common).unwrap();
-    fs::write("common_circuit_data.json", common_circuit_data_serialized).expect("Unable to write file");
+    fs::write("common_circuit_data.json", common_circuit_data_serialized)
+        .expect("Unable to write file");
 
     let verifier_only_circuit_data_serialized = serde_json::to_string(&data.verifier_only).unwrap();
-    fs::write("verifier_only_circuit_data.json", verifier_only_circuit_data_serialized).expect("Unable to write file");
+    fs::write(
+        "verifier_only_circuit_data.json",
+        verifier_only_circuit_data_serialized,
+    )
+    .expect("Unable to write file");
 
     let proof = data.prove(pw)?;
 
