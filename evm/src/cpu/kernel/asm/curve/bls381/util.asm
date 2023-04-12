@@ -321,3 +321,57 @@ global sub_fp381_6:
     // stack: outn, Cn, inA, inB, out, jumpdest
     %mstore_bls
 %endmacro
+
+global add_fp381_6_sh:
+    // stack:             inA, inB, out, jumpdest
+    DUP1
+    // stack:       inA0, inA, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:         A0, inA, inB, out, jumpdest
+    DUP6
+    %add_const(8)
+    // stack:  inB2 , A0, inA, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:    B2 , A0, inA, inB, out, jumpdest
+    %i1
+    // stack: i1(B2), A0, inA, inB, out, jumpdest
+    %add_fp381_2
+    // stack:         C0, inA, inB, out, jumpdest
+    DUP7
+    // stack:   out0, C0, inA, inB, out, jumpdest
+    %mstore_bls_fp2
+    // stack:             inA, inB, out, jumpdest
+    DUP1
+    %add_const(4)
+    // stack:       inA1, inA, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:         A1, inA, inB, out, jumpdest
+    DUP6
+    // stack:   inB0, A1, inA, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:     B0, A1, inA, inB, out, jumpdest
+    %add_fp381_2
+    // stack:         C1, inA, inB, out, jumpdest
+    DUP7
+    %add_const(4)
+    // stack:   out1, C1, inA, inB, out, jumpdest
+    %mstore_bls_fp2
+    // stack:             inA, inB, out, jumpdest
+    %add_const(8)
+    // stack:            inA2, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:              A2, inB, out, jumpdest
+    DUP5
+    %add_const(4)
+    // stack:        inB1, A2, inB, out, jumpdest
+    %mload_bls_fp2
+    // stack:          B1, A2, inB, out, jumpdest
+    %add_fp381_2
+    // stack:              C2, inB, out, jumpdest
+    DUP6
+    %add_const(8)
+    // stack:        out2, C2, inB, out, jumpdest
+    %mstore_bls_fp2
+    // stack:                  inB, out, jumpdest
+    %pop2
+    JUMP
