@@ -4,14 +4,23 @@ use core::marker::PhantomData;
 
 use anyhow::Result;
 use plonky2::field::types::{PrimeField, Sample};
+use plonky2::gates::arithmetic_base::ArithmeticBaseGenerator;
+use plonky2::gates::poseidon::PoseidonGenerator;
+use plonky2::gates::poseidon_mds::PoseidonMdsGenerator;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::generator::{
+    ConstantGenerator, GeneratedValues, RandomValueGenerator, SimpleGenerator,
+};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, PartitionWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
+use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::recursion::dummy_circuit::DummyProofGenerator;
+use plonky2::util::serialization::{
+    Buffer, DefaultGateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+};
+use plonky2::{get_generator_tag_impl, impl_generator_serializer, read_generator_impl};
 use plonky2_field::extension::Extendable;
 
 /// A generator used by the prover to calculate the square root (`x`) of a given value
@@ -59,6 +68,28 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 }
 
+pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
+    pub _phantom: PhantomData<C>,
+}
+
+impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for CustomGeneratorSerializer<C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+{
+    impl_generator_serializer! {
+        CustomGeneratorSerializer,
+        DummyProofGenerator<F, C, D>,
+        ArithmeticBaseGenerator<F, D>,
+        ConstantGenerator<F>,
+        PoseidonGenerator<F, D>,
+        PoseidonMdsGenerator<D>,
+        RandomValueGenerator,
+        SquareRootGenerator<F, D>
+    }
+}
+
 /// An example of using Plonky2 to prove a statement of the form
 /// "I know the square root of this field element."
 fn main() -> Result<()> {
@@ -98,6 +129,27 @@ fn main() -> Result<()> {
 
     let x_squared_actual = proof.public_inputs[0];
     println!("Field element (square): {x_squared_actual}");
+
+    // Test serialization
+    {
+        let gate_serializer = DefaultGateSerializer;
+        let generator_serializer = CustomGeneratorSerializer {
+            _phantom: PhantomData::<C>,
+        };
+
+        let data_bytes = data
+            .to_bytes(&gate_serializer, &generator_serializer)
+            .map_err(|_| anyhow::Error::msg("CircuitData serialization failed."))?;
+
+        let data_from_bytes = CircuitData::<F, C, D>::from_bytes(
+            &data_bytes,
+            &gate_serializer,
+            &generator_serializer,
+        )
+        .map_err(|_| anyhow::Error::msg("CircuitData deserialization failed."))?;
+
+        assert_eq!(data, data_from_bytes);
+    }
 
     data.verify(proof)
 }
