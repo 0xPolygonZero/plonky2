@@ -11,7 +11,6 @@ use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::timed;
@@ -26,7 +25,6 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
-use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
@@ -51,47 +49,20 @@ pub fn prove<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
-    let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
-    Ok(proof)
-}
-
-/// Generate traces, then create all STARK proofs. Returns information about the post-state,
-/// intended for debugging, in addition to the proof.
-pub fn prove_with_outputs<F, C, const D: usize>(
-    all_stark: &AllStark<F, D>,
-    config: &StarkConfig,
-    inputs: GenerationInputs,
-    timing: &mut TimingTree,
-) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
     [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values, outputs) = timed!(
+    let (traces, public_values) = timed!(
         timing,
         "generate all traces",
-        generate_traces(all_stark, inputs, config, timing)?
+        generate_traces(all_stark, inputs, config, timing)
     );
-    let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
-    Ok((proof, outputs))
+    prove_with_traces(all_stark, config, traces, public_values, timing)
 }
 
 /// Compute all STARK proofs.
@@ -105,14 +76,12 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
@@ -146,7 +115,7 @@ where
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
         .collect::<Vec<_>>();
-    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
@@ -189,7 +158,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
@@ -201,8 +170,6 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let cpu_proof = timed!(
         timing,
@@ -285,16 +252,15 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
     ctl_data: &CtlData<F>,
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
+    [(); C::Hasher::HASH_SIZE]:,
     [(); S::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);

@@ -1,13 +1,5 @@
 global sys_mload:
     // stack: kexit_info, offset
-    DUP2 %ensure_reasonable_offset
-    // stack: kexit_info, offset
-    %charge_gas_const(@GAS_VERYLOW)
-    // stack: kexit_info, offset
-    DUP2 %add_const(32)
-    // stack: expanded_num_bytes, kexit_info, offset
-    %update_mem_bytes
-    // stack: kexit_info, offset
     PUSH 0 // acc = 0
     // stack: acc, kexit_info, offset
     DUP3 %add_const( 0) %mload_current(@SEGMENT_MAIN_MEMORY) %shl_const(0xf8) ADD
@@ -47,14 +39,6 @@ global sys_mload:
 
 global sys_mstore:
     // stack: kexit_info, offset, value
-    DUP2 %ensure_reasonable_offset
-    // stack: kexit_info, offset, value
-    %charge_gas_const(@GAS_VERYLOW)
-    // stack: kexit_info, offset, value
-    DUP2 %add_const(32)
-    // stack: expanded_num_bytes, kexit_info, offset, value
-    %update_mem_bytes
-    // stack: kexit_info, offset, value
     DUP3 PUSH  0 BYTE DUP3 %add_const( 0) %mstore_current(@SEGMENT_MAIN_MEMORY)
     DUP3 PUSH  1 BYTE DUP3 %add_const( 1) %mstore_current(@SEGMENT_MAIN_MEMORY)
     DUP3 PUSH  2 BYTE DUP3 %add_const( 2) %mstore_current(@SEGMENT_MAIN_MEMORY)
@@ -92,85 +76,7 @@ global sys_mstore:
 
 global sys_mstore8:
     // stack: kexit_info, offset, value
-    DUP2 %ensure_reasonable_offset
-    // stack: kexit_info, offset, value
-    %charge_gas_const(@GAS_VERYLOW)
-    // stack: kexit_info, offset, value
-    DUP2 %increment
-    // stack: expanded_num_bytes, kexit_info, offset, value
-    %update_mem_bytes
-    // stack: kexit_info, offset, value
-    %stack (kexit_info, offset, value) -> (value, 0x100, offset, kexit_info)
-    MOD SWAP1
+    %stack (kexit_info, offset, value) -> (offset, value, kexit_info)
     %mstore_current(@SEGMENT_MAIN_MEMORY)
     // stack: kexit_info
     EXIT_KERNEL
-
-global sys_calldataload:
-    // stack: kexit_info, i
-    %charge_gas_const(@GAS_VERYLOW)
-    // stack: kexit_info, i
-    %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
-    GET_CONTEXT
-    // stack: ADDR: 3, 32, sys_calldataload_after_mload_packing, kexit_info
-    %jump(mload_packing)
-sys_calldataload_after_mload_packing:
-    // stack: value, kexit_info
-    SWAP1
-    EXIT_KERNEL
-    PANIC
-
-// Macro for {CALLDATA,CODE,RETURNDATA}COPY (W_copy in Yellow Paper).
-%macro wcopy(segment, context_metadata_size)
-    // stack: kexit_info, dest_offset, offset, size
-    PUSH @GAS_VERYLOW
-    DUP5
-    // stack: size, Gverylow, kexit_info, dest_offset, offset, size
-    ISZERO %jumpi(%%wcopy_empty)
-    // stack: Gverylow, kexit_info, dest_offset, offset, size
-    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
-
-    %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, kexit_info, dest_offset, offset, size)
-    ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
-    // stack: expanded_num_bytes, kexit_info, dest_offset, offset, size, kexit_info
-    DUP1 %ensure_reasonable_offset
-    %update_mem_bytes
-
-    %mload_context_metadata($context_metadata_size)
-    // stack: total_size, kexit_info, dest_offset, offset, size
-    DUP4
-    // stack: offset, total_size, kexit_info, dest_offset, offset, size
-    GT %jumpi(%%wcopy_large_offset)
-
-    GET_CONTEXT
-    %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, $segment, offset, size, %%after, kexit_info)
-    %jump(memcpy)
-
-%%after:
-    // stack: kexit_info
-    EXIT_KERNEL
-
-%%wcopy_empty:
-    // stack: Gverylow, kexit_info, dest_offset, offset, size
-    %charge_gas
-    %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
-    EXIT_KERNEL
-
-%%wcopy_large_offset:
-    // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to write zeros.
-    // stack: kexit_info, dest_offset, offset, size
-    GET_CONTEXT
-    %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, size, %%after, kexit_info)
-    %jump(memset)
-%endmacro
-
-global sys_calldatacopy:
-    %wcopy(@SEGMENT_CALLDATA, @CTX_METADATA_CALLDATA_SIZE)
-
-global sys_codecopy:
-    %wcopy(@SEGMENT_CODE, @CTX_METADATA_CODE_SIZE)
-
-global sys_returndatacopy:
-    %wcopy(@SEGMENT_RETURNDATA, @CTX_METADATA_RETURNDATA_SIZE)

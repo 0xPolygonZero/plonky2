@@ -3,9 +3,6 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
-#![feature(generic_const_exprs)]
-#![allow(clippy::upper_case_acronyms)]
-
 use core::num::ParseIntError;
 use core::ops::RangeInclusive;
 use core::str::FromStr;
@@ -14,7 +11,6 @@ use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
@@ -66,11 +62,7 @@ struct Options {
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<ProofTuple<F, C, D>> {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -89,7 +81,7 @@ where
     let inputs = PartialWitness::new();
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
     timing.print();
     data.verify(proof.clone())?;
 
@@ -107,11 +99,7 @@ fn recursive_proof<
     min_degree_bits: Option<usize>,
 ) -> Result<ProofTuple<F, C, D>>
 where
-    InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-    [(); InnerC::HCO::WIDTH]:,
-    [(); InnerC::HCI::WIDTH]:,
+    InnerC::Hasher: AlgebraicHasher<F>,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -140,7 +128,7 @@ where
     pw.set_verifier_data_target(&inner_data, inner_vd);
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
     timing.print();
 
     data.verify(proof.clone())?;
@@ -153,11 +141,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     proof: &ProofWithPublicInputs<F, C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
     cd: &CommonCircuitData<F, D>,
-) -> Result<()>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<()> {
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
     let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;

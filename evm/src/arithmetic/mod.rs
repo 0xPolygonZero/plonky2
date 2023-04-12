@@ -1,7 +1,6 @@
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
-use crate::extension_tower::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
 mod addcy;
@@ -48,9 +47,9 @@ impl BinaryOperator {
             }
             BinaryOperator::Lt => U256::from((input0 < input1) as u8),
             BinaryOperator::Gt => U256::from((input0 > input1) as u8),
-            BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE),
-            BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE),
-            BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE),
+            BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE_ORDER),
+            BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE_ORDER),
+            BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE_ORDER),
         }
     }
 
@@ -212,7 +211,15 @@ fn binary_op_to_rows<F: PrimeField64>(
             ternary_op_to_rows::<F>(op.row_filter(), input0, U256::zero(), input1, result)
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
-            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE, result)
+            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE_ORDER, result)
         }
     }
 }
+
+/// Order of the BN254 base field.
+const BN_BASE_ORDER: U256 = U256([
+    4332616871279656263,
+    10917124144477883021,
+    13281191951274694749,
+    3486998266802970665,
+]);

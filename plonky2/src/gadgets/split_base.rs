@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct BaseSumGenerator<const B: usize> {
     row: usize,
     limbs: Vec<BoolTarget>,

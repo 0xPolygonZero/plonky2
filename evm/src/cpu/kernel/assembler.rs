@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::time::Instant;
 
 use ethereum_types::U256;
 use itertools::{izip, Itertools};
@@ -112,7 +111,6 @@ pub(crate) fn assemble(
     let mut local_labels = Vec::with_capacity(files.len());
     let mut macro_counter = 0;
     for file in files {
-        let start = Instant::now();
         let mut file = file.body;
         file = expand_macros(file, &macros, &mut macro_counter);
         file = inline_constants(file, &constants);
@@ -127,7 +125,6 @@ pub(crate) fn assemble(
             &mut prover_inputs,
         ));
         expanded_files.push(file);
-        debug!("Expanding file took {:?}", start.elapsed());
     }
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
@@ -137,7 +134,6 @@ pub(crate) fn assemble(
         debug!("Assembled file size: {} bytes", file_len);
     }
     assert_eq!(code.len(), offset, "Code length doesn't match offset.");
-    debug!("Total kernel size: {} bytes", code.len());
     Kernel::new(code, global_labels, prover_inputs)
 }
 

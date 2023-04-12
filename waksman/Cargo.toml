@@ -1,0 +1,15 @@
+[package]
+name = "plonky2_waksman"
+description = "A circuit implementation AS-Waksman networks, useful for checking permutations and sorting"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.40"
+array_tool = "1.0.3"
+bimap = "0.6.1"
+itertools = "0.10.0"
+"plonky2" = { path = "../plonky2" }
+"plonky2_field" = { path = "../field" }
+"plonky2_util" = { path = "../util" }
+rand = "0.8.4"

@@ -106,7 +106,19 @@ ecdsa_after_precompute_loop_end:
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
 pubkey_to_addr:
     // stack: PKx, PKy, retdest
-    %keccak256_u256_pair
+    PUSH 0
+    // stack: 0, PKx, PKy, retdest
+    MSTORE // TODO: switch to kernel memory (like `%mstore_kernel(@SEGMENT_KERNEL_GENERAL)`).
+    // stack: PKy, retdest
+    PUSH 0x20
+    // stack: 0x20, PKy, retdest
+    MSTORE
+    // stack: retdest
+    PUSH 0x40
+    // stack: 0x40, retdest
+    PUSH 0
+    // stack: 0, 0x40, retdest
+    KECCAK256
     // stack: hash, retdest
     PUSH 0xffffffffffffffffffffffffffffffffffffffff
     // stack: 2^160-1, hash, retdest
@@ -122,13 +134,17 @@ pubkey_to_addr:
     // stack: hash, v, r, s, retdest
     DUP2
     // stack: v, hash, v, r, s, retdest
-    %eq_const(27)
+    PUSH 27
+    // stack: 27, v, hash, v, r, s, retdest
+    EQ
     // stack: v==27, hash, v, r, s, retdest
     DUP3
     // stack: v, v==27, hash, v, r, s, retdest
-    %eq_const(28)
+    PUSH 28
+    // stack: 28, v, v==27, hash, v, r, s, retdest
+    EQ
     // stack: v==28, v==27, hash, v, r, s, retdest
-    ADD // OR
+    OR
     // stack: (v==28 || v==27), hash, v, r, s, retdest
     DUP5
     // stack: s, (v==28 || v==27), hash, v, r, s, retdest
@@ -138,7 +154,7 @@ pubkey_to_addr:
     // stack: r, (s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
     %secp_is_out_of_bounds
     // stack: (r >= N || r==0), (s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
-    ADD // OR
+    OR
     // stack: (r >= N || r==0 || s >= N || s==0), (v==28 || v==27), hash, v, r, s, retdest
     ISZERO
     // stack: (r < N & r!=0 & s < N & s!=0), (v==28 || v==27), hash, v, r, s, retdest
@@ -162,7 +178,7 @@ pubkey_to_addr:
     // stack: x < N, x==0
     ISZERO
     // stack: x >= N, x==0
-    ADD // OR
+    OR
     // stack: x >= N || x==0
 %endmacro
 

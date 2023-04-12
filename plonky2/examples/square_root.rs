@@ -1,5 +1,3 @@
-#![allow(clippy::upper_case_acronyms)]
-
 use core::marker::PhantomData;
 
 use anyhow::Result;
@@ -15,7 +13,7 @@ use plonky2_field::extension::Extendable;
 
 /// A generator used by the prover to calculate the square root (`x`) of a given value
 /// (`x_squared`), outside of the circuit, in order to supply it as an additional public input.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SquareRootGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Target,
     x_squared: Target,

@@ -19,20 +19,12 @@ pub(crate) mod txn_fields;
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
-    let hex_constants = MISC_CONSTANTS
-        .iter()
-        .chain(EC_CONSTANTS.iter())
-        .chain(HASH_CONSTANTS.iter())
-        .cloned();
+    let hex_constants = EC_CONSTANTS.iter().chain(HASH_CONSTANTS.iter()).cloned();
     for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
 
     for (name, value) in GAS_CONSTANTS {
-        c.insert(name.into(), U256::from(value));
-    }
-
-    for (name, value) in PRECOMPILES {
         c.insert(name.into(), U256::from(value));
     }
 
@@ -57,14 +49,6 @@ pub fn evm_constants() -> HashMap<String, U256> {
     );
     c
 }
-
-const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
-    // Base for limbs used in bignum arithmetic.
-    (
-        "BIGNUM_LIMB_BASE",
-        hex!("0000000000000000000000000000000100000000000000000000000000000000"),
-    ),
-];
 
 const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     // Hash of an empty string: keccak(b'').hex()
@@ -155,7 +139,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 38] = [
+const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -167,9 +151,7 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_ACCESSLISTADDRESS", 2_400),
     ("GAS_ACCESSLISTSTORAGE", 1_900),
     ("GAS_COLDACCOUNTACCESS", 2_600),
-    ("GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS", 2_500),
     ("GAS_COLDSLOAD", 2_100),
-    ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
     ("REFUND_SCLEAR", 15_000),
@@ -194,16 +176,4 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_KECCAK256WORD", 6),
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
-];
-
-const PRECOMPILES: [(&str, u16); 9] = [
-    ("ECREC", 1),
-    ("SHA256", 2),
-    ("RIP160", 3),
-    ("ID", 4),
-    ("EXPMOD", 5),
-    ("BN_ADD", 6),
-    ("BN_MUL", 7),
-    ("SNARKV", 8),
-    ("BLAKE2_F", 9),
 ];

@@ -11,9 +11,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
-use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 use crate::witness::util::{
     keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
@@ -113,7 +111,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = len.as_usize();
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt);
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -127,12 +125,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    let val_u64s: [u64; 4] =
-        core::array::from_fn(|i| u64::from_le_bytes(core::array::from_fn(|j| hash.0[i * 8 + j])));
-    let hash_int = U256(val_u64s);
-
-    let mut log_push = stack_push_log_and_fill(state, &mut row, hash_int)?;
-    log_push.value = hash.into_uint();
+    let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
 
     keccak_sponge_log(state, base_address, input);
 
@@ -207,7 +200,7 @@ pub(crate) fn generate_jump<F: Field>(
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
-    state.jump_to(dst as usize);
+    state.registers.program_counter = dst as usize;
     Ok(())
 }
 
@@ -231,7 +224,7 @@ pub(crate) fn generate_jumpi<F: Field>(
         let dst: u32 = dst
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-        state.jump_to(dst as usize);
+        state.registers.program_counter = dst as usize;
     } else {
         row.general.jumps_mut().should_jump = F::ZERO;
         row.general.jumps_mut().cond_sum_pinv = F::ZERO;
@@ -596,7 +589,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     state.registers.gas_used = gas_used_val;
     log::debug!(
         "Exiting to {}, is_kernel={}",
-        program_counter,
+        KERNEL.offset_name(program_counter),
         is_kernel_mode
     );
 
@@ -615,7 +608,7 @@ pub(crate) fn generate_mload_general<F: Field>(
 
     let (val, log_read) = mem_read_gp_with_log_and_fill(
         3,
-        MemoryAddress::new_u256s(context, segment, virt)?,
+        MemoryAddress::new_u256s(context, segment, virt),
         state,
         &mut row,
     );
@@ -639,15 +632,9 @@ pub(crate) fn generate_mstore_general<F: Field>(
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
 
     let address = MemoryAddress {
-        context: context
-            .try_into()
-            .map_err(|_| MemoryError(ContextTooLarge { context }))?,
-        segment: segment
-            .try_into()
-            .map_err(|_| MemoryError(SegmentTooLarge { segment }))?,
-        virt: virt
-            .try_into()
-            .map_err(|_| MemoryError(VirtTooLarge { virt }))?,
+        context: context.as_usize(),
+        segment: segment.as_usize(),
+        virt: virt.as_usize(),
     };
     let log_write = mem_write_gp_log_and_fill(4, address, state, &mut row, val);
 

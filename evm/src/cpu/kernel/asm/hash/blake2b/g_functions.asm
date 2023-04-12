@@ -3,38 +3,28 @@
     // are in the range 0..16) in the internal state.
     // The internal state is stored in memory starting at the address start.
     // stack: a, b, c, d, x, y, start
-    DUP4
-    DUP4
-    DUP4
-    DUP4
+    %stack (indices: 4) -> (indices, indices)
     // stack: a, b, c, d, a, b, c, d, x, y, start
     DUP11
     // stack: start, a, b, c, d, a, b, c, d, x, y, start
+    %stack (start, a, b, c, d) -> (d, start, c, start, b, start, a, start)
+    // stack: d, start, c, start, b, start, a, start, a, b, c, d, x, y, start
     ADD
     %mload_kernel_general
-    // stack: v[a], b, c, d, a, b, c, d, x, y, start
-    SWAP1
-    // stack: b, v[a], c, d, a, b, c, d, x, y, start
-    DUP11
-    // stack: start, b, v[a], c, d, a, b, c, d, x, y, start
+    // stack: v[d], c, start, b, start, a, start, a, b, c, d, x, y, start
+    %stack (vd, remaining: 6) -> (remaining, vd)
+    // stack: c, start, b, start, a, start, v[d], a, b, c, d, x, y, start
     ADD
     %mload_kernel_general
-    // stack: v[b], v[a], c, d, a, b, c, d, x, y, start
-    SWAP2
-    // stack: c, v[a], v[b], d, a, b, c, d, x, y, start
-    DUP11
-    // stack: start, c, v[a], v[b], d, a, b, c, d, x, y, start
+    %stack (vc, remaining: 4) -> (remaining, vc)
+    // stack: b, start, a, start, v[c], v[d], a, b, c, d, x, y, start
     ADD
     %mload_kernel_general
-    // stack: v[c], v[a], v[b], d, a, b, c, d, x, y, start
-    SWAP3
-    // stack: d, v[a], v[b], v[c], a, b, c, d, x, y, start
-    DUP11
-    // stack: start, d, v[a], v[b], v[c], a, b, c, d, x, y, start
+    // stack: v[b], a, start, v[c], v[d], a, b, c, d, x, y, start
+    %stack (vb, remaining: 2) -> (remaining, vb)
+    // stack: a, start, v[b], v[c], v[d], a, b, c, d, x, y, start
     ADD
     %mload_kernel_general
-    // stack: v[d], v[a], v[b], v[c], a, b, c, d, x, y, start
-    %stack (vd, vs: 3) -> (vs, vd)
     // stack: v[a], v[b], v[c], v[d], a, b, c, d, x, y, start
     DUP2
     // stack: v[b], v[a], v[b], v[c], v[d], a, b, c, d, x, y, start
@@ -134,45 +124,3 @@
     %blake2b_g_function
     // stack: round, start
 %endmacro
-
-run_g_function_round:
-    // stack: round, start, retdest
-    %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
-    %call_blake2b_g_function(1, 5, 9, 13, 2, 3)
-    %call_blake2b_g_function(2, 6, 10, 14, 4, 5)
-    %call_blake2b_g_function(3, 7, 11, 15, 6, 7)
-    %call_blake2b_g_function(0, 5, 10, 15, 8, 9)
-    %call_blake2b_g_function(1, 6, 11, 12, 10, 11)
-    %call_blake2b_g_function(2, 7, 8, 13, 12, 13)
-    %call_blake2b_g_function(3, 4, 9, 14, 14, 15)
-    %stack (r, s, ret) -> (ret, r, s)
-    // stack: retdest, round, start
-    JUMP
-
-global run_12_rounds_g_function:
-    // stack: start, retdest
-    PUSH 0
-    // stack: round=0, start, retdest
-run_next_round_g_function:
-    // stack: round, start, retdest
-    PUSH run_next_round_g_function_return
-    // stack: run_next_round_g_function_return, round, start, retdest
-    SWAP2
-    // stack: start, round, run_next_round_g_function_return, retdest
-    SWAP1
-    // stack: round, start, run_next_round_g_function_return, retdest
-    %jump(run_g_function_round)
-run_next_round_g_function_return:
-    // stack: round, start, retdest
-    %increment
-    // stack: round+1, start, retdest
-    DUP1
-    // stack: round+1, round+1, start, retdest
-    %lt_const(12)
-    // stack: round+1 < 12, round+1, start, retdest
-    %jumpi(run_next_round_g_function)
-    // stack: round+1, start, retdest
-    %pop2
-    // stack: retdest
-    JUMP
-

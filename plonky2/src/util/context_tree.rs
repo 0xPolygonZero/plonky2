@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use log::{log, Level};
 
 /// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
+#[derive(Debug, Clone)]
 pub(crate) struct ContextTree {
     /// The name of this scope.
     name: String,
