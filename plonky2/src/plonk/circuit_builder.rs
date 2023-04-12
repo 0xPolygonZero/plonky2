@@ -762,7 +762,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
-        self.randomize_unused_pi_wires(pi_gate);
+        // self.randomize_unused_pi_wires(pi_gate);
 
         // Make sure we have enough constant generators. If not, add a `ConstantGate`.
         while self.constants_to_targets.len() > self.constant_generators.len() {

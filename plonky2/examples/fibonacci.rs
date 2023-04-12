@@ -47,13 +47,22 @@ fn main() -> Result<()> {
     let common_circuit_data_serialized = serde_json::to_string(&data.common).unwrap();
     fs::write("common_circuit_data.json", common_circuit_data_serialized).expect("Unable to write file");
 
+    let verifier_only_circuit_data_serialized = serde_json::to_string(&data.verifier_only).unwrap();
+    fs::write("verifier_only_circuit_data.json", verifier_only_circuit_data_serialized).expect("Unable to write file");
+
     let proof = data.prove(pw)?;
 
     let proof_serialized = serde_json::to_string(&proof).unwrap();
     fs::write("proof_with_public_inputs.json", proof_serialized).expect("Unable to write file");
 
-    let verifier_only_circuit_data_serialized = serde_json::to_string(&data.verifier_only).unwrap();
-    fs::write("verifier_only_circuit_data.json", verifier_only_circuit_data_serialized).expect("Unable to write file");
+    let challenges = proof.get_challenges(
+        proof.get_public_inputs_hash(),
+        &data.verifier_only.circuit_digest,
+        &data.common,
+    )?;
+
+    let challenges_serialized = serde_json::to_string(&challenges).unwrap();
+    fs::write("proof_challenges.json", challenges_serialized).expect("Unable to write file");
 
     println!(
         "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",

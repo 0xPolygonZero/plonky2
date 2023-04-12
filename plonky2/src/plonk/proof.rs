@@ -102,7 +102,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         })
     }
 
-    pub(crate) fn get_public_inputs_hash(
+    pub fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash
     where
@@ -152,7 +152,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CompressedProof<F, C, D>
 {
     /// Decompress the proof.
-    pub(crate) fn decompress(
+    pub fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
@@ -214,7 +214,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         })
     }
 
-    pub(crate) fn verify(
+    pub fn verify(
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, D>,
@@ -246,7 +246,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub(crate) fn get_public_inputs_hash(
+    pub fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash
     where
@@ -276,7 +276,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Serialize)]
+pub struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
@@ -292,7 +293,7 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     pub fri_challenges: FriChallenges<F, D>,
 }
 
-pub(crate) struct ProofChallengesTarget<const D: usize> {
+pub struct ProofChallengesTarget<const D: usize> {
     pub plonk_betas: Vec<Target>,
     pub plonk_gammas: Vec<Target>,
     pub plonk_alphas: Vec<Target>,
@@ -301,7 +302,7 @@ pub(crate) struct ProofChallengesTarget<const D: usize> {
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
-pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
+pub struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
     pub Vec<F::Extension>,
 );
 
@@ -355,7 +356,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         }
     }
 
-    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+    pub fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let zeta_batch = FriOpeningBatch {
             values: [
                 self.constants.as_slice(),
@@ -389,7 +390,7 @@ pub struct OpeningSetTarget<const D: usize> {
 }
 
 impl<const D: usize> OpeningSetTarget<D> {
-    pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
+    pub fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: [
                 self.constants.as_slice(),
