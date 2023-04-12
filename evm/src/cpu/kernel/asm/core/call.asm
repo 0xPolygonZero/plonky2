@@ -148,13 +148,6 @@ global after_call_instruction:
     // stack: new_ctx
 %endmacro
 
-// Convenience macro for checking if the current context is static.
-// Called before state-changing opcodes.
-%macro check_static
-    %mload_context_metadata(@CTX_METADATA_STATIC)
-    %jumpi(fault_exception)
-%endmacro
-
 %macro set_new_ctx_addr
     // stack: called_addr, new_ctx
     %stack (called_addr, new_ctx)
