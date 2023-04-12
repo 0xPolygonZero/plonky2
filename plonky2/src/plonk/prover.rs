@@ -11,7 +11,6 @@ use crate::field::types::Field;
 use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::HashConfig;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
@@ -31,13 +30,7 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>>
-where
-    C::Hasher: Hasher<F, C::HCO>,
-    C::InnerHasher: Hasher<F, C::HCI>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<ProofWithPublicInputs<F, C, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
@@ -71,7 +64,7 @@ where
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatch::<F, C, D>::from_values(
+        PolynomialBatch::from_values(
             wires_values,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::WIRES.blinding,
@@ -81,13 +74,13 @@ where
         )
     );
 
-    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<C::HCO, C::Hasher>(prover_data.circuit_digest);
-    challenger.observe_hash::<C::HCI, C::InnerHasher>(public_inputs_hash);
+    challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
+    challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
-    challenger.observe_cap::<C::HCO, C::Hasher>(&wires_commitment.merkle_tree.cap);
+    challenger.observe_cap(&wires_commitment.merkle_tree.cap);
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
@@ -111,7 +104,7 @@ where
     let partial_products_and_zs_commitment = timed!(
         timing,
         "commit to partial products and Z's",
-        PolynomialBatch::<F, C, D>::from_values(
+        PolynomialBatch::from_values(
             zs_partial_products,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
@@ -121,15 +114,14 @@ where
         )
     );
 
-    challenger
-        .observe_cap::<C::HCO, C::Hasher>(&partial_products_and_zs_commitment.merkle_tree.cap);
+    challenger.observe_cap(&partial_products_and_zs_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
-        compute_quotient_polys::<F, C, D>(
+        compute_quotient_polys(
             common_data,
             prover_data,
             &public_inputs_hash,
@@ -160,7 +152,7 @@ where
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatch::<F, C, D>::from_coeffs(
+        PolynomialBatch::from_coeffs(
             all_quotient_poly_chunks,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
@@ -170,7 +162,7 @@ where
         )
     );
 
-    challenger.observe_cap::<C::HCO, C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
+    challenger.observe_cap(&quotient_polys_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -185,7 +177,7 @@ where
     let openings = timed!(
         timing,
         "construct the opening set",
-        OpeningSet::new::<C>(
+        OpeningSet::new(
             zeta,
             g,
             &prover_data.constants_sigmas_commitment,
@@ -200,7 +192,7 @@ where
     let opening_proof = timed!(
         timing,
         "compute opening proofs",
-        PolynomialBatch::<F, C, D>::prove_openings(
+        PolynomialBatch::prove_openings(
             &common_data.get_fri_instance(zeta),
             &[
                 &prover_data.constants_sigmas_commitment,
@@ -214,14 +206,14 @@ where
         )
     );
 
-    let proof = Proof::<F, C, D> {
+    let proof = Proof {
         wires_cap: wires_commitment.merkle_tree.cap,
         plonk_zs_partial_products_cap: partial_products_and_zs_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
         opening_proof,
     };
-    Ok(ProofWithPublicInputs::<F, C, D> {
+    Ok(ProofWithPublicInputs {
         proof,
         public_inputs,
     })
@@ -324,7 +316,7 @@ fn compute_quotient_polys<
 >(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
-    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
+    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     wires_commitment: &'a PolynomialBatch<F, C, D>,
     zs_partial_products_commitment: &'a PolynomialBatch<F, C, D>,
     betas: &[F],

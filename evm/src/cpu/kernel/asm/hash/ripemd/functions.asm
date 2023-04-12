@@ -18,7 +18,7 @@ global rol:
     // stack:         x << n, x >> (32-n), retdest
     %as_u32
     // stack:    u32(x << n), x >> (32-n), retdest
-    ADD // OR
+    OR
     // stack: u32(x << n) | (x >> (32-n)), retdest
     SWAP1  
     JUMP

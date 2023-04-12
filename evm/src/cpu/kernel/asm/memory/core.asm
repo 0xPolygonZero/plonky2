@@ -79,21 +79,21 @@
     DUP2
     %increment
     %mload_kernel($segment)
-    ADD // OR
+    OR
     // stack: (c_3 << 8) | c_2, offset
     %shl_const(8)
     // stack: ((c_3 << 8) | c_2) << 8, offset
     DUP2
     %add_const(2)
     %mload_kernel($segment)
-    ADD // OR
+    OR
     // stack: (((c_3 << 8) | c_2) << 8) | c_1, offset
     %shl_const(8)
     // stack: ((((c_3 << 8) | c_2) << 8) | c_1) << 8, offset
     SWAP1
     %add_const(3)
     %mload_kernel($segment)
-    ADD // OR
+    OR
     // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
 %endmacro
 
@@ -107,19 +107,19 @@
     %increment
     %mload_kernel($segment)
     %shl_const(8)
-    ADD
+    OR
     // stack: c0 | (c1 << 8)             , offset
     DUP2
     %add_const(2)
     %mload_kernel($segment)
     %shl_const(16)
-    ADD
+    OR
     // stack: c0 | (c1 << 8) | (c2 << 16), offset
     SWAP1
     %add_const(3)
     %mload_kernel($segment)
     %shl_const(24)
-    ADD // OR
+    OR
     // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
 %endmacro
 
@@ -137,7 +137,7 @@
     // stack: hi, lo
     %shl_const(32)
     // stack: hi << 32, lo
-    ADD // OR
+    OR
     // stack: (hi << 32) | lo
 %endmacro
 
@@ -152,49 +152,49 @@
     DUP2
     %add_const(4)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 32) | c_6, offset
     %shl_const(32)
     // stack: ((c_7 << 32) | c_6) << 32, offset
     DUP2
     %add_const(8)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 64) | (c_6 << 32) | c_5, offset
     %shl_const(32)
     // stack: ((c_7 << 64) | (c_6 << 32) | c_5) << 32, offset
     DUP2
     %add_const(12)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4, offset
     %shl_const(32)
     // stack: ((c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4) << 32, offset
     DUP2
     %add_const(16)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3, offset
     %shl_const(32)
     // stack: ((c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3) << 32, offset
     DUP2
     %add_const(20)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2, offset
     %shl_const(32)
     // stack: ((c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2) << 32, offset
     DUP2
     %add_const(24)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1, offset
     %shl_const(32)
     // stack: ((c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1) << 32, offset
     DUP2
     %add_const(28)
     %mload_kernel_u32($segment)
-    ADD // OR
+    OR
     // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0, offset
     SWAP1
     POP
@@ -418,4 +418,22 @@
     // stack: offset, value
     %mstore_kernel_general_2
     // stack: (empty)
+%endmacro
+
+%macro mload_main
+    // stack: offset
+    DUP1
+    // stack: offset, offset
+    %update_msize
+    // stack: offset
+    %mload_current(@SEGMENT_MAIN_MEMORY)
+%endmacro
+
+%macro mstore_main
+    // stack: offset, value
+    DUP1
+    // stack: offset, offset, value
+    %update_msize
+    // stack: offset, value
+    %mstore_current(@SEGMENT_MAIN_MEMORY)
 %endmacro

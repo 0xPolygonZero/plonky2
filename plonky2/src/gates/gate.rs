@@ -230,7 +230,7 @@ pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// A gate along with any constants used to configure it.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {
     pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,

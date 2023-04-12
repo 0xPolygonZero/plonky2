@@ -12,15 +12,11 @@ use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation};
+use crate::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, Hasher, PoseidonHashConfig};
-
-pub const SPONGE_RATE: usize = 8;
-pub const SPONGE_CAPACITY: usize = 4;
-pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
@@ -51,7 +47,7 @@ fn reduce_u160<F: PrimeField64>((n_lo, n_hi): (u128, u32)) -> F {
 }
 
 /// Note that these work for the Goldilocks field, but not necessarily others. See
-/// `generate_constants` about how these were generated. We include enough for a width of 12;
+/// `generate_constants` about how these were generated. We include enough for a WIDTH of 12;
 /// smaller widths just use a subset.
 #[rustfmt::skip]
 pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
@@ -154,28 +150,29 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df5476d3cb, 0xf172d73e004fc90d, 0xdfd1c4febcc81238, 0xbc8dfb627fe558fc,
 ];
 
+const WIDTH: usize = SPONGE_WIDTH;
 pub trait Poseidon: PrimeField64 {
     // Total number of round constants required: width of the input
     // times number of rounds.
-    const N_ROUND_CONSTANTS: usize = SPONGE_WIDTH * N_ROUNDS;
+    const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
 
     // The MDS matrix we use is C + D, where C is the circulant matrix whose first row is given by
     // `MDS_MATRIX_CIRC`, and D is the diagonal matrix whose diagonal is given by `MDS_MATRIX_DIAG`.
-    const MDS_MATRIX_CIRC: [u64; SPONGE_WIDTH];
-    const MDS_MATRIX_DIAG: [u64; SPONGE_WIDTH];
+    const MDS_MATRIX_CIRC: [u64; WIDTH];
+    const MDS_MATRIX_DIAG: [u64; WIDTH];
 
     // Precomputed constants for the fast Poseidon calculation. See
     // the paper.
-    const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; SPONGE_WIDTH];
+    const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH];
     const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS];
-    const FAST_PARTIAL_ROUND_VS: [[u64; SPONGE_WIDTH - 1]; N_PARTIAL_ROUNDS];
-    const FAST_PARTIAL_ROUND_W_HATS: [[u64; SPONGE_WIDTH - 1]; N_PARTIAL_ROUNDS];
-    const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; SPONGE_WIDTH - 1]; SPONGE_WIDTH - 1];
+    const FAST_PARTIAL_ROUND_VS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS];
+    const FAST_PARTIAL_ROUND_W_HATS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS];
+    const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; WIDTH - 1]; WIDTH - 1];
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_row_shf(r: usize, v: &[u64; SPONGE_WIDTH]) -> u128 {
-        debug_assert!(r < SPONGE_WIDTH);
+    fn mds_row_shf(r: usize, v: &[u64; WIDTH]) -> u128 {
+        debug_assert!(r < WIDTH);
         // The values of `MDS_MATRIX_CIRC` and `MDS_MATRIX_DIAG` are
         // known to be small, so we can accumulate all the products for
         // each row and reduce just once at the end (done by the
@@ -187,8 +184,8 @@ pub trait Poseidon: PrimeField64 {
 
         // This is a hacky way of fully unrolling the loop.
         for i in 0..12 {
-            if i < SPONGE_WIDTH {
-                res += (v[(i + r) % SPONGE_WIDTH] as u128) * (Self::MDS_MATRIX_CIRC[i] as u128);
+            if i < WIDTH {
+                res += (v[(i + r) % WIDTH] as u128) * (Self::MDS_MATRIX_CIRC[i] as u128);
             }
         }
         res += (v[r] as u128) * (Self::MDS_MATRIX_DIAG[r] as u128);
@@ -199,13 +196,13 @@ pub trait Poseidon: PrimeField64 {
     /// Same as `mds_row_shf` for field extensions of `Self`.
     fn mds_row_shf_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         r: usize,
-        v: &[F; SPONGE_WIDTH],
+        v: &[F; WIDTH],
     ) -> F {
-        debug_assert!(r < SPONGE_WIDTH);
+        debug_assert!(r < WIDTH);
         let mut res = F::ZERO;
 
-        for i in 0..SPONGE_WIDTH {
-            res += v[(i + r) % SPONGE_WIDTH] * F::from_canonical_u64(Self::MDS_MATRIX_CIRC[i]);
+        for i in 0..WIDTH {
+            res += v[(i + r) % WIDTH] * F::from_canonical_u64(Self::MDS_MATRIX_CIRC[i]);
         }
         res += v[r] * F::from_canonical_u64(Self::MDS_MATRIX_DIAG[r]);
 
@@ -216,17 +213,17 @@ pub trait Poseidon: PrimeField64 {
     fn mds_row_shf_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         r: usize,
-        v: &[ExtensionTarget<D>; SPONGE_WIDTH],
+        v: &[ExtensionTarget<D>; WIDTH],
     ) -> ExtensionTarget<D>
     where
         Self: RichField + Extendable<D>,
     {
-        debug_assert!(r < SPONGE_WIDTH);
+        debug_assert!(r < WIDTH);
         let mut res = builder.zero_extension();
 
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..WIDTH {
             let c = Self::from_canonical_u64(<Self as Poseidon>::MDS_MATRIX_CIRC[i]);
-            res = builder.mul_const_add_extension(c, v[(i + r) % SPONGE_WIDTH], res);
+            res = builder.mul_const_add_extension(c, v[(i + r) % WIDTH], res);
         }
         {
             let c = Self::from_canonical_u64(<Self as Poseidon>::MDS_MATRIX_DIAG[r]);
@@ -238,17 +235,17 @@ pub trait Poseidon: PrimeField64 {
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_layer(state_: &[Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH] {
-        let mut result = [Self::ZERO; SPONGE_WIDTH];
+    fn mds_layer(state_: &[Self; WIDTH]) -> [Self; WIDTH] {
+        let mut result = [Self::ZERO; WIDTH];
 
-        let mut state = [0u64; SPONGE_WIDTH];
-        for r in 0..SPONGE_WIDTH {
+        let mut state = [0u64; WIDTH];
+        for r in 0..WIDTH {
             state[r] = state_[r].to_noncanonical_u64();
         }
 
         // This is a hacky way of fully unrolling the loop.
         for r in 0..12 {
-            if r < SPONGE_WIDTH {
+            if r < WIDTH {
                 let sum = Self::mds_row_shf(r, &state);
                 let sum_lo = sum as u64;
                 let sum_hi = (sum >> 64) as u32;
@@ -261,11 +258,11 @@ pub trait Poseidon: PrimeField64 {
 
     /// Same as `mds_layer` for field extensions of `Self`.
     fn mds_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &[F; SPONGE_WIDTH],
-    ) -> [F; SPONGE_WIDTH] {
-        let mut result = [F::ZERO; SPONGE_WIDTH];
+        state: &[F; WIDTH],
+    ) -> [F; WIDTH] {
+        let mut result = [F::ZERO; WIDTH];
 
-        for r in 0..SPONGE_WIDTH {
+        for r in 0..WIDTH {
             result[r] = Self::mds_row_shf_field(r, state);
         }
 
@@ -275,8 +272,8 @@ pub trait Poseidon: PrimeField64 {
     /// Recursive version of `mds_layer`.
     fn mds_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &[ExtensionTarget<D>; SPONGE_WIDTH],
-    ) -> [ExtensionTarget<D>; SPONGE_WIDTH]
+        state: &[ExtensionTarget<D>; WIDTH],
+    ) -> [ExtensionTarget<D>; WIDTH]
     where
         Self: RichField + Extendable<D>,
     {
@@ -284,11 +281,11 @@ pub trait Poseidon: PrimeField64 {
         let mds_gate = PoseidonMdsGate::<Self, D>::new();
         if builder.config.num_routed_wires >= mds_gate.num_wires() {
             let index = builder.add_gate(mds_gate, vec![]);
-            for i in 0..SPONGE_WIDTH {
+            for i in 0..WIDTH {
                 let input_wire = PoseidonMdsGate::<Self, D>::wires_input(i);
                 builder.connect_extension(state[i], ExtensionTarget::from_range(index, input_wire));
             }
-            (0..SPONGE_WIDTH)
+            (0..WIDTH)
                 .map(|i| {
                     let output_wire = PoseidonMdsGate::<Self, D>::wires_output(i);
                     ExtensionTarget::from_range(index, output_wire)
@@ -297,9 +294,9 @@ pub trait Poseidon: PrimeField64 {
                 .try_into()
                 .unwrap()
         } else {
-            let mut result = [builder.zero_extension(); SPONGE_WIDTH];
+            let mut result = [builder.zero_extension(); WIDTH];
 
-            for r in 0..SPONGE_WIDTH {
+            for r in 0..WIDTH {
                 result[r] = Self::mds_row_shf_circuit(builder, r, state);
             }
 
@@ -310,10 +307,10 @@ pub trait Poseidon: PrimeField64 {
     #[inline(always)]
     #[unroll_for_loops]
     fn partial_first_constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &mut [F; SPONGE_WIDTH],
+        state: &mut [F; WIDTH],
     ) {
         for i in 0..12 {
-            if i < SPONGE_WIDTH {
+            if i < WIDTH {
                 state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
             }
         }
@@ -322,11 +319,11 @@ pub trait Poseidon: PrimeField64 {
     /// Recursive version of `partial_first_constant_layer`.
     fn partial_first_constant_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &mut [ExtensionTarget<D>; SPONGE_WIDTH],
+        state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
         Self: RichField + Extendable<D>,
     {
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..WIDTH {
             let c = <Self as Poseidon>::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i];
             let c = Self::Extension::from_canonical_u64(c);
             let c = builder.constant_extension(c);
@@ -337,9 +334,9 @@ pub trait Poseidon: PrimeField64 {
     #[inline(always)]
     #[unroll_for_loops]
     fn mds_partial_layer_init<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &[F; SPONGE_WIDTH],
-    ) -> [F; SPONGE_WIDTH] {
-        let mut result = [F::ZERO; SPONGE_WIDTH];
+        state: &[F; WIDTH],
+    ) -> [F; WIDTH] {
+        let mut result = [F::ZERO; WIDTH];
 
         // Initial matrix has first row/column = [1, 0, ..., 0];
 
@@ -347,9 +344,9 @@ pub trait Poseidon: PrimeField64 {
         result[0] = state[0];
 
         for r in 1..12 {
-            if r < SPONGE_WIDTH {
+            if r < WIDTH {
                 for c in 1..12 {
-                    if c < SPONGE_WIDTH {
+                    if c < WIDTH {
                         // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
                         // row-major order so that this dot product is cache
                         // friendly.
@@ -367,17 +364,17 @@ pub trait Poseidon: PrimeField64 {
     /// Recursive version of `mds_partial_layer_init`.
     fn mds_partial_layer_init_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &[ExtensionTarget<D>; SPONGE_WIDTH],
-    ) -> [ExtensionTarget<D>; SPONGE_WIDTH]
+        state: &[ExtensionTarget<D>; WIDTH],
+    ) -> [ExtensionTarget<D>; WIDTH]
     where
         Self: RichField + Extendable<D>,
     {
-        let mut result = [builder.zero_extension(); SPONGE_WIDTH];
+        let mut result = [builder.zero_extension(); WIDTH];
 
         result[0] = state[0];
 
-        for r in 1..SPONGE_WIDTH {
-            for c in 1..SPONGE_WIDTH {
+        for r in 1..WIDTH {
+            for c in 1..WIDTH {
                 let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1];
                 let t = Self::Extension::from_canonical_u64(t);
                 let t = builder.constant_extension(t);
@@ -397,12 +394,12 @@ pub trait Poseidon: PrimeField64 {
     /// (t-1)x(t-1) identity matrix.
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_partial_layer_fast(state: &[Self; SPONGE_WIDTH], r: usize) -> [Self; SPONGE_WIDTH] {
+    fn mds_partial_layer_fast(state: &[Self; WIDTH], r: usize) -> [Self; WIDTH] {
         // Set d = [M_00 | w^] dot [state]
 
         let mut d_sum = (0u128, 0u32); // u160 accumulator
         for i in 1..12 {
-            if i < SPONGE_WIDTH {
+            if i < WIDTH {
                 let t = Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1] as u128;
                 let si = state[i].to_noncanonical_u64() as u128;
                 d_sum = add_u160_u128(d_sum, si * t);
@@ -414,10 +411,10 @@ pub trait Poseidon: PrimeField64 {
         let d = reduce_u160::<Self>(d_sum);
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
-        let mut result = [Self::ZERO; SPONGE_WIDTH];
+        let mut result = [Self::ZERO; WIDTH];
         result[0] = d;
         for i in 1..12 {
-            if i < SPONGE_WIDTH {
+            if i < WIDTH {
                 let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
                 result[i] = state[i].multiply_accumulate(state[0], t);
             }
@@ -427,21 +424,21 @@ pub trait Poseidon: PrimeField64 {
 
     /// Same as `mds_partial_layer_fast` for field extensions of `Self`.
     fn mds_partial_layer_fast_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &[F; SPONGE_WIDTH],
+        state: &[F; WIDTH],
         r: usize,
-    ) -> [F; SPONGE_WIDTH] {
+    ) -> [F; WIDTH] {
         let s0 = state[0];
         let mds0to0 = Self::MDS_MATRIX_CIRC[0] + Self::MDS_MATRIX_DIAG[0];
         let mut d = s0 * F::from_canonical_u64(mds0to0);
-        for i in 1..SPONGE_WIDTH {
+        for i in 1..WIDTH {
             let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
             d += state[i] * t;
         }
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
-        let mut result = [F::ZERO; SPONGE_WIDTH];
+        let mut result = [F::ZERO; WIDTH];
         result[0] = d;
-        for i in 1..SPONGE_WIDTH {
+        for i in 1..WIDTH {
             let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
             result[i] = state[0] * t + state[i];
         }
@@ -451,25 +448,25 @@ pub trait Poseidon: PrimeField64 {
     /// Recursive version of `mds_partial_layer_fast`.
     fn mds_partial_layer_fast_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &[ExtensionTarget<D>; SPONGE_WIDTH],
+        state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
-    ) -> [ExtensionTarget<D>; SPONGE_WIDTH]
+    ) -> [ExtensionTarget<D>; WIDTH]
     where
         Self: RichField + Extendable<D>,
     {
         let s0 = state[0];
         let mds0to0 = Self::MDS_MATRIX_CIRC[0] + Self::MDS_MATRIX_DIAG[0];
         let mut d = builder.mul_const_extension(Self::from_canonical_u64(mds0to0), s0);
-        for i in 1..SPONGE_WIDTH {
+        for i in 1..WIDTH {
             let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
             d = builder.mul_add_extension(t, state[i], d);
         }
 
-        let mut result = [builder.zero_extension(); SPONGE_WIDTH];
+        let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
-        for i in 1..SPONGE_WIDTH {
+        for i in 1..WIDTH {
             let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_VS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
@@ -480,10 +477,10 @@ pub trait Poseidon: PrimeField64 {
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn constant_layer(state: &mut [Self; SPONGE_WIDTH], round_ctr: usize) {
+    fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
         for i in 0..12 {
-            if i < SPONGE_WIDTH {
-                let round_constant = ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr];
+            if i < WIDTH {
+                let round_constant = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
                 unsafe {
                     state[i] = state[i].add_canonical_u64(round_constant);
                 }
@@ -493,24 +490,24 @@ pub trait Poseidon: PrimeField64 {
 
     /// Same as `constant_layer` for field extensions of `Self`.
     fn constant_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &mut [F; SPONGE_WIDTH],
+        state: &mut [F; WIDTH],
         round_ctr: usize,
     ) {
-        for i in 0..SPONGE_WIDTH {
-            state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr]);
+        for i in 0..WIDTH {
+            state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
         }
     }
 
     /// Recursive version of `constant_layer`.
     fn constant_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &mut [ExtensionTarget<D>; SPONGE_WIDTH],
+        state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
     ) where
         Self: RichField + Extendable<D>,
     {
-        for i in 0..SPONGE_WIDTH {
-            let c = ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr];
+        for i in 0..WIDTH {
+            let c = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
             let c = Self::Extension::from_canonical_u64(c);
             let c = builder.constant_extension(c);
             state[i] = builder.add_extension(state[i], c);
@@ -540,9 +537,9 @@ pub trait Poseidon: PrimeField64 {
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn sbox_layer(state: &mut [Self; SPONGE_WIDTH]) {
+    fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..12 {
-            if i < SPONGE_WIDTH {
+            if i < WIDTH {
                 state[i] = Self::sbox_monomial(state[i]);
             }
         }
@@ -550,9 +547,9 @@ pub trait Poseidon: PrimeField64 {
 
     /// Same as `sbox_layer` for field extensions of `Self`.
     fn sbox_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
-        state: &mut [F; SPONGE_WIDTH],
+        state: &mut [F; WIDTH],
     ) {
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..WIDTH {
             state[i] = Self::sbox_monomial(state[i]);
         }
     }
@@ -560,17 +557,17 @@ pub trait Poseidon: PrimeField64 {
     /// Recursive version of `sbox_layer`.
     fn sbox_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
-        state: &mut [ExtensionTarget<D>; SPONGE_WIDTH],
+        state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
         Self: RichField + Extendable<D>,
     {
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..WIDTH {
             state[i] = <Self as Poseidon>::sbox_monomial_circuit(builder, state[i]);
         }
     }
 
     #[inline]
-    fn full_rounds(state: &mut [Self; SPONGE_WIDTH], round_ctr: &mut usize) {
+    fn full_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..HALF_N_FULL_ROUNDS {
             Self::constant_layer(state, *round_ctr);
             Self::sbox_layer(state);
@@ -580,7 +577,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     #[inline]
-    fn partial_rounds(state: &mut [Self; SPONGE_WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
@@ -595,7 +592,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     #[inline]
-    fn poseidon(input: [Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH] {
+    fn poseidon(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
         let mut round_ctr = 0;
 
@@ -609,7 +606,7 @@ pub trait Poseidon: PrimeField64 {
 
     // For testing only, to ensure that various tricks are correct.
     #[inline]
-    fn partial_rounds_naive(state: &mut [Self; SPONGE_WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds_naive(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..N_PARTIAL_ROUNDS {
             Self::constant_layer(state, *round_ctr);
             state[0] = Self::sbox_monomial(state[0]);
@@ -619,7 +616,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     #[inline]
-    fn poseidon_naive(input: [Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH] {
+    fn poseidon_naive(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
         let mut round_ctr = 0;
 
@@ -633,7 +630,7 @@ pub trait Poseidon: PrimeField64 {
 }
 
 pub struct PoseidonPermutation;
-impl<F: RichField> PlonkyPermutation<F, PoseidonHashConfig> for PoseidonPermutation {
+impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
         F::poseidon(input)
     }
@@ -642,21 +639,21 @@ impl<F: RichField> PlonkyPermutation<F, PoseidonHashConfig> for PoseidonPermutat
 /// Poseidon hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoseidonHash;
-impl<F: RichField> Hasher<F, PoseidonHashConfig> for PoseidonHash {
+impl<F: RichField> Hasher<F> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        hash_n_to_hash_no_pad::<F, PoseidonHashConfig, Self::Permutation>(input)
+        hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, PoseidonHashConfig, Self::Permutation>(left, right)
+        compress::<F, Self::Permutation>(left, right)
     }
 }
 
-impl<F: RichField> AlgebraicHasher<F, PoseidonHashConfig> for PoseidonHash {
+impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
     fn permute_swapped<const D: usize>(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,
@@ -691,7 +688,8 @@ impl<F: RichField> AlgebraicHasher<F, PoseidonHashConfig> for PoseidonHash {
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use crate::field::types::Field;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
+    use crate::hash::hashing::SPONGE_WIDTH;
+    use crate::hash::poseidon::Poseidon;
 
     pub(crate) fn check_test_vectors<F: Field>(
         test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,

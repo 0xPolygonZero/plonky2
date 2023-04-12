@@ -1,4 +1,5 @@
 use anyhow::Result;
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -8,7 +9,6 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
-use crate::Node;
 
 #[test]
 fn load_all_mpts_empty() -> Result<()> {
@@ -48,11 +48,10 @@ fn load_all_mpts_empty() -> Result<()> {
 #[test]
 fn load_all_mpts_leaf() -> Result<()> {
     let trie_inputs = TrieInputs {
-        state_trie: Node::Leaf {
+        state_trie: PartialTrie::Leaf {
             nibbles: 0xABC_u64.into(),
             value: test_account_1_rlp(),
-        }
-        .into(),
+        },
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -101,7 +100,7 @@ fn load_all_mpts_leaf() -> Result<()> {
 fn load_all_mpts_hash() -> Result<()> {
     let hash = H256::random();
     let trie_inputs = TrieInputs {
-        state_trie: Node::Hash(hash).into(),
+        state_trie: PartialTrie::Hash(hash),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -135,12 +134,11 @@ fn load_all_mpts_hash() -> Result<()> {
 
 #[test]
 fn load_all_mpts_empty_branch() -> Result<()> {
-    let children = core::array::from_fn(|_| Node::Empty.into());
-    let state_trie = Node::Branch {
+    let children = core::array::from_fn(|_| PartialTrie::Empty.into());
+    let state_trie = PartialTrie::Branch {
         children,
         value: vec![],
-    }
-    .into();
+    };
     let trie_inputs = TrieInputs {
         state_trie,
         transactions_trie: Default::default(),

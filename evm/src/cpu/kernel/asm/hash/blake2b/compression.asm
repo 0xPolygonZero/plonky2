@@ -2,9 +2,7 @@ global blake2b_compression:
     // stack: retdest
     PUSH 0
     // stack: cur_block = 0, retdest
-    PUSH compression_loop
-    // stack: compression_loop, cur_block, retdest
-    %jump(blake2b_initial_hash_value)
+    %blake2b_initial_hash_value
 compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     
@@ -85,7 +83,8 @@ compression_loop:
         // stack: cur_message_addr + 1, cur_block_byte + 8, ...
     %endrep
     // stack: end_message_addr, end_block_start_byte, t, cur_block, is_last_block, retdest
-    %pop2
+    POP
+    POP
     // stack: t, cur_block, is_last_block, retdest
     SWAP1
     // stack: cur_block, t, is_last_block, retdest
@@ -127,14 +126,15 @@ compression_loop:
     // stack: 0, start + 8, invert_if_last_block, t, cur_block, retdest
     %rep 4
         // stack: i, loc, ...
-        DUP1
-        // stack: i, i, loc, ...
+        DUP2
+        DUP2
+        // stack: i, loc, i, loc,...
         %blake2b_iv
-        // stack: IV_i, i, loc, ...
-        DUP3
-        // stack: loc, IV_i, i, loc, ...
+        // stack: IV_i, loc, i, loc,...
+        SWAP1
+        // stack: loc, IV_i, i, loc,...
         %mstore_kernel_general
-        // stack: i, loc, ...
+        // stack: i, loc,...
         %increment
         SWAP1
         %increment
@@ -145,11 +145,15 @@ compression_loop:
     %stack (i, loc, inv, last, t) -> (t, t, i, loc, inv, last)
     // stack: t, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     %shr_const(64)
-    // stack: t_hi = t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
+    // stack: t >> 64, t, 4, start + 12, invert_if_last_block, cur_block, retdest
     SWAP1
-    // stack: t, t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
-    %mod_const(0x10000000000000000)
-    // stack: t_lo = t % (1 << 64), t_hi, 4, start + 12, invert_if_last_block, cur_block, retdest
+    // stack: t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
+    PUSH 1
+    %shl_const(64)
+    // stack: 1 << 64, t, t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
+    SWAP1
+    MOD
+    // stack: t_lo = t % (1 << 64), t_hi = t >> 64, 4, start + 12, invert_if_last_block, cur_block, retdest
     %stack (t_lo, t_hi, i, loc, inv) -> (i, loc, t_lo, t_hi, inv, 0)
     // stack: 4, start + 12, t_lo, t_hi, invert_if_last_block, 0, cur_block, retdest
 
@@ -157,46 +161,60 @@ compression_loop:
     // the values (t % 2**64, t >> 64, invert_if, 0).
     %rep 4
         // stack: i, loc, val, next_val,...
-        DUP1
-        // stack: i, i, loc, val, next_val,...
+        %stack (i, loc, val) -> (i, val, loc, i, loc)
+        // stack: i, val, loc, i, loc, next_val,...
         %blake2b_iv
-        // stack: IV_i, i, loc, val, next_val,...
-        DUP4
-        // stack: val, IV_i, i, loc, val, next_val,...
+        // stack: IV_i, val, loc, i, loc, next_val,...
         XOR
-        // stack: val ^ IV_i, i, loc, val, next_val,...
-        DUP3
-        // stack: loc, val ^ IV_i, i, loc, val, next_val,...
+        // stack: val ^ IV_i, loc, i, loc, next_val,...
+        SWAP1
+        // stack: loc, val ^ IV_i, i, loc, next_val,...
         %mstore_kernel_general
-        // stack: i, loc, val, next_val,...
+        // stack: i, loc, next_val,...
         %increment
-        // stack: i + 1, loc, val, next_val,...
-        SWAP2
-        // stack: val, loc, i + 1, next_val,...
-        POP
-        // stack: loc, i + 1, next_val,...
+        SWAP1
         %increment
-        // stack: loc + 1, i + 1, next_val,...
         SWAP1
         // stack: i + 1, loc + 1, next_val,...
     %endrep
     // stack: 8, loc + 16, cur_block, retdest
-    %pop2
+    POP
+    POP
     // stack: cur_block, retdest
+    %blake2b_internal_state_addr
+    // stack: start, cur_block, retdest
+    PUSH 0
+    // stack: round=0, start, cur_block, retdest
 
     // Run 12 rounds of G functions.
-    PUSH g_functions_return
-    // stack: g_functions_return, cur_block, retdest
-    %blake2b_internal_state_addr
-    // stack: start, g_functions_return, cur_block, retdest
-    %jump(run_12_rounds_g_function)
-g_functions_return:
+    %rep 12
+        // stack: round, start, cur_block, retdest
+        %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
+        %call_blake2b_g_function(1, 5, 9, 13, 2, 3)
+        %call_blake2b_g_function(2, 6, 10, 14, 4, 5)
+        %call_blake2b_g_function(3, 7, 11, 15, 6, 7)
+        %call_blake2b_g_function(0, 5, 10, 15, 8, 9)
+        %call_blake2b_g_function(1, 6, 11, 12, 10, 11)
+        %call_blake2b_g_function(2, 7, 8, 13, 12, 13)
+        %call_blake2b_g_function(3, 4, 9, 14, 14, 15)
+        // stack: round, start, cur_block, retdest
+        %increment
+        // stack: round + 1, start, cur_block, retdest
+    %endrep
+    // stack: 12, start, cur_block, retdest
+    POP
+    POP
+
     // Finalize hash value.
     // stack: cur_block, retdest
-    PUSH hash_generate_return
-    // stack: hash_generate_return, cur_block, retdest
-    %jump(blake2b_generate_all_hash_values)
-hash_generate_return:
+    %blake2b_generate_new_hash_value(7)
+    %blake2b_generate_new_hash_value(6)
+    %blake2b_generate_new_hash_value(5)
+    %blake2b_generate_new_hash_value(4)
+    %blake2b_generate_new_hash_value(3)
+    %blake2b_generate_new_hash_value(2)
+    %blake2b_generate_new_hash_value(1)
+    %blake2b_generate_new_hash_value(0)
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     DUP9
     // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
@@ -209,9 +227,10 @@ hash_generate_return:
     PUSH 0
     %mload_kernel_general
     // stack: num_blocks, cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    GT
-    // stack: not_last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %jumpi(compression_loop)
+    EQ
+    // stack: last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
+    %jumpi(compression_end)
+    %jump(compression_loop)
 compression_end:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
 

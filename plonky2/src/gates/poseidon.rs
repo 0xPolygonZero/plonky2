@@ -10,8 +10,9 @@ use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon;
-use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
+use crate::hash::poseidon::Poseidon;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -401,7 +402,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct PoseidonGenerator<F: RichField + Extendable<D> + Poseidon, const D: usize> {
     row: usize,
     _phantom: PhantomData<F>,
@@ -509,7 +510,8 @@ mod tests {
     use crate::field::types::Field;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
+    use crate::hash::hashing::SPONGE_WIDTH;
+    use crate::hash::poseidon::Poseidon;
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::wire::Wire;
     use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};

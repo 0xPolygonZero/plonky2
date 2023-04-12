@@ -1,128 +1,85 @@
-// The CREATE syscall. Address will be
-//     address = KEC(RLP(sender, nonce))[12:]
+// The CREATE syscall.
 //
-// Pre stack: kexit_info, value, code_offset, code_len
+// Pre stack: value, CODE_ADDR, code_len, retdest
 // Post stack: address
 global sys_create:
-    %check_static
-    // stack: kexit_info, value, code_offset, code_len
-    // TODO: Charge gas.
-    %stack (kexit_info, value, code_offset, code_len)
-        -> (sys_create_got_address, value, code_offset, code_len, kexit_info)
     %address
-    // stack: sender, sys_create_got_address, value, code_offset, code_len, kexit_info
-    DUP1 %nonce
-    // stack: nonce, sender, sys_create_got_address, value, code_offset, code_len, kexit_info
-    SWAP1
-    // stack: sender, nonce, sys_create_got_address, value, code_offset, code_len, kexit_info
-    %jump(get_create_address)
-sys_create_got_address:
-    // stack: address, value, code_offset, code_len, kexit_info
-    %jump(create_common)
+    %jump(create)
 
-// The CREATE2 syscall; see EIP-1014. Address will be
+// Create a new contract account with the traditional address scheme, i.e.
+//     address = KEC(RLP(sender, nonce))[12:]
+// This can be used both for the CREATE instruction and for contract-creation
+// transactions.
+//
+// Pre stack: sender, endowment, CODE_ADDR, code_len, retdest
+// Post stack: address
+// Note: CODE_ADDR refers to a (context, segment, offset) tuple.
+global create:
+    // stack: sender, endowment, CODE_ADDR, code_len, retdest
+    DUP1 %get_nonce
+    // stack: nonce, sender, endowment, CODE_ADDR, code_len, retdest
+    // Call get_create_address and have it return to create_inner.
+    %stack (nonce, sender)
+        -> (sender, nonce, create_inner, sender)
+    %jump(get_create_address)
+
+// CREATE2; see EIP-1014. Address will be
 //     address = KEC(0xff || sender || salt || code_hash)[12:]
 //
-// Pre stack: kexit_info, value, code_offset, code_len, salt
+// Pre stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
 // Post stack: address
+// Note: CODE_ADDR refers to a (context, segment, offset) tuple.
 global sys_create2:
-    %check_static
-    // stack: kexit_info, value, code_offset, code_len, salt
-    // TODO: Charge gas.
-    SWAP4
-    %stack (salt) -> (salt, create_common)
-    // stack: salt, create_common, value, code_offset, code_len, kexit_info
-
-    // Hash the code.
-    DUP5 // code_len
-    DUP5 // code_offset
-    PUSH @SEGMENT_MAIN_MEMORY
-    GET_CONTEXT
-    KECCAK_GENERAL
-    // stack: hash, salt, create_common, value, code_offset, code_len, kexit_info
-
-    %address
-    // stack: sender, hash, salt, create_common, value, code_offset, code_len, kexit_info
+    // stack: sender, endowment, salt, CODE_ADDR, code_len, retdest
+    // Call get_create2_address and have it return to create_inner.
+    %stack (sender, endowment, salt, CODE_ADDR: 3, code_len)
+        -> (sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len)
+    // stack: sender, salt, CODE_ADDR, code_len, create_inner, sender, endowment, CODE_ADDR, code_len, retdest
     %jump(get_create2_address)
 
-// Pre stack: address, value, code_offset, code_len, kexit_info
+// Pre stack: address, sender, endowment, CODE_ADDR, code_len, retdest
 // Post stack: address
-global create_common:
-    // stack: address, value, code_offset, code_len, kexit_info
-    DUP1 %insert_accessed_addresses_no_return
+// Note: CODE_ADDR refers to a (context, segment, offset) tuple.
+create_inner:
+    // stack: address, sender, endowment, CODE_ADDR, code_len, retdest
+    %stack (address, sender, endowment)
+        -> (sender, address, endowment, sender, address)
+    // TODO: Need to handle insufficient balance failure.
+    %transfer_eth
+    // stack: sender, address, CODE_ADDR, code_len, retdest
 
-    // Increment the sender's nonce.
-    %address
     %increment_nonce
-    // stack: address, value, code_offset, code_len, kexit_info
-
-    // Deduct value from the caller.
-    DUP2
-    %address
-    // stack: sender, value, address, value, code_offset, code_len, kexit_info
-    %deduct_eth
-    // stack: deduct_eth_status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
-    // stack: address, value, code_offset, code_len, kexit_info
-
-    // Create the new contract account in the state trie.
-    DUP1 DUP3
-    // stack: value, address, address, value, code_offset, code_len, kexit_info
-    %create_contract_account
-    // stack: status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
-    // stack: address, value, code_offset, code_len, kexit_info
+    // stack: address, CODE_ADDR, code_len, retdest
 
     %create_context
-    // stack: new_ctx, address, value, code_offset, code_len, kexit_info
-    GET_CONTEXT
-    // stack: src_ctx, new_ctx, address, value, code_offset, code_len, kexit_info
-
-    // Copy the code from txdata to the new context's code segment.
-    %stack (src_ctx, new_ctx, address, value, code_offset, code_len)
-        -> (new_ctx, @SEGMENT_CODE, 0, // DST
-            src_ctx, @SEGMENT_MAIN_MEMORY, code_offset, // SRC
-            code_len,
-            run_constructor,
-            new_ctx, value, address)
+    // stack: new_ctx, address, CODE_ADDR, code_len, retdest
+    %stack (new_ctx, address, src_ctx, src_segment, src_offset, code_len)
+        -> (new_ctx, @SEGMENT_CODE, 0,
+            src_ctx, src_segment, src_offset,
+            code_len, run_constructor,
+            new_ctx, address)
     %jump(memcpy)
 
 run_constructor:
-    // stack: new_ctx, value, address, kexit_info
-    SWAP1 %set_new_ctx_value
-    // stack: new_ctx, address, kexit_info
+    // stack: new_ctx, address, retdest
+    // At this point, the initialization code has been loaded.
+    // Save our return address in memory, so we'll be in `after_constructor`
+    // after the new context returns.
+    // Note: We can't use %mstore_context_metadata because we're writing to
+    // memory owned by the new context, not the current one.
+    %stack (new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA,
+                         @CTX_METADATA_PARENT_PC, after_constructor, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx, address, retdest
 
-    // Each line in the block below does not change the stack.
-    DUP2 %set_new_ctx_addr
-    %address %set_new_ctx_caller
-    %set_new_ctx_parent_pc(after_constructor)
-    // stack: new_ctx, address, kexit_info
-
-    // All but 1/64 of the sender's remaining gas goes to the constructor.
-    SWAP2
-    // stack: kexit_info, address, new_ctx
-    %drain_all_but_one_64th_gas
-    %stack (kexit_info, drained_gas, address, new_ctx) -> (drained_gas, new_ctx, address, kexit_info)
-    %set_new_ctx_gas_limit
-    // stack: new_ctx, address, kexit_info
-
-    %enter_new_ctx
-    // (Old context) stack: new_ctx, address, kexit_info
+    // Now, switch to the new context and go to usermode with PC=0.
+    SET_CONTEXT
+    // stack: (empty, since we're in the new context)
+    PUSH 0
+    EXIT_KERNEL
 
 after_constructor:
-    // stack: success, leftover_gas, new_ctx, address, kexit_info
-    SWAP2
-    // stack: new_ctx, leftover_gas, success, address, kexit_info
-    POP // TODO: Ignoring new_ctx for now, but we will need it to store code that was returned, if any.
-    // stack: leftover_gas, success, address, kexit_info
-    %shl_const(192)
-    // stack: leftover_gas << 192, success, address, kexit_info
-    SWAP2
-    // stack: address, success, leftover_gas << 192, kexit_info
-    MUL
-    // stack: address_if_success, leftover_gas << 192, kexit_info
-    SWAP2
-    // stack: kexit_info, leftover_gas << 192, address_if_success
-    ADD
-    // stack: kexit_info, address_if_success
-    EXIT_KERNEL
+    // stack: address, retdest
+    // TODO: If code was returned, store it in the account.
+    SWAP1
+    JUMP

@@ -1,0 +1,21 @@
+[package]
+name = "plonky2_ecdsa"
+description = "ECDSA gadget for Plonky2"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[features]
+parallel = ["plonky2_maybe_rayon/parallel", "plonky2/parallel"]
+
+[dependencies]
+anyhow = { version = "1.0.40", default-features = false }
+itertools = { version = "0.10.0", default-features = false }
+plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
+num = { version = "0.4.0", default-features = false }
+plonky2 = { path = "../plonky2", default-features = false }
+plonky2_u32 = { path = "../u32", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }

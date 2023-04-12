@@ -191,7 +191,7 @@ pub fn eval_packed_generic<P: PackedField>(
             .into_iter()
             .zip(bits_from_opcode(oc))
             .rev()
-            .take(8 - block_length)
+            .take(block_length + 1)
             .map(|(row_bit, flag_bit)| match flag_bit {
                 // 1 if the bit does not match, and 0 otherwise
                 false => row_bit,
@@ -264,7 +264,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             .into_iter()
             .zip(bits_from_opcode(oc))
             .rev()
-            .take(8 - block_length)
+            .take(block_length + 1)
             .fold(builder.zero_extension(), |cumul, (row_bit, flag_bit)| {
                 let to_add = match flag_bit {
                     false => row_bit,

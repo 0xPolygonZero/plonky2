@@ -10,21 +10,8 @@ macro_rules! test_field_arithmetic {
 
             use num::bigint::BigUint;
             use rand::rngs::OsRng;
-            use rand::{Rng, RngCore};
+            use rand::Rng;
             use $crate::types::{Field, Sample};
-
-            #[test]
-            fn modular_reduction() {
-                let mut rng = OsRng;
-                for _ in 0..10 {
-                    let x_lo = rng.next_u64();
-                    let x_hi = rng.next_u32();
-                    let x = (x_lo as u128) + ((x_hi as u128) << 64);
-                    let a = <$field>::from_noncanonical_u128(x);
-                    let b = <$field>::from_noncanonical_u96((x_lo, x_hi));
-                    assert_eq!(a, b);
-                }
-            }
 
             #[test]
             fn batch_inversion() {

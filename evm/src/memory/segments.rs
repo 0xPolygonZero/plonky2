@@ -43,17 +43,10 @@ pub enum Segment {
     BnWnafA = 19,
     BnWnafB = 20,
     BnTableQ = 21,
-    BnPairing = 22,
-    /// List of addresses that have been accessed in the current transaction.
-    AccessedAddresses = 23,
-    /// List of storage keys that have been accessed in the current transaction.
-    AccessedStorageKeys = 24,
-    /// List of addresses that have called SELFDESTRUCT in the current transaction.
-    SelfDestructList = 25,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 26;
+    pub(crate) const COUNT: usize = 22;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -79,10 +72,6 @@ impl Segment {
             Self::BnWnafA,
             Self::BnWnafB,
             Self::BnTableQ,
-            Self::BnPairing,
-            Self::AccessedAddresses,
-            Self::AccessedStorageKeys,
-            Self::SelfDestructList,
         ]
     }
 
@@ -111,10 +100,6 @@ impl Segment {
             Segment::BnWnafA => "SEGMENT_KERNEL_BN_WNAF_A",
             Segment::BnWnafB => "SEGMENT_KERNEL_BN_WNAF_B",
             Segment::BnTableQ => "SEGMENT_KERNEL_BN_TABLE_Q",
-            Segment::BnPairing => "SEGMENT_KERNEL_BN_PAIRING",
-            Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
-            Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
-            Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
         }
     }
 
@@ -132,7 +117,7 @@ impl Segment {
             Segment::KernelGeneral2 => 256,
             Segment::KernelAccountCode => 8,
             Segment::TxnFields => 256,
-            Segment::TxnData => 8,
+            Segment::TxnData => 256,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
             Segment::TrieEncodedChild => 256,
@@ -143,10 +128,6 @@ impl Segment {
             Segment::BnWnafA => 8,
             Segment::BnWnafB => 8,
             Segment::BnTableQ => 256,
-            Segment::BnPairing => 256,
-            Segment::AccessedAddresses => 256,
-            Segment::AccessedStorageKeys => 256,
-            Segment::SelfDestructList => 256,
         }
     }
 }

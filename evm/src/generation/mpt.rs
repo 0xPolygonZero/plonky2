@@ -1,15 +1,12 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
-use eth_trie_utils::nibbles::Nibbles;
-use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use eth_trie_utils::partial_trie::{Nibbles, PartialTrie};
 use ethereum_types::{BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
-use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
 pub struct AccountRlp {
@@ -24,7 +21,7 @@ impl Default for AccountRlp {
         Self {
             nonce: U256::zero(),
             balance: U256::zero(),
-            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+            storage_root: PartialTrie::Empty.calc_hash(),
             code_hash: keccak([]),
         }
     }
@@ -73,18 +70,17 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
 /// is serialized as `(TYPE_LEAF, key, value)`, where key is a `(nibbles, depth)` pair and `value`
 /// is a variable-length structure which depends on which trie we're dealing with.
 pub(crate) fn mpt_prover_inputs<F>(
-    trie: &HashedPartialTrie,
+    trie: &PartialTrie,
     prover_inputs: &mut Vec<U256>,
     parse_value: &F,
 ) where
     F: Fn(&[u8]) -> Vec<U256>,
 {
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
-
-    match trie.deref() {
-        Node::Empty => {}
-        Node::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
-        Node::Branch { children, value } => {
+    match trie {
+        PartialTrie::Empty => {}
+        PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
+        PartialTrie::Branch { children, value } => {
             if value.is_empty() {
                 prover_inputs.push(U256::zero()); // value_present = 0
             } else {
@@ -96,12 +92,12 @@ pub(crate) fn mpt_prover_inputs<F>(
                 mpt_prover_inputs(child, prover_inputs, parse_value);
             }
         }
-        Node::Extension { nibbles, child } => {
+        PartialTrie::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
             prover_inputs.push(nibbles.packed);
             mpt_prover_inputs(child, prover_inputs, parse_value);
         }
-        Node::Leaf { nibbles, value } => {
+        PartialTrie::Leaf { nibbles, value } => {
             prover_inputs.push(nibbles.count.into());
             prover_inputs.push(nibbles.packed);
             let leaf = parse_value(value);
@@ -113,16 +109,16 @@ pub(crate) fn mpt_prover_inputs<F>(
 /// Like `mpt_prover_inputs`, but for the state trie, which is a bit unique since each value
 /// leads to a storage trie which we recursively traverse.
 pub(crate) fn mpt_prover_inputs_state_trie(
-    trie: &HashedPartialTrie,
+    trie: &PartialTrie,
     key: Nibbles,
     prover_inputs: &mut Vec<U256>,
-    storage_tries_by_state_key: &HashMap<Nibbles, &HashedPartialTrie>,
+    storage_tries_by_state_key: &HashMap<Nibbles, &PartialTrie>,
 ) {
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
-    match trie.deref() {
-        Node::Empty => {}
-        Node::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
-        Node::Branch { children, value } => {
+    match trie {
+        PartialTrie::Empty => {}
+        PartialTrie::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
+        PartialTrie::Branch { children, value } => {
             assert!(value.is_empty(), "State trie should not have branch values");
             prover_inputs.push(U256::zero()); // value_present = 0
 
@@ -139,7 +135,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                 );
             }
         }
-        Node::Extension { nibbles, child } => {
+        PartialTrie::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
             prover_inputs.push(nibbles.packed);
             let extended_key = key.merge_nibbles(nibbles);
@@ -150,7 +146,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                 storage_tries_by_state_key,
             );
         }
-        Node::Leaf { nibbles, value } => {
+        PartialTrie::Leaf { nibbles, value } => {
             let account: AccountRlp = rlp::decode(value).expect("Decoding failed");
             let AccountRlp {
                 nonce,
@@ -159,14 +155,14 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                 code_hash,
             } = account;
 
-            let storage_hash_only = HashedPartialTrie::new(Node::Hash(storage_root));
+            let storage_hash_only = PartialTrie::Hash(storage_root);
             let merged_key = key.merge_nibbles(nibbles);
-            let storage_trie: &HashedPartialTrie = storage_tries_by_state_key
+            let storage_trie: &PartialTrie = storage_tries_by_state_key
                 .get(&merged_key)
                 .copied()
                 .unwrap_or(&storage_hash_only);
 
-            assert_eq!(storage_trie.hash(), storage_root,
+            assert_eq!(storage_trie.calc_hash(), storage_root,
                        "In TrieInputs, an account's storage_root didn't match the associated storage trie hash");
 
             prover_inputs.push(nibbles.count.into());

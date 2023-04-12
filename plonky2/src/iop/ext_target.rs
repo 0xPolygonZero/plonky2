@@ -9,7 +9,7 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// `Target`s representing an element of an extension field.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ExtensionTarget<const D: usize>(pub [Target; D]);
 
 impl<const D: usize> ExtensionTarget<D> {

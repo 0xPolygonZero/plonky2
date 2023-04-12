@@ -1,3 +1,55 @@
+// RLP-encode a scalar, i.e. a variable-length integer.
+// Pre stack: pos, scalar, retdest
+// Post stack: pos
+global encode_rlp_scalar:
+    // stack: pos, scalar, retdest
+    // If scalar > 0x7f, this is the "medium" case.
+    DUP2
+    %gt_const(0x7f)
+    %jumpi(encode_rlp_scalar_medium)
+
+    // Else, if scalar != 0, this is the "small" case, where the value is its own encoding.
+    DUP2 %jumpi(encode_rlp_scalar_small)
+
+    // scalar = 0, so BE(scalar) is the empty string, which RLP encodes as a single byte 0x80.
+    // stack: pos, scalar, retdest
+    %stack (pos, scalar) -> (pos, 0x80, pos)
+    %mstore_rlp
+    // stack: pos, retdest
+    %increment
+    // stack: pos', retdest
+    SWAP1
+    JUMP
+
+encode_rlp_scalar_small:
+    // stack: pos, scalar, retdest
+    %stack (pos, scalar) -> (pos, scalar, pos)
+    // stack: pos, scalar, pos, retdest
+    %mstore_rlp
+    // stack: pos, retdest
+    %increment
+    // stack: pos', retdest
+    SWAP1
+    JUMP
+
+encode_rlp_scalar_medium:
+    // This is the "medium" case, where we write 0x80 + len followed by the
+    // (big-endian) scalar bytes. We first compute the minimal number of bytes
+    // needed to represent this scalar, then treat it as if it was a fixed-
+    // length string with that length.
+    // stack: pos, scalar, retdest
+    DUP2
+    %num_bytes
+    // stack: scalar_bytes, pos, scalar, retdest
+    %jump(encode_rlp_fixed)
+
+// Convenience macro to call encode_rlp_scalar and return where we left off.
+%macro encode_rlp_scalar
+    %stack (pos, scalar) -> (pos, scalar, %%after)
+    %jump(encode_rlp_scalar)
+%%after:
+%endmacro
+
 // RLP-encode a fixed-length 160 bit (20 byte) string. Assumes string < 2^160.
 // Pre stack: pos, string, retdest
 // Post stack: pos
@@ -27,7 +79,7 @@ global encode_rlp_256:
 %endmacro
 
 // RLP-encode a fixed-length string with the given byte length. Assumes string < 2^(8 * len).
-global encode_rlp_fixed:
+encode_rlp_fixed:
     // stack: len, pos, string, retdest
     DUP1
     %add_const(0x80)
@@ -46,31 +98,6 @@ encode_rlp_fixed_finish:
     // stack: pos', retdest
     SWAP1
     JUMP
-
-// Doubly-RLP-encode a fixed-length string with the given byte length.
-// I.e. writes encode(encode(string). Assumes string < 2^(8 * len).
-global doubly_encode_rlp_fixed:
-    // stack: len, pos, string, retdest
-    DUP1
-    %add_const(0x81)
-    // stack: first_byte, len, pos, string, retdest
-    DUP3
-    // stack: pos, first_byte, len, pos, string, retdest
-    %mstore_rlp
-    // stack: len, pos, string, retdest
-    DUP1
-    %add_const(0x80)
-    // stack: second_byte, len, original_pos, string, retdest
-    DUP3 %increment
-    // stack: pos', second_byte, len, pos, string, retdest
-    %mstore_rlp
-    // stack: len, pos, string, retdest
-    SWAP1
-    %add_const(2) // advance past the two prefix bytes
-    // stack: pos'', len, string, retdest
-    %stack (pos, len, string) -> (pos, string, len, encode_rlp_fixed_finish)
-    // stack: context, segment, pos'', string, len, encode_rlp_fixed_finish, retdest
-    %jump(mstore_unpacking_rlp)
 
 // Writes the RLP prefix for a string of the given length. This does not handle
 // the trivial encoding of certain single-byte strings, as handling that would
@@ -169,65 +196,66 @@ encode_rlp_list_prefix_large_done_writing_len:
 %%after:
 %endmacro
 
-// Given an RLP list payload which starts and ends at the given positions,
-// prepend the appropriate RLP list prefix. Returns the updated start position,
-// as well as the length of the RLP data (including the newly-added prefix).
+// Given an RLP list payload which starts at position 9 and ends at the given
+// position, prepend the appropriate RLP list prefix. Returns the updated start
+// position, as well as the length of the RLP data (including the newly-added
+// prefix).
 //
-// Pre stack: end_pos, start_pos, retdest
-// Post stack: prefix_start_pos, rlp_len
+// (We sometimes start list payloads at position 9 because 9 is the length of
+// the longest possible RLP list prefix.)
+//
+// Pre stack: end_pos, retdest
+// Post stack: start_pos, rlp_len
 global prepend_rlp_list_prefix:
-    // stack: end_pos, start_pos, retdest
-    DUP2 DUP2 SUB // end_pos - start_pos
-    // stack: payload_len, end_pos, start_pos, retdest
+    // stack: end_pos, retdest
+    // Since the list payload starts at position 9, payload_len = end_pos - 9.
+    PUSH 9 DUP2 SUB
+    // stack: payload_len, end_pos, retdest
     DUP1 %gt_const(55)
     %jumpi(prepend_rlp_list_prefix_big)
 
     // If we got here, we have a small list, so we prepend 0xc0 + len at position 8.
-    // stack: payload_len, end_pos, start_pos, retdest
-    DUP1 %add_const(0xc0)
-    // stack: prefix_byte, payload_len, end_pos, start_pos, retdest
-    DUP4 %decrement // offset of prefix
+    // stack: payload_len, end_pos, retdest
+    %add_const(0xc0)
+    // stack: prefix_byte, end_pos, retdest
+    PUSH 8 // offset
     %mstore_rlp
-    // stack: payload_len, end_pos, start_pos, retdest
-    %increment
-    // stack: rlp_len, end_pos, start_pos, retdest
-    SWAP2 %decrement
-    // stack: prefix_start_pos, end_pos, rlp_len, retdest
-    %stack (prefix_start_pos, end_pos, rlp_len, retdest) -> (retdest, prefix_start_pos, rlp_len)
+    // stack: end_pos, retdest
+    %sub_const(8)
+    // stack: rlp_len, retdest
+    PUSH 8 // start_pos
+    %stack (start_pos, rlp_len, retdest) -> (retdest, start_pos, rlp_len)
     JUMP
 
 prepend_rlp_list_prefix_big:
     // We have a large list, so we prepend 0xf7 + len_of_len at position
-    //     prefix_start_pos = start_pos - 1 - len_of_len
-    // followed by the length itself.
-    // stack: payload_len, end_pos, start_pos, retdest
+    // 8 - len_of_len, followed by the length itself.
+    // stack: payload_len, end_pos, retdest
     DUP1 %num_bytes
-    // stack: len_of_len, payload_len, end_pos, start_pos, retdest
+    // stack: len_of_len, payload_len, end_pos, retdest
     DUP1
-    DUP5 %decrement // start_pos - 1
+    PUSH 8
     SUB
-    // stack: prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest
-    DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[prefix_start_pos] = 0xf7 + len_of_len
-    // stack: prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest
-    DUP1 %increment // start_len_pos = prefix_start_pos + 1
-    %stack (start_len_pos, prefix_start_pos, len_of_len, payload_len, end_pos, start_pos, retdest)
+    // stack: start_pos, len_of_len, payload_len, end_pos, retdest
+    DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[start_pos] = 0xf7 + len_of_len
+    DUP1 %increment // start_len_pos = start_pos + 1
+    %stack (start_len_pos, start_pos, len_of_len, payload_len, end_pos, retdest)
         -> (start_len_pos, payload_len, len_of_len,
             prepend_rlp_list_prefix_big_done_writing_len,
-            prefix_start_pos, end_pos, retdest)
+            start_pos, end_pos, retdest)
     %jump(mstore_unpacking_rlp)
 prepend_rlp_list_prefix_big_done_writing_len:
-    // stack: start_pos, prefix_start_pos, end_pos, retdest
-    %stack (start_pos, prefix_start_pos, end_pos)
-        -> (end_pos, prefix_start_pos, prefix_start_pos)
-    // stack: end_pos, prefix_start_pos, prefix_start_pos, retdest
+    // stack: 9, start_pos, end_pos, retdest
+    %stack (_9, start_pos, end_pos) -> (end_pos, start_pos, start_pos)
+    // stack: end_pos, start_pos, start_pos, retdest
     SUB
-    // stack: rlp_len, prefix_start_pos, retdest
-    %stack (rlp_len, prefix_start_pos, retdest) -> (retdest, prefix_start_pos, rlp_len)
+    // stack: rlp_len, start_pos, retdest
+    %stack (rlp_len, start_pos, retdest) -> (retdest, start_pos, rlp_len)
     JUMP
 
 // Convenience macro to call prepend_rlp_list_prefix and return where we left off.
 %macro prepend_rlp_list_prefix
-    %stack (end_pos, start_pos) -> (end_pos, start_pos, %%after)
+    %stack (end_pos) -> (end_pos, %%after)
     %jump(prepend_rlp_list_prefix)
 %%after:
 %endmacro

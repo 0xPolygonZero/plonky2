@@ -1,0 +1,17 @@
+[package]
+name = "plonky2_u32"
+description = "u32 gadget for Plonky2"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mir-protocol/plonky2"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.40", default-features = false }
+itertools = { version = "0.10.0", default-features = false }
+num = { version = "0.4", default-features = false }
+plonky2 = { path = "../plonky2", default-features = false }
+
+[dev-dependencies]
+plonky2 = { path = "../plonky2", default-features = false, features = ["gate_testing"] }
+rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }

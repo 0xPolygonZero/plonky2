@@ -6,7 +6,7 @@ global main:
     PUSH hash_initial_tries
     %jump(load_all_mpts)
 
-global hash_initial_tries:
+hash_initial_tries:
     %mpt_hash_state_trie   %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)
     %mpt_hash_txn_trie     %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
     %mpt_hash_receipt_trie %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)

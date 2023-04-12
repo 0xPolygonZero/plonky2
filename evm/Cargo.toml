@@ -13,28 +13,26 @@ edition = "2021"
 anyhow = "1.0.40"
 blake2 = "0.10.5"
 env_logger = "0.10.0"
-eth_trie_utils = "0.5.0"
+eth_trie_utils = "0.4.0"
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.3.4"
 itertools = "0.10.3"
 keccak-hash = "0.10.0"
 log = "0.4.14"
-plonky2_maybe_rayon = "0.1.0"
+plonky2_maybe_rayon = { path = "../maybe_rayon" }
 num = "0.4.0"
-num-bigint = "0.4.3"
 once_cell = "1.13.0"
 pest = "2.1.3"
 pest_derive = "2.1.0"
-plonky2 = { version = "0.1.2", default-features = false, features = ["timing"] }
-plonky2_util = { version = "0.1.0" }
+plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
+plonky2_util = { path = "../util" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rlp = "0.5.1"
 rlp-derive = "0.1.0"
 serde = { version = "1.0.144", features = ["derive"] }
 static_assertions = "1.1.0"
-hashbrown = { version = "0.12.3" }
 tiny-keccak = "2.0.2"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

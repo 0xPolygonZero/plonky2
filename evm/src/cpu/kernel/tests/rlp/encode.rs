@@ -86,9 +86,8 @@ fn test_prepend_rlp_list_prefix_small() -> Result<()> {
     let prepend_rlp_list_prefix = KERNEL.global_labels["prepend_rlp_list_prefix"];
 
     let retdest = 0xDEADBEEFu32.into();
-    let start_pos = 9.into();
     let end_pos = (9 + 5).into();
-    let initial_stack = vec![retdest, start_pos, end_pos];
+    let initial_stack = vec![retdest, end_pos];
     let mut interpreter = Interpreter::new_with_kernel(prepend_rlp_list_prefix, initial_stack);
     interpreter.set_rlp_memory(vec![
         // Nine 0s to leave room for the longest possible RLP list prefix.
@@ -115,9 +114,8 @@ fn test_prepend_rlp_list_prefix_large() -> Result<()> {
     let prepend_rlp_list_prefix = KERNEL.global_labels["prepend_rlp_list_prefix"];
 
     let retdest = 0xDEADBEEFu32.into();
-    let start_pos = 9.into();
     let end_pos = (9 + 60).into();
-    let initial_stack = vec![retdest, start_pos, end_pos];
+    let initial_stack = vec![retdest, end_pos];
     let mut interpreter = Interpreter::new_with_kernel(prepend_rlp_list_prefix, initial_stack);
 
     #[rustfmt::skip]

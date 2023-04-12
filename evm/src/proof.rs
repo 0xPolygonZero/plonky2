@@ -7,7 +7,7 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -21,19 +21,13 @@ use crate::permutation::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
-pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-where
-    [(); C::HCO::WIDTH]:,
-{
+pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     pub public_values: PublicValues,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D>
-where
-    [(); C::HCO::WIDTH]:,
-{
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }
@@ -45,13 +39,10 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 }
 
 #[allow(unused)] // TODO: should be used soon
-pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, HC: HashConfig, const D: usize>
-where
-    [(); HC::WIDTH]:,
-{
+pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, const D: usize> {
     /// Sponge state of the challenger before starting each proof,
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
-    pub states: [[F; HC::WIDTH]; NUM_TABLES + 1],
+    pub states: [[F; SPONGE_WIDTH]; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
@@ -108,15 +99,15 @@ pub struct BlockMetadataTarget {
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub trace_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_ctl_zs_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::HCO, C::Hasher, D>,
+    pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
 /// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
@@ -126,9 +117,8 @@ pub struct StarkProofWithMetadata<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::HCO::WIDTH]:,
 {
-    pub(crate) init_challenger_state: [F; C::HCO::WIDTH],
+    pub(crate) init_challenger_state: [F; SPONGE_WIDTH],
     pub(crate) proof: StarkProof<F, C, D>,
 }
 

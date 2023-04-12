@@ -58,28 +58,17 @@ global permutation_9_constants:
     BYTES 15, 11, 9, 14
     BYTES 3, 12, 13, 0
 
-global blake2b_permutation:
-    // stack: i, round, retdest
-    PUSH permutation_0_constants
-    // stack: permutation_0_constants, i, round, retdest
-    SWAP2
-    // stack: round, i, permutation_0_constants, retdest
-    %mod_const(10)
-    // stack: round % 10, i, permutation_0_constants, retdest
-    %mul_const(16)
-    ADD
-    ADD
-    %mload_kernel_code
-    // stack: permutation_(round%10)_constants[i], retdest
-    SWAP1
-    JUMP
-
 %macro blake2b_permutation
     // stack: round, i
-    PUSH %%after
-    // stack: %%after, round, i
-    SWAP2
-    // stack: i, round, %%after
-    %jump(blake2b_permutation)
-%%after:
+    PUSH permutation_0_constants
+    // stack: permutation_0_constants, round, i
+    SWAP1
+    // stack: round, permutation_1_constants, i
+    %mod_const(10)
+    // stack: round % 10, permutation_1_constants, i
+    %mul_const(16)
+    ADD
+    // stack: permutation_(round)_constants, i
+    ADD
+    %mload_kernel_code
 %endmacro

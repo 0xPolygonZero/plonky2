@@ -81,21 +81,21 @@ process:
     SWAP1
     %reverse_bytes_u32
     %shl_const(96)
-    ADD // OR
+    OR
     // stack: b' a', c, d, e, VARS
     SWAP1
     %reverse_bytes_u32
     %shl_const(64)
-    ADD // OR
+    OR
     // stack: c' b' a', d, e, VARS
     SWAP1
     %reverse_bytes_u32
     %shl_const(32)
-    ADD // OR
+    OR 
     // stack: d' c' b' a', e, VARS
     SWAP1
     %reverse_bytes_u32
-    ADD // OR
+    OR 
     // stack: e' d' c' b' a', VARS
     %stack (result, VARS: 3, retdest) -> (retdest, result)
     // stack: 0xdeadbeef, result
