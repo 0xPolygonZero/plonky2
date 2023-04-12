@@ -57,7 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct SplitGenerator {
+pub struct SplitGenerator {
     integer: Target,
     bits: Vec<Target>,
 }
@@ -99,7 +99,7 @@ impl<F: RichField> SimpleGenerator<F> for SplitGenerator {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct WireSplitGenerator {
+pub struct WireSplitGenerator {
     integer: Target,
     gates: Vec<usize>,
     num_limbs: usize,

@@ -63,6 +63,14 @@ macro_rules! get_generator_tag_impl {
 }
 
 #[macro_export]
+/// Macro implementing the `WitnessGeneratorSerializer` trait.
+/// To serialize a list of generators used for a circuit,
+/// this macro should be called with a struct on which to implement
+/// this as first argument, followed by all the targeted generators.
+///
+/// ***NOTE:*** If you need to include `DummyProofGenerator`, you **MUST**
+/// place it at the *beginning* of the generators list, right after
+/// the serializer struct.
 macro_rules! impl_generator_serializer {
     ($target:ty, $($generator_types:ty),+) => {
         fn read_generator(

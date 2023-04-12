@@ -53,7 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct LowHighGenerator {
+pub struct LowHighGenerator {
     integer: Target,
     n_log: usize,
     low: Target,

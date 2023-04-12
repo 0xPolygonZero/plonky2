@@ -129,7 +129,7 @@ impl<T: WitnessGenerator<F>, F: Field> AnyWitnessGenerator<F> for T {
 }
 
 /// A wrapper around an `Box<AnyWitnessGenerator>`.
-pub struct WitnessGeneratorRef<F: Field>(pub(crate) Box<dyn AnyWitnessGenerator<F>>);
+pub struct WitnessGeneratorRef<F: Field>(pub Box<dyn AnyWitnessGenerator<F>>);
 
 impl<F: Field> WitnessGeneratorRef<F> {
     pub fn new<G: AnyWitnessGenerator<F>>(generator: G) -> WitnessGeneratorRef<F> {
@@ -269,7 +269,7 @@ impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SimpleGeneratorAd
 
 /// A generator which copies one wire to another.
 #[derive(Debug, Default)]
-pub(crate) struct CopyGenerator {
+pub struct CopyGenerator {
     pub(crate) src: Target,
     pub(crate) dst: Target,
 }
@@ -302,7 +302,7 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
 
 /// A generator for including a random value
 #[derive(Debug, Default)]
-pub(crate) struct RandomValueGenerator {
+pub struct RandomValueGenerator {
     pub(crate) target: Target,
 }
 
@@ -332,7 +332,7 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 
 /// A generator for testing if a value equals zero
 #[derive(Debug, Default)]
-pub(crate) struct NonzeroTestGenerator {
+pub struct NonzeroTestGenerator {
     pub(crate) to_test: Target,
     pub(crate) dummy: Target,
 }
@@ -372,7 +372,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
 
 /// Generator used to fill an extra constant.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct ConstantGenerator<F: Field> {
+pub struct ConstantGenerator<F: Field> {
     pub row: usize,
     pub constant_index: usize,
     pub wire_index: usize,

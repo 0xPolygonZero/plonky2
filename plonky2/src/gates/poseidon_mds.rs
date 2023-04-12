@@ -210,7 +210,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct PoseidonMdsGenerator<const D: usize> {
+pub struct PoseidonMdsGenerator<const D: usize> {
     row: usize,
 }
 

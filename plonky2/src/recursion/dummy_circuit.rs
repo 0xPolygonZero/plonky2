@@ -154,7 +154,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-pub(crate) struct DummyProofGenerator<F, C, const D: usize>
+pub struct DummyProofGenerator<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

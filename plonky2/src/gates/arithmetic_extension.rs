@@ -165,7 +165,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     const_0: F,
     const_1: F,

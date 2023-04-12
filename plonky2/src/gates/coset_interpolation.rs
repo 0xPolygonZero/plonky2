@@ -387,7 +387,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     gate: CosetInterpolationGate<F, D>,
     interpolation_domain: Vec<F>,

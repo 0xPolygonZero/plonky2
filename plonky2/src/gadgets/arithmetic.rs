@@ -372,7 +372,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct EqualityGenerator {
+pub struct EqualityGenerator {
     x: Target,
     y: Target,
     equal: BoolTarget,

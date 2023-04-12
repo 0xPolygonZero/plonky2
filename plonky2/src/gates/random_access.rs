@@ -339,7 +339,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     gate: RandomAccessGate<F, D>,
     copy: usize,
