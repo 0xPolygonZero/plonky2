@@ -69,17 +69,20 @@ global sys_callcode:
     %create_context
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %copy_mem_to_calldata
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP3 %set_new_ctx_gas_limit
+    %set_new_ctx_parent_pc(after_call_instruction)
+    %handle_precompiles
+
     // Each line in the block below does not change the stack.
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP3 %set_new_ctx_gas_limit
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-          (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %copy_mem_to_calldata
 
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)

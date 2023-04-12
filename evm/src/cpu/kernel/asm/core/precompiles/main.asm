@@ -1,5 +1,5 @@
 %macro handle_precompiles
-    // stack: new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     PUSH %%after
     DUP5
     // stack: address, %%after, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
