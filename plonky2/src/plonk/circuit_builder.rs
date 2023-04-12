@@ -737,13 +737,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    /// Standard build.
-
     /// Builds a "full circuit", with both prover and verifier data.
-    fn build_inner<C: GenericConfig<D, F = F>>(
-        mut self,
-        deterministic: bool,
-    ) -> CircuitData<F, C, D>
+    fn build_inner<C: GenericConfig<D, F = F>>(mut self, deterministic: bool) -> CircuitData<F, C, D>
     where
         [(); C::HCO::WIDTH]:,
         [(); C::HCI::WIDTH]:,
