@@ -200,6 +200,19 @@ global sys_gaslimit:
     SWAP1
     EXIT_KERNEL
 
+%macro blockchainid
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+%endmacro
+
+global sys_chainid:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blockchainid
+    // stack: chain_id, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 %macro basefee
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
 %endmacro
