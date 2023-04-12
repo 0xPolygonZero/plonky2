@@ -312,18 +312,19 @@ global after_call_instruction:
 
 %macro copy_returndata_to_mem
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
-    DUP3 ISZERO %jumpi(%%failure)
+    SWAP4
+    %returndatasize
+    // stack: returndata_size, ret_size, new_ctx, success, ret_offset, kexit_info
+    %min
     GET_CONTEXT
-    %stack (ctx, kexit_info, new_ctx, success, ret_offset, ret_size) ->
+    %stack (ctx, n, new_ctx, success, ret_offset, kexit_info) ->
         (
             ctx, @SEGMENT_MAIN_MEMORY, ret_offset, // DST
             ctx, @SEGMENT_RETURNDATA, 0,           // SRC
-            ret_size, %%after,                     // count, retdest
+            n, %%after,                     // count, retdest
             kexit_info, success
         )
     %jump(memcpy)
-%%failure:
-    %stack (kexit_info, new_ctx, success, ret_offset, ret_size) -> (kexit_info, success)
 %%after:
 %endmacro
 
