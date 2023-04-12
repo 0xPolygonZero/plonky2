@@ -255,9 +255,7 @@ global after_call_instruction:
     %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
     %jump(load_code)
 %%after:
-    %stack (code_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
-    MSTORE_GENERAL
+    %set_new_ctx_code_size
     // stack: new_ctx
 %endmacro
 
