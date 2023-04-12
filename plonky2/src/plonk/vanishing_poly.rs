@@ -221,7 +221,6 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
             constraints[i] += c;
         }
     }
-
     constraints
 }
 
