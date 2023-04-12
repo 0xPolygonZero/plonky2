@@ -14,6 +14,7 @@ use crate::fri::proof::{
     FriQueryStep,
 };
 use crate::hash::hash_types::RichField;
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -119,10 +120,11 @@ pub trait Read {
 
     /// Reads a hash value from `self`.
     #[inline]
-    fn read_hash<F, H>(&mut self) -> IoResult<H::Hash>
+    fn read_hash<F, HC, H>(&mut self) -> IoResult<H::Hash>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let mut buf = vec![0; H::HASH_SIZE];
         self.read_exact(&mut buf)?;
@@ -131,15 +133,16 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
     #[inline]
-    fn read_merkle_cap<F, H>(&mut self, cap_height: usize) -> IoResult<MerkleCap<F, H>>
+    fn read_merkle_cap<F, HC, H>(&mut self, cap_height: usize) -> IoResult<MerkleCap<F, HC, H>>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let cap_length = 1 << cap_height;
         Ok(MerkleCap(
             (0..cap_length)
-                .map(|_| self.read_hash::<F, H>())
+                .map(|_| self.read_hash::<F, HC, H>())
                 .collect::<Result<Vec<_>, _>>()?,
         ))
     }
@@ -178,15 +181,16 @@ pub trait Read {
 
     /// Reads a value of type [`MerkleProof`] from `self`.
     #[inline]
-    fn read_merkle_proof<F, H>(&mut self) -> IoResult<MerkleProof<F, H>>
+    fn read_merkle_proof<F, HC, H>(&mut self) -> IoResult<MerkleProof<F, HC, H>>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let length = self.read_u8()?;
         Ok(MerkleProof {
             siblings: (0..length)
-                .map(|_| self.read_hash::<F, H>())
+                .map(|_| self.read_hash::<F, HC, H>())
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -196,7 +200,7 @@ pub trait Read {
     fn read_fri_initial_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<FriInitialTreeProof<F, C::Hasher>>
+    ) -> IoResult<FriInitialTreeProof<F, C::HCO, C::Hasher>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -235,7 +239,7 @@ pub trait Read {
         &mut self,
         arity: usize,
         compressed: bool,
-    ) -> IoResult<FriQueryStep<F, C::Hasher, D>>
+    ) -> IoResult<FriQueryStep<F, C::HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -250,10 +254,11 @@ pub trait Read {
 
     /// Reads a vector of [`FriQueryRound`]s from `self` with `common_data`.
     #[inline]
+    #[allow(clippy::type_complexity)]
     fn read_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<Vec<FriQueryRound<F, C::Hasher, D>>>
+    ) -> IoResult<Vec<FriQueryRound<F, C::HCO, C::Hasher, D>>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -281,7 +286,7 @@ pub trait Read {
     fn read_fri_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<FriProof<F, C::Hasher, D>>
+    ) -> IoResult<FriProof<F, C::HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -352,7 +357,7 @@ pub trait Read {
     fn read_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedFriQueryRounds<F, C::Hasher, D>>
+    ) -> IoResult<CompressedFriQueryRounds<F, C::HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -400,7 +405,7 @@ pub trait Read {
     fn read_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<CompressedFriProof<F, C::Hasher, D>>
+    ) -> IoResult<CompressedFriProof<F, C::HCO, C::Hasher, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -534,23 +539,25 @@ pub trait Write {
 
     /// Writes a hash `h` to `self`.
     #[inline]
-    fn write_hash<F, H>(&mut self, h: H::Hash) -> IoResult<()>
+    fn write_hash<F, HC, H>(&mut self, h: H::Hash) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         self.write_all(&h.to_bytes())
     }
 
     /// Writes `cap`, a value of type [`MerkleCap`], to `self`.
     #[inline]
-    fn write_merkle_cap<F, H>(&mut self, cap: &MerkleCap<F, H>) -> IoResult<()>
+    fn write_merkle_cap<F, HC, H>(&mut self, cap: &MerkleCap<F, HC, H>) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         for &a in &cap.0 {
-            self.write_hash::<F, H>(a)?;
+            self.write_hash::<F, HC, H>(a)?;
         }
         Ok(())
     }
@@ -572,10 +579,11 @@ pub trait Write {
 
     /// Writes a value `p` of type [`MerkleProof`] to `self.`
     #[inline]
-    fn write_merkle_proof<F, H>(&mut self, p: &MerkleProof<F, H>) -> IoResult<()>
+    fn write_merkle_proof<F, HC, H>(&mut self, p: &MerkleProof<F, HC, H>) -> IoResult<()>
     where
         F: RichField,
-        H: Hasher<F>,
+        HC: HashConfig,
+        H: Hasher<F, HC>,
     {
         let length = p.siblings.len();
         self.write_u8(
@@ -584,7 +592,7 @@ pub trait Write {
                 .expect("Merkle proof length must fit in u8."),
         )?;
         for &h in &p.siblings {
-            self.write_hash::<F, H>(h)?;
+            self.write_hash::<F, HC, H>(h)?;
         }
         Ok(())
     }
@@ -593,7 +601,7 @@ pub trait Write {
     #[inline]
     fn write_fri_initial_proof<F, C, const D: usize>(
         &mut self,
-        fitp: &FriInitialTreeProof<F, C::Hasher>,
+        fitp: &FriInitialTreeProof<F, C::HCO, C::Hasher>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
@@ -610,7 +618,7 @@ pub trait Write {
     #[inline]
     fn write_fri_query_step<F, C, const D: usize>(
         &mut self,
-        fqs: &FriQueryStep<F, C::Hasher, D>,
+        fqs: &FriQueryStep<F, C::HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
@@ -624,7 +632,7 @@ pub trait Write {
     #[inline]
     fn write_fri_query_rounds<F, C, const D: usize>(
         &mut self,
-        fqrs: &[FriQueryRound<F, C::Hasher, D>],
+        fqrs: &[FriQueryRound<F, C::HCO, C::Hasher, D>],
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
@@ -643,7 +651,7 @@ pub trait Write {
     #[inline]
     fn write_fri_proof<F, C, const D: usize>(
         &mut self,
-        fp: &FriProof<F, C::Hasher, D>,
+        fp: &FriProof<F, C::HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
@@ -693,7 +701,7 @@ pub trait Write {
     #[inline]
     fn write_compressed_fri_query_rounds<F, C, const D: usize>(
         &mut self,
-        cfqrs: &CompressedFriQueryRounds<F, C::Hasher, D>,
+        cfqrs: &CompressedFriQueryRounds<F, C::HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,
@@ -721,7 +729,7 @@ pub trait Write {
     #[inline]
     fn write_compressed_fri_proof<F, C, const D: usize>(
         &mut self,
-        fp: &CompressedFriProof<F, C::Hasher, D>,
+        fp: &CompressedFriProof<F, C::HCO, C::Hasher, D>,
     ) -> IoResult<()>
     where
         F: RichField + Extendable<D>,

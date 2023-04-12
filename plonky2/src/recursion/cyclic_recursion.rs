@@ -4,6 +4,7 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -14,12 +15,9 @@ use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
-    pub(crate) fn from_slice(
-        slice: &[C::F],
-        common_data: &CommonCircuitData<C::F, D>,
-    ) -> Result<Self>
+    fn from_slice(slice: &[C::F], common_data: &CommonCircuitData<C::F, D>) -> Result<Self>
     where
-        C::Hasher: AlgebraicHasher<C::F>,
+        C::Hasher: AlgebraicHasher<C::F, C::HCO>,
     {
         // The structure of the public inputs is `[..., circuit_digest, constants_sigmas_cap]`.
         let cap_len = common_data.config.fri_config.num_cap_elements();
@@ -43,7 +41,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
 }
 
 impl VerifierCircuitTarget {
-    pub(crate) fn from_slice<F: RichField + Extendable<D>, const D: usize>(
+    fn from_slice<F: RichField + Extendable<D>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self> {
@@ -91,7 +89,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let verifier_data = self
             .verifier_data_public_input
@@ -143,7 +143,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(common_data)?;
@@ -170,7 +172,9 @@ pub fn check_cyclic_proof_verifier_data<
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+    [(); C::HCI::WIDTH]:,
 {
     let pis = VerifierOnlyCircuitData::<C, D>::from_slice(&proof.public_inputs, common_data)?;
     ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
@@ -187,12 +191,14 @@ mod tests {
     use crate::field::types::{Field, PrimeField64};
     use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::{HashOutTarget, RichField};
-    use crate::hash::hashing::hash_n_to_hash_no_pad;
+    use crate::hash::hashing::{hash_n_to_hash_no_pad, HashConfig};
     use crate::hash::poseidon::{PoseidonHash, PoseidonPermutation};
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-    use crate::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{
+        AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig, PoseidonHashConfig,
+    };
     use crate::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
     use crate::recursion::dummy_circuit::cyclic_base_proof;
 
@@ -203,7 +209,9 @@ mod tests {
         const D: usize,
     >() -> CommonCircuitData<F, D>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        [(); C::HCO::WIDTH]:,
+        [(); C::HCI::WIDTH]:,
     {
         let config = CircuitConfig::standard_recursion_config();
         let builder = CircuitBuilder::<F, D>::new(config);
@@ -248,8 +256,9 @@ mod tests {
         let initial_hash_target = builder.add_virtual_hash();
         builder.register_public_inputs(&initial_hash_target.elements);
         let current_hash_in = builder.add_virtual_hash();
-        let current_hash_out =
-            builder.hash_n_to_hash_no_pad::<PoseidonHash>(current_hash_in.elements.to_vec());
+        let current_hash_out = builder.hash_n_to_hash_no_pad::<PoseidonHashConfig, PoseidonHash>(
+            current_hash_in.elements.to_vec(),
+        );
         builder.register_public_inputs(&current_hash_out.elements);
         let counter = builder.add_virtual_public_input();
 
@@ -350,7 +359,8 @@ mod tests {
     fn iterate_poseidon<F: RichField>(initial_state: [F; 4], n: usize) -> [F; 4] {
         let mut current = initial_state;
         for _ in 0..n {
-            current = hash_n_to_hash_no_pad::<F, PoseidonPermutation>(&current).elements;
+            current = hash_n_to_hash_no_pad::<F, PoseidonHashConfig, PoseidonPermutation>(&current)
+                .elements;
         }
         current
     }

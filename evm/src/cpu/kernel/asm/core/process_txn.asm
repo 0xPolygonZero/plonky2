@@ -7,28 +7,57 @@
 // Post stack: (empty)
 global process_normalized_txn:
     // stack: retdest
-    PUSH 0 // TODO: Load block's base fee
-    %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
+    %compute_fees
+    // stack: retdest
+
+    // Compute this transaction's intrinsic gas and store it.
+    %intrinsic_gas
+    %mstore_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    // stack: retdest
+
+    // Assert gas_limit >= intrinsic_gas.
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    %assert_ge
+
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: sender, retdest
+
+    // Check that txn nonce matches account nonce.
+     DUP1 %nonce
+    // stack: sender_nonce, sender, retdest
+    %mload_txn_field(@TXN_FIELD_NONCE)
+    // stack: tx_nonce, sender_nonce, sender, retdest
+    %assert_eq
+    // stack: sender, retdest
+
+    // Assert sender has no code.
+    DUP1 %ext_code_empty %assert_nonzero
+    // stack: sender, retdest
+
+    // Assert sender balance >= gas_limit * gas_price + value.
+    %balance
+    // stack: sender_balance, retdest
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    MUL
+    %mload_txn_field(@TXN_FIELD_VALUE)
     ADD
-    // stack: priority_fee + base_fee, retdest
-    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    // stack: max_fee, priority_fee + base_fee, retdest
-    %min
-    // stack: computed_fee, retdest
-    %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
-
+    %assert_le
     // stack: retdest
-    PUSH validate
-    %jump(intrinsic_gas)
 
-global validate:
-    // stack: intrinsic_gas, retdest
-    POP // TODO: Assert gas_limit >= intrinsic_gas.
-    // stack: retdest
-    // TODO: Check that txn nonce matches account nonce.
-    // TODO: Assert nonce is correct.
-    // TODO: Assert sender has no code.
-    // TODO: Assert sender balance >= gas_limit * gas_price + value.
+    // Assert chain ID matches block metadata
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID_PRESENT)
+    // stack: chain_id_present, retdest
+    DUP1
+    %mload_txn_field(@TXN_FIELD_CHAIN_ID)
+    // stack: tx_chain_id, chain_id_present, chain_id_present, retdest
+    MUL SWAP1
+    // stack: chain_id_present, filtered_tx_chain_id, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+    MUL
+    // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
+    %assert_eq
     // stack: retdest
 
 global buy_gas:
@@ -40,7 +69,6 @@ global buy_gas:
     // stack: sender_addr, gas_cost, retdest
     %deduct_eth
     // stack: deduct_eth_status, retdest
-global txn_failure_insufficient_balance:
     %jumpi(panic)
     // stack: retdest
 
@@ -55,23 +83,72 @@ global process_based_on_type:
 
 global process_contract_creation_txn:
     // stack: retdest
-    PUSH process_contract_creation_txn_after_create
-    // stack: process_contract_creation_txn_after_create, retdest
-    %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: code_len, process_contract_creation_txn_after_create, retdest
-    PUSH 0
-    // stack: code_offset, code_len, process_contract_creation_txn_after_create, retdest
-    PUSH @SEGMENT_TXN_DATA
-    // stack: code_segment, code_offset, code_len, process_contract_creation_txn_after_create, retdest
-    PUSH 0 // context
-    // stack: CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
+
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: origin, retdest
+    DUP1 %nonce
+    // stack: origin_nonce, origin, retdest
+    SWAP1
+    // stack: origin, origin_nonce, retdest
+    %get_create_address
+    // stack: address, retdest
+
+    // Deduct value from caller.
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    // stack: sender, endowment, CODE_ADDR, code_len, process_contract_creation_txn_after_create, retdest
-    %jump(create)
+    %deduct_eth
+    // stack: deduct_eth_status, address, retdest
+    %jumpi(panic)
+    // stack: address, retdest
 
-global process_contract_creation_txn_after_create:
-    // stack: new_address, retdest
+    // Create the new contract account in the state trie.
+    DUP1
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    // stack: value, address, address, retdest
+    %create_contract_account
+    // stack: status, address, retdest
+    // It should be impossible to create address collisions with a contract creation txn,
+    // since the address was derived from nonce, unlike with CREATE2.
+    %jumpi(panic)
+    // stack: address, retdest
+
+    %create_context
+    // stack: new_ctx, address, retdest
+
+    // Copy the code from txdata to the new context's code segment.
+    PUSH process_contract_creation_txn_after_code_loaded
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    PUSH 0 // SRC.offset
+    PUSH @SEGMENT_TXN_DATA // SRC.segment
+    PUSH 0 // SRC.context
+    PUSH 0 // DST.offset
+    PUSH @SEGMENT_CODE // DST.segment
+    DUP7 // DST.context = new_ctx
+    %jump(memcpy)
+
+process_contract_creation_txn_after_code_loaded:
+    // stack: new_ctx, address, retdest
+
+    // Each line in the block below does not change the stack.
+    DUP2 %set_new_ctx_addr
+    %mload_txn_field(@TXN_FIELD_ORIGIN) %set_new_ctx_caller
+    %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
+    %set_new_ctx_parent_ctx
+    %set_new_ctx_parent_pc(process_contract_creation_txn_after_constructor)
+    %non_intrinisic_gas %set_new_ctx_gas_limit
+    // stack: new_ctx, address, retdest
+
+    %enter_new_ctx
+    // (Old context) stack: new_ctx, address, retdest
+
+global process_contract_creation_txn_after_constructor:
+    // stack: success, leftover_gas, new_ctx, address, retdest
+    POP // TODO: Success will go into the receipt when we support that.
+    // stack: leftover_gas, new_ctx, address, retdest
+    %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    // stack: new_ctx, address, retdest
+    POP
     POP
     JUMP
 
@@ -79,13 +156,25 @@ global process_message_txn:
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_TO)
+    DUP1 %insert_accessed_addresses_no_return
     %mload_txn_field(@TXN_FIELD_ORIGIN)
+    DUP1 %insert_accessed_addresses_no_return
     // stack: from, to, amount, retdest
     %transfer_eth
     // stack: transfer_eth_status, retdest
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
+    // Add precompiles to accessed addresses.
+    PUSH @ECREC %insert_accessed_addresses_no_return
+    PUSH @SHA256 %insert_accessed_addresses_no_return
+    PUSH @RIP160 %insert_accessed_addresses_no_return
+    PUSH @ID %insert_accessed_addresses_no_return
+    PUSH @EXPMOD %insert_accessed_addresses_no_return
+    PUSH @BN_ADD %insert_accessed_addresses_no_return
+    PUSH @BN_MUL %insert_accessed_addresses_no_return
+    PUSH @SNARKV %insert_accessed_addresses_no_return
+    PUSH @BLAKE2_F %insert_accessed_addresses_no_return
     // TODO: Handle precompiles.
 
     // If to's code is empty, return.
@@ -109,68 +198,114 @@ global process_message_txn_insufficient_balance:
     PANIC // TODO
 
 global process_message_txn_return:
-    // TODO: Return leftover gas?
+    // stack: retdest
+    // Since no code was executed, the leftover gas is the non-intrinsic gas.
+    %non_intrinisic_gas
+    // stack: leftover_gas, retdest
+    %pay_coinbase_and_refund_sender
+    // stack: retdest
     JUMP
 
 global process_message_txn_code_loaded:
-    // stack: code_len, new_ctx, retdest
-    POP
+    // stack: code_size, new_ctx, retdest
+    %set_new_ctx_code_size
     // stack: new_ctx, retdest
 
-    // Store the address in metadata.
-    %mload_txn_field(@TXN_FIELD_TO)
-    PUSH @CTX_METADATA_ADDRESS
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
+    // Each line in the block below does not change the stack.
+    %mload_txn_field(@TXN_FIELD_TO) %set_new_ctx_addr
+    %mload_txn_field(@TXN_FIELD_ORIGIN) %set_new_ctx_caller
+    %mload_txn_field(@TXN_FIELD_VALUE) %set_new_ctx_value
+    %set_new_ctx_parent_ctx
+    %set_new_ctx_parent_pc(process_message_txn_after_call)
+    %non_intrinisic_gas %set_new_ctx_gas_limit
     // stack: new_ctx, retdest
 
-    // Store the caller in metadata.
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    PUSH @CTX_METADATA_CALLER
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
+    // Set calldatasize and copy txn data to calldata.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
+    %set_new_ctx_calldata_size
+    %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
+    %jump(memcpy)
 
-    // Store the call value field in metadata.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    PUSH @CTX_METADATA_CALL_VALUE
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // No need to write @CTX_METADATA_STATIC, because it's 0 which is the default.
-
-    // Store parent context in metadata.
-    GET_CONTEXT
-    PUSH @CTX_METADATA_PARENT_CONTEXT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // Store parent PC = process_message_txn_after_call.
-    PUSH process_message_txn_after_call
-    PUSH @CTX_METADATA_PARENT_PC
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
-    MSTORE_GENERAL
-    // stack: new_ctx, retdest
-
-    // TODO: Populate CALLDATA
-
-    // TODO: Save parent gas and set child gas
-
-    // Now, switch to the new context and go to usermode with PC=0.
-    SET_CONTEXT
-    // stack: retdest
-    PUSH 0 // jump dest
-    EXIT_KERNEL
+process_message_txn_code_loaded_finish:
+    %enter_new_ctx
+    // (Old context) stack: new_ctx, retdest
 
 global process_message_txn_after_call:
-    // stack: success, retdest
-    // TODO: Return leftover gas? Or handled by termination instructions?
-    POP // Pop success for now. Will go into the receipt when we support that.
+    // stack: success, leftover_gas, new_ctx, retdest
+    POP // TODO: Success will go into the receipt when we support that.
+    // stack: leftover_gas, new_ctx, retdest
+    %pay_coinbase_and_refund_sender
+    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    // stack: new_ctx, retdest
+    POP
     JUMP
+
+%macro pay_coinbase_and_refund_sender
+    // stack: leftover_gas
+    DUP1
+    // stack: leftover_gas, leftover_gas
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    // stack: used_gas, leftover_gas
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    // stack: refund, used_gas, leftover_gas
+    DUP2 %div_const(2) // max_refund = used_gas/2
+    // stack: max_refund, refund, used_gas, leftover_gas
+    %min
+    %stack (refund, used_gas, leftover_gas) -> (leftover_gas, refund, refund, used_gas)
+    ADD
+    // stack: leftover_gas', refund, used_gas
+    SWAP2
+    // stack: used_gas, refund, leftover_gas'
+    SUB
+    // stack: used_gas', leftover_gas'
+
+    // Pay the coinbase.
+    %mload_txn_field(@TXN_FIELD_COMPUTED_PRIORITY_FEE_PER_GAS)
+    MUL
+    // stack: used_gas_tip, leftover_gas'
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
+    // stack: coinbase, used_gas_tip, leftover_gas'
+    %add_eth
+    // stack: leftover_gas'
+
+    // Refund gas to the origin.
+    %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    MUL
+    // stack: leftover_gas_cost
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    // stack: origin, leftover_gas_cost
+    %add_eth
+    // stack: (empty)
+%endmacro
+
+// Sets @TXN_FIELD_MAX_FEE_PER_GAS and @TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS.
+%macro compute_fees
+    // stack: (empty)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
+    %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
+    %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
+    // stack: max_fee, max_priority_fee, base_fee
+    DUP3 DUP2 %assert_ge // Assert max_fee >= base_fee
+    // stack: max_fee, max_priority_fee, base_fee
+    %stack (max_fee, max_priority_fee, base_fee) -> (max_fee, base_fee, max_priority_fee, base_fee)
+    SUB
+    // stack: max_fee - base_fee, max_priority_fee, base_fee
+    %min
+    // stack: computed_priority_fee, base_fee
+    %stack (computed_priority_fee, base_fee) -> (computed_priority_fee, base_fee, computed_priority_fee)
+    ADD
+    // stack: computed_fee, computed_priority_fee
+    %mstore_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
+    %mstore_txn_field(@TXN_FIELD_COMPUTED_PRIORITY_FEE_PER_GAS)
+    // stack: (empty)
+%endmacro
+
+%macro non_intrinisic_gas
+    // stack: (empty)
+    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    SUB
+    // stack: gas_limit - intrinsic_gas
+%endmacro

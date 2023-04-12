@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct LowHighGenerator {
     integer: Target,
     n_log: usize,

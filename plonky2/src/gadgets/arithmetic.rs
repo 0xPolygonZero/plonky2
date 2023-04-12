@@ -370,7 +370,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct EqualityGenerator {
     x: Target,
     y: Target,
@@ -395,7 +395,7 @@ impl<F: RichField> SimpleGenerator<F> for EqualityGenerator {
 }
 
 /// Represents a base arithmetic operation in the circuit. Used to memoize results.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct BaseArithmeticOperation<F: Field64> {
     const_0: F,
     const_1: F,

@@ -50,6 +50,18 @@
     %endrep
 %endmacro
 
+%macro pop9
+    %rep 9
+        POP
+    %endrep
+%endmacro
+
+%macro pop10
+    %rep 10
+        POP
+    %endrep
+%endmacro
+
 %macro and_const(c)
     // stack: input, ...
     PUSH $c
@@ -160,11 +172,6 @@
     // stack: input >= c, ...
 %endmacro
 
-%macro consume_gas_const(c)
-    PUSH $c
-    CONSUME_GAS
-%endmacro
-
 // If pred is zero, yields z; otherwise, yields nz
 %macro select
     // stack: pred, nz, z
@@ -219,8 +226,8 @@
     DUP2
     DUP2
     // stack: x, y, x, y
-    LT
-    // stack: x < y, x, y
+    GT
+    // stack: x > y, x, y
     %select_bool
     // stack: min
 %endmacro
@@ -230,8 +237,8 @@
     DUP2
     DUP2
     // stack: x, y, x, y
-    GT
-    // stack: x > y, x, y
+    LT
+    // stack: x < y, x, y
     %select_bool
     // stack: max
 %endmacro
@@ -289,30 +296,30 @@
 
 // given u32 bytestring abcd return dcba
 %macro reverse_bytes_u32
-    // stack:                   abcd
+    // stack:              abcd
     DUP1
     PUSH 28
     BYTE
-    // stack:                a, abcd
+    // stack:           a, abcd
     DUP2
     PUSH 29
     BYTE
     %shl_const(8)
-    // stack:            b0, a, abcd 
+    // stack:       b0, a, abcd 
     DUP3
     PUSH 30
     BYTE
     %shl_const(16)
-    // stack:       c00, b0, a, abcd
+    // stack:  c00, b0, a, abcd
     SWAP3
     PUSH 31
     BYTE
     %shl_const(24)
-    // stack:       d000, b0, a, c00
-    OR 
-    OR
-    OR
-    // stack:                   dcba
+    // stack:  d000, b0, a, c00
+    ADD // OR
+    ADD // OR
+    ADD // OR
+    // stack:              dcba
 %endmacro
 
 %macro reverse_bytes_u64
@@ -332,7 +339,7 @@
     %reverse_bytes_u32
     // stack: word_lo_inverted, word_hi_inverted
     %shl_const(32)
-    OR
+    ADD // OR
     // stack: word_inverted
 %endmacro
 
@@ -341,28 +348,18 @@
     // stack: a, b, c, d
     %rep 3
         %shl_const(64)
-        OR
+        ADD // OR
     %endrep
     // stack: a || b || c || d
 %endmacro
 
-// Charge gas.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns:
-//   new syscall info
-%macro charge_gas
-    %shl_const(192)
-    ADD
+%macro u256_to_addr
+    // stack: x
+    %mod_const(0x10000000000000000000000000000000000000000) // 2^160
 %endmacro
 
-// Charge gas and exit kernel code.
-// Arguments:
-//   stack[0]: gas to be charged
-//   stack[1]: syscall info
-// Returns: nothing
-%macro charge_gas_and_exit
-    %charge_gas
-    EXIT_KERNEL
+%macro not_bit
+    // stack: b
+    ISZERO
+    // stack: not b
 %endmacro
