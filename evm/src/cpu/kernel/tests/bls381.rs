@@ -5,7 +5,7 @@ use rand::Rng;
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, InterpreterMemoryInitialization,
 };
-use crate::extension_tower::{Fp2, Fp6,  Stack, BLS381};
+use crate::extension_tower::{Fp2, Fp6, Stack, BLS381};
 use crate::memory::segments::Segment::KernelGeneral;
 
 fn run_bls_ops(label: &str, x: BLS381, y: BLS381) -> BLS381 {
@@ -77,10 +77,10 @@ fn run_bls_fp6_ops(label: &str, x: Fp6<BLS381>, y: Fp6<BLS381>) -> Fp6<BLS381> {
     let out = 24;
 
     let stack = vec![
-        U256::from(in0), 
+        U256::from(in0),
         U256::from(in1),
         U256::from(out),
-        U256::from(0xdeadbeefu32)
+        U256::from(0xdeadbeefu32),
     ];
     let setup = InterpreterMemoryInitialization {
         label: label.to_string(),
