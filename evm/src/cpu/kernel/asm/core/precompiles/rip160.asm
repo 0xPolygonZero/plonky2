@@ -16,8 +16,6 @@ global precompile_rip160:
     // stack: gas, kexit_info
     %charge_gas
 
-    %zero_out_kernel_general
-
     // Copy the call data to the kernel general segment (ripemd expects it there) and call ripemd.
     %calldatasize
     GET_CONTEXT

@@ -306,7 +306,6 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
             Ok(())
         }
         Err(e) => {
-            dbg!(&e);
             if state.registers.is_kernel {
                 let offset_name = KERNEL.offset_name(state.registers.program_counter);
                 bail!(

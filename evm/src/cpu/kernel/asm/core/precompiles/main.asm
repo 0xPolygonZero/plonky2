@@ -5,7 +5,7 @@
     // stack: address, %%after, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %jump(handle_precompiles)
 %%after:
-    // stack: (empty)
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 %endmacro
 
 global handle_precompiles:
