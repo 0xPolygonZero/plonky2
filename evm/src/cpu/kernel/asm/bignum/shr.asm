@@ -60,6 +60,7 @@ shr_end:
     %pop3
     // stack: retdest
     JUMP
+
 len_zero:
     // stack: len, start_loc, retdest
     %pop2

@@ -105,7 +105,6 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_memory(),
     ];
     // TODO: Some CTLs temporarily disabled while we get them working.
-    disable_ctl(&mut ctls[1]);
     disable_ctl(&mut ctls[4]);
     ctls
 }

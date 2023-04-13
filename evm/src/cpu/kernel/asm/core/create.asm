@@ -4,6 +4,7 @@
 // Pre stack: kexit_info, value, code_offset, code_len
 // Post stack: address
 global sys_create:
+    %check_static
     // stack: kexit_info, value, code_offset, code_len
     // TODO: Charge gas.
     %stack (kexit_info, value, code_offset, code_len)
@@ -25,6 +26,7 @@ sys_create_got_address:
 // Pre stack: kexit_info, value, code_offset, code_len, salt
 // Post stack: address
 global sys_create2:
+    %check_static
     // stack: kexit_info, value, code_offset, code_len, salt
     // TODO: Charge gas.
     SWAP4
@@ -87,13 +89,12 @@ global create_common:
 
 run_constructor:
     // stack: new_ctx, value, address, kexit_info
-    %set_new_ctx_value
+    SWAP1 %set_new_ctx_value
     // stack: new_ctx, address, kexit_info
 
     // Each line in the block below does not change the stack.
     DUP2 %set_new_ctx_addr
     %address %set_new_ctx_caller
-    %set_new_ctx_parent_ctx
     %set_new_ctx_parent_pc(after_constructor)
     // stack: new_ctx, address, kexit_info
 
