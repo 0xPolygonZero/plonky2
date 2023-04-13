@@ -7,7 +7,7 @@ global precompile_bn_mul:
     PUSH 0x100000000 // = 2^32 (is_kernel = true)
     // stack: kexit_info
 
-    PUSH @BN_MUL_GAS %charge_gas
+    %charge_gas_const(@BN_MUL_GAS)
 
     // Load x, y, n from the call data using `mload_packing`.
     GET_CONTEXT
