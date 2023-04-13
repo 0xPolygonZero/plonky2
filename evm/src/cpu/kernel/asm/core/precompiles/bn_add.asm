@@ -9,6 +9,7 @@ global precompile_bn_add:
 
     PUSH @BN_ADD_GAS %charge_gas
 
+    // Load x0, y0, x1, y1 from the call data using `mload_packing`.
     GET_CONTEXT
     %stack (ctx, kexit_info) -> (ctx, @SEGMENT_CALLDATA, 96, 32, bn_add_contd, kexit_info)
     %jump(mload_packing)
@@ -32,9 +33,10 @@ bn_add_contd5:
     DUP2 %eq_const(@U256_MAX) // bn_add returns (U256_MAX, U256_MAX) on bad input.
     DUP2 %eq_const(@U256_MAX) // bn_add returns (U256_MAX, U256_MAX) on bad input.
     MUL // Cheaper than AND
-    %jumpi(bn_add_bad_input)
+    %jumpi(fault_exception)
     // stack: x, y, kexit_info
 
+    // Store the result (x, y) to the parent's return data using `mstore_unpacking`.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 64)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %stack (parent_ctx, x, y) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, x, 32, bn_add_contd6, parent_ctx, y)
@@ -43,9 +45,3 @@ bn_add_contd6:
     POP
     %stack (parent_ctx, y) -> (parent_ctx, @SEGMENT_RETURNDATA, 32, y, 32, pop_and_return_success)
     %jump(mstore_unpacking)
-
-bn_add_bad_input:
-    // stack: x, y, kexit_info
-    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
-    POP
-    %jump(pop_and_return_success)

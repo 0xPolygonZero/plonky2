@@ -16,6 +16,7 @@ global precompile_id:
     // stack: gas, kexit_info
     %charge_gas
 
+    // Simply copy the call data to the parent's return data.
     %calldatasize
     DUP1 %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
     GET_CONTEXT
