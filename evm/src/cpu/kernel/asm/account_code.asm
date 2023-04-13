@@ -106,7 +106,7 @@ global sys_extcodecopy:
     %charge_gas
 
     %stack (kexit_info, address, dest_offset, offset, size) -> (dest_offset, size, kexit_info, address, dest_offset, offset, size)
-    ADD // TODO: check for overflow, see discussion here https://github.com/mir-protocol/plonky2/pull/930/files/a4ea0965d79561c345e2f77836c07949c7e0bc69#r1143630253
+    %add_or_fault
     // stack: expanded_num_bytes, kexit_info, address, dest_offset, offset, size
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes

@@ -401,7 +401,7 @@ global after_call_instruction:
 %macro checked_mem_expansion
     // stack: size, offset, kexit_info
     DUP1 ISZERO %jumpi(%%zero)
-    ADD // TODO: check for overflow
+    %add_or_fault
     // stack: expanded_num_bytes, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes

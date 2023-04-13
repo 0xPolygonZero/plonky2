@@ -312,3 +312,15 @@ global sys_basefee:
     %mload_context_metadata(@CTX_METADATA_STATIC)
     %jumpi(fault_exception)
 %endmacro
+
+%macro add_or_fault
+    // stack: offset, size, kexit_info, offset, size
+    DUP1
+    %ensure_reasonable_offset
+    // stack: offset, size, kexit_info, offset, size
+    DUP2
+    // stack: size, offset, size, kexit_info, offset, size
+    %ensure_reasonable_offset
+    // stack: offset, size, kexit_info, offset, size
+    ADD 
+%endmacro
