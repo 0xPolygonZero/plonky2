@@ -1,5 +1,6 @@
 //! An EVM interpreter for testing and debugging purposes.
 
+use core::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -305,20 +306,20 @@ impl<'a> Interpreter<'a> {
             0x02 => self.run_mul(),                                     // "MUL",
             0x03 => self.run_sub(),                                     // "SUB",
             0x04 => self.run_div(),                                     // "DIV",
-            0x05 => todo!(),                                            // "SDIV",
+            0x05 => self.run_sdiv(),                                    // "SDIV",
             0x06 => self.run_mod(),                                     // "MOD",
-            0x07 => todo!(),                                            // "SMOD",
+            0x07 => self.run_smod(),                                    // "SMOD",
             0x08 => self.run_addmod(),                                  // "ADDMOD",
             0x09 => self.run_mulmod(),                                  // "MULMOD",
             0x0a => self.run_exp(),                                     // "EXP",
-            0x0b => todo!(),                                            // "SIGNEXTEND",
+            0x0b => self.run_signextend(),                              // "SIGNEXTEND",
             0x0c => self.run_addfp254(),                                // "ADDFP254",
             0x0d => self.run_mulfp254(),                                // "MULFP254",
             0x0e => self.run_subfp254(),                                // "SUBFP254",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
-            0x12 => todo!(),                                            // "SLT",
-            0x13 => todo!(),                                            // "SGT",
+            0x12 => self.run_slt(),                                     // "SLT",
+            0x13 => self.run_sgt(),                                     // "SGT",
             0x14 => self.run_eq(),                                      // "EQ",
             0x15 => self.run_iszero(),                                  // "ISZERO",
             0x16 => self.run_and(),                                     // "AND",
@@ -328,7 +329,7 @@ impl<'a> Interpreter<'a> {
             0x1a => self.run_byte(),                                    // "BYTE",
             0x1b => self.run_shl(),                                     // "SHL",
             0x1c => self.run_shr(),                                     // "SHR",
-            0x1d => todo!(),                                            // "SAR",
+            0x1d => self.run_sar(),                                     // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
             0x30 => todo!(),                                            // "ADDRESS",
@@ -467,10 +468,73 @@ impl<'a> Interpreter<'a> {
         self.push(if y.is_zero() { U256::zero() } else { x / y });
     }
 
+    fn run_sdiv(&mut self) {
+        let mut x = self.pop();
+        let mut y = self.pop();
+
+        let y_is_zero = y.is_zero();
+
+        if y_is_zero {
+            self.push(U256::zero());
+        } else if y.eq(&MINUS_ONE) && x.eq(&MIN_VALUE) {
+            self.push(MIN_VALUE);
+        } else {
+            let x_is_pos = x.eq(&(x & SIGN_MASK));
+            let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+            // We compute the absolute quotient first,
+            // then adapt its sign based on the operands.
+            if !x_is_pos {
+                x = two_complement(x);
+            }
+            if !y_is_pos {
+                y = two_complement(y);
+            }
+            let div = x / y;
+            if div.eq(&U256::zero()) {
+                self.push(U256::zero());
+            }
+
+            self.push(if x_is_pos == y_is_pos {
+                div
+            } else {
+                two_complement(div)
+            });
+        }
+    }
+
     fn run_mod(&mut self) {
         let x = self.pop();
         let y = self.pop();
         self.push(if y.is_zero() { U256::zero() } else { x % y });
+    }
+
+    fn run_smod(&mut self) {
+        let mut x = self.pop();
+        let mut y = self.pop();
+
+        if y.is_zero() {
+            self.push(U256::zero());
+        } else {
+            let x_is_pos = x.eq(&(x & SIGN_MASK));
+            let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+            // We compute the absolute remainder first,
+            // then adapt its sign based on the operands.
+            if !x_is_pos {
+                x = two_complement(x);
+            }
+            if !y_is_pos {
+                y = two_complement(y);
+            }
+            let rem = x % y;
+            if rem.eq(&U256::zero()) {
+                self.push(U256::zero());
+            }
+
+            // Remainder always has the same sign as the dividend.
+            self.push(if x_is_pos { rem } else { two_complement(rem) });
+        }
     }
 
     fn run_addmod(&mut self) {
@@ -511,6 +575,43 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push_bool(x > y);
+    }
+
+    fn run_slt(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push_bool(signed_cmp(x, y) == Ordering::Less);
+    }
+
+    fn run_sgt(&mut self) {
+        let x = self.pop();
+        let y = self.pop();
+        self.push_bool(signed_cmp(x, y) == Ordering::Greater);
+    }
+
+    fn run_signextend(&mut self) {
+        let n = self.pop();
+        let x = self.pop();
+        if n > U256::from(31) {
+            self.push(x);
+        } else {
+            let n = n.low_u64() as usize;
+            let num_bytes_prepend = 31 - n;
+
+            let mut x_bytes = [0u8; 32];
+            x.to_big_endian(&mut x_bytes);
+            let x_bytes = x_bytes[num_bytes_prepend..].to_vec();
+            let sign_bit = x_bytes[0] >> 7;
+
+            let mut bytes = if sign_bit == 0 {
+                vec![0; num_bytes_prepend]
+            } else {
+                vec![0xff; num_bytes_prepend]
+            };
+            bytes.extend_from_slice(&x_bytes);
+
+            self.push(U256::from_big_endian(&bytes));
+        }
     }
 
     fn run_eq(&mut self) {
@@ -572,6 +673,30 @@ impl<'a> Interpreter<'a> {
         let shift = self.pop();
         let value = self.pop();
         self.push(value >> shift);
+    }
+
+    fn run_sar(&mut self) {
+        let shift = self.pop();
+        let value = self.pop();
+        let value_is_neg = !value.eq(&(value & SIGN_MASK));
+
+        if shift < U256::from(256usize) {
+            let shift = shift.low_u64() as usize;
+            let mask = !(MINUS_ONE >> shift);
+            let value_shifted = value >> shift;
+
+            if value_is_neg {
+                self.push(value_shifted | mask);
+            } else {
+                self.push(value_shifted);
+            };
+        } else {
+            self.push(if value_is_neg {
+                MINUS_ONE
+            } else {
+                U256::zero()
+            });
+        }
     }
 
     fn run_keccak256(&mut self) {
@@ -836,6 +961,70 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.stack_len
     }
 }
+
+// Computes the two's complement of the given integer.
+fn two_complement(x: U256) -> U256 {
+    let flipped_bits = x ^ MINUS_ONE;
+    flipped_bits.overflowing_add(U256::one()).0
+}
+
+fn signed_cmp(x: U256, y: U256) -> Ordering {
+    let x_is_zero = x.is_zero();
+    let y_is_zero = y.is_zero();
+
+    if x_is_zero && y_is_zero {
+        return Ordering::Equal;
+    }
+
+    let x_is_pos = x.eq(&(x & SIGN_MASK));
+    let y_is_pos = y.eq(&(y & SIGN_MASK));
+
+    if x_is_zero {
+        if y_is_pos {
+            return Ordering::Less;
+        } else {
+            return Ordering::Greater;
+        }
+    };
+
+    if y_is_zero {
+        if x_is_pos {
+            return Ordering::Greater;
+        } else {
+            return Ordering::Less;
+        }
+    };
+
+    match (x_is_pos, y_is_pos) {
+        (true, true) => x.cmp(&y),
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        (false, false) => x.cmp(&y).reverse(),
+    }
+}
+
+/// -1 in two's complement representation consists in all bits set to 1.
+const MINUS_ONE: U256 = U256([
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+]);
+
+/// -2^255 in two's complement representation consists in the MSB set to 1.
+const MIN_VALUE: U256 = U256([
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x8000000000000000,
+]);
+
+const SIGN_MASK: U256 = U256([
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0x7fffffffffffffff,
+]);
 
 /// Return the (ordered) JUMPDEST offsets in the code.
 fn find_jumpdests(code: &[u8]) -> Vec<usize> {

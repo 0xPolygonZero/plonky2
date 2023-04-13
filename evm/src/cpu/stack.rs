@@ -29,7 +29,7 @@ const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     disable_other_channels: true,
 });
 const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
-    num_pops: 2,
+    num_pops: 3,
     pushes: true,
     disable_other_channels: true,
 });
@@ -60,8 +60,16 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     xor: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
     byte: BASIC_BINARY_OP,
-    shl: BASIC_BINARY_OP,
-    shr: BASIC_BINARY_OP,
+    shl: Some(StackBehavior {
+        num_pops: 2,
+        pushes: true,
+        disable_other_channels: false,
+    }),
+    shr: Some(StackBehavior {
+        num_pops: 2,
+        pushes: true,
+        disable_other_channels: false,
+    }),
     keccak_general: None, // TODO
     prover_input: None,   // TODO
     pop: None,            // TODO
