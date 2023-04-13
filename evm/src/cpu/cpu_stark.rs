@@ -141,8 +141,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     {
         let local_values = vars.local_values.borrow();
         let next_values = vars.next_values.borrow();
-        // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
-        let mut dummy_yield_constr = ConstraintConsumer::new(vec![], P::ZEROS, P::ZEROS, P::ZEROS);
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
@@ -169,10 +167,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     ) {
         let local_values = vars.local_values.borrow();
         let next_values = vars.next_values.borrow();
-        // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
-        let zero = builder.zero_extension();
-        let mut dummy_yield_constr =
-            RecursiveConstraintConsumer::new(zero, vec![], zero, zero, zero);
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
