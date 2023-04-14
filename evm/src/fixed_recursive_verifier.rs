@@ -36,13 +36,31 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
-use crate::proof::StarkProofWithMetadata;
+use crate::proof::{PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, recursive_stark_circuit, PlonkWrapperCircuit, PublicInputs,
     StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+
+/// An EVM proof, corresponding to either a root, an aggregation, or a block proof,
+/// along with public memory values.
+#[derive(Debug, Clone)]
+pub struct EvmProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+where
+    [(); C::HCO::WIDTH]:,
+{
+    pub proof: ProofWithPublicInputs<F, C, D>,
+    // TODO: Do we want to store only trie roots? Or a list of block_metadata?
+    pub public_values: PublicValues,
+}
+
+#[derive(Debug, Clone)]
+pub struct EvmProofTarget<const D: usize> {
+    pub proof_target: ProofWithPublicInputsTarget<D>,
+    pub public_values_target: PublicValuesTarget,
+}
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
