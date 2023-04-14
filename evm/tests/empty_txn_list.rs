@@ -93,11 +93,14 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         receipts_trie_root
     );
 
-    verify_proof(&all_stark, proof, &config)?;
+    verify_proof(&all_stark, proof.clone(), &config)?;
 
+    let cpu_trace_len = 1 << proof.stark_proofs[0].proof.recover_degree_bits(&config);
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
         &[16..17, 14..15, 14..15, 9..10, 12..13, 18..19], // Minimal ranges to prove an empty list
+        &proof.public_values,
+        cpu_trace_len,
         &config,
     );
 

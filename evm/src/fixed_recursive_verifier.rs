@@ -2,6 +2,7 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+use ethereum_types::BigEndianHash;
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -30,20 +31,26 @@ use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
-use crate::proof::StarkProofWithMetadata;
+use crate::memory::segments::Segment;
+use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
+use crate::permutation::{
+    get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
+};
+use crate::proof::{BlockMetadataTarget, PublicValues, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, recursive_stark_circuit, PlonkWrapperCircuit, PublicInputs,
-    StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_trie_roots, recursive_stark_circuit,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+use crate::util::h160_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -339,6 +346,8 @@ where
     pub fn new(
         all_stark: &AllStark<F, D>,
         degree_bits_ranges: &[Range<usize>; NUM_TABLES],
+        public_values: &PublicValues,
+        cpu_trace_len: usize,
         stark_config: &StarkConfig,
     ) -> Self {
         let arithmetic = RecursiveCircuitsForTable::new(
@@ -385,7 +394,7 @@ where
         );
 
         let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
-        let root = Self::create_root_circuit(&by_table, stark_config);
+        let root = Self::create_root_circuit(public_values, cpu_trace_len, &by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
         Self {
@@ -397,6 +406,8 @@ where
     }
 
     fn create_root_circuit(
+        public_values: &PublicValues,
+        cpu_trace_len: usize,
         by_table: &[RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
         stark_config: &StarkConfig,
     ) -> RootCircuitData<F, C, D> {
@@ -404,6 +415,7 @@ where
             core::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
 
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_config());
+
         let recursive_proofs =
             core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
@@ -453,11 +465,50 @@ where
             }
         }
 
+        // Extra products to add to the looked last value
+        let mut extra_looking_products = Vec::new();
+
+        // Arithmetic
+        extra_looking_products.push(Vec::new());
+        for _ in 0..stark_config.num_challenges {
+            extra_looking_products[0].push(builder.constant(F::ONE));
+        }
+
+        // KeccakSponge
+        extra_looking_products.push(Vec::new());
+        for _ in 0..stark_config.num_challenges {
+            extra_looking_products[1].push(builder.constant(F::ONE));
+        }
+
+        // Keccak
+        extra_looking_products.push(Vec::new());
+        for _ in 0..stark_config.num_challenges {
+            extra_looking_products[2].push(builder.constant(F::ONE));
+        }
+
+        // Logic
+        extra_looking_products.push(Vec::new());
+        for _ in 0..stark_config.num_challenges {
+            extra_looking_products[3].push(builder.constant(F::ONE));
+        }
+
+        // Memory
+        extra_looking_products.push(Vec::new());
+        for c in 0..stark_config.num_challenges {
+            extra_looking_products[4].push(Self::get_memory_extra_looking_products_circuit(
+                &mut builder,
+                public_values,
+                cpu_trace_len,
+                ctl_challenges.challenges[c],
+            ));
+        }
+
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_last),
+            extra_looking_products,
             stark_config,
         );
 
@@ -503,6 +554,208 @@ where
             index_verifier_data,
             cyclic_vk,
         }
+    }
+
+    /// Recursive version of `get_memory_extra_looking_products`.
+    pub(crate) fn get_memory_extra_looking_products_circuit(
+        builder: &mut CircuitBuilder<F, D>,
+        public_values: &PublicValues,
+        cpu_trace_len: usize,
+        challenge: GrandProductChallenge<Target>,
+    ) -> Target {
+        let mut prod = builder.constant(F::ONE);
+
+        // Add metadata writes.
+        let metadata_target = BlockMetadataTarget {
+            block_beneficiary: builder.add_virtual_target_arr::<5>(),
+            block_timestamp: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_timestamp.as_u64(),
+            )),
+            block_difficulty: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_difficulty.as_u64(),
+            )),
+            block_number: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_number.as_u64(),
+            )),
+            block_gaslimit: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_gaslimit.as_u64(),
+            )),
+            block_chain_id: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_chain_id.as_u64(),
+            )),
+            block_base_fee: builder.constant(F::from_canonical_u64(
+                public_values.block_metadata.block_base_fee.as_u64(),
+            )),
+        };
+
+        let beneficiary_limbs = h160_limbs(public_values.block_metadata.block_beneficiary);
+        for i in 0..5 {
+            let limb_target = builder.constant(beneficiary_limbs[i]);
+            builder.connect(metadata_target.block_beneficiary[i], limb_target);
+        }
+
+        let block_fields_without_beneficiary = [
+            (
+                GlobalMetadata::BlockTimestamp,
+                metadata_target.block_timestamp,
+            ),
+            (GlobalMetadata::BlockNumber, metadata_target.block_number),
+            (
+                GlobalMetadata::BlockDifficulty,
+                metadata_target.block_difficulty,
+            ),
+            (
+                GlobalMetadata::BlockGasLimit,
+                metadata_target.block_gaslimit,
+            ),
+            (GlobalMetadata::BlockChainId, metadata_target.block_chain_id),
+            (GlobalMetadata::BlockBaseFee, metadata_target.block_base_fee),
+        ];
+
+        let zero = builder.constant(F::ZERO);
+        let one = builder.constant(F::ONE);
+        let segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
+
+        let row = builder.add_virtual_targets(13);
+        // is_read
+        builder.connect(row[0], zero);
+        // context
+        builder.connect(row[1], zero);
+        // segment
+        builder.connect(row[2], segment);
+        // virtual
+        let field_target = builder.constant(F::from_canonical_usize(
+            GlobalMetadata::BlockBeneficiary as usize,
+        ));
+        builder.connect(row[3], field_target);
+        // values
+        for j in 0..5 {
+            builder.connect(row[4 + j], metadata_target.block_beneficiary[j]);
+        }
+        for j in 5..VALUE_LIMBS {
+            builder.connect(row[4 + j], zero);
+        }
+        // timestamp
+        builder.connect(row[12], one);
+
+        let combined = challenge.combine_base_circuit(builder, &row);
+        prod = builder.mul(prod, combined);
+
+        block_fields_without_beneficiary.map(|(field, target)| {
+            let row = builder.add_virtual_targets(13);
+            // is_read
+            builder.connect(row[0], zero);
+            // context
+            builder.connect(row[1], zero);
+            // segment
+            builder.connect(row[2], segment);
+            // virtual
+            let field_target = builder.constant(F::from_canonical_usize(field as usize));
+            builder.connect(row[3], field_target);
+            // These values only have one cell.
+            builder.connect(row[4], target);
+            for j in 1..VALUE_LIMBS {
+                builder.connect(row[4 + j], zero);
+            }
+            // timestamp
+            builder.connect(row[12], one);
+            let combined = challenge.combine_base_circuit(builder, &row);
+            prod = builder.mul(prod, combined);
+        });
+
+        // Add public values reads.
+        let tries_before_target = add_virtual_trie_roots(builder);
+        for (targets, hash) in [
+            tries_before_target.state_root,
+            tries_before_target.transactions_root,
+            tries_before_target.receipts_root,
+        ]
+        .iter()
+        .zip([
+            public_values.trie_roots_before.state_root,
+            public_values.trie_roots_before.transactions_root,
+            public_values.trie_roots_before.receipts_root,
+        ]) {
+            for (i, limb) in hash.into_uint().0.into_iter().enumerate() {
+                let low_limb_target = builder.constant(F::from_canonical_u32(limb as u32));
+                let high_limb_target = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
+                builder.connect(targets[2 * i], low_limb_target);
+                builder.connect(targets[2 * i + 1], high_limb_target);
+            }
+        }
+
+        let tries_after_target = add_virtual_trie_roots(builder);
+        for (targets, hash) in [
+            tries_after_target.state_root,
+            tries_after_target.transactions_root,
+            tries_after_target.receipts_root,
+        ]
+        .iter()
+        .zip([
+            public_values.trie_roots_after.state_root,
+            public_values.trie_roots_after.transactions_root,
+            public_values.trie_roots_after.receipts_root,
+        ]) {
+            for (i, limb) in hash.into_uint().0.into_iter().enumerate() {
+                let low_limb_target = builder.constant(F::from_canonical_u32(limb as u32));
+                let high_limb_target = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
+                builder.connect(targets[2 * i], low_limb_target);
+                builder.connect(targets[2 * i + 1], high_limb_target);
+            }
+        }
+
+        let trie_fields = [
+            (
+                GlobalMetadata::StateTrieRootDigestBefore,
+                tries_before_target.state_root,
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestBefore,
+                tries_before_target.transactions_root,
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestBefore,
+                tries_before_target.receipts_root,
+            ),
+            (
+                GlobalMetadata::StateTrieRootDigestAfter,
+                tries_after_target.state_root,
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestAfter,
+                tries_after_target.transactions_root,
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestAfter,
+                tries_after_target.receipts_root,
+            ),
+        ];
+
+        let timestamp_target =
+            builder.constant(F::from_canonical_usize(cpu_trace_len * NUM_CHANNELS + 1));
+        trie_fields.map(|(field, targets)| {
+            let row = builder.add_virtual_targets(13);
+            // is_read
+            builder.connect(row[0], one);
+            // context
+            builder.connect(row[1], zero);
+            // segment
+            builder.connect(row[2], segment);
+            // virtual
+            let field_target = builder.constant(F::from_canonical_usize(field as usize));
+            builder.connect(row[3], field_target);
+            // values
+            for j in 0..VALUE_LIMBS {
+                builder.connect(row[j + 4], targets[j]);
+            }
+            // timestamp
+            builder.connect(row[12], timestamp_target);
+
+            let combined = challenge.combine_base_circuit(builder, &row);
+            prod = builder.mul(prod, combined);
+        });
+
+        prod
     }
 
     fn create_aggregation_circuit(

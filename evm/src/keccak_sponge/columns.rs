@@ -9,6 +9,7 @@ pub(crate) const KECCAK_RATE_BYTES: usize = 136;
 pub(crate) const KECCAK_RATE_U32S: usize = KECCAK_RATE_BYTES / 4;
 pub(crate) const KECCAK_CAPACITY_BYTES: usize = 64;
 pub(crate) const KECCAK_CAPACITY_U32S: usize = KECCAK_CAPACITY_BYTES / 4;
+pub(crate) const KECCAK_DIGEST_BYTES: usize = 32;
 
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
@@ -53,6 +54,8 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// The entire state (rate + capacity) of the sponge, encoded as 32-bit chunks, after the
     /// permutation is applied.
     pub updated_state_u32s: [T; KECCAK_WIDTH_U32S],
+
+    pub updated_state_bytes: [T; KECCAK_DIGEST_BYTES],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

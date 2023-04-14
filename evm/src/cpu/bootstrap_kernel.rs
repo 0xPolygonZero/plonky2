@@ -48,6 +48,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
     final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
+    final_cpu_row.mem_channels[4].value.reverse();
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
@@ -93,6 +94,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
+        .rev()
         .zip(local_values.mem_channels.last().unwrap().value)
     {
         let expected = P::from(F::from_canonical_u32(expected));
@@ -153,6 +155,7 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
+        .rev()
         .zip(local_values.mem_channels.last().unwrap().value)
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));

@@ -129,10 +129,21 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
         }
 
+        // Dummy values which will make the check fail.
+        // TODO: Fix this if the code isn't deprecated.
+        let mut extra_looking_products = Vec::new();
+        for i in 0..NUM_TABLES {
+            extra_looking_products.push(Vec::new());
+            for _ in 0..inner_config.num_challenges {
+                extra_looking_products[i].push(F::ONE);
+            }
+        }
+
         // Verify the CTL checks.
         verify_cross_table_lookups::<F, D>(
             &cross_table_lookups,
             pis.map(|p| p.ctl_zs_last),
+            extra_looking_products,
             inner_config,
         )?;
 
