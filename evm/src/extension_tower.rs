@@ -1207,7 +1207,7 @@ pub trait Stack {
 }
 
 impl Stack for Fp6<BN254> {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         let f: [U256; 6] = unsafe { transmute(self) };
         f.into_iter().collect()
     }
@@ -1220,7 +1220,7 @@ impl Stack for Fp6<BN254> {
 }
 
 impl Stack for Fp12<BN254> {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         let f: [U256; 12] = unsafe { transmute(self) };
         f.into_iter().collect()
     }
@@ -1233,7 +1233,7 @@ impl Stack for Fp12<BN254> {
 }
 
 impl Stack for BLS381 {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
     }
 
@@ -1246,7 +1246,7 @@ impl Stack for BLS381 {
 }
 
 impl Stack for Fp2<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         let mut res = self.re.to_stack();
         res.extend(self.im.to_stack());
         res
@@ -1260,7 +1260,7 @@ impl Stack for Fp2<BLS381> {
 }
 
 impl Stack for Fp6<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         let mut res = self.t0.to_stack();
         res.extend(self.t1.to_stack());
         res.extend(self.t2.to_stack());
@@ -1276,7 +1276,7 @@ impl Stack for Fp6<BLS381> {
 }
 
 impl Stack for Fp12<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
+    fn to_stack(&self) -> Vec<U256> {
         let mut res = self.z0.to_stack();
         res.extend(self.z1.to_stack());
         res
