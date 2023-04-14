@@ -119,6 +119,7 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use static_assertions::const_assert;
 
 use super::columns;
 use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
@@ -128,7 +129,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::extension_tower::BN_BASE;
 
 const fn bn254_modulus_limbs() -> [u16; N_LIMBS] {
-    debug_assert!(N_LIMBS == 16); // Assumed below
+    const_assert!(N_LIMBS == 16); // Assumed below
     let mut limbs = [0u16; N_LIMBS];
     let mut i = 0;
     while i < N_LIMBS / 4 {
