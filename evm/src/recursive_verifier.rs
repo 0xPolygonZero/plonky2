@@ -498,7 +498,6 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
-#[allow(unused)] // TODO: used later?
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
@@ -623,7 +622,6 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-#[allow(unused)] // TODO: used later?
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,

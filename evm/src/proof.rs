@@ -74,18 +74,21 @@ pub struct BlockMetadata {
 
 /// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
+#[derive(Debug, Clone)]
 pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
 }
 
+#[derive(Debug, Clone)]
 pub struct TrieRootsTarget {
     pub state_root: [Target; 8],
     pub transactions_root: [Target; 8],
     pub receipts_root: [Target; 8],
 }
 
+#[derive(Debug, Clone)]
 pub struct BlockMetadataTarget {
     pub block_beneficiary: [Target; 5],
     pub block_timestamp: Target,

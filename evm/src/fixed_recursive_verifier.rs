@@ -10,7 +10,7 @@ use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
@@ -39,8 +39,8 @@ use crate::permutation::{get_grand_product_challenge_set_target, GrandProductCha
 use crate::proof::{PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, recursive_stark_circuit, PlonkWrapperCircuit, PublicInputs,
-    StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
+    set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 
@@ -58,8 +58,40 @@ where
 
 #[derive(Debug, Clone)]
 pub struct EvmProofTarget<const D: usize> {
-    pub proof_target: ProofWithPublicInputsTarget<D>,
-    pub public_values_target: PublicValuesTarget,
+    pub proof: ProofWithPublicInputsTarget<D>,
+    pub public_values: PublicValuesTarget,
+}
+
+/// Adds a new "virtual" EVM proof target.
+fn add_virtual_evm_proof<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    common_data: &CommonCircuitData<F, D>,
+) -> EvmProofTarget<D> {
+    let proof = builder.add_virtual_proof_with_pis(common_data);
+    let public_values = add_virtual_public_values(builder);
+    EvmProofTarget {
+        proof,
+        public_values,
+    }
+}
+
+fn set_evm_proof_target<F, C, W, const D: usize>(
+    witness: &mut W,
+    evm_proof_target: &EvmProofTarget<D>,
+    evm_proof: &EvmProof<F, C, D>,
+) where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    W: Witness<F>,
+    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    [(); C::HCO::WIDTH]:,
+{
+    witness.set_proof_with_pis_target(&evm_proof_target.proof, &evm_proof.proof);
+    set_public_value_targets(
+        witness,
+        &evm_proof_target.public_values,
+        &evm_proof.public_values,
+    );
 }
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
@@ -203,8 +235,8 @@ where
 #[derive(Eq, PartialEq, Debug)]
 pub struct AggregationChildTarget<const D: usize> {
     is_agg: BoolTarget,
-    agg_proof: ProofWithPublicInputsTarget<D>,
-    evm_proof: ProofWithPublicInputsTarget<D>,
+    agg_proof: EvmProofTarget<D>,
+    evm_proof: EvmProofTarget<D>,
 }
 
 impl<const D: usize> AggregationChildTarget<D> {
@@ -235,8 +267,8 @@ where
 {
     pub circuit: CircuitData<F, C, D>,
     has_parent_block: BoolTarget,
-    parent_block_proof: ProofWithPublicInputsTarget<D>,
-    agg_root_proof: ProofWithPublicInputsTarget<D>,
+    parent_block_proof: EvmProofTarget<D>,
+    agg_root_proof: EvmProofTarget<D>,
     cyclic_vk: VerifierCircuitTarget,
 }
 
@@ -546,11 +578,15 @@ where
         let common = &root.circuit.common;
         let root_vk = builder.constant_verifier_data(&root.circuit.verifier_only);
         let is_agg = builder.add_virtual_bool_target_safe();
-        let agg_proof = builder.add_virtual_proof_with_pis(common);
-        let evm_proof = builder.add_virtual_proof_with_pis(common);
+        let agg_proof = add_virtual_evm_proof(builder, common);
+        let evm_proof = add_virtual_evm_proof(builder, common);
         builder
             .conditionally_verify_cyclic_proof::<C>(
-                is_agg, &agg_proof, &evm_proof, &root_vk, common,
+                is_agg,
+                &agg_proof.proof,
+                &evm_proof.proof,
+                &root_vk,
+                common,
             )
             .expect("Failed to build cyclic recursion circuit");
         AggregationChildTarget {
@@ -573,20 +609,24 @@ where
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
         let has_parent_block = builder.add_virtual_bool_target_safe();
-        let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
-        let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
+        let parent_block_proof = add_virtual_evm_proof(&mut builder, &expected_common_data);
+        let agg_root_proof = add_virtual_evm_proof(&mut builder, &agg.circuit.common);
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
                 has_parent_block,
-                &parent_block_proof,
+                &parent_block_proof.proof,
                 &expected_common_data,
             )
             .expect("Failed to build cyclic recursion circuit");
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
-        builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
+        builder.verify_proof::<C>(
+            &agg_root_proof.proof,
+            &agg_verifier_data,
+            &agg.circuit.common,
+        );
 
         let circuit = builder.build::<C>();
         BlockCircuitData {
@@ -605,7 +645,7 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> anyhow::Result<EvmProof<F, C, D>> {
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
         let mut root_inputs = PartialWitness::new();
 
@@ -632,45 +672,51 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        self.root.circuit.prove(root_inputs)
+        Ok(EvmProof {
+            proof: self.root.circuit.prove(root_inputs)?,
+            public_values: all_proof.public_values,
+        })
     }
 
-    pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.root.circuit.verify(agg_proof)
+    pub fn verify_root(&self, root_proof: EvmProof<F, C, D>) -> anyhow::Result<()> {
+        self.root.circuit.verify(root_proof.proof)
     }
 
     pub fn prove_aggregation(
         &self,
         lhs_is_agg: bool,
-        lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_proof: &EvmProof<F, C, D>,
         rhs_is_agg: bool,
-        rhs_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        rhs_proof: &EvmProof<F, C, D>,
+    ) -> anyhow::Result<EvmProof<F, C, D>> {
         let mut agg_inputs = PartialWitness::new();
 
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.agg_proof, lhs_proof);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.lhs.evm_proof, lhs_proof);
+        set_evm_proof_target(&mut agg_inputs, &self.aggregation.lhs.agg_proof, lhs_proof);
+        set_evm_proof_target(&mut agg_inputs, &self.aggregation.lhs.evm_proof, lhs_proof);
 
         agg_inputs.set_bool_target(self.aggregation.rhs.is_agg, rhs_is_agg);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.agg_proof, rhs_proof);
-        agg_inputs.set_proof_with_pis_target(&self.aggregation.rhs.evm_proof, rhs_proof);
+        set_evm_proof_target(&mut agg_inputs, &self.aggregation.rhs.agg_proof, rhs_proof);
+        set_evm_proof_target(&mut agg_inputs, &self.aggregation.rhs.evm_proof, rhs_proof);
 
         agg_inputs.set_verifier_data_target(
             &self.aggregation.cyclic_vk,
             &self.aggregation.circuit.verifier_only,
         );
 
-        self.aggregation.circuit.prove(agg_inputs)
+        Ok(EvmProof {
+            proof: self.aggregation.circuit.prove(agg_inputs)?,
+            public_values: PublicValues {
+                trie_roots_before: lhs_proof.public_values.trie_roots_before.clone(),
+                ..rhs_proof.public_values.clone()
+            },
+        })
     }
 
-    pub fn verify_aggregation(
-        &self,
-        agg_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<()> {
-        self.aggregation.circuit.verify(agg_proof.clone())?;
+    pub fn verify_aggregation(&self, agg_proof: &EvmProof<F, C, D>) -> anyhow::Result<()> {
+        self.aggregation.circuit.verify(agg_proof.proof.clone())?;
         check_cyclic_proof_verifier_data(
-            agg_proof,
+            &agg_proof.proof,
             &self.aggregation.circuit.verifier_only,
             &self.aggregation.circuit.common,
         )
@@ -678,9 +724,9 @@ where
 
     pub fn prove_block(
         &self,
-        opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
-        agg_root_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        opt_parent_block_proof: Option<&EvmProof<F, C, D>>,
+        agg_root_proof: &EvmProof<F, C, D>,
+    ) -> anyhow::Result<EvmProof<F, C, D>> {
         let mut block_inputs = PartialWitness::new();
 
         block_inputs.set_bool_target(
@@ -688,31 +734,59 @@ where
             opt_parent_block_proof.is_some(),
         );
         if let Some(parent_block_proof) = opt_parent_block_proof {
-            block_inputs
-                .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
-        } else {
-            block_inputs.set_proof_with_pis_target(
+            set_evm_proof_target(
+                &mut block_inputs,
                 &self.block.parent_block_proof,
-                &cyclic_base_proof(
-                    &self.block.circuit.common,
-                    &self.block.circuit.verifier_only,
-                    HashMap::new(),
-                ),
+                parent_block_proof,
+            );
+        } else {
+            set_evm_proof_target(
+                &mut block_inputs,
+                &self.block.parent_block_proof,
+                &EvmProof {
+                    proof: cyclic_base_proof(
+                        &self.block.circuit.common,
+                        &self.block.circuit.verifier_only,
+                        HashMap::new(),
+                    ),
+                    // We plug the aggregation_proof trie_roots_before
+                    // to this proof trie_roots_after for valid connection
+                    // between proofs state tries. We do not care about the rest.
+                    public_values: AggregatedPublicValues {
+                        trie_roots_after: agg_root_proof.public_values.trie_roots_before.clone(),
+                        ..agg_root_proof.public_values.clone()
+                    },
+                },
             );
         }
 
-        block_inputs.set_proof_with_pis_target(&self.block.agg_root_proof, agg_root_proof);
+        set_evm_proof_target(
+            &mut block_inputs,
+            &self.block.agg_root_proof,
+            agg_root_proof,
+        );
 
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        self.block.circuit.prove(block_inputs)
+        let trie_roots_before = if let Some(bp) = opt_parent_block_proof {
+            bp.public_values.trie_roots_before.clone()
+        } else {
+            agg_root_proof.public_values.trie_roots_before.clone()
+        };
+        Ok(EvmProof {
+            proof: self.block.circuit.prove(block_inputs)?,
+            public_values: PublicValues {
+                trie_roots_before,
+                ..agg_root_proof.public_values.clone()
+            },
+        })
     }
 
-    pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
-        self.block.circuit.verify(block_proof.clone())?;
+    pub fn verify_block(&self, block_proof: &EvmProof<F, C, D>) -> anyhow::Result<()> {
+        self.block.circuit.verify(block_proof.proof.clone())?;
         check_cyclic_proof_verifier_data(
-            block_proof,
+            &block_proof.proof,
             &self.block.circuit.verifier_only,
             &self.block.circuit.common,
         )
