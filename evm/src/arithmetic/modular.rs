@@ -127,10 +127,20 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::extension_tower::BN_BASE;
 
-const BN254_MODULUS_LIMBS: [u16; N_LIMBS] = [
-    0xfd47, 0xd87c, 0x8c16, 0x3c20, 0xca8d, 0x6871, 0x6a91, 0x9781, 0x585d, 0x8181, 0x45b6, 0xb850,
-    0xa029, 0xe131, 0x4e72, 0x3064,
-];
+const fn bn254_modulus_limbs() -> [u16; N_LIMBS] {
+    debug_assert!(N_LIMBS == 16); // Assumed below
+    let mut limbs = [0u16; N_LIMBS];
+    let mut i = 0;
+    while i < N_LIMBS / 4 {
+        let x = BN_BASE.0[i];
+        limbs[4 * i] = x as u16;
+        limbs[4 * i + 1] = (x >> 16) as u16;
+        limbs[4 * i + 2] = (x >> 32) as u16;
+        limbs[4 * i + 3] = (x >> 48) as u16;
+        i += 1;
+    }
+    limbs
+}
 
 /// Convert the base-2^16 representation of a number into a BigInt.
 ///
@@ -455,7 +465,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     // Verify that the modulus is the BN254 modulus for the
     // {ADD,MUL,SUB}FP254 operations.
     let modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
-    for (&mi, bi) in modulus.iter().zip(BN254_MODULUS_LIMBS) {
+    for (&mi, bi) in modulus.iter().zip(bn254_modulus_limbs()) {
         yield_constr.constraint_transition(bn254_filter * (mi - P::Scalar::from_canonical_u16(bi)));
     }
 
@@ -598,7 +608,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint_last_row(builder, filter);
 
     let modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
-    for (&mi, bi) in modulus.iter().zip(BN254_MODULUS_LIMBS) {
+    for (&mi, bi) in modulus.iter().zip(bn254_modulus_limbs()) {
         // bn254_filter * (mi - bi)
         let t = builder.arithmetic_extension(
             F::ONE,
