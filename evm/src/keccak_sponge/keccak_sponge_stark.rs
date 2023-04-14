@@ -128,7 +128,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
 pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our final-block rows, since those contain the final
     // sponge output.
-    Column::single(KECCAK_SPONGE_COL_MAP.is_final_block)
+    Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len)
 }
 
 /// CTL filter for reading the `i`th byte of input from memory.
@@ -143,12 +143,12 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
 /// CTL filter for looking at XORs in the logic table.
 pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Column<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum([cols.is_full_input_block, cols.is_final_block])
+    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
 }
 
 pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum([cols.is_full_input_block, cols.is_final_block])
+    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
 }
 
 /// Information about a Keccak sponge operation needed for witness generation.
@@ -269,10 +269,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     ) -> KeccakSpongeColumnsView<F> {
         assert_eq!(already_absorbed_bytes + final_inputs.len(), op.input.len());
 
-        let mut row = KeccakSpongeColumnsView {
-            is_final_block: F::ONE,
-            ..Default::default()
-        };
+        let mut row = KeccakSpongeColumnsView::default();
 
         for (block_byte, input_byte) in row.block_bytes.iter_mut().zip(final_inputs) {
             *block_byte = F::from_canonical_u8(*input_byte);
@@ -372,7 +369,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         let is_full_input_block = local_values.is_full_input_block;
         yield_constr.constraint(is_full_input_block * (is_full_input_block - P::ONES));
 
-        let is_final_block = local_values.is_final_block;
+        let is_final_block: P = local_values.is_final_input_len.iter().copied().sum();
         yield_constr.constraint(is_final_block * (is_final_block - P::ONES));
 
         for &is_final_len in local_values.is_final_input_len.iter() {
@@ -381,13 +378,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
         // Ensure that full-input block and final block flags are not set to 1 at the same time.
         yield_constr.constraint(is_final_block * is_full_input_block);
-
-        // Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
-        let is_final_input_len_sum: P = local_values.is_final_input_len.iter().copied().sum();
-        yield_constr.constraint(is_final_input_len_sum - is_final_block);
-
-        // If this is a full-input block, is_final_input_len should contain all 0s.
-        yield_constr.constraint(is_full_input_block * is_final_input_len_sum);
 
         // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
         let already_absorbed_bytes = local_values.already_absorbed_bytes;
@@ -447,8 +437,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
         // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
         let is_dummy = P::ONES - is_full_input_block - is_final_block;
+        let next_is_final_block: P = next_values.is_final_input_len.iter().copied().sum();
         yield_constr.constraint_transition(
-            is_dummy * (next_values.is_full_input_block + next_values.is_final_block),
+            is_dummy * (next_values.is_full_input_block + next_is_final_block),
         );
 
         // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
@@ -479,7 +470,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         );
         yield_constr.constraint(builder, constraint);
 
-        let is_final_block = local_values.is_final_block;
+        let is_final_block = builder.add_many_extension(local_values.is_final_input_len);
         let constraint = builder.mul_sub_extension(is_final_block, is_final_block, is_final_block);
         yield_constr.constraint(builder, constraint);
 
@@ -490,21 +481,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
         // Ensure that full-input block and final block flags are not set to 1 at the same time.
         let constraint = builder.mul_extension(is_final_block, is_full_input_block);
-        yield_constr.constraint(builder, constraint);
-
-        // Sum of is_final_input_len should equal is_final_block (which will be 0 or 1).
-        let mut is_final_input_len_sum = builder.add_extension(
-            local_values.is_final_input_len[0],
-            local_values.is_final_input_len[1],
-        );
-        for &input_len in local_values.is_final_input_len.iter().skip(2) {
-            is_final_input_len_sum = builder.add_extension(is_final_input_len_sum, input_len);
-        }
-        let constraint = builder.sub_extension(is_final_input_len_sum, is_final_block);
-        yield_constr.constraint(builder, constraint);
-
-        // If this is a full-input block, is_final_input_len should contain all 0s.
-        let constraint = builder.mul_extension(is_full_input_block, is_final_input_len_sum);
         yield_constr.constraint(builder, constraint);
 
         // If this is the first row, the original sponge state should be 0 and already_absorbed_bytes = 0.
@@ -580,9 +556,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             let tmp = builder.sub_extension(one, is_final_block);
             builder.sub_extension(tmp, is_full_input_block)
         };
+        let next_is_final_block = builder.add_many_extension(next_values.is_final_input_len);
         let constraint = {
-            let tmp =
-                builder.add_extension(next_values.is_final_block, next_values.is_full_input_block);
+            let tmp = builder.add_extension(next_is_final_block, next_values.is_full_input_block);
             builder.mul_extension(is_dummy, tmp)
         };
         yield_constr.constraint_transition(builder, constraint);

@@ -4,6 +4,7 @@
 // Pre stack: kexit_info, value, code_offset, code_len
 // Post stack: address
 global sys_create:
+    %check_static
     // stack: kexit_info, value, code_offset, code_len
     // TODO: Charge gas.
     %stack (kexit_info, value, code_offset, code_len)
@@ -25,6 +26,7 @@ sys_create_got_address:
 // Pre stack: kexit_info, value, code_offset, code_len, salt
 // Post stack: address
 global sys_create2:
+    %check_static
     // stack: kexit_info, value, code_offset, code_len, salt
     // TODO: Charge gas.
     SWAP4

@@ -108,9 +108,7 @@ pubkey_to_addr:
     // stack: PKx, PKy, retdest
     %keccak256_u256_pair
     // stack: hash, retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffff
-    // stack: 2^160-1, hash, retdest
-    AND
+    %u256_to_addr
     // stack: address, retdest
     SWAP1
     // stack: retdest, address
