@@ -64,6 +64,7 @@
     // stack:             z_re, z_im
 %endmacro
 
+// note that {x,y}_{re,im} all take up two stack terms
 global mul_fp381_2:
     // stack:                          x_re, x_im, y_re, y_im, jumpdest
     DUP4
