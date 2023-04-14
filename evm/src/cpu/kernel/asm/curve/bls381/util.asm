@@ -4,11 +4,11 @@
     DUP1
     %add_const(1)
     // stack: offset_hi, offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_hi, offset
     SWAP1
     // stack: offset_lo, val_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_lo, val_hi
 %endmacro
 
@@ -19,11 +19,11 @@
     // stack:            val_lo, offset, val_hi
     DUP2
     // stack: offset_lo, val_lo, offset, val_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                    offset, val_hi
     %add_const(1)
     // stack:                 offset_hi, val_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
 %endmacro
 
 %macro mload_bls_fp2
@@ -31,25 +31,25 @@
     DUP1
     %add_const(3)
     // stack:                          offset_im_hi, offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:                             val_im_hi, offset
     SWAP1
     // stack:                             offset, val_im_hi
     DUP1
     %add_const(2)
     // stack:               offset_im_lo, offset, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:                  val_im_lo, offset, val_im_hi
     SWAP1
     // stack:                  offset, val_im_lo, val_im_hi
     DUP1
     %add_const(1)
     // stack:    offset_re_hi, offset, val_im_lo, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:       val_re_hi, offset, val_im_lo, val_im_hi
     SWAP1
     // stack: offset_re_lo, val_re_hi, val_im_lo, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_re_lo, val_re_hi, val_im_lo, val_im_hi
 %endmacro
 
@@ -60,20 +60,20 @@
     DUP4
     %add_const(2)
     // stack: offset_im_lo, val_im_lo, val_re_lo, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                          val_re_lo, val_re_hi, offset, val_im_hi
     DUP3
     // stack:            offset_re_lo, val_re_lo, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                                     val_re_hi, offset, val_im_hi
     DUP2
     %add_const(1)
     // stack:                       offset_re_hi, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                                                offset, val_im_hi
     %add_const(3)
     // stack:                                          offset_im_hi, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
 %endmacro
 
 
