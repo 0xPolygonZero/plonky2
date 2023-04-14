@@ -4,6 +4,7 @@
 // Post stack: (empty)
 
 global sys_sstore:
+    %check_static
     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
     %address %insert_accessed_storage_keys POP // TODO: Use return value in gas calculation.
     // TODO: Assuming a cold zero -> nonzero write for now.

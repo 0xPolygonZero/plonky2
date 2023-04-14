@@ -360,8 +360,6 @@
 
 %macro not_bit
     // stack: b
-    PUSH 1
-    // stack: 1, b
-    SUB
-    // stack: 1 - b
+    ISZERO
+    // stack: not b
 %endmacro

@@ -200,6 +200,19 @@ global sys_gaslimit:
     SWAP1
     EXIT_KERNEL
 
+%macro blockchainid
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+%endmacro
+
+global sys_chainid:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blockchainid
+    // stack: chain_id, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 %macro basefee
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
 %endmacro
@@ -282,4 +295,11 @@ global sys_basefee:
     // stack: is_unreasonable
     %jumpi(fault_exception)
     // stack: (empty)
+%endmacro
+
+// Convenience macro for checking if the current context is static.
+// Called before state-changing opcodes.
+%macro check_static
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %jumpi(fault_exception)
 %endmacro

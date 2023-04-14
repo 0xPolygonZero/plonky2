@@ -4,11 +4,11 @@
     DUP1
     %add_const(1)
     // stack: offset_hi, offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_hi, offset
     SWAP1
     // stack: offset_lo, val_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_lo, val_hi
 %endmacro
 
@@ -19,11 +19,11 @@
     // stack:            val_lo, offset, val_hi
     DUP2
     // stack: offset_lo, val_lo, offset, val_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                    offset, val_hi
     %add_const(1)
     // stack:                 offset_hi, val_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
 %endmacro
 
 %macro mload_bls_fp2
@@ -31,25 +31,25 @@
     DUP1
     %add_const(3)
     // stack:                          offset_im_hi, offset
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:                             val_im_hi, offset
     SWAP1
     // stack:                             offset, val_im_hi
     DUP1
     %add_const(2)
     // stack:               offset_im_lo, offset, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:                  val_im_lo, offset, val_im_hi
     SWAP1
     // stack:                  offset, val_im_lo, val_im_hi
     DUP1
     %add_const(1)
     // stack:    offset_re_hi, offset, val_im_lo, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:       val_re_hi, offset, val_im_lo, val_im_hi
     SWAP1
     // stack: offset_re_lo, val_re_hi, val_im_lo, val_im_hi
-    %mload_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mload_kernel_general
     // stack:    val_re_lo, val_re_hi, val_im_lo, val_im_hi
 %endmacro
 
@@ -60,20 +60,20 @@
     DUP4
     %add_const(2)
     // stack: offset_im_lo, val_im_lo, val_re_lo, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                          val_re_lo, val_re_hi, offset, val_im_hi
     DUP3
     // stack:            offset_re_lo, val_re_lo, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                                     val_re_hi, offset, val_im_hi
     DUP2
     %add_const(1)
     // stack:                       offset_re_hi, val_re_hi, offset, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
     // stack:                                                offset, val_im_hi
     %add_const(3)
     // stack:                                          offset_im_hi, val_im_hi
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    %mstore_kernel_general
 %endmacro
 
 
@@ -119,19 +119,6 @@
     // stack:                 z0, z1
 %endmacro
 
-global test_add_fp381:
-    %add_fp381
-    %jump(0xdeadbeef)
-
-global test_sub_fp381:
-    %sub_fp381
-    %jump(0xdeadbeef)
-
-global test_mul_fp381:
-    %mul_fp381
-    %jump(0xdeadbeef)
-
-
 %macro add_fp381_2
     // stack: x_re, x_im, y_re, y_im
     %stack (x_re: 2, x_im: 2, y_re: 2, y_im: 2) -> (y_im, x_im, y_re, x_re)
@@ -156,15 +143,7 @@ global test_mul_fp381:
     // stack:             z_re, z_im
 %endmacro
 
-global test_add_fp381_2:
-    %add_fp381_2
-    %jump(0xdeadbeef)
-
-global test_sub_fp381_2:
-    %sub_fp381_2
-    %jump(0xdeadbeef)
-
-
+// note that {x,y}_{re,im} all take up two stack terms
 global mul_fp381_2:
     // stack:                          x_re, x_im, y_re, y_im, jumpdest
     DUP4
