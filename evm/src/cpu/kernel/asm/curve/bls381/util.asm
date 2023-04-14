@@ -120,4 +120,3 @@ global mul_fp381_2:
     // stack:                                      z_re, z_im, jumpdest
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
     JUMP
-    
