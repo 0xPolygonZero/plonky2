@@ -1,15 +1,16 @@
 %macro handle_precompiles
-    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    // stack: address, new_ctx, kexit_info, ret_offset, ret_size
     PUSH %%after
-    DUP5
-    // stack: address, %%after, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    SWAP1
+    // stack: address, %%after, new_ctx, kexit_info, ret_offset, ret_size
     %jump(handle_precompiles)
 %%after:
-    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    // stack: new_ctx, kexit_info, ret_offset, ret_size
+    %pop4
 %endmacro
 
 global handle_precompiles:
-    // stack: addr, retdest
+    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
     DUP1 %eq_const(@ECREC)  %jumpi(precompile_ecrec)
     DUP1 %eq_const(@SHA256) %jumpi(precompile_sha256)
     DUP1 %eq_const(@RIP160) %jumpi(precompile_rip160)
@@ -23,6 +24,7 @@ global handle_precompiles:
     JUMP
 
 global pop_and_return_success:
+    // stack: _unused, kexit_info
     POP
     %leftover_gas
     // stack: leftover_gas

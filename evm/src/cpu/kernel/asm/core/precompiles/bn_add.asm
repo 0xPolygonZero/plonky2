@@ -1,6 +1,7 @@
 global precompile_bn_add:
-    %stack (address, retdest, new_ctx, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (new_ctx, kexit_info, ret_offset, ret_size)
+    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
+    %pop2
+    // stack: new_ctx, kexit_info, ret_offset, ret_size
     DUP1
     SET_CONTEXT
     // stack: (empty)
