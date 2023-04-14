@@ -1201,7 +1201,7 @@ where
 }
 
 pub trait Stack {
-    fn to_stack(self) -> Vec<U256>;
+    fn to_stack(&self) -> Vec<U256>;
 
     fn from_stack(stack: &[U256]) -> Self;
 }
