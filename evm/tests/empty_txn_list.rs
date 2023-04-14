@@ -17,8 +17,6 @@ use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
-use plonky2_evm::prover::prove;
-use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
@@ -61,40 +59,6 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         addresses: vec![],
     };
 
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    // TODO: This is redundant; prove_root below calls this prove method internally.
-    // Just keeping it for now because the root proof returned by prove_root doesn't contain public
-    // values yet, and we want those for the assertions below.
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
-    assert_eq!(
-        proof.public_values.trie_roots_before.state_root,
-        state_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.state_root,
-        state_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_before.transactions_root,
-        txns_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.transactions_root,
-        txns_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_before.receipts_root,
-        receipts_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.receipts_root,
-        receipts_trie_root
-    );
-
-    verify_proof(&all_stark, proof, &config)?;
-
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
         &[9..18, 9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
@@ -132,8 +96,35 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
+
+    assert_eq!(
+        root_proof.public_values.trie_roots_before.state_root,
+        state_trie_root
+    );
+    assert_eq!(
+        root_proof.public_values.trie_roots_after.state_root,
+        state_trie_root
+    );
+    assert_eq!(
+        root_proof.public_values.trie_roots_before.transactions_root,
+        txns_trie_root
+    );
+    assert_eq!(
+        root_proof.public_values.trie_roots_after.transactions_root,
+        txns_trie_root
+    );
+    assert_eq!(
+        root_proof.public_values.trie_roots_before.receipts_root,
+        receipts_trie_root
+    );
+    assert_eq!(
+        root_proof.public_values.trie_roots_after.receipts_root,
+        receipts_trie_root
+    );
+
     all_circuits.verify_root(root_proof.clone())?;
 
+    // We can duplicate the root_proof here because the state hasn't mutated.
     let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
     all_circuits.verify_aggregation(&agg_proof)
 }
