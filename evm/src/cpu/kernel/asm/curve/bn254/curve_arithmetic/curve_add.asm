@@ -1,6 +1,7 @@
 // BN254 elliptic curve addition.
 // Uses the standard affine addition formula.
 global bn_add:
+    // stack: x0, y0, x1, y1, retdest
     // Check if points are valid BN254 points.
     DUP2
     // stack: y0, x0, y0, x1, y1, retdest
@@ -257,7 +258,7 @@ global bn_double:
 // Return (u256::MAX, u256::MAX) which is used to indicate the input was invalid.
 %macro bn_invalid_input
     // stack: retdest
-    PUSH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    PUSH @U256_MAX
     // stack: u256::MAX, retdest
     DUP1
     // stack: u256::MAX, u256::MAX, retdest

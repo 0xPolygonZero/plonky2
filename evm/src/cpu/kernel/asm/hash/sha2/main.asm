@@ -6,7 +6,7 @@ global sha2:
     // stack: virt, num_bytes, virt, retdest
     %mstore_kernel_general
     // stack: virt, retdest
-    
+
 
 // Precodition: input is in memory, starting at virt of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]

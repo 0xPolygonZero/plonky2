@@ -36,6 +36,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in PRECOMPILES_GAS {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -206,4 +210,20 @@ const PRECOMPILES: [(&str, u16); 9] = [
     ("BN_MUL", 7),
     ("SNARKV", 8),
     ("BLAKE2_F", 9),
+];
+
+const PRECOMPILES_GAS: [(&str, u16); 13] = [
+    ("ECREC_GAS", 3_000),
+    ("SHA256_STATIC_GAS", 60),
+    ("SHA256_DYNAMIC_GAS", 12),
+    ("RIP160_STATIC_GAS", 600),
+    ("RIP160_DYNAMIC_GAS", 120),
+    ("ID_STATIC_GAS", 15),
+    ("ID_DYNAMIC_GAS", 3),
+    ("EXPMOD_MIN_GAS", 200),
+    ("BN_ADD_GAS", 150),
+    ("BN_MUL_GAS", 6_000),
+    ("SNARKV_STATIC_GAS", 45_000),
+    ("SNARKV_DYNAMIC_GAS", 34_000),
+    ("BLAKE2_F_DYNAMIC_GAS", 1),
 ];
