@@ -13,6 +13,10 @@ use crate::cpu::kernel::stack::stack_manipulation::StackOp::Pop;
 use crate::cpu::kernel::utils::u256_to_trimmed_be_bytes;
 use crate::memory;
 
+/// The maximum number of iterations of our search for an optimal sequence of stack operations.
+/// If the search exceeds this limit, we will fall back to an approximate algorithm.
+const MAX_ITERATIONS: usize = 50_000;
+
 pub(crate) fn expand_stack_manipulation(body: Vec<Item>) -> Vec<Item> {
     let mut expanded = vec![];
     for item in body {
@@ -105,6 +109,7 @@ fn shortest_path(
     let mut node_info = HashMap::<Vec<StackItem>, (u32, Option<(Vec<StackItem>, StackOp)>)>::new();
     node_info.insert(src.clone(), (0, None));
 
+    let mut iterations = 0;
     while let Some(node) = queue.pop() {
         if node.stack == dst {
             // The destination is now the lowest-cost node, so we must have found the best path.
@@ -155,9 +160,25 @@ fn shortest_path(
                 cost,
             });
         }
+
+        // If the optimal path search is taking too long, fall back to an approximate algorithm.
+        iterations += 1;
+        if iterations > MAX_ITERATIONS {
+            return approximate_shortest_path(src, dst, unique_push_targets);
+        }
     }
 
     panic!("No path found from {src:?} to {dst:?}")
+}
+
+/// Like `shortest_path`, but uses an approximate algorithm. It won't always find the optimal path,
+/// but it will always terminate in a reasonable amount of time.
+fn approximate_shortest_path(
+    src: Vec<StackItem>,
+    dst: Vec<StackItem>,
+    unique_push_targets: Vec<PushTarget>,
+) -> Vec<StackOp> {
+    todo!()
 }
 
 /// A node in the priority queue used by Dijkstra's algorithm.
