@@ -175,7 +175,9 @@ global process_message_txn:
     PUSH @BN_MUL %insert_accessed_addresses_no_return
     PUSH @SNARKV %insert_accessed_addresses_no_return
     PUSH @BLAKE2_F %insert_accessed_addresses_no_return
-    // TODO: Handle precompiles.
+
+    // Expects stack: address, new_ctx, kexit_info, ret_offset, ret_size
+    %handle_precompiles
 
     // If to's code is empty, return.
     %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
