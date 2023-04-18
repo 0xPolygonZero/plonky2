@@ -1,8 +1,6 @@
-use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::{U256, U512};
-use plonky2::field::types::Field;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
@@ -1251,61 +1249,63 @@ impl<T: FieldExt + Stack> Stack for Fp2<T> {
     }
 
     fn from_stack(stack: &[U256]) -> Fp2<T> {
-        let re = T::from_stack(&stack[0..2]);
-        let im = T::from_stack(&stack[2..4]);
+        let field_size = T::SIZE;
+        let re = T::from_stack(&stack[0..field_size]);
+        let im = T::from_stack(&stack[field_size..2*field_size]);
         Fp2 { re, im }
     }
 }
 
-// impl<T> Stack for Fp6<T>
-// where
-//     T: FieldExt,
-//     Fp2<T>: Adj,
-//     Fp2<T>: Stack,
-// {
-//     const SIZE: usize = 3 * Fp2::<T>::SIZE;
+impl<T> Stack for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp2<T>: Stack,
+{
+    const SIZE: usize = 3 * Fp2::<T>::SIZE;
 
-//     fn to_stack(&self) -> &[U256] {
-//         let t0 = self.t0.to_stack();
-//         let t1 = self.t1.to_stack();
-//         let t2 = self.t2.to_stack();
+    fn to_stack(&self) -> &[U256] {
+        let t0 = self.t0.to_stack();
+        let t1 = self.t1.to_stack();
+        let t2 = self.t2.to_stack();
 
-//         let mut combined: Vec<U256> = Vec::new();
-//         combined.extend_from_slice(t0);
-//         combined.extend_from_slice(t1);
-//         combined.extend_from_slice(t2);
-//         Box::leak(combined.into_boxed_slice())
-//     }
+        let mut combined: Vec<U256> = Vec::new();
+        combined.extend_from_slice(t0);
+        combined.extend_from_slice(t1);
+        combined.extend_from_slice(t2);
+        Box::leak(combined.into_boxed_slice())
+    }
 
-//     fn from_stack(stack: &[U256]) -> Self {
-//         let f = [
-//             T::from_stack(&stack[0..2]),
-//             T::from_stack(&stack[2..4]),
-//             T::from_stack(&stack[4..6]),
-//         ];
-//         f.copy_from_slice(stack);
-//         unsafe { transmute(f) }
-//     }
-// }
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp2::<T>::SIZE;
+        let t0 = Fp2::<T>::from_stack(&stack[0..field_size]);
+        let t1 = Fp2::<T>::from_stack(&stack[field_size..2*field_size]);
+        let t2 = Fp2::<T>::from_stack(&stack[2*field_size..3*field_size]);
+        Fp6 { t0, t1, t2 }
+    }
+}
 
-// impl<T> Stack for Fp12<T>
-// where
-//     T: FieldExt,
-//     Fp2<T>: Adj,
-//     Fp6<T>: Stack,{
-//     const SIZE: usize = 2 * Fp6::<T>::SIZE;
+impl<T> Stack for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp6<T>: Stack,{
+    const SIZE: usize = 2 * Fp6::<T>::SIZE;
 
-//     fn to_stack(&self) -> &[U256] {
-//         let z0 = self.z0.to_stack();
-//         let z1 = self.z1.to_stack();
+    fn to_stack(&self) -> &[U256] {
+        let z0 = self.z0.to_stack();
+        let z1 = self.z1.to_stack();
 
-//         let mut combined: Vec<U256> = Vec::new();
-//         combined.extend_from_slice(z0);
-//         combined.extend_from_slice(z1);
-//         Box::leak(combined.into_boxed_slice())
-//     }
+        let mut combined: Vec<U256> = Vec::new();
+        combined.extend_from_slice(z0);
+        combined.extend_from_slice(z1);
+        Box::leak(combined.into_boxed_slice())
+    }
 
-//     fn from_stack(stack: &[U256]) -> Self {
-//         let f = [T::from_stack(&stack[0..6]), T::from_stack(&stack[6..12])];
-//     }
-// }
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp6::<T>::SIZE;
+        let z0 = Fp6::<T>::from_stack(&stack[0..field_size]);
+        let z1 = Fp6::<T>::from_stack(&stack[field_size..2*field_size]);
+        Fp12 { z0, z1 }
+    }
+}
