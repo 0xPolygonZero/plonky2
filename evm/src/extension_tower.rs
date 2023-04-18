@@ -1206,10 +1206,44 @@ pub trait Stack {
     fn from_stack(stack: &[U256]) -> Self;
 }
 
+impl Stack for BN254 {
+    fn to_stack(&self) -> &[U256] {
+        &[self.val]
+    }
+
+    fn from_stack(stack: &[U256]) -> BN254 {
+        BN254 { val: stack[0] }
+    }
+}
+
+impl Stack for Fp2<BN254> {
+    fn to_stack(&self) -> &[U256] {
+        let re = self.re.to_stack();
+        let im = self.im.to_stack();
+        let mut res = [U256::default(); 4];
+        &[re[0], im[0]]
+    }
+
+    fn from_stack(stack: &[U256]) -> Fp2<BN254> {
+        let re = BN254::from_stack(&stack[0..2]);
+        let im = BN254::from_stack(&stack[2..4]);
+        Fp2 { re, im }
+    }
+}
+
 impl Stack for Fp6<BN254> {
     fn to_stack(&self) -> &[U256] {
-        let f: [U256; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let t0 = self.t0.to_stack();
+        let t1 = self.t1.to_stack();
+        let t2 = self.t2.to_stack();
+
+        let mut res = [U256::default(); 6];
+        for i in 0..2 {
+            res[i] = t0[i];
+            res[2 + i] = t1[i];
+            res[4 + i] = t2[i];
+        }
+        &res
     }
 
     fn from_stack(stack: &[U256]) -> Self {
@@ -1221,8 +1255,15 @@ impl Stack for Fp6<BN254> {
 
 impl Stack for Fp12<BN254> {
     fn to_stack(&self) -> &[U256] {
-        let f: [U256; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let z0 = self.z0.to_stack();
+        let z1 = self.z1.to_stack();
+
+        let mut res = [U256::default(); 12];
+        for i in 0..6 {
+            res[i] = z0[i];
+            res[6 + i] = z1[i];
+        }
+        &res
     }
 
     fn from_stack(stack: &[U256]) -> Self {
@@ -1234,7 +1275,7 @@ impl Stack for Fp12<BN254> {
 
 impl Stack for BLS381 {
     fn to_stack(&self) -> &[U256] {
-        vec![self.lo(), self.hi()]
+        &[self.lo(), self.hi()]
     }
 
     fn from_stack(stack: &[U256]) -> BLS381 {
@@ -1247,14 +1288,15 @@ impl Stack for BLS381 {
 
 impl Stack for Fp2<BLS381> {
     fn to_stack(&self) -> &[U256] {
-        let re_stack = self.re.to_stack();
-        let im_stack = self.im.to_stack();
-        let mut res = [U256::default(); 2 * N];
+        let re = self.re.to_stack();
+        let im = self.im.to_stack();
 
-        for i in 0..N {
-            res[i] = re_stack[i];
-            res[N + i] = im_stack[i];
+        let mut res = [U256::default(); 4];
+        for i in 0..2 {
+            res[i] = re[i];
+            res[2 + i] = im[i];
         }
+        &res
     }
 
     fn from_stack(stack: &[U256]) -> Fp2<BLS381> {
@@ -1266,10 +1308,17 @@ impl Stack for Fp2<BLS381> {
 
 impl Stack for Fp6<BLS381> {
     fn to_stack(&self) -> &[U256] {
-        let mut res = self.t0.to_stack();
-        res.extend(self.t1.to_stack());
-        res.extend(self.t2.to_stack());
-        res
+        let t0 = self.t0.to_stack();
+        let t1 = self.t1.to_stack();
+        let t2 = self.t2.to_stack();
+
+        let mut res = [U256::default(); 12];
+        for i in 0..4 {
+            res[i] = t0[i];
+            res[4 + i] = t1[i];
+            res[8 + i] = t2[i];
+        }
+        &res
     }
 
     fn from_stack(stack: &[U256]) -> Fp6<BLS381> {
@@ -1282,9 +1331,15 @@ impl Stack for Fp6<BLS381> {
 
 impl Stack for Fp12<BLS381> {
     fn to_stack(&self) -> &[U256] {
-        let mut res = self.z0.to_stack();
-        res.extend(self.z1.to_stack());
-        res
+        let z0 = self.z0.to_stack();
+        let z1 = self.z1.to_stack();
+
+        let mut res = [U256::default(); 24];
+        for i in 0..12 {
+            res[i] = z0[i];
+            res[12 + i] = z1[i];
+        }
+        &res
     }
 
     fn from_stack(stack: &[U256]) -> Fp12<BLS381> {
