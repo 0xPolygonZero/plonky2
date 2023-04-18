@@ -506,6 +506,48 @@ fn test_modmul_bignum_all() -> Result<()> {
 
 #[test]
 fn test_modexp_bignum_all() -> Result<()> {
+    let exp_bit_sizes = vec![2, 20, 31, 40];
+
+    for bit_size in &BIT_SIZES_TO_TEST[3..9] {
+        for exp_bit_size in &exp_bit_sizes {
+            let b = gen_bignum(*bit_size);
+            let e = gen_bignum(*exp_bit_size);
+            let m = gen_bignum(*bit_size);
+            if !m.is_zero() {
+                let output = b.clone().modpow(&e, &m);
+                test_modexp_bignum(b, e, m, output)?;
+            }
+
+            let b = max_bignum(*bit_size);
+            let e = max_bignum(*exp_bit_size);
+            let m = max_bignum(*bit_size);
+            if !m.is_zero() {
+                let output = b.modpow(&e, &m);
+                test_modexp_bignum(b, e, m, output)?;
+            }
+        }
+    }
+
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let mut modexp_outputs_iter = modexp_outputs.into_iter();
+    for b in &inputs[..13] {
+        // Include only smaller exponents, to keep tests from becoming too slow.
+        for e in &inputs[..7] {
+            // For m, skip the first input, which is zero.
+            for m in &inputs[1..] {
+                let output = modexp_outputs_iter.next().unwrap();
+                test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+#[ignore] // Too slow to run on CI.
+fn test_modexp_bignum_all_full() -> Result<()> {
     // Only test smaller values for exponent.
     let exp_bit_sizes = vec![2, 100, 127, 128, 129];
 
