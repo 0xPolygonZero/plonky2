@@ -31,6 +31,38 @@ global pop_and_return_success:
     PUSH 1 // success
     %jump(terminate_common)
 
+%macro handle_precompiles_from_eoa
+    // stack: retdest
+    %mload_txn_field(@TXN_FIELD_TO)
+    // stack: addr, retdest
+    DUP1 %ge_const(@ECREC) DUP2 %le_const(@BLAKE2_F)
+    // stack: addr<=9, addr>=1, addr, retdest
+    MUL // Cheaper than AND
+    %jumpi(handle_precompiles_from_eoa)
+    // stack: addr, retdest
+    POP
+%endmacro
+
+global handle_precompiles_from_eoa:
+    // stack: addr, retdest
+    %create_context
+    // stack: new_ctx, addr, retdest
+    %set_new_ctx_parent_pc(process_message_txn_after_call)
+    %non_intrinisic_gas %set_new_ctx_gas_limit
+    // stack: new_ctx, addr, retdest
+
+    // Set calldatasize and copy txn data to calldata.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    %stack (calldata_size, new_ctx) -> (calldata_size, new_ctx, calldata_size)
+    %set_new_ctx_calldata_size
+    %stack (new_ctx, calldata_size) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, handle_precompiles_from_eoa_finish, new_ctx)
+    %jump(memcpy)
+
+handle_precompiles_from_eoa_finish:
+    %stack (new_ctx, addr, retdest) -> (addr, new_ctx, retdest)
+    %handle_precompiles
+    PANIC
+
 %macro zero_out_kernel_general
     PUSH 0 PUSH 0 %mstore_kernel_general
     PUSH 0 PUSH 1 %mstore_kernel_general
