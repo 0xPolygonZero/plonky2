@@ -1250,7 +1250,7 @@ impl Stack for Fp2<BLS381> {
         let re_stack = self.re.to_stack();
         let im_stack = self.im.to_stack();
         let mut res = [U256::default(); 2 * N];
-    
+
         for i in 0..N {
             res[i] = re_stack[i];
             res[N + i] = im_stack[i];
