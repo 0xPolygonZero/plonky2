@@ -42,6 +42,7 @@ global mpt_read:
 
     // There's still the MPT_NODE_HASH case, but if we hit a hash node,
     // it means the prover failed to provide necessary Merkle data, so panic.
+global mpt_read_hash_node:
     PANIC
 
 global mpt_read_empty:
