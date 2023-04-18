@@ -1251,7 +1251,7 @@ impl<T: FieldExt + Stack> Stack for Fp2<T> {
     fn from_stack(stack: &[U256]) -> Fp2<T> {
         let field_size = T::SIZE;
         let re = T::from_stack(&stack[0..field_size]);
-        let im = T::from_stack(&stack[field_size..2*field_size]);
+        let im = T::from_stack(&stack[field_size..2 * field_size]);
         Fp2 { re, im }
     }
 }
@@ -1279,8 +1279,8 @@ where
     fn from_stack(stack: &[U256]) -> Self {
         let field_size = Fp2::<T>::SIZE;
         let t0 = Fp2::<T>::from_stack(&stack[0..field_size]);
-        let t1 = Fp2::<T>::from_stack(&stack[field_size..2*field_size]);
-        let t2 = Fp2::<T>::from_stack(&stack[2*field_size..3*field_size]);
+        let t1 = Fp2::<T>::from_stack(&stack[field_size..2 * field_size]);
+        let t2 = Fp2::<T>::from_stack(&stack[2 * field_size..3 * field_size]);
         Fp6 { t0, t1, t2 }
     }
 }
@@ -1289,7 +1289,8 @@ impl<T> Stack for Fp12<T>
 where
     T: FieldExt,
     Fp2<T>: Adj,
-    Fp6<T>: Stack,{
+    Fp6<T>: Stack,
+{
     const SIZE: usize = 2 * Fp6::<T>::SIZE;
 
     fn to_stack(&self) -> &[U256] {
@@ -1305,7 +1306,7 @@ where
     fn from_stack(stack: &[U256]) -> Self {
         let field_size = Fp6::<T>::SIZE;
         let z0 = Fp6::<T>::from_stack(&stack[0..field_size]);
-        let z1 = Fp6::<T>::from_stack(&stack[field_size..2*field_size]);
+        let z1 = Fp6::<T>::from_stack(&stack[field_size..2 * field_size]);
         Fp12 { z0, z1 }
     }
 }

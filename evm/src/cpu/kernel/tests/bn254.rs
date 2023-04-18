@@ -250,7 +250,9 @@ fn test_bn_miller_loop() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR).to_stack().to_vec();
+    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR)
+        .to_stack()
+        .to_vec();
 
     assert_eq!(output, expected);
 
