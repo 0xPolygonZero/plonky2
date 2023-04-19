@@ -195,7 +195,7 @@ global mul_fp381_2:
 
 global add_fp381_6:
     // stack:           inA, inB, out, jumpdest  { out: [ 0,  0,  0,  0,  0,  0 ] }
-    %add_term_kernel                          
+    %add_term_kernel(0)                          
     // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
     %add_term_kernel(2)                       
     // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
@@ -212,7 +212,7 @@ global add_fp381_6:
 
 global sub_fp381_6:
     // stack:           inA, inB, out, jumpdest  { out: [ 0,  0,  0,  0,  0,  0 ] }
-    %sub_term_kernel                          
+    %sub_term_kernel(0)                          
     // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
     %sub_term_kernel(2)                       
     // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
@@ -226,23 +226,6 @@ global sub_fp381_6:
     // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4, C5 ] }
     %pop3
     JUMP
-
-%macro add_term_kernel
-    // stack:           inA, inB, out, jumpdest
-    DUP2
-    // stack:     inB0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:       B0, inA, inB, out, jumpdest
-    DUP3
-    // stack: inA0, B0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:   A0, B0, inA, inB, out, jumpdest
-    %add_fp381
-    // stack:       C0, inA, inB, out, jumpdest
-    DUP5
-    // stack: out0, C0, inA, inB, out, jumpdest
-    %mstore_bls
-%endmacro
 
 %macro add_term_kernel(n)
     // stack:           inA, inB, out, jumpdest
@@ -261,23 +244,6 @@ global sub_fp381_6:
     DUP5
     %add_const($n)
     // stack: outn, Cn, inA, inB, out, jumpdest
-    %mstore_bls
-%endmacro
-
-%macro sub_term_kernel
-    // stack:           inA, inB, out, jumpdest
-    DUP2
-    // stack:     inB0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:       B0, inA, inB, out, jumpdest
-    DUP3
-    // stack: inA0, B0, inA, inB, out, jumpdest
-    %mload_bls
-    // stack:   A0, B0, inA, inB, out, jumpdest
-    %sub_fp381
-    // stack:       C0, inA, inB, out, jumpdest
-    DUP5
-    // stack: out0, C0, inA, inB, out, jumpdest
     %mstore_bls
 %endmacro
 
