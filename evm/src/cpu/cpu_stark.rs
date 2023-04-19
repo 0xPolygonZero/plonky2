@@ -185,8 +185,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     {
         let local_values = vars.local_values.borrow();
         let next_values = vars.next_values.borrow();
-        // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
-        let mut dummy_yield_constr = ConstraintConsumer::new(vec![], P::ZEROS, P::ZEROS, P::ZEROS);
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
@@ -200,8 +198,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         pc::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, &mut dummy_yield_constr);
-        stack_bounds::eval_packed(local_values, &mut dummy_yield_constr);
+        stack::eval_packed(local_values, yield_constr);
+        stack_bounds::eval_packed(local_values, yield_constr);
         syscalls::eval_packed(local_values, next_values, yield_constr);
     }
 
@@ -213,10 +211,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     ) {
         let local_values = vars.local_values.borrow();
         let next_values = vars.next_values.borrow();
-        // TODO: Some failing constraints temporarily disabled by using this dummy consumer.
-        let zero = builder.zero_extension();
-        let mut dummy_yield_constr =
-            RecursiveConstraintConsumer::new(zero, vec![], zero, zero, zero);
         bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
@@ -230,8 +224,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         pc::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
-        stack_bounds::eval_ext_circuit(builder, local_values, &mut dummy_yield_constr);
+        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }
 
