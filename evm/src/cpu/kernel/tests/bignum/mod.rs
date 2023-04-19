@@ -299,7 +299,10 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
             scratch_5.into(),
         ],
     )?;
-    new_memory.resize(new_memory.len().max(output_start_loc + output_len), 0.into());
+    new_memory.resize(
+        new_memory.len().max(output_start_loc + output_len),
+        0.into(),
+    );
 
     let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc + output_len]);
     assert_eq!(output, expected_output);

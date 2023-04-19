@@ -55,7 +55,8 @@ e_zero_return:
     // stack: e==0, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     MUL // logical and
     %jumpi(b_and_e_zero)
-    
+
+    // End of special cases.
 
     // We store the repeated-squares accumulator x_i in scratch_1, starting with x_0 := b.
     DUP1
