@@ -276,9 +276,9 @@ fn test_miller() -> Result<()> {
 }
 
 #[test]
-fn test_tate() -> Result<()> {
-    let ptr: usize = 200;
-    let out: usize = 206;
+fn test_pairing() -> Result<()> {
+    let ptr: usize = 224;
+    let out: usize = 212;
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
         CURVE_GENERATOR.y.val,
@@ -289,10 +289,10 @@ fn test_tate() -> Result<()> {
     ];
 
     let setup = InterpreterMemoryInitialization {
-        label: "bn254_tate".to_string(),
-        stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        label: "bn254_pairing".to_string(),
+        stack: vec![U256::one(), U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
-        memory: vec![(ptr, inputs)],
+        memory: vec![(ptr, inputs), (out, vec![U256::one()])],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
