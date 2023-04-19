@@ -283,7 +283,7 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
     let scratch_3 = 7 * len; // size 2*len
     let scratch_4 = 9 * len; // size 2*len
     let scratch_5 = 11 * len; // size 2*len
-    let (new_memory, _new_stack) = run_test(
+    let (mut new_memory, _new_stack) = run_test(
         "modexp_bignum",
         memory,
         vec![
@@ -299,6 +299,7 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
             scratch_5.into(),
         ],
     )?;
+    new_memory.resize(new_memory.len().max(output_start_loc + output_len), 0.into());
 
     let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc + output_len]);
     assert_eq!(output, expected_output);
@@ -535,11 +536,7 @@ fn test_modexp_bignum_all() -> Result<()> {
     for b in &inputs[..9] {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..6] {
-            if b.is_zero() && e.is_zero() {
-                continue;
-            }
-            // For m, skip 0 and 1.
-            for m in &inputs[2..9] {
+            for m in &inputs[..9] {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
@@ -581,11 +578,7 @@ fn test_modexp_bignum_all_full() -> Result<()> {
     for b in &inputs {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..7] {
-            if b.is_zero() && e.is_zero() {
-                continue;
-            }
-            // For m, skip 0 and 1.
-            for m in &inputs[2..] {
+            for m in &inputs {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }

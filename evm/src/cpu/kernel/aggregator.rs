@@ -16,6 +16,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/bignum/add.asm"),
         include_str!("asm/bignum/addmul.asm"),
         include_str!("asm/bignum/cmp.asm"),
+        include_str!("asm/bignum/isone.asm"),
         include_str!("asm/bignum/iszero.asm"),
         include_str!("asm/bignum/modexp.asm"),
         include_str!("asm/bignum/modmul.asm"),
