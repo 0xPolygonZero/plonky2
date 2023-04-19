@@ -510,9 +510,7 @@ fn test_modexp_bignum_all() -> Result<()> {
     let exp_bit_sizes = vec![2, 9, 11, 16];
 
     for bit_size in &BIT_SIZES_TO_TEST[3..7] {
-        dbg!(bit_size);
         for exp_bit_size in &exp_bit_sizes {
-            dbg!(exp_bit_size);
             let b = gen_bignum(*bit_size);
             let e = gen_bignum(*exp_bit_size);
             let m = gen_bignum(*bit_size);
@@ -542,7 +540,6 @@ fn test_modexp_bignum_all() -> Result<()> {
             }
             // For m, skip 0 and 1.
             for m in &inputs[2..9] {
-                dbg!(b, e, m);
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
