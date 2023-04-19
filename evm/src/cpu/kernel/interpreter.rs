@@ -400,14 +400,14 @@ impl<'a> Interpreter<'a> {
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
 
-        // if self
-        //     .debug_offsets
-        //     .contains(&self.generation_state.registers.program_counter)
-        // {
-        //     println!("At {}, stack={:?}", self.offset_name(), self.stack());
-        // } else if let Some(label) = self.offset_label() {
-        //     println!("At {label}");
-        // }
+        if self
+            .debug_offsets
+            .contains(&self.generation_state.registers.program_counter)
+        {
+            println!("At {}, stack={:?}", self.offset_name(), self.stack());
+        } else if let Some(label) = self.offset_label() {
+            println!("At {label}");
+        }
 
         Ok(())
     }
