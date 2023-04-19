@@ -23,13 +23,30 @@ global precompile_sha256:
     // Copy the call data to the kernel general segment (sha2 expects it there) and call sha2.
     %calldatasize
     GET_CONTEXT
-    %stack (ctx, size) ->
-        (
-        0, @SEGMENT_KERNEL_GENERAL, 1, // DST
-        ctx, @SEGMENT_CALLDATA, 0,     // SRC
-        size, sha2,                    // count, retdest
-        0, size, sha256_contd          // sha2 input: virt, num_bytes, retdest
-        )
+
+    // The next block of code is equivalent to the following %stack macro call
+    // (unfortunately the macro call takes too long to expand dynamically).
+    //
+    //    %stack (ctx, size) ->
+    //        (
+    //        0, @SEGMENT_KERNEL_GENERAL, 1, // DST
+    //        ctx, @SEGMENT_CALLDATA, 0,     // SRC
+    //        size, sha2,                    // count, retdest
+    //        0, size, sha256_contd          // sha2 input: virt, num_bytes, retdest
+    //        )
+    //
+    PUSH 0
+    PUSH sha2
+    DUP4
+    PUSH 0
+    PUSH @SEGMENT_CALLDATA
+    PUSH sha256_contd
+    SWAP7
+    SWAP6
+    PUSH 1
+    PUSH @SEGMENT_KERNEL_GENERAL
+    PUSH 0
+
     %jump(memcpy)
 
 sha256_contd:
