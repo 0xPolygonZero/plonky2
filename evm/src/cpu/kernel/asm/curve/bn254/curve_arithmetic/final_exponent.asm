@@ -2,18 +2,18 @@
 ///     (p^12 - 1)/N = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/N
 /// and thus we can exponentiate by each factor sequentially.
 ///
-/// def bn254_invariant_exponent(y: Fp12):
+/// def bn254_final_exponent(y: Fp12):
 ///     y = first_exp(y)
 ///     y = second_exp(y)
 ///     return final_exp(y)
 
-global bn254_invariant_exponent:
+global bn254_final_exponent:
 
 /// first, exponentiate by (p^6 - 1) via
 ///     def first_exp(y):
 ///         return y.frob(6) / y
-    // stack:                    out, retdest  {out: y}
-    %stack (out) -> (out, 0, first_exp, out)         
+    // stack:            k, inp, out, retdest  {out: y}
+    %stack (k, inp, out) -> (out, 0, first_exp, out)         
     // stack: out, 0, first_exp, out, retdest  {out: y}
     %jump(inv_fp254_12)
 first_exp:
