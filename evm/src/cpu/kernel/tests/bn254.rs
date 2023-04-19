@@ -181,7 +181,12 @@ fn test_final_exponent() -> Result<()> {
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_final_exponent".to_string(),
-        stack: vec![U256::zero(), U256::zero(), U256::from(ptr), U256::from(0xdeadbeefu32)],
+        stack: vec![
+            U256::zero(),
+            U256::zero(),
+            U256::from(ptr),
+            U256::from(0xdeadbeefu32),
+        ],
         segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
     };
@@ -290,7 +295,12 @@ fn test_pairing() -> Result<()> {
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_pairing".to_string(),
-        stack: vec![U256::one(), U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        stack: vec![
+            U256::one(),
+            U256::from(ptr),
+            U256::from(out),
+            U256::from(0xdeadbeefu32),
+        ],
         segment: BnPairing,
         memory: vec![(ptr, inputs), (out, vec![U256::one()])],
     };
