@@ -20,7 +20,7 @@ fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
         .collect::<Vec<U256>>()
 }
 
-fn run_mul_fp6_test(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Vec<U256> {
+fn run_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Vec<U256> {
     let mut stack = f.on_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.on_stack());
@@ -43,8 +43,8 @@ fn test_mul_fp6() -> Result<()> {
     let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     let g: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
 
-    let out_normal: Vec<U256> = run_mul_fp6_test(f, g, "mul_fp254_6");
-    let out_square: Vec<U256> = run_mul_fp6_test(f, f, "square_fp254_6");
+    let out_normal: Vec<U256> = run_mul_fp6(f, g, "mul_fp254_6");
+    let out_square: Vec<U256> = run_mul_fp6(f, f, "square_fp254_6");
 
     let exp_normal: Vec<U256> = (f * g).on_stack();
     let exp_square: Vec<U256> = (f * f).on_stack();
@@ -55,7 +55,7 @@ fn test_mul_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_mul_fp12_test(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Vec<U256> {
+fn run_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Vec<U256> {
     let in0: usize = 200;
     let in1: usize = 212;
     let out: usize = 224;
@@ -87,9 +87,9 @@ fn test_mul_fp12() -> Result<()> {
     let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
 
-    let out_normal: Vec<U256> = run_mul_fp12_test(f, g, "mul_fp254_12");
-    let out_sparse: Vec<U256> = run_mul_fp12_test(f, h, "mul_fp254_12_sparse");
-    let out_square: Vec<U256> = run_mul_fp12_test(f, f, "square_fp254_12");
+    let out_normal: Vec<U256> = run_mul_fp12(f, g, "mul_fp254_12");
+    let out_sparse: Vec<U256> = run_mul_fp12(f, h, "mul_fp254_12_sparse");
+    let out_square: Vec<U256> = run_mul_fp12(f, f, "square_fp254_12");
 
     let exp_normal: Vec<U256> = (f * g).on_stack();
     let exp_sparse: Vec<U256> = (f * h).on_stack();
@@ -102,7 +102,7 @@ fn test_mul_fp12() -> Result<()> {
     Ok(())
 }
 
-fn run_frob_fp6_test(f: Fp6<BN254>, n: usize) -> Vec<U256> {
+fn run_frob_fp6(f: Fp6<BN254>, n: usize) -> Vec<U256> {
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_6_{}", n),
         stack: f.on_stack(),
@@ -118,14 +118,14 @@ fn test_frob_fp6() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp6<BN254> = rng.gen::<Fp6<BN254>>();
     for n in 1..4 {
-        let output: Vec<U256> = run_frob_fp6_test(f, n);
+        let output: Vec<U256> = run_frob_fp6(f, n);
         let expected: Vec<U256> = f.frob(n).on_stack();
         assert_eq!(output, expected);
     }
     Ok(())
 }
 
-fn run_frob_fp12_test(f: Fp12<BN254>, n: usize) -> Vec<U256> {
+fn run_frob_fp12(f: Fp12<BN254>, n: usize) -> Vec<U256> {
     let ptr: usize = 200;
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_12_{}", n),
@@ -143,7 +143,7 @@ fn test_frob_fp12() -> Result<()> {
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
     for n in [1, 2, 3, 6] {
-        let output = run_frob_fp12_test(f, n);
+        let output = run_frob_fp12(f, n);
         let expected: Vec<U256> = f.frob(n).on_stack();
         assert_eq!(output, expected);
     }
@@ -175,12 +175,13 @@ fn test_inv_fp12() -> Result<()> {
 #[test]
 fn test_final_exponent() -> Result<()> {
     let ptr: usize = 200;
+
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_final_exponent".to_string(),
-        stack: vec![U256::from(ptr), U256::from(0xdeadbeefu32)],
+        stack: vec![U256::zero(), U256::zero(), U256::from(ptr), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
         memory: vec![(ptr, f.on_stack())],
     };
