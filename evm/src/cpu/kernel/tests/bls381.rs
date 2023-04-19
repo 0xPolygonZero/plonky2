@@ -14,8 +14,8 @@ fn test_bls_fp2_mul() -> Result<()> {
     let x: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();
     let y: Fp2<BLS381> = rng.gen::<Fp2<BLS381>>();
 
-    let mut stack = x.to_stack();
-    stack.extend(y.to_stack());
+    let mut stack = x.to_stack().to_vec();
+    stack.extend(y.to_stack().to_vec());
     stack.push(U256::from(0xdeadbeefu32));
     let setup = InterpreterMemoryInitialization {
         label: "mul_fp381_2".to_string(),
