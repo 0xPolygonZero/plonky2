@@ -4,7 +4,7 @@
 ///         out *= miller_loop(P, Q)
 ///     return bn254_final_exponent(out)
 
-global bn254_tate:
+global bn254_pairing:
     // stack:       k    , inp, out, retdest
     DUP1
     ISZERO
@@ -14,9 +14,9 @@ global bn254_tate:
     %sub_const(1)
     // stack:       k=k-1, inp, out, retdest
 
-    %stack (k, inp, out) -> (k, inp, 200, mul_fp254_12, 200, out, out, bn254_tate, k, inp, out)
-    // stack: k, inp, 200, mul_fp254_12, 200, out, out, bn254_tate, k, inp, out retdest
+    %stack (k, inp, out) -> (k, inp, 200, mul_fp254_12, 200, out, out, bn254_pairing, k, inp, out)
+    // stack: k, inp, 200, mul_fp254_12, 200, out, out, bn254_pairing, k, inp, out retdest
     %mul_const(6)
     ADD
-    // stack:  inp_k, 200, mul_fp254_12, 200, out, out, bn254_tate, k, inp, out retdest
+    // stack:  inp_k, 200, mul_fp254_12, 200, out, out, bn254_pairing, k, inp, out retdest
     %jump(bn254_miller)
