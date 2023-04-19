@@ -1,16 +1,16 @@
 %macro handle_precompiles
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, new_ctx, (old stack)
     PUSH %%after
     SWAP1
-    // stack: address, %%after, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, %%after, new_ctx, (old stack)
     %jump(handle_precompiles)
 %%after:
-    // stack: new_ctx, kexit_info, ret_offset, ret_size
+    // stack: new_ctx, (old stack)
     %pop4
 %endmacro
 
 global handle_precompiles:
-    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, retdest, new_ctx, (old stack)
     DUP1 %eq_const(@ECREC)  %jumpi(precompile_ecrec)
     DUP1 %eq_const(@SHA256) %jumpi(precompile_sha256)
     DUP1 %eq_const(@RIP160) %jumpi(precompile_rip160)
@@ -61,7 +61,7 @@ global handle_precompiles_from_eoa:
 handle_precompiles_from_eoa_finish:
     %stack (new_ctx, addr, retdest) -> (addr, new_ctx, retdest)
     %handle_precompiles
-    PANIC
+    PANIC // We already checked that a precompile is called, so this should be unreachable.
 
 %macro zero_out_kernel_general
     PUSH 0 PUSH 0 %mstore_kernel_general
