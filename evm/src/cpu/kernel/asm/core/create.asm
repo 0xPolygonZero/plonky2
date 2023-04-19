@@ -133,6 +133,7 @@ after_constructor:
     // TODO: EIP-170: Contract code size limit.
     // TODO: EIP-3541: Reject new contract code starting with the 0xEF byte
 
+    // TODO: Skip blocks below if success is false.
     // Charge gas for the code size.
     SWAP3
     // stack: kexit_info, success, address, leftover_gas
@@ -151,7 +152,6 @@ after_constructor:
     %set_codehash
 
     // Set the return data size to 0.
-    // TODO: Incorrect when initcode has reverted.
     %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
 
     // stack: leftover_gas, success, address, kexit_info
