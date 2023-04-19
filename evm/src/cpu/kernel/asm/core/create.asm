@@ -5,8 +5,13 @@
 // Post stack: address
 global sys_create:
     %check_static
+
+    %stack (kexit_info, value, code_offset, code_len) -> (code_len, code_offset, kexit_info, value, code_offset, code_len)
+    %checked_mem_expansion
     // stack: kexit_info, value, code_offset, code_len
-    // TODO: Charge gas.
+    %charge_gas_const(@GAS_CREATE)
+    // TODO: If using EIP-3860, we should limit and charge gas on `code_len`.
+
     %stack (kexit_info, value, code_offset, code_len)
         -> (sys_create_got_address, value, code_offset, code_len, kexit_info)
     %address
@@ -27,8 +32,15 @@ sys_create_got_address:
 // Post stack: address
 global sys_create2:
     %check_static
+
     // stack: kexit_info, value, code_offset, code_len, salt
-    // TODO: Charge gas.
+    %stack (kexit_info, value, code_offset, code_len) -> (code_len, code_offset, kexit_info, value, code_offset, code_len)
+    %checked_mem_expansion
+    // stack: kexit_info, value, code_offset, code_len, salt
+    DUP4 %num_bytes_to_num_words
+    %mul_const(@GAS_KECCAK256WORD) %add_const(@GAS_CREATE) %charge_gas
+    // TODO: If using EIP-3860, we should limit and charge gas on `code_len`.
+
     SWAP4
     %stack (salt) -> (salt, create_common)
     // stack: salt, create_common, value, code_offset, code_len, kexit_info
