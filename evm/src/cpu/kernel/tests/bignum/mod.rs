@@ -29,6 +29,7 @@ const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 const TEST_DATA_MODMUL_OUTPUTS: &str = "modmul_outputs";
 const TEST_DATA_MODEXP_OUTPUTS: &str = "modexp_outputs";
+const TEST_DATA_MODEXP_OUTPUTS_FULL: &str = "modexp_outputs_full";
 
 const BIT_SIZES_TO_TEST: [usize; 15] = [
     0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415,
@@ -509,7 +510,9 @@ fn test_modexp_bignum_all() -> Result<()> {
     let exp_bit_sizes = vec![2, 9, 11, 16];
 
     for bit_size in &BIT_SIZES_TO_TEST[3..7] {
+        dbg!(bit_size);
         for exp_bit_size in &exp_bit_sizes {
+            dbg!(exp_bit_size);
             let b = gen_bignum(*bit_size);
             let e = gen_bignum(*exp_bit_size);
             let m = gen_bignum(*bit_size);
@@ -533,9 +536,13 @@ fn test_modexp_bignum_all() -> Result<()> {
     let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs[..9] {
         // Include only smaller exponents, to keep tests from becoming too slow.
-        for e in &inputs[..7] {
-            // For m, skip the first input, which is zero.
-            for m in &inputs[1..] {
+        for e in &inputs[..6] {
+            if b.is_zero() && e.is_zero() {
+                continue;
+            }
+            // For m, skip 0 and 1.
+            for m in &inputs[2..9] {
+                dbg!(b, e, m);
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
@@ -572,13 +579,16 @@ fn test_modexp_bignum_all_full() -> Result<()> {
     }
 
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
-    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS_FULL);
     let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..7] {
-            // For m, skip the first input, which is zero.
-            for m in &inputs[1..] {
+            if b.is_zero() && e.is_zero() {
+                continue;
+            }
+            // For m, skip 0 and 1.
+            for m in &inputs[2..] {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
