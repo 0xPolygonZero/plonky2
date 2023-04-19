@@ -90,7 +90,10 @@ global create_common:
     GET_CONTEXT
     // stack: src_ctx, new_ctx, address, value, code_offset, code_len, kexit_info
 
-    // Copy the code from txdata to the new context's code segment.
+    %stack (src_ctx, new_ctx, address, value, code_offset, code_len) ->
+        (code_len, new_ctx, src_ctx, new_ctx, address, value, code_offset, code_len)
+    %set_new_ctx_code_size POP
+    // Copy the code from memory to the new context's code segment.
     %stack (src_ctx, new_ctx, address, value, code_offset, code_len)
         -> (new_ctx, @SEGMENT_CODE, 0, // DST
             src_ctx, @SEGMENT_MAIN_MEMORY, code_offset, // SRC
@@ -125,7 +128,32 @@ after_constructor:
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     SWAP2
     // stack: new_ctx, leftover_gas, success, address, kexit_info
-    POP // TODO: Ignoring new_ctx for now, but we will need it to store code that was returned, if any.
+    POP
+
+    // TODO: EIP-170: Contract code size limit.
+    // TODO: EIP-3541: Reject new contract code starting with the 0xEF byte
+
+    // Charge gas for the code size.
+    SWAP3
+    // stack: kexit_info, success, address, leftover_gas
+    %returndatasize // Size of the code.
+    %mul_const(@GAS_CODEDEPOSIT) %charge_gas
+    SWAP3
+
+    // Store the code hash of the new contract.
+    GET_CONTEXT
+    %returndatasize
+    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    KECCAK_GENERAL
+    // stack: codehash, leftover_gas, success, address, kexit_info
+    DUP4
+    // stack: address, codehash, leftover_gas, success, address, kexit_info
+    %set_codehash
+
+    // Set the return data size to 0.
+    // TODO: Incorrect when initcode has reverted.
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
+
     // stack: leftover_gas, success, address, kexit_info
     %shl_const(192)
     // stack: leftover_gas << 192, success, address, kexit_info
@@ -135,6 +163,26 @@ after_constructor:
     // stack: address_if_success, leftover_gas << 192, kexit_info
     SWAP2
     // stack: kexit_info, leftover_gas << 192, address_if_success
-    ADD
+    SUB
     // stack: kexit_info, address_if_success
     EXIT_KERNEL
+
+%macro set_codehash
+    %stack (addr, codehash) -> (addr, codehash, %%after)
+    %jump(set_codehash)
+%%after:
+    // stack: (empty)
+%endmacro
+
+// Pre stack: addr, codehash, redest
+// Post stack: (empty)
+// TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
+set_codehash:
+    // stack: addr, codehash, retdest
+    %mpt_read_state_trie
+    // stack: account_ptr, codehash, retdest
+    %add_const(3)
+    // stack: codehash_ptr, codehash, retdest
+    %mstore_trie_data
+    // stack: retdest
+    JUMP
