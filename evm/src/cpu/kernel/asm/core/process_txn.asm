@@ -154,24 +154,17 @@ global process_contract_creation_txn_after_constructor:
 
 global process_message_txn:
     // stack: retdest
-global wtffwhyy:
     %mload_txn_field(@TXN_FIELD_VALUE)
-global wtff0:
     %mload_txn_field(@TXN_FIELD_TO)
-global wtff1:
     DUP1 %insert_accessed_addresses_no_return
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-global wtff2:
     DUP1 %insert_accessed_addresses_no_return
-global wtff3:
     // stack: from, to, amount, retdest
     %transfer_eth
-global wtff4:
     // stack: transfer_eth_status, retdest
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
-global wtff:
     %handle_precompiles_from_eoa
 
     // If to's code is empty, return.
