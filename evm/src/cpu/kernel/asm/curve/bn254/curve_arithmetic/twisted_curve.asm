@@ -2,7 +2,7 @@
 // Returns (range & curve) || ident
 //   where
 //     range = (x < N) & (x_ < N) & (y < N) & (y_ < N)
-//     curve = Y^2 == X^3 + A
+//     curve = Y^2 == X^3 + 3/(9+i)
 //     ident = (X,Y) == (0,0)
 
 %macro bn_check_twisted

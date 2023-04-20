@@ -304,7 +304,7 @@ fn test_bn_pairing() -> Result<()> {
             U256::from(0xdeadbeefu32),
         ],
         segment: BnPairing,
-        memory: vec![(ptr, inputs), (out, vec![U256::from(acc)])],
+        memory: vec![(ptr, inputs)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);

@@ -1,8 +1,8 @@
 /// def bn254_pairing(pairs: List((Curve, TwistedCurve))) -> Fp12:
 ///     
 ///     for P, Q in pairs:
-///         assert(is_valid(P))
-///         assert(is_valid(Q))
+///         assert(P.is_valid)
+///         assert(Q.is_valid)
 ///     
 ///     out = 1
 ///     for P, Q in pairs:
@@ -11,7 +11,12 @@
 ///     return bn254_final_exponent(out)
 
 global bn254_pairing:
-    // stack:    k, inp, out, retdest
+    // stack:         k, inp, out, retdest
+    %stack (k, inp, out) -> (out, 1, k, inp, out)
+    // stack: out, 1, k, inp, out, retdest
+    %mstore_kernel_bn254_pairing
+    // stack:         k, inp, out, retdest
+    
     %jump(bn254_pairing_loop) // this short circuits the input checks
     DUP1
     // stack: k, k, inp, out, retdest
