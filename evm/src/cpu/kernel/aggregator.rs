@@ -60,6 +60,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/curve/bn254/curve_arithmetic/msm.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/pairing.asm"),
         include_str!("asm/curve/bn254/curve_arithmetic/precomputation.asm"),
+        include_str!("asm/curve/bn254/curve_arithmetic/twisted_curve.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/degree_6_mul.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/degree_12_mul.asm"),
         include_str!("asm/curve/bn254/field_arithmetic/frobenius.asm"),

@@ -67,6 +67,31 @@
     // stack:     cx, cy 
 %endmacro
 
+%macro eq_fp254_2
+    // stack: x, x_, y, y_
+    SWAP3
+    // stack: y_, x_, y, x
+    EQ
+    // stack: y_==x_, y, x
+    SWAP2
+    // stack: x, y, y_==x_
+    EQ
+    // stack: x==y, y_==x_
+    AND
+%endmacro
+
+%macro add_fp254_2
+    // stack: x, x_, y, y_
+    SWAP3
+    // stack: y_, x_, y, x
+    ADDFP254
+    // stack:     z_, y, x
+    SWAP2
+    // stack:     x, y, z_
+    ADDFP254
+    // stack:        z, z_
+%endmacro
+
 /// Given z = x + iy: Fp254_2, return complex conjugate z': Fp254_2
 /// where input is represented z.re, z.im and output as z'.im, z'.re
 /// cost: 9; note this returns y, x for the output x + yi
@@ -115,6 +140,31 @@
     SWAP1
     // stack:    ac - bd, bc + ad
 %endmacro 
+
+// load twisted curve
+
+%macro load_fp254_4
+    // stack:                         ptr
+    DUP1  
+    %add_const(2)
+    // stack:                   ind2, ptr
+    %mload_kernel_bn254_pairing
+    // stack:                     x2, ptr
+    DUP2  
+    %add_const(1)
+    // stack:               ind1, x2, ptr
+    %mload_kernel_bn254_pairing
+    // stack:                 x1, x2, ptr
+    DUP3  
+    %add_const(3)
+    // stack:           ind3, x1, x2, ptr
+    %mload_kernel_bn254_pairing
+    // stack:             x3, x1, x2, ptr
+    SWAP3
+    // stack:            ind0, x1, x2, x3
+    %mload_kernel_bn254_pairing
+    // stack:              x0, x1, x2, x3
+%endmacro
 
 // fp254_6 macros
 
