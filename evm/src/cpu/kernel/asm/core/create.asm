@@ -130,7 +130,6 @@ after_constructor:
     // stack: new_ctx, leftover_gas, success, address, kexit_info
     POP
 
-    // TODO: EIP-170: Contract code size limit.
     // TODO: EIP-3541: Reject new contract code starting with the 0xEF byte
 
     // TODO: Skip blocks below if success is false.
@@ -138,6 +137,10 @@ after_constructor:
     SWAP3
     // stack: kexit_info, success, address, leftover_gas
     %returndatasize // Size of the code.
+    // stack: code_size, kexit_info, success, address, leftover_gas
+    DUP1 %gt_const(@MAX_CODE_SIZE)
+    %jumpi(fault_exception)
+    // stack: code_size, kexit_info, success, address, leftover_gas
     %mul_const(@GAS_CODEDEPOSIT) %charge_gas
     SWAP3
 

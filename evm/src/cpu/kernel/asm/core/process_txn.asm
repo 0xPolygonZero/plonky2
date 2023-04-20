@@ -145,6 +145,16 @@ global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, address, retdest
+    %returndatasize // Size of the code.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %mul_const(@GAS_CODEDEPOSIT) SWAP1
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    SUB
+    // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, address, retdest

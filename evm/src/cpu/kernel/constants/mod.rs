@@ -40,6 +40,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in CODE_SIZE_LIMIT {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -226,4 +230,10 @@ const PRECOMPILES_GAS: [(&str, u16); 13] = [
     ("SNARKV_STATIC_GAS", 45_000),
     ("SNARKV_DYNAMIC_GAS", 34_000),
     ("BLAKE2_F_DYNAMIC_GAS", 1),
+];
+
+const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
+    ("MAX_CODE_SIZE", 0x6000),
+    ("MAX_INITCODE_SIZE", 0xc000),
+    ("INITCODE_WORD_COST", 2),
 ];
