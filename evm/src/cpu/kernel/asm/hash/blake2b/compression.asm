@@ -187,9 +187,10 @@ compression_loop:
     // Run 12 rounds of G functions.
     PUSH g_functions_return
     // stack: g_functions_return, cur_block, retdest
+    PUSH 12
     %blake2b_internal_state_addr
-    // stack: start, g_functions_return, cur_block, retdest
-    %jump(run_12_rounds_g_function)
+    // stack: start, 12, g_functions_return, cur_block, retdest
+    %jump(run_rounds_g_function)
 g_functions_return:
     // Finalize hash value.
     // stack: cur_block, retdest

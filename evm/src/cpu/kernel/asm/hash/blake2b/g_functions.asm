@@ -149,27 +149,29 @@ run_g_function_round:
     // stack: retdest, round, start
     JUMP
 
-global run_12_rounds_g_function:
-    // stack: start, retdest
+global run_rounds_g_function:
+    // stack: start, rounds, retdest
     PUSH 0
-    // stack: round=0, start, retdest
+    // stack: round=0, start, rounds, retdest
 run_next_round_g_function:
-    // stack: round, start, retdest
+    // stack: round, start, rounds, retdest
     PUSH run_next_round_g_function_return
-    // stack: run_next_round_g_function_return, round, start, retdest
+    // stack: run_next_round_g_function_return, round, start, rounds, retdest
     SWAP2
     // stack: start, round, run_next_round_g_function_return, retdest
     SWAP1
     // stack: round, start, run_next_round_g_function_return, retdest
     %jump(run_g_function_round)
 run_next_round_g_function_return:
-    // stack: round, start, retdest
+    // stack: round, start, rounds, retdest
     %increment
-    // stack: round+1, start, retdest
+    // stack: round+1, start, rounds, retdest
     DUP1
-    // stack: round+1, round+1, start, retdest
-    %lt_const(12)
-    // stack: round+1 < 12, round+1, start, retdest
+    // stack: round+1, round+1, start, rounds, retdest
+    DUP4
+    // stack: rounds, round+1, round+1, start, rounds, retdest
+    GT
+    // stack: round+1 < rounds, round+1, start, rounds, retdest
     %jumpi(run_next_round_g_function)
     // stack: round+1, start, retdest
     %pop2

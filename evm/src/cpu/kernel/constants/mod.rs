@@ -225,5 +225,5 @@ const PRECOMPILES_GAS: [(&str, u16); 13] = [
     ("BN_MUL_GAS", 6_000),
     ("SNARKV_STATIC_GAS", 45_000),
     ("SNARKV_DYNAMIC_GAS", 34_000),
-    ("BLAKE2_F_DYNAMIC_GAS", 1),
+    ("BLAKE2_F__GAS", 1),
 ];

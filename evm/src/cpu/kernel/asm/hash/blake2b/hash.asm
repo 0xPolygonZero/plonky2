@@ -1,3 +1,4 @@
+// Generate a new hash value from the previous hash value and two elements of the internal state.
 blake2b_generate_new_hash_value:
     // stack: i, retdest
     %blake2b_hash_value_addr

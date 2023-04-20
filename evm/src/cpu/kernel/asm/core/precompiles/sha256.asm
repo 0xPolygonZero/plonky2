@@ -23,6 +23,7 @@ global precompile_sha256:
     // Copy the call data to the kernel general segment (sha2 expects it there) and call sha2.
     %calldatasize
     GET_CONTEXT
+    // stack: ctx, size
 
     // The next block of code is equivalent to the following %stack macro call
     // (unfortunately the macro call takes too long to expand dynamically).
