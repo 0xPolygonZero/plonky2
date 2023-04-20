@@ -1,6 +1,5 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use core::any::Any;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
@@ -118,33 +117,19 @@ pub trait WitnessGenerator<F: Field>: 'static + Send + Sync + Debug {
         Self: Sized;
 }
 
-pub trait AnyWitnessGenerator<F: Field>: WitnessGenerator<F> {
-    fn as_any(&self) -> &dyn Any;
-}
-
-impl<T: WitnessGenerator<F>, F: Field> AnyWitnessGenerator<F> for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-/// A wrapper around an `Box<AnyWitnessGenerator>`.
-pub struct WitnessGeneratorRef<F: Field>(pub Box<dyn AnyWitnessGenerator<F>>);
+/// A wrapper around an `Box<WitnessGenerator>` which implements `PartialEq`
+/// and `Eq` based on generator IDs.
+pub struct WitnessGeneratorRef<F: Field>(pub Box<dyn WitnessGenerator<F>>);
 
 impl<F: Field> WitnessGeneratorRef<F> {
-    pub fn new<G: AnyWitnessGenerator<F>>(generator: G) -> WitnessGeneratorRef<F> {
+    pub fn new<G: WitnessGenerator<F>>(generator: G) -> WitnessGeneratorRef<F> {
         WitnessGeneratorRef(Box::new(generator))
     }
 }
 
 impl<F: Field> PartialEq for WitnessGeneratorRef<F> {
     fn eq(&self, other: &Self) -> bool {
-        let mut buf1 = Vec::new();
-        let mut buf2 = Vec::new();
-        self.0.serialize(&mut buf1).unwrap();
-        other.0.serialize(&mut buf2).unwrap();
-
-        buf1 == buf2
+        self.0.id() == other.0.id()
     }
 }
 
@@ -152,9 +137,7 @@ impl<F: Field> Eq for WitnessGeneratorRef<F> {}
 
 impl<F: Field> Debug for WitnessGeneratorRef<F> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut buf = Vec::new();
-        self.0.serialize(&mut buf).unwrap();
-        write!(f, "{:?}", buf)
+        write!(f, "{}", self.0.id())
     }
 }
 

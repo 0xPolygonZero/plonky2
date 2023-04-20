@@ -198,6 +198,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     }
 }
 
+/// A wrapper trait over a `Gate`, to allow for gate serialization.
 pub trait AnyGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D> {
     fn as_any(&self) -> &dyn Any;
 }
@@ -208,7 +209,7 @@ impl<T: Gate<F, D>, F: RichField + Extendable<D>, const D: usize> AnyGate<F, D> 
     }
 }
 
-/// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
+/// A wrapper around an `Arc<AnyGate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
 pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn AnyGate<F, D>>);
 
