@@ -1,7 +1,7 @@
 global precompile_rip160:
-    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, retdest, new_ctx, (old stack)
     %pop2
-    // stack: new_ctx, kexit_info, ret_offset, ret_size
+    // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
     // stack: (empty)

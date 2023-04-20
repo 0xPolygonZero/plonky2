@@ -165,6 +165,13 @@ global process_message_txn:
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
+    %handle_precompiles_from_eoa
+
+    // If to's code is empty, return.
+    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
+    // stack: code_empty, retdest
+    %jumpi(process_message_txn_return)
+
     // Add precompiles to accessed addresses.
     PUSH @ECREC %insert_accessed_addresses_no_return
     PUSH @SHA256 %insert_accessed_addresses_no_return
@@ -175,12 +182,6 @@ global process_message_txn:
     PUSH @BN_MUL %insert_accessed_addresses_no_return
     PUSH @SNARKV %insert_accessed_addresses_no_return
     PUSH @BLAKE2_F %insert_accessed_addresses_no_return
-    // TODO: Handle precompiles.
-
-    // If to's code is empty, return.
-    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
-    // stack: code_empty, retdest
-    %jumpi(process_message_txn_return)
 
     // Otherwise, load to's code and execute it in a new context.
     // stack: retdest
