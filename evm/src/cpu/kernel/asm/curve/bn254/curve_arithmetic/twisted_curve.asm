@@ -1,9 +1,9 @@
 // Check if (X,Y) is a valid curve point.
-// Returns (range & curve) || is_identity
+// Returns (range & curve) || ident
 //   where
 //     range = (x < N) & (x_ < N) & (y < N) & (y_ < N)
 //     curve = Y^2 == X^3 + A
-//     ident = (x,y) == (0,0)
+//     ident = (X,Y) == (0,0)
 
 %macro bn_check_twisted
     // stack:                x, x_, y, y_

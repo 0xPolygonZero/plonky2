@@ -12,6 +12,7 @@
 
 global bn254_pairing:
     // stack:    k, inp, out, retdest
+    %jump(bn254_pairing_loop) // this short circuits the input checks
     DUP1
     // stack: k, k, inp, out, retdest
 
