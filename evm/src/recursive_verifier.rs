@@ -33,8 +33,9 @@ use crate::permutation::{
     PermutationCheckDataTarget,
 };
 use crate::proof::{
-    BlockMetadata, BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget,
-    StarkProof, StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
+    AggregatedPublicValues, AggregatedPublicValuesTarget, BlockMetadata, BlockMetadataTarget,
+    PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
     TrieRootsTarget,
 };
 use crate::stark::Stark;
@@ -498,6 +499,23 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
+pub(crate) fn add_virtual_aggregated_public_values<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+) -> AggregatedPublicValuesTarget {
+    let trie_roots_before = add_virtual_trie_roots(builder);
+    let trie_roots_after = add_virtual_trie_roots(builder);
+    let block_metadata_pair = (
+        add_virtual_block_metadata(builder),
+        add_virtual_block_metadata(builder),
+    );
+    AggregatedPublicValuesTarget {
+        trie_roots_before,
+        trie_roots_after,
+        block_metadata_pair,
+    }
+}
+
+#[allow(unused)] // TODO: used later?
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
@@ -622,6 +640,37 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
+pub(crate) fn set_aggregated_public_value_targets<F, W, const D: usize>(
+    witness: &mut W,
+    public_values_target: &AggregatedPublicValuesTarget,
+    public_values: &AggregatedPublicValues,
+) where
+    F: RichField + Extendable<D>,
+    W: Witness<F>,
+{
+    set_trie_roots_target(
+        witness,
+        &public_values_target.trie_roots_before,
+        &public_values.trie_roots_before,
+    );
+    set_trie_roots_target(
+        witness,
+        &public_values_target.trie_roots_after,
+        &public_values.trie_roots_after,
+    );
+    set_block_metadata_target(
+        witness,
+        &public_values_target.block_metadata_pair.0,
+        &public_values.block_metadata_pair.0,
+    );
+    set_block_metadata_target(
+        witness,
+        &public_values_target.block_metadata_pair.1,
+        &public_values.block_metadata_pair.1,
+    );
+}
+
+#[allow(unused)] // TODO: used later?
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,

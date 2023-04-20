@@ -54,6 +54,16 @@ pub struct PublicValues {
     pub block_metadata: BlockMetadata,
 }
 
+/// Memory values  which are public over an aggregaton of blocks.
+#[derive(Debug, Clone, Default)]
+pub struct AggregatedPublicValues {
+    pub trie_roots_before: TrieRoots,
+    pub trie_roots_after: TrieRoots,
+    /// Represents the leftmost and rightmost block_metadata of the associated
+    /// aggregation proof, to allow combination on both sides with another proof.
+    pub block_metadata_pair: (BlockMetadata, BlockMetadata),
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct TrieRoots {
     pub state_root: H256,
@@ -79,6 +89,16 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
+}
+
+/// Memory values which are public over an aggregaton of blocks.
+#[derive(Debug, Clone)]
+pub struct AggregatedPublicValuesTarget {
+    pub trie_roots_before: TrieRootsTarget,
+    pub trie_roots_after: TrieRootsTarget,
+    /// Represents the leftmost and rightmost block_metadata of the associated
+    /// aggregation proof, to allow combination on both sides with another proof.
+    pub block_metadata_pair: (BlockMetadataTarget, BlockMetadataTarget),
 }
 
 #[derive(Debug, Clone)]

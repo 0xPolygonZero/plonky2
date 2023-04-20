@@ -37,12 +37,13 @@ use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
-    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
+    AggregatedPublicValues, AggregatedPublicValuesTarget, BlockMetadataTarget,
+    StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
-    set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_aggregated_public_values, recursive_stark_circuit,
+    set_aggregated_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 
@@ -54,13 +55,13 @@ where
     [(); C::HCO::WIDTH]:,
 {
     pub proof: ProofWithPublicInputs<F, C, D>,
-    pub public_values: PublicValues,
+    pub public_values: AggregatedPublicValues,
 }
 
 #[derive(Debug, Clone)]
 pub struct EvmProofTarget<const D: usize> {
     pub proof: ProofWithPublicInputsTarget<D>,
-    pub public_values: PublicValuesTarget,
+    pub public_values: AggregatedPublicValuesTarget,
 }
 
 /// Adds a new "virtual" EVM proof target.
@@ -69,7 +70,7 @@ fn add_virtual_evm_proof<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> EvmProofTarget<D> {
     let proof = builder.add_virtual_proof_with_pis(common_data);
-    let public_values = add_virtual_public_values(builder);
+    let public_values = add_virtual_aggregated_public_values(builder);
     EvmProofTarget {
         proof,
         public_values,
@@ -88,7 +89,7 @@ fn set_evm_proof_target<F, C, W, const D: usize>(
     [(); C::HCO::WIDTH]:,
 {
     witness.set_proof_with_pis_target(&evm_proof_target.proof, &evm_proof.proof);
-    set_public_value_targets(
+    set_aggregated_public_value_targets(
         witness,
         &evm_proof_target.public_values,
         &evm_proof.public_values,
@@ -122,13 +123,44 @@ where
     }
 }
 
+/// Selects `bm0` or `bm1` based on `b`, i.e., this returns `if b { bm0 } else { bm1 }`.
+fn select_block_metadata<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    b: BoolTarget,
+    bm0: &BlockMetadataTarget,
+    bm1: &BlockMetadataTarget,
+) -> BlockMetadataTarget
+where
+    F: RichField + Extendable<D>,
+{
+    let block_beneficiary: [Target; 5] = core::array::from_fn(|i| {
+        builder.select(b, bm0.block_beneficiary[i], bm1.block_beneficiary[i])
+    });
+    let block_timestamp = builder.select(b, bm0.block_timestamp, bm1.block_timestamp);
+    let block_number = builder.select(b, bm0.block_number, bm1.block_number);
+    let block_difficulty = builder.select(b, bm0.block_difficulty, bm1.block_difficulty);
+    let block_gaslimit = builder.select(b, bm0.block_gaslimit, bm1.block_gaslimit);
+    let block_chain_id = builder.select(b, bm0.block_chain_id, bm1.block_chain_id);
+    let block_base_fee = builder.select(b, bm0.block_base_fee, bm1.block_base_fee);
+
+    BlockMetadataTarget {
+        block_beneficiary,
+        block_timestamp,
+        block_number,
+        block_difficulty,
+        block_gaslimit,
+        block_chain_id,
+        block_base_fee,
+    }
+}
+
 /// Selects `pv0` or `pv1` based on `b`, i.e., this returns `if b { pv0 } else { pv1 }`.
 fn select_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     b: BoolTarget,
-    pv0: &PublicValuesTarget,
-    pv1: &PublicValuesTarget,
-) -> PublicValuesTarget
+    pv0: &AggregatedPublicValuesTarget,
+    pv1: &AggregatedPublicValuesTarget,
+) -> AggregatedPublicValuesTarget
 where
     F: RichField + Extendable<D>,
 {
@@ -137,56 +169,25 @@ where
     let trie_roots_after =
         select_trie_roots(builder, b, &pv0.trie_roots_after, &pv1.trie_roots_after);
 
-    let block_beneficiary: [Target; 5] = core::array::from_fn(|i| {
-        builder.select(
+    let block_metadata_pair = (
+        select_block_metadata(
+            builder,
             b,
-            pv0.block_metadata.block_beneficiary[i],
-            pv1.block_metadata.block_beneficiary[i],
-        )
-    });
-    let block_timestamp = builder.select(
-        b,
-        pv0.block_metadata.block_timestamp,
-        pv1.block_metadata.block_timestamp,
-    );
-    let block_number = builder.select(
-        b,
-        pv0.block_metadata.block_number,
-        pv1.block_metadata.block_number,
-    );
-    let block_difficulty = builder.select(
-        b,
-        pv0.block_metadata.block_difficulty,
-        pv1.block_metadata.block_difficulty,
-    );
-    let block_gaslimit = builder.select(
-        b,
-        pv0.block_metadata.block_gaslimit,
-        pv1.block_metadata.block_gaslimit,
-    );
-    let block_chain_id = builder.select(
-        b,
-        pv0.block_metadata.block_chain_id,
-        pv1.block_metadata.block_chain_id,
-    );
-    let block_base_fee = builder.select(
-        b,
-        pv0.block_metadata.block_base_fee,
-        pv1.block_metadata.block_base_fee,
+            &pv0.block_metadata_pair.0,
+            &pv1.block_metadata_pair.0,
+        ),
+        select_block_metadata(
+            builder,
+            b,
+            &pv0.block_metadata_pair.1,
+            &pv1.block_metadata_pair.1,
+        ),
     );
 
-    PublicValuesTarget {
+    AggregatedPublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
-        block_metadata: BlockMetadataTarget {
-            block_beneficiary,
-            block_timestamp,
-            block_number,
-            block_difficulty,
-            block_gaslimit,
-            block_chain_id,
-            block_base_fee,
-        },
+        block_metadata_pair,
     }
 }
 
@@ -754,8 +755,8 @@ where
         );
 
         let blocks_are_equal = builder.is_equal(
-            pv_lhs.block_metadata.block_timestamp,
-            pv_rhs.block_metadata.block_timestamp,
+            pv_lhs.block_metadata_pair.1.block_timestamp,
+            pv_rhs.block_metadata_pair.0.block_timestamp,
         );
 
         connect_trie_roots(
@@ -771,14 +772,7 @@ where
         lhs: &EvmProofTarget<D>,
         rhs: &EvmProofTarget<D>,
     ) {
-        // If there was no previous `BlockProof`, public values
-        // will be set to match when calling `prove_block()`.
-        let blocks_are_equal = builder.is_equal(
-            lhs.public_values.block_metadata.block_timestamp,
-            rhs.public_values.block_metadata.block_timestamp,
-        );
-
-        connect_trie_roots(
+        connect_state_roots(
             builder,
             &lhs.public_values.trie_roots_after,
             &rhs.public_values.trie_roots_before,
@@ -914,7 +908,14 @@ where
 
         Ok(EvmProof {
             proof: self.root.circuit.prove(root_inputs)?,
-            public_values: all_proof.public_values,
+            public_values: AggregatedPublicValues {
+                trie_roots_before: all_proof.public_values.trie_roots_before,
+                trie_roots_after: all_proof.public_values.trie_roots_after,
+                block_metadata_pair: (
+                    all_proof.public_values.block_metadata.clone(),
+                    all_proof.public_values.block_metadata,
+                ),
+            },
         })
     }
 
@@ -946,9 +947,13 @@ where
 
         Ok(EvmProof {
             proof: self.aggregation.circuit.prove(agg_inputs)?,
-            public_values: PublicValues {
+            public_values: AggregatedPublicValues {
                 trie_roots_before: lhs_proof.public_values.trie_roots_before.clone(),
-                ..rhs_proof.public_values.clone()
+                trie_roots_after: rhs_proof.public_values.trie_roots_after.clone(),
+                block_metadata_pair: (
+                    lhs_proof.public_values.block_metadata_pair.0.clone(),
+                    rhs_proof.public_values.block_metadata_pair.1.clone(),
+                ),
             },
         })
     }
@@ -1009,16 +1014,27 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        let trie_roots_before = if let Some(bp) = opt_parent_block_proof {
-            bp.public_values.trie_roots_before.clone()
+        let (trie_roots_before, block_metadata_pair) = if let Some(bp) = opt_parent_block_proof {
+            (
+                bp.public_values.trie_roots_before.clone(),
+                (
+                    bp.public_values.block_metadata_pair.0.clone(),
+                    agg_root_proof.public_values.block_metadata_pair.1.clone(),
+                ),
+            )
         } else {
-            agg_root_proof.public_values.trie_roots_before.clone()
+            (
+                agg_root_proof.public_values.trie_roots_before.clone(),
+                agg_root_proof.public_values.block_metadata_pair.clone(),
+            )
         };
+
         Ok(EvmProof {
             proof: self.block.circuit.prove(block_inputs)?,
-            public_values: PublicValues {
+            public_values: AggregatedPublicValues {
                 trie_roots_before,
-                ..agg_root_proof.public_values.clone()
+                trie_roots_after: agg_root_proof.public_values.trie_roots_after.clone(),
+                block_metadata_pair,
             },
         })
     }
