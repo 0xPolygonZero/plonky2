@@ -25,7 +25,7 @@ bn254_input_check:
     %sub_const(1)
     // stack:       j=j-1, k, inp
 
-    stack (j, k, inp) -> (j, inp, j, k, inp)
+    %stack (j, k, inp) -> (j, inp, j, k, inp)
     // stack:        j, inp, j, k, inp
     %mul_const(6)
     ADD

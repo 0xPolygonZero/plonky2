@@ -19,6 +19,7 @@
     // stack:     ident ,   curve & range
     OR
     // stack:     ident || (curve & range)
+%endmacro
 
 %macro bn_check_twisted_range
     // stack:                               x, x_, y, y_
