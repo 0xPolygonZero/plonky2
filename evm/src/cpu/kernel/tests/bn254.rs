@@ -253,7 +253,7 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
 };
 
 #[test]
-fn test_miller() -> Result<()> {
+fn test_bn_miller() -> Result<()> {
     let ptr: usize = 200;
     let out: usize = 206;
     let inputs: Vec<U256> = vec![
@@ -282,8 +282,8 @@ fn test_miller() -> Result<()> {
 
 #[test]
 fn test_bn_pairing() -> Result<()> {
-    let out: usize = 212;
-    let ptr: usize = 224;
+    let out: usize = 200;
+    let ptr: usize = 212;
 
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
