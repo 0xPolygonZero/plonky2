@@ -5,10 +5,12 @@ use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
-use crate::witness::memory::MemoryState;
+use crate::memory::segments::Segment;
+use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
 use crate::witness::util::stack_peek;
@@ -83,6 +85,10 @@ impl<F: Field> GenerationState<F> {
             let tip_h256 = H256::from_uint(&tip_u256);
             let tip_h160 = H160::from(tip_h256);
             self.observe_address(tip_h160);
+        } else if dst == KERNEL.global_labels["observe_new_contract"] {
+            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_h256 = H256::from_uint(&tip_u256);
+            self.observe_contract(tip_h256);
         }
     }
 
@@ -91,6 +97,35 @@ impl<F: Field> GenerationState<F> {
     pub fn observe_address(&mut self, address: Address) {
         let state_key = keccak(address.0);
         self.state_key_to_address.insert(state_key, address);
+    }
+
+    /// Observe the given code hash and store the associated code.
+    /// When called, the code corresponding to `codehash` should be stored in the return data.
+    pub fn observe_contract(&mut self, codehash: H256) {
+        if self.inputs.contract_code.contains_key(&codehash) {
+            return; // Return early if code hash has already been observed.
+        }
+
+        let ctx = self.registers.context;
+        let base_address = MemoryAddress::new(ctx, Segment::Returndata, 0);
+        let returndata_size_addr = MemoryAddress::new(
+            ctx,
+            Segment::ContextMetadata,
+            ContextMetadata::ReturndataSize as usize,
+        );
+        let returndata_size = self.memory.get(returndata_size_addr).as_usize();
+        let code = (0..returndata_size)
+            .map(|i| {
+                let address = MemoryAddress {
+                    virt: base_address.virt.saturating_add(i),
+                    ..base_address
+                };
+                let val = self.memory.get(address);
+                val.as_u32() as u8
+            })
+            .collect::<Vec<_>>();
+
+        self.inputs.contract_code.insert(codehash, code);
     }
 
     pub fn checkpoint(&self) -> GenerationStateCheckpoint {
