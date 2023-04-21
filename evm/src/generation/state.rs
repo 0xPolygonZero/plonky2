@@ -103,7 +103,7 @@ impl<F: Field> GenerationState<F> {
     /// When called, the code corresponding to `codehash` should be stored in the return data.
     pub fn observe_contract(&mut self, codehash: H256) {
         if self.inputs.contract_code.contains_key(&codehash) {
-            return; // Return early if code hash has already been observed.
+            return; // Return early if the code hash has already been observed.
         }
 
         let ctx = self.registers.context;
