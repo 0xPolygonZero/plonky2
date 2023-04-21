@@ -16,6 +16,44 @@ global precompile_blake2_f:
     %calldatasize
     GET_CONTEXT
     // stack: ctx, size
+    %stack (ctx) -> (ctx, @SEGMENT_CALLDATA, 0, 4, blake2_f_contd)
+    %jump(mload_packing)
+blake2_f_contd:
+    // stack: rounds, size
+    PUSH 4
+    %rep 8
+        // stack: 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        DUP1
+        // stack: 4 + 8 * i, 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        GET_CONTEXT
+        // stack: ctx, 4 + 8 * i, 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        %stack (ctx, offset) -> (ctx, @SEGMENT_KERNEL_GENERAL, offset, 8)
+        %mload_packing
+        // stack: h_i, 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        SWAP1
+        // stack: 4 + 8 * i, h_i, h_(i-1), ..., h_0, rounds, size
+    %endrep
+    
+    
+    // stack: ctx, rounds, size
+    %stack (ctx) -> 
+    // stack: rounds, size
+    PUSH 4
+    // stack: 4, rounds, size
+    %rep 8
+        // stack: 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        DUP1
+        // stack: 4 + 8 * i, 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        %mload_current_u64(@SEGMENT_CALLDATA)
+        // stack: h_i, 4 + 8 * i, h_(i-1), ..., h_0, rounds, size
+        SWAP1
+        // stack: 4 + 8 * i, h_i, h_(i-1), ..., h_0, rounds, size
+        %add_const(8)
+        // stack: 4 + 8 * (i + 1), h_i, h_(i-1), ..., h_0, rounds, size
+    %endrep
+    // stack: h_7, ..., h_0, rounds, size
+
+
 
     // TODO: change
     // The next block of code is equivalent to the following %stack macro call
