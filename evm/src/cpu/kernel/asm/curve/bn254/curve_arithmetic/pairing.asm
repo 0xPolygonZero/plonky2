@@ -11,15 +11,8 @@
 ///     return bn254_final_exponent(out)
 
 global bn254_pairing:
-    // stack:         k, inp, out, retdest
-    %stack (k, inp, out) -> (out, 1, k, inp, out)
-    // stack: out, 1, k, inp, out, retdest
-    %mstore_kernel_bn254_pairing
-    // stack:         k, inp, out, retdest
-
-    // %jump(bn254_pairing_loop) // this short circuits the input checks
+    // stack: k, inp, out, retdest
     DUP1
-    // stack:      k, k, inp, out, retdest
 
 bn254_input_check:
     // stack:       j    , k, inp 
@@ -54,22 +47,25 @@ bn254_input_check:
     %jump(bn254_input_check)
 
 bn254_pairing_start:
-    // stack: 0, k, inp, out, retdest
-    POP
+    // stack:      0, k, inp, out, retdest
+    %stack (j, k, inp, out) -> (out, 1, k, inp, out)
+    // stack: out, 1, k, inp, out, retdest
+    %mstore_kernel_bn254_pairing
+    // stack:         k, inp, out, retdest
 
 bn254_pairing_loop:
-    // stack:       k    , inp, out, retdest
+    // stack:       k, inp, out, retdest
     DUP1
     ISZERO
-    // stack: end?, k    , inp, out, retdest
+    // stack: end?, k, inp, out, retdest
     %jumpi(bn254_final_exponent)
-    // stack:       k    , inp, out, retdest
+    // stack:       k, inp, out, retdest
     %sub_const(1)
-    // stack:       k=k-1, inp, out, retdest
+    // stack:   k=k-1, inp, out, retdest
 
-    %stack (k, inp, out) -> (k, inp, 200, mul_fp254_12, 200, out, out, bn254_pairing_loop, k, inp, out)
-    // stack: k, inp, 200, mul_fp254_12, 200, out, out, bn254_pairing_loop, k, inp, out retdest
+    %stack (k, inp, out) -> (k, inp, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out)
+    // stack: k, inp, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out retdest
     %mul_const(6)
     ADD
-    // stack:  inp_k, 200, mul_fp254_12, 200, out, out, bn254_pairing_loop, k, inp, out retdest
+    // stack:  inp_k, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out retdest
     %jump(bn254_miller)
