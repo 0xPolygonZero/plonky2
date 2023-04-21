@@ -130,9 +130,11 @@ after_constructor:
     // stack: new_ctx, leftover_gas, success, address, kexit_info
     POP
 
-    // TODO: EIP-3541: Reject new contract code starting with the 0xEF byte
 
     // TODO: Skip blocks below if success is false.
+    // EIP-3541: Reject new contract code starting with the 0xEF byte
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
+
     // Charge gas for the code size.
     SWAP3
     // stack: kexit_info, success, address, leftover_gas
