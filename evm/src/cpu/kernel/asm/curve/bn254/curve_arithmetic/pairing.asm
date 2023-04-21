@@ -16,17 +16,17 @@ global bn254_pairing:
     // stack: out, 1, k, inp, out, retdest
     %mstore_kernel_bn254_pairing
     // stack:         k, inp, out, retdest
-    
-    %jump(bn254_pairing_loop) // this short circuits the input checks
+
+    // %jump(bn254_pairing_loop) // this short circuits the input checks
     DUP1
-    // stack: k, k, inp, out, retdest
+    // stack:      k, k, inp, out, retdest
 
 bn254_input_check:
     // stack:       j    , k, inp 
     DUP1
     ISZERO
     // stack: end?, j    , k, inp
-    %jump(bn254_pairing_start)
+    %jumpi(bn254_pairing_start)
     // stack:       j    , k, inp
     %sub_const(1)
     // stack:       j=j-1, k, inp
@@ -37,6 +37,7 @@ bn254_input_check:
     ADD
     // stack:  inp_j=inp+6j, j, k, inp
     DUP1
+    // stack:  inp_j, inp_j, j, k, inp
     %load_fp254_2
     // stack:    P_j, inp_j, j, k, inp
     %bn_check
@@ -46,6 +47,7 @@ bn254_input_check:
     %add_const(2)
     %load_fp254_4
     // stack:           Q_j, j, k, inp
+    %pop4
     %bn_check_twisted
     // stack:        valid?, j, k, inp
     %assert_nonzero
@@ -53,7 +55,7 @@ bn254_input_check:
     %jump(bn254_input_check)
 
 bn254_pairing_start:
-    // stack: k, k, inp, out, retdest
+    // stack: 0, k, inp, out, retdest
     POP
 
 bn254_pairing_loop:
