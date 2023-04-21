@@ -2,32 +2,6 @@
 ///// GENERAL FP12 MULTIPLICATION /////
 ///////////////////////////////////////
 
-/// cost: 1063
-
-/// fp254_6 functions:
-///  fn    | num | ops | cost
-///  -------------------------
-///  load  |   8 |  40 |  320
-///  store |   5 |  40 |  200
-///  dup   |   5 |   6 |   30
-///  swap  |   4 |  16 |   64
-///  add   |   4 |  16 |   64
-///  subr  |   1 |  17 |   17
-///  mul   |   3 | 157 |  471
-///  i9    |   1 |   9 |    9
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   3
-///  SWAP  |   2
-///  DUP   |   6
-///  PUSH  |   6
-///  POP   |   2
-///  JUMP  |   6
-///
-/// TOTAL: 1201
-
 /// inputs:
 ///     F = f + f'z
 ///     G = g + g'z
@@ -141,29 +115,6 @@ mul_fp254_12_3:
 ///// SPARSE FP12 MULTIPLICATION /////
 //////////////////////////////////////
 
-/// cost: 645
-
-/// fp254_6 functions:
-///  fn      | num | ops | cost
-///  ---------------------------
-///  load    |   2 |  40 |   80
-///  store   |   2 |  40 |   80
-///  dup     |   4 |   6 |   24
-///  swap    |   4 |  16 |   64
-///  add     |   4 |  16 |   64
-///  mul_fp254_  |   2 |  21 |   42
-///  mul_fp254_2 |   4 |  59 |  236
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   6
-///  DUP   |   9
-///  PUSH  |   6
-///  POP   |   5
-///
-/// TOTAL: 618
-
 /// input:
 ///     F = f + f'z
 ///     G = g0 + (G1)t + (G2)tz
@@ -276,32 +227,6 @@ global mul_fp254_12_sparse:
 /////////////////////////
 ///// FP12 SQUARING /////
 /////////////////////////
-
-/// cost: 646
-
-/// fp254_6 functions:
-///  fn    | num | ops | cost
-///  -------------------------
-///  load  |   2 |  40 |   80
-///  store |   2 |  40 |   80
-///  dup   |   2 |   6 |   12
-///  swap  |   2 |  16 |   32
-///  add   |   1 |  16 |   16
-///  mul   |   1 | 157 |  157
-///  sq    |   2 | 101 |  202
-///  dbl   |   1 |  13 |   13
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   3
-///  SWAP  |   4
-///  DUP   |   5
-///  PUSH  |   6
-///  POP   |   3
-///  JUMP  |   4
-///
-/// TOTAL: 
 
 /// input:
 ///     F = f + f'z
