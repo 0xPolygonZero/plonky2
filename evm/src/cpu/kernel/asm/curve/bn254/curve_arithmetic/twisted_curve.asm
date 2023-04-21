@@ -57,12 +57,11 @@
 
 %macro bn_check_twisted_curve
     // stack:                  range, X, Y
-    %stack (range, X: 2, Y: 2) -> (Y, Y, range, X)
+    %stack (range, X: 2, Y: 2) -> (Y, Y, range, X, Y)
     // stack:            Y, Y, range, X, Y
     %mul_fp254_2
     // stack:             Y^2, range, X, Y
-    PUSH @BN_TWISTED_IM
-    PUSH @BN_TWISTED_RE
+    %stack () -> (@BN_TWISTED_RE, @BN_TWISTED_IM)
     // stack:          A, Y^2, range, X, Y
     %stack (A: 2, Y2: 2, range, X: 2) -> (X, X, X, A, Y2, range, X)
     // stack: X, X, X, A, Y^2, range, X, Y

@@ -282,7 +282,6 @@ fn test_miller() -> Result<()> {
 
 #[test]
 fn test_bn_pairing() -> Result<()> {
-    let acc: usize = 200;
     let out: usize = 212;
     let ptr: usize = 224;
 

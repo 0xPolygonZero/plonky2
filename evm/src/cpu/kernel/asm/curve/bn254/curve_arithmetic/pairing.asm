@@ -47,7 +47,6 @@ bn254_input_check:
     %add_const(2)
     %load_fp254_4
     // stack:           Q_j, j, k, inp
-    %pop4
     %bn_check_twisted
     // stack:        valid?, j, k, inp
     %assert_nonzero
