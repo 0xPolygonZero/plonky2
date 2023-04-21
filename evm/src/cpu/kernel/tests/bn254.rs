@@ -56,9 +56,9 @@ fn test_bn_mul_fp6() -> Result<()> {
 }
 
 fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Vec<U256> {
-    let in0: usize = 200;
-    let in1: usize = 212;
-    let out: usize = 224;
+    let in0: usize = 100;
+    let in1: usize = 112;
+    let out: usize = 124;
 
     let mut stack = vec![
         U256::from(in0),
@@ -126,7 +126,7 @@ fn test_bn_frob_fp6() -> Result<()> {
 }
 
 fn run_bn_frob_fp12(f: Fp12<BN254>, n: usize) -> Vec<U256> {
-    let ptr: usize = 200;
+    let ptr: usize = 100;
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_12_{}", n),
         stack: vec![U256::from(ptr)],
@@ -152,8 +152,8 @@ fn test_bn_frob_fp12() -> Result<()> {
 
 #[test]
 fn test_bn_inv_fp12() -> Result<()> {
-    let ptr: usize = 200;
-    let inv: usize = 212;
+    let ptr: usize = 100;
+    let inv: usize = 112;
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
@@ -174,7 +174,7 @@ fn test_bn_inv_fp12() -> Result<()> {
 
 #[test]
 fn test_bn_final_exponent() -> Result<()> {
-    let ptr: usize = 200;
+    let ptr: usize = 100;
 
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
@@ -254,8 +254,8 @@ pub const TWISTED_GENERATOR: TwistedCurve = {
 
 #[test]
 fn test_bn_miller() -> Result<()> {
-    let ptr: usize = 200;
-    let out: usize = 206;
+    let ptr: usize = 100;
+    let out: usize = 106;
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,
         CURVE_GENERATOR.y.val,
@@ -282,8 +282,8 @@ fn test_bn_miller() -> Result<()> {
 
 #[test]
 fn test_bn_pairing() -> Result<()> {
-    let out: usize = 200;
-    let ptr: usize = 212;
+    let out: usize = 100;
+    let ptr: usize = 112;
 
     let inputs: Vec<U256> = vec![
         CURVE_GENERATOR.x.val,

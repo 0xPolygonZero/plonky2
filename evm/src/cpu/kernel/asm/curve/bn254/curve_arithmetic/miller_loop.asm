@@ -55,6 +55,7 @@ miller_return:
     // stack: times, O, P, Q, out, retdest
     %stack (times, O: 2, P: 2, Q: 4, out, retdest) -> (retdest)
     // stack:                      retdest
+    %clear_line
     JUMP 
 
 miller_one:
@@ -279,5 +280,14 @@ after_add:
     // stack:                                            p1x - p2x, qy_
     MULFP254
     // stack:                                           (p1x - p2x)*qy_
+    %mstore_kernel_bn254_pairing(21)
+%endmacro
+
+%macro clear_line
+    %stack () -> (0, 0, 0, 0, 0)
+    %mstore_kernel_bn254_pairing(12)
+    %mstore_kernel_bn254_pairing(14)
+    %mstore_kernel_bn254_pairing(15)
+    %mstore_kernel_bn254_pairing(20)
     %mstore_kernel_bn254_pairing(21)
 %endmacro
