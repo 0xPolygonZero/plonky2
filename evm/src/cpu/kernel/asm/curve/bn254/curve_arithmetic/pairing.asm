@@ -1,8 +1,8 @@
 /// def bn254_pairing(pairs: List((Curve, TwistedCurve))) -> Fp12:
 ///     
 ///     for P, Q in pairs:
-///         assert(P.is_valid)
-///         assert(Q.is_valid)
+///         if not (P.is_valid and Q.is_valid):
+///             return @U256_MAX
 ///     
 ///     out = 1
 ///     for P, Q in pairs:
@@ -35,16 +35,27 @@ bn254_input_check:
     // stack:    P_j, inp_j, j, k, inp
     %bn_check
     // stack: valid?, inp_j, j, k, inp
-    %assert_nonzero
+    ISZERO
+    %jumpi(bn_pairing_invalid_input)
     // stack:         inp_j, j, k, inp
+    DUP1
+    // stack: inp_j , inp_j, j, k, inp
     %add_const(2)
+    // stack: inp_j', inp_j, j, k, inp
     %load_fp254_4
-    // stack:           Q_j, j, k, inp
+    // stack:    Q_j, inp_j, j, k, inp
     %bn_check_twisted
-    // stack:        valid?, j, k, inp
-    %assert_nonzero
-    // stack:                j, k, inp
+    // stack: valid?, inp_j, j, k, inp
+    ISZERO
+    %jumpi(bn_pairing_invalid_input)
+    // stack:         inp_j, j, k, inp
+    POP
     %jump(bn254_input_check)
+
+bn_pairing_invalid_input:
+    // stack:  inp_j, j, k, inp, out, retdest
+    %stack (inp_j, j, k, inp, out, retdest) -> (retdest, @U256_MAX)
+    JUMP
 
 bn254_pairing_start:
     // stack:      0, k, inp, out, retdest
