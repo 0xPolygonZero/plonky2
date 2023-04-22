@@ -11,21 +11,25 @@ global precompile_bn_mul:
     %charge_gas_const(@BN_MUL_GAS)
 
     // Load x, y, n from the call data using `mload_packing`.
+    PUSH bn_mul_return
+    // stack: bn_mul_return, kexit_info
+    %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
-    %stack (ctx, kexit_info) -> (ctx, @SEGMENT_CALLDATA, 64, 32, bn_mul_contd, kexit_info)
-    %jump(mload_packing)
-bn_mul_contd:
+    // stack: ctx, @SEGMENT_CALLDATA, 64, 32, bn_mul_return, kexit_info
+    %mload_packing
+    // stack: n, bn_mul_return, kexit_info
+    %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
-    %stack (ctx, n, kexit_info) -> (ctx, @SEGMENT_CALLDATA, 32, 32, bn_mul_contd2, n, kexit_info)
-    %jump(mload_packing)
-bn_mul_contd2:
+    // stack: ctx, @SEGMENT_CALLDATA, 32, 32, n, bn_mul_return, kexit_info
+    %mload_packing
+    // stack: y, n, bn_mul_return, kexit_info
+    %stack () -> (@SEGMENT_CALLDATA, 0, 32)
     GET_CONTEXT
-    %stack (ctx, y, n, kexit_info) -> (ctx, @SEGMENT_CALLDATA, 0, 32, bn_mul_contd3, y, n, kexit_info)
-    %jump(mload_packing)
-bn_mul_contd3:
-    %stack (x, y, n, kexit_info) -> (x, y, n, bn_mul_contd4, kexit_info)
+    // stack: ctx, @SEGMENT_CALLDATA, 0, 32, y, n, bn_mul_return, kexit_info
+    %mload_packing
+    // stack: x, y, n, bn_mul_return, kexit_info
     %jump(bn_mul)
-bn_mul_contd4:
+bn_mul_return:
     // stack: Px, Py, kexit_info
     DUP2 %eq_const(@U256_MAX) // bn_mul returns (U256_MAX, U256_MAX) on bad input.
     DUP2 %eq_const(@U256_MAX) // bn_mul returns (U256_MAX, U256_MAX) on bad input.
