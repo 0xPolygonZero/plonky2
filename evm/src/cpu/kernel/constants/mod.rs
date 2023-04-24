@@ -240,6 +240,8 @@ const PRECOMPILES_GAS: [(&str, u16); 13] = [
     ("BLAKE2_F_DYNAMIC_GAS", 1),
 ];
 
+const SNARKV_POINTERS: [(&str, u64); 2] = [("SNARKV_INP", 112), ("SNARKV_OUT", 100)];
+
 const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
     ("MAX_CODE_SIZE", 0x6000),
     ("MAX_INITCODE_SIZE", 0xc000),
