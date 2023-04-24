@@ -11,6 +11,16 @@
 ///     result = bn254_final_exponent(out)
 ///     return result == @GENERATOR_PAIRING
 
+/// The following is a key to this API
+/// 
+/// - k is the number of inputs, 
+/// - each input given by a pair of points, one on the curve and one on the twisted curve
+/// - each input consists of 6 stack terms---2 for the curve point and 4 for the twisted curve point
+/// - the inputs are presumed to be placed on the kernel contiguously
+/// - the output (as defined above) is an Fp12 element
+/// - out and inp are the BnPairing segment offsets for the output element and input
+/// - the assembly code currently uses offsets 0-78 for scratch space
+
 global bn254_pairing:
     // stack: k, inp, out, retdest 
     DUP1
