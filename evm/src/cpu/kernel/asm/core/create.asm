@@ -10,7 +10,10 @@ global sys_create:
     %checked_mem_expansion
     // stack: kexit_info, value, code_offset, code_len
     %charge_gas_const(@GAS_CREATE)
-    // TODO: If using EIP-3860, we should limit and charge gas on `code_len`.
+    // stack: kexit_info, value, code_offset, code_len
+    DUP4
+    // stack: code_len, kexit_info, value, code_offset, code_len
+    %check_initcode_size
 
     %stack (kexit_info, value, code_offset, code_len)
         -> (sys_create_got_address, value, code_offset, code_len, kexit_info)
@@ -39,7 +42,11 @@ global sys_create2:
     // stack: kexit_info, value, code_offset, code_len, salt
     DUP4 %num_bytes_to_num_words
     %mul_const(@GAS_KECCAK256WORD) %add_const(@GAS_CREATE) %charge_gas
-    // TODO: If using EIP-3860, we should limit and charge gas on `code_len`.
+    // stack: kexit_info, value, code_offset, code_len, salt
+    DUP4
+    // stack: code_len, kexit_info, value, code_offset, code_len, salt
+    %check_initcode_size
+
 
     SWAP4
     %stack (salt) -> (salt, create_common)
@@ -130,9 +137,11 @@ after_constructor:
     // stack: new_ctx, leftover_gas, success, address, kexit_info
     POP
 
-    // TODO: EIP-3541: Reject new contract code starting with the 0xEF byte
 
     // TODO: Skip blocks below if success is false.
+    // EIP-3541: Reject new contract code starting with the 0xEF byte
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
+
     // Charge gas for the code size.
     SWAP3
     // stack: kexit_info, success, address, leftover_gas
@@ -150,6 +159,7 @@ after_constructor:
     %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
     KECCAK_GENERAL
     // stack: codehash, leftover_gas, success, address, kexit_info
+    %observe_new_contract
     DUP4
     // stack: address, codehash, leftover_gas, success, address, kexit_info
     %set_codehash
@@ -180,7 +190,7 @@ after_constructor:
 // Pre stack: addr, codehash, redest
 // Post stack: (empty)
 // TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
-set_codehash:
+global set_codehash:
     // stack: addr, codehash, retdest
     %mpt_read_state_trie
     // stack: account_ptr, codehash, retdest
@@ -189,3 +199,30 @@ set_codehash:
     %mstore_trie_data
     // stack: retdest
     JUMP
+
+// Check and charge gas cost for initcode size. See EIP-3860.
+// Pre stack: code_size, kexit_info
+// Post stack: kexit_info
+%macro check_initcode_size
+    DUP1 %gt_const(@MAX_INITCODE_SIZE) %jumpi(fault_exception)
+    // stack: code_size, kexit_info
+    %num_bytes_to_num_words %mul_const(@INITCODE_WORD_COST)
+    %charge_gas
+%endmacro
+
+
+// This should be called whenever a new contract is created.
+// It does nothing, but just provides a single hook where code can react to newly created contracts.
+// When called, the code corresponding to `codehash` should be stored in the return data.
+// Pre stack: codehash, retdest
+// Post stack: codehash
+global observe_new_contract:
+    // stack codehash, retdest
+    SWAP1 JUMP
+
+%macro observe_new_contract
+    %stack (codehash) -> (codehash, %%after)
+    %jump(observe_new_contract)
+%%after:
+    // stack: codehash
+%endmacro
