@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -12,7 +11,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -23,6 +22,7 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use crate::util::log_floor;
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -53,6 +53,15 @@ impl<const B: usize> BaseSumGate<B> {
 impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
         format!("{self:?} + Base: {B}")
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.num_limbs)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_limbs = src.read_usize()?;
+        Ok(Self { num_limbs })
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -109,12 +118,12 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
         let gen = BaseSplitGenerator::<B> {
             row,
             num_limbs: self.num_limbs,
         };
-        vec![Box::new(gen.adapter())]
+        vec![WitnessGeneratorRef::new(gen.adapter())]
     }
 
     // 1 for the sum then `num_limbs` for the limbs.
@@ -160,13 +169,17 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> PackedEvaluab
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BaseSplitGenerator<const B: usize> {
     row: usize,
     num_limbs: usize,
 }
 
 impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
+    fn id(&self) -> String {
+        "BaseSplitGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         vec![Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM)]
     }
@@ -194,6 +207,17 @@ impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> 
         for (b, b_value) in limbs.zip(limbs_value) {
             out_buffer.set_target(b, b_value);
         }
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.row)?;
+        dst.write_usize(self.num_limbs)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let row = src.read_usize()?;
+        let num_limbs = src.read_usize()?;
+        Ok(Self { row, num_limbs })
     }
 }
 

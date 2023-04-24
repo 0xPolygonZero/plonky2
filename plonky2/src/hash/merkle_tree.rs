@@ -36,7 +36,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> MerkleCap<F, HC, H> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleTree<F: RichField, HC: HashConfig, H: Hasher<F, HC>> {
     /// The data in the leaves of the Merkle tree.
     pub leaves: Vec<Vec<F>>,
