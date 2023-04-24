@@ -144,6 +144,10 @@ process_contract_creation_txn_after_code_loaded:
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
     POP // TODO: Success will go into the receipt when we support that.
+
+    // EIP-3541: Reject new contract code starting with the 0xEF byte
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
