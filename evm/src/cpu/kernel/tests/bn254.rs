@@ -202,15 +202,19 @@ fn test_bn_final_exponent() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_bn_miller() -> Result<()> {
-    let ptr: usize = 100;
-    let out: usize = 106;
-
+fn pairing_input() -> Vec<U256> {
     let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
     let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
     let mut input = curve_gen.to_vec();
     input.extend_from_slice(&twisted_gen);
+    input
+}
+
+#[test]
+fn test_bn_miller() -> Result<()> {
+    let ptr: usize = 100;
+    let out: usize = 106;
+    let input = pairing_input();
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),
@@ -231,11 +235,7 @@ fn test_bn_miller() -> Result<()> {
 fn test_bn_pairing() -> Result<()> {
     let out: usize = 100;
     let ptr: usize = 112;
-
-    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
-    let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
-    let mut input = curve_gen.to_vec();
-    input.extend_from_slice(&twisted_gen);
+    let input = pairing_input();
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_pairing".to_string(),
