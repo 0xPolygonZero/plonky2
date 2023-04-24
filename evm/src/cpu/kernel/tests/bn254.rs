@@ -1,14 +1,16 @@
+use std::mem::transmute;
+
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
 use crate::bn254_pairing::{
-    final_exponent, gen_fp12_sparse, miller_loop, tate, Curve, TwistedCurve,
+    final_exponent, gen_fp12_sparse, miller_loop, CURVE_GENERATOR, TWISTED_GENERATOR,
 };
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
-use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
+use crate::extension_tower::{FieldExt, Fp12, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -200,76 +202,21 @@ fn test_bn_final_exponent() -> Result<()> {
     Ok(())
 }
 
-// The curve is cyclic with generator (1, 2)
-pub const CURVE_GENERATOR: Curve = {
-    Curve {
-        x: BN254 { val: U256::one() },
-        y: BN254 {
-            val: U256([2, 0, 0, 0]),
-        },
-    }
-};
-
-// The twisted curve is cyclic with generator (x, y) as follows
-pub const TWISTED_GENERATOR: TwistedCurve = {
-    TwistedCurve {
-        x: Fp2 {
-            re: BN254 {
-                val: U256([
-                    0x46debd5cd992f6ed,
-                    0x674322d4f75edadd,
-                    0x426a00665e5c4479,
-                    0x1800deef121f1e76,
-                ]),
-            },
-            im: BN254 {
-                val: U256([
-                    0x97e485b7aef312c2,
-                    0xf1aa493335a9e712,
-                    0x7260bfb731fb5d25,
-                    0x198e9393920d483a,
-                ]),
-            },
-        },
-        y: Fp2 {
-            re: BN254 {
-                val: U256([
-                    0x4ce6cc0166fa7daa,
-                    0xe3d1e7690c43d37b,
-                    0x4aab71808dcb408f,
-                    0x12c85ea5db8c6deb,
-                ]),
-            },
-            im: BN254 {
-                val: U256([
-                    0x55acdadcd122975b,
-                    0xbc4b313370b38ef3,
-                    0xec9e99ad690c3395,
-                    0x090689d0585ff075,
-                ]),
-            },
-        },
-    }
-};
-
 #[test]
 fn test_bn_miller() -> Result<()> {
     let ptr: usize = 100;
     let out: usize = 106;
-    let inputs: Vec<U256> = vec![
-        CURVE_GENERATOR.x.val,
-        CURVE_GENERATOR.y.val,
-        TWISTED_GENERATOR.x.re.val,
-        TWISTED_GENERATOR.x.im.val,
-        TWISTED_GENERATOR.y.re.val,
-        TWISTED_GENERATOR.y.im.val,
-    ];
+
+    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
+    let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
+    let mut input = curve_gen.to_vec();
+    input.extend_from_slice(&twisted_gen);
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
-        memory: vec![(ptr, inputs)],
+        memory: vec![(ptr, input)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
@@ -285,14 +232,10 @@ fn test_bn_pairing() -> Result<()> {
     let out: usize = 100;
     let ptr: usize = 112;
 
-    let inputs: Vec<U256> = vec![
-        CURVE_GENERATOR.x.val,
-        CURVE_GENERATOR.y.val,
-        TWISTED_GENERATOR.x.re.val,
-        TWISTED_GENERATOR.x.im.val,
-        TWISTED_GENERATOR.y.re.val,
-        TWISTED_GENERATOR.y.im.val,
-    ];
+    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
+    let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
+    let mut input = curve_gen.to_vec();
+    input.extend_from_slice(&twisted_gen);
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_pairing".to_string(),
@@ -303,12 +246,9 @@ fn test_bn_pairing() -> Result<()> {
             U256::from(0xdeadbeefu32),
         ],
         segment: BnPairing,
-        memory: vec![(ptr, inputs)],
+        memory: vec![(ptr, input)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    // let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).on_stack();
-    println!("{:?}", expected);
     assert_eq!(interpreter.stack()[0], U256::one());
 
     Ok(())

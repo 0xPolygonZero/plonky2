@@ -1,5 +1,6 @@
 use std::ops::Add;
 
+use ethereum_types::U256;
 use rand::Rng;
 
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, BN254};
@@ -10,6 +11,16 @@ pub struct Curve {
     pub x: BN254,
     pub y: BN254,
 }
+
+// The curve is cyclic with generator (1, 2)
+pub const CURVE_GENERATOR: Curve = {
+    Curve {
+        x: BN254 { val: U256::one() },
+        y: BN254 {
+            val: U256([2, 0, 0, 0]),
+        },
+    }
+};
 
 /// Standard addition formula for elliptic curves, restricted to the cases  
 /// where neither inputs nor output would ever be the identity O. source:
@@ -37,6 +48,48 @@ pub struct TwistedCurve {
     pub x: Fp2<BN254>,
     pub y: Fp2<BN254>,
 }
+
+// The twisted curve is cyclic with generator (x, y) as follows
+pub const TWISTED_GENERATOR: TwistedCurve = {
+    TwistedCurve {
+        x: Fp2 {
+            re: BN254 {
+                val: U256([
+                    0x46debd5cd992f6ed,
+                    0x674322d4f75edadd,
+                    0x426a00665e5c4479,
+                    0x1800deef121f1e76,
+                ]),
+            },
+            im: BN254 {
+                val: U256([
+                    0x97e485b7aef312c2,
+                    0xf1aa493335a9e712,
+                    0x7260bfb731fb5d25,
+                    0x198e9393920d483a,
+                ]),
+            },
+        },
+        y: Fp2 {
+            re: BN254 {
+                val: U256([
+                    0x4ce6cc0166fa7daa,
+                    0xe3d1e7690c43d37b,
+                    0x4aab71808dcb408f,
+                    0x12c85ea5db8c6deb,
+                ]),
+            },
+            im: BN254 {
+                val: U256([
+                    0x55acdadcd122975b,
+                    0xbc4b313370b38ef3,
+                    0xec9e99ad690c3395,
+                    0x090689d0585ff075,
+                ]),
+            },
+        },
+    }
+};
 
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
 pub fn tate(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
