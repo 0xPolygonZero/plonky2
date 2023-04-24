@@ -45,7 +45,7 @@ mload_packing_return:
 
 %macro mload_packing
     %stack (addr: 3, len) -> (addr, len, %%after)
-    %jump(extcodehash)
+    %jump(mload_packing)
 %%after:
 %endmacro
 

@@ -34,6 +34,15 @@
     // stack: (empty)
 %endmacro
 
+// Store the given context metadata field to memory.
+%macro mstore_context_metadata(field, value)
+    PUSH $value
+    PUSH $field
+    // stack: offset, value
+    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    // stack: (empty)
+%endmacro
+
 %macro mstore_parent_context_metadata(field)
     // stack: value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)

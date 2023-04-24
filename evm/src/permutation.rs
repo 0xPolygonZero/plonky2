@@ -17,6 +17,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, Hasher};
 use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
+use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
@@ -87,6 +88,30 @@ impl GrandProductChallenge<Target> {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
     pub(crate) challenges: Vec<GrandProductChallenge<T>>,
+}
+
+impl GrandProductChallengeSet<Target> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_usize(self.challenges.len())?;
+        for challenge in &self.challenges {
+            buffer.write_target(challenge.beta)?;
+            buffer.write_target(challenge.gamma)?;
+        }
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let length = buffer.read_usize()?;
+        let mut challenges = Vec::with_capacity(length);
+        for _ in 0..length {
+            challenges.push(GrandProductChallenge {
+                beta: buffer.read_target()?,
+                gamma: buffer.read_target()?,
+            });
+        }
+
+        Ok(GrandProductChallengeSet { challenges })
+    }
 }
 
 /// Compute all Z polynomials (for permutation arguments).
