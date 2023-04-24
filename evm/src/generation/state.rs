@@ -107,23 +107,18 @@ impl<F: Field> GenerationState<F> {
         }
 
         let ctx = self.registers.context;
-        let base_address = MemoryAddress::new(ctx, Segment::Returndata, 0);
         let returndata_size_addr = MemoryAddress::new(
             ctx,
             Segment::ContextMetadata,
             ContextMetadata::ReturndataSize as usize,
         );
         let returndata_size = self.memory.get(returndata_size_addr).as_usize();
-        let code = (0..returndata_size)
-            .map(|i| {
-                let address = MemoryAddress {
-                    virt: base_address.virt.saturating_add(i),
-                    ..base_address
-                };
-                let val = self.memory.get(address);
-                val.as_u32() as u8
-            })
+        let code = self.memory.contexts[ctx].segments[Segment::Returndata as usize].content
+            [..returndata_size]
+            .iter()
+            .map(|x| x.as_u32() as u8)
             .collect::<Vec<_>>();
+        debug_assert_eq!(keccak(&code), codehash);
 
         self.inputs.contract_code.insert(codehash, code);
     }
