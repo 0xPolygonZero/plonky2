@@ -12,7 +12,7 @@
 ///     return result == @GENERATOR_PAIRING
 
 global bn254_pairing:
-    // stack: 
+    // stack: k, inp, out, retdest 
     DUP1
 
 bn254_input_check:
@@ -134,7 +134,7 @@ bn254_pairing_output_validation:
     // stack:   checkj, out, check
     %stack (checkj, out, check) -> (check, checkj, out)
     // stack:   check, checkj, out
-    AND
+    MUL
     // stack:           check, out
 %endmacro
 
