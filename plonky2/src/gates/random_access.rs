@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -14,7 +13,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
@@ -24,9 +23,10 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// A gate for checking that a particular element of a list matches a given value.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     /// Number of bits in the index (log2 of the list size).
     pub bits: usize,
@@ -120,6 +120,20 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn id(&self) -> String {
         format!("{self:?}<D={D}>")
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.bits)?;
+        dst.write_usize(self.num_copies)?;
+        dst.write_usize(self.num_extra_constants)?;
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let bits = src.read_usize()?;
+        let num_copies = src.read_usize()?;
+        let num_extra_constants = src.read_usize()?;
+        Ok(Self::new(num_copies, bits, num_extra_constants))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -238,18 +252,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
         (0..self.num_copies)
             .map(|copy| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                WitnessGeneratorRef::new(
                     RandomAccessGenerator {
                         row,
                         gate: *self,
                         copy,
                     }
                     .adapter(),
-                );
-                g
+                )
             })
             .collect()
     }
@@ -325,8 +338,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
     }
 }
 
-#[derive(Debug)]
-struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Debug, Default)]
+pub struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     gate: RandomAccessGate<F, D>,
     copy: usize,
@@ -335,6 +348,10 @@ struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for RandomAccessGenerator<F, D>
 {
+    fn id(&self) -> String {
+        "RandomAccessGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |column| Target::wire(self.row, column);
 
@@ -375,6 +392,19 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             let bit = F::from_bool(((access_index >> i) & 1) != 0);
             set_local_wire(self.gate.wire_bit(i, copy), bit);
         }
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.row)?;
+        dst.write_usize(self.copy)?;
+        self.gate.serialize(dst)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let row = src.read_usize()?;
+        let copy = src.read_usize()?;
+        let gate = RandomAccessGate::<F, D>::deserialize(src)?;
+        Ok(Self { row, gate, copy })
     }
 }
 

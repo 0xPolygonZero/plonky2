@@ -145,6 +145,16 @@ global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
     POP // TODO: Success will go into the receipt when we support that.
     // stack: leftover_gas, new_ctx, address, retdest
+    %returndatasize // Size of the code.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %mul_const(@GAS_CODEDEPOSIT) SWAP1
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    SUB
+    // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.
     // stack: new_ctx, address, retdest
@@ -165,6 +175,13 @@ global process_message_txn:
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
+    %handle_precompiles_from_eoa
+
+    // If to's code is empty, return.
+    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
+    // stack: code_empty, retdest
+    %jumpi(process_message_txn_return)
+
     // Add precompiles to accessed addresses.
     PUSH @ECREC %insert_accessed_addresses_no_return
     PUSH @SHA256 %insert_accessed_addresses_no_return
@@ -175,12 +192,6 @@ global process_message_txn:
     PUSH @BN_MUL %insert_accessed_addresses_no_return
     PUSH @SNARKV %insert_accessed_addresses_no_return
     PUSH @BLAKE2_F %insert_accessed_addresses_no_return
-    // TODO: Handle precompiles.
-
-    // If to's code is empty, return.
-    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
-    // stack: code_empty, retdest
-    %jumpi(process_message_txn_return)
 
     // Otherwise, load to's code and execute it in a new context.
     // stack: retdest

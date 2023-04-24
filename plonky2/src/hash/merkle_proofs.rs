@@ -31,7 +31,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> MerkleProof<F, HC, H> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashOutTarget>,
