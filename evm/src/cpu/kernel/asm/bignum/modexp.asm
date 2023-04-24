@@ -8,10 +8,55 @@
 // All of scratch_2..scratch_5 must have size 2 * length and be initialized with zeroes.
 // Also, scratch_2..scratch_5 must be CONSECUTIVE in memory.
 global modexp_bignum:
-    // stack: len, b_loc, e_loc, m_loc, out_loc, s1 (=scratch_1), s2, s3, s4, s5, retdest
-    DUP1
-    ISZERO
-    %jumpi(len_zero)
+    // Special input cases:
+
+    // (1) Modulus is zero (also covers len=0 case).
+    PUSH modulus_zero_return
+    // stack: modulus_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP5
+    // stack: m_loc, modulus_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP3
+    // stack: len, m_loc, modulus_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jump(iszero_bignum)
+modulus_zero_return:
+    // stack: m==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jumpi(modulus_zero_or_one)
+
+    // (2) Modulus is one.
+    PUSH modulus_one_return
+    // stack: modulus_one_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP5
+    // stack: m_loc, modulus_one_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP3
+    // stack: len, m_loc, modulus_one_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jump(isone_bignum)
+modulus_one_return:
+    // stack: m==1, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jumpi(modulus_zero_or_one)
+
+    // (3) Both b and e are zero.
+    PUSH b_zero_return
+    // stack: b_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP3
+    // stack: b_loc, b_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP3
+    // stack: len, b_loc, b_zero_return, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jump(iszero_bignum)
+b_zero_return:
+    // stack: b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    PUSH e_zero_return
+    // stack: e_zero_return, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP5
+    // stack: e_loc, e_zero_return, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    DUP4
+    // stack: len, e_loc, e_zero_return, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %jump(iszero_bignum)
+e_zero_return:
+    // stack: e==0, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    MUL // logical and
+    %jumpi(b_and_e_zero)
+
+    // End of special cases.
 
     // We store the repeated-squares accumulator x_i in scratch_1, starting with x_0 := b.
     DUP1
@@ -128,8 +173,18 @@ modexp_iszero_return:
     // stack: e != 0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     %jumpi(modexp_loop)
 // end of modexp_loop
-len_zero:
+modulus_zero_or_one:
+    // If modulus is zero or one, return 0.
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    %pop10
+    // stack: retdest
+    JUMP
+b_and_e_zero:
+    // If base and exponent are zero (and modulus > 1), return 1.
+    // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+    PUSH 1
+    DUP6
+    %mstore_kernel_general
     %pop10
     // stack: retdest
     JUMP
