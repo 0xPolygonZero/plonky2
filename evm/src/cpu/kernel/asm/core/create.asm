@@ -159,6 +159,7 @@ after_constructor:
     %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
     KECCAK_GENERAL
     // stack: codehash, leftover_gas, success, address, kexit_info
+    %observe_new_contract
     DUP4
     // stack: address, codehash, leftover_gas, success, address, kexit_info
     %set_codehash
@@ -189,7 +190,7 @@ after_constructor:
 // Pre stack: addr, codehash, redest
 // Post stack: (empty)
 // TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
-set_codehash:
+global set_codehash:
     // stack: addr, codehash, retdest
     %mpt_read_state_trie
     // stack: account_ptr, codehash, retdest
@@ -207,4 +208,21 @@ set_codehash:
     // stack: code_size, kexit_info
     %num_bytes_to_num_words %mul_const(@INITCODE_WORD_COST)
     %charge_gas
+%endmacro
+
+
+// This should be called whenever a new contract is created.
+// It does nothing, but just provides a single hook where code can react to newly created contracts.
+// When called, the code corresponding to `codehash` should be stored in the return data.
+// Pre stack: codehash, retdest
+// Post stack: codehash
+global observe_new_contract:
+    // stack codehash, retdest
+    SWAP1 JUMP
+
+%macro observe_new_contract
+    %stack (codehash) -> (codehash, %%after)
+    %jump(observe_new_contract)
+%%after:
+    // stack: codehash
 %endmacro

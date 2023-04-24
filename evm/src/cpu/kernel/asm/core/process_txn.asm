@@ -158,6 +158,19 @@ global process_contract_creation_txn_after_constructor:
     DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
     SUB
+
+    // Store the code hash of the new contract.
+    // stack: leftover_gas, new_ctx, address, retdest
+    GET_CONTEXT
+    %returndatasize
+    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    KECCAK_GENERAL
+    // stack: codehash, leftover_gas, new_ctx, address, retdest
+    %observe_new_contract
+    DUP4
+    // stack: address, codehash, leftover_gas, new_ctx, address, retdest
+    %set_codehash
+
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.
