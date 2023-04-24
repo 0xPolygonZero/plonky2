@@ -116,10 +116,13 @@ fn test_hash_512(
     Ok(())
 }
 
-#[test]
-fn test_blake2b() -> Result<()> {
-    test_hash_512("blake2b", (0, 2), &blake2b)
-}
+// Since the Blake precompile requires only the blake2_f compression function instead of the full blake2b hash,
+// the full hash function is not included in the kernel. To include it, blake2/compression.asm and blake2/main.asm
+// must be added to the kernel.
+// #[test]
+// fn test_blake2b() -> Result<()> {
+//     test_hash_512("blake2b", (0, 2), &blake2b)
+// }
 
 #[test]
 fn test_ripemd() -> Result<()> {

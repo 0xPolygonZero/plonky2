@@ -1,8 +1,8 @@
 global blake2_f:
     // stack: rounds, h0...h7, m0...m15, t0, t1, flag, retdest
-    
+
     // Store the hash values.
-    %blake2b_hash_value_addr
+    %blake2_hash_value_addr
     // stack: addr, rounds, h0...h7, m0...m15, t0, t1, flag, retdest
     %rep 8
         // stack: addr, rounds, h_i, ...
@@ -17,7 +17,7 @@ global blake2_f:
     // stack: rounds, m0...m15, t0, t1, flag, retdest
 
     // Save the message to the message working space.
-    %blake2b_message_addr
+    %blake2_message_addr
     // stack: message_addr, rounds, m0...m15, t0, t1, flag, retdest
     %rep 16
         // stack: message_addr, rounds, m_i, ...
@@ -31,10 +31,7 @@ global blake2_f:
     POP
     // stack: rounds, t0, t1, flag, retdest
 
-
-
-
-    %blake2b_hash_value_addr
+    %blake2_hash_value_addr
     %add_const(7)
     %rep 8
         // stack: addr, ...
@@ -51,7 +48,7 @@ global blake2_f:
     // stack: h_0, ..., h_7, rounds, t0, t1, flag, retdest
 
     // Store the initial 16 values of the internal state.
-    %blake2b_internal_state_addr
+    %blake2_internal_state_addr
     // stack: start, h_0, ..., h_7, rounds, t0, t1, flag, retdest
 
     // First eight words of the internal state: current hash value h_0, ..., h_7.
@@ -70,7 +67,7 @@ global blake2_f:
         // stack: i, loc, ...
         DUP1
         // stack: i, i, loc, ...
-        %blake2b_iv
+        %blake2_iv
         // stack: IV_i, i, loc, ...
         DUP3
         // stack: loc, IV_i, i, loc, ...
@@ -91,7 +88,6 @@ global blake2_f:
     // stack: invert_if_flag, rounds, t0, t1, start + 12, retdest
     %stack (inv, r, t0, t1, s) -> (4, s, t0, t1, inv, 0, r)
     // stack: 4, start + 12, t0, t1, invert_if_flag, 0, rounds, retdest
-    
 
     // Last four values of the internal state: last four IV values, XOR'd with
     // the values (t0, t1, invert_if_flag, 0).
@@ -99,7 +95,7 @@ global blake2_f:
         // stack: i, loc, val, next_val,...
         DUP1
         // stack: i, i, loc, val, next_val,...
-        %blake2b_iv
+        %blake2_iv
         // stack: IV_i, i, loc, val, next_val,...
         DUP4
         // stack: val, IV_i, i, loc, val, next_val,...
@@ -129,15 +125,17 @@ global blake2_f:
     // stack: g_functions_return, rounds, retdest
     SWAP1
     // stack: rounds, g_functions_return, retdest
-    %blake2b_internal_state_addr
+    %blake2_internal_state_addr
     // stack: start, rounds, g_functions_return, retdest
+    PUSH 0
+    // stack: current_round=0, start, rounds, g_functions_return, retdest
     %jump(run_rounds_g_function)
 g_functions_return:
     // Finalize hash value.
     // stack: retdest
     PUSH hash_generate_return
     // stack: hash_generate_return, retdest
-    %jump(blake2b_generate_all_hash_values)
+    %jump(blake2_generate_all_hash_values)
 hash_generate_return:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', retdest
     %stack (h: 8, retdest) -> (retdest, h)
