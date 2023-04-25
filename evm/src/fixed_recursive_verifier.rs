@@ -1,3 +1,4 @@
+use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
@@ -19,6 +20,9 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
+use plonky2::util::serialization::{
+    Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+};
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
 
@@ -48,6 +52,7 @@ const THRESHOLD_DEGREE_BITS: usize = 13;
 /// `degree_bits`, this contains a chain of recursive circuits for shrinking that STARK from
 /// `degree_bits` to a constant `THRESHOLD_DEGREE_BITS`. It also contains a special root circuit
 /// for combining each STARK's shrunk wrapper proof into a single proof.
+#[derive(Eq, PartialEq, Debug)]
 pub struct AllRecursiveCircuits<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -65,12 +70,13 @@ where
 
 /// Data for the EVM root circuit, which is used to combine each STARK's shrunk wrapper proof
 /// into a single proof.
+#[derive(Eq, PartialEq, Debug)]
 pub struct RootCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, C, D>,
+    pub circuit: CircuitData<F, C, D>,
     proof_with_pis: [ProofWithPublicInputsTarget<D>; NUM_TABLES],
     /// For each table, various inner circuits may be used depending on the initial table size.
     /// This target holds the index of the circuit (within `final_circuits()`) that was used.
@@ -80,35 +86,180 @@ where
     cyclic_vk: VerifierCircuitTarget,
 }
 
+impl<F, C, const D: usize> RootCircuitData<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
+        for proof in &self.proof_with_pis {
+            buffer.write_target_proof_with_public_inputs(proof)?;
+        }
+        for index in self.index_verifier_data {
+            buffer.write_target(index)?;
+        }
+        buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let mut proof_with_pis = Vec::with_capacity(NUM_TABLES);
+        for _ in 0..NUM_TABLES {
+            proof_with_pis.push(buffer.read_target_proof_with_public_inputs()?);
+        }
+        let mut index_verifier_data = Vec::with_capacity(NUM_TABLES);
+        for _ in 0..NUM_TABLES {
+            index_verifier_data.push(buffer.read_target()?);
+        }
+        let cyclic_vk = buffer.read_target_verifier_circuit()?;
+
+        Ok(Self {
+            circuit,
+            proof_with_pis: proof_with_pis.try_into().unwrap(),
+            index_verifier_data: index_verifier_data.try_into().unwrap(),
+            cyclic_vk,
+        })
+    }
+}
+
 /// Data for the aggregation circuit, which is used to compress two proofs into one. Each inner
 /// proof can be either an EVM root proof or another aggregation proof.
+#[derive(Eq, PartialEq, Debug)]
 pub struct AggregationCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, C, D>,
+    pub circuit: CircuitData<F, C, D>,
     lhs: AggregationChildTarget<D>,
     rhs: AggregationChildTarget<D>,
     cyclic_vk: VerifierCircuitTarget,
 }
 
+impl<F, C, const D: usize> AggregationCircuitData<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
+        buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        self.lhs.to_buffer(buffer)?;
+        self.rhs.to_buffer(buffer)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let cyclic_vk = buffer.read_target_verifier_circuit()?;
+        let lhs = AggregationChildTarget::from_buffer(buffer)?;
+        let rhs = AggregationChildTarget::from_buffer(buffer)?;
+        Ok(Self {
+            circuit,
+            lhs,
+            rhs,
+            cyclic_vk,
+        })
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
 pub struct AggregationChildTarget<const D: usize> {
     is_agg: BoolTarget,
     agg_proof: ProofWithPublicInputsTarget<D>,
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
+impl<const D: usize> AggregationChildTarget<D> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_bool(self.is_agg)?;
+        buffer.write_target_proof_with_public_inputs(&self.agg_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.evm_proof)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let is_agg = buffer.read_target_bool()?;
+        let agg_proof = buffer.read_target_proof_with_public_inputs()?;
+        let evm_proof = buffer.read_target_proof_with_public_inputs()?;
+        Ok(Self {
+            is_agg,
+            agg_proof,
+            evm_proof,
+        })
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
 pub struct BlockCircuitData<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    circuit: CircuitData<F, C, D>,
+    pub circuit: CircuitData<F, C, D>,
     has_parent_block: BoolTarget,
     parent_block_proof: ProofWithPublicInputsTarget<D>,
     agg_root_proof: ProofWithPublicInputsTarget<D>,
     cyclic_vk: VerifierCircuitTarget,
+}
+
+impl<F, C, const D: usize> BlockCircuitData<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
+        buffer.write_target_bool(self.has_parent_block)?;
+        buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
+        buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let has_parent_block = buffer.read_target_bool()?;
+        let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
+        let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
+        let cyclic_vk = buffer.read_target_verifier_circuit()?;
+        Ok(Self {
+            circuit,
+            has_parent_block,
+            parent_block_proof,
+            agg_root_proof,
+            cyclic_vk,
+        })
+    }
 }
 
 impl<F, C, const D: usize> AllRecursiveCircuits<F, C, D>
@@ -126,10 +277,71 @@ where
     [(); C::HCO::WIDTH]:,
     [(); C::HCI::WIDTH]:,
 {
+    pub fn to_bytes(
+        &self,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Vec<u8>> {
+        // TODO: would be better to initialize it dynamically based on the supported max degree.
+        let mut buffer = Vec::with_capacity(1 << 34);
+        self.root
+            .to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        self.aggregation
+            .to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        self.block
+            .to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        for table in &self.by_table {
+            table.to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        }
+        Ok(buffer)
+    }
+
+    pub fn from_bytes(
+        bytes: &[u8],
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let mut buffer = Buffer::new(bytes.to_vec());
+        let root =
+            RootCircuitData::from_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        let aggregation = AggregationCircuitData::from_buffer(
+            &mut buffer,
+            gate_serializer,
+            generator_serializer,
+        )?;
+        let block =
+            BlockCircuitData::from_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+
+        // Tricky use of MaybeUninit to remove the need for implementing Debug
+        // for all underlying types, necessary to convert a by_table Vec to an array.
+        let by_table = {
+            let mut by_table: [MaybeUninit<RecursiveCircuitsForTable<F, C, D>>; NUM_TABLES] =
+                unsafe { MaybeUninit::uninit().assume_init() };
+            for table in &mut by_table[..] {
+                let value = RecursiveCircuitsForTable::from_buffer(
+                    &mut buffer,
+                    gate_serializer,
+                    generator_serializer,
+                )?;
+                *table = MaybeUninit::new(value);
+            }
+            unsafe {
+                mem::transmute::<_, [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES]>(by_table)
+            }
+        };
+
+        Ok(Self {
+            root,
+            aggregation,
+            block,
+            by_table,
+        })
+    }
+
     /// Preprocess all recursive circuits used by the system.
     pub fn new(
         all_stark: &AllStark<F, D>,
-        degree_bits_range: Range<usize>,
+        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
         stark_config: &StarkConfig,
     ) -> Self {
         let arithmetic = RecursiveCircuitsForTable::new(
@@ -142,35 +354,35 @@ where
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[0].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[1].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[2].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_range.clone(),
+            degree_bits_ranges[3].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_range,
+            degree_bits_ranges[4].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
@@ -493,7 +705,8 @@ where
     }
 }
 
-struct RecursiveCircuitsForTable<F, C, const D: usize>
+#[derive(Eq, PartialEq, Debug)]
+pub struct RecursiveCircuitsForTable<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -513,6 +726,39 @@ where
     [(); C::HCO::WIDTH]:,
     [(); C::HCI::WIDTH]:,
 {
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_usize(self.by_stark_size.len())?;
+        for (&size, table) in &self.by_stark_size {
+            buffer.write_usize(size)?;
+            table.to_buffer(buffer, gate_serializer, generator_serializer)?;
+        }
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let length = buffer.read_usize()?;
+        let mut by_stark_size = BTreeMap::new();
+        for _ in 0..length {
+            let key = buffer.read_usize()?;
+            let table = RecursiveCircuitsForTableSize::from_buffer(
+                buffer,
+                gate_serializer,
+                generator_serializer,
+            )?;
+            by_stark_size.insert(key, table);
+        }
+        Ok(Self { by_stark_size })
+    }
+
     fn new<S: Stark<F, D>>(
         table: Table,
         stark: &S,
@@ -558,6 +804,7 @@ where
 
 /// A chain of shrinking wrapper circuits, ending with a final circuit with `degree_bits`
 /// `THRESHOLD_DEGREE_BITS`.
+#[derive(Eq, PartialEq, Debug)]
 struct RecursiveCircuitsForTableSize<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -577,6 +824,67 @@ where
     [(); C::HCO::WIDTH]:,
     [(); C::HCI::WIDTH]:,
 {
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_usize(self.shrinking_wrappers.len())?;
+        if !self.shrinking_wrappers.is_empty() {
+            buffer.write_common_circuit_data(
+                &self.shrinking_wrappers[0].circuit.common,
+                gate_serializer,
+            )?;
+        }
+        for wrapper in &self.shrinking_wrappers {
+            buffer.write_prover_only_circuit_data(
+                &wrapper.circuit.prover_only,
+                generator_serializer,
+            )?;
+            buffer.write_verifier_only_circuit_data(&wrapper.circuit.verifier_only)?;
+            buffer.write_target_proof_with_public_inputs(&wrapper.proof_with_pis_target)?;
+        }
+        self.initial_wrapper
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let length = buffer.read_usize()?;
+        let mut shrinking_wrappers = Vec::with_capacity(length);
+        if length != 0 {
+            let common = buffer.read_common_circuit_data(gate_serializer)?;
+
+            for _ in 0..length {
+                let prover_only =
+                    buffer.read_prover_only_circuit_data(generator_serializer, &common)?;
+                let verifier_only = buffer.read_verifier_only_circuit_data()?;
+                let proof_with_pis_target = buffer.read_target_proof_with_public_inputs()?;
+                shrinking_wrappers.push(PlonkWrapperCircuit {
+                    circuit: CircuitData {
+                        common: common.clone(),
+                        prover_only,
+                        verifier_only,
+                    },
+                    proof_with_pis_target,
+                })
+            }
+        };
+
+        let initial_wrapper =
+            StarkWrapperCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            initial_wrapper,
+            shrinking_wrappers,
+        })
+    }
+
     fn new<S: Stark<F, D>>(
         table: Table,
         stark: &S,

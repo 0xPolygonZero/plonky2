@@ -33,7 +33,7 @@ pub struct FriQueryStep<
     pub merkle_proof: MerkleProof<F, HC, H>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FriQueryStepTarget<const D: usize> {
     pub evals: Vec<ExtensionTarget<D>>,
     pub merkle_proof: MerkleProofTarget,
@@ -58,7 +58,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> FriInitialTreeProof<F, HC, 
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FriInitialTreeProofTarget {
     pub evals_proofs: Vec<(Vec<Target>, MerkleProofTarget)>,
 }
@@ -92,7 +92,7 @@ pub struct FriQueryRound<
     pub steps: Vec<FriQueryStep<F, HC, H, D>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FriQueryRoundTarget<const D: usize> {
     pub initial_trees_proof: FriInitialTreeProofTarget,
     pub steps: Vec<FriQueryStepTarget<D>>,
@@ -129,7 +129,7 @@ pub struct FriProof<F: RichField + Extendable<D>, HC: HashConfig, H: Hasher<F, H
     pub pow_witness: F,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FriProofTarget<const D: usize> {
     pub commit_phase_merkle_caps: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,

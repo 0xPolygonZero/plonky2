@@ -29,6 +29,7 @@ const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 const TEST_DATA_MODMUL_OUTPUTS: &str = "modmul_outputs";
 const TEST_DATA_MODEXP_OUTPUTS: &str = "modexp_outputs";
+const TEST_DATA_MODEXP_OUTPUTS_FULL: &str = "modexp_outputs_full";
 
 const BIT_SIZES_TO_TEST: [usize; 15] = [
     0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415,
@@ -282,7 +283,7 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
     let scratch_3 = 7 * len; // size 2*len
     let scratch_4 = 9 * len; // size 2*len
     let scratch_5 = 11 * len; // size 2*len
-    let (new_memory, _new_stack) = run_test(
+    let (mut new_memory, _new_stack) = run_test(
         "modexp_bignum",
         memory,
         vec![
@@ -298,6 +299,10 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
             scratch_5.into(),
         ],
     )?;
+    new_memory.resize(
+        new_memory.len().max(output_start_loc + output_len),
+        0.into(),
+    );
 
     let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc + output_len]);
     assert_eq!(output, expected_output);
@@ -506,6 +511,47 @@ fn test_modmul_bignum_all() -> Result<()> {
 
 #[test]
 fn test_modexp_bignum_all() -> Result<()> {
+    let exp_bit_sizes = vec![2, 9, 11, 16];
+
+    for bit_size in &BIT_SIZES_TO_TEST[3..7] {
+        for exp_bit_size in &exp_bit_sizes {
+            let b = gen_bignum(*bit_size);
+            let e = gen_bignum(*exp_bit_size);
+            let m = gen_bignum(*bit_size);
+            if !m.is_zero() {
+                let output = b.clone().modpow(&e, &m);
+                test_modexp_bignum(b, e, m, output)?;
+            }
+
+            let b = max_bignum(*bit_size);
+            let e = max_bignum(*exp_bit_size);
+            let m = max_bignum(*bit_size);
+            if !m.is_zero() {
+                let output = b.modpow(&e, &m);
+                test_modexp_bignum(b, e, m, output)?;
+            }
+        }
+    }
+
+    let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let mut modexp_outputs_iter = modexp_outputs.into_iter();
+    for b in &inputs[..9] {
+        // Include only smaller exponents, to keep tests from becoming too slow.
+        for e in &inputs[..6] {
+            for m in &inputs[..9] {
+                let output = modexp_outputs_iter.next().unwrap();
+                test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+#[ignore] // Too slow to run on CI.
+fn test_modexp_bignum_all_full() -> Result<()> {
     // Only test smaller values for exponent.
     let exp_bit_sizes = vec![2, 100, 127, 128, 129];
 
@@ -530,13 +576,12 @@ fn test_modexp_bignum_all() -> Result<()> {
     }
 
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
-    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS_FULL);
     let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..7] {
-            // For m, skip the first input, which is zero.
-            for m in &inputs[1..] {
+            for m in &inputs {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
