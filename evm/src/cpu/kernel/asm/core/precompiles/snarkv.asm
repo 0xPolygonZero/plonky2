@@ -13,7 +13,7 @@ global precompile_snarkv:
     MOD %jumpi(fault_exception) // calldata_size should be a multiple of 192
     DIV
     // stack: k, kexit_info
-    DUP1 %mul_const(@SNARKV_DYNAMIC_GAS) @add_const(@SNARKV_STATIC_GAS)
+    DUP1 %mul_const(@SNARKV_DYNAMIC_GAS) %add_const(@SNARKV_STATIC_GAS)
     %stack (gas, k, kexit_info) -> (gas, kexit_info, k)
     %charge_gas
     SWAP1
@@ -32,30 +32,35 @@ loading_loop:
 loading_loop_contd:
     // stack: x, px, i, k, kexit_info
     SWAP1 %add_const(32)
-    %stack (py) -> (ctx, @SEGMENT_CALLDATA, py, 32, loading_loop_contd2, py)
+    GET_CONTEXT
+    %stack (ctx, py) -> (ctx, @SEGMENT_CALLDATA, py, 32, loading_loop_contd2, py)
     %jump(mload_packing)
 loading_loop_contd2:
     // stack: y, py, x, i, k, kexit_info
     SWAP1 %add_const(32)
-    %stack (px_re) -> (ctx, @SEGMENT_CALLDATA, px_re, 32, loading_loop_contd3, px_re)
+    GET_CONTEXT
+    %stack (ctx, px_re) -> (ctx, @SEGMENT_CALLDATA, px_re, 32, loading_loop_contd3, px_re)
     %jump(mload_packing)
 loading_loop_contd3:
     // stack: x_re, px_re, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
     // stack: px_im, x_re, y, x, i, k, kexit_info
-    %stack (px_im) -> (ctx, @SEGMENT_CALLDATA, px_im, 32, loading_loop_contd4, px_im)
+    GET_CONTEXT
+    %stack (ctx, px_im) -> (ctx, @SEGMENT_CALLDATA, px_im, 32, loading_loop_contd4, px_im)
     %jump(mload_packing)
 loading_loop_contd4:
     // stack: x_im, px_im, x_re, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
     // stack: py_re, x_im, x_re, y, x, i, k, kexit_info
-    %stack (py_re) -> (ctx, @SEGMENT_CALLDATA, py_re, 32, loading_loop_contd5, py_re)
+    GET_CONTEXT
+    %stack (ctx, py_re) -> (ctx, @SEGMENT_CALLDATA, py_re, 32, loading_loop_contd5, py_re)
     %jump(mload_packing)
 loading_loop_contd5:
     // stack: y_re, py_re, x_im, x_re, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
     // stack: py_im, y_re, x_im, x_re, y, x, i, k, kexit_info
-    %stack (py_im) -> (ctx, @SEGMENT_CALLDATA, py_im, 32, loading_loop_contd6)
+    GET_CONTEXT
+    %stack (ctx, py_im) -> (ctx, @SEGMENT_CALLDATA, py_im, 32, loading_loop_contd6)
     %jump(mload_packing)
 loading_loop_contd6:
     // stack: y_im, y_re, x_im, x_re, y, x, i, k, kexit_info
@@ -98,5 +103,14 @@ loading_loop_contd6:
     %jump(loading_loop)
 
 loading_done:
-    // stack: i, k, kexit_info
-    %pop2
+    %stack (i, k) -> (k, @SNARKV_INP, @SNARKV_OUT, got_result)
+    %jump(bn254_pairing)
+got_result:
+    // stack: result, kexit_info
+    DUP1 %eq_const(@U256_MAX) %jumpi(fault_exception)
+    // stack: result, kexit_info
+    // Store the result bool (repr. by a U256) to the parent's return data using `mstore_unpacking`.
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
+    %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
+    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, address, 32, pop_and_return_success)
+    %jump(mstore_unpacking)
