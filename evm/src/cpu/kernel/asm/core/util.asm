@@ -38,9 +38,13 @@
 // Returns 1 if the account is non-existent, 0 otherwise.
 %macro is_non_existent
     // stack: addr
-    %mpt_read_state_trie
-    ISZERO
+    DUP1
+    // stack: addr, addr
+    %mpt_read_state_trie ISZERO
+    SWAP1
+    // stack: addr, zero_state_trie
     %is_precompile ISZERO
+    // stack: not_precompile, zero_state_trie
     MUL // Cheaper than AND
 %endmacro
 
