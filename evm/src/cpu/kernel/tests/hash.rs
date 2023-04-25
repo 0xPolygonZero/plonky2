@@ -51,10 +51,6 @@ fn make_interpreter_setup(
     }
 }
 
-fn combine_u256s(hi: U256, lo: U256) -> U512 {
-    U512::from(lo) + (U512::from(hi) << 256)
-}
-
 fn prepare_test<T>(
     hash_fn_label: &str,
     hash_input_virt: (usize, usize),
@@ -111,6 +107,10 @@ fn test_sha2() -> Result<()> {
 //     let mut hasher = Blake2b512::new();
 //     hasher.update(input);
 //     U512::from(&hasher.finalize()[..])
+// }
+
+// fn combine_u256s(hi: U256, lo: U256) -> U512 {
+//     U512::from(lo) + (U512::from(hi) << 256)
 // }
 
 // fn test_hash_512(

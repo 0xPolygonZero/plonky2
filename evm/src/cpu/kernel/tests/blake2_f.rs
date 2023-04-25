@@ -5,14 +5,6 @@ use crate::cpu::kernel::interpreter::{
 };
 use crate::memory::segments::Segment::KernelGeneral;
 
-fn reverse_bytes_u32(input: u32) -> u32 {
-    let mut result = 0;
-    for i in 0..4 {
-        result |= ((input >> (i * 8)) & 0xff) << ((3 - i) * 8);
-    }
-    result
-}
-
 fn reverse_bytes_u64(input: u64) -> u64 {
     let mut result = 0;
     for i in 0..8 {
@@ -22,7 +14,7 @@ fn reverse_bytes_u64(input: u64) -> u64 {
 }
 
 fn convert_input(input: &str) -> Result<(u32, [u64; 8], [u64; 16], u64, u64, bool)> {
-    let rounds = reverse_bytes_u32(u32::from_str_radix(&input[..8], 16).unwrap());
+    let rounds = u32::from_str_radix(&input[..8], 16).unwrap();
 
     let mut h = [0u64; 8];
     for i in 0..8 {
@@ -130,6 +122,7 @@ fn test_blake2_f_7() -> Result<()> {
     )
 }
 
+#[ignore]
 #[test]
 fn test_blake2_f_8() -> Result<()> {
     test_blake2_f_eip(

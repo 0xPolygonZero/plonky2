@@ -162,6 +162,7 @@ global run_rounds_g_function:
     // stack: run_rounds_g_function_return, current_round, start, rounds, retdest
     %stack (ret, r, s) -> (r, s, ret)
     // stack: current_round, start, run_rounds_g_function_return, rounds, retdest
+    %jump(run_g_function_round)
 run_rounds_g_function_return:
     // stack: round, start, rounds, retdest
     %increment
