@@ -60,8 +60,9 @@ insert_accessed_addresses_found:
     // stack: cold_access
 %endmacro
 
-/// Inserts the storage key into the access list if it is not already present.
-/// Return 1 if the storage key was inserted, 0 if it was already present.
+/// Inserts the storage key and value into the access list if it is not already present.
+/// `value` should be the current storage value at the slot `(addr, key)`.
+/// Return `1, original_value` if the storage key was inserted, `0, original_value` if it was already present.
 global insert_accessed_storage_keys:
     // stack: addr, key, value, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)

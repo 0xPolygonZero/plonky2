@@ -1,34 +1,3 @@
-%macro load_current_value
-    %stack (slot) -> (slot, %%after)
-    %jump(load_current_value)
-%%after:
-%endmacro
-
-load_current_value:
-    %stack (slot) -> (slot, after_storage_read)
-    %slot_to_storage_key
-    // stack: storage_key, after_storage_read
-    PUSH 64 // storage_key has 64 nibbles
-    %current_storage_trie
-    // stack: storage_root_ptr, 64, storage_key, after_storage_read
-    %jump(mpt_read)
-
-after_storage_read:
-    // stack: value_ptr, retdest
-    DUP1 %jumpi(storage_key_exists)
-
-    // Storage key not found. Return default value_ptr = 0,
-    // which derefs to 0 since @SEGMENT_TRIE_DATA[0] = 0.
-    %stack (value_ptr, retdest) -> (retdest, 0)
-    JUMP
-
-storage_key_exists:
-    // stack: value_ptr, retdest
-    %mload_trie_data
-    // stack: value, retdest
-    SWAP1
-    JUMP
-
 // Write a word to the current account's storage trie.
 //
 // Pre stack: kexit_info, slot, value
@@ -37,31 +6,42 @@ storage_key_exists:
 global sys_sstore:
     %check_static
     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
-    %load_current_value
+    %sload_current
     %address
     %stack (addr, current_value, kexit_info, slot, value) -> (addr, slot, current_value, current_value, kexit_info, slot, value)
     %insert_accessed_storage_keys
     // stack: cold_access, original_value, current_value, kexit_info, slot, value
     %mul_const(@GAS_COLDSLOAD)
+
+    // Check for warm access.
     %stack (gas, original_value, current_value, kexit_info, slot, value) ->
         (value, current_value, current_value, original_value, gas, original_value, current_value, kexit_info, slot, value)
     EQ SWAP2 EQ ISZERO
     // stack: current_value==original_value, value==current_value, gas, original_value, current_value, kexit_info, slot, value)
-    OR
+    ADD // OR
     %jumpi(sstore_warm)
+
+    // Check for sset (set a zero storage slot to a non-zero value).
     // stack: gas, original_value, current_value, kexit_info, slot, value
     DUP2 ISZERO %mul_const(@GAS_SSET) ADD
+
+    // Check for sreset (set a non-zero storage slot to a non-zero value).
+    // stack: gas, original_value, current_value, kexit_info, slot, value
     DUP2 ISZERO ISZERO %mul_const(@GAS_SRESET) ADD
     %jump(sstore_charge_gas)
+
 sstore_warm:
     // stack: gas, original_value, current_value, kexit_info, slot, value)
     %add_const(@GAS_WARMACCESS)
+
 sstore_charge_gas:
     %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, slot, value)
     %charge_gas
 
+    // Check if `value` is equal to `current_value`, and if so exit the kernel early.
     %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
+
     // TODO: If value = 0, delete the key instead of inserting 0.
     // stack: slot, value, kexit_info
 
