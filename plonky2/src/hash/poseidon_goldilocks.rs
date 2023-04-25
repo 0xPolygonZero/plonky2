@@ -4,8 +4,8 @@
 //! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
 //! repository.
 
-use plonky2_field::types::Field;
-use unroll::unroll_for_loops;
+
+
 
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::poseidon::{Poseidon, N_PARTIAL_ROUNDS};

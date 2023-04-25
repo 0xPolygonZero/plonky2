@@ -10,13 +10,6 @@ use crate::cpu::kernel::interpreter::{
 };
 use crate::memory::segments::Segment::KernelGeneral;
 
-/// Standard Blake2b implementation.
-fn blake2b(input: Vec<u8>) -> U512 {
-    let mut hasher = Blake2b512::new();
-    hasher.update(input);
-    U512::from(&hasher.finalize()[..])
-}
-
 /// Standard RipeMD implementation.
 fn ripemd(input: Vec<u8>) -> U256 {
     let mut hasher = Ripemd160::new();
@@ -99,31 +92,6 @@ fn test_hash_256(
     Ok(())
 }
 
-fn test_hash_512(
-    hash_fn_label: &str,
-    hash_input_virt: (usize, usize),
-    standard_implementation: &dyn Fn(Vec<u8>) -> U512,
-) -> Result<()> {
-    let (expected, result_stack) =
-        prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
-
-    // Extract the final output.
-    let actual = combine_u256s(result_stack[0], result_stack[1]);
-
-    // Check that the result is correct.
-    assert_eq!(expected, actual);
-
-    Ok(())
-}
-
-// Since the Blake precompile requires only the blake2_f compression function instead of the full blake2b hash,
-// the full hash function is not included in the kernel. To include it, blake2/compression.asm and blake2/main.asm
-// must be added to the kernel.
-// #[test]
-// fn test_blake2b() -> Result<()> {
-//     test_hash_512("blake2b", (0, 2), &blake2b)
-// }
-
 #[test]
 fn test_ripemd() -> Result<()> {
     test_hash_256("ripemd", (200, 200), &ripemd)
@@ -133,3 +101,36 @@ fn test_ripemd() -> Result<()> {
 fn test_sha2() -> Result<()> {
     test_hash_256("sha2", (0, 1), &sha2)
 }
+
+// Since the Blake precompile requires only the blake2_f compression function instead of the full blake2b hash,
+// the full hash function is not included in the kernel. To include it, blake2/compression.asm and blake2/main.asm
+// must be added to the kernel.
+
+// /// Standard Blake2b implementation.
+// fn blake2b(input: Vec<u8>) -> U512 {
+//     let mut hasher = Blake2b512::new();
+//     hasher.update(input);
+//     U512::from(&hasher.finalize()[..])
+// }
+
+// fn test_hash_512(
+//     hash_fn_label: &str,
+//     hash_input_virt: (usize, usize),
+//     standard_implementation: &dyn Fn(Vec<u8>) -> U512,
+// ) -> Result<()> {
+//     let (expected, result_stack) =
+//         prepare_test(hash_fn_label, hash_input_virt, standard_implementation).unwrap();
+
+//     // Extract the final output.
+//     let actual = combine_u256s(result_stack[0], result_stack[1]);
+
+//     // Check that the result is correct.
+//     assert_eq!(expected, actual);
+
+//     Ok(())
+// }
+
+// #[test]
+// fn test_blake2b() -> Result<()> {
+//     test_hash_512("blake2b", (0, 2), &blake2b)
+// }
