@@ -72,16 +72,16 @@ insert_accessed_storage_keys_loop:
     EQ %jumpi(insert_storage_key)
     // stack: i, len, addr, key, value, retdest
     DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
-    // stack: loaded_key, i, len, addr, key, retdest
+    // stack: loaded_key, i, len, addr, key, value, retdest
     DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
-    // stack: loaded_addr, loaded_key, i, len, addr, key, retdest
+    // stack: loaded_addr, loaded_key, i, len, addr, key, value, retdest
     DUP5 EQ
-    // stack: loaded_addr==addr, loaded_key, i, len, addr, key, retdest
+    // stack: loaded_addr==addr, loaded_key, i, len, addr, key, value, retdest
     SWAP1 DUP6 EQ
-    // stack: loaded_key==key, loaded_addr==addr, i, len, addr, key, retdest
+    // stack: loaded_key==key, loaded_addr==addr, i, len, addr, key, value, retdest
     MUL // AND
     %jumpi(insert_accessed_storage_keys_found)
-    // stack: i, len, addr, key, retdest
+    // stack: i, len, addr, key, value, retdest
     %add_const(3)
     %jump(insert_accessed_storage_keys_loop)
 
@@ -100,8 +100,8 @@ insert_storage_key:
     JUMP
 
 insert_accessed_storage_keys_found:
-    // stack: i, len, addr, key, retdest
+    // stack: i, len, addr, key, value, retdest
     %add_const(2)
     %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
-    %stack (value, len, addr, key, retdest) -> (retdest, 0, value) // Return 0 to indicate that the storage key was already present.
+    %stack (original_value, len, addr, key, value, retdest) -> (retdest, 0, original_value) // Return 0 to indicate that the storage key was already present.
     JUMP
