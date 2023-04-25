@@ -54,7 +54,7 @@ insert_accessed_addresses_found:
 
 
 %macro insert_accessed_storage_keys
-    %stack (addr, key) -> (addr, key, %%after)
+    %stack (addr, key, value) -> (addr, key, value, %%after)
     %jump(insert_accessed_storage_keys)
 %%after:
     // stack: cold_access
@@ -63,14 +63,14 @@ insert_accessed_addresses_found:
 /// Inserts the storage key into the access list if it is not already present.
 /// Return 1 if the storage key was inserted, 0 if it was already present.
 global insert_accessed_storage_keys:
-    // stack: addr, key, retdest
+    // stack: addr, key, value, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
-    // stack: len, addr, key, retdest
+    // stack: len, addr, key, value, retdest
     PUSH 0
 insert_accessed_storage_keys_loop:
-    %stack (i, len, addr, key, retdest) -> (i, len, i, len, addr, key, retdest)
+    %stack (i, len, addr, key, value, retdest) -> (i, len, i, len, addr, key, value, retdest)
     EQ %jumpi(insert_storage_key)
-    // stack: i, len, addr, key, retdest
+    // stack: i, len, addr, key, value, retdest
     DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_key, i, len, addr, key, retdest
     DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
@@ -82,21 +82,26 @@ insert_accessed_storage_keys_loop:
     MUL // AND
     %jumpi(insert_accessed_storage_keys_found)
     // stack: i, len, addr, key, retdest
-    %add_const(2)
+    %add_const(3)
     %jump(insert_accessed_storage_keys_loop)
 
 insert_storage_key:
-    // stack: i, len, addr, key, retdest
+    // stack: i, len, addr, key, value, retdest
     DUP1 %increment
-    %stack (i_plus_1, i, len, addr, key, retdest) -> (i, addr, i_plus_1, key, i_plus_1, retdest)
+    DUP1 %increment
+    %stack (i_plus_2, i_plus_1, i, len, addr, key, value) -> (i, addr, i_plus_1, key, i_plus_2, value, i_plus_2, value)
     %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new address at the end of the array.
     %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new key after that
-    // stack: i_plus_1, retdest
+    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new value after that
+    // stack: i_plus_2, value, retdest
     %increment
-    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length in front of the array.
-    PUSH 1 // Return 1 to indicate that the storage key was inserted.
-    SWAP1 JUMP
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length.
+    %stack (value, retdest) -> (retdest, 1, value) // Return 1 to indicate that the storage key was inserted.
+    JUMP
 
 insert_accessed_storage_keys_found:
-    %stack (i, len, addr, key, retdest) -> (retdest, 0) // Return 0 to indicate that the storage key was already present.
+    // stack: i, len, addr, key, retdest
+    %add_const(2)
+    %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    %stack (value, len, addr, key, retdest) -> (retdest, 0, value) // Return 0 to indicate that the storage key was already present.
     JUMP
