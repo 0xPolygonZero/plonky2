@@ -1,14 +1,12 @@
 global precompile_blake2_f:
-    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, retdest, new_ctx, (old stack)
     %pop2
-    // stack: new_ctx, kexit_info, ret_offset, ret_size
+    // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
     // stack: (empty)
     PUSH 0x100000000 // = 2^32 (is_kernel = true)
     // stack: kexit_info
-
-    // get various inputs out of SEGMENT_CALLDATA
 
     PUSH blake2_f_contd
     // stack: blake2_f_contd, kexit_info
