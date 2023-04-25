@@ -10,8 +10,6 @@ global precompile_blake2_f:
 
     // get various inputs out of SEGMENT_CALLDATA
 
-    // charge gas (based on rounds)
-
     PUSH blake2_f_contd
     // stack: blake2_f_contd, kexit_info
 
@@ -102,6 +100,12 @@ global precompile_blake2_f:
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 0, 4, h_7..h_0, m_15..m_0, t_0, t_1, flag, blake2_f_contd, kexit_info
     %mload_packing
+    // stack: rounds, h_7..h_0, m_15..m_0, t_0, t_1, flag, blake2_f_contd, kexit_info
+    
+    DUP1
+    // stack: rounds, rounds, h_7..h_0, m_15..m_0, t_0, t_1, flag, blake2_f_contd, kexit_info
+    %charge_gas
+    
     // stack: rounds, h_7..h_0, m_15..m_0, t_0, t_1, flag, blake2_f_contd, kexit_info
     %jump(blake2_f)
 blake2_f_contd:
