@@ -5,14 +5,13 @@ use ethereum_types::U256;
 use rand::Rng;
 
 use crate::bn254_pairing::{
-    final_exponent, gen_fp12_sparse, miller_loop, tate, Curve, TwistedCurve, CURVE_GENERATOR,
-    TWISTED_GENERATOR,
+    final_exponent, gen_fp12_sparse, miller_loop, CURVE_GENERATOR, TWISTED_GENERATOR,
 };
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
-use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
+use crate::extension_tower::{FieldExt, Fp12, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -250,14 +249,14 @@ fn test_bn_pairing() -> Result<()> {
         "0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
         "0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
         "0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
-        "0x900689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+        "0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
     ])
     .unwrap();
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_pairing".to_string(),
         stack: vec![
-            U256::one(),
+            U256::from(2),
             U256::from(ptr),
             U256::from(out),
             U256::from(0xdeadbeefu32),
@@ -266,6 +265,7 @@ fn test_bn_pairing() -> Result<()> {
         memory: vec![(ptr, inputs)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    assert_eq!(interpreter.stack(), Fp12::<BN254>::UNIT.on_stack());
+    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
+    assert_eq!(output, Fp12::<BN254>::UNIT.on_stack());
     Ok(())
 }

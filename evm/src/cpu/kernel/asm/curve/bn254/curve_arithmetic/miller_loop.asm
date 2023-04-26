@@ -27,9 +27,9 @@
 
 global bn254_miller:
     // stack:            ptr, out, retdest
-    %stack (ptr, out) -> (out, 1, ptr, out)
-    // stack:    out, 1, ptr, out, retdest
-    %mstore_kernel_bn254_pairing
+    %stack (ptr, out) -> (out, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ptr, out)
+    // stack: out, unit, ptr, out, retdest
+    %store_fp254_12
     // stack:            ptr, out, retdest
     %load_fp254_6
     // stack:           P, Q, out, retdest
@@ -111,25 +111,25 @@ mul_tangent_1:
     DUP11
     // stack:    O, Q, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out
     %tangent
-    // stack:          out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {0: line}
+    // stack:          out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {12: line}
     %stack (out) -> (out, 12, out)
-    // stack: out, 12, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {0: line}
+    // stack: out, 12, out, mul_tangent_2, retdest, 0xnm, times, O, P, Q, out  {12: line}
     %jump(mul_fp254_12_sparse)
 mul_tangent_2:
-    // stack:                  retdest, 0xnm, times,   O, P, Q, out  {0: line}
+    // stack:                  retdest, 0xnm, times,   O, P, Q, out  {12: line}
     PUSH after_double
-    // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {0: line}
+    // stack:    after_double, retdest, 0xnm, times,   O, P, Q, out  {12: line}
     DUP6  
     DUP6
-    // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {0: line}
+    // stack: O, after_double, retdest, 0xnm, times,   O, P, Q, out  {12: line}
     %jump(bn_double)
 after_double:
-    // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {0: line}
+    // stack:             2*O, retdest, 0xnm, times,   O, P, Q, out  {12: line}
     SWAP5
     POP
     SWAP5
     POP
-    // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {0: line}
+    // stack:                  retdest, 0xnm, times, 2*O, P, Q, out  {12: line}
     JUMP
 
 /// def mul_cord()
@@ -153,11 +153,11 @@ mul_cord:
     DUP13
     // stack:      P, O, Q, mul_cord_1, 0xnm, times, O, P, Q, out
     %cord 
-    // stack:               mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
+    // stack:               mul_cord_1, 0xnm, times, O, P, Q, out  {12: line}
     DUP12
-    // stack:          out, mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
+    // stack:          out, mul_cord_1, 0xnm, times, O, P, Q, out  {12: line}
     %stack (out) -> (out, 12, out)
-    // stack: out, 12, out, mul_cord_1, 0xnm, times, O, P, Q, out  {0: line}
+    // stack: out, 12, out, mul_cord_1, 0xnm, times, O, P, Q, out  {12: line}
     %jump(mul_fp254_12_sparse)
 mul_cord_1:
     // stack:                   0xnm, times, O  , P, Q, out
