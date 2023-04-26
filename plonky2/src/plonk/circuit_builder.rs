@@ -738,7 +738,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    fn build_inner<C: GenericConfig<D, F = F>>(
+    fn build<C: GenericConfig<D, F = F>>(
         mut self,
         randomize_unused_pi_wires: bool,
     ) -> CircuitData<F, C, D>
@@ -948,24 +948,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             verifier_only,
             common,
         }
-    }
-
-    /// Standard build.    
-    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
-        self.build_inner(true)
-    }
-
-    /// Build without randomizing PI wires
-    pub fn build_without_randomizing<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
-        self.build_inner(false)
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
