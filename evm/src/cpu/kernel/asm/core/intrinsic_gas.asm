@@ -45,7 +45,21 @@ count_zeros_finish:
     // stack: gas_txndata, retdest
 
     %is_contract_creation
+    DUP1
     %mul_const(@GAS_TXCREATE)
+    // stack: gas_creation, is_creation, gas_txndata, retdest
+    SWAP1
+    // stack: is_creation, gas_creation, gas_txndata, retdest
+    DUP1
+    // stack: is_creation, is_creation, gas_creation, gas_txndata, retdest
+    %mload_txn_field(@TXN_FIELD_DATA_LEN) %gt_const(@MAX_INITCODE_SIZE)
+    // stack: initcode_size > max, is_creation, is_creation, gas_creation, gas_txndata, retdest
+    MUL // Cheaper than AND
+    %assert_zero
+    // stack: is_creation, gas_creation, gas_txndata, retdest
+    %mload_txn_field(@TXN_FIELD_DATA_LEN) %num_bytes_to_num_words
+    // stack: initcode_words, is_creation, gas_creation, gas_txndata, retdest
+    %mul_const(@INITCODE_WORD_COST) MUL ADD
     // stack: gas_creation, gas_txndata, retdest
 
     PUSH @GAS_TRANSACTION

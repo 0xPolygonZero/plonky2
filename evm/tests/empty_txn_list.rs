@@ -1,13 +1,16 @@
 #![allow(clippy::upper_case_acronyms)]
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use keccak_hash::keccak;
+use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer};
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
@@ -92,8 +95,43 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     verify_proof(&all_stark, proof, &config)?;
 
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(&all_stark, 9..19, &config);
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
+        &config,
+    );
+
+    {
+        let gate_serializer = DefaultGateSerializer;
+        let generator_serializer = DefaultGeneratorSerializer {
+            _phantom: PhantomData::<C>,
+        };
+
+        let timing = TimingTree::new("serialize AllRecursiveCircuits", log::Level::Info);
+        let all_circuits_bytes = all_circuits
+            .to_bytes(&gate_serializer, &generator_serializer)
+            .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits serialization failed."))?;
+        timing.filter(Duration::from_millis(100)).print();
+        info!(
+            "AllRecursiveCircuits length: {} bytes",
+            all_circuits_bytes.len()
+        );
+
+        let timing = TimingTree::new("deserialize AllRecursiveCircuits", log::Level::Info);
+        let all_circuits_from_bytes = AllRecursiveCircuits::<F, C, D>::from_bytes(
+            &all_circuits_bytes,
+            &gate_serializer,
+            &generator_serializer,
+        )
+        .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits deserialization failed."))?;
+        timing.filter(Duration::from_millis(100)).print();
+
+        assert_eq!(all_circuits, all_circuits_from_bytes);
+    }
+
+    let mut timing = TimingTree::new("prove", log::Level::Info);
     let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof.clone())?;
 
     let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;

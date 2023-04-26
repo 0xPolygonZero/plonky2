@@ -144,6 +144,10 @@ process_contract_creation_txn_after_code_loaded:
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
     POP // TODO: Success will go into the receipt when we support that.
+
+    // EIP-3541: Reject new contract code starting with the 0xEF byte
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
@@ -154,6 +158,19 @@ global process_contract_creation_txn_after_constructor:
     DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
     SUB
+
+    // Store the code hash of the new contract.
+    // stack: leftover_gas, new_ctx, address, retdest
+    GET_CONTEXT
+    %returndatasize
+    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    KECCAK_GENERAL
+    // stack: codehash, leftover_gas, new_ctx, address, retdest
+    %observe_new_contract
+    DUP4
+    // stack: address, codehash, leftover_gas, new_ctx, address, retdest
+    %set_codehash
+
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.

@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
@@ -13,7 +12,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
@@ -23,9 +22,10 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// A gate for raising a value to a power.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
     pub _phantom: PhantomData<F>,
@@ -74,6 +74,15 @@ impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn id(&self) -> String {
         format!("{self:?}<D={D}>")
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.num_power_bits)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_power_bits = src.read_usize()?;
+        Ok(Self::new(num_power_bits))
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -164,12 +173,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
         let gen = ExponentiationGenerator::<F, D> {
             row,
             gate: self.clone(),
         };
-        vec![Box::new(gen.adapter())]
+        vec![WitnessGeneratorRef::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {
@@ -228,8 +237,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
     }
 }
 
-#[derive(Debug)]
-struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Debug, Default)]
+pub struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
     row: usize,
     gate: ExponentiationGate<F, D>,
 }
@@ -237,6 +246,10 @@ struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for ExponentiationGenerator<F, D>
 {
+    fn id(&self) -> String {
+        "ExponentiationGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |column| Target::wire(self.row, column);
 
@@ -280,6 +293,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let output_wire = local_wire(self.gate.wire_output());
         out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.row)?;
+        self.gate.serialize(dst)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let row = src.read_usize()?;
+        let gate = ExponentiationGate::deserialize(src)?;
+        Ok(Self { row, gate })
     }
 }
 

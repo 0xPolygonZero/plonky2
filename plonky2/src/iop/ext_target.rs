@@ -12,6 +12,12 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ExtensionTarget<const D: usize>(pub [Target; D]);
 
+impl<const D: usize> Default for ExtensionTarget<D> {
+    fn default() -> Self {
+        Self([Target::default(); D])
+    }
+}
+
 impl<const D: usize> ExtensionTarget<D> {
     pub fn to_target_array(&self) -> [Target; D] {
         self.0

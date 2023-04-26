@@ -28,11 +28,24 @@
     // stack: to == 0
 %endmacro
 
+%macro is_precompile
+    // stack: addr
+    DUP1 %ge_const(@ECREC) SWAP1 %le_const(@BLAKE2_F)
+    // stack: addr>=1, addr<=9
+    MUL // Cheaper than AND
+%endmacro
+
 // Returns 1 if the account is non-existent, 0 otherwise.
 %macro is_non_existent
     // stack: addr
-    %mpt_read_state_trie
-    ISZERO
+    DUP1
+    // stack: addr, addr
+    %mpt_read_state_trie ISZERO
+    SWAP1
+    // stack: addr, zero_state_trie
+    %is_precompile ISZERO
+    // stack: not_precompile, zero_state_trie
+    MUL // Cheaper than AND
 %endmacro
 
 // Returns 1 if the account is empty, 0 otherwise.
@@ -65,5 +78,5 @@
     // stack: addr
     DUP1 %is_non_existent
     SWAP1 %is_empty
-    ADD // OR
+    OR
 %endmacro
