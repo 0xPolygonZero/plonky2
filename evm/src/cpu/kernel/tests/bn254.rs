@@ -5,13 +5,14 @@ use ethereum_types::U256;
 use rand::Rng;
 
 use crate::bn254_pairing::{
-    final_exponent, gen_fp12_sparse, miller_loop, CURVE_GENERATOR, TWISTED_GENERATOR, Curve, TwistedCurve, tate,
+    final_exponent, gen_fp12_sparse, miller_loop, tate, Curve, TwistedCurve, CURVE_GENERATOR,
+    TWISTED_GENERATOR,
 };
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
-use crate::extension_tower::{FieldExt, Fp12, Fp6, Stack, BN254, Fp2};
+use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -204,7 +205,7 @@ fn test_bn_final_exponent() -> Result<()> {
 }
 
 fn pairing_input() -> Vec<U256> {
-    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR ) };
+    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
     let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
     let mut input = curve_gen.to_vec();
     input.extend_from_slice(&twisted_gen);
@@ -236,7 +237,7 @@ fn test_bn_miller() -> Result<()> {
 fn test_bn_pairing() -> Result<()> {
     let out: usize = 100;
     let ptr: usize = 112;
-    
+
     let inputs: Vec<U256> = u256ify(vec![
         "0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59",
         "0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41",
