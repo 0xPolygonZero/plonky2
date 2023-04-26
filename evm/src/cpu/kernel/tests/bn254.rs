@@ -5,12 +5,13 @@ use ethereum_types::U256;
 use rand::Rng;
 
 use crate::bn254_pairing::{
-    final_exponent, gen_fp12_sparse, miller_loop, CURVE_GENERATOR, TWISTED_GENERATOR,
+    final_exponent, gen_fp12_sparse, miller_loop, CURVE_GENERATOR, TWISTED_GENERATOR, Curve, TwistedCurve, tate,
 };
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
-use crate::extension_tower::{FieldExt, Fp12, Fp6, Stack, BN254};
+use crate::cpu::kernel::tests::u256ify;
+use crate::extension_tower::{FieldExt, Fp12, Fp6, Stack, BN254, Fp2};
 use crate::memory::segments::Segment::BnPairing;
 
 fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
@@ -203,7 +204,7 @@ fn test_bn_final_exponent() -> Result<()> {
 }
 
 fn pairing_input() -> Vec<U256> {
-    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR) };
+    let curve_gen: [U256; 2] = unsafe { transmute(CURVE_GENERATOR ) };
     let twisted_gen: [U256; 4] = unsafe { transmute(TWISTED_GENERATOR) };
     let mut input = curve_gen.to_vec();
     input.extend_from_slice(&twisted_gen);
@@ -235,9 +236,64 @@ fn test_bn_miller() -> Result<()> {
 fn test_bn_pairing() -> Result<()> {
     let out: usize = 100;
     let ptr: usize = 112;
-    let input = pairing_input();
+    
+    let inputs: Vec<U256> = u256ify(vec![
+        "0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59",
+        "0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41",
+        "0x4bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678",
+        "0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7",
+        "0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550",
+        "0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d",
+        "0x111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c",
+        "0x2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411",
+        "0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+        "0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+        "0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        "0x90689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+    ])
+    .unwrap();
 
-    let setup = InterpreterMemoryInitialization {
+    let A: Curve = {
+        Curve {
+            x: BN254 { val: inputs[0] },
+            y: BN254 { val: inputs[1] },
+        }
+    };
+    
+    let B: TwistedCurve = {
+        TwistedCurve {
+            x: Fp2 {
+                re: BN254 { val: inputs[2] },
+                im: BN254 { val: inputs[3] },
+            },
+            y: Fp2 {
+                re: BN254 { val: inputs[4] },
+                im: BN254 { val: inputs[5] },
+            },
+        }
+    };
+    
+    let C: Curve = {
+        Curve {
+            x: BN254 { val: inputs[6] },
+            y: BN254 { val: inputs[7] },
+        }
+    };
+    
+    let D: TwistedCurve = {
+        TwistedCurve {
+            x: Fp2 {
+                re: BN254 { val: inputs[8] },
+                im: BN254 { val: inputs[9] },
+            },
+            y: Fp2 {
+                re: BN254 { val: inputs[10] },
+                im: BN254 { val: inputs[11] },
+            },
+        }
+    };
+
+    let setup1 = InterpreterMemoryInitialization {
         label: "bn254_pairing".to_string(),
         stack: vec![
             U256::one(),
@@ -246,10 +302,24 @@ fn test_bn_pairing() -> Result<()> {
             U256::from(0xdeadbeefu32),
         ],
         segment: BnPairing,
-        memory: vec![(ptr, input)],
+        memory: vec![(ptr, inputs[0..6].to_vec())],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
-    assert_eq!(interpreter.stack()[0], U256::one());
+    let interpreter1 = run_interpreter_with_memory(setup1).unwrap();
+    let output1 = interpreter1.extract_kernel_memory(BnPairing, out..out + 12);
+
+    let setup2 = InterpreterMemoryInitialization {
+        label: "bn254_pairing".to_string(),
+        stack: vec![
+            U256::one(),
+            U256::from(ptr),
+            U256::from(out),
+            U256::from(0xdeadbeefu32),
+        ],
+        segment: BnPairing,
+        memory: vec![(ptr, inputs[6..12].to_vec())],
+    };
+    let interpreter2 = run_interpreter_with_memory(setup2).unwrap();
+    let output2 = interpreter2.extract_kernel_memory(BnPairing, out..out + 12);
 
     Ok(())
 }
