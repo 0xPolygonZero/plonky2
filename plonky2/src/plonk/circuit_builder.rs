@@ -738,10 +738,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    fn build<C: GenericConfig<D, F = F>>(
-        mut self,
-        randomize_unused_pi_wires: bool,
-    ) -> CircuitData<F, C, D>
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
     where
         [(); C::HCO::WIDTH]:,
         [(); C::HCI::WIDTH]:,
@@ -765,9 +762,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
-        if randomize_unused_pi_wires {
-            self.randomize_unused_pi_wires(pi_gate);
-        }
+        self.randomize_unused_pi_wires(pi_gate);
 
         // Make sure we have enough constant generators. If not, add a `ConstantGate`.
         while self.constants_to_targets.len() > self.constant_generators.len() {
