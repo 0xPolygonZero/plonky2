@@ -47,3 +47,9 @@ memcpy_finish:
     %pop7
     // stack: retdest
     JUMP
+
+%macro memcpy
+    %stack (dst: 3, src: 3, count) -> (dst, src, count, %%after)
+    %jump(memcpy)
+%%after:
+%endmacro

@@ -243,6 +243,16 @@
     // stack: max
 %endmacro
 
+%macro max_3
+    // stack: x, y, z
+    %max
+    // stack: max(x, y), z
+    SWAP1
+    // stack: z, max(x, y)
+    %max
+    // stack: max(x, y, z)
+%endmacro
+
 %macro as_u32
     %and_const(0xffffffff)
 %endmacro
