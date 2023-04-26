@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add, Mul, Neg};
 
 use ethereum_types::U256;
 use rand::Rng;
@@ -39,6 +39,38 @@ impl Add for Curve {
             x,
             y: m * (self.x - x) - self.y,
         }
+    }
+}
+
+impl Neg for Curve {
+    type Output = Curve;
+
+    fn neg(self) -> Self {
+        Curve {
+            x: self.x,
+            y: -self.y,
+        }
+    }
+}
+
+impl Mul<i32> for Curve {
+    type Output = Curve;
+
+    fn mul(self, other: i32) -> Self {
+        let mut result: Curve = self;
+        if other.is_negative() {
+            result = -result;
+        }
+        let mut multiplier = result;
+        let mut exp = other.abs() as usize;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                result = result + multiplier;
+            }
+            exp >>= 1;
+            multiplier = multiplier + multiplier;
+        }
+        result
     }
 }
 
