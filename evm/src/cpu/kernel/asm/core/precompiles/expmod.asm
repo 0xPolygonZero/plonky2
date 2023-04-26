@@ -48,10 +48,7 @@ case_le_32:
 
     %log2_floor
     // stack: log2(l_E), l_B, retdest
-    SWAP2
-    %pop2
-    // stack: log2(l_E), retdest
-    SWAP1
+    %stack (log, l_B, retdest) -> (retdest, log)
     // stack: retdest, log2(l_E)
     JUMP
 
@@ -120,8 +117,11 @@ l_E_prime_return:
     PUSH 200
     %max
     // stack: g_r, len, l_M, l_E, l_B, kexit_info
+    %stack (g_r, l: 4, kexit_info) -> (g_r, kexit_info, l)
+    // stack: g_r, kexit_info, len, l_M, l_E, l_B
     %charge_gas
-
+    // stack: kexit_info, len, l_M, l_E, l_B
+    %stack (kexit_info, l: 4) -> (l, kexit_info)
     // stack: len, l_M, l_E, l_B, kexit_info
 
     // Copy B to kernel general memory.
