@@ -265,7 +265,7 @@ fn test_bn_pairing() -> Result<()> {
         memory: vec![(ptr, inputs)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    assert_eq!(output, Fp12::<BN254>::UNIT.on_stack());
+
+    assert_eq!(interpreter.stack()[0], U256::one());
     Ok(())
 }
