@@ -239,6 +239,10 @@ expmod_contd:
 
     DUP1
     // stack: len, len, kexit_info
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+    // stack: len, kexit_info
+    DUP1
+    // stack: len, len, kexit_info
     %mul_const(3)
     // stack: out=3*len, len, kexit_info
     PUSH @SEGMENT_KERNEL_GENERAL
@@ -246,7 +250,6 @@ expmod_contd:
     PUSH 0
     PUSH @SEGMENT_RETURNDATA
     // stack: @SEGMENT_RETURNDATA, 0, 0, @SEGMENT_KERNEL_GENERAL, out, len, kexit_info
-    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     // stack: dst=(parent_ctx, @SEGMENT_RETURNDATA, 0), src=(0, @SEGMENT_KERNEL_GENERAL, out, len), kexit_info
     %memcpy
