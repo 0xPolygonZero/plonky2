@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     pw.set_target(initial_a, F::ZERO);
     pw.set_target(initial_b, F::ONE);
 
-    let data = builder.build_without_randomizing::<C>();
+    let data = builder.build::<C>();
 
     let common_circuit_data_serialized = serde_json::to_string(&data.common).unwrap();
     fs::write("common_circuit_data.json", common_circuit_data_serialized)
@@ -59,6 +59,16 @@ fn main() -> Result<()> {
 
     let proof_serialized = serde_json::to_string(&proof).unwrap();
     fs::write("proof_with_public_inputs.json", proof_serialized).expect("Unable to write file");
+
+    let proof_challenges = proof
+        .get_challenges(
+            proof.get_public_inputs_hash(),
+            &data.verifier_only.circuit_digest,
+            &data.common,
+        )
+        .unwrap();
+    let proof_challenges_serialized = serde_json::to_string(&proof_challenges).unwrap();
+    fs::write("proof_challenges.json", proof_challenges_serialized).expect("Unable to write file");
 
     println!(
         "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",
