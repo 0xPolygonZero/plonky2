@@ -4,11 +4,11 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
+use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
@@ -199,14 +199,6 @@ fn test_bn_final_exponent() -> Result<()> {
     assert_eq!(output, expected);
 
     Ok(())
-}
-
-fn pairing_input() -> Vec<U256> {
-    let curve_gen: [U256; 2] = unsafe { transmute(Curve::<BN254>::GENERATOR) };
-    let twisted_gen: [U256; 4] = unsafe { transmute(Curve::<Fp2<BN254>>::GENERATOR) };
-    let mut input = curve_gen.to_vec();
-    input.extend_from_slice(&twisted_gen);
-    input
 }
 
 #[test]

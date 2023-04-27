@@ -9,11 +9,11 @@
 
 pub mod all_stark;
 pub mod arithmetic;
-pub mod curve_pairings;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
 pub mod cross_table_lookup;
+pub mod curve_pairings;
 pub mod extension_tower;
 pub mod fixed_recursive_verifier;
 pub mod generation;
