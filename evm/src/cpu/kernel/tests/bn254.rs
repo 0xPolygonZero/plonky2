@@ -4,7 +4,7 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-use crate::bn254_pairing::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
+use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };

@@ -9,7 +9,7 @@
 
 pub mod all_stark;
 pub mod arithmetic;
-pub mod bn254_pairing;
+pub mod curve_pairings;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;
