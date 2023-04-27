@@ -1,6 +1,8 @@
 use std::ops::{Add, Mul, Neg};
 
 use ethereum_types::U256;
+use rand::distributions::Standard;
+use rand::prelude::Distribution;
 use rand::Rng;
 
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, BN254};
@@ -20,6 +22,26 @@ impl<T: FieldExt> Curve<T> {
             x: T::UNIT,
             y: T::UNIT,
         }
+    }
+}
+
+impl<T> Curve<T>
+where
+    T: FieldExt,
+    Curve<T>: CyclicGroup,
+{
+    pub fn int(z: i32) -> Self {
+        Curve::<T>::GENERATOR * z
+    }
+}
+
+impl<T> Distribution<Curve<T>> for Standard
+where
+    T: FieldExt,
+    Curve<T>: CyclicGroup,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Curve<T> {
+        Curve::<T>::GENERATOR * rng.gen::<i32>()
     }
 }
 
@@ -62,14 +84,14 @@ impl<T: FieldExt> Neg for Curve<T> {
     }
 }
 
-pub trait CurveGroup {
+pub trait CyclicGroup {
     const GENERATOR: Self;
 }
 
 /// The BN curve consists of pairs
 ///     (x, y): (BN254, BN254) | y^2 = x^3 + 2
 // with generator given by (1, 2)
-impl CurveGroup for Curve<BN254> {
+impl CyclicGroup for Curve<BN254> {
     const GENERATOR: Curve<BN254> = Curve {
         x: BN254 { val: U256::one() },
         y: BN254 {
@@ -81,7 +103,7 @@ impl CurveGroup for Curve<BN254> {
 impl<T> Mul<i32> for Curve<T>
 where
     T: FieldExt,
-    Curve<T>: CurveGroup,
+    Curve<T>: CyclicGroup,
 {
     type Output = Curve<T>;
 
@@ -107,7 +129,6 @@ where
             exp >>= 1;
             x = x + x;
         }
-        println!("result: {:?}", result);
         result
     }
 }
@@ -115,7 +136,7 @@ where
 /// The twisted curve consists of pairs
 ///     (x, y): (Fp2<BN254>, Fp2<BN254>) | y^2 = x^3 + 3/(9 + i)
 /// with generator given as follows
-impl CurveGroup for Curve<Fp2<BN254>> {
+impl CyclicGroup for Curve<Fp2<BN254>> {
     const GENERATOR: Curve<Fp2<BN254>> = Curve {
         x: Fp2 {
             re: BN254 {

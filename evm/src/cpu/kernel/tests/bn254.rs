@@ -4,7 +4,7 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-use crate::bn254_pairing::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CurveGroup};
+use crate::bn254_pairing::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
@@ -213,7 +213,15 @@ fn pairing_input() -> Vec<U256> {
 fn test_bn_miller() -> Result<()> {
     let ptr: usize = 100;
     let out: usize = 106;
-    let input = pairing_input();
+
+    let mut rng = rand::thread_rng();
+    let p: Curve<BN254> = rng.gen::<Curve<BN254>>();
+    let q: Curve<Fp2<BN254>> = rng.gen::<Curve<Fp2<BN254>>>();
+
+    let p_stack: [U256; 2] = unsafe { transmute(p) };
+    let q_stack: [U256; 4] = unsafe { transmute(q) };
+    let mut input = p_stack.to_vec();
+    input.extend(q_stack);
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),
@@ -223,8 +231,7 @@ fn test_bn_miller() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected =
-        miller_loop(Curve::<BN254>::GENERATOR, Curve::<Fp2<BN254>>::GENERATOR).on_stack();
+    let expected = miller_loop(p, q).on_stack();
 
     assert_eq!(output, expected);
 
