@@ -9,7 +9,7 @@
 ///         out *= miller_loop(P, Q)
 ///
 ///     result = bn254_final_exponent(out)
-///     return result == @GENERATOR_PAIRING
+///     return result == unit_fp12
 
 /// The following is a key to this API
 /// 

@@ -202,7 +202,7 @@ fn test_bn_final_exponent() -> Result<()> {
 }
 
 fn pairing_input() -> Vec<U256> {
-    let curve_gen: [U256; 2] = unsafe { transmute(Curve::<BN254>::GENERATOR * 1) };
+    let curve_gen: [U256; 2] = unsafe { transmute(Curve::<BN254>::GENERATOR) };
     let twisted_gen: [U256; 4] = unsafe { transmute(Curve::<Fp2<BN254>>::GENERATOR) };
     let mut input = curve_gen.to_vec();
     input.extend_from_slice(&twisted_gen);
