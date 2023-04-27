@@ -7,6 +7,7 @@ use rand::Rng;
 
 pub trait FieldExt:
     Copy
+    + std::cmp::PartialEq
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -15,6 +16,7 @@ pub trait FieldExt:
 {
     const ZERO: Self;
     const UNIT: Self;
+    fn new(val: usize) -> Self;
     fn inv(self) -> Self;
 }
 
@@ -28,14 +30,6 @@ pub const BN_BASE: U256 = U256([
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BN254 {
     pub val: U256,
-}
-
-impl BN254 {
-    pub fn new(val: usize) -> BN254 {
-        BN254 {
-            val: U256::from(val),
-        }
-    }
 }
 
 impl Distribution<BN254> for Standard {
@@ -91,6 +85,11 @@ impl Mul for BN254 {
 impl FieldExt for BN254 {
     const ZERO: Self = BN254 { val: U256::zero() };
     const UNIT: Self = BN254 { val: U256::one() };
+    fn new(val: usize) -> BN254 {
+        BN254 {
+            val: U256::from(val),
+        }
+    }
     fn inv(self) -> BN254 {
         let exp = BN_BASE - 2;
         let mut current = self;
@@ -131,12 +130,6 @@ pub struct BLS381 {
 }
 
 impl BLS381 {
-    pub fn new(val: usize) -> BLS381 {
-        BLS381 {
-            val: U512::from(val),
-        }
-    }
-
     pub fn lo(self) -> U256 {
         U256(self.val.0[..4].try_into().unwrap())
     }
@@ -234,6 +227,11 @@ impl Mul for BLS381 {
 impl FieldExt for BLS381 {
     const ZERO: Self = BLS381 { val: U512::zero() };
     const UNIT: Self = BLS381 { val: U512::one() };
+    fn new(val: usize) -> BLS381 {
+        BLS381 {
+            val: U512::from(val),
+        }
+    }
     fn inv(self) -> BLS381 {
         let exp = BLS_BASE - 2;
         let mut current = self;
@@ -365,6 +363,14 @@ impl<T: FieldExt> FieldExt for Fp2<T> {
         re: T::UNIT,
         im: T::ZERO,
     };
+
+    fn new(val: usize) -> Fp2<T> {
+        Fp2 {
+            re: T::new(val),
+            im: T::ZERO,
+        }
+    }
+
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     fn inv(self) -> Fp2<T> {
         let norm_sq = self.norm_sq();
@@ -974,6 +980,14 @@ where
         t1: Fp2::<T>::ZERO,
         t2: Fp2::<T>::ZERO,
     };
+    
+    fn new(val: usize) -> Fp6<T> {
+        Fp6 {
+            t0: Fp2::<T>::new(val),
+            t1: Fp2::<T>::ZERO,
+            t2: Fp2::<T>::ZERO,
+        }
+    }
 
     /// Let x_n = x^(p^n) and note that
     ///     x_0 = x^(p^0) = x^1 = x
@@ -1039,6 +1053,13 @@ where
         z0: Fp6::<T>::UNIT,
         z1: Fp6::<T>::ZERO,
     };
+
+    fn new(val: usize) -> Fp12<T> {
+        Fp12 {
+            z0: Fp6::<T>::new(val),
+            z1: Fp6::<T>::ZERO,
+        }
+    }
 
     /// By Galois Theory, given x: Fp12, the product
     ///     phi = Prod_{i=0}^11 x_i
