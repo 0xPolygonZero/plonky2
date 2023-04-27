@@ -102,7 +102,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         })
     }
 
-    pub(crate) fn get_public_inputs_hash(
+    pub fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash
     where
@@ -276,7 +276,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Serialize)]
+pub struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 

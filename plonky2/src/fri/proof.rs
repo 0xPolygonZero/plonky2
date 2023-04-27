@@ -393,6 +393,7 @@ impl<F: RichField + Extendable<D>, HCO: HashConfig, H: Hasher<F, HCO>, const D: 
     }
 }
 
+#[derive(Serialize)]
 pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     // Scaling factor to combine polynomials.
     pub fri_alpha: F::Extension,
