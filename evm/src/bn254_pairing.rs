@@ -29,6 +29,15 @@ impl<T: FieldExt> Add for Curve<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
+        if self == Curve::<T>::unit() {
+            return other;
+        }
+        if other == Curve::<T>::unit() {
+            return self;
+        }
+        if self == -other {
+            return Curve::<T>::unit();
+        }
         let m = if self == other {
             T::new(3) * self.x * self.x / (T::new(2) * self.y)
         } else {
@@ -69,26 +78,39 @@ impl CurveGroup for Curve<BN254> {
     };
 }
 
-// impl<T: FieldExt: Add> Mul<i32> for Curve {
-//     type Output = Curve;
+impl<T> Mul<i32> for Curve<T>
+where
+    T: FieldExt,
+    Curve<T>: CurveGroup,
+{
+    type Output = Curve<T>;
 
-//     fn mul(self, other: i32) -> Self {
-//         let mut result: Curve = self;
-//         if other.is_negative() {
-//             result = -result;
-//         }
-//         let mut multiplier = result;
-//         let mut exp = other.unsigned_abs() as usize;
-//         while exp > 0 {
-//             if exp % 2 == 1 {
-//                 result = result + multiplier;
-//             }
-//             exp >>= 1;
-//             multiplier = multiplier + multiplier;
-//         }
-//         result
-//     }
-// }
+    fn mul(self, other: i32) -> Self {
+        if other == 0 {
+            return Curve::<T>::unit();
+        }
+        if self == Curve::<T>::unit() {
+            return Curve::<T>::unit();
+        }
+
+        let mut x: Curve<T> = self;
+        if other.is_negative() {
+            x = -x;
+        }
+        let mut result = Curve::<T>::unit();
+
+        let mut exp = other.unsigned_abs() as usize;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                result = result + x;
+            }
+            exp >>= 1;
+            x = x + x;
+        }
+        println!("result: {:?}", result);
+        result
+    }
+}
 
 /// The twisted curve consists of pairs
 ///     (x, y): (Fp2<BN254>, Fp2<BN254>) | y^2 = x^3 + 3/(9 + i)

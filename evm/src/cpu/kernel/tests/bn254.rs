@@ -202,7 +202,7 @@ fn test_bn_final_exponent() -> Result<()> {
 }
 
 fn pairing_input() -> Vec<U256> {
-    let curve_gen: [U256; 2] = unsafe { transmute(Curve::<BN254>::GENERATOR) };
+    let curve_gen: [U256; 2] = unsafe { transmute(Curve::<BN254>::GENERATOR * 1) };
     let twisted_gen: [U256; 4] = unsafe { transmute(Curve::<Fp2<BN254>>::GENERATOR) };
     let mut input = curve_gen.to_vec();
     input.extend_from_slice(&twisted_gen);
@@ -223,7 +223,8 @@ fn test_bn_miller() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = miller_loop(Curve::<BN254>::GENERATOR, Curve::<Fp2<BN254>>::GENERATOR).on_stack();
+    let expected =
+        miller_loop(Curve::<BN254>::GENERATOR, Curve::<Fp2<BN254>>::GENERATOR).on_stack();
 
     assert_eq!(output, expected);
 

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -7,6 +8,7 @@ use rand::Rng;
 
 pub trait FieldExt:
     Copy
+    + std::fmt::Debug
     + std::cmp::PartialEq
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
@@ -980,7 +982,7 @@ where
         t1: Fp2::<T>::ZERO,
         t2: Fp2::<T>::ZERO,
     };
-    
+
     fn new(val: usize) -> Fp6<T> {
         Fp6 {
             t0: Fp2::<T>::new(val),
