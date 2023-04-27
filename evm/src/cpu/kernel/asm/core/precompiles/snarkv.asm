@@ -39,40 +39,41 @@ loading_loop_contd2:
     // stack: y, py, x, i, k, kexit_info
     SWAP1 %add_const(32)
     GET_CONTEXT
-    %stack (ctx, px_re) -> (ctx, @SEGMENT_CALLDATA, px_re, 32, loading_loop_contd3, px_re)
+    %stack (ctx, px_im) -> (ctx, @SEGMENT_CALLDATA, px_im, 32, loading_loop_contd3, px_im)
     %jump(mload_packing)
 loading_loop_contd3:
-    // stack: x_re, px_re, y, x, i, k, kexit_info
+    // stack: x_im, px_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
-    // stack: px_im, x_re, y, x, i, k, kexit_info
+    // stack: px_re, x_im, y, x, i, k, kexit_info
     GET_CONTEXT
-    %stack (ctx, px_im) -> (ctx, @SEGMENT_CALLDATA, px_im, 32, loading_loop_contd4, px_im)
+    %stack (ctx, px_re) -> (ctx, @SEGMENT_CALLDATA, px_re, 32, loading_loop_contd4, px_re)
     %jump(mload_packing)
 loading_loop_contd4:
-    // stack: x_im, px_im, x_re, y, x, i, k, kexit_info
+    // stack: x_re, px_re, x_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
-    // stack: py_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: py_im, x_re, x_im, y, x, i, k, kexit_info
     GET_CONTEXT
-    %stack (ctx, py_re) -> (ctx, @SEGMENT_CALLDATA, py_re, 32, loading_loop_contd5, py_re)
+    %stack (ctx, py_im) -> (ctx, @SEGMENT_CALLDATA, py_im, 32, loading_loop_contd5, py_im)
     %jump(mload_packing)
 loading_loop_contd5:
-    // stack: y_re, py_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: y_im, py_im, x_re, x_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
-    // stack: py_im, y_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: py_re, y_im, x_re, x_im, y, x, i, k, kexit_info
     GET_CONTEXT
-    %stack (ctx, py_im) -> (ctx, @SEGMENT_CALLDATA, py_im, 32, loading_loop_contd6)
+    %stack (ctx, py_re) -> (ctx, @SEGMENT_CALLDATA, py_re, 32, loading_loop_contd6)
     %jump(mload_packing)
 loading_loop_contd6:
-    // stack: y_im, y_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: y_re, y_im, x_re, x_im, y, x, i, k, kexit_info
     SWAP1
+    // stack: y_im, y_re, x_re, x_im, y, x, i, k, kexit_info
     DUP7
-    // stack: i, y_im, y_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: i, y_im, y_re, x_re, x_im, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(5)
     %mstore_kernel_bn254_pairing
-    // stack: y_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: y_re, x_re, x_im, y, x, i, k, kexit_info
     DUP6
-    // stack: i, y_re, x_im, x_re, y, x, i, k, kexit_info
+    // stack: i, y_re, x_re, x_im, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(4)
     %mstore_kernel_bn254_pairing
