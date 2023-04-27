@@ -29,6 +29,7 @@ const TEST_DATA_ADDMUL_OUTPUTS: &str = "addmul_outputs";
 const TEST_DATA_MUL_OUTPUTS: &str = "mul_outputs";
 const TEST_DATA_MODMUL_OUTPUTS: &str = "modmul_outputs";
 const TEST_DATA_MODEXP_OUTPUTS: &str = "modexp_outputs";
+const TEST_DATA_MODEXP_OUTPUTS_FULL: &str = "modexp_outputs_full";
 
 const BIT_SIZES_TO_TEST: [usize; 15] = [
     0, 1, 2, 127, 128, 129, 255, 256, 257, 512, 1000, 1023, 1024, 1025, 31415,
@@ -282,7 +283,7 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
     let scratch_3 = 7 * len; // size 2*len
     let scratch_4 = 9 * len; // size 2*len
     let scratch_5 = 11 * len; // size 2*len
-    let (new_memory, _new_stack) = run_test(
+    let (mut new_memory, _new_stack) = run_test(
         "modexp_bignum",
         memory,
         vec![
@@ -298,6 +299,10 @@ fn test_modexp_bignum(b: BigUint, e: BigUint, m: BigUint, expected_output: BigUi
             scratch_5.into(),
         ],
     )?;
+    new_memory.resize(
+        new_memory.len().max(output_start_loc + output_len),
+        0.into(),
+    );
 
     let output = mem_vec_to_biguint(&new_memory[output_start_loc..output_start_loc + output_len]);
     assert_eq!(output, expected_output);
@@ -533,9 +538,8 @@ fn test_modexp_bignum_all() -> Result<()> {
     let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs[..9] {
         // Include only smaller exponents, to keep tests from becoming too slow.
-        for e in &inputs[..7] {
-            // For m, skip the first input, which is zero.
-            for m in &inputs[1..] {
+        for e in &inputs[..6] {
+            for m in &inputs[..9] {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }
@@ -572,13 +576,12 @@ fn test_modexp_bignum_all_full() -> Result<()> {
     }
 
     let inputs = test_data_biguint(TEST_DATA_BIGNUM_INPUTS);
-    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS);
+    let modexp_outputs = test_data_biguint(TEST_DATA_MODEXP_OUTPUTS_FULL);
     let mut modexp_outputs_iter = modexp_outputs.into_iter();
     for b in &inputs {
         // Include only smaller exponents, to keep tests from becoming too slow.
         for e in &inputs[..7] {
-            // For m, skip the first input, which is zero.
-            for m in &inputs[1..] {
+            for m in &inputs {
                 let output = modexp_outputs_iter.next().unwrap();
                 test_modexp_bignum(b.clone(), e.clone(), m.clone(), output)?;
             }

@@ -17,6 +17,12 @@ pub enum Target {
     },
 }
 
+impl Default for Target {
+    fn default() -> Self {
+        Self::VirtualTarget { index: 0 }
+    }
+}
+
 impl Target {
     pub fn wire(row: usize, column: usize) -> Self {
         Self::Wire(Wire { row, column })
@@ -49,7 +55,7 @@ impl Target {
 }
 
 /// A `Target` which has already been constrained such that it can only be 0 or 1.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[allow(clippy::manual_non_exhaustive)]
 pub struct BoolTarget {
     pub target: Target,

@@ -1,25 +1,45 @@
-use std::ops::Add;
+use std::ops::{Add, Mul, Neg};
 
+use ethereum_types::U256;
 use rand::Rng;
 
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, BN254};
 
-// The curve consists of pairs (x, y): (BN254, BN254) | y^2 = x^3 + 2
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Curve {
-    pub x: BN254,
-    pub y: BN254,
+pub struct Curve<T>
+where
+    T: FieldExt,
+{
+    pub x: T,
+    pub y: T,
+}
+
+impl<T: FieldExt> Curve<T> {
+    pub fn unit() -> Self {
+        Curve {
+            x: T::UNIT,
+            y: T::UNIT,
+        }
+    }
 }
 
 /// Standard addition formula for elliptic curves, restricted to the cases  
-/// where neither inputs nor output would ever be the identity O. source:
 /// https://en.wikipedia.org/wiki/Elliptic_curve#Algebraic_interpretation
-impl Add for Curve {
+impl<T: FieldExt> Add for Curve<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
+        if self == Curve::<T>::unit() {
+            return other;
+        }
+        if other == Curve::<T>::unit() {
+            return self;
+        }
+        if self == -other {
+            return Curve::<T>::unit();
+        }
         let m = if self == other {
-            BN254::new(3) * self.x * self.x / (BN254::new(2) * self.y)
+            T::new(3) * self.x * self.x / (T::new(2) * self.y)
         } else {
             (other.y - self.y) / (other.x - self.x)
         };
@@ -31,15 +51,113 @@ impl Add for Curve {
     }
 }
 
-// The twisted curve consists of pairs (x, y): (Fp2, Fp2) | y^2 = x^3 + 3/(9 + i)
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TwistedCurve {
-    pub x: Fp2<BN254>,
-    pub y: Fp2<BN254>,
+impl<T: FieldExt> Neg for Curve<T> {
+    type Output = Curve<T>;
+
+    fn neg(self) -> Self {
+        Curve {
+            x: self.x,
+            y: -self.y,
+        }
+    }
+}
+
+pub trait CurveGroup {
+    const GENERATOR: Self;
+}
+
+/// The BN curve consists of pairs
+///     (x, y): (BN254, BN254) | y^2 = x^3 + 2
+// with generator given by (1, 2)
+impl CurveGroup for Curve<BN254> {
+    const GENERATOR: Curve<BN254> = Curve {
+        x: BN254 { val: U256::one() },
+        y: BN254 {
+            val: U256([2, 0, 0, 0]),
+        },
+    };
+}
+
+impl<T> Mul<i32> for Curve<T>
+where
+    T: FieldExt,
+    Curve<T>: CurveGroup,
+{
+    type Output = Curve<T>;
+
+    fn mul(self, other: i32) -> Self {
+        if other == 0 {
+            return Curve::<T>::unit();
+        }
+        if self == Curve::<T>::unit() {
+            return Curve::<T>::unit();
+        }
+
+        let mut x: Curve<T> = self;
+        if other.is_negative() {
+            x = -x;
+        }
+        let mut result = Curve::<T>::unit();
+
+        let mut exp = other.unsigned_abs() as usize;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                result = result + x;
+            }
+            exp >>= 1;
+            x = x + x;
+        }
+        println!("result: {:?}", result);
+        result
+    }
+}
+
+/// The twisted curve consists of pairs
+///     (x, y): (Fp2<BN254>, Fp2<BN254>) | y^2 = x^3 + 3/(9 + i)
+/// with generator given as follows
+impl CurveGroup for Curve<Fp2<BN254>> {
+    const GENERATOR: Curve<Fp2<BN254>> = Curve {
+        x: Fp2 {
+            re: BN254 {
+                val: U256([
+                    0x46debd5cd992f6ed,
+                    0x674322d4f75edadd,
+                    0x426a00665e5c4479,
+                    0x1800deef121f1e76,
+                ]),
+            },
+            im: BN254 {
+                val: U256([
+                    0x97e485b7aef312c2,
+                    0xf1aa493335a9e712,
+                    0x7260bfb731fb5d25,
+                    0x198e9393920d483a,
+                ]),
+            },
+        },
+        y: Fp2 {
+            re: BN254 {
+                val: U256([
+                    0x4ce6cc0166fa7daa,
+                    0xe3d1e7690c43d37b,
+                    0x4aab71808dcb408f,
+                    0x12c85ea5db8c6deb,
+                ]),
+            },
+            im: BN254 {
+                val: U256([
+                    0x55acdadcd122975b,
+                    0xbc4b313370b38ef3,
+                    0xec9e99ad690c3395,
+                    0x090689d0585ff075,
+                ]),
+            },
+        },
+    };
 }
 
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
-pub fn tate(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
+pub fn tate(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let miller_output = miller_loop(p, q);
     final_exponent(miller_output)
 }
@@ -47,7 +165,7 @@ pub fn tate(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
 /// Standard code for miller loop, can be found on page 99 at this url:
 /// https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107
 /// where EXP is a hardcoding of the array of Booleans that the loop traverses
-pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
+pub fn miller_loop(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let mut r = p;
     let mut acc: Fp12<BN254> = Fp12::<BN254>::UNIT;
     let mut line: Fp12<BN254>;
@@ -66,14 +184,14 @@ pub fn miller_loop(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
 }
 
 /// The sloped line function for doubling a point
-pub fn tangent(p: Curve, q: TwistedCurve) -> Fp12<BN254> {
+pub fn tangent(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let cx = -BN254::new(3) * p.x * p.x;
     let cy = BN254::new(2) * p.y;
     sparse_embed(p.y * p.y - BN254::new(9), q.x * cx, q.y * cy)
 }
 
 /// The sloped line function for adding two points
-pub fn cord(p1: Curve, p2: Curve, q: TwistedCurve) -> Fp12<BN254> {
+pub fn cord(p1: Curve<BN254>, p2: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
     sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x * cx, q.y * cy)

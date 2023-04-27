@@ -11,7 +11,7 @@
     // stack:         range, x, x_, y, y_
     %bn_check_twisted_curve
     // stack: curve , range, x, x_, y, y_
-    AND
+    MUL // Cheaper than AND
     // stack: curve & range, x, x_, y, y_
     SWAP4
     // stack: y_, x, x_, y, curve & range
@@ -49,9 +49,9 @@
     // stack: x , N, x_ < N, y < N, y_ < N, x, x_, y, y_
     LT
     // stack: x < N, x_ < N, y < N, y_ < N, x, x_, y, y_
-    AND 
-    AND
-    AND
+    MUL // Cheaper than AND 
+    MUL // Cheaper than AND
+    MUL // Cheaper than AND
     // stack:                        range, x, x_, y, y_
 %endmacro
 
@@ -88,7 +88,7 @@
     // stack: b   , c==0, d==0, a==0
     ISZERO
     // stack: b==0, c==0, d==0, a==0
-    AND
-    AND
-    AND
+    MUL // Cheaper than AND
+    MUL // Cheaper than AND
+    MUL // Cheaper than AND
 %endmacro
