@@ -23,7 +23,6 @@ loading_loop:
     // stack: i, k, kexit_info
     DUP2 DUP2 EQ %jumpi(loading_done)
     // stack: i, k, kexit_info
-    // stack: i, k, kexit_info
     DUP1 %mul_const(192)
     // stack: px, i, k, kexit_info
     GET_CONTEXT
