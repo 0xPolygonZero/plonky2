@@ -94,7 +94,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
-    pub(crate) fn get_challenges(
+    pub fn get_challenges(
         &self,
         public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,

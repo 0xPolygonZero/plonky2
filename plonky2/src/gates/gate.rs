@@ -8,6 +8,7 @@ use core::hash::{Hash, Hasher};
 use core::ops::Range;
 
 use hashbrown::HashMap;
+use serde::{Serialize, Serializer};
 
 use crate::field::batch_util::batch_multiply_inplace;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -236,6 +237,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
 impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.0.id())
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Serialize for GateRef<F, D> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0.id())
     }
 }
 
