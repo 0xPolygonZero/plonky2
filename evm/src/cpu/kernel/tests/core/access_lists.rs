@@ -99,12 +99,12 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
     let mut rng = thread_rng();
     let n = rng.gen_range(1..10);
     let storage_keys = (0..n)
-        .map(|_| (rng.gen::<Address>(), U256(rng.gen())))
+        .map(|_| (rng.gen::<Address>(), U256(rng.gen()), U256(rng.gen())))
         .collect::<HashSet<_>>()
         .into_iter()
-        .collect::<Vec<(Address, U256)>>();
+        .collect::<Vec<(Address, U256, U256)>>();
     let storage_key_in_list = storage_keys[rng.gen_range(0..n)];
-    let storage_key_not_in_list = (rng.gen::<Address>(), U256(rng.gen()));
+    let storage_key_not_in_list = (rng.gen::<Address>(), U256(rng.gen()), U256(rng.gen()));
     assert!(
         !storage_keys.contains(&storage_key_not_in_list),
         "Cosmic luck or bad RNG?"
@@ -113,6 +113,7 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
     // Test for storage key already in list.
     let initial_stack = vec![
         retaddr,
+        storage_key_in_list.2,
         storage_key_in_list.1,
         U256::from(storage_key_in_list.0 .0.as_slice()),
     ];
@@ -122,30 +123,35 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         interpreter
             .generation_state
             .memory
-            .set(MemoryAddress::new(0, AccessedStorageKeys, 2 * i), addr);
+            .set(MemoryAddress::new(0, AccessedStorageKeys, 3 * i), addr);
         interpreter.generation_state.memory.set(
-            MemoryAddress::new(0, AccessedStorageKeys, 2 * i + 1),
+            MemoryAddress::new(0, AccessedStorageKeys, 3 * i + 1),
             storage_keys[i].1,
+        );
+        interpreter.generation_state.memory.set(
+            MemoryAddress::new(0, AccessedStorageKeys, 3 * i + 2),
+            storage_keys[i].2,
         );
     }
     interpreter.generation_state.memory.set(
         MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize),
-        U256::from(2 * n),
+        U256::from(3 * n),
     );
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), &[U256::zero()]);
+    assert_eq!(interpreter.stack(), &[storage_key_in_list.2, U256::zero()]);
     assert_eq!(
         interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
             GlobalMetadata,
             AccessedStorageKeysLen as usize
         )),
-        U256::from(2 * n)
+        U256::from(3 * n)
     );
 
     // Test for storage key not in list.
     let initial_stack = vec![
         retaddr,
+        storage_key_not_in_list.2,
         storage_key_not_in_list.1,
         U256::from(storage_key_not_in_list.0 .0.as_slice()),
     ];
@@ -155,40 +161,55 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         interpreter
             .generation_state
             .memory
-            .set(MemoryAddress::new(0, AccessedStorageKeys, 2 * i), addr);
+            .set(MemoryAddress::new(0, AccessedStorageKeys, 3 * i), addr);
         interpreter.generation_state.memory.set(
-            MemoryAddress::new(0, AccessedStorageKeys, 2 * i + 1),
+            MemoryAddress::new(0, AccessedStorageKeys, 3 * i + 1),
             storage_keys[i].1,
+        );
+        interpreter.generation_state.memory.set(
+            MemoryAddress::new(0, AccessedStorageKeys, 3 * i + 2),
+            storage_keys[i].2,
         );
     }
     interpreter.generation_state.memory.set(
         MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize),
-        U256::from(2 * n),
+        U256::from(3 * n),
     );
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), &[U256::one()]);
+    assert_eq!(
+        interpreter.stack(),
+        &[storage_key_not_in_list.2, U256::one()]
+    );
     assert_eq!(
         interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
             GlobalMetadata,
             AccessedStorageKeysLen as usize
         )),
-        U256::from(2 * (n + 1))
+        U256::from(3 * (n + 1))
     );
     assert_eq!(
         interpreter
             .generation_state
             .memory
-            .get(MemoryAddress::new(0, AccessedStorageKeys, 2 * n,)),
+            .get(MemoryAddress::new(0, AccessedStorageKeys, 3 * n,)),
         U256::from(storage_key_not_in_list.0 .0.as_slice())
     );
     assert_eq!(
         interpreter.generation_state.memory.get(MemoryAddress::new(
             0,
             AccessedStorageKeys,
-            2 * n + 1,
+            3 * n + 1,
         )),
         storage_key_not_in_list.1
+    );
+    assert_eq!(
+        interpreter.generation_state.memory.get(MemoryAddress::new(
+            0,
+            AccessedStorageKeys,
+            3 * n + 2,
+        )),
+        storage_key_not_in_list.2
     );
 
     Ok(())
