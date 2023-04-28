@@ -1,7 +1,7 @@
 %macro expmod_gas_f
     // stack: x
     %add_const(7)
-    %div_const(3)
+    %div_const(8)
     // stack: ceil(x/8)
     %square
     // stack: ceil(x/8)^2
@@ -85,7 +85,13 @@ global precompile_expmod:
     %stack (l: 3) -> (l, l)
     // stack: l_M, l_E, l_B, l_M, l_E, l_B, kexit_info
     %max_3
-    // stack: len, l_M, l_E, l_B, kexit_info
+    // stack: max_len, l_M, l_E, l_B, kexit_info
+    
+    // Ceil-divide by 16 to get number of 128-bit limbs from number of bytes.
+    %add_const(15)
+    %div_const(16)
+    // stack: len=ceil(max_len/16), l_M, l_E, l_B, kexit_info
+
 
     // Calculate gas costs.
 
