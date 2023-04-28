@@ -6,7 +6,7 @@ use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
-use crate::curve_pairings::{bn_final_exponent, gen_bn_fp12_sparse, bn_miller_loop, Curve};
+use crate::curve_pairings::{bn_final_exponent, bn_miller_loop, gen_bn_fp12_sparse, Curve};
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
