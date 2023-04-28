@@ -88,3 +88,9 @@ mstore_unpacking_finish:
     %pop3
     %stack (offset, value, len, retdest) -> (retdest, offset)
     JUMP
+
+%macro mstore_unpacking
+    %stack (addr: 3, value, len) -> (addr, value, len, %%after)
+    %jump(mstore_unpacking)
+%%after:
+%endmacro

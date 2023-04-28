@@ -340,15 +340,37 @@ expmod_contd:
     // stack: len, len, kexit_info
     %mul_const(3)
     // stack: out=3*len, len, kexit_info
-    PUSH @SEGMENT_KERNEL_GENERAL
     PUSH 0
-    PUSH 0
-    PUSH @SEGMENT_RETURNDATA
-    // stack: @SEGMENT_RETURNDATA, 0, 0, @SEGMENT_KERNEL_GENERAL, out, len, kexit_info
+    // stack: i=0, cur_address=out, len, kexit_info
+expmod_store_loop:
+    // stack: i, cur_address, len, kexit_info
+    DUP2
+    // stack: cur_address, i, cur_address, len, kexit_info
+    %mload_kernel_general
+    // stack: cur_limb, i, cur_address, len, kexit_info
+    DUP2
+    // stack: i, cur_limb, i, cur_address, len, kexit_info
+    %mul_const(16)
+    // stack: offset=16*i, cur_limb, i, cur_address, len, kexit_info
+    %stack (offset, cur_limb) -> (%SEGMENT_RETURNDATA, offset, cur_limb, 16)
+    // stack: %SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    // stack: dst=(parent_ctx, @SEGMENT_RETURNDATA, 0), src=(0, @SEGMENT_KERNEL_GENERAL, out, len), kexit_info
-    %memcpy
-
+    // stack: parent_ctx, %SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
+    %mstore_unpacking
+    // stack: i, cur_address, len, kexit_info
+    %increment
+    SWAP1
+    %increment
+    SWAP1
+    // stack: i+1, cur_address+1, len, kexit_info
+    DUP3
+    DUP2
+    EQ
+    ISZERO
+    %jumpi(expmod_store_loop)
+expmod_store_end:
+    // stack: i, cur_address, len, kexit_info
+    %pop3
     // stack: kexit_info
     PUSH 0
     // stack: dummy=0, kexit_info
