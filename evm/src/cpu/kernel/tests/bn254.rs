@@ -6,7 +6,7 @@ use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
-use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve};
+use crate::curve_pairings::{bn_final_exponent, gen_bn_fp12_sparse, bn_miller_loop, Curve};
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
@@ -84,7 +84,7 @@ fn test_bn_mul_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
-    let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
+    let h: Fp12<BN254> = gen_bn_fp12_sparse(&mut rng);
 
     let out_normal: Vec<U256> = run_bn_mul_fp12(f, g, "mul_fp254_12");
     let out_sparse: Vec<U256> = run_bn_mul_fp12(f, h, "mul_fp254_12_sparse");
@@ -192,7 +192,7 @@ fn test_bn_final_exponent() -> Result<()> {
 
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let expected: Vec<U256> = final_exponent(f).on_stack();
+    let expected: Vec<U256> = bn_final_exponent(f).on_stack();
 
     assert_eq!(output, expected);
 
@@ -219,7 +219,7 @@ fn test_bn_miller() -> Result<()> {
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = miller_loop(p, q).on_stack();
+    let expected = bn_miller_loop(p, q).on_stack();
 
     assert_eq!(output, expected);
 
