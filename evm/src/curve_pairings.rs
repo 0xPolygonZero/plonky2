@@ -19,8 +19,8 @@ where
 impl<T: FieldExt> Curve<T> {
     pub fn unit() -> Self {
         Curve {
-            x: T::UNIT,
-            y: T::UNIT,
+            x: T::ZERO,
+            y: T::ZERO,
         }
     }
 }
