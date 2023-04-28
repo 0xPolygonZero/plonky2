@@ -1,6 +1,6 @@
 global precompile_blake2_f:
-    // stack: address, retdest, new_ctx, (old stack)
-    %pop2
+    // stack: retdest, new_ctx, (old stack)
+    POP
     // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
@@ -17,7 +17,7 @@ global precompile_blake2_f:
     // stack: calldatasize, blake2_f_contd, kexit_info
     DUP1
     // stack: calldatasize, calldatasize, blake2_f_contd, kexit_info
-    %assert_eq_const(213)
+    %eq_const(213) ISZERO %jumpi(fault_exception)
     // stack: calldatasize, blake2_f_contd, kexit_info
     %decrement
     // stack: flag_addr=212, blake2_f_contd, kexit_info
@@ -25,8 +25,12 @@ global precompile_blake2_f:
     // stack: flag_addr, flag_addr, blake2_f_contd, kexit_info
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
-    // stack: ctx, @SEGMENT_CALLDATA, flag_addr, flag_addr size
+    // stack: ctx, @SEGMENT_CALLDATA, flag_addr, flag_addr, blake2_f_contd, kexit_info
     MLOAD_GENERAL
+    // stack: flag, flag_addr, blake2_f_contd, kexit_info
+    DUP1
+    // stack: flag, flag, flag_addr, blake2_f_contd, kexit_info
+    %lt_const(2) ISZERO %jumpi(fault_exception) // Check flag < 2 (flag = 0 or flag = 1)
     // stack: flag, flag_addr, blake2_f_contd, kexit_info
     SWAP1
     // stack: flag_addr, flag, blake2_f_contd, kexit_info
