@@ -184,8 +184,7 @@ l_E_prime_return:
     // stack: max(1, l_E_prime) * f(max(l_M, l_B)), len, l_M, l_E, l_B, kexit_info
     %div_const(3) // G_quaddivisor
     // stack: (max(1, l_E_prime) * f(max(l_M, l_B))) / G_quaddivisor, len, l_M, l_E, l_B, kexit_info
-    PUSH 200
-    %max
+    %max_const(200)
     // stack: g_r, len, l_M, l_E, l_B, kexit_info
     %stack (g_r, l: 4, kexit_info) -> (g_r, kexit_info, l)
     // stack: g_r, kexit_info, len, l_M, l_E, l_B
