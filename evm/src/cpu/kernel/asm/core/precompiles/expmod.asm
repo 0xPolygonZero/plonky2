@@ -1,7 +1,74 @@
+// Load bytes, packing 16 bytes into each limb, and store limbs on the stack.
+// We pass around total_num_limbs and len for conveience, because we can't access them from the stack
+// if they're hidden behind the variable number of limbs.
+mload_bytes_as_limbs:
+    // stack: ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    DUP4
+    // stack: num_bytes, ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    %min_const(16)
+    // stack: min(16, num_bytes), ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    %stack (len, addr: 3) -> (addr, len, addr)
+    // stack: ctx, segment, offset, min(16, num_bytes), ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    %mload_packing
+    // stack: new_limb, ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    %stack (new, addr: 3, numb, ret, tot, len) -> (numb, addr, ret, tot, len, new)
+    // stack: num_bytes, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
+    DUP1
+    %min_const(16)
+    SWAP1
+    SUB
+    // stack: num_bytes_new = num_bytes - min(16, num_bytes), ctx, segment, offset, retdest, total_num_limbs, len, ..limbs
+    DUP1
+    ISZERO
+    %jumpi(mload_bytes_return)
+    // stack: num_bytes_new, ctx, segment, offset, retdest, total_num_limbs, len, ..limbs
+    %stack (num, addr: 3) -> (addr, num)
+    %jump(mload_bytes_as_limbs)
+mload_bytes_return:
+    // stack: num_bytes_new, ctx, segment, offset, retdest, total_num_limbs, len, ..limbs
+    %pop4
+    // stack: retdest, total_num_limbs, len, ..limbs
+    JUMP
+
+%macro mload_bytes_as_limbs
+    %stack (ctx, segment, offset, num_bytes, total_num_limbs) -> (ctx, segment, offset, num_bytes, %%after, total_num_limbs)
+    %jump(mload_bytes_as_limbs)
+%%after:
+%endmacro
+
+store_limbs:
+    // stack: offset, retdest, num_limbs, limb[num_limbs - 1], ..limb[0]
+    DUP3
+    // stack: num_limbs, offset, retdest, num_limbs, limb[num_limbs - 1], ..limb[0]
+    ISZERO
+    %jumpi(store_limbs_return)
+    // stack: offset, retdest, num_limbs, limb[num_limbs - 1], ..limb[0]
+    %stack (offset, ret, num, limb) -> (offset, limb, offset, ret, num)
+    // stack: offset, limb[num_limbs - 1], offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
+    %mstore_kernel_general
+    // stack: offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
+    %increment
+    SWAP2
+    %decrement
+    SWAP2
+    // stack: offset + 1, retdest, num_limbs - 1, limb[num_limbs - 2], ..limb[0]
+    %jump(store_limbs)
+store_limbs_return:
+    // stack: offset, retdest, num_limbs=0
+    POP
+    SWAP1
+    POP
+    JUMP
+
+%macro store_limbs
+    %stack (offset, num_limbs) -> (offset, %%after, num_limbs)
+    %jump(store_limbs)
+%%after:
+%endmacro
+
 %macro expmod_gas_f
     // stack: x
-    %add_const(7)
-    %div_const(8)
+    %ceil_div_const(8)
     // stack: ceil(x/8)
     %square
     // stack: ceil(x/8)^2
@@ -87,11 +154,8 @@ global precompile_expmod:
     %max_3
     // stack: max_len, l_M, l_E, l_B, kexit_info
     
-    // Ceil-divide by 16 to get number of 128-bit limbs from number of bytes.
-    %add_const(15)
-    %div_const(16)
+    %ceil_div_const(16)
     // stack: len=ceil(max_len/16), l_M, l_E, l_B, kexit_info
-
 
     // Calculate gas costs.
 
@@ -131,53 +195,78 @@ l_E_prime_return:
     // stack: len, l_M, l_E, l_B, kexit_info
 
     // Copy B to kernel general memory.
-    DUP4
-    // stack: l_B, len, l_M, l_E, l_B, kexit_info
-    PUSH 96
-    PUSH @SEGMENT_CALLDATA
-    GET_CONTEXT
-    PUSH 0
-    PUSH @SEGMENT_KERNEL_GENERAL
-    PUSH 0
-    // stack: dst=(0, @SEGMENT_KERNEL_GENERAL, b_loc=0), src=(ctx, @SEGMENT_CALLDATA, 96), l_B, len, l_M, l_E, l_B, kexit_info
-    %memcpy
     // stack: len, l_M, l_E, l_B, kexit_info
-
-    // Copy E to kernel general memory.
-    DUP3
-    // stack: l_E, len, l_M, l_E, l_B, kexit_info
+    DUP1
+    // stack: len, len, l_M, l_E, l_B, kexit_info
     DUP5
+    // stack: num_bytes=l_B, len, len, l_M, l_E, l_B, kexit_info
+    DUP1
+    %ceil_div_const(16)
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    SWAP1
+    // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %stack () -> (@SEGMENT_CALLDATA, 96)
+    GET_CONTEXT
+    // stack: ctx, @SEGMENT_CALLDATA, 96, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %mload_bytes_as_limbs
+    // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    SWAP1
+    POP
+    // stack: num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    PUSH 0
+    // stack: b_loc=0, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    %store_limbs
+    // stack: len, l_M, l_E, l_B, kexit_info
+    
+    // Copy E to kernel general memory.
+    // stack: len, l_M, l_E, l_B, kexit_info
+    DUP1
+    // stack: len, len, l_M, l_E, l_B, kexit_info
+    DUP4
+    // stack: num_bytes=l_E, len, len, l_M, l_E, l_B, kexit_info
+    DUP1
+    %ceil_div_const(16)
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    SWAP1
+    // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    DUP7
     %add_const(96)
-    // stack: 96 + l_B, l_E, len, l_M, l_E, l_B, kexit_info
+    // stack: 96 + l_B, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
-    // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B, l_E, len, l_M, l_E, l_B, kexit_info
-    DUP5
-    // stack: e_loc=len, ctx, @SEGMENT_CALLDATA, 96 + l_B, l_E, len, l_M, l_E, l_B, kexit_info
-    PUSH @SEGMENT_KERNEL_GENERAL
-    PUSH 0
-    // stack: dst=(0, @SEGMENT_KERNEL_GENERAL, e_loc), src=(ctx, @SEGMENT_CALLDATA, 96 + l_B), l_E, len, l_M, l_E, l_B, kexit_info
-    %memcpy
+    // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %mload_bytes_as_limbs
+    // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    SWAP1
+    // stack: e_loc=len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
 
     // Copy M to kernel general memory.
-    DUP2
-    // stack: l_M, len, l_M, l_E, l_B, kexit_info
-    DUP5
-    DUP5
+    // stack: len, l_M, l_E, l_B, kexit_info
+    DUP1
+    // stack: len, len, l_M, l_E, l_B, kexit_info
+    DUP3
+    // stack: num_bytes=l_M, len, len, l_M, l_E, l_B, kexit_info
+    DUP1
+    %ceil_div_const(16)
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    SWAP1
+    // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    DUP7
+    DUP7
     ADD
     %add_const(96)
-    // stack: 96 + l_B + l_E, l_M, len, l_M, l_E, l_B, kexit_info
+    // stack: 96 + l_B + l_E, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
-    // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B + l_E, l_M, len, l_M, l_E, l_B, kexit_info
-    DUP5
+    // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B + l_E, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %mload_bytes_as_limbs
+    // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    SWAP1
     %mul_const(2)
-    // stack: m_loc=2*len, ctx, @SEGMENT_CALLDATA, 96 + l_B + l_E, l_M, len, l_M, l_E, l_B, kexit_info
-    PUSH @SEGMENT_KERNEL_GENERAL
-    PUSH 0
-    // stack: dst=(0, @SEGMENT_KERNEL_GENERAL, m_loc), src=(ctx, @SEGMENT_CALLDATA, 96 + l_B + l_E), l_M, len, l_M, l_E, l_B, kexit_info
-    %memcpy
+    // stack: m_loc=2*len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
+    %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
 
     SWAP3

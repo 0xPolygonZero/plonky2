@@ -253,6 +253,43 @@
     // stack: max(x, y, z)
 %endmacro
 
+%macro max_const(c)
+    // stack: input, ...
+    PUSH $c
+    // stack: c, input, ...
+    %max
+    // stack: max(input, c), ...
+%endmacro
+
+%macro min_const(c)
+    // stack: input, ...
+    PUSH $c
+    // stack: c, input, ...
+    %min
+    // stack: min(input, c), ...
+%endmacro
+
+%macro ceil_div
+    // stack: x, y
+    DUP2
+    // stack: y, x, y
+    %decrement
+    // stack: y - 1, x, y
+    ADD
+    DIV
+    // stack: ceil(x / y)
+%endmacro
+
+%macro ceil_div_const(c)
+    // stack: x, ...
+    PUSH $c
+    // stack: c, x, ...
+    SWAP1
+    // stack: x, c, ...
+    %ceil_div
+    // stack: ceil(x / c), ...
+%endmacro
+
 %macro as_u32
     %and_const(0xffffffff)
 %endmacro
