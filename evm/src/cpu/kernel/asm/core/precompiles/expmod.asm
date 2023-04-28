@@ -351,10 +351,10 @@ expmod_store_loop:
     // stack: i, cur_limb, i, cur_address, len, kexit_info
     %mul_const(16)
     // stack: offset=16*i, cur_limb, i, cur_address, len, kexit_info
-    %stack (offset, cur_limb) -> (%SEGMENT_RETURNDATA, offset, cur_limb, 16)
-    // stack: %SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
+    %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, cur_limb, 16)
+    // stack: @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    // stack: parent_ctx, %SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
+    // stack: parent_ctx, @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
     %mstore_unpacking
     // stack: i, cur_address, len, kexit_info
     %increment
