@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::mem::transmute;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::{U256, U512};
@@ -1227,22 +1226,51 @@ pub trait Stack {
     fn on_stack(self) -> Vec<U256>;
 }
 
+impl Stack for BN254 {
+    fn on_stack(self) -> Vec<U256> {
+        vec![self.val]
+    }
+}
+
 impl Stack for BLS381 {
     fn on_stack(self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
     }
 }
 
-impl Stack for Fp6<BN254> {
+impl<T> Stack for Fp2<T>
+where
+    T: FieldExt + Stack,
+{
     fn on_stack(self) -> Vec<U256> {
-        let f: [U256; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut stack = self.re.on_stack();
+        stack.extend(self.im.on_stack());
+        stack
     }
 }
 
-impl Stack for Fp12<BN254> {
+impl<T> Stack for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj + Stack,
+{
     fn on_stack(self) -> Vec<U256> {
-        let f: [U256; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut stack = self.t0.on_stack();
+        stack.extend(self.t1.on_stack());
+        stack.extend(self.t2.on_stack());
+        stack
+    }
+}
+
+impl<T> Stack for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp6<T>: Stack,
+{
+    fn on_stack(self) -> Vec<U256> {
+        let mut stack = self.z0.on_stack();
+        stack.extend(self.z1.on_stack());
+        stack
     }
 }

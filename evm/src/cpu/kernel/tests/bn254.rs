@@ -1,5 +1,3 @@
-use std::mem::transmute;
-
 use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
@@ -8,7 +6,7 @@ use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::cpu::kernel::tests::u256ify;
-use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve, CyclicGroup};
+use crate::curve_pairings::{final_exponent, gen_fp12_sparse, miller_loop, Curve};
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
@@ -210,10 +208,8 @@ fn test_bn_miller() -> Result<()> {
     let p: Curve<BN254> = rng.gen::<Curve<BN254>>();
     let q: Curve<Fp2<BN254>> = rng.gen::<Curve<Fp2<BN254>>>();
 
-    let p_stack: [U256; 2] = unsafe { transmute(p) };
-    let q_stack: [U256; 4] = unsafe { transmute(q) };
-    let mut input = p_stack.to_vec();
-    input.extend(q_stack);
+    let mut input = p.on_stack();
+    input.extend(q.on_stack());
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),

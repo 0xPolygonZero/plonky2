@@ -5,7 +5,7 @@ use rand::distributions::Standard;
 use rand::prelude::Distribution;
 use rand::Rng;
 
-use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, BN254};
+use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Curve<T>
@@ -22,6 +22,14 @@ impl<T: FieldExt> Curve<T> {
             x: T::UNIT,
             y: T::UNIT,
         }
+    }
+}
+
+impl<T: FieldExt + Stack> Curve<T> {
+    pub fn on_stack(self) -> Vec<U256> {
+        let mut stack = self.x.on_stack();
+        stack.extend(self.y.on_stack());
+        stack
     }
 }
 
