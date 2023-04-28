@@ -30,7 +30,7 @@ global precompile_blake2_f:
     // stack: flag, flag_addr, blake2_f_contd, kexit_info
     DUP1
     // stack: flag, flag, flag_addr, blake2_f_contd, kexit_info
-    gt_const(1) %jumpi(fault_exception) // Check flag < 2 (flag = 0 or flag = 1)
+    %gt_const(1) %jumpi(fault_exception) // Check flag < 2 (flag = 0 or flag = 1)
     // stack: flag, flag_addr, blake2_f_contd, kexit_info
     SWAP1
     // stack: flag_addr, flag, blake2_f_contd, kexit_info
