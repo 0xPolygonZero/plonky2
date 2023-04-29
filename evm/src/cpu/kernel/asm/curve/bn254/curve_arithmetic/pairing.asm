@@ -76,21 +76,37 @@ bn254_pairing_start:
     // stack:         k, inp, out, final_label, out, retdest
 
 bn254_pairing_loop:
-    // stack:       k, inp, out, final_label
+    // stack:               k, inp, out, final_label
     DUP1
     ISZERO
-    // stack: end?, k, inp, out, final_label
+    // stack:         end?, k, inp, out, final_label
     %jumpi(bn254_final_exponent)
-    // stack:       k, inp, out, final_label
+    // stack:               k, inp, out, final_label
     %sub_const(1)
-    // stack:   k=k-1, inp, out, final_label
-
-    %stack (k, inp, out) -> (k, inp, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out)
-    // stack: k, inp, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out, final_label
+    // stack:           k=k-1, inp, out, final_label
+    %stack (k, inp) -> (k, inp, k, inp)
+    // stack:       k, inp, k, inp, out, final_label
     %mul_const(6)
     ADD
-    // stack:  inp_k, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out, final_label
-    %jump(bn254_miller)
+    // stack:        inp_k, k, inp, out, final_label
+    DUP1
+    %load_fp254_6
+    // stack:  P, Q, inp_k, k, inp, out, final_label
+    %neutral_input
+    // stack: skip?, inp_k, k, inp, out, final_label
+    %jumpi(bn_skip_input)
+    // stack:        inp_k, k, inp, out, final_label
+    %stack (inp_k, k, inp, out) -> (bn254_miller, inp_k, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out)
+    // stack: bn254_miller,       inp_k, 0, 
+    //        mul_fp254_12,       0, out, out, 
+    //        bn254_pairing_loop, k, inp, out, final_label
+    JUMP
+
+bn_skip_input:
+    // stack: inp_k, k, inp, out, final_label
+    POP
+    // stack:        k, inp, out, final_label
+    %jump(bn254_pairing_loop)
 
 
 bn254_pairing_output_validation:
@@ -136,4 +152,28 @@ bn254_pairing_output_validation:
     // stack:  checkj, check, out
     MUL
     // stack:          check, out
+%endmacro
+
+%macro neutral_input
+    // stack: P      , Q
+    ISZERO
+    SWAP1
+    ISZERO
+    MUL
+    // stack: P==0,    Q
+    SWAP4
+    // stack: Q   , P==0
+    ISZERO
+    SWAP1
+    ISZERO
+    MUL
+    SWAP1
+    ISZERO
+    MUL
+    SWAP1
+    ISZERO
+    MUL
+    // stack: Q==0, P==0
+    OR
+    // stack: Q==0||P==0
 %endmacro

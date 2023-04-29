@@ -237,8 +237,8 @@ fn test_bn_pairing() -> Result<()> {
     let mut acc: i32 = 0;
     let mut input: Vec<U256> = vec![];
     for _ in 1..k {
-        let m: i32 = rng.gen_range(1..8);
-        let n: i32 = rng.gen_range(1..8);
+        let m: i32 = rng.gen_range(-8..8);
+        let n: i32 = rng.gen_range(-8..8);
         acc -= m * n;
 
         let p: Curve<BN254> = Curve::<BN254>::int(m);
