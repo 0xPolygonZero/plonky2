@@ -63,7 +63,7 @@ loading_loop_contd5:
     %jump(mload_packing)
 loading_loop_contd6:
     // stack: y_re, y_im, x_re, x_im, y, x, i, k, kexit_info
-    SWAP1
+    SWAP1  // the EVM serializes the imaginary part first
     // stack: y_im, y_re, x_re, x_im, y, x, i, k, kexit_info
     DUP7
     // stack: i, y_im, y_re, x_re, x_im, y, x, i, k, kexit_info
@@ -76,7 +76,7 @@ loading_loop_contd6:
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(4)
     %mstore_kernel_bn254_pairing
-    SWAP1
+    SWAP1  // the EVM serializes the imaginary part first
     // stack: x_im, x_re, y, x, i, k, kexit_info
     DUP5
     // stack: i, x_im, x_re, y, x, i, k, kexit_info

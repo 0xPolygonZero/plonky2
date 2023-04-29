@@ -1,3 +1,15 @@
+/// The input to the pairing script is a list of points
+///     P_i = n_i*G: Curve, Q_i = m_i*H: TwistedCurve
+/// where G, H are the respective generators, such that
+///     sum_i n_i*m_i = 0
+/// and therefore, due to bilinearity of the pairing:
+///     prod_i e(P_i, Q_i) 
+///   = prod_i e(n_i G, m_i H) 
+///   = prod_i e(G,H)^{n_i * m_i} 
+///   = e(G,H)^{sum_i n_i * m_i}
+///   = e(G,H)^0
+///   = 1: Fp12 
+
 /// def bn254_pairing(pairs: List((Curve, TwistedCurve))) -> Bool:
 ///     
 ///     for P, Q in pairs:
@@ -6,7 +18,8 @@
 ///     
 ///     out = 1
 ///     for P, Q in pairs:
-///         out *= miller_loop(P, Q)
+///         if P != 0 and Q != 0:
+///             out *= miller_loop(P, Q)
 ///
 ///     result = bn254_final_exponent(out)
 ///     return result == unit_fp12
@@ -71,41 +84,42 @@ bn_pairing_invalid_input:
 bn254_pairing_start:
     // stack:      0, k, inp, out,                   retdest
     %stack (j, k, inp, out) -> (out, 1, k, inp, out, bn254_pairing_output_validation, out)
-    // stack: out, 1, k, inp, out, final_label, out, retdest
+    // stack: out, 1, k, inp, out, bn254_pairing_output_validation, out, retdest
     %mstore_kernel_bn254_pairing
-    // stack:         k, inp, out, final_label, out, retdest
+    // stack:         k, inp, out, bn254_pairing_output_validation, out, retdest
 
 bn254_pairing_loop:
-    // stack:               k, inp, out, final_label
+    // stack:               k, inp, out, bn254_pairing_output_validation, out, retdest
     DUP1
     ISZERO
-    // stack:         end?, k, inp, out, final_label
+    // stack:         end?, k, inp, out, bn254_pairing_output_validation, out, retdest
     %jumpi(bn254_final_exponent)
-    // stack:               k, inp, out, final_label
+    // stack:               k, inp, out, bn254_pairing_output_validation, out, retdest
     %sub_const(1)
-    // stack:           k=k-1, inp, out, final_label
+    // stack:           k=k-1, inp, out, bn254_pairing_output_validation, out, retdest
     %stack (k, inp) -> (k, inp, k, inp)
-    // stack:       k, inp, k, inp, out, final_label
+    // stack:       k, inp, k, inp, out, bn254_pairing_output_validation, out, retdest
     %mul_const(6)
     ADD
-    // stack:        inp_k, k, inp, out, final_label
+    // stack:        inp_k, k, inp, out, bn254_pairing_output_validation, out, retdest
     DUP1
     %load_fp254_6
-    // stack:  P, Q, inp_k, k, inp, out, final_label
+    // stack:  P, Q, inp_k, k, inp, out, bn254_pairing_output_validation, out, retdest
     %neutral_input
-    // stack: skip?, inp_k, k, inp, out, final_label
+    // stack: skip?, inp_k, k, inp, out, bn254_pairing_output_validation, out, retdest
     %jumpi(bn_skip_input)
-    // stack:        inp_k, k, inp, out, final_label
+    // stack:        inp_k, k, inp, out, bn254_pairing_output_validation, out, retdest
     %stack (inp_k, k, inp, out) -> (bn254_miller, inp_k, 0, mul_fp254_12, 0, out, out, bn254_pairing_loop, k, inp, out)
-    // stack: bn254_miller,       inp_k, 0, 
-    //        mul_fp254_12,       0, out, out, 
-    //        bn254_pairing_loop, k, inp, out, final_label
+    // stack: bn254_miller,                       inp_k, 0, 
+    //        mul_fp254_12,                    0, out, out, 
+    //        bn254_pairing_loop,              k, inp, out, 
+    //        bn254_pairing_output_validation, out, retdest
     JUMP
 
 bn_skip_input:
-    // stack: inp_k, k, inp, out, final_label
+    // stack: inp_k, k, inp, out, bn254_pairing_output_validation, out, retdest
     POP
-    // stack:        k, inp, out, final_label
+    // stack:        k, inp, out, bn254_pairing_output_validation, out, retdest
     %jump(bn254_pairing_loop)
 
 
