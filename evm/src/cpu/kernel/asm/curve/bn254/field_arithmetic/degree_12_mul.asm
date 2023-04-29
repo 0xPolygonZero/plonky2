@@ -2,32 +2,6 @@
 ///// GENERAL FP12 MULTIPLICATION /////
 ///////////////////////////////////////
 
-/// cost: 1063
-
-/// fp254_6 functions:
-///  fn    | num | ops | cost
-///  -------------------------
-///  load  |   8 |  40 |  320
-///  store |   5 |  40 |  200
-///  dup   |   5 |   6 |   30
-///  swap  |   4 |  16 |   64
-///  add   |   4 |  16 |   64
-///  subr  |   1 |  17 |   17
-///  mul   |   3 | 157 |  471
-///  i9    |   1 |   9 |    9
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   3
-///  SWAP  |   2
-///  DUP   |   6
-///  PUSH  |   6
-///  POP   |   2
-///  JUMP  |   6
-///
-/// TOTAL: 1201
-
 /// inputs:
 ///     F = f + f'z
 ///     G = g + g'z
@@ -66,73 +40,73 @@ mul_fp254_12_1:
     // stack:                   f'g', g'  , f', inA, inB, out 
     %dup_fp254_6_0
     // stack:             f'g', f'g', g'  , f', inA, inB, out 
-    %store_fp254_6_sh(84)                                    
-    // stack:                   f'g', g'  , f', inA, inB, out  {84: sh(f'g')}
-    %store_fp254_6(90)
-    // stack:                         g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    %store_fp254_6_sh(60)                                    
+    // stack:                   f'g', g'  , f', inA, inB, out  {60: sh(f'g')}
+    %store_fp254_6(66)
+    // stack:                         g'  , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     DUP13
-    // stack:                    inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:                    inA, g'  , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     DUP15  
-    // stack:               inB, inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:               inB, inA, g'  , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %load_fp254_6
-    // stack:                g , inA, g'  , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:                g , inA, g'  , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %stack (f: 6, x, g: 6) -> (g, x, f)
-    // stack:                g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:                g', inA, g   , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %dup_fp254_6_7
-    // stack:              g,g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:              g,g', inA, g   , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %add_fp254_6
-    // stack:              g+g', inA, g   , f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:              g+g', inA, g   , f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %stack (f: 6, x, g: 6) -> (g, x, f)
-    // stack:                 g, inA, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:                 g, inA, g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     PUSH mul_fp254_12_2
-    // stack: mul_fp254_12_2, g, inA, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack: mul_fp254_12_2, g, inA, g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     SWAP7
-    // stack: inA, g, mul_fp254_12_2, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack: inA, g, mul_fp254_12_2, g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %load_fp254_6
-    // stack:   f, g, mul_fp254_12_2, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
+    // stack:   f, g, mul_fp254_12_2, g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
     %jump(mul_fp254_6)
 mul_fp254_12_2:    
-    // stack:                     fg, g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g'}
-    %store_fp254_6(96)
-    // stack:                         g+g', f', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                     fg, g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g'}
+    %store_fp254_6(72)
+    // stack:                         g+g', f', inA, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %stack (x: 6, y: 6) -> (y, x)
-    // stack:                         f', g+g', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                         f', g+g', inA, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     PUSH mul_fp254_12_3
-    // stack:         mul_fp254_12_3, f', g+g', inA, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:         mul_fp254_12_3, f', g+g', inA, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     SWAP13
-    // stack:         inA, f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:         inA, f', g+g', mul_fp254_12_3, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %load_fp254_6
-    // stack:            f,f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:            f,f', g+g', mul_fp254_12_3, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %add_fp254_6
-    // stack:            f+f', g+g', mul_fp254_12_3, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:            f+f', g+g', mul_fp254_12_3, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %jump(mul_fp254_6)
 mul_fp254_12_3:
-    // stack:                          (f+f')(g+g'), inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
-    %load_fp254_6(96)
-    // stack:                      fg, (f+f')(g+g'), inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                          (f+f')(g+g'), inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
+    %load_fp254_6(72)
+    // stack:                      fg, (f+f')(g+g'), inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %stack (x: 6, y: 6) -> (y, x)
-    // stack:                      (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                      (f+f')(g+g'), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %dup_fp254_6_6
-    // stack:                  fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
-    %load_fp254_6(90)
-    // stack:             f'g',fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                  fg, (f+f')(g+g'), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
+    %load_fp254_6(66)
+    // stack:             f'g',fg, (f+f')(g+g'), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %add_fp254_6
-    // stack:             f'g'+fg, (f+f')(g+g'), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:             f'g'+fg, (f+f')(g+g'), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %subr_fp254_6
-    // stack:          (f+f')(g+g') - (f'g'+fg), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}   
+    // stack:          (f+f')(g+g') - (f'g'+fg), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}   
     DUP14  
     %add_const(6) 
-    // stack:    out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}   
+    // stack:    out', (f+f')(g+g') - (f'g'+fg), fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}   
     %store_fp254_6
-    // stack:                                    fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
-    %load_fp254_6(84)
-    // stack:                         sh(f'g') , fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                                    fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
+    %load_fp254_6(60)
+    // stack:                         sh(f'g') , fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %add_fp254_6
-    // stack:                         sh(f'g') + fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                         sh(f'g') + fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     DUP8
-    // stack:                    out, sh(f'g') + fg, inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                    out, sh(f'g') + fg, inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %store_fp254_6
-    // stack:                                        inB, out  {84: sh(f'g'), 90: f'g', 96: fg}
+    // stack:                                        inB, out  {60: sh(f'g'), 66: f'g', 72: fg}
     %pop2  
     JUMP
 
@@ -140,29 +114,6 @@ mul_fp254_12_3:
 //////////////////////////////////////
 ///// SPARSE FP12 MULTIPLICATION /////
 //////////////////////////////////////
-
-/// cost: 645
-
-/// fp254_6 functions:
-///  fn      | num | ops | cost
-///  ---------------------------
-///  load    |   2 |  40 |   80
-///  store   |   2 |  40 |   80
-///  dup     |   4 |   6 |   24
-///  swap    |   4 |  16 |   64
-///  add     |   4 |  16 |   64
-///  mul_fp254_  |   2 |  21 |   42
-///  mul_fp254_2 |   4 |  59 |  236
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   6
-///  DUP   |   9
-///  PUSH  |   6
-///  POP   |   5
-///
-/// TOTAL: 618
 
 /// input:
 ///     F = f + f'z
@@ -276,32 +227,6 @@ global mul_fp254_12_sparse:
 /////////////////////////
 ///// FP12 SQUARING /////
 /////////////////////////
-
-/// cost: 646
-
-/// fp254_6 functions:
-///  fn    | num | ops | cost
-///  -------------------------
-///  load  |   2 |  40 |   80
-///  store |   2 |  40 |   80
-///  dup   |   2 |   6 |   12
-///  swap  |   2 |  16 |   32
-///  add   |   1 |  16 |   16
-///  mul   |   1 | 157 |  157
-///  sq    |   2 | 101 |  202
-///  dbl   |   1 |  13 |   13
-///
-/// lone stack operations:
-///  op    | num 
-///  ------------
-///  ADD   |   3
-///  SWAP  |   4
-///  DUP   |   5
-///  PUSH  |   6
-///  POP   |   3
-///  JUMP  |   4
-///
-/// TOTAL: 
 
 /// input:
 ///     F = f + f'z

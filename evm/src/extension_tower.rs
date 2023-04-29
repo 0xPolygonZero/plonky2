@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::{U256, U512};
@@ -7,6 +7,8 @@ use rand::Rng;
 
 pub trait FieldExt:
     Copy
+    + std::fmt::Debug
+    + std::cmp::PartialEq
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -15,6 +17,7 @@ pub trait FieldExt:
 {
     const ZERO: Self;
     const UNIT: Self;
+    fn new(val: usize) -> Self;
     fn inv(self) -> Self;
 }
 
@@ -28,14 +31,6 @@ pub const BN_BASE: U256 = U256([
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BN254 {
     pub val: U256,
-}
-
-impl BN254 {
-    pub fn new(val: usize) -> BN254 {
-        BN254 {
-            val: U256::from(val),
-        }
-    }
 }
 
 impl Distribution<BN254> for Standard {
@@ -91,6 +86,11 @@ impl Mul for BN254 {
 impl FieldExt for BN254 {
     const ZERO: Self = BN254 { val: U256::zero() };
     const UNIT: Self = BN254 { val: U256::one() };
+    fn new(val: usize) -> BN254 {
+        BN254 {
+            val: U256::from(val),
+        }
+    }
     fn inv(self) -> BN254 {
         let exp = BN_BASE - 2;
         let mut current = self;
@@ -131,12 +131,6 @@ pub struct BLS381 {
 }
 
 impl BLS381 {
-    pub fn new(val: usize) -> BLS381 {
-        BLS381 {
-            val: U512::from(val),
-        }
-    }
-
     pub fn lo(self) -> U256 {
         U256(self.val.0[..4].try_into().unwrap())
     }
@@ -234,6 +228,11 @@ impl Mul for BLS381 {
 impl FieldExt for BLS381 {
     const ZERO: Self = BLS381 { val: U512::zero() };
     const UNIT: Self = BLS381 { val: U512::one() };
+    fn new(val: usize) -> BLS381 {
+        BLS381 {
+            val: U512::from(val),
+        }
+    }
     fn inv(self) -> BLS381 {
         let exp = BLS_BASE - 2;
         let mut current = self;
@@ -365,6 +364,14 @@ impl<T: FieldExt> FieldExt for Fp2<T> {
         re: T::UNIT,
         im: T::ZERO,
     };
+
+    fn new(val: usize) -> Fp2<T> {
+        Fp2 {
+            re: T::new(val),
+            im: T::ZERO,
+        }
+    }
+
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     fn inv(self) -> Fp2<T> {
         let norm_sq = self.norm_sq();
@@ -975,6 +982,14 @@ where
         t2: Fp2::<T>::ZERO,
     };
 
+    fn new(val: usize) -> Fp6<T> {
+        Fp6 {
+            t0: Fp2::<T>::new(val),
+            t1: Fp2::<T>::ZERO,
+            t2: Fp2::<T>::ZERO,
+        }
+    }
+
     /// Let x_n = x^(p^n) and note that
     ///     x_0 = x^(p^0) = x^1 = x
     ///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m}
@@ -1039,6 +1054,13 @@ where
         z0: Fp6::<T>::UNIT,
         z1: Fp6::<T>::ZERO,
     };
+
+    fn new(val: usize) -> Fp12<T> {
+        Fp12 {
+            z0: Fp6::<T>::new(val),
+            z1: Fp6::<T>::ZERO,
+        }
+    }
 
     /// By Galois Theory, given x: Fp12, the product
     ///     phi = Prod_{i=0}^11 x_i
@@ -1204,22 +1226,51 @@ pub trait Stack {
     fn on_stack(self) -> Vec<U256>;
 }
 
+impl Stack for BN254 {
+    fn on_stack(self) -> Vec<U256> {
+        vec![self.val]
+    }
+}
+
 impl Stack for BLS381 {
     fn on_stack(self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
     }
 }
 
-impl Stack for Fp6<BN254> {
+impl<T> Stack for Fp2<T>
+where
+    T: FieldExt + Stack,
+{
     fn on_stack(self) -> Vec<U256> {
-        let f: [U256; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut stack = self.re.on_stack();
+        stack.extend(self.im.on_stack());
+        stack
     }
 }
 
-impl Stack for Fp12<BN254> {
+impl<T> Stack for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj + Stack,
+{
     fn on_stack(self) -> Vec<U256> {
-        let f: [U256; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
+        let mut stack = self.t0.on_stack();
+        stack.extend(self.t1.on_stack());
+        stack.extend(self.t2.on_stack());
+        stack
+    }
+}
+
+impl<T> Stack for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp6<T>: Stack,
+{
+    fn on_stack(self) -> Vec<U256> {
+        let mut stack = self.z0.on_stack();
+        stack.extend(self.z1.on_stack());
+        stack
     }
 }
