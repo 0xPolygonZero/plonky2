@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -14,7 +13,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -23,6 +22,7 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// A gate which stores the set of (input, output) value pairs of a lookup table, and their multiplicities.
 #[derive(Debug, Clone)]
@@ -74,6 +74,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
         format!("{self:?}")
     }
 
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.num_slots)?;
+        dst.write_lut(&self.lut)?;
+        dst.write_usize(self.last_lut_row)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let num_slots = src.read_usize()?;
+        let lut = src.read_lut()?;
+        let last_lut_row = src.read_usize()?;
+
+        Ok(Self {
+            num_slots,
+            lut: Arc::new(lut),
+            last_lut_row,
+        })
+    }
+
     fn eval_unfiltered(&self, _vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         // No main trace constraints for the lookup table.
         vec![]
@@ -100,10 +118,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
         vec![]
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
         (0..self.num_slots)
             .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                WitnessGeneratorRef::new(
                     LookupTableGenerator {
                         row,
                         lut: self.lut.clone(),
@@ -112,8 +130,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
                         last_lut_row: self.last_lut_row,
                     }
                     .adapter(),
-                );
-                g
+                )
             })
             .collect()
     }
@@ -144,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LookupTableGenerator {
     row: usize,
     lut: Arc<Vec<(u16, u16)>>,
@@ -154,6 +171,10 @@ pub struct LookupTableGenerator {
 }
 
 impl<F: RichField> SimpleGenerator<F> for LookupTableGenerator {
+    fn id(&self) -> String {
+        "LookupTableGenerator".to_string()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         vec![]
     }
@@ -181,5 +202,29 @@ impl<F: RichField> SimpleGenerator<F> for LookupTableGenerator {
             out_buffer.set_target(slot_input_target, F::ZERO);
             out_buffer.set_target(slot_output_target, F::ZERO);
         }
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+        dst.write_usize(self.row)?;
+        dst.write_lut(&self.lut)?;
+        dst.write_usize(self.slot_nb)?;
+        dst.write_usize(self.num_slots)?;
+        dst.write_usize(self.last_lut_row)
+    }
+
+    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+        let row = src.read_usize()?;
+        let lut = src.read_lut()?;
+        let slot_nb = src.read_usize()?;
+        let num_slots = src.read_usize()?;
+        let last_lut_row = src.read_usize()?;
+
+        Ok(Self {
+            row,
+            lut: Arc::new(lut),
+            slot_nb,
+            num_slots,
+            last_lut_row,
+        })
     }
 }
