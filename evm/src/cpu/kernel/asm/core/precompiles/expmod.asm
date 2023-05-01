@@ -272,71 +272,71 @@ l_E_prime_return:
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
 
-    SWAP3
-    %pop3
-    // stack: len, kexit_info
+    %stack (len, l_M, ls: 2) -> (len, l_M)
+    // stack: len, l_M, kexit_info
 
     PUSH expmod_contd
-    // stack: expmod_contd, len, kexit_info
+    // stack: expmod_contd, len, l_M, kexit_info
     DUP2
-    // stack: len, expmod_contd, len, kexit_info
+    // stack: len, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(11)
-    // stack: s5=11*len, len, expmod_contd, len, kexit_info
+    // stack: s5=11*len, len, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, s5, expmod_contd, len, kexit_info
+    // stack: len, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(9)
-    // stack: s4=9*len, len, s5, expmod_contd, len, kexit_info
+    // stack: s4=9*len, len, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, s4, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(7)
-    // stack: s3=7*len, len, s4, s5, expmod_contd, len, kexit_info
+    // stack: s3=7*len, len, s4, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(5)
-    // stack: s2=5*len, len, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: s2=5*len, len, s3, s4, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(4)
-    // stack: s1=4*len, len, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: s1=4*len, len, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(3)
-    // stack: out=3*len, len, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: out=3*len, len, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, out, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, out, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     DUP1
     %mul_const(2)
-    // stack: m_loc=2*len, len, out, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: m_loc=2*len, len, out, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
     SWAP1
-    // stack: len, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     PUSH 0
-    // stack: b_loc=0, e_loc=len, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: b_loc=0, e_loc=len, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
     DUP2
-    // stack: len, b_loc, e_loc, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, kexit_info
+    // stack: len, b_loc, e_loc, m_loc, out, s1, s2, s3, s4, s5, expmod_contd, len, l_M, kexit_info
 
     %jump(modexp_bignum)
 
 expmod_contd:
-    // stack: len, kexit_info
+    // stack: len, l_M, kexit_info
 
     // Copy the result value from kernel general memory to the parent's return data.
 
-    DUP1
-    // stack: len, len, kexit_info
+    // Store return data size: l_M (number of bytes).
+    SWAP1
+    // stack: l_M, len, kexit_info
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
     // stack: len, kexit_info
     DUP1
