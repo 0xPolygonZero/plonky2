@@ -66,7 +66,7 @@ pub enum LookupChallenges {
 }
 
 /// Structure containing, for each lookup table, the indices of the last lookup row, the last lookup table row and the first lookup table row. Since the rows are in reverse order in the trace, they actually correspond, respectively, to: the indices of the first `LookupGate`, the first `LookupTableGate` and the last `LookupTableGate`.
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LookupWire {
     /// Index of the last lookup row (i.e. the first `LookupGate`).
     pub last_lu_gate: usize,
