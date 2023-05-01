@@ -113,10 +113,18 @@ calculate_l_E_prime:
     JUMP
 case_le_32:
     // stack: l_E, l_B, retdest
+    SWAP1
+    // stack: l_B, l_E, retdest
+    %add_const(96)
+    // stack: 96 + l_B, l_E, retdest
+    PUSH @SEGMENT_CALLDATA
+    GET_CONTEXT
+    %mload_packing
+    // stack: E, retdest
     %log2_floor
-    // stack: log2(l_E), l_B, retdest
-    %stack (log, l_B, retdest) -> (retdest, log)
-    // stack: retdest, log2(l_E)
+    // stack: log2(E), retdest
+    SWAP1
+    // stack: retdest, log2(E)
     JUMP
 
 global precompile_expmod:
@@ -177,8 +185,7 @@ l_E_prime_return:
     // stack: f(max(l_M, l_B)), l_E_prime, len, l_M, l_E, l_B, kexit_info
     SWAP1
     // stack: l_E_prime, f(max(l_M, l_B)), len, l_M, l_E, l_B, kexit_info
-    PUSH 1
-    %max
+    %max_const(1)
     // stack: max(1, l_E_prime), f(max(l_M, l_B)), len, l_M, l_E, l_B, kexit_info
     MUL
     // stack: max(1, l_E_prime) * f(max(l_M, l_B)), len, l_M, l_E, l_B, kexit_info

@@ -5,14 +5,12 @@ log2_floor_helper:
     ISZERO
     %jumpi(end)
     // stack: val, counter, retdest
-    %shr_const(1)
-    // stack: val >> 1, counter, retdest
+    %div_const(2)
+    // stack: val/2, counter, retdest
     SWAP1
-    // stack: counter, val >> 1, retdest
     %increment
-    // stack: counter + 1, val >> 1, retdest
     SWAP1
-    // stack: val >> 1, counter + 1, retdest
+    // stack: val/2, counter + 1, retdest
     %jump(log2_floor_helper)
 end:
     // stack: val, counter, retdest
@@ -24,12 +22,12 @@ end:
 
 global log2_floor:
     // stack: val, retdest
-    %shr_const(1)
-    // stack: val >> 1, retdest
+    %div_const(2)
+    // stack: val/2, retdest
     PUSH 0
-    // stack: 0, val >> 1, retdest
+    // stack: 0, val/2, retdest
     SWAP1
-    // stack: val >> 1, 0, retdest
+    // stack: val/2, 0, retdest
     %jump(log2_floor_helper)
 
 %macro log2_floor
