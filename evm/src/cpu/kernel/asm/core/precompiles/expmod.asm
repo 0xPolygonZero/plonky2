@@ -343,31 +343,42 @@ expmod_contd:
     // stack: len, len, kexit_info
     %mul_const(3)
     // stack: out=3*len, len, kexit_info
+    DUP2
+    DUP2
+    // stack: out, len, out, len, kexit_info
+    ADD
+    %decrement
+    SWAP1
+    %decrement
+    SWAP1
+    // stack: cur_address=out+len-1, end_address=out-1, len, kexit_info
     PUSH 0
-    // stack: i=0, cur_address=out, len, kexit_info
+    // stack: i=0, cur_address, end_address, len, kexit_info
+
+    // Store in big-endian format.
 expmod_store_loop:
-    // stack: i, cur_address, len, kexit_info
+    // stack: i, cur_address, end_address, len, kexit_info
     DUP2
-    // stack: cur_address, i, cur_address, len, kexit_info
+    // stack: cur_address, i, cur_address, end_address, len, kexit_info
     %mload_kernel_general
-    // stack: cur_limb, i, cur_address, len, kexit_info
+    // stack: cur_limb, i, cur_address, end_address, len, kexit_info
     DUP2
-    // stack: i, cur_limb, i, cur_address, len, kexit_info
+    // stack: i, cur_limb, i, cur_address, end_address, len, kexit_info
     %mul_const(16)
-    // stack: offset=16*i, cur_limb, i, cur_address, len, kexit_info
+    // stack: offset=16*i, cur_limb, i, cur_address, end_address, len, kexit_info
     %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, cur_limb, 16)
-    // stack: @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
+    // stack: @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, end_address, len, kexit_info
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    // stack: parent_ctx, @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
+    // stack: parent_ctx, @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, end_address, len, kexit_info
     %mstore_unpacking
-    // stack: offset', i, cur_address, len, kexit_info
+    // stack: offset', i, cur_address, end_address, len, kexit_info
     POP
-    // stack: i, cur_address, len, kexit_info
+    // stack: i, cur_address, end_address, len, kexit_info
     %increment
     SWAP1
-    %increment
+    %decrement
     SWAP1
-    // stack: i+1, cur_address+1, len, kexit_info
+    // stack: i+1, cur_address-1, end_address, len, kexit_info
     DUP3
     DUP2
     EQ
