@@ -35,9 +35,71 @@ sstore_warm:
     %add_const(@GAS_WARMACCESS)
 
 sstore_charge_gas:
-    %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, slot, value)
+    %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, value, original_value, slot)
     %charge_gas
 
+    %stack (kexit_info, current_value, value, original_value, slot) -> (current_value, value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_no_refund)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, original_value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_refund_original)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_reset)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_clear1)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_clear2)
+    %jump(sstore_dirty_reset)
+
+global sstore_dirty_clear1:
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %sub_const(@REFUND_SCLEAR)
+    %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %jump(sstore_dirty_reset)
+
+global sstore_dirty_clear2:
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %add_const(@REFUND_SCLEAR)
+    %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+
+global sstore_dirty_reset:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_dirty_reset2)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+    %jump(sstore_after_refund)
+global sstore_dirty_reset2:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_reset_sset)
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %add_const(@GAS_SRESET)
+    %sub_const(@GAS_WARMACCESS)
+    %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+    %jump(sstore_after_refund)
+global sstore_dirty_reset_sset:
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %add_const(@GAS_SSET)
+    %sub_const(@GAS_WARMACCESS)
+    %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+    %jump(sstore_after_refund)
+
+global sstore_refund_original:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, slot, kexit_info)
+    ISZERO %jumpi(sstore_sclear)
+    %stack (current_value, value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+    %jump(sstore_after_refund)
+global sstore_sclear:
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %add_const(@REFUND_SCLEAR)
+    %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
+    %stack (current_value, value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+    %jump(sstore_after_refund)
+
+global sstore_no_refund:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+global sstore_after_refund:
+    %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER) POP
+    // stack: kexit_info, current_value, slot, value
     // Check if `value` is equal to `current_value`, and if so exit the kernel early.
     %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
