@@ -34,12 +34,6 @@ mload_bytes_return:
     // stack: retdest, total_num_limbs, len, ..limbs
     JUMP
 
-%macro mload_bytes_as_limbs
-    %stack (ctx, segment, offset, num_bytes, total_num_limbs) -> (ctx, segment, offset, num_bytes, %%after, total_num_limbs)
-    %jump(mload_bytes_as_limbs)
-%%after:
-%endmacro
-
 store_limbs:
     // stack: offset, retdest, num_limbs, limb[num_limbs - 1], ..limb[0]
     DUP3
@@ -63,20 +57,6 @@ store_limbs_return:
     SWAP1
     POP
     JUMP
-
-%macro store_limbs
-    %stack (offset, num_limbs) -> (offset, %%after, num_limbs)
-    %jump(store_limbs)
-%%after:
-%endmacro
-
-%macro expmod_gas_f
-    // stack: x
-    %ceil_div_const(8)
-    // stack: ceil(x/8)
-    %square
-    // stack: ceil(x/8)^2
-%endmacro
 
 calculate_l_E_prime:
     // stack: l_E, l_B, retdest
@@ -127,7 +107,7 @@ case_le_32:
     // stack: retdest, log2(E)
     JUMP
 
-global precompile_expmod:
+global expmod_test:
     // stack: address, retdest, new_ctx, (old stack)
     %pop2
     // stack: new_ctx, (old stack)
@@ -195,7 +175,7 @@ l_E_prime_return:
     // stack: g_r, len, l_M, l_E, l_B, kexit_info
     %stack (g_r, l: 4, kexit_info) -> (g_r, kexit_info, l)
     // stack: g_r, kexit_info, len, l_M, l_E, l_B
-    %charge_gas
+    POP // %charge_gas
     // stack: kexit_info, len, l_M, l_E, l_B
     %stack (kexit_info, l: 4) -> (l, kexit_info)
     // stack: len, l_M, l_E, l_B, kexit_info
@@ -227,7 +207,7 @@ l_E_prime_return:
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
 copy_b_end:
-    
+
     // Copy E to kernel general memory.
     // stack: len, l_M, l_E, l_B, kexit_info
     DUP1
@@ -405,4 +385,4 @@ expmod_store_end:
     // stack: kexit_info
     PUSH 0
     // stack: dummy=0, kexit_info
-    %jump(pop_and_return_success)
+    STOP
