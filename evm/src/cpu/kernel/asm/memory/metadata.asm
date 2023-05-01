@@ -313,14 +313,15 @@ global sys_basefee:
     %jumpi(fault_exception)
 %endmacro
 
+// Adds the two top elements of the stack, and faults in case of overflow.
 %macro add_or_fault
-    // stack: offset, size, kexit_info, offset, size
-    DUP1
-    %ensure_reasonable_offset
-    // stack: offset, size, kexit_info, offset, size
-    DUP2
-    // stack: size, offset, size, kexit_info, offset, size
-    %ensure_reasonable_offset
-    // stack: offset, size, kexit_info, offset, size
-    ADD 
+    // stack: x, y
+    DUP2 ADD
+    // stack: sum, y
+    DUP1 SWAP2
+    // stack: y, sum, sum
+    GT
+    // stack: is_overflow, sum
+    %jumpi(fault_exception)
+    // stack: sum
 %endmacro
