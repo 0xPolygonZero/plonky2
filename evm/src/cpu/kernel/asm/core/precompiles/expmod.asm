@@ -22,6 +22,10 @@ mload_bytes_as_limbs:
     ISZERO
     %jumpi(mload_bytes_return)
     // stack: num_bytes_new, ctx, segment, offset, retdest, total_num_limbs, len, ..limbs
+    SWAP3
+    %add_const(16)
+    SWAP3
+    // stack: num_bytes_new, ctx, segment, offset + 16, retdest, total_num_limbs, len, ..limbs
     %stack (num, addr: 3) -> (addr, num)
     %jump(mload_bytes_as_limbs)
 mload_bytes_return:
@@ -356,6 +360,8 @@ expmod_store_loop:
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     // stack: parent_ctx, @SEGMENT_RETURNDATA, offset, cur_limb, 16, i, cur_address, len, kexit_info
     %mstore_unpacking
+    // stack: offset', i, cur_address, len, kexit_info
+    POP
     // stack: i, cur_address, len, kexit_info
     %increment
     SWAP1
