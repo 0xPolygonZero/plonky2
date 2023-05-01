@@ -95,16 +95,13 @@ calculate_l_E_prime:
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
     %mload_packing
-    // stack: i[96 + l_B..128 + l_B], 32, l_E, l_B, retdest
+    // stack: i[96 + l_B..128 + l_B], l_E, l_B, retdest
     %log2_floor
-    // stack: log2(i[96 + l_B..128 + l_B]), 32, l_E, l_B, retdest
-    SWAP2
-    // stack: l_E, 32, log2(i[96 + l_B..128 + l_B]), l_B, retdest
+    // stack: log2(i[96 + l_B..128 + l_B]), l_E, l_B, retdest
+    SWAP1
+    // stack: l_E, log2(i[96 + l_B..128 + l_B]), l_B, retdest
     %sub_const(32)
     %mul_const(8)
-    // stack: 8 * (l_E - 32), 32, log2(i[96 + l_B..128 + l_B]), l_B, retdest
-    SWAP1
-    POP
     // stack: 8 * (l_E - 32), log2(i[96 + l_B..128 + l_B]), l_B, retdest
     ADD
     // stack: 8 * (l_E - 32) + log2(i[96 + l_B..128 + l_B]), l_B, retdest
@@ -116,7 +113,6 @@ calculate_l_E_prime:
     JUMP
 case_le_32:
     // stack: l_E, l_B, retdest
-
     %log2_floor
     // stack: log2(l_E), l_B, retdest
     %stack (log, l_B, retdest) -> (retdest, log)
