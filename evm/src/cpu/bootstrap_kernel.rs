@@ -85,8 +85,11 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
-    // - all memory channels are disabled (TODO)
+    // - all memory channels are disabled
     // - the current kernel hash matches a precomputed one
+    for channel in local_values.mem_channels.iter() {
+        yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
+    }
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
@@ -141,8 +144,12 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
-    // - all memory channels are disabled (TODO)
+    // - all memory channels are disabled
     // - the current kernel hash matches a precomputed one
+    for channel in local_values.mem_channels.iter() {
+        let constraint = builder.mul_extension(delta_is_bootstrap, channel.used);
+        yield_constr.constraint_transition(builder, constraint);
+    }
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
