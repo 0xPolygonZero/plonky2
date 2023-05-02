@@ -36,12 +36,12 @@ fn test_expmod(input_hex: &str, expected_gas: u32, expected_output_hex: &str) ->
         .try_into()
         .unwrap();
     let output = result.get_memory_segment(Returndata)[..output_size].to_vec();
-    dbg!(output.clone());
 
     let expected_output = hex_to_memory(expected_output_hex);
     assert_eq!(output, expected_output);
 
-    let gas = result.stack()[0].as_u64() as u32;
+    let stack = result.stack();
+    let gas = stack[stack.len() - 1].as_u64() as u32;
     assert_eq!(gas, expected_gas);
 
     Ok(())
@@ -51,7 +51,7 @@ fn test_expmod(input_hex: &str, expected_gas: u32, expected_output_hex: &str) ->
 fn test_expmod_gas_eip_example1() -> Result<()> {
     test_expmod(
         "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002003fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
-        13056,
+        1360,
         "0000000000000000000000000000000000000000000000000000000000000001"
     )
 }
@@ -60,7 +60,7 @@ fn test_expmod_gas_eip_example1() -> Result<()> {
 fn test_expmod_gas_eip_example2() -> Result<()> {
     test_expmod(
         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
-        13056,
+        1360,
         "0000000000000000000000000000000000000000000000000000000000000000"
     )
 }
