@@ -7,6 +7,7 @@ mod bn254;
 mod core;
 mod ecc;
 mod exp;
+mod expmod_test;
 mod hash;
 mod mpt;
 mod packing;

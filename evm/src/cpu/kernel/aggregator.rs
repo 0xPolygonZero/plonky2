@@ -47,6 +47,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/precompiles/rip160.asm"),
         include_str!("asm/core/precompiles/id.asm"),
         include_str!("asm/core/precompiles/expmod.asm"),
+        include_str!("asm/core/precompiles/expmod_test.asm"),
         include_str!("asm/core/precompiles/bn_add.asm"),
         include_str!("asm/core/precompiles/bn_mul.asm"),
         include_str!("asm/core/precompiles/snarkv.asm"),
