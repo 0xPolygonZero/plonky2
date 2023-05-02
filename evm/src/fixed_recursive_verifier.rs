@@ -58,10 +58,27 @@ where
     pub public_values: AggregatedPublicValues,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EvmProofTarget<const D: usize> {
     pub proof: ProofWithPublicInputsTarget<D>,
     pub public_values: AggregatedPublicValuesTarget,
+}
+
+impl<const D: usize> EvmProofTarget<D> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_proof_with_public_inputs(&self.proof)?;
+        self.public_values.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let proof = buffer.read_target_proof_with_public_inputs()?;
+        let public_values = AggregatedPublicValuesTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            proof,
+            public_values,
+        })
+    }
 }
 
 /// Adds a new "virtual" EVM proof target.
@@ -379,15 +396,15 @@ pub struct AggregationChildTarget<const D: usize> {
 impl<const D: usize> AggregationChildTarget<D> {
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_bool(self.is_agg)?;
-        buffer.write_target_proof_with_public_inputs(&self.agg_proof)?;
-        buffer.write_target_proof_with_public_inputs(&self.evm_proof)?;
-        Ok(())
+        self.agg_proof.to_buffer(buffer)?;
+        self.evm_proof.to_buffer(buffer)
     }
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let is_agg = buffer.read_target_bool()?;
-        let agg_proof = buffer.read_target_proof_with_public_inputs()?;
-        let evm_proof = buffer.read_target_proof_with_public_inputs()?;
+        let agg_proof = EvmProofTarget::from_buffer(buffer)?;
+        let evm_proof = EvmProofTarget::from_buffer(buffer)?;
+
         Ok(Self {
             is_agg,
             agg_proof,
@@ -422,8 +439,8 @@ where
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
         buffer.write_target_bool(self.has_parent_block)?;
-        buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
-        buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
+        self.parent_block_proof.to_buffer(buffer)?;
+        self.agg_root_proof.to_buffer(buffer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
@@ -435,8 +452,8 @@ where
     ) -> IoResult<Self> {
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
         let has_parent_block = buffer.read_target_bool()?;
-        let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
-        let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
+        let parent_block_proof = EvmProofTarget::from_buffer(buffer)?;
+        let agg_root_proof = EvmProofTarget::from_buffer(buffer)?;
         let cyclic_vk = buffer.read_target_verifier_circuit()?;
         Ok(Self {
             circuit,

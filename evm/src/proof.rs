@@ -92,7 +92,7 @@ pub struct PublicValuesTarget {
 }
 
 /// Memory values which are public over an aggregaton of blocks.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AggregatedPublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
@@ -101,14 +101,77 @@ pub struct AggregatedPublicValuesTarget {
     pub block_metadata_pair: (BlockMetadataTarget, BlockMetadataTarget),
 }
 
-#[derive(Debug, Clone)]
+impl AggregatedPublicValuesTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.trie_roots_before.to_buffer(buffer)?;
+        self.trie_roots_after.to_buffer(buffer)?;
+        self.block_metadata_pair.0.to_buffer(buffer)?;
+        self.block_metadata_pair.1.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let trie_roots_before = TrieRootsTarget::from_buffer(buffer)?;
+        let trie_roots_after = TrieRootsTarget::from_buffer(buffer)?;
+        let block_metadata_pair = (
+            BlockMetadataTarget::from_buffer(buffer)?,
+            BlockMetadataTarget::from_buffer(buffer)?,
+        );
+
+        Ok(Self {
+            trie_roots_before,
+            trie_roots_after,
+            block_metadata_pair,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TrieRootsTarget {
     pub state_root: [Target; 8],
     pub transactions_root: [Target; 8],
     pub receipts_root: [Target; 8],
 }
 
-#[derive(Debug, Clone)]
+impl TrieRootsTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        for &limb in self.state_root.iter() {
+            buffer.write_target(limb)?;
+        }
+        for &limb in self.transactions_root.iter() {
+            buffer.write_target(limb)?;
+        }
+        for &limb in self.receipts_root.iter() {
+            buffer.write_target(limb)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let mut state_root = [Target::default(); 8];
+        for limb in state_root.iter_mut() {
+            *limb = buffer.read_target()?;
+        }
+        let mut transactions_root = [Target::default(); 8];
+        for limb in transactions_root.iter_mut() {
+            *limb = buffer.read_target()?;
+        }
+        let mut receipts_root = [Target::default(); 8];
+        for limb in receipts_root.iter_mut() {
+            *limb = buffer.read_target()?;
+        }
+
+        Ok(Self {
+            state_root,
+            transactions_root,
+            receipts_root,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BlockMetadataTarget {
     pub block_beneficiary: [Target; 5],
     pub block_timestamp: Target,
@@ -117,6 +180,43 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: Target,
+}
+
+impl BlockMetadataTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        for &limb in self.block_beneficiary.iter() {
+            buffer.write_target(limb)?;
+        }
+        buffer.write_target(self.block_timestamp)?;
+        buffer.write_target(self.block_number)?;
+        buffer.write_target(self.block_difficulty)?;
+        buffer.write_target(self.block_gaslimit)?;
+        buffer.write_target(self.block_chain_id)?;
+        buffer.write_target(self.block_base_fee)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let mut block_beneficiary = [Target::default(); 5];
+        for limb in block_beneficiary.iter_mut() {
+            *limb = buffer.read_target()?;
+        }
+        let block_timestamp = buffer.read_target()?;
+        let block_number = buffer.read_target()?;
+        let block_difficulty = buffer.read_target()?;
+        let block_gaslimit = buffer.read_target()?;
+        let block_chain_id = buffer.read_target()?;
+        let block_base_fee = buffer.read_target()?;
+
+        Ok(Self {
+            block_beneficiary,
+            block_timestamp,
+            block_number,
+            block_difficulty,
+            block_gaslimit,
+            block_chain_id,
+            block_base_fee,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
