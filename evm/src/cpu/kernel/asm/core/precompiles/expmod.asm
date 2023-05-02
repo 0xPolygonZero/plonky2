@@ -209,9 +209,9 @@ l_E_prime_return:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_b_end)
+    %jumpi(copy_b_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 96)
@@ -226,6 +226,10 @@ l_E_prime_return:
     // stack: b_loc=0, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
+    %jump(copy_b_end)
+copy_b_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    %pop3
 copy_b_end:
     
     // Copy E to kernel general memory.
@@ -237,9 +241,9 @@ copy_b_end:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_e_end)
+    %jumpi(copy_e_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
     DUP7
@@ -254,6 +258,10 @@ copy_b_end:
     // stack: e_loc=len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
+    %jump(copy_e_end)
+copy_e_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    %pop3
 copy_e_end:
 
     // Copy M to kernel general memory.
@@ -265,9 +273,9 @@ copy_e_end:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_m_end)
+    %jumpi(copy_m_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
     DUP7
@@ -285,6 +293,10 @@ copy_e_end:
     // stack: m_loc=2*len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info
+    %jump(copy_m_end)
+copy_m_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info
+    %pop3
 copy_m_end:
 
     %stack (len, l_M, ls: 2) -> (len, l_M)
