@@ -400,9 +400,10 @@ expmod_store_loop:
     ISZERO
     %jumpi(expmod_store_loop)
 expmod_store_end:
-    // stack: i, cur_address, len, kexit_info
-    %pop3
+    // stack: i, cur_address, end_address, len, kexit_info
+    %pop4
     // stack: kexit_info
-    PUSH 0
-    // stack: dummy=0, kexit_info
-    %jump(pop_and_return_success)
+    %leftover_gas
+    // stack: leftover_gas
+    PUSH 1 // success
+    %jump(terminate_common)
