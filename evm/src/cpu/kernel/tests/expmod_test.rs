@@ -41,6 +41,9 @@ fn test_expmod(input_hex: &str, expected_gas: u32, expected_output_hex: &str) ->
     let expected_output = hex_to_memory(expected_output_hex);
     assert_eq!(output, expected_output);
 
+    let gas = result.stack()[0].as_u64() as u32;
+    assert_eq!(gas, expected_gas);
+
     Ok(())
 }
 
