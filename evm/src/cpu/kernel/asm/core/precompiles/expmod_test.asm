@@ -173,10 +173,8 @@ l_E_prime_return:
     // stack: (max(1, l_E_prime) * f(max(l_M, l_B))) / G_quaddivisor, len, l_M, l_E, l_B, kexit_info
     %max_const(200)
     // stack: g_r, len, l_M, l_E, l_B, kexit_info
-    %stack (g_r, l: 4, kexit_info) -> (g_r, kexit_info, l)
-    // stack: g_r, kexit_info, len, l_M, l_E, l_B
-    %stack (g_r, kexit_info, l: 4) -> (l, kexit_info, g_r)
-    // stack: len, l_M, l_E, l_B, kexit_info, g_r, g_r
+    %stack (g_r, l: 4, kexit_info) -> (l, kexit_info, g_r)
+    // stack: len, l_M, l_E, l_B, kexit_info, g_r
 
     // Copy B to kernel general memory.
     // stack: len, l_M, l_E, l_B, kexit_info, g_r
@@ -187,9 +185,9 @@ l_E_prime_return:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_b_end)
+    %jumpi(copy_b_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info, g_r
     %stack () -> (@SEGMENT_CALLDATA, 96)
@@ -204,6 +202,10 @@ l_E_prime_return:
     // stack: b_loc=0, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info, g_r
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info, g_r
+    %jump(copy_b_end)
+copy_b_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
+    %pop3
 copy_b_end:
 
     // Copy E to kernel general memory.
@@ -215,9 +217,9 @@ copy_b_end:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_e_end)
+    %jumpi(copy_e_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info, g_r
     DUP7
@@ -232,6 +234,10 @@ copy_b_end:
     // stack: e_loc=len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info, g_r
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info, g_r
+    %jump(copy_e_end)
+copy_e_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
+    %pop3
 copy_e_end:
 
     // Copy M to kernel general memory.
@@ -243,9 +249,9 @@ copy_e_end:
     DUP1
     %ceil_div_const(16)
     // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
-    DUP1
+    DUP2
     ISZERO
-    %jumpi(copy_m_end)
+    %jumpi(copy_m_len_zero)
     SWAP1
     // stack: num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info, g_r
     DUP7
@@ -263,6 +269,10 @@ copy_e_end:
     // stack: m_loc=2*len, num_limbs, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info, g_r
     %store_limbs
     // stack: len, l_M, l_E, l_B, kexit_info, g_r
+    %jump(copy_m_end)
+copy_m_len_zero:
+    // stack: num_limbs, num_bytes, len, len, l_M, l_E, l_B, kexit_info, g_r
+    %pop3
 copy_m_end:
 
     %stack (len, l_M, ls: 2) -> (len, l_M)
