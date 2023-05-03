@@ -70,10 +70,7 @@ fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
 fn fill_subtree<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     digests_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
-) -> H::Hash
-where
-    [(); HC::WIDTH]:,
-{
+) -> H::Hash {
     assert_eq!(leaves.len(), digests_buf.len() / 2 + 1);
     if digests_buf.is_empty() {
         H::hash_or_noop(&leaves[0])
@@ -104,9 +101,7 @@ fn fill_digests_buf<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     cap_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
     cap_height: usize,
-) where
-    [(); HC::WIDTH]:,
-{
+) {
     // Special case of a tree that's all cap. The usual case will panic because we'll try to split
     // an empty slice into chunks of `0`. (We would not need this if there was a way to split into
     // `blah` chunks as opposed to chunks _of_ `blah`.)
@@ -137,10 +132,7 @@ fn fill_digests_buf<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     );
 }
 
-impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> MerkleTree<F, HC, H>
-where
-    [(); HC::WIDTH]:,
-{
+impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> MerkleTree<F, HC, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(

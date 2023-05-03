@@ -11,9 +11,8 @@ use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -56,9 +55,6 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
     Ok(proof)
@@ -75,14 +71,11 @@ pub fn prove_with_outputs<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
@@ -110,9 +103,6 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::Hasher::HASH_SIZE]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
@@ -195,14 +185,11 @@ fn prove_with_commitments<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::Hasher::HASH_SIZE]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let cpu_proof = timed!(
         timing,
@@ -293,8 +280,6 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);

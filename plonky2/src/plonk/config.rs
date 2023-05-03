@@ -37,15 +37,10 @@ pub trait Hasher<F: RichField, HC: HashConfig>: Sized + Clone + Debug + Eq + Par
 
     /// Hash a message without any padding step. Note that this can enable length-extension attacks.
     /// However, it is still collision-resistant in cases where the input has a fixed length.
-    fn hash_no_pad(input: &[F]) -> Self::Hash
-    where
-        [(); HC::WIDTH]:;
+    fn hash_no_pad(input: &[F]) -> Self::Hash;
 
     /// Pad the message using the `pad10*1` rule, then hash it.
-    fn hash_pad(input: &[F]) -> Self::Hash
-    where
-        [(); HC::WIDTH]:,
-    {
+    fn hash_pad(input: &[F]) -> Self::Hash {
         let mut padded_input = input.to_vec();
         padded_input.push(F::ONE);
         while (padded_input.len() + 1) % HC::WIDTH != 0 {
@@ -57,10 +52,7 @@ pub trait Hasher<F: RichField, HC: HashConfig>: Sized + Clone + Debug + Eq + Par
 
     /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
     /// no-op.
-    fn hash_or_noop(inputs: &[F]) -> Self::Hash
-    where
-        [(); HC::WIDTH]:,
-    {
+    fn hash_or_noop(inputs: &[F]) -> Self::Hash {
         if inputs.len() * 8 <= Self::HASH_SIZE {
             let mut inputs_bytes = vec![0u8; Self::HASH_SIZE];
             for i in 0..inputs.len() {
@@ -73,9 +65,7 @@ pub trait Hasher<F: RichField, HC: HashConfig>: Sized + Clone + Debug + Eq + Par
         }
     }
 
-    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash
-    where
-        [(); HC::WIDTH]:;
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 
 /// Trait for algebraic hash functions, built from a permutation using the sponge construction.

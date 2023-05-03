@@ -14,20 +14,13 @@ use crate::permutation::{
 };
 use crate::proof::*;
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D>
-where
-    [(); C::HCO::WIDTH]:,
-{
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllProofChallenges<F, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> AllProofChallenges<F, D> {
         let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
@@ -61,11 +54,7 @@ where
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllChallengerState<F, C::HCO, C::Hasher, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> AllChallengerState<F, C::HCO, C::Hasher, D> {
         let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
@@ -110,11 +99,7 @@ where
         stark_use_permutation: bool,
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
-    ) -> StarkProofChallenges<F, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
 
         let StarkProof {

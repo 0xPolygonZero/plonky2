@@ -59,17 +59,18 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub fn verify_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub fn verify_fri_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     instance: &FriInstanceInfo<F, D>,
     openings: &FriOpenings<F, D>,
     challenges: &FriChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
     proof: &FriProof<F, C::HCO, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()>
-where
-    [(); C::HCO::WIDTH]:,
-{
+) -> Result<()> {
     validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
@@ -111,10 +112,7 @@ fn fri_verify_initial_proof<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     x_index: usize,
     proof: &FriInitialTreeProof<F, HC, H>,
     initial_merkle_caps: &[MerkleCap<F, HC, H>],
-) -> Result<()>
-where
-    [(); HC::WIDTH]:,
-{
+) -> Result<()> {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
         verify_merkle_proof_to_cap::<F, HC, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
@@ -177,10 +175,7 @@ fn fri_verifier_query_round<
     n: usize,
     round_proof: &FriQueryRound<F, C::HCO, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()>
-where
-    [(); C::HCO::WIDTH]:,
-{
+) -> Result<()> {
     fri_verify_initial_proof::<F, C::HCO, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,

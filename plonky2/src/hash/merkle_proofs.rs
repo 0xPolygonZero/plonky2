@@ -44,10 +44,7 @@ pub fn verify_merkle_proof<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     leaf_index: usize,
     merkle_root: H::Hash,
     proof: &MerkleProof<F, HC, H>,
-) -> Result<()>
-where
-    [(); HC::WIDTH]:,
-{
+) -> Result<()> {
     let merkle_cap = MerkleCap(vec![merkle_root]);
     verify_merkle_proof_to_cap(leaf_data, leaf_index, &merkle_cap, proof)
 }
@@ -59,10 +56,7 @@ pub fn verify_merkle_proof_to_cap<F: RichField, HC: HashConfig, H: Hasher<F, HC>
     leaf_index: usize,
     merkle_cap: &MerkleCap<F, HC, H>,
     proof: &MerkleProof<F, HC, H>,
-) -> Result<()>
-where
-    [(); HC::WIDTH]:,
-{
+) -> Result<()> {
     let mut index = leaf_index;
     let mut current_digest = H::hash_or_noop(&leaf_data);
     for &sibling_digest in proof.siblings.iter() {

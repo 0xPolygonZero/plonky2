@@ -22,19 +22,13 @@ use crate::permutation::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
-pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-where
-    [(); C::HCO::WIDTH]:,
-{
+pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     pub public_values: PublicValues,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D>
-where
-    [(); C::HCO::WIDTH]:,
-{
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }

@@ -12,14 +12,10 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
-impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H>
-where
-    [(); HCO::WIDTH]:,
-{
+impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H> {
     pub fn observe_openings<const D: usize>(&mut self, openings: &FriOpenings<F, D>)
     where
         F: RichField + Extendable<D>,
-        [(); HCO::WIDTH]:,
     {
         for v in &openings.batches {
             self.observe_extension_elements(&v.values);
@@ -36,8 +32,6 @@ where
     ) -> FriChallenges<F, D>
     where
         F: RichField + Extendable<D>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
     {
         let num_fri_queries = config.num_query_rounds;
         let lde_size = 1 << (degree_bits + config.rate_bits);

@@ -203,10 +203,7 @@ fn poly_product_elementwise<F: Field>(
 
 fn get_grand_product_challenge<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     challenger: &mut Challenger<F, HC, H>,
-) -> GrandProductChallenge<F>
-where
-    [(); HC::WIDTH]:,
-{
+) -> GrandProductChallenge<F> {
     let beta = challenger.get_challenge();
     let gamma = challenger.get_challenge();
     GrandProductChallenge { beta, gamma }
@@ -215,10 +212,7 @@ where
 pub(crate) fn get_grand_product_challenge_set<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
     challenger: &mut Challenger<F, HC, H>,
     num_challenges: usize,
-) -> GrandProductChallengeSet<F>
-where
-    [(); HC::WIDTH]:,
-{
+) -> GrandProductChallengeSet<F> {
     let challenges = (0..num_challenges)
         .map(|_| get_grand_product_challenge(challenger))
         .collect();
@@ -229,10 +223,7 @@ pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, HC: HashConfig, H
     challenger: &mut Challenger<F, HC, H>,
     num_challenges: usize,
     num_sets: usize,
-) -> Vec<GrandProductChallengeSet<F>>
-where
-    [(); HC::WIDTH]:,
-{
+) -> Vec<GrandProductChallengeSet<F>> {
     (0..num_sets)
         .map(|_| get_grand_product_challenge_set(challenger, num_challenges))
         .collect()

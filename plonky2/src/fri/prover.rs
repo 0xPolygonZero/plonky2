@@ -26,11 +26,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
-) -> FriProof<F, C::HCO, C::Hasher, D>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> FriProof<F, C::HCO, C::Hasher, D> {
     let n = lde_polynomial_values.len();
     assert_eq!(lde_polynomial_coeffs.len(), n);
 
@@ -75,10 +71,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     fri_params: &FriParams,
-) -> FriCommitedTrees<F, C, D>
-where
-    [(); C::HCO::WIDTH]:,
-{
+) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
@@ -123,11 +116,7 @@ where
 fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     config: &FriConfig,
-) -> F
-where
-    [(); C::HCI::WIDTH]:,
-    [(); C::HCO::WIDTH]:,
-{
+) -> F {
     let min_leading_zeros = config.proof_of_work_bits + (64 - F::order().bits()) as u32;
 
     // The easiest implementation would be repeatedly clone our Challenger. With each clone, we'd
@@ -186,10 +175,7 @@ fn fri_prover_query_rounds<
     challenger: &mut Challenger<F, C::HCO, C::Hasher>,
     n: usize,
     fri_params: &FriParams,
-) -> Vec<FriQueryRound<F, C::HCO, C::Hasher, D>>
-where
-    [(); C::HCO::WIDTH]:,
-{
+) -> Vec<FriQueryRound<F, C::HCO, C::Hasher, D>> {
     challenger
         .get_n_challenges(fri_params.config.num_query_rounds)
         .into_par_iter()
@@ -209,10 +195,7 @@ fn fri_prover_query_round<
     trees: &[MerkleTree<F, C::HCO, C::Hasher>],
     mut x_index: usize,
     fri_params: &FriParams,
-) -> FriQueryRound<F, C::HCO, C::Hasher, D>
-where
-    [(); C::HCO::WIDTH]:,
-{
+) -> FriQueryRound<F, C::HCO, C::Hasher, D> {
     let mut query_steps = Vec::new();
     let initial_proof = initial_merkle_trees
         .iter()

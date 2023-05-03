@@ -160,10 +160,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
     }
 }
 
-impl<F: RichField, HC: HashConfig, H: AlgebraicHasher<F, HC>> Default for Challenger<F, HC, H>
-where
-    [(); HC::WIDTH]:,
-{
+impl<F: RichField, HC: HashConfig, H: AlgebraicHasher<F, HC>> Default for Challenger<F, HC, H> {
     fn default() -> Self {
         Self::new()
     }
