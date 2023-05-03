@@ -48,6 +48,9 @@ global process_type_0_txn:
     %mstore_txn_field(@TXN_FIELD_Y_PARITY)
 
     // stack: pos, retdest
+    PUSH type_0_compute_signed_data
+    SWAP1
+    // stack: pos, type_0_compute_signed_data, retdest
     %jump(decode_r_and_s)
 
 process_v_new_style:
@@ -70,6 +73,12 @@ process_v_new_style:
     // stack: y_parity, pos, retdest
     %mstore_txn_field(@TXN_FIELD_Y_PARITY)
 
+    // stack: pos, retdest
+    PUSH type_0_compute_signed_data
+    SWAP1
+    // stack: pos, type_0_compute_signed_data, retdest
+    %jump(decode_r_and_s)
+
 decode_r_and_s:
     // stack: pos, retdest
     %decode_and_store_r
@@ -77,6 +86,7 @@ decode_r_and_s:
     // stack: pos, retdest
     POP
     // stack: retdest
+    JUMP
 
 type_0_compute_signed_data:
     // If a chain_id is present in v, the signed data is
