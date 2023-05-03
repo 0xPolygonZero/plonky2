@@ -13,11 +13,8 @@ use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: RichField, HC: HashConfig, H: Hasher<F, HC>>
-where
-    [(); HC::WIDTH]:,
-{
-    pub(crate) sponge_state: [F; HC::WIDTH],
+pub struct Challenger<F: RichField, HC: HashConfig, H: Hasher<F, HC>> {
+    pub(crate) sponge_state: <H::Permutation as PlonkyPermutation<F>>::State,
     pub(crate) input_buffer: Vec<F>,
     output_buffer: Vec<F>,
     _phantom: PhantomData<H>,
@@ -31,13 +28,12 @@ where
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H>
-where
-    [(); HC::WIDTH]:,
-{
+impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
     pub fn new() -> Challenger<F, HC, H> {
+        let mut initial_state = <H::Permutation as PlonkyPermutation<F>>::State::default();
+        initial_state.as_mut().fill(F::ZERO);
         Challenger {
-            sponge_state: [F::ZERO; HC::WIDTH],
+            sponge_state: initial_state,
             input_buffer: Vec::with_capacity(HC::RATE),
             output_buffer: Vec::with_capacity(HC::RATE),
             _phantom: Default::default(),
@@ -71,7 +67,6 @@ where
     pub fn observe_extension_elements<const D: usize>(&mut self, elements: &[F::Extension])
     where
         F: RichField + Extendable<D>,
-        [(); HC::WIDTH]:,
     {
         for element in elements {
             self.observe_extension_element(element);
@@ -149,19 +144,19 @@ where
         }
 
         // Apply the permutation.
-        self.sponge_state = H::Permutation::permute(self.sponge_state);
+        self.sponge_state = H::Permutation::permute(self.sponge_state.clone());
 
         self.output_buffer.clear();
         self.output_buffer
-            .extend_from_slice(&self.sponge_state[0..HC::RATE]);
+            .extend_from_slice(&self.sponge_state.as_ref()[0..HC::RATE]);
     }
 
-    pub fn compact(&mut self) -> [F; HC::WIDTH] {
+    pub fn compact(&mut self) -> <H::Permutation as PlonkyPermutation<F>>::State {
         if !self.input_buffer.is_empty() {
             self.duplexing();
         }
         self.output_buffer.clear();
-        self.sponge_state
+        self.sponge_state.clone()
     }
 }
 

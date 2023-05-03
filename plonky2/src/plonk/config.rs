@@ -33,7 +33,7 @@ pub trait Hasher<F: RichField, HC: HashConfig>: Sized + Clone + Debug + Eq + Par
     type Hash: GenericHashOut<F>;
 
     /// Permutation used in the sponge construction.
-    type Permutation: PlonkyPermutation<F, HC>;
+    type Permutation: PlonkyPermutation<F>;
 
     /// Hash a message without any padding step. Note that this can enable length-extension attacks.
     /// However, it is still collision-resistant in cases where the input has a fixed length.

@@ -633,8 +633,11 @@ pub trait Poseidon: PrimeField64 {
 }
 
 pub struct PoseidonPermutation;
-impl<F: RichField> PlonkyPermutation<F, PoseidonHashConfig> for PoseidonPermutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+
+impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
+    type State = [F; SPONGE_WIDTH];
+
+    fn permute(input: Self::State) -> Self::State {
         F::poseidon(input)
     }
 }
@@ -652,7 +655,7 @@ impl<F: RichField> Hasher<F, PoseidonHashConfig> for PoseidonHash {
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, PoseidonHashConfig, Self::Permutation>(left, right)
+        compress::<F, Self::Permutation>(left, right)
     }
 }
 

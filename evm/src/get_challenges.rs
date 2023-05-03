@@ -61,7 +61,7 @@ where
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllChallengerState<F, C::HCO, D>
+    ) -> AllChallengerState<F, C::HCO, C::Hasher, D>
     where
         [(); C::HCO::WIDTH]:,
         [(); C::HCI::WIDTH]:,

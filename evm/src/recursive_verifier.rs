@@ -138,7 +138,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         let state = challenger.compact();
-        ensure!(state == pis[0].challenger_state_before);
+        ensure!(state
+            .into_iter()
+            .zip(pis[0].challenger_state_before)
+            .all(|(x, y)| x == y));
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
@@ -241,7 +244,7 @@ where
 
         inputs.set_target_arr(
             self.init_challenger_state_target,
-            proof_with_metadata.init_challenger_state,
+            proof_with_metadata.init_challenger_state.as_ref(),
         );
 
         self.circuit.prove(inputs)
@@ -675,15 +678,15 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
 {
     witness.set_target_arr(
         trie_roots_target.state_root,
-        h256_limbs(trie_roots.state_root),
+        &h256_limbs(trie_roots.state_root),
     );
     witness.set_target_arr(
         trie_roots_target.transactions_root,
-        h256_limbs(trie_roots.transactions_root),
+        &h256_limbs(trie_roots.transactions_root),
     );
     witness.set_target_arr(
         trie_roots_target.receipts_root,
-        h256_limbs(trie_roots.receipts_root),
+        &h256_limbs(trie_roots.receipts_root),
     );
 }
 
@@ -697,7 +700,7 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
 {
     witness.set_target_arr(
         block_metadata_target.block_beneficiary,
-        h160_limbs(block_metadata.block_beneficiary),
+        &h160_limbs(block_metadata.block_beneficiary),
     );
     witness.set_target(
         block_metadata_target.block_timestamp,

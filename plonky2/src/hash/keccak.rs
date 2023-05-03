@@ -19,11 +19,11 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
 /// where `H` is the Keccak-256 hash.
 pub struct KeccakPermutation;
-impl<F: RichField> PlonkyPermutation<F, KeccakHashConfig> for KeccakPermutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH]
-    where
-        [(); SPONGE_WIDTH]:,
-    {
+
+impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
+    type State = [F; SPONGE_WIDTH];
+
+    fn permute(input: Self::State) -> Self::State {
         let mut state = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
         for i in 0..SPONGE_WIDTH {
             state[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]

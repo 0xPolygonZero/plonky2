@@ -2,8 +2,10 @@
 
 use alloc::vec::Vec;
 use core::fmt::Debug;
+use std::ops::{Index, IndexMut};
 
 use crate::field::extension::Extendable;
+use crate::field::types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField, NUM_HASH_OUT_ELTS};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -75,52 +77,70 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
+/// Permutation that can be used in the sponge construction for an algebraic hash.
+pub trait PlonkyPermutation<F: Field> {
+    type State: AsMut<[F]>
+        + AsRef<[F]>
+        + Clone
+        + Debug
+        + Default
+        + Eq
+        + Index<usize, Output = F>
+        + IndexMut<usize, Output = F>
+        + IntoIterator<Item = F>
+        + Sync
+        + Send;
+
+    fn permute(input: Self::State) -> Self::State;
+}
+
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
-pub fn compress<F: RichField, HC: HashConfig, P: PlonkyPermutation<F, HC>>(
-    x: HashOut<F>,
-    y: HashOut<F>,
-) -> HashOut<F>
-where
-    [(); HC::WIDTH]:,
-{
-    let mut perm_inputs = [F::ZERO; HC::WIDTH];
-    perm_inputs[..NUM_HASH_OUT_ELTS].copy_from_slice(&x.elements);
-    perm_inputs[NUM_HASH_OUT_ELTS..2 * NUM_HASH_OUT_ELTS].copy_from_slice(&y.elements);
+pub fn compress<F: Field, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
+    // TODO: With some refactoring, this function could be implemented as
+    // hash_n_to_m_no_pad(chain(x.elements, y.elements), NUM_HASH_OUT_ELTS).
+
+    let mut perm_inputs = P::State::default();
+    let mut_state = perm_inputs.as_mut();
+    mut_state.fill(F::ZERO);
+
+    mut_state[..NUM_HASH_OUT_ELTS].copy_from_slice(&x.elements);
+    mut_state[NUM_HASH_OUT_ELTS..2 * NUM_HASH_OUT_ELTS].copy_from_slice(&y.elements);
+
     HashOut {
-        elements: P::permute(perm_inputs)[..NUM_HASH_OUT_ELTS]
+        elements: P::permute(perm_inputs).as_ref()[..NUM_HASH_OUT_ELTS]
             .try_into()
             .unwrap(),
     }
 }
 
-/// Permutation that can be used in the sponge construction for an algebraic hash.
-pub trait PlonkyPermutation<F: RichField, HC: HashConfig> {
-    fn permute(input: [F; HC::WIDTH]) -> [F; HC::WIDTH]
-    where
-        [(); HC::WIDTH]:;
-}
-
 /// Hash a message without any padding step. Note that this can enable length-extension attacks.
 /// However, it is still collision-resistant in cases where the input has a fixed length.
-pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F, HC>>(
+pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
-) -> Vec<F>
-where
-    [(); HC::WIDTH]:,
-{
-    let mut state = [F::ZERO; HC::WIDTH];
+) -> Vec<F> {
+    let mut state = P::State::default();
+    state.as_mut().fill(F::ZERO);
 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(HC::RATE) {
-        state[..input_chunk.len()].copy_from_slice(input_chunk);
+        state.as_mut()[..input_chunk.len()].copy_from_slice(input_chunk);
         state = P::permute(state);
     }
 
     // Squeeze until we have the desired number of outputs.
+
+    // TODO: Replace loops below with something like this:
+    //
+    // (0..)
+    //   .scan(initial_state, |state, _| Some(P::permute(state)))
+    //   .flat_map(|state| state.into_iter().take(HC::RATE))
+    //   .take(num_outputs)
+    //   .collect()
+
     let mut outputs = Vec::new();
     loop {
-        for &item in state.iter().take(HC::RATE) {
+        for &item in state.as_ref().iter().take(HC::RATE) {
             outputs.push(item);
             if outputs.len() == num_outputs {
                 return outputs;
@@ -130,11 +150,8 @@ where
     }
 }
 
-pub fn hash_n_to_hash_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F, HC>>(
+pub fn hash_n_to_hash_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>(
     inputs: &[F],
-) -> HashOut<F>
-where
-    [(); HC::WIDTH]:,
-{
+) -> HashOut<F> {
     HashOut::from_vec(hash_n_to_m_no_pad::<F, HC, P>(inputs, NUM_HASH_OUT_ELTS))
 }

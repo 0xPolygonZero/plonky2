@@ -7,11 +7,11 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::{HashConfig, PlonkyPermutation};
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
@@ -46,13 +46,15 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 }
 
 #[allow(unused)] // TODO: should be used soon
-pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, HC: HashConfig, const D: usize>
-where
-    [(); HC::WIDTH]:,
-{
+pub(crate) struct AllChallengerState<
+    F: RichField + Extendable<D>,
+    HC: HashConfig,
+    H: Hasher<F, HC>,
+    const D: usize,
+> {
     /// Sponge state of the challenger before starting each proof,
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
-    pub states: [[F; HC::WIDTH]; NUM_TABLES + 1],
+    pub states: [<H::Permutation as PlonkyPermutation<F>>::State; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
@@ -127,9 +129,9 @@ pub struct StarkProofWithMetadata<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::HCO::WIDTH]:,
 {
-    pub(crate) init_challenger_state: [F; C::HCO::WIDTH],
+    pub(crate) init_challenger_state:
+        <<C::Hasher as Hasher<F, C::HCO>>::Permutation as PlonkyPermutation<F>>::State,
     pub(crate) proof: StarkProof<F, C, D>,
 }
 

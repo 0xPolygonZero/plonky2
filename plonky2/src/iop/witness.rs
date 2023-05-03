@@ -44,10 +44,11 @@ pub trait WitnessWrite<F: Field> {
     where
         F: RichField + Extendable<D>,
     {
-        self.set_target_arr(et.0, value.to_basefield_array());
+        self.set_target_arr(et.0, &value.to_basefield_array());
     }
 
-    fn set_target_arr<const N: usize>(&mut self, targets: [Target; N], values: [F; N]) {
+    fn set_target_arr<const N: usize>(&mut self, targets: [Target; N], values: &[F]) {
+        assert_eq!(values.len(), N);
         (0..N).for_each(|i| {
             self.set_target(targets[i], values[i]);
         });
