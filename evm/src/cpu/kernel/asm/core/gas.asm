@@ -16,8 +16,7 @@ global sys_gas:
 %endmacro
 
 
-// TODO: `%refund_gas` and `refund_gas_hook` are hooks used for debugging. They should be removed at some point,
-// and `refund_gas_original` renamed to `refund_gas`.
+// TODO: `%refund_gas` and `refund_gas_hook` are hooks used for debugging. They should be removed at some point and `refund_gas_original` renamed to `refund_gas`.
 %macro refund_gas
     PUSH %%after %jump(refund_gas_hook)
 %%after:
@@ -34,8 +33,7 @@ global refund_gas_hook:
     %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
 %endmacro
 
-// TODO: `%charge_gas` and `charge_gas_hook` are hooks used for debugging. They should be removed at some point,
-// and `charge_gas_original` renamed to `charge_gas`.
+// TODO: `%charge_gas` and `charge_gas_hook` are hooks used for debugging. They should be removed at some point and `charge_gas_original` renamed to `charge_gas`.
 %macro charge_gas
     PUSH %%after %jump(charge_gas_hook)
 %%after:
