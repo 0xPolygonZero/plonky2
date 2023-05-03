@@ -6,7 +6,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension::Extendable;
-use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField, NUM_HASH_OUT_ELTS};
 use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
@@ -139,16 +139,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; HC::WIDTH];
-            perm_inputs[..4].copy_from_slice(&state.elements);
-            perm_inputs[4..8].copy_from_slice(&sibling.elements);
+            perm_inputs[..NUM_HASH_OUT_ELTS].copy_from_slice(&state.elements);
+            perm_inputs[NUM_HASH_OUT_ELTS..2 * NUM_HASH_OUT_ELTS]
+                .copy_from_slice(&sibling.elements);
             let perm_outs = self.permute_swapped::<HC, H>(perm_inputs, bit);
-            let hash_outs = perm_outs[0..4].try_into().unwrap();
+            let hash_outs = perm_outs[0..NUM_HASH_OUT_ELTS].try_into().unwrap();
             state = HashOutTarget {
                 elements: hash_outs,
             };
         }
 
-        for i in 0..4 {
+        for i in 0..NUM_HASH_OUT_ELTS {
             let result = self.random_access(
                 cap_index,
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
@@ -158,7 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn connect_hashes(&mut self, x: HashOutTarget, y: HashOutTarget) {
-        for i in 0..4 {
+        for i in 0..NUM_HASH_OUT_ELTS {
             self.connect(x.elements[i], y.elements[i]);
         }
     }

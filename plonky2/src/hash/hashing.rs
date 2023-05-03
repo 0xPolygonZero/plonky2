@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::field::extension::Extendable;
-use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
+use crate::hash::hash_types::{HashOut, HashOutTarget, RichField, NUM_HASH_OUT_ELTS};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
@@ -23,7 +23,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [(); HC::WIDTH]:,
     {
         let zero = self.zero();
-        if inputs.len() <= 4 {
+        if inputs.len() <= NUM_HASH_OUT_ELTS {
             HashOutTarget::from_partial(&inputs, zero)
         } else {
             self.hash_n_to_hash_no_pad::<HC, H>(inputs)
@@ -37,7 +37,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         [(); HC::WIDTH]:,
     {
-        HashOutTarget::from_vec(self.hash_n_to_m_no_pad::<HC, H>(inputs, 4))
+        HashOutTarget::from_vec(self.hash_n_to_m_no_pad::<HC, H>(inputs, NUM_HASH_OUT_ELTS))
     }
 
     pub fn hash_n_to_m_no_pad<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
@@ -84,10 +84,12 @@ where
     [(); HC::WIDTH]:,
 {
     let mut perm_inputs = [F::ZERO; HC::WIDTH];
-    perm_inputs[..4].copy_from_slice(&x.elements);
-    perm_inputs[4..8].copy_from_slice(&y.elements);
+    perm_inputs[..NUM_HASH_OUT_ELTS].copy_from_slice(&x.elements);
+    perm_inputs[NUM_HASH_OUT_ELTS..2 * NUM_HASH_OUT_ELTS].copy_from_slice(&y.elements);
     HashOut {
-        elements: P::permute(perm_inputs)[..4].try_into().unwrap(),
+        elements: P::permute(perm_inputs)[..NUM_HASH_OUT_ELTS]
+            .try_into()
+            .unwrap(),
     }
 }
 
@@ -134,5 +136,5 @@ pub fn hash_n_to_hash_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<
 where
     [(); HC::WIDTH]:,
 {
-    HashOut::from_vec(hash_n_to_m_no_pad::<F, HC, P>(inputs, 4))
+    HashOut::from_vec(hash_n_to_m_no_pad::<F, HC, P>(inputs, NUM_HASH_OUT_ELTS))
 }
