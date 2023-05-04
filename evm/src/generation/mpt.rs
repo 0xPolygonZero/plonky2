@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use bytes::Bytes;
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{BigEndianHash, H256, U256, U512};
+use ethereum_types::{Address, BigEndianHash, H256, U256, U512};
 use keccak_hash::keccak;
+use rlp::PayloadInfo;
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
@@ -28,6 +30,34 @@ impl Default for AccountRlp {
             code_hash: keccak([]),
         }
     }
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct LegacyTransactionRlp {
+    pub nonce: U256,
+    pub gas_price: U256,
+    pub gas: U256,
+    pub to: Address,
+    pub value: U256,
+    pub data: Bytes,
+    pub v: U256,
+    pub r: U256,
+    pub s: U256,
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct LogRlp {
+    pub address: Address,
+    pub topics: Vec<H256>,
+    pub data: Bytes,
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct LegacyReceiptRlp {
+    pub status: bool,
+    pub cum_gas_used: U256,
+    pub bloom: Bytes,
+    pub logs: Vec<LogRlp>,
 }
 
 pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
@@ -60,10 +90,42 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
         rlp::decode_list(rlp)
     });
 
-    mpt_prover_inputs(&trie_inputs.receipts_trie, &mut prover_inputs, &|_rlp| {
-        // TODO: Decode receipt RLP.
-        vec![]
+    mpt_prover_inputs(&trie_inputs.receipts_trie, &mut prover_inputs, &|rlp| {
+        let payload_info = PayloadInfo::from(rlp).unwrap();
+        let decoded_receipt: LegacyReceiptRlp = rlp::decode(rlp).unwrap();
+        let mut parsed_receipt = Vec::new();
+
+        parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
+        parsed_receipt.push((decoded_receipt.status as u8).into());
+        parsed_receipt.push(decoded_receipt.cum_gas_used);
+        parsed_receipt.extend(decoded_receipt.bloom.iter().map(|byte| U256::from(*byte)));
+        let encoded_logs = rlp::encode_list(&decoded_receipt.logs);
+        let logs_payload_info = PayloadInfo::from(&encoded_logs).unwrap();
+        parsed_receipt.push(logs_payload_info.value_len.into()); // payload_len of all the logs
+        parsed_receipt.push(decoded_receipt.logs.len().into());
+
+        for log in decoded_receipt.logs {
+            let encoded_log = rlp::encode(&log);
+            let log_payload_info = PayloadInfo::from(&encoded_log).unwrap();
+            parsed_receipt.push(log_payload_info.value_len.into()); // payload of one log
+            parsed_receipt.push(U256::from_big_endian(&log.address.to_fixed_bytes()));
+            parsed_receipt.push(log.topics.len().into());
+            parsed_receipt.extend(log.topics.iter().map(|topic| U256::from(topic.as_bytes())));
+            parsed_receipt.push(log.data.len().into());
+            parsed_receipt.extend(log.data.iter().map(|byte| U256::from(*byte)));
+        }
+
+        parsed_receipt
     });
+
+    // Temporary! The actual number of transactions in the trie cannot be known if the trie
+    // contains hash nodes.
+    let num_transactions = trie_inputs
+        .transactions_trie
+        .values()
+        .collect::<Vec<_>>()
+        .len();
+    prover_inputs.push(num_transactions.into());
 
     prover_inputs
 }

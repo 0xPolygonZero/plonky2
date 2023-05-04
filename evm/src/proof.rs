@@ -71,6 +71,7 @@ pub struct BlockMetadata {
     pub block_gaslimit: U256,
     pub block_chain_id: U256,
     pub block_base_fee: U256,
+    pub block_bloom: [U256; 8],
 }
 
 /// Memory values which are public.
@@ -112,6 +113,7 @@ impl PublicValuesTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_bloom,
         } = self.block_metadata;
 
         buffer.write_target_vec(&block_beneficiary)?;
@@ -121,6 +123,7 @@ impl PublicValuesTarget {
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
         buffer.write_target_vec(&block_base_fee)?;
+        buffer.write_target_vec(&block_bloom)?;
 
         Ok(())
     }
@@ -146,6 +149,7 @@ impl PublicValuesTarget {
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
             block_base_fee: buffer.read_target_vec()?.try_into().unwrap(),
+            block_bloom: buffer.read_target_vec()?.try_into().unwrap(),
         };
 
         Ok(Self {
@@ -265,10 +269,11 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
+    pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 12;
+    const SIZE: usize = 76;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -278,6 +283,7 @@ impl BlockMetadataTarget {
         let block_gaslimit = pis[8];
         let block_chain_id = pis[9];
         let block_base_fee = pis[10..12].try_into().unwrap();
+        let block_bloom = pis[12..76].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -287,6 +293,7 @@ impl BlockMetadataTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_bloom,
         }
     }
 
@@ -312,6 +319,9 @@ impl BlockMetadataTarget {
             block_base_fee: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
             }),
+            block_bloom: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
+            }),
         }
     }
 
@@ -330,6 +340,9 @@ impl BlockMetadataTarget {
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
+        }
+        for i in 0..64 {
+            builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
         }
     }
 }

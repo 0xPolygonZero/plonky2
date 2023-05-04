@@ -72,3 +72,9 @@ global encode_rlp_string_large_after_writing_len:
     %stack (pos3, pos2, ADDR: 3, len, retdest)
         -> (0, @SEGMENT_RLP_RAW, pos2, ADDR, len, retdest, pos3)
     %jump(memcpy)
+
+%macro encode_rlp_string
+    %stack (pos, ADDR: 3, len) -> (pos, ADDR, len, %%after)
+    %jump(encode_rlp_string)
+%%after:
+%endmacro

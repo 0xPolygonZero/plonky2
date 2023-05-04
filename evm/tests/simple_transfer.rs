@@ -73,6 +73,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
+        block_bloom: [0.into(); 8],
     };
 
     let mut contract_code = HashMap::new();

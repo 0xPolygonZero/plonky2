@@ -49,18 +49,25 @@ pub enum Segment {
     AccessedStorageKeys = 24,
     /// List of addresses that have called SELFDESTRUCT in the current transaction.
     SelfDestructList = 25,
+    /// Contains the bloom filter of a transaction.
+    TxnBloom = 26,
+    /// Contains the bloom filter of a block.
+    BlockBloom = 27,
+    /// List of log pointers pointing to the LogsData segment.
+    Logs = 28,
+    LogsData = 29,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 26,
-    JournalData = 27,
-    JournalCheckpoints = 28,
+    Journal = 30,
+    JournalData = 31,
+    JournalCheckpoints = 32,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 29,
+    TouchedAddresses = 33,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 30,
+    ContextCheckpoints = 34,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 31;
+    pub(crate) const COUNT: usize = 35;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -90,6 +97,10 @@ impl Segment {
             Self::AccessedAddresses,
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
+            Self::TxnBloom,
+            Self::BlockBloom,
+            Self::Logs,
+            Self::LogsData,
             Self::Journal,
             Self::JournalData,
             Self::JournalCheckpoints,
@@ -127,6 +138,10 @@ impl Segment {
             Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
+            Segment::TxnBloom => "SEGMENT_TXN_BLOOM",
+            Segment::BlockBloom => "SEGMENT_BLOCK_BLOOM",
+            Segment::Logs => "SEGMENT_LOGS",
+            Segment::LogsData => "SEGMENT_LOGS_DATA",
             Segment::Journal => "SEGMENT_JOURNAL",
             Segment::JournalData => "SEGMENT_JOURNAL_DATA",
             Segment::JournalCheckpoints => "SEGMENT_JOURNAL_CHECKPOINTS",
@@ -164,6 +179,10 @@ impl Segment {
             Segment::AccessedAddresses => 256,
             Segment::AccessedStorageKeys => 256,
             Segment::SelfDestructList => 256,
+            Segment::TxnBloom => 8,
+            Segment::BlockBloom => 8,
+            Segment::Logs => 256,
+            Segment::LogsData => 256,
             Segment::Journal => 256,
             Segment::JournalData => 256,
             Segment::JournalCheckpoints => 256,
