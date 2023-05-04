@@ -30,7 +30,7 @@ pub const SALT_SIZE: usize = 4;
 pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, C::HCO, C::Hasher>,
+    pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
@@ -162,10 +162,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
-        challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+        challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
-    ) -> FriProof<F, C::HCO, C::Hasher, D> {
+    ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);

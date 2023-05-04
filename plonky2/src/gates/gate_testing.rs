@@ -8,11 +8,11 @@ use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::iop::witness::{PartialWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::config::GenericConfig;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::plonk::verifier::verify;
 use crate::util::{log2_ceil, transpose};
@@ -96,8 +96,8 @@ pub fn test_eval_fns<
     gate: G,
 ) -> Result<()>
 where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
     let wires_base = F::rand_vec(gate.num_wires());

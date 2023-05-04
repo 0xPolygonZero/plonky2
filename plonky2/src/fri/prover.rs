@@ -7,7 +7,7 @@ use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::{HashConfig, PlonkyPermutation};
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::{GenericConfig, Hasher};
@@ -18,15 +18,15 @@ use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F, C::HCO, C::Hasher>],
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
-) -> FriProof<F, C::HCO, C::Hasher, D> {
+) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
     assert_eq!(lde_polynomial_coeffs.len(), n);
 
@@ -62,14 +62,14 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
 }
 
 type FriCommitedTrees<F, C, const D: usize> = (
-    Vec<MerkleTree<F, <C as GenericConfig<D>>::HCO, <C as GenericConfig<D>>::Hasher>>,
+    Vec<MerkleTree<F, <C as GenericConfig<D>>::Hasher>>,
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );
 
 fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
 ) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::new();
@@ -84,8 +84,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
             .par_chunks(arity)
             .map(|chunk: &[F::Extension]| flatten(chunk))
             .collect();
-        let tree =
-            MerkleTree::<F, C::HCO, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
+        let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
 
         challenger.observe_cap(&tree.cap);
         trees.push(tree);
@@ -114,7 +113,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 
 /// Performs the proof-of-work (a.k.a. grinding) step of the FRI protocol. Returns the PoW witness.
 fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     config: &FriConfig,
 ) -> F {
     let min_leading_zeros = config.proof_of_work_bits + (64 - F::order().bits()) as u32;
@@ -127,8 +126,8 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     // since it stores vectors, which means allocations. We'd like a more compact state to clone.
     //
     // We know that a duplex will be performed right after we send the PoW witness, so we can ignore
-    // any output_buffer, which will be invalidated. We also know input_buffer.len() < HCO::WIDTH,
-    // an invariant of Challenger.
+    // any output_buffer, which will be invalidated. We also know
+    // input_buffer.len() < H::Permutation::WIDTH, an invariant of Challenger.
     //
     // We separate the duplex operation into two steps, one which can be performed now, and the
     // other which depends on the PoW witness candidate. The first step is the overwrite our sponge
@@ -146,11 +145,8 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
         .find_any(|&candidate| {
             let mut duplex_state = duplex_intermediate_state.clone();
             duplex_state[witness_input_pos] = F::from_canonical_u64(candidate);
-            duplex_state =
-                <<C as GenericConfig<D>>::Hasher as Hasher<F, C::HCO>>::Permutation::permute(
-                    duplex_state,
-                );
-            let pow_response = duplex_state[C::HCO::RATE - 1];
+            duplex_state = <C::Hasher as Hasher<F>>::Permutation::permute(duplex_state);
+            let pow_response = duplex_state[<C::Hasher as Hasher<F>>::Permutation::RATE - 1];
             let leading_zeros = pow_response.to_canonical_u64().leading_zeros();
             leading_zeros >= min_leading_zeros
         })
@@ -170,12 +166,12 @@ fn fri_prover_query_rounds<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    initial_merkle_trees: &[&MerkleTree<F, C::HCO, C::Hasher>],
-    trees: &[MerkleTree<F, C::HCO, C::Hasher>],
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
+    challenger: &mut Challenger<F, C::Hasher>,
     n: usize,
     fri_params: &FriParams,
-) -> Vec<FriQueryRound<F, C::HCO, C::Hasher, D>> {
+) -> Vec<FriQueryRound<F, C::Hasher, D>> {
     challenger
         .get_n_challenges(fri_params.config.num_query_rounds)
         .into_par_iter()
@@ -191,11 +187,11 @@ fn fri_prover_query_round<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    initial_merkle_trees: &[&MerkleTree<F, C::HCO, C::Hasher>],
-    trees: &[MerkleTree<F, C::HCO, C::Hasher>],
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
     mut x_index: usize,
     fri_params: &FriParams,
-) -> FriQueryRound<F, C::HCO, C::Hasher, D> {
+) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
     let initial_proof = initial_merkle_trees
         .iter()

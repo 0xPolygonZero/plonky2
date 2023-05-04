@@ -136,7 +136,7 @@ where
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
         .collect::<Vec<_>>();
-    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
@@ -179,7 +179,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
@@ -272,7 +272,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
     ctl_data: &CtlData<F>,
-    challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where

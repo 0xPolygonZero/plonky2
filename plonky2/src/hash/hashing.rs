@@ -11,74 +11,68 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
 
-pub trait HashConfig: Clone + Debug + Eq + PartialEq {
-    const RATE: usize;
-    const WIDTH: usize;
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn hash_or_noop<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
-        &mut self,
-        inputs: Vec<Target>,
-    ) -> HashOutTarget
+    pub fn hash_or_noop<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget
     where
-        [(); HC::WIDTH]:,
+        [(); H::Permutation::WIDTH]:,
     {
         let zero = self.zero();
         if inputs.len() <= NUM_HASH_OUT_ELTS {
             HashOutTarget::from_partial(&inputs, zero)
         } else {
-            self.hash_n_to_hash_no_pad::<HC, H>(inputs)
+            self.hash_n_to_hash_no_pad::<H>(inputs)
         }
     }
 
-    pub fn hash_n_to_hash_no_pad<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
+    pub fn hash_n_to_hash_no_pad<H: AlgebraicHasher<F>>(
         &mut self,
         inputs: Vec<Target>,
     ) -> HashOutTarget
     where
-        [(); HC::WIDTH]:,
+        [(); H::Permutation::WIDTH]:,
     {
-        HashOutTarget::from_vec(self.hash_n_to_m_no_pad::<HC, H>(inputs, NUM_HASH_OUT_ELTS))
+        HashOutTarget::from_vec(self.hash_n_to_m_no_pad::<H>(inputs, NUM_HASH_OUT_ELTS))
     }
 
-    pub fn hash_n_to_m_no_pad<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
+    pub fn hash_n_to_m_no_pad<H: AlgebraicHasher<F>>(
         &mut self,
         inputs: Vec<Target>,
         num_outputs: usize,
     ) -> Vec<Target>
     where
-        [(); HC::WIDTH]:,
+        [(); H::Permutation::WIDTH]:,
     {
         let zero = self.zero();
-
-        let mut state = [zero; HC::WIDTH];
+        let mut state = [zero; H::Permutation::WIDTH];
 
         // Absorb all input chunks.
-        for input_chunk in inputs.chunks(HC::RATE) {
+        for input_chunk in inputs.chunks(H::Permutation::RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
             // sometimes called "overwrite mode".
             state[..input_chunk.len()].copy_from_slice(input_chunk);
-            state = self.permute::<HC, H>(state);
+            state = self.permute::<H>(state);
         }
 
         // Squeeze until we have the desired number of outputs.
         let mut outputs = Vec::with_capacity(num_outputs);
         loop {
-            for i in 0..HC::RATE {
+            for i in 0..H::Permutation::RATE {
                 outputs.push(state[i]);
                 if outputs.len() == num_outputs {
                     return outputs;
                 }
             }
-            state = self.permute::<HC, H>(state);
+            state = self.permute::<H>(state);
         }
     }
 }
 
 /// Permutation that can be used in the sponge construction for an algebraic hash.
 pub trait PlonkyPermutation<F: Field> {
+    const RATE: usize;
+    const WIDTH: usize;
+
     type State: AsMut<[F]>
         + AsRef<[F]>
         + Clone
@@ -115,7 +109,7 @@ pub fn compress<F: Field, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>)
 
 /// Hash a message without any padding step. Note that this can enable length-extension attacks.
 /// However, it is still collision-resistant in cases where the input has a fixed length.
-pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>(
+pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
 ) -> Vec<F> {
@@ -123,7 +117,7 @@ pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>
     state.as_mut().fill(F::ZERO);
 
     // Absorb all input chunks.
-    for input_chunk in inputs.chunks(HC::RATE) {
+    for input_chunk in inputs.chunks(P::RATE) {
         state.as_mut()[..input_chunk.len()].copy_from_slice(input_chunk);
         state = P::permute(state);
     }
@@ -140,7 +134,7 @@ pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>
 
     let mut outputs = Vec::new();
     loop {
-        for &item in state.as_ref().iter().take(HC::RATE) {
+        for &item in state.as_ref().iter().take(P::RATE) {
             outputs.push(item);
             if outputs.len() == num_outputs {
                 return outputs;
@@ -150,8 +144,6 @@ pub fn hash_n_to_m_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>
     }
 }
 
-pub fn hash_n_to_hash_no_pad<F: RichField, HC: HashConfig, P: PlonkyPermutation<F>>(
-    inputs: &[F],
-) -> HashOut<F> {
-    HashOut::from_vec(hash_n_to_m_no_pad::<F, HC, P>(inputs, NUM_HASH_OUT_ELTS))
+pub fn hash_n_to_hash_no_pad<F: RichField, P: PlonkyPermutation<F>>(inputs: &[F]) -> HashOut<F> {
+    HashOut::from_vec(hash_n_to_m_no_pad::<F, P>(inputs, NUM_HASH_OUT_ELTS))
 }

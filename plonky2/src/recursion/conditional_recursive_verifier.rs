@@ -8,13 +8,13 @@ use crate::fri::proof::{
 };
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
 use crate::with_context;
 
@@ -30,9 +30,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data1: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let selected_proof =
             self.select_proof_with_pis(condition, proof_with_pis0, proof_with_pis1);
@@ -61,9 +61,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()>
     where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(inner_common_data)?;

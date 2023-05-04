@@ -9,7 +9,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -201,16 +201,16 @@ fn poly_product_elementwise<F: Field>(
     product
 }
 
-fn get_grand_product_challenge<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
-    challenger: &mut Challenger<F, HC, H>,
+fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
+    challenger: &mut Challenger<F, H>,
 ) -> GrandProductChallenge<F> {
     let beta = challenger.get_challenge();
     let gamma = challenger.get_challenge();
     GrandProductChallenge { beta, gamma }
 }
 
-pub(crate) fn get_grand_product_challenge_set<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
-    challenger: &mut Challenger<F, HC, H>,
+pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
+    challenger: &mut Challenger<F, H>,
     num_challenges: usize,
 ) -> GrandProductChallengeSet<F> {
     let challenges = (0..num_challenges)
@@ -219,8 +219,8 @@ pub(crate) fn get_grand_product_challenge_set<F: RichField, HC: HashConfig, H: H
     GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, HC: HashConfig, H: Hasher<F, HC>>(
-    challenger: &mut Challenger<F, HC, H>,
+pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, H: Hasher<F>>(
+    challenger: &mut Challenger<F, H>,
     num_challenges: usize,
     num_sets: usize,
 ) -> Vec<GrandProductChallengeSet<F>> {
@@ -231,15 +231,14 @@ pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, HC: HashConfig, H
 
 fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
-    HC: HashConfig,
-    H: AlgebraicHasher<F, HC>,
+    H: AlgebraicHasher<F>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, HC, H, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
 ) -> GrandProductChallenge<Target>
 where
-    [(); HC::WIDTH]:,
+    [(); H::Permutation::WIDTH]:,
 {
     let beta = challenger.get_challenge(builder);
     let gamma = challenger.get_challenge(builder);
@@ -248,16 +247,15 @@ where
 
 pub(crate) fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
-    HC: HashConfig,
-    H: AlgebraicHasher<F, HC>,
+    H: AlgebraicHasher<F>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, HC, H, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
     num_challenges: usize,
 ) -> GrandProductChallengeSet<Target>
 where
-    [(); HC::WIDTH]:,
+    [(); H::Permutation::WIDTH]:,
 {
     let challenges = (0..num_challenges)
         .map(|_| get_grand_product_challenge_target(builder, challenger))
@@ -267,17 +265,16 @@ where
 
 pub(crate) fn get_n_grand_product_challenge_sets_target<
     F: RichField + Extendable<D>,
-    HC: HashConfig,
-    H: AlgebraicHasher<F, HC>,
+    H: AlgebraicHasher<F>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, HC, H, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
     num_challenges: usize,
     num_sets: usize,
 ) -> Vec<GrandProductChallengeSet<Target>>
 where
-    [(); HC::WIDTH]:,
+    [(); H::Permutation::WIDTH]:,
 {
     (0..num_sets)
         .map(|_| get_grand_product_challenge_set_target(builder, challenger, num_challenges))

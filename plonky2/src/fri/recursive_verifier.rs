@@ -14,11 +14,11 @@ use crate::gates::coset_interpolation::CosetInterpolationGate;
 use crate::gates::gate::Gate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
@@ -108,8 +108,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         params: &FriParams,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         if let Some(max_arity_bits) = params.max_arity_bits() {
             self.check_recursion_config(max_arity_bits);
@@ -177,14 +177,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_verify_initial_proof<HC: HashConfig, H: AlgebraicHasher<F, HC>>(
+    fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(
         &mut self,
         x_index_bits: &[BoolTarget],
         proof: &FriInitialTreeProofTarget,
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
     ) where
-        [(); HC::WIDTH]:,
+        [(); H::Permutation::WIDTH]:,
     {
         for (i, ((evals, merkle_proof), cap)) in proof
             .evals_proofs
@@ -195,7 +195,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
-                self.verify_merkle_proof_to_cap_with_cap_index::<HC, H>(
+                self.verify_merkle_proof_to_cap_with_cap_index::<H>(
                     evals.clone(),
                     x_index_bits,
                     cap_index,
@@ -262,8 +262,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let n_log = log2_strict(n);
 
@@ -277,7 +277,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check FRI initial proof",
-            self.fri_verify_initial_proof::<C::HCO, C::Hasher>(
+            self.fri_verify_initial_proof::<C::Hasher>(
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
@@ -337,7 +337,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof_to_cap_with_cap_index::<C::HCO, C::Hasher>(
+                self.verify_merkle_proof_to_cap_with_cap_index::<C::Hasher>(
                     flatten_target(evals),
                     &coset_index_bits,
                     cap_index,

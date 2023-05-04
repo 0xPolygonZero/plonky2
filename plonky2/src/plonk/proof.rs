@@ -15,7 +15,7 @@ use crate::fri::structure::{
 };
 use crate::fri::FriParams;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -30,15 +30,15 @@ use crate::util::serialization::{Buffer, Read};
 #[serde(bound = "")]
 pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::HCO, C::Hasher, D>,
+    pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -87,12 +87,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn compress(
         self,
-        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let indices = self.fri_query_indices(circuit_digest, common_data)?;
         let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
@@ -104,9 +104,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn get_public_inputs_hash(
         &self,
-    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash
     where
-        [(); C::HCI::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
@@ -137,15 +137,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::HCO, C::Hasher, D>,
+    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -159,7 +159,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         params: &FriParams,
     ) -> Proof<F, C, D>
     where
-        [(); C::HCO::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let CompressedProof {
             wires_cap,
@@ -195,12 +195,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn decompress(
         self,
-        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
+        circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let challenges =
             self.get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?;
@@ -220,8 +220,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         ensure!(
             self.public_inputs.len() == common_data.num_public_inputs,
@@ -248,9 +248,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub(crate) fn get_public_inputs_hash(
         &self,
-    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash
     where
-        [(); C::HCI::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }

@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::{HashConfig, PlonkyPermutation};
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -13,11 +13,10 @@ use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: RichField, HC: HashConfig, H: Hasher<F, HC>> {
+pub struct Challenger<F: RichField, H: Hasher<F>> {
     pub(crate) sponge_state: <H::Permutation as PlonkyPermutation<F>>::State,
     pub(crate) input_buffer: Vec<F>,
     output_buffer: Vec<F>,
-    _phantom: PhantomData<H>,
 }
 
 /// Observes prover messages, and generates verifier challenges based on the transcript.
@@ -28,15 +27,14 @@ pub struct Challenger<F: RichField, HC: HashConfig, H: Hasher<F, HC>> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
-    pub fn new() -> Challenger<F, HC, H> {
+impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
+    pub fn new() -> Challenger<F, H> {
         let mut initial_state = <H::Permutation as PlonkyPermutation<F>>::State::default();
         initial_state.as_mut().fill(F::ZERO);
         Challenger {
             sponge_state: initial_state,
-            input_buffer: Vec::with_capacity(HC::RATE),
-            output_buffer: Vec::with_capacity(HC::RATE),
-            _phantom: Default::default(),
+            input_buffer: Vec::with_capacity(H::Permutation::RATE),
+            output_buffer: Vec::with_capacity(H::Permutation::RATE),
         }
     }
 
@@ -46,7 +44,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
 
         self.input_buffer.push(element);
 
-        if self.input_buffer.len() == HC::RATE {
+        if self.input_buffer.len() == H::Permutation::RATE {
             self.duplexing();
         }
     }
@@ -73,16 +71,13 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
         }
     }
 
-    pub fn observe_hash<OHC: HashConfig, OH: Hasher<F, OHC>>(&mut self, hash: OH::Hash) {
+    pub fn observe_hash<OH: Hasher<F>>(&mut self, hash: OH::Hash) {
         self.observe_elements(&hash.to_vec())
     }
 
-    pub fn observe_cap<OHC: HashConfig, OH: Hasher<F, OHC>>(
-        &mut self,
-        cap: &MerkleCap<F, OHC, OH>,
-    ) {
+    pub fn observe_cap<OH: Hasher<F>>(&mut self, cap: &MerkleCap<F, OH>) {
         for &hash in &cap.0 {
-            self.observe_hash::<OHC, OH>(hash);
+            self.observe_hash::<OH>(hash);
         }
     }
 
@@ -134,7 +129,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
     fn duplexing(&mut self) {
-        assert!(self.input_buffer.len() <= HC::RATE);
+        assert!(self.input_buffer.len() <= H::Permutation::RATE);
 
         // Overwrite the first r elements with the inputs. This differs from a standard sponge,
         // where we would xor or add in the inputs. This is a well-known variant, though,
@@ -148,7 +143,7 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
 
         self.output_buffer.clear();
         self.output_buffer
-            .extend_from_slice(&self.sponge_state.as_ref()[0..HC::RATE]);
+            .extend_from_slice(&self.sponge_state.as_ref()[0..H::Permutation::RATE]);
     }
 
     pub fn compact(&mut self) -> <H::Permutation as PlonkyPermutation<F>>::State {
@@ -160,45 +155,41 @@ impl<F: RichField, HC: HashConfig, H: Hasher<F, HC>> Challenger<F, HC, H> {
     }
 }
 
-impl<F: RichField, HC: HashConfig, H: AlgebraicHasher<F, HC>> Default for Challenger<F, HC, H> {
+impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 /// A recursive version of `Challenger`. The main difference is that `RecursiveChallenger`'s input
-/// buffer can grow beyond `HC::RATE`. This is so that `observe_element` etc do not need access
+/// buffer can grow beyond `H::Permutation::RATE`. This is so that `observe_element` etc do not need access
 /// to the `CircuitBuilder`.
-pub struct RecursiveChallenger<
-    F: RichField + Extendable<D>,
-    HC: HashConfig,
-    H: AlgebraicHasher<F, HC>,
-    const D: usize,
-> where
-    [(); HC::WIDTH]:,
+pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
+where
+    [(); H::Permutation::WIDTH]:,
 {
-    sponge_state: [Target; HC::WIDTH],
+    sponge_state: [Target; H::Permutation::WIDTH],
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
     __: PhantomData<(F, H)>,
 }
 
-impl<F: RichField + Extendable<D>, HC: HashConfig, H: AlgebraicHasher<F, HC>, const D: usize>
-    RecursiveChallenger<F, HC, H, D>
+impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
+    RecursiveChallenger<F, H, D>
 where
-    [(); HC::WIDTH]:,
+    [(); H::Permutation::WIDTH]:,
 {
     pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         Self {
-            sponge_state: [zero; HC::WIDTH],
+            sponge_state: [zero; H::Permutation::WIDTH],
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
             __: PhantomData,
         }
     }
 
-    pub fn from_state(sponge_state: [Target; HC::WIDTH]) -> Self {
+    pub fn from_state(sponge_state: [Target; H::Permutation::WIDTH]) -> Self {
         Self {
             sponge_state,
             input_buffer: vec![],
@@ -245,8 +236,8 @@ where
 
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = builder.permute::<HC, H>(self.sponge_state);
-            self.output_buffer = self.sponge_state[0..HC::RATE].to_vec();
+            self.sponge_state = builder.permute::<H>(self.sponge_state);
+            self.output_buffer = self.sponge_state[0..H::Permutation::RATE].to_vec();
         }
 
         self.output_buffer
@@ -287,7 +278,7 @@ where
             return;
         }
 
-        for input_chunk in self.input_buffer.chunks(HC::RATE) {
+        for input_chunk in self.input_buffer.chunks(H::Permutation::RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
             // sometimes called "overwrite mode".
@@ -296,15 +287,18 @@ where
             }
 
             // Apply the permutation.
-            self.sponge_state = builder.permute::<HC, H>(self.sponge_state);
+            self.sponge_state = builder.permute::<H>(self.sponge_state);
         }
 
-        self.output_buffer = self.sponge_state[0..HC::RATE].to_vec();
+        self.output_buffer = self.sponge_state[0..H::Permutation::RATE].to_vec();
 
         self.input_buffer.clear();
     }
 
-    pub fn compact(&mut self, builder: &mut CircuitBuilder<F, D>) -> [Target; HC::WIDTH] {
+    pub fn compact(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> [Target; H::Permutation::WIDTH] {
         self.absorb_buffered_inputs(builder);
         self.output_buffer.clear();
         self.sponge_state
@@ -327,11 +321,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut challenger = Challenger::<
-            F,
-            <C as GenericConfig<D>>::HCI,
-            <C as GenericConfig<D>>::InnerHasher,
-        >::new();
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
         let mut challenges = Vec::new();
 
         for i in 1..10 {
@@ -365,11 +355,7 @@ mod tests {
             .map(|&n| F::rand_vec(n))
             .collect();
 
-        let mut challenger = Challenger::<
-            F,
-            <C as GenericConfig<D>>::HCI,
-            <C as GenericConfig<D>>::InnerHasher,
-        >::new();
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
         let mut outputs_per_round: Vec<Vec<F>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             challenger.observe_elements(inputs);
@@ -378,12 +364,8 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let mut recursive_challenger = RecursiveChallenger::<
-            F,
-            <C as GenericConfig<D>>::HCI,
-            <C as GenericConfig<D>>::InnerHasher,
-            D,
-        >::new(&mut builder);
+        let mut recursive_challenger =
+            RecursiveChallenger::<F, <C as GenericConfig<D>>::InnerHasher, D>::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             recursive_challenger.observe_elements(&builder.constants(inputs));

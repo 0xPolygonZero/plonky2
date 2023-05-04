@@ -7,7 +7,7 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::{HashConfig, PlonkyPermutation};
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -40,12 +40,7 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 }
 
 #[allow(unused)] // TODO: should be used soon
-pub(crate) struct AllChallengerState<
-    F: RichField + Extendable<D>,
-    HC: HashConfig,
-    H: Hasher<F, HC>,
-    const D: usize,
-> {
+pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     /// Sponge state of the challenger before starting each proof,
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
     pub states: [<H::Permutation as PlonkyPermutation<F>>::State; NUM_TABLES + 1],
@@ -105,15 +100,15 @@ pub struct BlockMetadataTarget {
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub trace_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_ctl_zs_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::HCO, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::HCO, C::Hasher, D>,
+    pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
 /// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
@@ -125,7 +120,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub(crate) init_challenger_state:
-        <<C::Hasher as Hasher<F, C::HCO>>::Permutation as PlonkyPermutation<F>>::State,
+        <<C::Hasher as Hasher<F>>::Permutation as PlonkyPermutation<F>>::State,
     pub(crate) proof: StarkProof<F, C, D>,
 }
 

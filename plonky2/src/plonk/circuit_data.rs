@@ -19,7 +19,7 @@ use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
@@ -141,8 +141,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         prove::<F, C, D>(
             &self.prover_only,
@@ -154,8 +154,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
@@ -165,8 +165,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
@@ -176,8 +176,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         proof: ProofWithPublicInputs<F, C, D>,
     ) -> Result<CompressedProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         proof.compress(&self.verifier_only.circuit_digest, &self.common)
     }
@@ -187,8 +187,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         proof: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
@@ -258,8 +258,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         prove::<F, C, D>(
             &self.prover_only,
@@ -300,8 +300,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
@@ -311,8 +311,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
@@ -344,17 +344,17 @@ pub struct ProverOnlyCircuitData<
     pub fft_root_table: Option<FftRootTable<F>>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F, C::HCO>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub constants_sigmas_cap: MerkleCap<C::F, C::HCO, C::Hasher>,
+    pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
 }
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {

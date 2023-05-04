@@ -8,7 +8,7 @@ use keccak_hash::keccak;
 
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::PlonkyPermutation;
-use crate::plonk::config::{Hasher, KeccakHashConfig};
+use crate::plonk::config::Hasher;
 use crate::util::serialization::Write;
 
 pub const SPONGE_RATE: usize = 8;
@@ -21,6 +21,9 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 pub struct KeccakPermutation;
 
 impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
+    const RATE: usize = SPONGE_RATE;
+    const WIDTH: usize = SPONGE_WIDTH;
+
     type State = [F; SPONGE_WIDTH];
 
     fn permute(input: Self::State) -> Self::State {
@@ -60,7 +63,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
-impl<F: RichField, const N: usize> Hasher<F, KeccakHashConfig> for KeccakHash<N> {
+impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
     type Permutation = KeccakPermutation;

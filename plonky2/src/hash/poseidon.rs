@@ -16,7 +16,7 @@ use crate::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, Hasher, PoseidonHashConfig};
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 pub const SPONGE_RATE: usize = 8;
 pub const SPONGE_CAPACITY: usize = 4;
@@ -635,7 +635,10 @@ pub trait Poseidon: PrimeField64 {
 pub struct PoseidonPermutation;
 
 impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
-    type State = [F; SPONGE_WIDTH];
+    const RATE: usize = SPONGE_RATE;
+    const WIDTH: usize = SPONGE_WIDTH;
+
+    type State = [F; SPONGE_WIDTH]; // morally should be "Self::WIDTH"
 
     fn permute(input: Self::State) -> Self::State {
         F::poseidon(input)
@@ -645,13 +648,13 @@ impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
 /// Poseidon hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoseidonHash;
-impl<F: RichField> Hasher<F, PoseidonHashConfig> for PoseidonHash {
+impl<F: RichField> Hasher<F> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        hash_n_to_hash_no_pad::<F, PoseidonHashConfig, Self::Permutation>(input)
+        hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
@@ -659,7 +662,7 @@ impl<F: RichField> Hasher<F, PoseidonHashConfig> for PoseidonHash {
     }
 }
 
-impl<F: RichField> AlgebraicHasher<F, PoseidonHashConfig> for PoseidonHash {
+impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
     fn permute_swapped<const D: usize>(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,

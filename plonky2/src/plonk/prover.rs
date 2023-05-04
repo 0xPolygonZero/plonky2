@@ -11,7 +11,7 @@ use crate::field::types::Field;
 use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
@@ -33,10 +33,10 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     timing: &mut TimingTree,
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
-    C::Hasher: Hasher<F, C::HCO>,
-    C::InnerHasher: Hasher<F, C::HCI>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: Hasher<F>,
+    C::InnerHasher: Hasher<F>,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
@@ -81,13 +81,13 @@ where
         )
     );
 
-    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
-    challenger.observe_hash::<C::HCO, C::Hasher>(prover_data.circuit_digest);
-    challenger.observe_hash::<C::HCI, C::InnerHasher>(public_inputs_hash);
+    challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
+    challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
-    challenger.observe_cap::<C::HCO, C::Hasher>(&wires_commitment.merkle_tree.cap);
+    challenger.observe_cap::<C::Hasher>(&wires_commitment.merkle_tree.cap);
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
@@ -121,8 +121,7 @@ where
         )
     );
 
-    challenger
-        .observe_cap::<C::HCO, C::Hasher>(&partial_products_and_zs_commitment.merkle_tree.cap);
+    challenger.observe_cap::<C::Hasher>(&partial_products_and_zs_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -170,7 +169,7 @@ where
         )
     );
 
-    challenger.observe_cap::<C::HCO, C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
+    challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -324,7 +323,7 @@ fn compute_quotient_polys<
 >(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
-    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F, C::HCI>>::Hash,
+    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     wires_commitment: &'a PolynomialBatch<F, C, D>,
     zs_partial_products_commitment: &'a PolynomialBatch<F, C, D>,
     betas: &[F],

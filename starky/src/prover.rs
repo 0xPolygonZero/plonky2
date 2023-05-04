@@ -11,9 +11,9 @@ use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::{log2_ceil, log2_strict, transpose};
@@ -43,8 +43,8 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);

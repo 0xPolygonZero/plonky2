@@ -5,14 +5,14 @@ use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::{Challenger, RecursiveChallenger};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
-impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H> {
+impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn observe_openings<const D: usize>(&mut self, openings: &FriOpenings<F, D>)
     where
         F: RichField + Extendable<D>,
@@ -24,7 +24,7 @@ impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H> {
 
     pub fn fri_challenges<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        commit_phase_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
+        commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
         final_poly: &PolynomialCoeffs<F::Extension>,
         pow_witness: F,
         degree_bits: usize,
@@ -42,7 +42,7 @@ impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H> {
         let fri_betas = commit_phase_merkle_caps
             .iter()
             .map(|cap| {
-                self.observe_cap::<C::HCO, C::Hasher>(cap);
+                self.observe_cap::<C::Hasher>(cap);
                 self.get_extension_challenge::<D>()
             })
             .collect();
@@ -65,15 +65,12 @@ impl<F: RichField, HCO: HashConfig, H: Hasher<F, HCO>> Challenger<F, HCO, H> {
     }
 }
 
-impl<F: RichField + Extendable<D>, HCO: HashConfig, H: AlgebraicHasher<F, HCO>, const D: usize>
-    RecursiveChallenger<F, HCO, H, D>
+impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
+    RecursiveChallenger<F, H, D>
 where
-    [(); HCO::WIDTH]:,
+    [(); H::Permutation::WIDTH]:,
 {
-    pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>)
-    where
-        [(); HCO::WIDTH]:,
-    {
+    pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>) {
         for v in &openings.batches {
             self.observe_extension_elements(&v.values);
         }

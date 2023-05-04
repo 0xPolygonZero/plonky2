@@ -15,11 +15,11 @@ use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
 use plonky2::util::serialization::DefaultGateSerializer;
@@ -70,8 +70,8 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     log2_size: usize,
 ) -> Result<ProofTuple<F, C, D>>
 where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
@@ -109,11 +109,11 @@ fn recursive_proof<
     min_degree_bits: Option<usize>,
 ) -> Result<ProofTuple<F, C, D>>
 where
-    InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-    [(); InnerC::HCO::WIDTH]:,
-    [(); InnerC::HCI::WIDTH]:,
+    InnerC::Hasher: AlgebraicHasher<F>,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <InnerC::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <InnerC::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -157,8 +157,8 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     cd: &CommonCircuitData<F, D>,
 ) -> Result<()>
 where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());

@@ -1,10 +1,10 @@
 use plonky2::field::extension::Extendable;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
@@ -21,7 +21,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
     ) -> AllProofChallenges<F, D> {
-        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
@@ -54,8 +54,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllChallengerState<F, C::HCO, C::Hasher, D> {
-        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    ) -> AllChallengerState<F, C::Hasher, D> {
+        let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
@@ -95,7 +95,7 @@ where
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
-        challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+        challenger: &mut Challenger<F, C::Hasher>,
         stark_use_permutation: bool,
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
@@ -154,15 +154,15 @@ impl<const D: usize> StarkProofTarget<D> {
     pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        challenger: &mut RecursiveChallenger<F, C::HCO, C::Hasher, D>,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         stark_use_permutation: bool,
         stark_permutation_batch_size: usize,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let StarkProofTarget {
             permutation_ctl_zs_cap,

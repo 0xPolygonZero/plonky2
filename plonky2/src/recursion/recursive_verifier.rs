@@ -1,9 +1,9 @@
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
-use crate::hash::hashing::HashConfig;
+use crate::hash::hashing::PlonkyPermutation;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
     OpeningSetTarget, ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget,
@@ -21,16 +21,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         assert_eq!(
             proof_with_pis.public_inputs.len(),
             inner_common_data.num_public_inputs
         );
-        let public_inputs_hash = self
-            .hash_n_to_hash_no_pad::<C::HCI, C::InnerHasher>(proof_with_pis.public_inputs.clone());
+        let public_inputs_hash =
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
         let challenges = proof_with_pis.get_challenges::<F, C>(
             self,
             public_inputs_hash,
@@ -56,8 +56,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let one = self.one_extension();
 
@@ -331,8 +331,8 @@ mod tests {
         num_dummy_gates: u64,
     ) -> Result<Proof<F, C, D>>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
@@ -362,11 +362,11 @@ mod tests {
         print_timing: bool,
     ) -> Result<Proof<F, C, D>>
     where
-        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-        [(); InnerC::HCO::WIDTH]:,
-        [(); InnerC::HCI::WIDTH]:,
+        InnerC::Hasher: AlgebraicHasher<F>,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <InnerC::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <InnerC::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -420,8 +420,8 @@ mod tests {
         cd: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
