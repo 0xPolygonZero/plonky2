@@ -509,10 +509,10 @@ fn compute_lookup_polys<
             // Get looking combos.
             let looking_combos: Vec<F> = (0..num_lu_slots)
                 .map(|s| {
-                    let looking_inp = witness.get_wire(row, LookupGate::wire_ith_looking_inp(s));
+                    let looking_in = witness.get_wire(row, LookupGate::wire_ith_looking_inp(s));
                     let looking_out = witness.get_wire(row, LookupGate::wire_ith_looking_out(s));
 
-                    looking_inp + deltas[LookupChallenges::ChallengeA as usize] * looking_out
+                    looking_in + deltas[LookupChallenges::ChallengeA as usize] * looking_out
                 })
                 .collect();
             // Get (alpha - combo).

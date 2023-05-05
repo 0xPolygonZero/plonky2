@@ -583,25 +583,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
-        let has_lookup = self.num_lookup_polys != 0;
-        if has_lookup {
-            [
-                self.fri_preprocessed_polys(),
-                self.fri_wire_polys(),
-                self.fri_zs_partial_products_polys(),
-                self.fri_quotient_polys(),
-                self.fri_lookup_polys(),
-            ]
-            .concat()
-        } else {
-            [
-                self.fri_preprocessed_polys(),
-                self.fri_wire_polys(),
-                self.fri_zs_partial_products_polys(),
-                self.fri_quotient_polys(),
-            ]
-            .concat()
-        }
+        [
+            self.fri_preprocessed_polys(),
+            self.fri_wire_polys(),
+            self.fri_zs_partial_products_polys(),
+            self.fri_quotient_polys(),
+            self.fri_lookup_polys(),
+        ]
+        .concat()
     }
 }
 

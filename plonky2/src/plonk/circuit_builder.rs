@@ -53,11 +53,15 @@ use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 /// Number of random coins needed for lookups (for each challenge).
+/// A coin is a randomly sampled extension field element from the verifier,
+/// consisting internally of `CircuitConfig::num_challenges` field elements.
 pub const NUM_COINS_LOOKUP: usize = 4;
 
-/// Enum listing the different types of lookup challenges. `ChallengeA` is used for the linear combination of input and output pairs in Sum and LDC.
+/// Enum listing the different types of lookup challenges.
+/// `ChallengeA` is used for the linear combination of input and output pairs in Sum and LDC.
 /// `ChallengeB` is used for the linear combination of input and output pairs in the polynomial RE.
-/// `ChallengeAlpha` is used for the running sums: 1/(alpha - combo_i). `ChallengeDelta` is a challenge on which to evaluate the interpolated LUT function.
+/// `ChallengeAlpha` is used for the running sums: 1/(alpha - combo_i).
+/// `ChallengeDelta` is a challenge on which to evaluate the interpolated LUT function.
 pub enum LookupChallenges {
     ChallengeA = 0,
     ChallengeB = 1,
@@ -65,7 +69,10 @@ pub enum LookupChallenges {
     ChallengeDelta = 3,
 }
 
-/// Structure containing, for each lookup table, the indices of the last lookup row, the last lookup table row and the first lookup table row. Since the rows are in reverse order in the trace, they actually correspond, respectively, to: the indices of the first `LookupGate`, the first `LookupTableGate` and the last `LookupTableGate`.
+/// Structure containing, for each lookup table, the indices of the last lookup row,
+/// the last lookup table row and the first lookup table row. Since the rows are in
+/// reverse order in the trace, they actually correspond, respectively, to: the indices
+/// of the first `LookupGate`, the first `LookupTableGate` and the last `LookupTableGate`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LookupWire {
     /// Index of the last lookup row (i.e. the first `LookupGate`).
@@ -118,7 +125,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
 
-    /// Rows for each LUT: LookupWire contains: first `LookupTableGate`, first `LookupGate`, last `LookupGate`.
+    /// Rows for each LUT: LookupWire contains: first `LookupGate`, first `LookupTableGate`, last `LookupTableGate`.
     lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.
@@ -226,19 +233,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a looking (input, output) pair to the corresponding LUT.
-    pub fn update_lookups(
-        &mut self,
-        looking_inp: Target,
-        looking_output: Target,
-        lut_index: usize,
-    ) {
+    pub fn update_lookups(&mut self, looking_in: Target, looking_out: Target, lut_index: usize) {
         assert!(
             lut_index < self.lut_to_lookups.len(),
             "The LUT with index {} has not been created. The last LUT is at index {}",
             lut_index,
             self.lut_to_lookups.len() - 1
         );
-        self.lut_to_lookups[lut_index].push((looking_inp, looking_output));
+        self.lut_to_lookups[lut_index].push((looking_in, looking_out));
     }
 
     pub fn num_luts(&mut self) -> usize {
@@ -585,6 +587,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Returns the LUT at index `idx`.
     pub fn get_lut(&self, idx: usize) -> Arc<Vec<(u16, u16)>> {
+        assert!(
+            idx < self.luts.len(),
+            "index idx: {} greater than the total number of created LUTS: {}",
+            idx,
+            self.luts.len()
+        );
         self.luts[idx].clone()
     }
 
@@ -593,9 +601,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         T: Copy,
     {
-        (0..inputs.len())
-            .map(|i| (inputs[i], f(inputs[i])))
-            .collect()
+        inputs.iter().map(|&input| (input, f(input))).collect()
     }
 
     /// Given a function `f: fn(u16) -> u16`, adds a LUT to the circuit builder.
@@ -1070,7 +1076,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
         let lookup_degree = self.config.max_quotient_degree_factor - 1;
-        let num_lookup_polys = if self.luts.is_empty() {
+        let num_lookup_polys = if num_luts == 0 {
             0
         } else {
             // There is 1 RE polynomial and multiple Sum/LDC polynomials.

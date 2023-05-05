@@ -62,16 +62,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a lookup (input, output) pair to the stored lookups. Takes a `Target` input and returns a `Target` output.
-    pub fn add_lookup_from_index(&mut self, looking_input: Target, lut_index: usize) -> Target {
+    pub fn add_lookup_from_index(&mut self, looking_in: Target, lut_index: usize) -> Target {
         assert!(
             lut_index < self.get_luts_length(),
             "lut number {} not in luts (length = {})",
             lut_index,
             self.get_luts_length()
         );
-        let looking_output = self.add_virtual_target();
-        self.update_lookups(looking_input, looking_output, lut_index);
-        looking_output
+        let looking_out = self.add_virtual_target();
+        self.update_lookups(looking_in, looking_out, lut_index);
+        looking_out
     }
 
     /// We call this function at the end of circuit building right before the PI gate to add all `LookupTableGate` and `LookupGate`.
@@ -91,13 +91,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
                 let lookups = self.get_lut_lookups(lut_index).to_owned();
 
-                for (looking_inp, looking_out) in lookups {
+                for (looking_in, looking_out) in lookups {
                     let gate = LookupGate::new_from_table(&self.config, lut.clone());
                     let (gate, i) =
                         self.find_slot(gate, &[F::from_canonical_usize(lut_index)], &[]);
-                    let gate_inp = Target::wire(gate, LookupGate::wire_ith_looking_inp(i));
+                    let gate_in = Target::wire(gate, LookupGate::wire_ith_looking_inp(i));
                     let gate_out = Target::wire(gate, LookupGate::wire_ith_looking_out(i));
-                    self.connect(gate_inp, looking_inp);
+                    self.connect(gate_in, looking_in);
                     self.connect(gate_out, looking_out);
                 }
 

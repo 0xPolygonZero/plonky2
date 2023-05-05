@@ -43,9 +43,7 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
                 + b * F::from_canonical_u16(common_data.luts[lut_index][i].1),
         );
     }
-    for _ in n..degree {
-        coeffs.push(F::ZERO);
-    }
+    coeffs.append(&mut vec![F::ZERO; degree - n]);
     coeffs.reverse();
     PolynomialCoeffs::new(coeffs)
 }
@@ -360,13 +358,15 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
     let z_x_lookup_sldcs = &local_lookup_zs[1..num_sldc_polys + 1];
     let z_gx_lookup_sldcs = &next_lookup_zs[1..num_sldc_polys + 1];
 
+    let delta_challenge_a = F::Extension::from(deltas[LookupChallenges::ChallengeA as usize]);
+    let delta_challenge_b = F::Extension::from(deltas[LookupChallenges::ChallengeB as usize]);
+
     // Compute all current looked and looking combos, i.e. the combos we need for the SLDC polynomials.
     let current_looked_combos: Vec<F::Extension> = (0..num_lut_slots)
         .map(|s| {
             let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
             let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            input_wire
-                + F::Extension::from(deltas[LookupChallenges::ChallengeA as usize]) * output_wire
+            input_wire + delta_challenge_a * output_wire
         })
         .collect();
 
@@ -374,8 +374,7 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
         .map(|s| {
             let input_wire = vars.local_wires[LookupGate::wire_ith_looking_inp(s)];
             let output_wire = vars.local_wires[LookupGate::wire_ith_looking_out(s)];
-            input_wire
-                + F::Extension::from(deltas[LookupChallenges::ChallengeA as usize]) * output_wire
+            input_wire + delta_challenge_a * output_wire
         })
         .collect();
 
@@ -384,8 +383,7 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
         .map(|s| {
             let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
             let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            input_wire
-                + F::Extension::from(deltas[LookupChallenges::ChallengeB as usize]) * output_wire
+            input_wire + delta_challenge_b * output_wire
         })
         .collect();
 
