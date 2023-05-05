@@ -456,6 +456,7 @@ mod tests {
 
     use crate::field::types::Sample;
     use crate::fri::reduction_strategies::FriReductionStrategy;
+    use crate::gates::lookup_table::LookupTable;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -529,7 +530,7 @@ mod tests {
             241, 25, 149, 105, 156, 51, 53, 168, 145, 247, 223, 79, 78, 226, 15, 222, 82, 115, 70,
             210, 27, 41, 1, 170, 40, 131, 192, 229, 248, 255,
         ];
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let lut_index = builder.add_lookup_table_from_pairs(table);

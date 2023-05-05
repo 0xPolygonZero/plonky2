@@ -9,6 +9,7 @@ mod tests {
     use log::{Level, LevelFilter};
 
     use crate::gadgets::lookup::{OTHER_TABLE, SMALLER_TABLE, TIP5_TABLE};
+    use crate::gates::lookup_table::LookupTable;
     use crate::gates::noop::NoopGate;
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -54,7 +55,7 @@ mod tests {
 
         LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
         let tip5_table = TIP5_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -129,7 +130,7 @@ mod tests {
         let first_out = tip5_table[look_val_a];
         let second_out = tip5_table[look_val_b];
 
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let other_table = OTHER_TABLE.to_vec();
 
@@ -142,7 +143,7 @@ mod tests {
         let s = first_out + second_out;
         let final_out = other_table[s as usize];
 
-        let table2: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(other_table).collect());
+        let table2: LookupTable = Arc::new((0..256).zip_eq(other_table).collect());
         let table2_index = builder.add_lookup_table_from_pairs(table2);
 
         let output_final = builder.add_lookup_from_index(sum, table2_index);
@@ -208,11 +209,11 @@ mod tests {
         let init_b = 2;
 
         let tab: Vec<u16> = SMALLER_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((2..10).zip_eq(tab).collect());
+        let table: LookupTable = Arc::new((2..10).zip_eq(tab).collect());
 
         let other_table = OTHER_TABLE.to_vec();
 
-        let table2: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(other_table).collect());
+        let table2: LookupTable = Arc::new((0..256).zip_eq(other_table).collect());
         let small_index = builder.add_lookup_table_from_pairs(table.clone());
         let output_a = builder.add_lookup_from_index(initial_a, small_index);
 
@@ -293,7 +294,7 @@ mod tests {
         let look_val_b = 2;
 
         let tip5_table = TIP5_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let out_a = table[look_val_a].1;
         let out_b = table[look_val_b].1;
@@ -310,7 +311,7 @@ mod tests {
 
         let other_table = OTHER_TABLE.to_vec();
 
-        let table2: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(other_table).collect());
+        let table2: LookupTable = Arc::new((0..256).zip_eq(other_table).collect());
 
         let s = out_a + out_b;
         let out_final = table2[s as usize].1;
@@ -384,7 +385,7 @@ mod tests {
         let look_val_b = 2;
 
         let tip5_table = TIP5_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let table_index = builder.add_lookup_table_from_pairs(table.clone());
         let output_a = builder.add_lookup_from_index(initial_a, table_index);

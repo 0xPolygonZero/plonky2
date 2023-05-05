@@ -1,5 +1,4 @@
 use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::{Range, RangeFrom};
@@ -19,6 +18,8 @@ use crate::fri::structure::{
 };
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
+use crate::gates::lookup::Lookup;
+use crate::gates::lookup_table::LookupTable;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
@@ -317,7 +318,7 @@ pub struct ProverOnlyCircuitData<
     ///The concrete placement of the lookup gates for each lookup table index.
     pub lookup_rows: Vec<LookupWire>,
     /// A vector of (looking_in, looking_out) pairs for for each lookup table index.
-    pub lut_to_lookups: Vec<Vec<(Target, Target)>>,
+    pub lut_to_lookups: Vec<Lookup>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -380,7 +381,7 @@ pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub num_lookup_selectors: usize,
 
     /// The stored lookup tables.
-    pub luts: Vec<Arc<Vec<(u16, u16)>>>,
+    pub luts: Vec<LookupTable>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {

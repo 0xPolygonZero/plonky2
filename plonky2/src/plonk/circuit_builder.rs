@@ -25,7 +25,8 @@ use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
-use crate::gates::lookup::LookupGate;
+use crate::gates::lookup::{Lookup, LookupGate};
+use crate::gates::lookup_table::LookupTable;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::{selector_ends_lookups, selector_polynomials, selectors_lookup};
@@ -129,10 +130,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.
-    lut_to_lookups: Vec<Vec<(Target, Target)>>,
+    lut_to_lookups: Vec<Lookup>,
 
     // Lookup tables in the form of `Vec<(input_value, output_value)>`.
-    luts: Vec<Arc<Vec<(u16, u16)>>>,
+    luts: Vec<LookupTable>,
 
     /// Optional common data. When it is `Some(goal_data)`, the `build` function panics if the resulting
     /// common data doesn't equal `goal_data`.
@@ -581,12 +582,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Checks whether a LUT is already stored in `self.luts`
-    pub fn is_stored(&self, lut: Arc<Vec<(u16, u16)>>) -> Option<usize> {
+    pub fn is_stored(&self, lut: LookupTable) -> Option<usize> {
         self.luts.iter().position(|elt| *elt == lut)
     }
 
     /// Returns the LUT at index `idx`.
-    pub fn get_lut(&self, idx: usize) -> Arc<Vec<(u16, u16)>> {
+    pub fn get_lut(&self, idx: usize) -> LookupTable {
         assert!(
             idx < self.luts.len(),
             "index idx: {} greater than the total number of created LUTS: {}",
@@ -632,7 +633,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .copied()
             .zip_eq(table.iter().copied())
             .collect();
-        let lut: Arc<Vec<(u16, u16)>> = Arc::new(pairs);
+        let lut: LookupTable = Arc::new(pairs);
 
         // If the LUT `lut` is already stored in `self.luts`, return its index. Otherwise, append `table` to `self.luts` and return its index.
         if let Some(idx) = self.is_stored(lut.clone()) {
@@ -646,7 +647,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a table to the vector of LUTs in the circuit builder.
-    pub fn update_luts_from_pairs(&mut self, table: Arc<Vec<(u16, u16)>>) -> usize {
+    pub fn update_luts_from_pairs(&mut self, table: LookupTable) -> usize {
         // If the LUT `table` is already stored in `self.luts`, return its index. Otherwise, append `table` to `self.luts` and return its index.
         if let Some(idx) = self.is_stored(table.clone()) {
             idx

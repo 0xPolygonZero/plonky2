@@ -1,8 +1,6 @@
-use alloc::sync::Arc;
-
 use crate::field::extension::Extendable;
 use crate::gates::lookup::LookupGate;
-use crate::gates::lookup_table::LookupTableGate;
+use crate::gates::lookup_table::{LookupTable, LookupTableGate};
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::target::Target;
@@ -47,7 +45,7 @@ pub const SMALLER_TABLE: [u16; 8] = [2, 24, 56, 100, 128, 16, 20, 49];
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Adds a lookup table to the list of stored lookup tables `self.luts` based on a table of (input, output) pairs. It returns the index of the LUT within `self.luts`.
-    pub fn add_lookup_table_from_pairs(&mut self, table: Arc<Vec<(u16, u16)>>) -> usize {
+    pub fn add_lookup_table_from_pairs(&mut self, table: LookupTable) -> usize {
         self.update_luts_from_pairs(table)
     }
 

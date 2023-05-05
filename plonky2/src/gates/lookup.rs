@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::usize;
 
+use super::lookup_table::LookupTable;
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
 use crate::gates::gate::Gate;
@@ -22,17 +23,19 @@ use crate::plonk::vars::{
 };
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
+pub type Lookup = Vec<(Target, Target)>;
+
 /// A gate which stores (input, output) lookup pairs made elsewhere in the trace. It doesn't check any constraints itself.
 #[derive(Debug, Clone)]
 pub struct LookupGate {
     /// Number of lookups per gate.
     pub num_slots: usize,
     /// LUT associated to the gate.
-    lut: Arc<Vec<(u16, u16)>>,
+    lut: LookupTable,
 }
 
 impl LookupGate {
-    pub fn new_from_table(config: &CircuitConfig, lut: Arc<Vec<(u16, u16)>>) -> Self {
+    pub fn new_from_table(config: &CircuitConfig, lut: LookupTable) -> Self {
         Self {
             num_slots: Self::num_slots(config),
             lut,
@@ -142,7 +145,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 #[derive(Clone, Debug, Default)]
 pub struct LookupGenerator {
     row: usize,
-    lut: Arc<Vec<(u16, u16)>>,
+    lut: LookupTable,
     slot_nb: usize,
 }
 

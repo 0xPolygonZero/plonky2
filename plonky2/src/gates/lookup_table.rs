@@ -24,23 +24,21 @@ use crate::plonk::vars::{
 };
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
+pub type LookupTable = Arc<Vec<(u16, u16)>>;
+
 /// A gate which stores the set of (input, output) value pairs of a lookup table, and their multiplicities.
 #[derive(Debug, Clone)]
 pub struct LookupTableGate {
     /// Number of lookup entries per gate.
     pub num_slots: usize,
     /// Lookup table associated to the gate.
-    pub lut: Arc<Vec<(u16, u16)>>,
+    pub lut: LookupTable,
     /// First row of the lookup table.
     last_lut_row: usize,
 }
 
 impl LookupTableGate {
-    pub fn new_from_table(
-        config: &CircuitConfig,
-        lut: Arc<Vec<(u16, u16)>>,
-        last_lut_row: usize,
-    ) -> Self {
+    pub fn new_from_table(config: &CircuitConfig, lut: LookupTable, last_lut_row: usize) -> Self {
         Self {
             num_slots: Self::num_slots(config),
             lut,
@@ -164,7 +162,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 #[derive(Clone, Debug, Default)]
 pub struct LookupTableGenerator {
     row: usize,
-    lut: Arc<Vec<(u16, u16)>>,
+    lut: LookupTable,
     slot_nb: usize,
     num_slots: usize,
     last_lut_row: usize,

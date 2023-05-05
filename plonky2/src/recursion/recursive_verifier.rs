@@ -201,6 +201,7 @@ mod tests {
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gadgets::lookup::{OTHER_TABLE, TIP5_TABLE};
+    use crate::gates::lookup_table::LookupTable;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
@@ -421,7 +422,7 @@ mod tests {
         let look_val_b = 2;
 
         let tip5_table = TIP5_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let out_a = table[look_val_a].1;
         let out_b = table[look_val_b].1;
@@ -482,7 +483,7 @@ mod tests {
         let first_out = tip5_table[look_val_a];
         let second_out = tip5_table[look_val_b];
 
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let other_table = OTHER_TABLE.to_vec();
 
@@ -495,7 +496,7 @@ mod tests {
         let s = first_out + second_out;
         let final_out = other_table[s as usize];
 
-        let table2: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(other_table).collect());
+        let table2: LookupTable = Arc::new((0..256).zip_eq(other_table).collect());
 
         let other_index = builder.add_lookup_table_from_pairs(table2);
         let output_final = builder.add_lookup_from_index(sum, other_index);
@@ -556,7 +557,7 @@ mod tests {
         let look_val_b = 2;
 
         let tip5_table = TIP5_TABLE.to_vec();
-        let table: Arc<Vec<(u16, u16)>> = Arc::new((0..256).zip_eq(tip5_table).collect());
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
 
         let out_a = table[look_val_a].1;
         let out_b = table[look_val_b].1;

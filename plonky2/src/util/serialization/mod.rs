@@ -31,6 +31,7 @@ use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::gate::GateRef;
+use crate::gates::lookup::Lookup;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
@@ -1152,9 +1153,9 @@ pub trait Read {
         Ok(lut)
     }
 
-    /// Reads a target lookup table stored as `Vec<(Target, Target)>` from `self`.
+    /// Reads a target lookup table stored as `Lookup` from `self`.
     #[inline]
-    fn read_target_lut(&mut self) -> IoResult<Vec<(Target, Target)>> {
+    fn read_target_lut(&mut self) -> IoResult<Lookup> {
         let length = self.read_usize()?;
         let mut lut = Vec::with_capacity(length);
         for _ in 0..length {
