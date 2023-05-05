@@ -5,7 +5,6 @@ use hashbrown::HashMap;
 use num::Integer;
 
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::Hasher;
 
@@ -60,10 +59,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>>
-where
-    [(); H::Permutation::WIDTH]:,
-{
+) -> Vec<MerkleProof<F, H>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());

@@ -11,7 +11,6 @@ use crate::field::types::Field;
 use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::PlonkyPermutation;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
@@ -35,8 +34,6 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
 where
     C::Hasher: Hasher<F>,
     C::InnerHasher: Hasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;

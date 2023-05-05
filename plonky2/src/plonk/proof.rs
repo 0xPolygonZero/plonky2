@@ -89,11 +89,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
         let indices = self.fri_query_indices(circuit_digest, common_data)?;
         let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
         Ok(CompressedProofWithPublicInputs {
@@ -104,10 +100,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn get_public_inputs_hash(
         &self,
-    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash
-    where
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
         C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
@@ -157,10 +150,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> Proof<F, C, D>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Proof<F, C, D> {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,

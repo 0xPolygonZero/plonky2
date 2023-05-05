@@ -34,11 +34,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     pow_witness: F,
     circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
     common_data: &CommonCircuitData<F, D>,
-) -> anyhow::Result<ProofChallenges<F, D>>
-where
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-{
+) -> anyhow::Result<ProofChallenges<F, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
 
@@ -82,11 +78,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         &self,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<Vec<usize>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> anyhow::Result<Vec<usize>> {
         Ok(self
             .get_challenges(self.get_public_inputs_hash(), circuit_digest, common_data)?
             .fri_challenges
@@ -99,11 +91,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
         circuit_digest: &<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
         common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<ProofChallenges<F, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> anyhow::Result<ProofChallenges<F, D>> {
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
