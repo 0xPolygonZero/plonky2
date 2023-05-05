@@ -10,7 +10,7 @@ use crate::hash::hash_types::RichField;
 use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::timed;
 use crate::util::reverse_index_bits_in_place;
@@ -136,17 +136,15 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     // obtaining our duplex's post-state which contains the PoW response.
     let mut duplex_intermediate_state = challenger.sponge_state.clone();
     let witness_input_pos = challenger.input_buffer.len();
-    for (i, input) in challenger.input_buffer.iter().enumerate() {
-        duplex_intermediate_state[i] = *input;
-    }
+    duplex_intermediate_state.set_from_iter(challenger.input_buffer.clone().into_iter(), 0);
 
     let pow_witness = (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&candidate| {
             let mut duplex_state = duplex_intermediate_state.clone();
-            duplex_state[witness_input_pos] = F::from_canonical_u64(candidate);
-            duplex_state = <C::Hasher as Hasher<F>>::Permutation::permute(duplex_state);
-            let pow_response = duplex_state[<C::Hasher as Hasher<F>>::Permutation::RATE - 1];
+            duplex_state.set_elt(F::from_canonical_u64(candidate), witness_input_pos);
+            duplex_state.permute();
+            let pow_response = duplex_state.squeeze().iter().last().unwrap();
             let leading_zeros = pow_response.to_canonical_u64().leading_zeros();
             leading_zeros >= min_leading_zeros
         })

@@ -374,7 +374,7 @@ mod tests {
     fn iterate_poseidon<F: RichField>(initial_state: [F; 4], n: usize) -> [F; 4] {
         let mut current = initial_state;
         for _ in 0..n {
-            current = hash_n_to_hash_no_pad::<F, PoseidonPermutation>(&current).elements;
+            current = hash_n_to_hash_no_pad::<F, PoseidonPermutation<F>>(&current).elements;
         }
         current
     }

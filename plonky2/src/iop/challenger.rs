@@ -14,7 +14,7 @@ use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
 pub struct Challenger<F: RichField, H: Hasher<F>> {
-    pub(crate) sponge_state: <H::Permutation as PlonkyPermutation<F>>::State,
+    pub(crate) sponge_state: H::Permutation,
     pub(crate) input_buffer: Vec<F>,
     output_buffer: Vec<F>,
 }
@@ -29,10 +29,8 @@ pub struct Challenger<F: RichField, H: Hasher<F>> {
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
 impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn new() -> Challenger<F, H> {
-        let mut initial_state = <H::Permutation as PlonkyPermutation<F>>::State::default();
-        initial_state.as_mut().fill(F::ZERO);
         Challenger {
-            sponge_state: initial_state,
+            sponge_state: H::Permutation::new(std::iter::repeat(F::ZERO)),
             input_buffer: Vec::with_capacity(H::Permutation::RATE),
             output_buffer: Vec::with_capacity(H::Permutation::RATE),
         }
@@ -134,19 +132,18 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         // Overwrite the first r elements with the inputs. This differs from a standard sponge,
         // where we would xor or add in the inputs. This is a well-known variant, though,
         // sometimes called "overwrite mode".
-        for (i, input) in self.input_buffer.drain(..).enumerate() {
-            self.sponge_state[i] = input;
-        }
+        self.sponge_state
+            .set_from_iter(self.input_buffer.drain(..), 0);
 
         // Apply the permutation.
-        self.sponge_state = H::Permutation::permute(self.sponge_state.clone());
+        self.sponge_state.permute();
 
         self.output_buffer.clear();
         self.output_buffer
-            .extend_from_slice(&self.sponge_state.as_ref()[0..H::Permutation::RATE]);
+            .extend_from_slice(self.sponge_state.squeeze());
     }
 
-    pub fn compact(&mut self) -> <H::Permutation as PlonkyPermutation<F>>::State {
+    pub fn compact(&mut self) -> H::Permutation {
         if !self.input_buffer.is_empty() {
             self.duplexing();
         }

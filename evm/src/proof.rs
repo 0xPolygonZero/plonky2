@@ -7,7 +7,6 @@ use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -43,7 +42,7 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     /// Sponge state of the challenger before starting each proof,
     /// along with the final state after all proofs are done. This final state isn't strictly needed.
-    pub states: [<H::Permutation as PlonkyPermutation<F>>::State; NUM_TABLES + 1],
+    pub states: [H::Permutation; NUM_TABLES + 1],
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
@@ -119,8 +118,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub(crate) init_challenger_state:
-        <<C::Hasher as Hasher<F>>::Permutation as PlonkyPermutation<F>>::State,
+    pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
     pub(crate) proof: StarkProof<F, C, D>,
 }
 

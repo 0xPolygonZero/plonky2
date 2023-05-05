@@ -18,24 +18,59 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 /// Keccak-256 pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
 /// where `H` is the Keccak-256 hash.
-pub struct KeccakPermutation;
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct KeccakPermutation<F: RichField> {
+    state: [F; SPONGE_WIDTH],
+}
 
-impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
+impl<F: RichField> Eq for KeccakPermutation<F> {}
+
+impl<F: RichField> AsRef<[F]> for KeccakPermutation<F> {
+    fn as_ref(&self) -> &[F] {
+        &self.state
+    }
+}
+
+// TODO: Several implementations here are copied from
+// PoseidonPermutation; they should be refactored.
+impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
     const RATE: usize = SPONGE_RATE;
     const WIDTH: usize = SPONGE_WIDTH;
 
-    type State = [F; SPONGE_WIDTH];
+    fn new<I: IntoIterator<Item = F>>(elts: I) -> Self {
+        let mut perm = Self {
+            state: [F::default(); SPONGE_WIDTH],
+        };
+        perm.set_from_iter(elts, 0);
+        perm
+    }
 
-    fn permute(input: Self::State) -> Self::State {
-        let mut state = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
+    fn set_elt(&mut self, elt: F, idx: usize) {
+        self.state[idx] = elt;
+    }
+
+    fn set_from_slice(&mut self, elts: &[F], start_idx: usize) {
+        let begin = start_idx;
+        let end = start_idx + elts.len();
+        self.state[begin..end].copy_from_slice(elts);
+    }
+
+    fn set_from_iter<I: IntoIterator<Item = F>>(&mut self, elts: I, start_idx: usize) {
+        for (s, e) in self.state[start_idx..].iter_mut().zip(elts) {
+            *s = e;
+        }
+    }
+
+    fn permute(&mut self) {
+        let mut state_bytes = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
         for i in 0..SPONGE_WIDTH {
-            state[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
-                .copy_from_slice(&input[i].to_canonical_u64().to_le_bytes());
+            state_bytes[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
+                .copy_from_slice(&self.state[i].to_canonical_u64().to_le_bytes());
         }
 
         let hash_onion = iter::repeat_with(|| {
-            let output = keccak(state.clone()).to_fixed_bytes();
-            state = output.to_vec();
+            let output = keccak(state_bytes.clone()).to_fixed_bytes();
+            state_bytes = output.to_vec();
             output
         });
 
@@ -52,11 +87,15 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
             .filter(|&word| word < F::ORDER)
             .map(F::from_canonical_u64);
 
-        hash_onion_elems
+        self.state = hash_onion_elems
             .take(SPONGE_WIDTH)
             .collect_vec()
             .try_into()
-            .unwrap()
+            .unwrap();
+    }
+
+    fn squeeze(&mut self) -> &[F] {
+        &self.state[..Self::RATE]
     }
 }
 
@@ -66,7 +105,7 @@ pub struct KeccakHash<const N: usize>;
 impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
-    type Permutation = KeccakPermutation;
+    type Permutation = KeccakPermutation<F>;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
         let mut buffer = Vec::new();

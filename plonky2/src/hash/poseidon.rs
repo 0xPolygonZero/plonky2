@@ -632,16 +632,53 @@ pub trait Poseidon: PrimeField64 {
     }
 }
 
-pub struct PoseidonPermutation;
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct PoseidonPermutation<F: Field> {
+    state: [F; SPONGE_WIDTH],
+}
 
-impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
+impl<F: RichField> Eq for PoseidonPermutation<F> {}
+
+impl<F: RichField> AsRef<[F]> for PoseidonPermutation<F> {
+    fn as_ref(&self) -> &[F] {
+        &self.state
+    }
+}
+
+impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation<F> {
     const RATE: usize = SPONGE_RATE;
     const WIDTH: usize = SPONGE_WIDTH;
 
-    type State = [F; SPONGE_WIDTH]; // morally should be "Self::WIDTH"
+    fn new<I: IntoIterator<Item = F>>(elts: I) -> Self {
+        let mut perm = Self {
+            state: [F::default(); SPONGE_WIDTH],
+        };
+        perm.set_from_iter(elts, 0);
+        perm
+    }
 
-    fn permute(input: Self::State) -> Self::State {
-        F::poseidon(input)
+    fn set_elt(&mut self, elt: F, idx: usize) {
+        self.state[idx] = elt;
+    }
+
+    fn set_from_slice(&mut self, elts: &[F], start_idx: usize) {
+        let begin = start_idx;
+        let end = start_idx + elts.len();
+        self.state[begin..end].copy_from_slice(elts);
+    }
+
+    fn set_from_iter<I: IntoIterator<Item = F>>(&mut self, elts: I, start_idx: usize) {
+        for (s, e) in self.state[start_idx..].iter_mut().zip(elts) {
+            *s = e;
+        }
+    }
+
+    fn permute(&mut self) {
+        self.state = F::poseidon(self.state);
+    }
+
+    fn squeeze(&mut self) -> &[F] {
+        &self.state[..Self::RATE]
     }
 }
 
@@ -651,7 +688,7 @@ pub struct PoseidonHash;
 impl<F: RichField> Hasher<F> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
-    type Permutation = PoseidonPermutation;
+    type Permutation = PoseidonPermutation<F>;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
         hash_n_to_hash_no_pad::<F, Self::Permutation>(input)

@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 use core::fmt::Debug;
-use std::ops::{Index, IndexMut};
+use std::iter::repeat;
 
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
@@ -69,23 +69,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// Permutation that can be used in the sponge construction for an algebraic hash.
-pub trait PlonkyPermutation<F: Field> {
+pub trait PlonkyPermutation<F: Field>:
+    AsRef<[F]> + Clone + Debug + Default + Eq + Sync + Send
+{
     const RATE: usize;
     const WIDTH: usize;
 
-    type State: AsMut<[F]>
-        + AsRef<[F]>
-        + Clone
-        + Debug
-        + Default
-        + Eq
-        + Index<usize, Output = F>
-        + IndexMut<usize, Output = F>
-        + IntoIterator<Item = F>
-        + Sync
-        + Send;
+    /// Initialises internal state with values from `iter` until
+    /// `iter` is exhausted or `Self::WIDTH` values have been
+    /// received; remaining state (if any) initialised with
+    /// `F::default()`. To initialise remaining elements with a
+    /// different value, instead of your original `iter` pass
+    /// `iter.chain(std::iter::repeat(F::from_canonical_u64(12345)))`
+    /// or similar.
+    fn new<I: IntoIterator<Item = F>>(iter: I) -> Self;
 
-    fn permute(input: Self::State) -> Self::State;
+    /// Set idx-th state element to be `elt`. Panics if `idx >= WIDTH`.
+    fn set_elt(&mut self, elt: F, idx: usize);
+
+    /// Set state element `i` to be `elts[i] for i =
+    /// start_idx..start_idx + elts.len()`. Panics if `start_idx +
+    /// elts.len() > WIDTH`.
+    fn set_from_iter<I: IntoIterator<Item = F>>(&mut self, elts: I, start_idx: usize);
+
+    /// Same semantics as for `set_from_iter` but probably faster than
+    /// just calling `set_from_iter(elts.iter())`.
+    fn set_from_slice(&mut self, elts: &[F], start_idx: usize);
+
+    /// Apply permutation to internal state
+    fn permute(&mut self);
+
+    /// Return a slice of `RATE` elements
+    fn squeeze(&mut self) -> &[F];
 }
 
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
@@ -93,17 +108,18 @@ pub fn compress<F: Field, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>)
     // TODO: With some refactoring, this function could be implemented as
     // hash_n_to_m_no_pad(chain(x.elements, y.elements), NUM_HASH_OUT_ELTS).
 
-    let mut perm_inputs = P::State::default();
-    let mut_state = perm_inputs.as_mut();
-    mut_state.fill(F::ZERO);
+    debug_assert_eq!(x.elements.len(), NUM_HASH_OUT_ELTS);
+    debug_assert_eq!(y.elements.len(), NUM_HASH_OUT_ELTS);
+    debug_assert!(P::RATE >= NUM_HASH_OUT_ELTS);
 
-    mut_state[..NUM_HASH_OUT_ELTS].copy_from_slice(&x.elements);
-    mut_state[NUM_HASH_OUT_ELTS..2 * NUM_HASH_OUT_ELTS].copy_from_slice(&y.elements);
+    let mut perm = P::new(repeat(F::ZERO));
+    perm.set_from_slice(&x.elements, 0);
+    perm.set_from_slice(&y.elements, NUM_HASH_OUT_ELTS);
+
+    perm.permute();
 
     HashOut {
-        elements: P::permute(perm_inputs).as_ref()[..NUM_HASH_OUT_ELTS]
-            .try_into()
-            .unwrap(),
+        elements: perm.squeeze()[..NUM_HASH_OUT_ELTS].try_into().unwrap(),
     }
 }
 
@@ -113,34 +129,24 @@ pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
 ) -> Vec<F> {
-    let mut state = P::State::default();
-    state.as_mut().fill(F::ZERO);
+    let mut perm = P::new(repeat(F::ZERO));
 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(P::RATE) {
-        state.as_mut()[..input_chunk.len()].copy_from_slice(input_chunk);
-        state = P::permute(state);
+        perm.set_from_slice(input_chunk, 0);
+        perm.permute();
     }
 
     // Squeeze until we have the desired number of outputs.
-
-    // TODO: Replace loops below with something like this:
-    //
-    // (0..)
-    //   .scan(initial_state, |state, _| Some(P::permute(state)))
-    //   .flat_map(|state| state.into_iter().take(HC::RATE))
-    //   .take(num_outputs)
-    //   .collect()
-
     let mut outputs = Vec::new();
     loop {
-        for &item in state.as_ref().iter().take(P::RATE) {
+        for &item in perm.squeeze() {
             outputs.push(item);
             if outputs.len() == num_outputs {
                 return outputs;
             }
         }
-        state = P::permute(state);
+        perm.permute();
     }
 }
 

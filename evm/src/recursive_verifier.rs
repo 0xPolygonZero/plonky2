@@ -139,9 +139,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let state = challenger.compact();
         ensure!(state
-            .into_iter()
+            .as_ref()
+            .iter()
             .zip(pis[0].challenger_state_before)
-            .all(|(x, y)| x == y));
+            .all(|(&x, y)| x == y));
+
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
