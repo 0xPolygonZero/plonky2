@@ -1,10 +1,9 @@
 use plonky2::field::extension::Extendable;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
@@ -161,8 +160,6 @@ impl<const D: usize> StarkProofTarget<D> {
     ) -> StarkProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let StarkProofTarget {
             permutation_ctl_zs_cap,

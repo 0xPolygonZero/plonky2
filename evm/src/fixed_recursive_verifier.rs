@@ -8,7 +8,6 @@ use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
@@ -57,7 +56,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
     pub root: RootCircuitData<F, C, D>,
@@ -273,8 +271,6 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     pub fn to_bytes(
         &self,
@@ -402,7 +398,7 @@ where
         let recursive_proofs =
             core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<Target, F, <C::Hasher as Hasher<F>>::Permutation>::from_vec(
+            PublicInputs::<Target, <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation>::from_vec(
                 &recursive_proofs[i].public_inputs,
                 stark_config,
             )
@@ -435,8 +431,8 @@ where
         }
 
         let state = challenger.compact(&mut builder);
-        for (k, &s) in state.as_ref().iter().enumerate() {
-            builder.connect(s, pis[0].challenger_state_before[k]);
+        for (&before, &s) in zip_eq(state.as_ref(), pis[0].challenger_state_before.as_ref()) {
+            builder.connect(before, s);
         }
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
@@ -703,7 +699,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     /// A map from `log_2(height)` to a chain of shrinking recursion circuits starting at that
     /// height.
@@ -716,8 +711,6 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     pub fn to_buffer(
         &self,
@@ -803,7 +796,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     initial_wrapper: StarkWrapperCircuit<F, C, D>,
     shrinking_wrappers: Vec<PlonkWrapperCircuit<F, C, D>>,
@@ -815,8 +807,6 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     pub fn to_buffer(
         &self,

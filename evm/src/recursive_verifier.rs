@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -52,35 +51,25 @@ pub struct RecursiveAllProof<
     pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
 }
 
-pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug, F: Field, P: PlonkyPermutation<F>>
-where
-    [(); P::WIDTH]:,
+pub(crate) struct PublicInputs<T: Copy + Default + Eq + PartialEq + Debug, P: PlonkyPermutation<T>>
 {
     pub(crate) trace_cap: Vec<Vec<T>>,
     pub(crate) ctl_zs_last: Vec<T>,
     pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
-    pub(crate) challenger_state_before: [T; P::WIDTH],
-    pub(crate) challenger_state_after: [T; P::WIDTH],
+    pub(crate) challenger_state_before: P,
+    pub(crate) challenger_state_after: P,
 }
 
-/// Similar to the unstable `Iterator::next_chunk`. Could be replaced with that when it's stable.
-fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [T; N] {
-    (0..N)
-        .flat_map(|_| iter.next())
-        .collect_vec()
-        .try_into()
-        .expect("Not enough elements")
-}
-
-impl<T: Copy + Eq + PartialEq + Debug, F: Field, P: PlonkyPermutation<F>> PublicInputs<T, F, P>
-where
-    [(); P::WIDTH]:,
-{
+impl<T: Copy + Debug + Default + Eq + PartialEq, P: PlonkyPermutation<T>> PublicInputs<T, P> {
     pub(crate) fn from_vec(v: &[T], config: &StarkConfig) -> Self {
-        let mut iter = v.iter().copied();
-        let trace_cap = (0..config.fri_config.num_cap_elements())
-            .map(|_| next_chunk::<_, 4>(&mut iter).to_vec())
-            .collect();
+        // TODO: Document magic number 4; probably comes from
+        // Ethereum 256 bits = 4 * Goldilocks 64 bits
+        let nelts = config.fri_config.num_cap_elements();
+        let mut trace_cap = Vec::with_capacity(nelts);
+        for i in 0..nelts {
+            trace_cap.push(v[4 * i..4 * (i + 1)].to_vec());
+        }
+        let mut iter = v.iter().copied().skip(4 * nelts);
         let ctl_challenges = GrandProductChallengeSet {
             challenges: (0..config.num_challenges)
                 .map(|_| GrandProductChallenge {
@@ -89,8 +78,8 @@ where
                 })
                 .collect(),
         };
-        let challenger_state_before = next_chunk(&mut iter);
-        let challenger_state_after = next_chunk(&mut iter);
+        let challenger_state_before = P::new(&mut iter);
+        let challenger_state_after = P::new(&mut iter);
         let ctl_zs_last: Vec<_> = iter.collect();
 
         Self {
@@ -112,13 +101,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
         cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
-    ) -> Result<()>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Result<()> {
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<F, F, <C::Hasher as Hasher<F>>::Permutation>::from_vec(
+            PublicInputs::<F, <C::Hasher as Hasher<F>>::Permutation>::from_vec(
                 &self.recursive_proofs[i].public_inputs,
                 inner_config,
             )
@@ -138,12 +123,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         let state = challenger.compact();
-        ensure!(state
-            .as_ref()
-            .iter()
-            .zip(pis[0].challenger_state_before)
-            .all(|(&x, y)| x == y));
-
+        ensure!(state == pis[0].challenger_state_before);
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
             ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
@@ -185,8 +165,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     pub fn to_buffer(
         &self,
@@ -272,8 +250,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     pub(crate) fn prove(
         &self,
@@ -303,8 +279,6 @@ pub(crate) fn recursive_stark_circuit<
 where
     [(); S::COLUMNS]:,
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let zero_target = builder.zero();
@@ -412,7 +386,6 @@ fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
