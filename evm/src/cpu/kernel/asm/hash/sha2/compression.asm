@@ -26,7 +26,7 @@ global sha2_compression:
     // stack: message_schedule_addr, i=0, a[0]..h[0], retdest
     PUSH 0
     // stack: 0, message_schedule_addr, i=0, a[0]..h[0], retdest
-    %load_current_general
+    %mload_current_general
     // stack: num_blocks, message_schedule_addr, i=0, a[0]..h[0], retdest
     DUP1
     // stack: num_blocks, num_blocks, message_schedule_addr, i=0, a[0]..h[0], retdest
@@ -53,7 +53,7 @@ compression_loop:
     // stack: 4*i, message_schedule_addr, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     ADD
     // stack: message_schedule_addr + 4*i, a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
-    %load_current_general_u32
+    %mload_current_general_u32
     // stack: W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     PUSH sha2_constants_k
     // stack: sha2_constants_k, W[i], a[i], b[i], c[i], d[i], e[i], f[i], g[i], h[i], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest

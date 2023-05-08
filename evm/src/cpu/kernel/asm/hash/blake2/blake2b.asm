@@ -6,9 +6,9 @@ global blake2b:
     // stack: num_blocks, virt, num_bytes, retdest
     DUP2
     // stack: virt, num_blocks, virt, num_bytes, retdest
-    %store_current_general
+    %mstore_current_general
     // stack: virt, num_bytes, retdest
     %add_const(1)
-    %store_current_general
+    %mstore_current_general
     // stack: retdest
     %jump(blake2_compression)
