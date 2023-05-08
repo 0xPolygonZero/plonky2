@@ -14,7 +14,7 @@ compression_loop:
     %rep 8
         SWAP1
         DUP2
-        %mstore_kernel_general
+        %store_current_general
         %increment
     %endrep
 
@@ -22,7 +22,7 @@ compression_loop:
     POP
     // stack: cur_block, retdest
     PUSH 0
-    %mload_kernel_general
+    %load_current_general
     // stack: num_blocks, cur_block, retdest
     %decrement
     // stack: num_blocks - 1, cur_block, retdest
@@ -33,7 +33,7 @@ compression_loop:
     SWAP1
     // stack: cur_block, is_last_block, retdest
     PUSH 1
-    %mload_kernel_general
+    %load_current_general
     // stack: num_bytes, cur_block, is_last_block, retdest
 
     // Calculate t counter value.
@@ -69,11 +69,11 @@ compression_loop:
         // stack: cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_block_byte, cur_message_addr, cur_block_byte, ...
-        %mload_kernel_general_u64_LE
+        %load_current_general_u64_LE
         // stack: m_i, cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_message_addr, m_i, cur_message_addr, cur_block_byte, ...
-        %mstore_kernel_general
+        %store_current_general
         // stack: cur_message_addr, cur_block_byte, ...
         %increment
         // stack: cur_message_addr + 1, cur_block_byte, ...
@@ -99,7 +99,7 @@ compression_loop:
         // stack: addr, ...
         DUP1
         // stack: addr, addr, ...
-        %mload_kernel_general
+        %load_current_general
         // stack: val, addr, ...
         SWAP1
         // stack: addr, val, ...
@@ -117,7 +117,7 @@ compression_loop:
     %rep 8
         SWAP1
         DUP2
-        %mstore_kernel_general
+        %store_current_general
         %increment
     %endrep
     // stack: start + 8, invert_if_last_block, t, cur_block, retdest
@@ -133,7 +133,7 @@ compression_loop:
         // stack: IV_i, i, loc, ...
         DUP3
         // stack: loc, IV_i, i, loc, ...
-        %mstore_kernel_general
+        %store_current_general
         // stack: i, loc, ...
         %increment
         SWAP1
@@ -167,7 +167,7 @@ compression_loop:
         // stack: val ^ IV_i, i, loc, val, next_val,...
         DUP3
         // stack: loc, val ^ IV_i, i, loc, val, next_val,...
-        %mstore_kernel_general
+        %store_current_general
         // stack: i, loc, val, next_val,...
         %increment
         // stack: i + 1, loc, val, next_val,...
@@ -210,7 +210,7 @@ hash_generate_return:
     %increment
     // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     PUSH 0
-    %mload_kernel_general
+    %load_current_general
     // stack: num_blocks, cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     GT
     // stack: not_last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest

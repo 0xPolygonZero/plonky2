@@ -2,7 +2,7 @@
 %macro blake2_hash_value_addr
     PUSH 0
     // stack: 0
-    %mload_kernel_general
+    %load_current_general
     // stack: num_blocks
     %block_size
     %add_const(2)

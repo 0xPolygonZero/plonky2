@@ -47,7 +47,7 @@ global ripemd:
     %extract_and_store_byte(24, 71)
 
     // stack: 0x80
-    %mstore_kernel_general(72)
+    %store_current_general(72)
 
     // stack: virt, length
     %stack (virt, length) -> (        0, length, virt, ripemd_1, ripemd_2, process)
@@ -126,6 +126,6 @@ process:
     PUSH $byte
     BYTE
     // stack: xs[byte]
-    %mstore_kernel_general($offset)
+    %store_current_general($offset)
     // stack:
 %endmacro 

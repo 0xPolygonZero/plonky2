@@ -260,6 +260,79 @@
     // stack: value
 %endmacro
 
+// Load a single byte from the kernel general memory, in the current context (not the kernel's context).
+%macro mload_current_general
+    // stack: offset
+    %mload_current(@SEGMENT_KERNEL_GENERAL)
+    // stack: value
+%endmacro
+
+// Load a big-endian u32 from kernel general memory in the current context.
+%macro mload_current_general_u32
+    // stack: offset
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset
+    GET_CONTEXT
+    // stack: context, segment, offset
+    %mload_u32
+    // stack: value
+%endmacro
+
+// Load a little-endian u32 from kernel general memory in the current context.
+%macro mload_current_general_u32_LE
+    // stack: offset
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset
+    GET_CONTEXT
+    // stack: context, segment, offset
+    %mload_u32_LE
+    // stack: value
+%endmacro
+
+// Load a little-endian u64 from kernel general memory in the current context.
+%macro mload_current_general_u64_LE
+    // stack: offset
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset
+    GET_CONTEXT
+    // stack: context, segment, offset
+    %mload_u64_LE
+    // stack: value
+%endmacro
+
+// Load a u256 from kernel general memory in the current context.
+%macro mload_current_general_u256
+    // stack: offset
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset
+    GET_CONTEXT
+    // stack: context, segment, offset
+    %mload_u256
+    // stack: value
+%endmacro
+
+// Store a single byte to kernel general memory in the current context.
+%macro mstore_current_general
+    // stack: offset, value
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset, value
+    GET_CONTEXT
+    // stack: context, segment, offset, value
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+// Store a big-endian u32 to kernel general memory in the current context.
+%macro mstore_current_general_u32
+    // stack: offset, value
+    PUSH @SEGMENT_KERNEL_GENERAL
+    // stack: segment, offset, value
+    GET_CONTEXT
+    // stack: context, segment, offset, value
+    %mstore_u32
+    // stack: (empty)
+%endmacro
+
 // Load a single value from the given segment of kernel (context 0) memory.
 %macro mload_kernel(segment)
     // stack: offset
