@@ -41,13 +41,13 @@
     DUP3
     DUP3
     DUP3
-    %mload_u32
+    MLOAD_GENERAL
     // stack: c0, context, segment, offset
     DUP4
     %increment
     DUP4
     DUP4
-    %mload_u32
+    MLOAD_GENERAL
     %shl_const(8)
     ADD
     // stack: c0 | (c1 << 8), context, segment, offset
@@ -55,7 +55,7 @@
     %add_const(2)
     DUP4
     DUP4
-    %mload_u32
+    MLOAD_GENERAL
     %shl_const(16)
     ADD
     // stack: c0 | (c1 << 8) | (c2 << 16), context, segment, offset
@@ -63,7 +63,7 @@
     %add_const(3)
     SWAP2
     SWAP1
-    %mload_u32
+    MLOAD_GENERAL
     %shl_const(24)
     ADD // OR
     // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
