@@ -20,9 +20,6 @@ pub(crate) enum GlobalMetadata {
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
     ReceiptTrieRoot = 6,
 
-    /// Length of the journal.
-    JournalLen = 7,
-
     // The root digests of each Merkle trie before these transactions.
     StateTrieRootDigestBefore = 8,
     TransactionTrieRootDigestBefore = 9,
@@ -54,6 +51,11 @@ pub(crate) enum GlobalMetadata {
     AccessedStorageKeysLen = 24,
     /// Length of the self-destruct list.
     SelfDestructListLen = 25,
+
+    /// Length of the journal.
+    JournalLen = 26,
+    /// Length of the `JournalData` segment.
+    JournalDataLen = 27,
 }
 
 impl GlobalMetadata {
@@ -68,7 +70,6 @@ impl GlobalMetadata {
             Self::StateTrieRoot,
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
-            Self::JournalLen,
             Self::StateTrieRootDigestBefore,
             Self::TransactionTrieRootDigestBefore,
             Self::ReceiptTrieRootDigestBefore,
@@ -87,6 +88,8 @@ impl GlobalMetadata {
             Self::AccessedAddressesLen,
             Self::AccessedStorageKeysLen,
             Self::SelfDestructListLen,
+            Self::JournalLen,
+            Self::JournalDataLen,
         ]
     }
 
@@ -100,7 +103,6 @@ impl GlobalMetadata {
             Self::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
             Self::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             Self::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
-            Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
             Self::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
             Self::TransactionTrieRootDigestBefore => "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE",
             Self::ReceiptTrieRootDigestBefore => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE",
@@ -119,6 +121,8 @@ impl GlobalMetadata {
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
             Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
+            Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
+            Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
         }
     }
 }
