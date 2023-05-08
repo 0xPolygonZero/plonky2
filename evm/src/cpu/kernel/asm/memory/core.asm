@@ -322,6 +322,14 @@
     // stack: (empty)
 %endmacro
 
+%macro mstore_current_general(offset)
+    // stack:         value 
+    PUSH $offset
+    // stack: offset, value 
+    %mstore_current_general
+    // stack: (empty)
+%endmacro
+
 // Store a big-endian u32 to kernel general memory in the current context.
 %macro mstore_current_general_u32
     // stack: offset, value
