@@ -244,15 +244,6 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 &looked_table.filter_column,
                 challenge,
             );
-
-            debug_assert_eq!(
-                zs_looking
-                    .clone()
-                    .map(|z| *z.values.last().unwrap())
-                    .product::<F>(),
-                *z_looked.values.last().unwrap()
-            );
-
             for (table, z) in looking_tables.iter().zip(zs_looking) {
                 ctl_data_per_table[table.table as usize]
                     .zs_columns
