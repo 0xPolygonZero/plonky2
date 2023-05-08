@@ -3,6 +3,7 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
+use std::fmt::Debug;
 
 use unroll::unroll_for_loops;
 
@@ -632,52 +633,70 @@ pub trait Poseidon: PrimeField64 {
     }
 }
 
-#[derive(Clone, Default, Debug, PartialEq)]
-pub struct PoseidonPermutation<F: Field> {
-    state: [F; SPONGE_WIDTH],
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub struct PoseidonPermutation<T> {
+    state: [T; SPONGE_WIDTH],
 }
 
-impl<F: RichField> Eq for PoseidonPermutation<F> {}
+impl<T: Eq> Eq for PoseidonPermutation<T> {}
 
-impl<F: RichField> AsRef<[F]> for PoseidonPermutation<F> {
-    fn as_ref(&self) -> &[F] {
+impl<T> AsRef<[T]> for PoseidonPermutation<T> {
+    fn as_ref(&self) -> &[T] {
         &self.state
     }
 }
 
-impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation<F> {
+trait Permuter: Sized {
+    fn permute(input: [Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH];
+}
+
+impl<F: Poseidon> Permuter for F {
+    fn permute(input: [Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH] {
+        <F as Poseidon>::poseidon(input)
+    }
+}
+
+impl Permuter for Target {
+    fn permute(_input: [Self; SPONGE_WIDTH]) -> [Self; SPONGE_WIDTH] {
+        panic!("Call `permute_swapped()` instead of `permute()`");
+    }
+}
+
+impl<T: Copy + Debug + Default + Eq + Permuter + Send + Sync> PlonkyPermutation<T>
+    for PoseidonPermutation<T>
+{
     const RATE: usize = SPONGE_RATE;
     const WIDTH: usize = SPONGE_WIDTH;
 
-    fn new<I: IntoIterator<Item = F>>(elts: I) -> Self {
+    fn new<I: IntoIterator<Item = T>>(elts: I) -> Self {
         let mut perm = Self {
-            state: [F::default(); SPONGE_WIDTH],
+            state: [T::default(); SPONGE_WIDTH],
         };
         perm.set_from_iter(elts, 0);
         perm
     }
 
-    fn set_elt(&mut self, elt: F, idx: usize) {
+    fn set_elt(&mut self, elt: T, idx: usize) {
         self.state[idx] = elt;
     }
 
-    fn set_from_slice(&mut self, elts: &[F], start_idx: usize) {
+    fn set_from_slice(&mut self, elts: &[T], start_idx: usize) {
         let begin = start_idx;
         let end = start_idx + elts.len();
         self.state[begin..end].copy_from_slice(elts);
     }
 
-    fn set_from_iter<I: IntoIterator<Item = F>>(&mut self, elts: I, start_idx: usize) {
+    fn set_from_iter<I: IntoIterator<Item = T>>(&mut self, elts: I, start_idx: usize) {
         for (s, e) in self.state[start_idx..].iter_mut().zip(elts) {
             *s = e;
         }
     }
 
     fn permute(&mut self) {
-        self.state = F::poseidon(self.state);
+        self.state = T::permute(self.state);
     }
 
-    fn squeeze(&mut self) -> &[F] {
+    fn squeeze(&self) -> &[T] {
         &self.state[..Self::RATE]
     }
 }
@@ -700,11 +719,13 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
 }
 
 impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
+    type AlgebraicPermutation = PoseidonPermutation<Target>;
+
     fn permute_swapped<const D: usize>(
-        inputs: [Target; SPONGE_WIDTH],
+        inputs: Self::AlgebraicPermutation,
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
+    ) -> Self::AlgebraicPermutation
     where
         F: RichField + Extendable<D>,
     {
@@ -716,6 +737,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
         builder.connect(swap.target, swap_wire);
 
         // Route input wires.
+        let inputs = inputs.as_ref();
         for i in 0..SPONGE_WIDTH {
             let in_wire = PoseidonGate::<F, D>::wire_input(i);
             let in_wire = Target::wire(gate, in_wire);
@@ -723,11 +745,9 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
         }
 
         // Collect output wires.
-        (0..SPONGE_WIDTH)
-            .map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
+        Self::AlgebraicPermutation::new(
+            (0..SPONGE_WIDTH).map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i))),
+        )
     }
 }
 

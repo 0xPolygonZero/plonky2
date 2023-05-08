@@ -25,7 +25,7 @@ pub trait GenericHashOut<F: RichField>:
 }
 
 /// Trait for hash functions.
-pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
+pub trait Hasher<F: RichField>: Sized + Copy + Debug + Eq + PartialEq {
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
 
@@ -70,15 +70,16 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
 
 /// Trait for algebraic hash functions, built from a permutation using the sponge construction.
 pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
+    type AlgebraicPermutation: PlonkyPermutation<Target>;
+
     /// Circuit to conditionally swap two chunks of the inputs (useful in verifying Merkle proofs),
     /// then apply the permutation.
     fn permute_swapped<const D: usize>(
-        inputs: [Target; <Self as Hasher<F>>::Permutation::WIDTH],
+        inputs: Self::AlgebraicPermutation,
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; <Self as Hasher<F>>::Permutation::WIDTH]
+    ) -> Self::AlgebraicPermutation
     where
-        [(); <Self as Hasher<F>>::Permutation::WIDTH]:,
         F: RichField + Extendable<D>;
 }
 

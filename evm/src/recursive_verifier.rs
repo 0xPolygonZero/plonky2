@@ -170,12 +170,13 @@ pub(crate) struct StarkWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     pub(crate) circuit: CircuitData<F, C, D>,
     pub(crate) stark_proof_target: StarkProofTarget<D>,
     pub(crate) ctl_challenges_target: GrandProductChallengeSet<Target>,
-    pub(crate) init_challenger_state_target: [Target; <C::Hasher as Hasher<F>>::Permutation::WIDTH],
+    pub(crate) init_challenger_state_target:
+        <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation,
     pub(crate) zero_target: Target,
 }
 
@@ -194,7 +195,7 @@ where
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
-        buffer.write_target_vec(&self.init_challenger_state_target)?;
+        buffer.write_target_vec(&self.init_challenger_state_target.as_ref())?;
         buffer.write_target(self.zero_target)?;
         self.stark_proof_target.to_buffer(buffer)?;
         self.ctl_challenges_target.to_buffer(buffer)?;
@@ -207,7 +208,9 @@ where
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
-        let init_challenger_state_target = buffer.read_target_vec()?;
+        let target_vec = buffer.read_target_vec()?;
+        let init_challenger_state_target =
+            <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(target_vec.into_iter());
         let zero_target = buffer.read_target()?;
         let stark_proof_target = StarkProofTarget::from_buffer(buffer)?;
         let ctl_challenges_target = GrandProductChallengeSet::from_buffer(buffer)?;
@@ -215,7 +218,7 @@ where
             circuit,
             stark_proof_target,
             ctl_challenges_target,
-            init_challenger_state_target: init_challenger_state_target.try_into().unwrap(),
+            init_challenger_state_target,
             zero_target,
         })
     }
@@ -245,7 +248,7 @@ where
         }
 
         inputs.set_target_arr(
-            self.init_challenger_state_target,
+            self.init_challenger_state_target.as_ref(),
             proof_with_metadata.init_challenger_state.as_ref(),
         );
 
@@ -338,7 +341,10 @@ where
         num_permutation_zs,
     );
 
-    let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
+    let init_challenger_state_target =
+        <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(std::iter::from_fn(|| {
+            Some(builder.add_virtual_public_input())
+        }));
     let mut challenger =
         RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges = proof_target.get_challenges::<F, C>(
@@ -349,7 +355,7 @@ where
         inner_config,
     );
     let challenger_state = challenger.compact(&mut builder);
-    builder.register_public_inputs(&challenger_state);
+    builder.register_public_inputs(challenger_state.as_ref());
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
 
@@ -679,15 +685,15 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_target_arr(
-        trie_roots_target.state_root,
+        &trie_roots_target.state_root,
         &h256_limbs(trie_roots.state_root),
     );
     witness.set_target_arr(
-        trie_roots_target.transactions_root,
+        &trie_roots_target.transactions_root,
         &h256_limbs(trie_roots.transactions_root),
     );
     witness.set_target_arr(
-        trie_roots_target.receipts_root,
+        &trie_roots_target.receipts_root,
         &h256_limbs(trie_roots.receipts_root),
     );
 }
@@ -701,7 +707,7 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_target_arr(
-        block_metadata_target.block_beneficiary,
+        &block_metadata_target.block_beneficiary,
         &h160_limbs(block_metadata.block_beneficiary),
     );
     witness.set_target(

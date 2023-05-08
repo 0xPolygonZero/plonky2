@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 use hashbrown::HashMap;
-use itertools::Itertools;
+use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
 use plonky2::gates::noop::NoopGate;
@@ -56,6 +56,7 @@ pub struct AllRecursiveCircuits<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
     [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     /// The EVM root circuit, which aggregates the (shrunk) per-table recursive proofs.
@@ -434,16 +435,16 @@ where
         }
 
         let state = challenger.compact(&mut builder);
-        for k in 0..<C::Hasher as Hasher<F>>::Permutation::WIDTH {
-            builder.connect(state[k], pis[0].challenger_state_before[k]);
+        for (k, &s) in state.as_ref().iter().enumerate() {
+            builder.connect(s, pis[0].challenger_state_before[k]);
         }
         // Check that the challenger state is consistent between proofs.
         for i in 1..NUM_TABLES {
-            for k in 0..<C::Hasher as Hasher<F>>::Permutation::WIDTH {
-                builder.connect(
-                    pis[i].challenger_state_before[k],
-                    pis[i - 1].challenger_state_after[k],
-                );
+            for (&before, &after) in zip_eq(
+                pis[i].challenger_state_before.as_ref(),
+                pis[i - 1].challenger_state_after.as_ref(),
+            ) {
+                builder.connect(before, after);
             }
         }
 
@@ -701,6 +702,7 @@ pub struct RecursiveCircuitsForTable<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
     [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     /// A map from `log_2(height)` to a chain of shrinking recursion circuits starting at that
@@ -800,6 +802,7 @@ struct RecursiveCircuitsForTableSize<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
     [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     initial_wrapper: StarkWrapperCircuit<F, C, D>,

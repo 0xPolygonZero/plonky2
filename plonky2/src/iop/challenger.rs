@@ -162,10 +162,8 @@ impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
 /// buffer can grow beyond `H::Permutation::RATE`. This is so that `observe_element` etc do not need access
 /// to the `CircuitBuilder`.
 pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
-where
-    [(); H::Permutation::WIDTH]:,
 {
-    sponge_state: [Target; H::Permutation::WIDTH],
+    sponge_state: H::AlgebraicPermutation,
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
     __: PhantomData<(F, H)>,
@@ -173,20 +171,18 @@ where
 
 impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     RecursiveChallenger<F, H, D>
-where
-    [(); H::Permutation::WIDTH]:,
 {
     pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         Self {
-            sponge_state: [zero; H::Permutation::WIDTH],
+            sponge_state: H::AlgebraicPermutation::new(std::iter::repeat(zero)),
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
             __: PhantomData,
         }
     }
 
-    pub fn from_state(sponge_state: [Target; H::Permutation::WIDTH]) -> Self {
+    pub fn from_state(sponge_state: H::AlgebraicPermutation) -> Self {
         Self {
             sponge_state,
             input_buffer: vec![],
@@ -234,7 +230,7 @@ where
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
             self.sponge_state = builder.permute::<H>(self.sponge_state);
-            self.output_buffer = self.sponge_state[0..H::Permutation::RATE].to_vec();
+            self.output_buffer = self.sponge_state.squeeze().to_vec();
         }
 
         self.output_buffer
@@ -275,30 +271,23 @@ where
             return;
         }
 
-        for input_chunk in self.input_buffer.chunks(H::Permutation::RATE) {
+        for input_chunk in self.input_buffer.chunks(H::AlgebraicPermutation::RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
             // sometimes called "overwrite mode".
-            for (i, &input) in input_chunk.iter().enumerate() {
-                self.sponge_state[i] = input;
-            }
-
-            // Apply the permutation.
+            self.sponge_state.set_from_slice(input_chunk, 0);
             self.sponge_state = builder.permute::<H>(self.sponge_state);
         }
 
-        self.output_buffer = self.sponge_state[0..H::Permutation::RATE].to_vec();
+        self.output_buffer = self.sponge_state.squeeze().to_vec();
 
         self.input_buffer.clear();
     }
 
-    pub fn compact(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; H::Permutation::WIDTH] {
+    pub fn compact(&mut self, builder: &mut CircuitBuilder<F, D>) -> H::AlgebraicPermutation {
         self.absorb_buffered_inputs(builder);
         self.output_buffer.clear();
-        self.sponge_state
+        self.sponge_state.clone()
     }
 }
 

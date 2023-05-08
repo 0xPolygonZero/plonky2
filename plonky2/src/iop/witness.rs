@@ -2,7 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use hashbrown::HashMap;
-use itertools::Itertools;
+use itertools::{zip_eq, Itertools};
 
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::types::Field;
@@ -43,14 +43,11 @@ pub trait WitnessWrite<F: Field> {
     where
         F: RichField + Extendable<D>,
     {
-        self.set_target_arr(et.0, &value.to_basefield_array());
+        self.set_target_arr(&et.0, &value.to_basefield_array());
     }
 
-    fn set_target_arr<const N: usize>(&mut self, targets: [Target; N], values: &[F]) {
-        assert_eq!(values.len(), N);
-        (0..N).for_each(|i| {
-            self.set_target(targets[i], values[i]);
-        });
+    fn set_target_arr(&mut self, targets: &[Target], values: &[F]) {
+        zip_eq(targets, values).for_each(|(&target, &value)| self.set_target(target, value));
     }
 
     fn set_extension_targets<const D: usize>(

@@ -18,7 +18,7 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 /// Keccak-256 pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
 /// where `H` is the Keccak-256 hash.
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct KeccakPermutation<F: RichField> {
     state: [F; SPONGE_WIDTH],
 }
@@ -94,7 +94,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
             .unwrap();
     }
 
-    fn squeeze(&mut self) -> &[F] {
+    fn squeeze(&self) -> &[F] {
         &self.state[..Self::RATE]
     }
 }
