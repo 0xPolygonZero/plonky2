@@ -14,11 +14,10 @@ use crate::gates::coset_interpolation::CosetInterpolationGate;
 use crate::gates::gate::Gate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
-use crate::hash::hashing::PlonkyPermutation;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
@@ -109,7 +108,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         params: &FriParams,
     ) where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         if let Some(max_arity_bits) = params.max_arity_bits() {
             self.check_recursion_config(max_arity_bits);
@@ -183,9 +181,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriInitialTreeProofTarget,
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
-    ) where
-        [(); H::Permutation::WIDTH]:,
-    {
+    ) {
         for (i, ((evals, merkle_proof), cap)) in proof
             .evals_proofs
             .iter()
@@ -263,7 +259,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         params: &FriParams,
     ) where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let n_log = log2_strict(n);
 
