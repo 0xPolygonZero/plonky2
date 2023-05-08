@@ -140,6 +140,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/journal/storage_change.asm"),
         include_str!("asm/journal/storage_loaded.asm"),
         include_str!("asm/journal/code_change.asm"),
+        include_str!("asm/journal/revert.asm"),
         include_str!("asm/transactions/common_decoding.asm"),
         include_str!("asm/transactions/router.asm"),
         include_str!("asm/transactions/type_0.asm"),

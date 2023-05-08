@@ -59,7 +59,7 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 26;
+    pub(crate) const COUNT: usize = 27;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
