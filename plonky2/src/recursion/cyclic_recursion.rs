@@ -4,14 +4,13 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
     CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -108,8 +107,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> Result<()>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let verifier_data = self
             .verifier_data_public_input
@@ -162,8 +159,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> Result<()>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(common_data)?;
@@ -191,8 +186,6 @@ pub fn check_cyclic_proof_verifier_data<
 ) -> Result<()>
 where
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let pis = VerifierOnlyCircuitData::<C, D>::from_slice(&proof.public_inputs, common_data)?;
     ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
@@ -209,12 +202,12 @@ mod tests {
     use crate::field::types::{Field, PrimeField64};
     use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::{HashOutTarget, RichField};
-    use crate::hash::hashing::{hash_n_to_hash_no_pad, PlonkyPermutation};
+    use crate::hash::hashing::hash_n_to_hash_no_pad;
     use crate::hash::poseidon::{PoseidonHash, PoseidonPermutation};
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-    use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
     use crate::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
     use crate::recursion::dummy_circuit::cyclic_base_proof;
 
@@ -226,8 +219,6 @@ mod tests {
     >() -> CommonCircuitData<F, D>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let config = CircuitConfig::standard_recursion_config();
         let builder = CircuitBuilder::<F, D>::new(config);

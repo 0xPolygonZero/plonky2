@@ -19,7 +19,6 @@ use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
@@ -139,11 +138,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         buffer.read_circuit_data(gate_serializer, generator_serializer)
     }
 
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove::<F, C, D>(
             &self.prover_only,
             &self.common,
@@ -152,44 +147,28 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 
     pub fn compress(
         &self,
         proof: ProofWithPublicInputs<F, C, D>,
-    ) -> Result<CompressedProofWithPublicInputs<F, C, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Result<CompressedProofWithPublicInputs<F, C, D>> {
         proof.compress(&self.verifier_only.circuit_digest, &self.common)
     }
 
     pub fn decompress(
         &self,
         proof: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
         proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
 
@@ -256,11 +235,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         buffer.read_prover_circuit_data(gate_serializer, generator_serializer)
     }
 
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove::<F, C, D>(
             &self.prover_only,
             &self.common,
@@ -298,22 +273,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         buffer.read_verifier_circuit_data(gate_serializer)
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()>
-    where
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-    {
+    ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }

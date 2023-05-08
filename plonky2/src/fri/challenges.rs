@@ -5,7 +5,6 @@ use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
-use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::{Challenger, RecursiveChallenger};
 use crate::iop::target::Target;
@@ -67,8 +66,6 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
 impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     RecursiveChallenger<F, H, D>
-where
-    [(); H::Permutation::WIDTH]:,
 {
     pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>) {
         for v in &openings.batches {

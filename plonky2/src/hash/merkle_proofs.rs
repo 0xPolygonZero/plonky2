@@ -85,9 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         leaf_index_bits: &[BoolTarget],
         merkle_root: HashOutTarget,
         proof: &MerkleProofTarget,
-    ) where
-        [(); H::Permutation::WIDTH]:,
-    {
+    ) {
         let merkle_cap = MerkleCapTarget(vec![merkle_root]);
         self.verify_merkle_proof_to_cap::<H>(leaf_data, leaf_index_bits, &merkle_cap, proof);
     }
@@ -100,9 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         leaf_index_bits: &[BoolTarget],
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
-    ) where
-        [(); H::Permutation::WIDTH]:,
-    {
+    ) {
         let cap_index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
         self.verify_merkle_proof_to_cap_with_cap_index::<H>(
             leaf_data,
