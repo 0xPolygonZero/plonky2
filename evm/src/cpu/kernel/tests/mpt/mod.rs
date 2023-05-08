@@ -5,6 +5,7 @@ use ethereum_types::{BigEndianHash, H256, U256};
 use crate::generation::mpt::AccountRlp;
 use crate::Node;
 
+mod delete;
 mod hash;
 mod hex_prefix;
 mod insert;
