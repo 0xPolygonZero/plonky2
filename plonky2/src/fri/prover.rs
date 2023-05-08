@@ -134,14 +134,14 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     // state with any inputs (excluding the PoW witness candidate). The second step is to overwrite
     // one more element of our sponge state with the candidate, then apply the permutation,
     // obtaining our duplex's post-state which contains the PoW response.
-    let mut duplex_intermediate_state = challenger.sponge_state.clone();
+    let mut duplex_intermediate_state = challenger.sponge_state;
     let witness_input_pos = challenger.input_buffer.len();
     duplex_intermediate_state.set_from_iter(challenger.input_buffer.clone().into_iter(), 0);
 
     let pow_witness = (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&candidate| {
-            let mut duplex_state = duplex_intermediate_state.clone();
+            let mut duplex_state = duplex_intermediate_state;
             duplex_state.set_elt(F::from_canonical_u64(candidate), witness_input_pos);
             duplex_state.permute();
             let pow_response = duplex_state.squeeze().iter().last().unwrap();

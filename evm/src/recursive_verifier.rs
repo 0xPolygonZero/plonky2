@@ -173,7 +173,7 @@ where
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
-        buffer.write_target_vec(&self.init_challenger_state_target.as_ref())?;
+        buffer.write_target_vec(self.init_challenger_state_target.as_ref())?;
         buffer.write_target(self.zero_target)?;
         self.stark_proof_target.to_buffer(buffer)?;
         self.ctl_challenges_target.to_buffer(buffer)?;

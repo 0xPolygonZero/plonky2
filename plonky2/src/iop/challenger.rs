@@ -148,7 +148,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
             self.duplexing();
         }
         self.output_buffer.clear();
-        self.sponge_state.clone()
+        self.sponge_state
     }
 }
 
@@ -287,7 +287,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     pub fn compact(&mut self, builder: &mut CircuitBuilder<F, D>) -> H::AlgebraicPermutation {
         self.absorb_buffered_inputs(builder);
         self.output_buffer.clear();
-        self.sponge_state.clone()
+        self.sponge_state
     }
 }
 
