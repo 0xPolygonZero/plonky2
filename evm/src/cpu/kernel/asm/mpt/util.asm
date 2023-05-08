@@ -205,11 +205,11 @@
 
 // Remove the first `k` nibbles from a key part.
 // def merge_nibbles(front_len, front_key, back_len, back_key):
-//     return (front_len + back_len, (front_key<<back_len) + back_key)
+//     return (front_len + back_len, (front_key<<(back_len*4)) + back_key)
 %macro merge_nibbles
     // stack: front_len, front_key, back_len, back_key
     %stack (front_len, front_key, back_len, back_key) -> (back_len, front_key, back_key, back_len, front_len)
-    SHL ADD
+    %mul_const(4) SHL ADD
     // stack: new_key, back_len, back_key
     SWAP2 ADD
 %endmacro

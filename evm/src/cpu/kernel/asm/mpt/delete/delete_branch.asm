@@ -12,7 +12,8 @@ global mpt_delete_branch:
     %stack (first_nibble, num_nibbles, key, node_payload_ptr, old_num_nibbles, old_key) ->
         (node_payload_ptr, first_nibble, num_nibbles, key, after_mpt_delete_branch, first_nibble, node_payload_ptr)
     ADD
-    // stack: child_ptr, num_nibbles, key, after_mpt_delete_branch, first_nibble, node_payload_ptr, retdest
+    // stack: child_ptr_ptr, num_nibbles, key, after_mpt_delete_branch, first_nibble, node_payload_ptr, retdest
+    %mload_trie_data
     %jump(mpt_delete)
 
 after_mpt_delete_branch:

@@ -26,6 +26,16 @@ fn mpt_delete_leaf_nonoverlapping_keys() -> Result<()> {
     test_state_trie(state_trie, nibbles_64(0x123), test_account_2())
 }
 
+#[test]
+fn mpt_delete_leaf_overlapping_keys() -> Result<()> {
+    let state_trie = Node::Leaf {
+        nibbles: nibbles_64(0xABC),
+        value: test_account_1_rlp(),
+    }
+    .into();
+    test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
+}
+
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
 /// accompanying trie data. An empty trie's storage_root is used instead.
 fn test_state_trie(
@@ -47,6 +57,9 @@ fn test_state_trie(
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_delete = KERNEL.global_labels["mpt_delete"];
+    let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
+    let wat = KERNEL.global_labels["wattt"];
+    let yo = KERNEL.global_labels["yoo"];
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
@@ -83,13 +96,31 @@ fn test_state_trie(
         interpreter.stack()
     );
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
+    // dbg!(state_trie_ptr);
+    // dbg!(interpreter.get_trie_data());
     interpreter.generation_state.registers.program_counter = mpt_delete;
+    let ya = KERNEL.global_labels["ya"];
+    let bro = KERNEL.global_labels["bro"];
+    interpreter.debug_offsets.push(wat);
+    interpreter.debug_offsets.push(yo);
+    interpreter.debug_offsets.push(ya);
+    interpreter.debug_offsets.push(bro);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(k.packed);
     interpreter.push(64.into());
     interpreter.push(state_trie_ptr);
     interpreter.run()?;
     dbg!(interpreter.stack());
+    let state_trie_ptr = interpreter.pop();
+    interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
+
+    // Now, execute mpt_hash_state_trie.
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.run()?;
+    let state_trie_hash = H256::from_uint(&interpreter.pop());
+    let expected_state_trie_hash = state_trie.hash();
+    assert_eq!(state_trie_hash, expected_state_trie_hash);
 
     Ok(())
 }
