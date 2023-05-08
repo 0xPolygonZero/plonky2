@@ -42,6 +42,7 @@ sstore_charge_gas:
     %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
 
+    // If the value is zero, delete the slot from the storage trie.
     // stack: slot, value, kexit_info
     DUP2 ISZERO %jumpi(sstore_delete)
 
@@ -91,6 +92,7 @@ sstore_noop:
     %pop2
     EXIT_KERNEL
 
+// Delete the slot from the storage trie.
 sstore_delete:
     // stack: slot, value, kexit_info
     SWAP1 POP

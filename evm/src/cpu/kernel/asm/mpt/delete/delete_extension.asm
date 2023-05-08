@@ -1,3 +1,10 @@
+// Delete from an extension node.
+// Algorithm is roughly:
+//      - Let `k = length(node)`
+//      - Delete `(num_nibbles-k, key[k:])` from `node.child`.
+//      - If the returned child node is a branch node, the current node is replaced with an extension node with updated child.
+//      - If the returned child node is an extension node, we merge the two extension nodes into one extension node.
+//      - If the returned child node is a leaf node, we merge the two nodes into one leaf node.
 global mpt_delete_extension:
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
     POP
@@ -65,8 +72,7 @@ after_mpt_delete_extension_extension:
     // stack: extension_ptr, retdest
     SWAP1 JUMP
 
-// Essentially the same as `after_mpt_delete_extension_leaf`.
-// TODO: Could merge in a macro.
+// Essentially the same as `after_mpt_delete_extension_leaf`. TODO: Could merge in a macro or common function.
 after_mpt_delete_extension_leaf:
     // stack: updated_child_node_ptr, node_len, node_key, retdest
     DUP1 %increment %mload_trie_data
