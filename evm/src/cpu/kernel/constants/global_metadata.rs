@@ -20,6 +20,9 @@ pub(crate) enum GlobalMetadata {
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
     ReceiptTrieRoot = 6,
 
+    /// Length of the journal.
+    JournalLen = 7,
+
     // The root digests of each Merkle trie before these transactions.
     StateTrieRootDigestBefore = 8,
     TransactionTrieRootDigestBefore = 9,
@@ -54,7 +57,7 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 25;
+    pub(crate) const COUNT: usize = 26;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -65,6 +68,7 @@ impl GlobalMetadata {
             Self::StateTrieRoot,
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
+            Self::JournalLen,
             Self::StateTrieRootDigestBefore,
             Self::TransactionTrieRootDigestBefore,
             Self::ReceiptTrieRootDigestBefore,
@@ -96,6 +100,7 @@ impl GlobalMetadata {
             Self::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
             Self::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             Self::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",
+            Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
             Self::StateTrieRootDigestBefore => "GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE",
             Self::TransactionTrieRootDigestBefore => "GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE",
             Self::ReceiptTrieRootDigestBefore => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE",

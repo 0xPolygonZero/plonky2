@@ -50,10 +50,13 @@ pub enum Segment {
     AccessedStorageKeys = 24,
     /// List of addresses that have called SELFDESTRUCT in the current transaction.
     SelfDestructList = 25,
+    /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
+    Journal = 26,
+    JournalData = 27,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 26;
+    pub(crate) const COUNT: usize = 28;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -83,6 +86,8 @@ impl Segment {
             Self::AccessedAddresses,
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
+            Self::Journal,
+            Self::JournalData,
         ]
     }
 
@@ -115,6 +120,8 @@ impl Segment {
             Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
+            Segment::Journal => "SEGMENT_JOURNAL",
+            Segment::JournalData => "SEGMENT_JOURNAL_DATA",
         }
     }
 
@@ -147,6 +154,8 @@ impl Segment {
             Segment::AccessedAddresses => 256,
             Segment::AccessedStorageKeys => 256,
             Segment::SelfDestructList => 256,
+            Segment::Journal => 256,
+            Segment::JournalData => 256,
         }
     }
 }
