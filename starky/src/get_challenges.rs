@@ -5,12 +5,11 @@ use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
 use crate::config::StarkConfig;
 use crate::permutation::{
@@ -35,8 +34,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let num_challenges = config.num_challenges;
 
@@ -79,8 +76,6 @@ impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     // TODO: Should be used later in compression?
     #![allow(dead_code)]
@@ -151,8 +146,6 @@ pub(crate) fn get_challenges_target<
 ) -> StarkProofChallengesTarget<D>
 where
     C::Hasher: AlgebraicHasher<F>,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     let num_challenges = config.num_challenges;
 
@@ -205,8 +198,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
     ) -> StarkProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let StarkProofTarget {
             trace_cap,

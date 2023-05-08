@@ -7,11 +7,10 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
@@ -40,8 +39,6 @@ pub fn verify_stark_proof_circuit<
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
@@ -78,7 +75,6 @@ fn verify_stark_proof_with_challenges_circuit<
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();

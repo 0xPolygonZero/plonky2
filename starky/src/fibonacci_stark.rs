@@ -127,13 +127,10 @@ mod tests {
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
-    use plonky2::hash::hashing::PlonkyPermutation;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{
-        AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig,
-    };
+    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
@@ -240,10 +237,6 @@ mod tests {
         InnerC::Hasher: AlgebraicHasher<F>,
         [(); S::COLUMNS]:,
         [(); S::PUBLIC_INPUTS]:,
-        [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <InnerC::Hasher as Hasher<F>>::Permutation::WIDTH]:,
-        [(); <InnerC::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
