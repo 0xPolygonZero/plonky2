@@ -237,7 +237,7 @@ fn main() -> Result<()> {
     builder.try_init()?;
 
     // Initialize randomness source
-    let rng_seed = options.seed.unwrap_or_else(|| OsRng::default().next_u64());
+    let rng_seed = options.seed.unwrap_or_else(|| OsRng.next_u64());
     info!("Using random seed {rng_seed:16x}");
     let _rng = ChaCha8Rng::seed_from_u64(rng_seed);
     // TODO: Use `rng` to create deterministic runs
