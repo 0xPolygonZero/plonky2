@@ -195,20 +195,20 @@
     // stack: c_3 = (value >> 24) % (1 << 8), c_2, c_1, c_0, segment, offset, context
     DUP6
     DUP6
-    DUP8
+    DUP9
     // stack: context, segment, offset, c_3, c_2, c_1, c_0, segment, offset, context
     MSTORE_GENERAL
     // stack: c_2, c_1, c_0, segment, offset, context
     DUP5
     %increment
     DUP5
-    DUP7
+    DUP8
     MSTORE_GENERAL
     // stack: c_1, c_0, segment, offset, context
     DUP4
     %add_const(2)
     DUP4
-    DUP6
+    DUP7
     MSTORE_GENERAL
     // stack: c_0, segment, offset, context
     SWAP2
