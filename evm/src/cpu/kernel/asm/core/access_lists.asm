@@ -148,6 +148,9 @@ global remove_accessed_storage_keys:
     PUSH 0
 remove_accessed_storage_keys_loop:
     %stack (i, len, addr, key, retdest) -> (i, len, i, len, addr, key, retdest)
+    EQ %jumpi(panic)
+    // stack: i, len, addr, key, retdest
+    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_key, i, len, addr, key, retdest
     DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_addr, loaded_key, i, len, addr, key, retdest
@@ -162,7 +165,7 @@ remove_accessed_storage_keys_loop:
     %jump(remove_accessed_storage_keys_loop)
 
 remove_accessed_storage_keys_found:
-    %stack (i, len, addr, key, value, retdest) -> (len, 3, i, retdest)
+    %stack (i, len, addr, key, retdest) -> (len, 3, i, retdest)
     SUB DUP1 %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Decrease the access list length.
     // stack: len-3, i, retdest
     DUP1 %add_const(2) %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
