@@ -11,6 +11,8 @@ global sys_call:
     MUL // Cheaper than AND
     %jumpi(fault_exception)
 
+    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits

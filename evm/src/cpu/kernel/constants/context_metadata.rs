@@ -28,6 +28,7 @@ pub(crate) enum ContextMetadata {
     StackSize = 11,
     /// The gas limit for this call (not the entire transaction).
     GasLimit = 12,
+    Checkpoint = 13,
 }
 
 impl ContextMetadata {
@@ -48,6 +49,7 @@ impl ContextMetadata {
             Self::MemWords,
             Self::StackSize,
             Self::GasLimit,
+            Self::Checkpoint,
         ]
     }
 
@@ -67,6 +69,7 @@ impl ContextMetadata {
             ContextMetadata::MemWords => "CTX_METADATA_MEM_WORDS",
             ContextMetadata::StackSize => "CTX_METADATA_STACK_SIZE",
             ContextMetadata::GasLimit => "CTX_METADATA_GAS_LIMIT",
+            ContextMetadata::Checkpoint => "CTX_METADATA_CHECKPOINT",
         }
     }
 }

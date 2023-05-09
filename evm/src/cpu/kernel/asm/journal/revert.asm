@@ -74,3 +74,10 @@ revert_checkpoint_done:
     POP
     %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
     JUMP
+
+%macro revert_checkpoint
+    %stack (target_checkpoint) -> (target_checkpoint, %%after)
+    %jump(revert_checkpoint)
+%%after:
+    // stack: (empty)
+%endmacro

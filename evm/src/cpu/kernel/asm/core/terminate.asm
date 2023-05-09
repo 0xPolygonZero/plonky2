@@ -148,8 +148,8 @@ sys_revert_finish:
 // - state modification is attempted during a static call
 global fault_exception:
     // stack: (empty)
+    %mload_context_metadata(@CTX_METADATA_CHECKPOINT) %revert_checkpoint
     PUSH 0 // leftover_gas
-    // TODO: Revert state changes.
     // Set the parent context's return data size to 0.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     PUSH 0 // success
