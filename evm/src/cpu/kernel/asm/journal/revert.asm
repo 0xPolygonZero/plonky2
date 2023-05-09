@@ -57,6 +57,7 @@ do_revert:
     %jump(revert_batch)
 after_revert:
     // stack: current_checkpoint-1, retdest
+    SWAP1 JUMP
 
 
 global revert_checkpoint:
@@ -64,10 +65,10 @@ global revert_checkpoint:
     %current_checkpoint
     // stack: current_checkpoint, target_checkpoint, retdest
     DUP2 DUP2 GT ISZERO %jumpi(panic) // Sanity check. This should never happen.
-while_loop:
+while:
     // stack: current_checkpoint, target_checkpoint, retdest
     DUP2 DUP2 EQ %jumpi(revert_checkpoint_done)
-    %stack (current_checkpoint) -> (current_checkpoint, while_loop)
+    %stack (current_checkpoint) -> (current_checkpoint, while)
     %jump(revert_one_checkpoint)
 revert_checkpoint_done:
     // stack: current_checkpoint, target_checkpoint, retdest

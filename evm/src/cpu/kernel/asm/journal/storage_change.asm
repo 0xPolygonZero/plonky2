@@ -9,4 +9,5 @@ global revert_storage_change:
     POP
     %journal_load_2
     // stack: address, slot, prev_value, retdest
-    %jump(sstore_delete) // TODO: fix this
+    //%jump(sstore_delete) // TODO: fix this
+    PANIC

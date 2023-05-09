@@ -32,7 +32,7 @@ pub(crate) enum ContextMetadata {
 }
 
 impl ContextMetadata {
-    pub(crate) const COUNT: usize = 13;
+    pub(crate) const COUNT: usize = 14;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [

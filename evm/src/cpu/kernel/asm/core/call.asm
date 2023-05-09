@@ -58,6 +58,8 @@ global sys_call:
 // Creates a new sub context as if calling itself, but with the code of the
 // given account. In particular the storage remains the same.
 global sys_callcode:
+    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
@@ -80,10 +82,7 @@ global sys_callcode:
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
-
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
-    DUP5 DUP5 %address %journal_add_balance_transfer
     DUP3 %set_new_ctx_gas_limit
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.

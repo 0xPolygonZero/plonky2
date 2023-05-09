@@ -11,4 +11,6 @@ global revert_balance_transfer:
     // stack: from, to, balance, retdest
     SWAP1
     // stack: to, from, balance, retdest
-    %jump(transfer_eth)
+    %transfer_eth
+    %jumpi(panic) // This should never happen.
+    JUMP
