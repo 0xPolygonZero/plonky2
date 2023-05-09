@@ -80,7 +80,6 @@ global create_common:
     %address
     // stack: sender, value, address, value, code_offset, code_len, kexit_info
     %deduct_eth
-    // TODO: Change to %transfer_eth and add to journal.
     // stack: deduct_eth_status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
@@ -92,6 +91,7 @@ global create_common:
     // stack: status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
     // stack: new_ctx, address, value, code_offset, code_len, kexit_info
