@@ -4,3 +4,5 @@
 
 global revert_account_destroyed:
     // stack: entry_type, ptr, retdest
+    // TODO
+    PANIC
