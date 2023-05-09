@@ -37,9 +37,7 @@ revert_batch_done:
     %mstore_global_metadata(@GLOBAL_METADATA_JOURNAL_LEN)
     POP JUMP
 
-global revert_checkpoint:
-    // stack: retdest
-    %current_checkpoint
+revert_one_checkpoint:
     // stack: current_checkpoint, retdest
     DUP1 ISZERO %jumpi(first_checkpoint)
     // stack: current_checkpoint, retdest
@@ -59,4 +57,20 @@ do_revert:
     %jump(revert_batch)
 after_revert:
     // stack: current_checkpoint-1, retdest
+
+
+global revert_checkpoint:
+    // stack: target_checkpoint, retdest
+    %current_checkpoint
+    // stack: current_checkpoint, target_checkpoint, retdest
+    DUP2 DUP2 GT ISZERO %jumpi(panic) // Sanity check. This should never happen.
+while_loop:
+    // stack: current_checkpoint, target_checkpoint, retdest
+    DUP2 DUP2 EQ %jumpi(revert_checkpoint_done)
+    %stack (current_checkpoint) -> (current_checkpoint, while_loop)
+    %jump(revert_one_checkpoint)
+revert_checkpoint_done:
+    // stack: current_checkpoint, target_checkpoint, retdest
+    POP
     %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+    JUMP

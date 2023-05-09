@@ -186,7 +186,7 @@
     // stack: journal_size, current_checkpoint
     DUP2 %mstore_kernel(@SEGMENT_JOURNAL_CHECKPOINTS)
     // stack: current_checkpoint
-    %increment
+    DUP1 %increment
     %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
-    // stack: (empty)
+    // stack: current_checkpoint
 %endmacro
