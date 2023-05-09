@@ -9,4 +9,10 @@ global revert_code_change:
     POP
     %journal_load_2
     // stack: address, prev_codehash, retdest
-    %jump(set_codehash)
+    %mpt_read_state_trie
+    // stack: account_ptr, prev_codehash, retdest
+    %add_const(3)
+    // stack: codehash_ptr, prev_codehash, retdest
+    %mstore_trie_data
+    // stack: retdest
+    JUMP
