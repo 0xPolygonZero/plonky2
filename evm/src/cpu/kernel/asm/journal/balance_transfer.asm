@@ -3,3 +3,4 @@
 %endmacro
 
 global revert_balance_transfer:
+    // stack: entry_type, ptr, retdest

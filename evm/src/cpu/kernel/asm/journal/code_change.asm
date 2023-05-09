@@ -3,3 +3,4 @@
 %endmacro
 
 global revert_code_change:
+    // stack: entry_type, ptr, retdest

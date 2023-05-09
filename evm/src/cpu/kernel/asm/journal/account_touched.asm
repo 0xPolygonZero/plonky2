@@ -3,3 +3,4 @@
 %endmacro
 
 global revert_account_touched:
+    // stack: entry_type, ptr, retdest

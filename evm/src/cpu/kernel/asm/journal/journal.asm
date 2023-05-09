@@ -111,3 +111,64 @@
     // stack: ptr
     %append_journal
 %endmacro
+
+%macro journal_load_1
+    // ptr
+    %add_const(1)
+    %mload_journal_data
+    // w
+%endmacro
+
+%macro journal_load_2
+    // ptr
+    DUP1
+    %add_const(2)
+    %mload_journal_data
+    // x, ptr
+    SWAP1
+    %add_const(1)
+    %mload_journal_data
+    // w, x
+%endmacro
+
+%macro journal_load_3
+    // ptr
+    DUP1
+    %add_const(3)
+    %mload_journal_data
+    // y, ptr
+    SWAP1
+    DUP1
+    // ptr, ptr, y
+    %add_const(2)
+    %mload_journal_data
+    // x, ptr, y
+    SWAP1
+    %add_const(1)
+    %mload_journal_data
+    // w, x, y
+%endmacro
+
+%macro journal_load_4
+    // ptr
+    DUP1
+    %add_const(4)
+    %mload_journal_data
+    // z, ptr
+    SWAP1
+    DUP1
+    // ptr, ptr, z
+    %add_const(3)
+    %mload_journal_data
+    // y, ptr, z
+    SWAP1
+    DUP1
+    // ptr, ptr, y, z
+    %add_const(2)
+    %mload_journal_data
+    // x, ptr, y, z
+    SWAP1
+    %add_const(1)
+    %mload_journal_data
+    // w, x, y, z
+%endmacro

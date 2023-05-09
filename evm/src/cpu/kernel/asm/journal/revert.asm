@@ -9,7 +9,7 @@
     // stack: ptr, %%after, journal_size-1
     DUP1 %mload_journal_data
     // stack: entry_type, ptr, %%after, journal_size-1
-    DUP1 %eq_const(@JOURNAL_ENTRY_ACCOUNT_LOADED)   %jumpi(revert_account_loaded)
+    DUP1 %eq_const(@JOURNAL_ENTRY_ACCOUNT_LOADED)    %jumpi(revert_account_loaded)
     DUP1 %eq_const(@JOURNAL_ENTRY_ACCOUNT_DESTROYED) %jumpi(revert_account_destroyed)
     DUP1 %eq_const(@JOURNAL_ENTRY_ACCOUNT_TOUCHED)   %jumpi(revert_account_touched)
     DUP1 %eq_const(@JOURNAL_ENTRY_BALANCE_TRANSFER)  %jumpi(revert_balance_transfer)
