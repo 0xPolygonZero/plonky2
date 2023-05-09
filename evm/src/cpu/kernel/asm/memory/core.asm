@@ -323,9 +323,9 @@
 %endmacro
 
 %macro mstore_current_general(offset)
-    // stack:         value 
+    // stack:         value
     PUSH $offset
-    // stack: offset, value 
+    // stack: offset, value
     %mstore_current_general
     // stack: (empty)
 %endmacro
