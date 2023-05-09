@@ -172,3 +172,21 @@
     %mload_journal_data
     // w, x, y, z
 %endmacro
+
+%macro current_checkpoint
+    %mload_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+%endmacro
+
+
+%macro checkpoint
+    // stack: (empty)
+    %current_checkpoint
+    // stack: current_checkpoint
+    %journal_size
+    // stack: journal_size, current_checkpoint
+    DUP2 %mstore_kernel(@SEGMENT_JOURNAL_CHECKPOINTS)
+    // stack: current_checkpoint
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+    // stack: (empty)
+%endmacro

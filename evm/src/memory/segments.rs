@@ -53,10 +53,11 @@ pub enum Segment {
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
     Journal = 26,
     JournalData = 27,
+    JournalCheckpoints = 28,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 28;
+    pub(crate) const COUNT: usize = 29;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -88,6 +89,7 @@ impl Segment {
             Self::SelfDestructList,
             Self::Journal,
             Self::JournalData,
+            Self::JournalCheckpoints,
         ]
     }
 
@@ -122,6 +124,7 @@ impl Segment {
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
             Segment::Journal => "SEGMENT_JOURNAL",
             Segment::JournalData => "SEGMENT_JOURNAL_DATA",
+            Segment::JournalCheckpoints => "SEGMENT_JOURNAL_CHECKPOINTS",
         }
     }
 
@@ -156,6 +159,7 @@ impl Segment {
             Segment::SelfDestructList => 256,
             Segment::Journal => 256,
             Segment::JournalData => 256,
+            Segment::JournalCheckpoints => 256,
         }
     }
 }

@@ -36,3 +36,27 @@ revert_batch_done:
     // stack: journal_size, target_size, retdest
     %mstore_global_metadata(@GLOBAL_METADATA_JOURNAL_LEN)
     POP JUMP
+
+global revert_checkpoint:
+    // stack: retdest
+    %current_checkpoint
+    // stack: current_checkpoint, retdest
+    DUP1 ISZERO %jumpi(first_checkpoint)
+    // stack: current_checkpoint, retdest
+    %decrement
+    // stack: current_checkpoint-1, retdest
+    DUP1 %mload_kernel(@SEGMENT_JOURNAL_CHECKPOINTS)
+    // stack: target_size, current_checkpoints-1, retdest
+    %jump(do_revert)
+first_checkpoint:
+    // stack: current_checkpoint, retdest
+    %decrement
+    // stack: current_checkpoint-1, retdest
+    PUSH 0
+    // stack: target_size, current_checkpoints-1, retdest
+do_revert:
+    %stack (target_size, current_checkpoints_m_1, retdest) -> (target_size, after_revert, current_checkpoints_m_1, retdest)
+    %jump(revert_batch)
+after_revert:
+    // stack: current_checkpoint-1, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)

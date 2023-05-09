@@ -56,10 +56,12 @@ pub(crate) enum GlobalMetadata {
     JournalLen = 26,
     /// Length of the `JournalData` segment.
     JournalDataLen = 27,
+    /// Current checkpoint.
+    CurrentCheckpoint = 28,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 27;
+    pub(crate) const COUNT: usize = 28;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -90,6 +92,7 @@ impl GlobalMetadata {
             Self::SelfDestructListLen,
             Self::JournalLen,
             Self::JournalDataLen,
+            Self::CurrentCheckpoint,
         ]
     }
 
@@ -123,6 +126,7 @@ impl GlobalMetadata {
             Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
             Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
             Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
+            Self::CurrentCheckpoint => "GLOBAL_METADATA_CURRENT_CHECKPOINT",
         }
     }
 }
