@@ -41,6 +41,7 @@ insert_accessed_addresses_loop:
 
 insert_address:
     %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
+    DUP2 %journal_add_account_loaded // Add a journal entry for the loaded account.
     %mstore_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Store new address at the end of the array.
     // stack: len, retdest
     %increment
@@ -116,6 +117,8 @@ insert_accessed_storage_keys_loop:
     %jump(insert_accessed_storage_keys_loop)
 
 insert_storage_key:
+    // stack: i, len, addr, key, value, retdest
+    DUP4 DUP4 %journal_add_storage_loaded // Add a journal entry for the loaded storage key.
     // stack: i, len, addr, key, value, retdest
     DUP1 %increment
     DUP1 %increment

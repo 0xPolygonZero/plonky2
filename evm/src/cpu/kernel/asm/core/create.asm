@@ -80,6 +80,7 @@ global create_common:
     %address
     // stack: sender, value, address, value, code_offset, code_len, kexit_info
     %deduct_eth
+    // TODO: Change to %transfer_eth and add to journal.
     // stack: deduct_eth_status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
