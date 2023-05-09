@@ -79,8 +79,8 @@ pub trait PlonkyPermutation<T: Copy + Default>:
     fn set_elt(&mut self, elt: T, idx: usize);
 
     /// Set state element `i` to be `elts[i] for i =
-    /// start_idx..start_idx + elts.len()`. Panics if `start_idx +
-    /// elts.len() > WIDTH`.
+    /// start_idx..start_idx + n` where `n = min(elts.len(),
+    /// WIDTH-start_idx)`. Panics if `start_idx > WIDTH`.
     fn set_from_iter<I: IntoIterator<Item = T>>(&mut self, elts: I, start_idx: usize);
 
     /// Same semantics as for `set_from_iter` but probably faster than
