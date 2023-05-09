@@ -1,10 +1,7 @@
 %macro revert
     // stack: journal_size
     %decrement
-    DUP1
-    // stack: journal_size-1, journal_size-1
-    PUSH %%after
-    SWAP1
+    %stack (journal_size_m_1) -> (journal_size_m_1, %%after, journal_size_m_1)
     %mload_journal
     // stack: ptr, %%after, journal_size-1
     DUP1 %mload_journal_data
@@ -37,4 +34,5 @@ while_loop:
 
 revert_batch_done:
     // stack: journal_size, target_size, retdest
-    %pop2 JUMP
+    %mstore_global_metadata(@GLOBAL_METADATA_JOURNAL_LEN)
+    POP JUMP
