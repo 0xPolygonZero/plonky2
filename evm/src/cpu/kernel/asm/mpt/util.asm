@@ -210,7 +210,7 @@
     // stack: front_len, front_key, back_len, back_key
     %stack (front_len, front_key, back_len, back_key) -> (back_len, front_key, back_key, back_len, front_len)
     %mul_const(4) SHL ADD
-    // stack: new_key, back_len, back_key
+    // stack: new_key, back_len, front_len
     SWAP2 ADD
 %endmacro
 

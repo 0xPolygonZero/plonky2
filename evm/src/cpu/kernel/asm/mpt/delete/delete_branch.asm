@@ -55,7 +55,7 @@ update_branch:
     SWAP1
     // stack: updated_child_ptr, updated_branch_ptr, first_nibble, node_payload_ptr, retdest
     DUP2 %increment DUP4 ADD
-    // stack: updated_branch_ptr+first_nibble, updated_child_ptr, updated_branch_ptr, first_nibble, node_payload_ptr, retdest
+    // stack: updated_branch_ptr+first_nibble+1, updated_child_ptr, updated_branch_ptr, first_nibble, node_payload_ptr, retdest
     %mstore_trie_data
     %stack (updated_branch_ptr, first_nibble, node_payload_ptr, retdest) -> (retdest, updated_branch_ptr)
     JUMP

@@ -11,14 +11,14 @@ global mpt_delete:
     SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
 
-    DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(panic) // This should never happen.
     DUP1 %eq_const(@MPT_NODE_BRANCH)    %jumpi(mpt_delete_branch)
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(mpt_delete_extension)
-         %eq_const(@MPT_NODE_LEAF)      %jumpi(mpt_delete_leaf)
+    DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(mpt_delete_leaf)
+         %eq_const(@MPT_NODE_EMPTY)     %jumpi(panic) // This should never happen.
     PANIC
 
 mpt_delete_leaf:
-    // stack: node_payload_ptr, num_nibbles, key, retdest
-    %pop3
+    // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
+    %pop4
     PUSH 0 // empty node ptr
     SWAP1 JUMP

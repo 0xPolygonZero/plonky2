@@ -27,10 +27,11 @@ after_mpt_delete_extension:
     // stack: updated_child_node_ptr, node_len, node_key, retdest
     DUP1 %mload_trie_data
     // stack: child_type, updated_child_node_ptr, node_len, node_key, retdest
-    DUP1 %eq_const(@MPT_NODE_EMPTY)     %jumpi(panic) // This should never happen.
     DUP1 %eq_const(@MPT_NODE_BRANCH)    %jumpi(after_mpt_delete_extension_branch)
     DUP1 %eq_const(@MPT_NODE_EXTENSION) %jumpi(after_mpt_delete_extension_extension)
-         %eq_const(@MPT_NODE_LEAF)      %jumpi(after_mpt_delete_extension_leaf)
+    DUP1 %eq_const(@MPT_NODE_LEAF)      %jumpi(after_mpt_delete_extension_leaf)
+         %eq_const(@MPT_NODE_EMPTY)     %jumpi(panic) // This should never happen.
+    PANIC
 
 after_mpt_delete_extension_branch:
     // stack: child_type, updated_child_node_ptr, node_len, node_key, retdest
@@ -72,8 +73,10 @@ after_mpt_delete_extension_extension:
     // stack: extension_ptr, retdest
     SWAP1 JUMP
 
-// Essentially the same as `after_mpt_delete_extension_leaf`. TODO: Could merge in a macro or common function.
+// Essentially the same as `after_mpt_delete_extension_extension`. TODO: Could merge in a macro or common function.
 after_mpt_delete_extension_leaf:
+    // stack: child_type, updated_child_node_ptr, node_len, node_key, retdest
+    POP
     // stack: updated_child_node_ptr, node_len, node_key, retdest
     DUP1 %increment %mload_trie_data
     // stack: child_len, updated_child_node_ptr, node_len, node_key, retdest
