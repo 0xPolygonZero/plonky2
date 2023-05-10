@@ -11,19 +11,19 @@ global sys_call:
     MUL // Cheaper than AND
     %jumpi(fault_exception)
 
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
     %call_charge_gas(1, 1)
-
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
 
     %create_context
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
@@ -56,19 +56,19 @@ global sys_call:
 // given account. In particular the storage remains the same.
 global sys_callcode:
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
     %call_charge_gas(1, 0)
-
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
@@ -104,6 +104,13 @@ global sys_callcode:
 // CALL if the value sent is not 0.
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
@@ -112,13 +119,6 @@ global sys_staticcall:
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
     %call_charge_gas(0, 1)
-
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
@@ -152,6 +152,13 @@ global sys_staticcall:
 // value remain the same.
 global sys_delegatecall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
@@ -160,13 +167,6 @@ global sys_delegatecall:
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
     %call_charge_gas(0, 0)
-
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
