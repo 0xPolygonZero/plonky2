@@ -92,7 +92,7 @@ impl<F: Field> ReducingFactor<F> {
             .zip(polys)
             .collect::<Vec<_>>()
             .par_iter()
-            .map(|(base_power, poly)| poly.mul_extension(base_power.clone()))
+            .map(|(base_power, poly)| poly.mul_extension(*base_power))
             .sum()
     }
 
