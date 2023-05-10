@@ -1,3 +1,83 @@
+// Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
+%macro mload_u32
+    // stack: context, segment, offset
+    %stack (addr: 3) -> (addr, 4, %%after)
+    %jump(mload_packing)
+%%after:
+%endmacro
+
+// Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
+%macro mload_u32_LE
+    // stack: context, segment, offset
+    DUP3
+    DUP3
+    DUP3
+    MLOAD_GENERAL
+    // stack: c0, context, segment, offset
+    DUP4
+    %increment
+    DUP4
+    DUP4
+    MLOAD_GENERAL
+    %shl_const(8)
+    ADD
+    // stack: c0 | (c1 << 8), context, segment, offset
+    DUP4
+    %add_const(2)
+    DUP4
+    DUP4
+    MLOAD_GENERAL
+    %shl_const(16)
+    ADD
+    // stack: c0 | (c1 << 8) | (c2 << 16), context, segment, offset
+    SWAP3
+    %add_const(3)
+    SWAP2
+    SWAP1
+    MLOAD_GENERAL
+    %shl_const(24)
+    ADD // OR
+    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
+%endmacro
+
+// Load a little-endian u64, consisting of 8 bytes (c_0, ..., c_7).
+%macro mload_u64_LE
+    // stack: context, segment, offset
+    DUP3
+    DUP3
+    DUP3
+    %mload_u32_LE
+    // stack: lo, context, segment, offset
+    SWAP3
+    %add_const(4)
+    SWAP2
+    SWAP1
+    %mload_u32_LE
+    // stack: hi, lo
+    %shl_const(32)
+    // stack: hi << 32, lo
+    ADD // OR
+    // stack: (hi << 32) | lo
+%endmacro
+
+// Load a big-endian u256.
+%macro mload_u256
+    // stack: context, segment, offset
+    %stack (addr: 3) -> (addr, 32, %%after)
+    %jump(mload_packing)
+%%after:
+%endmacro
+
+// Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
+%macro mstore_u32
+    // stack: context, segment, offset, value
+    %stack (addr: 3, value) -> (addr, value, 4, %%after)
+    %jump(mstore_unpacking)
+%%after:
+    // stack: offset
+    POP
+%endmacro
+
 // Load a value from the given segment of the current context's memory space.
 // Note that main memory values are one byte each, but in general memory values
 // can be 256 bits. This macro deals with a single address (unlike MLOAD), so
@@ -71,186 +151,52 @@
 // Load from the kernel a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0)
 %macro mload_kernel_u32(segment)
     // stack: offset
-    DUP1
-    %mload_kernel($segment)
-    // stack: c_3, offset
-    %shl_const(8)
-    // stack: c_3 << 8, offset
-    DUP2
-    %increment
-    %mload_kernel($segment)
-    ADD // OR
-    // stack: (c_3 << 8) | c_2, offset
-    %shl_const(8)
-    // stack: ((c_3 << 8) | c_2) << 8, offset
-    DUP2
-    %add_const(2)
-    %mload_kernel($segment)
-    ADD // OR
-    // stack: (((c_3 << 8) | c_2) << 8) | c_1, offset
-    %shl_const(8)
-    // stack: ((((c_3 << 8) | c_2) << 8) | c_1) << 8, offset
-    SWAP1
-    %add_const(3)
-    %mload_kernel($segment)
-    ADD // OR
-    // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
+    PUSH $segment
+    // stack: segment, offset
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset
+    %mload_u32
 %endmacro
 
 // Load from the kernel a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
 %macro mload_kernel_u32_LE(segment)
     // stack: offset
-    DUP1
-    %mload_kernel($segment)
-    // stack: c0                         , offset
-    DUP2
-    %increment
-    %mload_kernel($segment)
-    %shl_const(8)
-    ADD
-    // stack: c0 | (c1 << 8)             , offset
-    DUP2
-    %add_const(2)
-    %mload_kernel($segment)
-    %shl_const(16)
-    ADD
-    // stack: c0 | (c1 << 8) | (c2 << 16), offset
-    SWAP1
-    %add_const(3)
-    %mload_kernel($segment)
-    %shl_const(24)
-    ADD // OR
-    // stack: c0 | (c1 << 8) | (c2 << 16) | (c3 << 24)
+    PUSH $segment
+    // stack: segment, offset
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset
+    %mload_u32_LE
 %endmacro
 
-// Load from the kernel a little-endian u64, consisting of 8 bytes
-// (c_0, c_1, c_2, c_3, c_4, c_5, c_6, c_7).
+// Load from the kernel a little-endian u64, consisting of 8 bytes (c_0, ..., c_7).
 %macro mload_kernel_u64_LE(segment)
     // stack: offset
-    DUP1
-    %mload_kernel_u32_LE($segment)
-    // stack: lo, offset
-    SWAP1
-    // stack: offset, lo
-    %add_const(4)
-    %mload_kernel_u32_LE($segment)
-    // stack: hi, lo
-    %shl_const(32)
-    // stack: hi << 32, lo
-    ADD // OR
-    // stack: (hi << 32) | lo
+    PUSH $segment
+    // stack: segment, offset
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset
+    %mload_u64_LE
 %endmacro
 
 // Load a u256 (big-endian) from the kernel.
 %macro mload_kernel_u256(segment)
     // stack: offset
-    DUP1
-    %mload_kernel_u32($segment)
-    // stack: c_7, offset
-    %shl_const(32)
-    // stack: c7 << 32, offset
-    DUP2
-    %add_const(4)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 32) | c_6, offset
-    %shl_const(32)
-    // stack: ((c_7 << 32) | c_6) << 32, offset
-    DUP2
-    %add_const(8)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 64) | (c_6 << 32) | c_5, offset
-    %shl_const(32)
-    // stack: ((c_7 << 64) | (c_6 << 32) | c_5) << 32, offset
-    DUP2
-    %add_const(12)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4, offset
-    %shl_const(32)
-    // stack: ((c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4) << 32, offset
-    DUP2
-    %add_const(16)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3, offset
-    %shl_const(32)
-    // stack: ((c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3) << 32, offset
-    DUP2
-    %add_const(20)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2, offset
-    %shl_const(32)
-    // stack: ((c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2) << 32, offset
-    DUP2
-    %add_const(24)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1, offset
-    %shl_const(32)
-    // stack: ((c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1) << 32, offset
-    DUP2
-    %add_const(28)
-    %mload_kernel_u32($segment)
-    ADD // OR
-    // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0, offset
-    SWAP1
-    POP
-    // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0
+    PUSH $segment
+    // stack: segment, offset
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset
+    %mload_u256
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0),
 // to the kernel.
 %macro mstore_kernel_u32(segment)
     // stack: offset, value
-    SWAP1
-    // stack: value, offset
-    DUP1
-    // stack: value, value, offset
-    %and_const(0xff)
-    // stack: c_0 = value % (1 << 8), value, offset
-    SWAP1
-    // stack: value, c_0, offset
-    %shr_const(8)
-    // stack: value >> 8, c_0, offset
-    DUP1
-    // stack: value >> 8, value >> 8, c_0, offset
-    %and_const(0xff)
-    // stack: c_1 = (value >> 8) % (1 << 8), value >> 8, c_0, offset
-    SWAP1
-    // stack: value >> 8, c_1, c_0, offset
-    %shr_const(8)
-    // stack: value >> 16, c_1, c_0, offset
-    DUP1
-    // stack: value >> 16, value >> 16, c_1, c_0, offset
-    %and_const(0xff)
-    // stack: c_2 = (value >> 16) % (1 << 8), value >> 16, c_1, c_0, offset
-    SWAP1
-    // stack: value >> 16, c_2, c_1, c_0, offset
-    %shr_const(8)
-    // stack: value >> 24, c_2, c_1, c_0, offset
-    %and_const(0xff)
-    // stack: c_3 = (value >> 24) % (1 << 8), c_2, c_1, c_0, offset
-    DUP5
-    // stack: offset, c_3, c_2, c_1, c_0, offset
-    %mstore_kernel($segment)
-    // stack: c_2, c_1, c_0, offset
-    DUP4
-    // stack: offset, c_2, c_1, c_0, offset
-    %increment
-    %mstore_kernel($segment)
-    // stack: c_1, c_0, offset
-    DUP3
-    // stack: offset, c_1, c_0, offset
-    %add_const(2)
-    %mstore_kernel($segment)
-    // stack: c_0, offset
-    SWAP1
-    // stack: offset, c_0
-    %add_const(3)
-    %mstore_kernel($segment)
+    PUSH $segment
+    // stack: segment, offset, value
+    PUSH 0 // kernel has context 0
+    // stack: context, segment, offset, value
+    %mstore_u32
 %endmacro
 
 // Load a single byte from kernel code.
