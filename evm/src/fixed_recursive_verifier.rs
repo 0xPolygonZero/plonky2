@@ -467,40 +467,40 @@ where
 
         // Extra products to add to the looked last value
         let mut extra_looking_products = Vec::new();
+        for _ in 0..NUM_TABLES {
+            extra_looking_products.push(Vec::new());
+        }
 
         // Arithmetic
-        extra_looking_products.push(Vec::new());
         for _ in 0..stark_config.num_challenges {
-            extra_looking_products[0].push(builder.constant(F::ONE));
+            extra_looking_products[Table::Arithmetic as usize].push(builder.constant(F::ONE));
         }
 
         // KeccakSponge
-        extra_looking_products.push(Vec::new());
         for _ in 0..stark_config.num_challenges {
-            extra_looking_products[1].push(builder.constant(F::ONE));
+            extra_looking_products[Table::KeccakSponge as usize].push(builder.constant(F::ONE));
         }
 
         // Keccak
-        extra_looking_products.push(Vec::new());
         for _ in 0..stark_config.num_challenges {
-            extra_looking_products[2].push(builder.constant(F::ONE));
+            extra_looking_products[Table::Keccak as usize].push(builder.constant(F::ONE));
         }
 
         // Logic
-        extra_looking_products.push(Vec::new());
         for _ in 0..stark_config.num_challenges {
-            extra_looking_products[3].push(builder.constant(F::ONE));
+            extra_looking_products[Table::Logic as usize].push(builder.constant(F::ONE));
         }
 
         // Memory
-        extra_looking_products.push(Vec::new());
         for c in 0..stark_config.num_challenges {
-            extra_looking_products[4].push(Self::get_memory_extra_looking_products_circuit(
-                &mut builder,
-                public_values,
-                cpu_trace_len,
-                ctl_challenges.challenges[c],
-            ));
+            extra_looking_products[Table::Memory as usize].push(
+                Self::get_memory_extra_looking_products_circuit(
+                    &mut builder,
+                    public_values,
+                    cpu_trace_len,
+                    ctl_challenges.challenges[c],
+                ),
+            );
         }
 
         // Verify the CTL checks.

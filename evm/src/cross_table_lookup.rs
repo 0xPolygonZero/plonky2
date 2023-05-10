@@ -537,16 +537,12 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for (
-        CrossTableLookup {
-            looking_tables,
-            looked_table,
-        },
-        extra_product_vec,
-    ) in cross_table_lookups
-        .iter()
-        .zip(ctl_extra_looking_products.iter())
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+    } in cross_table_lookups.iter()
     {
+        let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
         for c in 0..config.num_challenges {
             let mut looking_zs_prod = looking_tables
                 .iter()
@@ -575,16 +571,12 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for (
-        CrossTableLookup {
-            looking_tables,
-            looked_table,
-        },
-        extra_product_vec,
-    ) in cross_table_lookups
-        .into_iter()
-        .zip(ctl_extra_looking_products.iter())
+    for CrossTableLookup {
+        looking_tables,
+        looked_table,
+    } in cross_table_lookups.into_iter()
     {
+        let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
         for c in 0..inner_config.num_challenges {
             let mut looking_zs_prod = builder.mul_many(
                 looking_tables

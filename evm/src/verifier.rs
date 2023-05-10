@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
-use crate::all_stark::{AllStark, Table};
+use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
@@ -114,30 +114,34 @@ where
 
     // Extra products to add to the looked last value.
     let mut extra_looking_products = Vec::new();
+    for _ in 0..NUM_TABLES {
+        extra_looking_products.push(Vec::new());
+    }
+
+    // Arithmetic
+    for _ in 0..config.num_challenges {
+        extra_looking_products[Table::Arithmetic as usize].push(F::ONE);
+    }
 
     // KeccakSponge
-    extra_looking_products.push(Vec::new());
     for _ in 0..config.num_challenges {
-        extra_looking_products[0].push(F::ONE);
+        extra_looking_products[Table::KeccakSponge as usize].push(F::ONE);
     }
 
     // Keccak
-    extra_looking_products.push(Vec::new());
     for _ in 0..config.num_challenges {
-        extra_looking_products[1].push(F::ONE);
+        extra_looking_products[Table::Keccak as usize].push(F::ONE);
     }
 
     // Logic
-    extra_looking_products.push(Vec::new());
     for _ in 0..config.num_challenges {
-        extra_looking_products[2].push(F::ONE);
+        extra_looking_products[Table::Logic as usize].push(F::ONE);
     }
 
     // Memory
-    extra_looking_products.push(Vec::new());
-    let cpu_trace_len = 1 << all_proof.stark_proofs[0].proof.recover_degree_bits(config);
+    let cpu_trace_len = 1 << all_proof.stark_proofs[1].proof.recover_degree_bits(config);
     for c in 0..config.num_challenges {
-        extra_looking_products[3].push(get_memory_extra_looking_products(
+        extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
             &public_values,
             cpu_trace_len,
             ctl_challenges.challenges[c],
