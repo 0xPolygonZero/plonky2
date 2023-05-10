@@ -1,38 +1,9 @@
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mload_u32
     // stack: context, segment, offset
-    DUP3
-    DUP3
-    DUP3
-    MLOAD_GENERAL
-    // stack: c_3, context, segment, offset
-    %shl_const(8)
-    // stack: c_3 << 8, context, segment, offset
-    DUP4
-    %increment
-    DUP4
-    DUP4
-    MLOAD_GENERAL
-    ADD // OR
-    // stack: (c_3 << 8) | c_2, context, segment, offset
-    %shl_const(8)
-    // stack: ((c_3 << 8) | c_2) << 8, context, segment, offset
-    DUP4
-    %add_const(2)
-    DUP4
-    DUP4
-    MLOAD_GENERAL
-    ADD // OR
-    // stack: (((c_3 << 8) | c_2) << 8) | c_1, context, segment, offset
-    %shl_const(8)
-    // stack: ((((c_3 << 8) | c_2) << 8) | c_1) << 8, context, segment, offset
-    SWAP3
-    %add_const(3)
-    SWAP2
-    SWAP1
-    MLOAD_GENERAL
-    ADD // OR
-    // stack: (((((c_3 << 8) | c_2) << 8) | c_1) << 8) | c_0
+    %stack (addr: 3) -> (addr, 4, %%after)
+    %jump(mload_packing)
+%%after:
 %endmacro
 
 // Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
@@ -89,133 +60,20 @@
     // stack: (hi << 32) | lo
 %endmacro
 
-// Load a u256 (big-endian).
+// Load a big-endian u256.
 %macro mload_u256
     // stack: context, segment, offset
-    DUP3
-    DUP3
-    DUP3
-    %mload_u32
-    // stack: c_7, context, segment, offset
-    %shl_const(32)
-    // stack: c7 << 32, context, segment, offset
-    DUP4
-    %add_const(4)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 32) | c_6, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 32) | c_6) << 32, context, segment, offset
-    DUP4
-    %add_const(8)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 64) | (c_6 << 32) | c_5, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 64) | (c_6 << 32) | c_5) << 32, context, segment, offset
-    DUP4
-    %add_const(12)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 96) | (c_6 << 64) | (c_5 << 32) | c_4) << 32, context, segment, offset
-    DUP4
-    %add_const(16)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 128) | (c_6 << 96) | (c_5 << 64) | (c_4 << 32) | c_3) << 32, context, segment, offset
-    DUP4
-    %add_const(20)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 160) | (c_6 << 128) | (c_5 << 96) | (c_4 << 64) | (c_3 << 32) | c_2) << 32, context, segment, offset
-    DUP4
-    %add_const(24)
-    DUP4
-    DUP4
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1, context, segment, offset
-    %shl_const(32)
-    // stack: ((c_7 << 192) | (c_6 << 160) | (c_5 << 128) | (c_4 << 96) | (c_3 << 64) | (c_2 << 32) | c_1) << 32, context, segment, offset
-    SWAP3
-    %add_const(28)
-    SWAP2
-    SWAP1
-    %mload_u32
-    ADD // OR
-    // stack: (c_7 << 224) | (c_6 << 192) | (c_5 << 160) | (c_4 << 128) | (c_3 << 96) | (c_2 << 64) | (c_1 << 32) | c_0
+    %stack (addr: 3) -> (addr, 32, %%after)
+    %jump(mload_packing)
+%%after:
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mstore_u32
     // stack: context, segment, offset, value
-    SWAP3
-    // stack: value, segment, offset, context
-    DUP1
-    // stack: value, value, segment, offset, context
-    %and_const(0xff)
-    // stack: c_0 = value % (1 << 8), value, segment, offset, context
-    SWAP1
-    // stack: value, c_0, segment, offset, context
-    %shr_const(8)
-    // stack: value >> 8, c_0, segment, offset, context
-    DUP1
-    // stack: value >> 8, value >> 8, c_0, segment, offset, context
-    %and_const(0xff)
-    // stack: c_1 = (value >> 8) % (1 << 8), value >> 8, c_0, segment, offset, context
-    SWAP1
-    // stack: value >> 8, c_1, c_0, segment, offset, context
-    %shr_const(8)
-    // stack: value >> 16, c_1, c_0, segment, offset, context
-    DUP1
-    // stack: value >> 16, value >> 16, c_1, c_0, segment, offset, context
-    %and_const(0xff)
-    // stack: c_2 = (value >> 16) % (1 << 8), value >> 16, c_1, c_0, segment, offset, context
-    SWAP1
-    // stack: value >> 16, c_2, c_1, c_0, segment, offset, context
-    %shr_const(8)
-    // stack: value >> 24, c_2, c_1, c_0, segment, offset, context
-    %and_const(0xff)
-    // stack: c_3 = (value >> 24) % (1 << 8), c_2, c_1, c_0, segment, offset, context
-    DUP6
-    DUP6
-    DUP9
-    // stack: context, segment, offset, c_3, c_2, c_1, c_0, segment, offset, context
-    MSTORE_GENERAL
-    // stack: c_2, c_1, c_0, segment, offset, context
-    DUP5
-    %increment
-    DUP5
-    DUP8
-    MSTORE_GENERAL
-    // stack: c_1, c_0, segment, offset, context
-    DUP4
-    %add_const(2)
-    DUP4
-    DUP7
-    MSTORE_GENERAL
-    // stack: c_0, segment, offset, context
-    SWAP2
-    %add_const(3)
-    SWAP2
-    SWAP3
-    MSTORE_GENERAL
+    %stack (addr: 3, value) -> (addr, value, 32, %%after)
+    %jump(mstore_unpacking)
+%%after:
 %endmacro
 
 // Load a value from the given segment of the current context's memory space.
