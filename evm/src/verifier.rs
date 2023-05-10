@@ -5,7 +5,6 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
@@ -39,8 +38,6 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let AllProofChallenges {
         stark_challenges,
@@ -130,7 +127,6 @@ pub(crate) fn verify_stark_proof_with_challenges<
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
 {
     log::debug!("Checking proof: {}", type_name::<S>());
     validate_proof_shape(stark, proof, config, ctl_vars.len())?;

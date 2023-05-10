@@ -44,6 +44,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in SNARKV_POINTERS {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -87,7 +91,7 @@ const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     ),
 ];
 
-const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
+const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     (
         "U256_MAX",
         hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
@@ -95,6 +99,14 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     (
         "BN_BASE",
         hex!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),
+    ),
+    (
+        "BN_TWISTED_RE",
+        hex!("2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5"),
+    ),
+    (
+        "BN_TWISTED_IM",
+        hex!("009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2"),
     ),
     (
         "BN_SCALAR",
@@ -229,8 +241,10 @@ const PRECOMPILES_GAS: [(&str, u16); 13] = [
     ("BN_MUL_GAS", 6_000),
     ("SNARKV_STATIC_GAS", 45_000),
     ("SNARKV_DYNAMIC_GAS", 34_000),
-    ("BLAKE2_F_DYNAMIC_GAS", 1),
+    ("BLAKE2_F__GAS", 1),
 ];
+
+const SNARKV_POINTERS: [(&str, u64); 2] = [("SNARKV_INP", 112), ("SNARKV_OUT", 100)];
 
 const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
     ("MAX_CODE_SIZE", 0x6000),

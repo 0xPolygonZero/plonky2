@@ -1,6 +1,5 @@
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
-use crate::hash::hashing::HashConfig;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
@@ -21,16 +20,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
     {
         assert_eq!(
             proof_with_pis.public_inputs.len(),
             inner_common_data.num_public_inputs
         );
-        let public_inputs_hash = self
-            .hash_n_to_hash_no_pad::<C::HCI, C::InnerHasher>(proof_with_pis.public_inputs.clone());
+        let public_inputs_hash =
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
         let challenges = proof_with_pis.get_challenges::<F, C>(
             self,
             public_inputs_hash,
@@ -56,8 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
     {
         let one = self.one_extension();
 
@@ -329,11 +325,7 @@ mod tests {
     fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<Proof<F, C, D>>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> Result<Proof<F, C, D>> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
@@ -362,11 +354,7 @@ mod tests {
         print_timing: bool,
     ) -> Result<Proof<F, C, D>>
     where
-        InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-        [(); InnerC::HCO::WIDTH]:,
-        [(); InnerC::HCI::WIDTH]:,
+        InnerC::Hasher: AlgebraicHasher<F>,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -418,11 +406,7 @@ mod tests {
         proof: &ProofWithPublicInputs<F, C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
         cd: &CommonCircuitData<F, D>,
-    ) -> Result<()>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> Result<()> {
         let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;

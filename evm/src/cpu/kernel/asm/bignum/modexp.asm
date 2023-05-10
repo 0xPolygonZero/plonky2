@@ -8,6 +8,8 @@
 // All of scratch_2..scratch_5 must have size 2 * length and be initialized with zeroes.
 // Also, scratch_2..scratch_5 must be CONSECUTIVE in memory.
 global modexp_bignum:
+    // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
+
     // Special input cases:
 
     // (1) Modulus is zero (also covers len=0 case).
@@ -53,7 +55,7 @@ b_zero_return:
     %jump(iszero_bignum)
 e_zero_return:
     // stack: e==0, b==0, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    MUL // logical and
+    MUL // logical AND
     %jumpi(b_and_e_zero)
 
     // End of special cases.

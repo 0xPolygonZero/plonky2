@@ -32,16 +32,19 @@ global inv_fp254_12:
     // stack:              out, f^-1, inp, out, retdest
     %store_fp254_12
     // stack:                         inp, out, retdest
-    %stack (inp, out) -> (inp, out, 72, check_inv_fp254_12)
-    // stack: inp, out, 72, check_inv_fp254_12, retdest 
+    %stack (inp, out) -> (inp, out, 60, check_inv_fp254_12)
+    // stack: inp, out, 60, check_inv_fp254_12, retdest 
     %jump(mul_fp254_12)
 check_inv_fp254_12:
     // stack:        retdest
-    PUSH 72  
+    PUSH 60  
     %load_fp254_12
     // stack: unit?, retdest
     %assert_eq_unit_fp254_12
     // stack:        retdest
+    PUSH 0
+    // stack:     0, retdest
+    %mstore_kernel_bn254_pairing(60)
     JUMP
 
 %macro prover_inv_fp254_12

@@ -312,3 +312,16 @@ global sys_basefee:
     %mload_context_metadata(@CTX_METADATA_STATIC)
     %jumpi(fault_exception)
 %endmacro
+
+// Adds the two top elements of the stack, and faults in case of overflow.
+%macro add_or_fault
+    // stack: x, y
+    DUP2 ADD
+    // stack: sum, y
+    DUP1 SWAP2
+    // stack: y, sum, sum
+    GT
+    // stack: is_overflow, sum
+    %jumpi(fault_exception)
+    // stack: sum
+%endmacro

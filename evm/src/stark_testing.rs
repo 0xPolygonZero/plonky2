@@ -3,11 +3,11 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::{Field, Sample};
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 
@@ -87,8 +87,8 @@ pub fn test_stark_circuit_constraints<
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    [(); <C::Hasher as Hasher<F>>::Permutation::WIDTH]:,
+    [(); <C::InnerHasher as Hasher<F>>::Permutation::WIDTH]:,
 {
     // Compute native constraint evaluation on random values.
     let vars = StarkEvaluationVars {

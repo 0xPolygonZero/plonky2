@@ -35,9 +35,7 @@ global pop_and_return_success:
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_TO)
     // stack: addr, retdest
-    DUP1 %ge_const(@ECREC) DUP2 %le_const(@BLAKE2_F)
-    // stack: addr<=9, addr>=1, addr, retdest
-    MUL // Cheaper than AND
+    DUP1 %is_precompile
     %jumpi(handle_precompiles_from_eoa)
     // stack: addr, retdest
     POP

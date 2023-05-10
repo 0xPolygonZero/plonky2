@@ -14,7 +14,6 @@ use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
 use crate::fri::FriParams;
 use crate::hash::hash_types::RichField;
-use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
@@ -31,7 +30,7 @@ pub const SALT_SIZE: usize = 4;
 pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, C::HCO, C::Hasher>,
+    pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
@@ -48,10 +47,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         cap_height: usize,
         timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
-    ) -> Self
-    where
-        [(); C::HCO::WIDTH]:,
-    {
+    ) -> Self {
         let coeffs = timed!(
             timing,
             "IFFT",
@@ -76,10 +72,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         cap_height: usize,
         timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
-    ) -> Self
-    where
-        [(); C::HCO::WIDTH]:,
-    {
+    ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
             timing,
@@ -169,14 +162,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
-        challenger: &mut Challenger<F, C::HCO, C::Hasher>,
+        challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
-    ) -> FriProof<F, C::HCO, C::Hasher, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);

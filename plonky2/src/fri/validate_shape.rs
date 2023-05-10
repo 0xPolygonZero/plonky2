@@ -9,7 +9,7 @@ use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::salt_size;
 
 pub(crate) fn validate_fri_proof_shape<F, C, const D: usize>(
-    proof: &FriProof<F, C::HCO, C::Hasher, D>,
+    proof: &FriProof<F, C::Hasher, D>,
     instance: &FriInstanceInfo<F, D>,
     params: &FriParams,
 ) -> anyhow::Result<()>

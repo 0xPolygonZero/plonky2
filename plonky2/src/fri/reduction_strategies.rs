@@ -4,9 +4,10 @@ use alloc::vec::Vec;
 use std::time::Instant;
 
 use log::debug;
+use serde::Serialize;
 
 /// A method for deciding what arity to use at each reduction layer.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub enum FriReductionStrategy {
     /// Specifies the exact sequence of arities (expressed in bits) to use.
     Fixed(Vec<usize>),

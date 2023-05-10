@@ -58,7 +58,7 @@ global permutation_9_constants:
     BYTES 15, 11, 9, 14
     BYTES 3, 12, 13, 0
 
-global blake2b_permutation:
+global blake2_permutation:
     // stack: i, round, retdest
     PUSH permutation_0_constants
     // stack: permutation_0_constants, i, round, retdest
@@ -74,12 +74,12 @@ global blake2b_permutation:
     SWAP1
     JUMP
 
-%macro blake2b_permutation
+%macro blake2_permutation
     // stack: round, i
     PUSH %%after
     // stack: %%after, round, i
     SWAP2
     // stack: i, round, %%after
-    %jump(blake2b_permutation)
+    %jump(blake2_permutation)
 %%after:
 %endmacro

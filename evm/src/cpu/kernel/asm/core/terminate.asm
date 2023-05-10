@@ -14,7 +14,7 @@ global sys_stop:
 global sys_return:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
-    ADD // TODO: Check for overflow?
+    %add_or_fault 
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
@@ -109,7 +109,7 @@ sys_selfdestruct_same_addr:
 global sys_revert:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
-    ADD // TODO: Check for overflow?
+    %add_or_fault
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
