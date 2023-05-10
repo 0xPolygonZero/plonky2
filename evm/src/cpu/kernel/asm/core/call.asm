@@ -108,6 +108,8 @@ global sys_callcode:
 // are CREATE, CREATE2, LOG0, LOG1, LOG2, LOG3, LOG4, SSTORE, SELFDESTRUCT and
 // CALL if the value sent is not 0.
 global sys_staticcall:
+    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
@@ -156,6 +158,8 @@ global sys_staticcall:
 // given account. In particular the storage, the current sender and the current
 // value remain the same.
 global sys_delegatecall:
+    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
@@ -202,6 +206,8 @@ global sys_delegatecall:
 // We go here after any CALL type instruction (but not after the special call by the transaction originator).
 global after_call_instruction:
     // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
+    DUP1 ISZERO %jumpi(after_call_instruction_failed)
+after_call_instruction_contd:
     SWAP3
     // stack: kexit_info, leftover_gas, new_ctx, success, ret_offset, ret_size
     // Add the leftover gas into the appropriate bits of kexit_info.
@@ -211,6 +217,11 @@ global after_call_instruction:
     // The callee's terminal instruction will have populated RETURNDATA.
     %copy_returndata_to_mem
     EXIT_KERNEL
+
+after_call_instruction_failed:
+    // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
+    %mload_context_metadata(@CTX_METADATA_CHECKPOINT) %revert_checkpoint
+    %jump(after_call_instruction_contd)
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
 // because it will already be 0 by default.
@@ -300,6 +311,7 @@ global after_call_instruction:
     // Switch to the new context and go to usermode with PC=0.
     DUP1 // new_ctx
     SET_CONTEXT
+    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx

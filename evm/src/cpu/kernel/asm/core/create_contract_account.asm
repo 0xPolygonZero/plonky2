@@ -23,6 +23,7 @@
     // Write the new account's data to MPT data, and get a pointer to it.
     %get_trie_data_size
     // stack: account_ptr, new_acct_value, address
+    PUSH 0 DUP4 %journal_add_nonce_change
     PUSH 1 %append_to_trie_data // nonce = 1
     // stack: account_ptr, new_acct_value, address
     SWAP1 %append_to_trie_data // balance = new_acct_value
