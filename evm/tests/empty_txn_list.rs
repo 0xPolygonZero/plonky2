@@ -97,7 +97,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
+        &[9..18, 9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
         &config,
     );
 

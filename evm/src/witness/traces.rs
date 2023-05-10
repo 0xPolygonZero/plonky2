@@ -18,19 +18,19 @@ use crate::{arithmetic, keccak, logic};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
+    pub(self) arithmetic_len: usize,
     pub(self) cpu_len: usize,
     pub(self) keccak_len: usize,
     pub(self) keccak_sponge_len: usize,
     pub(self) logic_len: usize,
-    pub(self) arithmetic_len: usize,
     pub(self) memory_len: usize,
 }
 
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
+    pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
-    pub(crate) arithmetic: Vec<arithmetic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
     pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
@@ -39,9 +39,9 @@ pub(crate) struct Traces<T: Copy> {
 impl<T: Copy> Traces<T> {
     pub fn new() -> Self {
         Traces {
+            arithmetic_ops: vec![],
             cpu: vec![],
             logic_ops: vec![],
-            arithmetic: vec![],
             memory_ops: vec![],
             keccak_inputs: vec![],
             keccak_sponge_ops: vec![],
@@ -50,22 +50,22 @@ impl<T: Copy> Traces<T> {
 
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
+            arithmetic_len: self.arithmetic_ops.len(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
-            arithmetic_len: self.arithmetic.len(),
             memory_len: self.memory_ops.len(),
         }
     }
 
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
+        self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
         self.cpu.truncate(checkpoint.cpu_len);
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
             .truncate(checkpoint.keccak_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
-        self.arithmetic.truncate(checkpoint.arithmetic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
 
@@ -82,7 +82,7 @@ impl<T: Copy> Traces<T> {
     }
 
     pub fn push_arithmetic(&mut self, op: arithmetic::Operation) {
-        self.arithmetic.push(op);
+        self.arithmetic_ops.push(op);
     }
 
     pub fn push_memory(&mut self, op: MemoryOp) {
@@ -122,13 +122,19 @@ impl<T: Copy> Traces<T> {
     {
         let cap_elements = config.fri_config.num_cap_elements();
         let Traces {
+            arithmetic_ops,
             cpu,
             logic_ops,
-            arithmetic: _, // TODO
             memory_ops,
             keccak_inputs,
             keccak_sponge_ops,
         } = self;
+
+        let arithmetic_trace = timed!(
+            timing,
+            "generate arithmetic trace",
+            all_stark.arithmetic_stark.generate_trace(arithmetic_ops)
+        );
 
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
@@ -160,6 +166,7 @@ impl<T: Copy> Traces<T> {
         );
 
         [
+            arithmetic_trace,
             cpu_trace,
             keccak_trace,
             keccak_sponge_trace,

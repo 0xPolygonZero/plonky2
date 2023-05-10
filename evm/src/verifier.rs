@@ -9,6 +9,7 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table};
+use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -31,6 +32,7 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     config: &StarkConfig,
 ) -> Result<()>
 where
+    [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -45,6 +47,7 @@ where
     let nums_permutation_zs = all_stark.nums_permutation_zs(config);
 
     let AllStark {
+        arithmetic_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
@@ -60,6 +63,13 @@ where
         &nums_permutation_zs,
     );
 
+    verify_stark_proof_with_challenges(
+        arithmetic_stark,
+        &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
+        &stark_challenges[Table::Arithmetic as usize],
+        &ctl_vars_per_table[Table::Arithmetic as usize],
+        config,
+    )?;
     verify_stark_proof_with_challenges(
         cpu_stark,
         &all_proof.stark_proofs[Table::Cpu as usize].proof,

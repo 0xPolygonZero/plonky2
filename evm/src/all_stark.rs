@@ -4,6 +4,8 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 
+use crate::arithmetic::arithmetic_stark;
+use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
@@ -22,6 +24,7 @@ use crate::stark::Stark;
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
+    pub arithmetic_stark: ArithmeticStark<F, D>,
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
     pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
@@ -33,6 +36,7 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
     fn default() -> Self {
         Self {
+            arithmetic_stark: ArithmeticStark::default(),
             cpu_stark: CpuStark::default(),
             keccak_stark: KeccakStark::default(),
             keccak_sponge_stark: KeccakSpongeStark::default(),
@@ -46,6 +50,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         [
+            self.arithmetic_stark.num_permutation_batches(config),
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
             self.keccak_sponge_stark.num_permutation_batches(config),
@@ -56,6 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 
     pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
         [
+            self.arithmetic_stark.permutation_batch_size(),
             self.cpu_stark.permutation_batch_size(),
             self.keccak_stark.permutation_batch_size(),
             self.keccak_sponge_stark.permutation_batch_size(),
@@ -67,11 +73,12 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
-    Cpu = 0,
-    Keccak = 1,
-    KeccakSponge = 2,
-    Logic = 3,
-    Memory = 4,
+    Arithmetic = 0,
+    Cpu = 1,
+    Keccak = 2,
+    KeccakSponge = 3,
+    Logic = 4,
+    Memory = 5,
 }
 
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
@@ -79,6 +86,7 @@ pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
         [
+            Self::Arithmetic,
             Self::Cpu,
             Self::Keccak,
             Self::KeccakSponge,
@@ -89,9 +97,15 @@ impl Table {
 }
 
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
-    let mut ctls = vec![ctl_keccak_sponge(), ctl_keccak(), ctl_logic(), ctl_memory()];
+    let mut ctls = vec![
+        ctl_arithmetic(),
+        ctl_keccak_sponge(),
+        ctl_keccak(),
+        ctl_logic(),
+        ctl_memory(),
+    ];
     // TODO: Some CTLs temporarily disabled while we get them working.
-    disable_ctl(&mut ctls[3]);
+    disable_ctl(&mut ctls[4]);
     ctls
 }
 
@@ -100,6 +114,13 @@ fn disable_ctl<F: Field>(ctl: &mut CrossTableLookup<F>) {
         table.filter_column = Some(Column::zero());
     }
     ctl.looked_table.filter_column = Some(Column::zero());
+}
+
+fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
+    CrossTableLookup::new(
+        vec![cpu_stark::ctl_arithmetic_rows()],
+        arithmetic_stark::ctl_arithmetic_rows(),
+    )
 }
 
 fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
