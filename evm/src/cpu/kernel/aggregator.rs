@@ -25,6 +25,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/bignum/util.asm"),
         include_str!("asm/core/bootloader.asm"),
         include_str!("asm/core/call.asm"),
+        include_str!("asm/core/call_gas.asm"),
         include_str!("asm/core/create.asm"),
         include_str!("asm/core/create_addresses.asm"),
         include_str!("asm/core/create_contract_account.asm"),
