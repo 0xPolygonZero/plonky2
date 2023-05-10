@@ -253,13 +253,6 @@
     // stack: value
 %endmacro
 
-// Load a single byte from user general memory.
-%macro mload_current_memory
-    // stack: offset
-    %mload_current(@SEGMENT_MEMORY)
-    // stack: value
-%endmacro
-
 // Load a single value from the given segment of kernel (context 0) memory.
 %macro mload_kernel(segment)
     // stack: offset
