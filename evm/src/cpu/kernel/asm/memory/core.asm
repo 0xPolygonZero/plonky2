@@ -74,6 +74,8 @@
     %stack (addr: 3, value) -> (addr, value, 4, %%after)
     %jump(mstore_unpacking)
 %%after:
+    // stack: offset
+    POP
 %endmacro
 
 // Load a value from the given segment of the current context's memory space.
