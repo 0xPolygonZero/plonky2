@@ -544,12 +544,11 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
     {
         let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
         for c in 0..config.num_challenges {
-            let mut looking_zs_prod = looking_tables
+            let looking_zs_prod = looking_tables
                 .iter()
                 .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
-                .product::<F>();
-
-            looking_zs_prod *= extra_product_vec[c];
+                .product::<F>()
+                * extra_product_vec[c];
 
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             ensure!(

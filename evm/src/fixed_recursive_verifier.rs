@@ -466,32 +466,12 @@ where
         }
 
         // Extra products to add to the looked last value
-        let mut extra_looking_products = Vec::new();
-        for _ in 0..NUM_TABLES {
-            extra_looking_products.push(Vec::new());
-        }
-
-        // Arithmetic
-        for _ in 0..stark_config.num_challenges {
-            extra_looking_products[Table::Arithmetic as usize].push(builder.constant(F::ONE));
-        }
-
-        // KeccakSponge
-        for _ in 0..stark_config.num_challenges {
-            extra_looking_products[Table::KeccakSponge as usize].push(builder.constant(F::ONE));
-        }
-
-        // Keccak
-        for _ in 0..stark_config.num_challenges {
-            extra_looking_products[Table::Keccak as usize].push(builder.constant(F::ONE));
-        }
-
-        // Logic
-        for _ in 0..stark_config.num_challenges {
-            extra_looking_products[Table::Logic as usize].push(builder.constant(F::ONE));
-        }
+        // Arithmetic, KeccakSponge, Keccak, Logic
+        let mut extra_looking_products =
+            vec![vec![builder.constant(F::ONE); stark_config.num_challenges]; NUM_TABLES - 1];
 
         // Memory
+        extra_looking_products.push(Vec::new());
         for c in 0..stark_config.num_challenges {
             extra_looking_products[Table::Memory as usize].push(
                 Self::get_memory_extra_looking_products_circuit(
@@ -746,7 +726,7 @@ where
             builder.connect(row[3], field_target);
             // values
             for j in 0..VALUE_LIMBS {
-                builder.connect(row[j + 4], targets[j]);
+                builder.connect(row[4 + j], targets[j]);
             }
             // timestamp
             builder.connect(row[12], timestamp_target);

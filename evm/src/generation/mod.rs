@@ -164,6 +164,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     GenerationOutputs,
 )> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
+
     apply_metadata_memops(&mut state, &inputs.block_metadata);
 
     generate_bootstrap_kernel::<F>(&mut state);

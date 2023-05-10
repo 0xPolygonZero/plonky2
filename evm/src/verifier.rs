@@ -112,33 +112,12 @@ where
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value.
-    let mut extra_looking_products = Vec::new();
-    for _ in 0..NUM_TABLES {
-        extra_looking_products.push(Vec::new());
-    }
-
-    // Arithmetic
-    for _ in 0..config.num_challenges {
-        extra_looking_products[Table::Arithmetic as usize].push(F::ONE);
-    }
-
-    // KeccakSponge
-    for _ in 0..config.num_challenges {
-        extra_looking_products[Table::KeccakSponge as usize].push(F::ONE);
-    }
-
-    // Keccak
-    for _ in 0..config.num_challenges {
-        extra_looking_products[Table::Keccak as usize].push(F::ONE);
-    }
-
-    // Logic
-    for _ in 0..config.num_challenges {
-        extra_looking_products[Table::Logic as usize].push(F::ONE);
-    }
+    // Extra products to add to the looked last value
+    // Arithmetic, KeccakSponge, Keccak, Logic
+    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES - 1];
 
     // Memory
+    extra_looking_products.push(Vec::new());
     let cpu_trace_len = 1 << all_proof.stark_proofs[1].proof.recover_degree_bits(config);
     for c in 0..config.num_challenges {
         extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
