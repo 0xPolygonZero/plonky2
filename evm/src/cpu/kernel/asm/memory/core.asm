@@ -253,14 +253,7 @@
     // stack: value
 %endmacro
 
-// Load a single byte from user general memory.
-%macro mload_current_memory
-    // stack: offset
-    %mload_current(@SEGMENT_MEMORY)
-    // stack: value
-%endmacro
-
-// Load a single byte from the kernel general memory, in the current context (not the kernel's context).
+// Load a single value from the kernel general memory, in the current context (not the kernel's context).
 %macro mload_current_general
     // stack: offset
     %mload_current(@SEGMENT_KERNEL_GENERAL)
@@ -311,7 +304,7 @@
     // stack: value
 %endmacro
 
-// Store a single byte to kernel general memory in the current context.
+// Store a single value to kernel general memory in the current context.
 %macro mstore_current_general
     // stack: offset, value
     PUSH @SEGMENT_KERNEL_GENERAL
