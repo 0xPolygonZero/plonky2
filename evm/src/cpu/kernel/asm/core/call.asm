@@ -16,7 +16,7 @@ global sys_call:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
-    %call_charge_gas
+    %call_charge_gas(1, 1)
 
     %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -61,7 +61,7 @@ global sys_callcode:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
-    %call_charge_gas
+    %call_charge_gas(1, 0)
 
     %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -111,7 +111,7 @@ global sys_staticcall:
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
-    %call_charge_gas
+    %call_charge_gas(0, 1)
 
     %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -159,7 +159,7 @@ global sys_delegatecall:
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
-    %call_charge_gas
+    %call_charge_gas(0, 0)
 
     %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -334,67 +334,6 @@ global after_call_instruction:
         )
     %jump(memcpy)
 %%after:
-%endmacro
-
-// Charge gas for *call opcodes and return the sub-context gas limit.
-// Doesn't include memory expansion costs.
-%macro call_charge_gas
-    // Compute C_aaccess
-    // stack: cold_access, address, gas, kexit_info, value
-    %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
-    %add_const(@GAS_WARMACCESS)
-
-    // Compute C_xfer
-    // stack: Caaccess, address, gas, kexit_info, value
-    DUP5 ISZERO %not_bit
-    // stack: value≠0, Caaccess, address, gas, kexit_info, value
-    DUP1
-    %mul_const(@GAS_CALLVALUE)
-
-    // Compute C_new
-    // stack: Cxfer, value≠0, Caaccess, address, gas, kexit_info, value
-    SWAP1
-    // stack: value≠0, Cxfer, Caaccess, address, gas, kexit_info, value
-    DUP4 %is_dead MUL
-    // stack: is_dead(address) and value≠0, Cxfer, Caaccess, address, gas, kexit_info, value
-    %mul_const(@GAS_NEWACCOUNT)
-    // stack: Cnew, Cxfer, Caaccess, address, gas, kexit_info, value
-
-    // Compute C_extra
-    ADD ADD
-
-    // Compute C_gascap
-    // stack: Cextra, address, gas, kexit_info, value
-    DUP4 %leftover_gas
-    // stack: leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP2 DUP2 LT
-    // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP5 DUP2 MUL
-    // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
-    SWAP1 %not_bit
-    // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP4 DUP4 SUB
-    // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    %all_but_one_64th
-    // stack: L(leftover_gas - Cextra), leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP7 %min MUL ADD
-    // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value
-
-    // Compute C_call and charge for it.
-    %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
-    ADD
-    %stack (C_call, Cgascap, address, gas, kexit_info, value) ->
-        (C_call, kexit_info, Cgascap, address, gas, value)
-    %charge_gas
-
-    // Compute C_callgas
-    %stack (kexit_info, Cgascap, address, gas, value) ->
-        (Cgascap, address, gas, kexit_info, value)
-    DUP5 ISZERO %not_bit
-    // stack: value!=0, Cgascap, address, gas, kexit_info, value
-    %mul_const(@GAS_CALLSTIPEND) ADD
-    %stack (C_callgas, address, gas, kexit_info, value) ->
-        (kexit_info, C_callgas, address, value)
 %endmacro
 
 // Checked memory expansion.
