@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -9,14 +8,14 @@ use plonky2::gates::exponentiation::ExponentiationGate;
 use plonky2::gates::gate::GateRef;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
+use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::util::serialization::{
@@ -52,35 +51,25 @@ pub struct RecursiveAllProof<
     pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
 }
 
-pub(crate) struct PublicInputs<T: Copy + Eq + PartialEq + Debug, HC: HashConfig>
-where
-    [(); HC::WIDTH]:,
+pub(crate) struct PublicInputs<T: Copy + Default + Eq + PartialEq + Debug, P: PlonkyPermutation<T>>
 {
     pub(crate) trace_cap: Vec<Vec<T>>,
     pub(crate) ctl_zs_last: Vec<T>,
     pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
-    pub(crate) challenger_state_before: [T; HC::WIDTH],
-    pub(crate) challenger_state_after: [T; HC::WIDTH],
+    pub(crate) challenger_state_before: P,
+    pub(crate) challenger_state_after: P,
 }
 
-/// Similar to the unstable `Iterator::next_chunk`. Could be replaced with that when it's stable.
-fn next_chunk<T: Debug, const N: usize>(iter: &mut impl Iterator<Item = T>) -> [T; N] {
-    (0..N)
-        .flat_map(|_| iter.next())
-        .collect_vec()
-        .try_into()
-        .expect("Not enough elements")
-}
-
-impl<T: Copy + Eq + PartialEq + Debug, HC: HashConfig> PublicInputs<T, HC>
-where
-    [(); HC::WIDTH]:,
-{
+impl<T: Copy + Debug + Default + Eq + PartialEq, P: PlonkyPermutation<T>> PublicInputs<T, P> {
     pub(crate) fn from_vec(v: &[T], config: &StarkConfig) -> Self {
-        let mut iter = v.iter().copied();
-        let trace_cap = (0..config.fri_config.num_cap_elements())
-            .map(|_| next_chunk::<_, 4>(&mut iter).to_vec())
-            .collect();
+        // TODO: Document magic number 4; probably comes from
+        // Ethereum 256 bits = 4 * Goldilocks 64 bits
+        let nelts = config.fri_config.num_cap_elements();
+        let mut trace_cap = Vec::with_capacity(nelts);
+        for i in 0..nelts {
+            trace_cap.push(v[4 * i..4 * (i + 1)].to_vec());
+        }
+        let mut iter = v.iter().copied().skip(4 * nelts);
         let ctl_challenges = GrandProductChallengeSet {
             challenges: (0..config.num_challenges)
                 .map(|_| GrandProductChallenge {
@@ -89,8 +78,8 @@ where
                 })
                 .collect(),
         };
-        let challenger_state_before = next_chunk(&mut iter);
-        let challenger_state_after = next_chunk(&mut iter);
+        let challenger_state_before = P::new(&mut iter);
+        let challenger_state_after = P::new(&mut iter);
         let ctl_zs_last: Vec<_> = iter.collect();
 
         Self {
@@ -112,19 +101,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
         cross_table_lookups: Vec<CrossTableLookup<F>>,
         inner_config: &StarkConfig,
-    ) -> Result<()>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    ) -> Result<()> {
         let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<F, C::HCO>::from_vec(
+            PublicInputs::<F, <C::Hasher as Hasher<F>>::Permutation>::from_vec(
                 &self.recursive_proofs[i].public_inputs,
                 inner_config,
             )
         });
 
-        let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::Hasher>::new();
         for pi in &pis {
             for h in &pi.trace_cap {
                 challenger.observe_elements(h);
@@ -165,12 +150,13 @@ pub(crate) struct StarkWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::HCO::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     pub(crate) circuit: CircuitData<F, C, D>,
     pub(crate) stark_proof_target: StarkProofTarget<D>,
     pub(crate) ctl_challenges_target: GrandProductChallengeSet<Target>,
-    pub(crate) init_challenger_state_target: [Target; C::HCO::WIDTH],
+    pub(crate) init_challenger_state_target:
+        <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation,
     pub(crate) zero_target: Target,
 }
 
@@ -178,9 +164,7 @@ impl<F, C, const D: usize> StarkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     pub fn to_buffer(
         &self,
@@ -189,7 +173,7 @@ where
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
-        buffer.write_target_vec(&self.init_challenger_state_target)?;
+        buffer.write_target_vec(self.init_challenger_state_target.as_ref())?;
         buffer.write_target(self.zero_target)?;
         self.stark_proof_target.to_buffer(buffer)?;
         self.ctl_challenges_target.to_buffer(buffer)?;
@@ -202,7 +186,9 @@ where
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
-        let init_challenger_state_target = buffer.read_target_vec()?;
+        let target_vec = buffer.read_target_vec()?;
+        let init_challenger_state_target =
+            <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(target_vec.into_iter());
         let zero_target = buffer.read_target()?;
         let stark_proof_target = StarkProofTarget::from_buffer(buffer)?;
         let ctl_challenges_target = GrandProductChallengeSet::from_buffer(buffer)?;
@@ -210,7 +196,7 @@ where
             circuit,
             stark_proof_target,
             ctl_challenges_target,
-            init_challenger_state_target: init_challenger_state_target.try_into().unwrap(),
+            init_challenger_state_target,
             zero_target,
         })
     }
@@ -240,8 +226,8 @@ where
         }
 
         inputs.set_target_arr(
-            self.init_challenger_state_target,
-            proof_with_metadata.init_challenger_state,
+            self.init_challenger_state_target.as_ref(),
+            proof_with_metadata.init_challenger_state.as_ref(),
         );
 
         self.circuit.prove(inputs)
@@ -263,9 +249,7 @@ impl<F, C, const D: usize> PlonkWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     pub(crate) fn prove(
         &self,
@@ -294,9 +278,7 @@ pub(crate) fn recursive_stark_circuit<
 ) -> StarkWrapperCircuit<F, C, D>
 where
     [(); S::COLUMNS]:,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
     let zero_target = builder.zero();
@@ -333,9 +315,12 @@ where
         num_permutation_zs,
     );
 
-    let init_challenger_state_target = core::array::from_fn(|_| builder.add_virtual_public_input());
+    let init_challenger_state_target =
+        <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(std::iter::from_fn(|| {
+            Some(builder.add_virtual_public_input())
+        }));
     let mut challenger =
-        RecursiveChallenger::<F, C::HCO, C::Hasher, D>::from_state(init_challenger_state_target);
+        RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges = proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
@@ -344,7 +329,7 @@ where
         inner_config,
     );
     let challenger_state = challenger.compact(&mut builder);
-    builder.register_public_inputs(&challenger_state);
+    builder.register_public_inputs(challenger_state.as_ref());
 
     builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
 
@@ -399,9 +384,8 @@ fn verify_stark_proof_with_challenges_circuit<
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
-    [(); C::HCO::WIDTH]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -620,7 +604,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     zero: Target,
 ) where
     F: RichField + Extendable<D>,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    C::Hasher: AlgebraicHasher<F>,
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
@@ -674,16 +658,16 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_target_arr(
-        trie_roots_target.state_root,
-        h256_limbs(trie_roots.state_root),
+        &trie_roots_target.state_root,
+        &h256_limbs(trie_roots.state_root),
     );
     witness.set_target_arr(
-        trie_roots_target.transactions_root,
-        h256_limbs(trie_roots.transactions_root),
+        &trie_roots_target.transactions_root,
+        &h256_limbs(trie_roots.transactions_root),
     );
     witness.set_target_arr(
-        trie_roots_target.receipts_root,
-        h256_limbs(trie_roots.receipts_root),
+        &trie_roots_target.receipts_root,
+        &h256_limbs(trie_roots.receipts_root),
     );
 }
 
@@ -696,8 +680,8 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_target_arr(
-        block_metadata_target.block_beneficiary,
-        h160_limbs(block_metadata.block_beneficiary),
+        &block_metadata_target.block_beneficiary,
+        &h160_limbs(block_metadata.block_beneficiary),
     );
     witness.set_target(
         block_metadata_target.block_timestamp,
