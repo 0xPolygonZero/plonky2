@@ -88,8 +88,9 @@ sstore_after_refund:
     %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
 
-    // TODO: If value = 0, delete the key instead of inserting 0.
+    // If the value is zero, delete the slot from the storage trie.
     // stack: slot, value, kexit_info
+    DUP2 ISZERO %jumpi(sstore_delete)
 
     // First we write the value to MPT data, and get a pointer to it.
     %get_trie_data_size
@@ -136,3 +137,16 @@ sstore_noop:
     // stack: slot, value, kexit_info
     %pop2
     EXIT_KERNEL
+
+// Delete the slot from the storage trie.
+sstore_delete:
+    // stack: slot, value, kexit_info
+    SWAP1 POP
+    PUSH after_storage_insert SWAP1
+    // stack: slot, after_storage_insert, kexit_info
+    %slot_to_storage_key
+    // stack: storage_key, after_storage_insert, kexit_info
+    PUSH 64 // storage_key has 64 nibbles
+    %current_storage_trie
+    // stack: storage_root_ptr, 64, storage_key, after_storage_insert, kexit_info
+    %jump(mpt_delete)
