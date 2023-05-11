@@ -8,7 +8,6 @@ use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::{Field, Sample};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::HashConfig;
 use crate::iop::witness::{PartialWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
@@ -94,11 +93,7 @@ pub fn test_eval_fns<
     const D: usize,
 >(
     gate: G,
-) -> Result<()>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<()> {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
     let wires_base = F::rand_vec(gate.num_wires());
     let constants_base = F::rand_vec(gate.num_constants());

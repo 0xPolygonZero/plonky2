@@ -6,16 +6,14 @@ use plonky2::field::types::Sample;
 use plonky2::hash::hash_types::{BytesHash, RichField};
 use plonky2::hash::keccak::KeccakHash;
 use plonky2::hash::poseidon::{Poseidon, SPONGE_WIDTH};
-use plonky2::plonk::config::{Hasher, KeccakHashConfig};
+use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 
 pub(crate) fn bench_keccak<F: RichField>(c: &mut Criterion) {
     c.bench_function("keccak256", |b| {
         b.iter_batched(
             || (BytesHash::<32>::rand(), BytesHash::<32>::rand()),
-            |(left, right)| {
-                <KeccakHash<32> as Hasher<F, KeccakHashConfig>>::two_to_one(left, right)
-            },
+            |(left, right)| <KeccakHash<32> as Hasher<F>>::two_to_one(left, right),
             BatchSize::SmallInput,
         )
     });
