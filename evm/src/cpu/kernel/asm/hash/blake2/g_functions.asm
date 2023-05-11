@@ -11,28 +11,28 @@
     DUP11
     // stack: start, a, b, c, d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[a], b, c, d, a, b, c, d, x, y, start
     SWAP1
     // stack: b, v[a], c, d, a, b, c, d, x, y, start
     DUP11
     // stack: start, b, v[a], c, d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[b], v[a], c, d, a, b, c, d, x, y, start
     SWAP2
     // stack: c, v[a], v[b], d, a, b, c, d, x, y, start
     DUP11
     // stack: start, c, v[a], v[b], d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[c], v[a], v[b], d, a, b, c, d, x, y, start
     SWAP3
     // stack: d, v[a], v[b], v[c], a, b, c, d, x, y, start
     DUP11
     // stack: start, d, v[a], v[b], v[c], a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[d], v[a], v[b], v[c], a, b, c, d, x, y, start
     %stack (vd, vs: 3) -> (vs, vd)
     // stack: v[a], v[b], v[c], v[d], a, b, c, d, x, y, start
@@ -95,13 +95,13 @@
     %stack (vb, vc, vd, va, a, b, c, d, x, y, start) -> (start, a, va, start, b, vb, start, c, vc, start, d, vd)
     // stack: start, a, v[a]'', start, b, v[b]'', start, c, v[c]'', start, d, v[d]''
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
 %endmacro
 
 %macro call_blake2_g_function(a, b, c, d, x_idx, y_idx)
@@ -113,7 +113,7 @@
     // stack: s[y_idx], round, start
     %blake2_message_addr
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: m[s[y_idx]], round, start
     PUSH $x_idx
     DUP3
@@ -122,7 +122,7 @@
     // stack: s[x_idx], m[s[y_idx]], round, start
     %blake2_message_addr
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: m[s[x_idx]], m[s[y_idx]], round, start
     %stack (ss: 2, r, s) -> (ss, s, r, s)
     // stack: m[s[x_idx]], m[s[y_idx]], start, round, start

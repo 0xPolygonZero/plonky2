@@ -4,7 +4,7 @@ global sha2:
     // stack: num_bytes, virt, retdest
     DUP2
     // stack: virt, num_bytes, virt, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: virt, retdest
 
 
@@ -14,7 +14,7 @@ global sha2:
 //               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
     // stack: virt, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: num_bytes, retdest
     // STEP 1: append 1
     // insert 128 (= 1 << 7) at x[num_bytes+1]
@@ -25,7 +25,7 @@ global sha2_pad:
     // stack: num_bytes, 128, num_bytes, retdest
     %increment
     // stack: num_bytes+1, 128, num_bytes, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: num_bytes, retdest
     // STEP 2: calculate num_blocks := (num_bytes+8)//64 + 1
     DUP1
@@ -51,7 +51,7 @@ global sha2_pad:
     // stack: num_blocks, num_blocks, retdest
     // STEP 5: write num_blocks to x[0]
     PUSH 0
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: num_blocks, retdest
     %message_schedule_addr_from_num_blocks
     %jump(sha2_gen_all_message_schedules)

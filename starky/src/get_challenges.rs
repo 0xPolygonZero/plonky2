@@ -5,7 +5,6 @@ use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::hashing::HashConfig;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::target::Target;
@@ -21,11 +20,11 @@ use crate::stark::Stark;
 
 fn get_challenges<F, C, S, const D: usize>(
     stark: &S,
-    trace_cap: &MerkleCap<F, C::HCO, C::Hasher>,
-    permutation_zs_cap: Option<&MerkleCap<F, C::HCO, C::Hasher>>,
-    quotient_polys_cap: &MerkleCap<F, C::HCO, C::Hasher>,
+    trace_cap: &MerkleCap<F, C::Hasher>,
+    permutation_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
+    quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<F, C::HCO, C::Hasher>],
+    commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
     config: &StarkConfig,
@@ -35,12 +34,10 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let num_challenges = config.num_challenges;
 
-    let mut challenger = Challenger::<F, C::HCO, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     challenger.observe_cap(trace_cap);
 
@@ -79,8 +76,6 @@ impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     // TODO: Should be used later in compression?
     #![allow(dead_code)]
@@ -150,13 +145,11 @@ pub(crate) fn get_challenges_target<
     config: &StarkConfig,
 ) -> StarkProofChallengesTarget<D>
 where
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     let num_challenges = config.num_challenges;
 
-    let mut challenger = RecursiveChallenger::<F, C::HCO, C::Hasher, D>::new(builder);
+    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
 
     challenger.observe_cap(trace_cap);
 
@@ -204,9 +197,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
     {
         let StarkProofTarget {
             trace_cap,

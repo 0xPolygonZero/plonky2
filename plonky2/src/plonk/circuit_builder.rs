@@ -27,7 +27,6 @@ use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -435,9 +434,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn constant_merkle_cap<HC: HashConfig, H: Hasher<F, HC, Hash = HashOut<F>>>(
+    pub fn constant_merkle_cap<H: Hasher<F, Hash = HashOut<F>>>(
         &mut self,
-        cap: &MerkleCap<F, HC, H>,
+        cap: &MerkleCap<F, H>,
     ) -> MerkleCapTarget {
         MerkleCapTarget(cap.0.iter().map(|h| self.constant_hash(*h)).collect())
     }
@@ -447,7 +446,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> VerifierCircuitTarget
     where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
+        C::Hasher: AlgebraicHasher<F>,
     {
         VerifierCircuitTarget {
             constants_sigmas_cap: self.constant_merkle_cap(&verifier_data.constants_sigmas_cap),
@@ -738,11 +737,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         #[cfg(feature = "std")]
         let start = Instant::now();
@@ -753,7 +748,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // those hash wires match the claimed public inputs.
         let num_public_inputs = self.public_inputs.len();
         let public_inputs_hash =
-            self.hash_n_to_hash_no_pad::<C::HCI, C::InnerHasher>(self.public_inputs.clone());
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
@@ -946,22 +941,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build::<C>();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D>
-    where
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
-    {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build::<C>();
         circuit_data.verifier_data()

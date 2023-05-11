@@ -278,7 +278,7 @@ global process_message_txn_after_call:
     // stack: used_gas, leftover_gas
     %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
     // stack: refund, used_gas, leftover_gas
-    DUP2 %div_const(2) // max_refund = used_gas/2
+    DUP2 %div_const(@MAX_REFUND_QUOTIENT) // max_refund = used_gas/5
     // stack: max_refund, refund, used_gas, leftover_gas
     %min
     %stack (refund, used_gas, leftover_gas) -> (leftover_gas, refund, refund, used_gas)

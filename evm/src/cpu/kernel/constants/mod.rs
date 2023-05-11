@@ -34,6 +34,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in REFUND_CONSTANTS {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for (name, value) in PRECOMPILES {
         c.insert(name.into(), U256::from(value));
     }
@@ -180,7 +184,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 38] = [
+const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -197,8 +201,6 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
-    ("REFUND_SCLEAR", 15_000),
-    ("REFUND_SELFDESTRUCT", 24_000),
     ("GAS_SELFDESTRUCT", 5_000),
     ("GAS_CREATE", 32_000),
     ("GAS_CODEDEPOSIT", 200),
@@ -220,6 +222,8 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
 ];
+
+const REFUND_CONSTANTS: [(&str, u16); 2] = [("REFUND_SCLEAR", 4_800), ("MAX_REFUND_QUOTIENT", 5)];
 
 const PRECOMPILES: [(&str, u16); 9] = [
     ("ECREC", 1),
