@@ -193,6 +193,7 @@ after_constructor:
 // TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
 global set_codehash:
     // stack: addr, codehash, retdest
+    DUP1 %insert_touched_addresses
     DUP1 %mpt_read_state_trie
     // stack: account_ptr, addr, codehash, retdest
     %add_const(3)

@@ -6,7 +6,6 @@
 
 global revert_account_touched:
     // stack: entry_type, ptr, retdest
-    // TODO
     POP
     %journal_load_1
     // stack: address, retdest

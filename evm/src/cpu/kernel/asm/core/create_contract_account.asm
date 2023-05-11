@@ -3,6 +3,7 @@
 // Post stack: status
 %macro create_contract_account
     // stack: value, address
+    DUP2 %insert_touched_addresses
     DUP2 %mpt_read_state_trie
     // stack: existing_account_ptr, value, address
     // If the account doesn't exist, there's no need to check its balance or nonce,

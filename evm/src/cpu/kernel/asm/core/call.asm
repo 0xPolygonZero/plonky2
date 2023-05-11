@@ -23,6 +23,7 @@ global sys_call:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
 
     %call_charge_gas(1, 1)
@@ -71,6 +72,7 @@ global sys_callcode:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
 
     %call_charge_gas(1, 0)
@@ -121,6 +123,7 @@ global sys_staticcall:
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
@@ -171,6 +174,7 @@ global sys_delegatecall:
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
+    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
