@@ -109,7 +109,7 @@ where
     [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values, outputs) = timed!(
+    let (_traces, public_values, outputs) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, inputs, config, timing)?
