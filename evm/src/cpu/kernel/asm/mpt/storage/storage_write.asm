@@ -5,6 +5,7 @@
 
 global sys_sstore:
     %check_static
+    DUP1 %leftover_gas %le_const(@GAS_CALLSTIPEND) %jumpi(fault_exception)
     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
     %sload_current
     %address
