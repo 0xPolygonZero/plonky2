@@ -78,7 +78,7 @@ global delete_all_touched_addresses:
     %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
     // stack: len, retdest
     PUSH 0
-global delete_all_touched_addresses_loop:
+delete_all_touched_addresses_loop:
     // stack: i, len, retdest
     DUP2 DUP2 EQ %jumpi(delete_all_touched_addresses_done)
     // stack: i, len, retdest
@@ -87,11 +87,11 @@ global delete_all_touched_addresses_loop:
     DUP1 %is_empty %jumpi(bingo)
     // stack: loaded_addr, i, len, retdest
     POP %increment %jump(delete_all_touched_addresses_loop)
-global bingo:
+bingo:
     // stack: loaded_addr, i, len, retdest
     %delete_account
     %increment %jump(delete_all_touched_addresses_loop)
-global delete_all_touched_addresses_done:
+delete_all_touched_addresses_done:
     // stack: i, len, retdest
     %pop2 JUMP
 

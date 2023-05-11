@@ -85,9 +85,13 @@ global sys_selfdestruct:
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
     %mstore_trie_data // TODO: This should be a copy-on-write operation.
 
+    %stack (balance, address, recipient, kexit_info) ->
+        (address, recipient, balance, address, recipient, recipient, balance, kexit_info)
+    %journal_add_account_destroyed
+
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.
-    %stack (balance, address, recipient, kexit_info) -> (address, recipient, recipient, balance, kexit_info)
+    // stack: address, recipient, recipient, balance, kexit_info
     EQ %jumpi(sys_selfdestruct_same_addr)
     // stack: recipient, balance, kexit_info
     %add_eth

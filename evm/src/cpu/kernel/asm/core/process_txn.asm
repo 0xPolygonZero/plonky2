@@ -175,6 +175,7 @@ global process_contract_creation_txn_after_constructor:
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.
     %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, address, retdest
     POP
     POP
@@ -267,6 +268,7 @@ global process_message_txn_after_call:
     %pay_coinbase_and_refund_sender
     // TODO: Delete accounts in self-destruct list and empty touched addresses.
     %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, retdest
     POP
     JUMP
