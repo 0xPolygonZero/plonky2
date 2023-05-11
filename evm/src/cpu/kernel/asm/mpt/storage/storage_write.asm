@@ -85,8 +85,12 @@ sstore_no_refund:
 sstore_after_refund:
     // stack: kexit_info, current_value, slot, value
     // Check if `value` is equal to `current_value`, and if so exit the kernel early.
-    %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
+    %stack (kexit_info, current_value, slot, value) -> (value, current_value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
+
+    // stack: current_value, slot, value, kexit_info
+    DUP2 %address %journal_add_storage_change
+    // stack: slot, value, kexit_info
 
     // If the value is zero, delete the slot from the storage trie.
     // stack: slot, value, kexit_info
@@ -134,8 +138,8 @@ after_state_insert:
     EXIT_KERNEL
 
 sstore_noop:
-    // stack: slot, value, kexit_info
-    %pop2
+    // stack: current_value, slot, value, kexit_info
+    %pop3
     EXIT_KERNEL
 
 // Delete the slot from the storage trie.
