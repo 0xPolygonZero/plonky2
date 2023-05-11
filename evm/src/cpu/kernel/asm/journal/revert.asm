@@ -64,7 +64,7 @@ global revert_checkpoint:
     // stack: target_checkpoint, retdest
     %current_checkpoint
     // stack: current_checkpoint, target_checkpoint, retdest
-    DUP2 DUP2 GT ISZERO %jumpi(panic) // Sanity check. This should never happen.
+    DUP2 DUP2 LT %jumpi(panic) // Sanity check that current_cp >= target_cp. This should never happen.
 while:
     // stack: current_checkpoint, target_checkpoint, retdest
     DUP2 DUP2 EQ %jumpi(revert_checkpoint_done)
