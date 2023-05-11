@@ -31,7 +31,7 @@ insert_touched_addresses_loop:
 
 insert_address:
     %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
-    DUP2 %journal_add_account_loaded // Add a journal entry for the loaded account.
+    DUP2 %journal_add_account_touched // Add a journal entry for the touched account.
     %mstore_kernel(@SEGMENT_TOUCHED_ADDRESSES) // Store new address at the end of the array.
     // stack: len, retdest
     %increment
