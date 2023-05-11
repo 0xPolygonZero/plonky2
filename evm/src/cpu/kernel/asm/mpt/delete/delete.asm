@@ -22,3 +22,24 @@ mpt_delete_leaf:
     %pop4
     PUSH 0 // empty node ptr
     SWAP1 JUMP
+
+global delete_account:
+    %stack (address, retdest) -> (address, delete_account_save, retdest)
+    %addr_to_state_key
+    // stack: key, delete_account_save, retdest
+    PUSH 64
+    // stack: 64, key, delete_account_save, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    // stack: state_root_prt, 64, key, delete_account_save, retdest
+    %jump(mpt_delete)
+delete_account_save:
+    // stack: updated_state_root_ptr, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    JUMP
+
+%macro delete_account
+    %stack (address) -> (address, %%after)
+    %jump(delete_account)
+%%after:
+    // stack: (empty)
+%endmacro

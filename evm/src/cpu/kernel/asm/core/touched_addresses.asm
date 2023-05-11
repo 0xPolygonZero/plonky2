@@ -44,6 +44,7 @@ insert_touched_addresses_found:
 
 /// Remove the address from the list.
 /// Panics if the address is not in the list.
+/// TODO: Unused?
 global remove_touched_addresses:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
@@ -70,3 +71,33 @@ remove_touched_addresses_found:
     SWAP1
     %mstore_kernel(@SEGMENT_TOUCHED_ADDRESSES) // Store the last address at the position of the removed address.
     JUMP
+
+
+global delete_all_touched_addresses:
+    // stack: retdest
+    %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
+    // stack: len, retdest
+    PUSH 0
+global delete_all_touched_addresses_loop:
+    // stack: i, len, retdest
+    DUP2 DUP2 EQ %jumpi(delete_all_touched_addresses_done)
+    // stack: i, len, retdest
+    DUP1 %mload_kernel(@SEGMENT_TOUCHED_ADDRESSES)
+    // stack: loaded_addr, i, len, retdest
+    DUP1 %is_empty %jumpi(bingo)
+    // stack: loaded_addr, i, len, retdest
+    POP %increment %jump(delete_all_touched_addresses_loop)
+global bingo:
+    // stack: loaded_addr, i, len, retdest
+    %delete_account
+    %increment %jump(delete_all_touched_addresses_loop)
+global delete_all_touched_addresses_done:
+    // stack: i, len, retdest
+    %pop2 JUMP
+
+%macro delete_all_touched_addresses
+    %stack () -> (%%after)
+    %jump(delete_all_touched_addresses)
+%%after:
+    // stack: (empty)
+%endmacro
