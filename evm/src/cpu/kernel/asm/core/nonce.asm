@@ -22,17 +22,21 @@ global nonce:
 // Increment the given account's nonce. Assumes the account already exists; panics otherwise.
 global increment_nonce:
     // stack: address, retdest
+    DUP1
     %mpt_read_state_trie
-    // stack: account_ptr, retdest
+    // stack: account_ptr, address, retdest
     DUP1 ISZERO %jumpi(increment_nonce_no_such_account)
-    // stack: nonce_ptr, retdest
+    // stack: nonce_ptr, address, retdest
     DUP1 %mload_trie_data
-    // stack: nonce, nonce_ptr, retdest
+    // stack: nonce, nonce_ptr, address, retdest
+    DUP1 DUP4 %journal_add_nonce_change
+    // stack: nonce, nonce_ptr, address, retdest
     %increment
     SWAP1
-    // stack: nonce_ptr, nonce', retdest
+    // stack: nonce_ptr, nonce', address, retdest
     %mstore_trie_data
-    // stack: retdest
+    // stack: address, retdest
+    POP
     JUMP
 global increment_nonce_no_such_account:
     PANIC

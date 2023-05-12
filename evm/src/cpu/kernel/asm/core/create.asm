@@ -91,6 +91,7 @@ global create_common:
     // stack: status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
     // stack: new_ctx, address, value, code_offset, code_len, kexit_info
@@ -192,10 +193,15 @@ after_constructor:
 // TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
 global set_codehash:
     // stack: addr, codehash, retdest
-    %mpt_read_state_trie
-    // stack: account_ptr, codehash, retdest
+    DUP1 %insert_touched_addresses
+    DUP1 %mpt_read_state_trie
+    // stack: account_ptr, addr, codehash, retdest
     %add_const(3)
-    // stack: codehash_ptr, codehash, retdest
+    // stack: codehash_ptr, addr, codehash, retdest
+    DUP1 %mload_trie_data
+    // stack: prev_codehash, codehash_ptr, addr, codehash, retdest
+    DUP3 %journal_add_code_change // Add the code change to the journal.
+    %stack (codehash_ptr, addr, codehash) -> (codehash_ptr, codehash)
     %mstore_trie_data
     // stack: retdest
     JUMP

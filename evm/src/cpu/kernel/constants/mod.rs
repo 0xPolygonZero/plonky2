@@ -6,12 +6,14 @@ use hex_literal::hex;
 use crate::cpu::decode::invalid_opcodes_user;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::journal_entry::JournalEntry;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub(crate) mod context_metadata;
 pub(crate) mod global_metadata;
+pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
@@ -66,6 +68,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
+    }
+    for entry in JournalEntry::all() {
+        c.insert(entry.var_name().into(), (entry as u32).into());
     }
     c.insert(
         "INVALID_OPCODES_USER".into(),

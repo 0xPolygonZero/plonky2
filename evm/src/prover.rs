@@ -90,6 +90,33 @@ where
     Ok((proof, outputs))
 }
 
+/// Generate traces, then create all STARK proofs. Returns information about the post-state,
+/// intended for debugging, in addition to the proof.
+pub fn dont_prove_with_outputs<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    inputs: GenerationInputs,
+    timing: &mut TimingTree,
+) -> Result<(PublicValues, GenerationOutputs)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
+    [(); LogicStark::<F, D>::COLUMNS]:,
+    [(); MemoryStark::<F, D>::COLUMNS]:,
+{
+    timed!(timing, "build kernel", Lazy::force(&KERNEL));
+    let (_traces, public_values, outputs) = timed!(
+        timing,
+        "generate all traces",
+        generate_traces(all_stark, inputs, config, timing)?
+    );
+    Ok((public_values, outputs))
+}
+
 /// Compute all STARK proofs.
 pub(crate) fn prove_with_traces<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
