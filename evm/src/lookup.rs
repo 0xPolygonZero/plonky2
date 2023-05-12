@@ -16,10 +16,13 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct Lookup {
     /// Columns whose values should be contained in the lookup table.
+    /// These are the f_i(x) polynomials in the logUp paper.
     pub(crate) columns: Vec<usize>,
     /// Column containing the lookup table.
+    /// This is the t(x) polynomial in the paper.
     pub(crate) table_column: usize,
     /// Column containing the frequencies of `columns` in `table_column`.
+    /// This is the m(x) polynomial in the paper.
     pub(crate) frequencies_column: usize,
 }
 
@@ -54,6 +57,11 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
     // for every column, but that would require building a big vector of all the columns concatenated.
     // Not sure which approach is better.
+    // Note: these are the h_k(x) polynomials in the paper, with a few differences:
+    //       * Here, the first ratio m_0(x)/phi_0(x) is not included with the columns batched up to create the 
+    //         h_k polynomials; instead there's a separate helper column for it (see below).
+    //       * Here, we use 1 instead of -1 as the numerator (and subtract later).
+    //       * Here, for now, the batch size (l) is always constraint_degree - 1 = 2.
     for mut col_inds in &lookup.columns.iter().chunks(constraint_degree - 1) {
         let first = *col_inds.next().unwrap();
         // TODO: The clone could probably be avoided by using a modified version of `batch_multiplicative_inverse`
@@ -75,6 +83,8 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     }
 
     // Add `1/(table+challenge)` to the helper columns.
+    // This is 1/phi_0(x) = 1/(x + t(x)) from the paper.
+    // Here, we don't include m(x) in the numerator, instead multiplying it with this column later.
     let mut table = trace_poly_values[lookup.table_column].values.clone();
     for x in table.iter_mut() {
         *x = challenge + *x;
@@ -82,6 +92,9 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     helper_columns.push(F::batch_multiplicative_inverse(&table).into());
 
     // Compute the `Z` polynomial with `Z(1)=0` and `Z(gx) = Z(x) + sum h_i(x) - frequencies(x)g(x)`.
+    // This enforces the check from the paper, that the sum of the h_k(x) polynomials is 0 over H.
+    // In the paper, that sum includes m(x)/(x + t(x)) = frequencies(x)/g(x), because that was bundled
+    // into the h_k(x) polynomials.
     let frequencies = &trace_poly_values[lookup.frequencies_column].values;
     let mut z = Vec::with_capacity(frequencies.len());
     z.push(F::ZERO);
@@ -129,8 +142,8 @@ pub(crate) fn eval_lookups_checks<F, FE, P, S, const D: usize, const D2: usize>(
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
             let challenge = FE::from_basefield(challenge);
-            // For each chunk, check that `h_i f_2i f_2i+1 = f_2i + f_2i+1` if the chunk has length 2
-            // or if it has length 1, check that `h_i * f = 1`.
+            // For each chunk, check that `h_i (x+f_2i) (x+f_2i+1) = (x+f_2i) + (x+f_2i+1)` if the chunk has length 2
+            // or if it has length 1, check that `h_i * (x+f_2i) = 1`, where x is the challenge
             for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
                 let mut x = lookup_vars.local_values[start + j];
                 let mut y = P::ZEROS;
