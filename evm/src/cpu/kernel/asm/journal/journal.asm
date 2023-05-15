@@ -186,7 +186,21 @@
     // stack: journal_size, current_checkpoint
     DUP2 %mstore_kernel(@SEGMENT_JOURNAL_CHECKPOINTS)
     // stack: current_checkpoint
-    DUP1 %increment
-    %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+    %mload_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
+    // stack: i, current_checkpoint
+    DUP2 DUP2 %mstore_current(@SEGMENT_CONTEXT_CHECKPOINTS)
+    // stack: i, current_checkpoint
+    %increment
+    %mstore_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
     // stack: current_checkpoint
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+    // stack: (empty)
+%endmacro
+
+%macro pop_checkpoint
+    %mload_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
+    // stack: i
+    %decrement
+    %mstore_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
 %endmacro

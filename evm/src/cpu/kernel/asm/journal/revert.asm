@@ -61,6 +61,9 @@ after_revert:
 
 
 global revert_checkpoint:
+    // stack: retdest
+    PUSH 1 %mload_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN) SUB
+    %mload_current(@SEGMENT_CONTEXT_CHECKPOINTS)
     // stack: target_checkpoint, retdest
     %current_checkpoint
     // stack: current_checkpoint, target_checkpoint, retdest
@@ -74,10 +77,11 @@ revert_checkpoint_done:
     // stack: current_checkpoint, target_checkpoint, retdest
     POP
     %mstore_global_metadata(@GLOBAL_METADATA_CURRENT_CHECKPOINT)
+    %pop_checkpoint
     JUMP
 
 %macro revert_checkpoint
-    %stack (target_checkpoint) -> (target_checkpoint, %%after)
+    PUSH %%after
     %jump(revert_checkpoint)
 %%after:
     // stack: (empty)
