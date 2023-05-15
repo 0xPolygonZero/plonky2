@@ -233,6 +233,7 @@ global process_message_txn_return:
     %non_intrinisic_gas
     // stack: leftover_gas, retdest
     %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
     // stack: retdest
     JUMP
 
