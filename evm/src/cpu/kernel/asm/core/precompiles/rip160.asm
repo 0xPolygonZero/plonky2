@@ -27,7 +27,7 @@ global precompile_rip160:
     //
     //    %stack (ctx, size) ->
     //        (
-    //        0, @SEGMENT_KERNEL_GENERAL, 200, // DST
+    //        ctx, @SEGMENT_KERNEL_GENERAL, 200, // DST
     //        ctx, @SEGMENT_CALLDATA, 0,       // SRC
     //        size, ripemd,                    // count, retdest
     //        200, size, rip160_contd          // ripemd input: virt, num_bytes, retdest
@@ -42,7 +42,7 @@ global precompile_rip160:
     SWAP6
     PUSH 200
     PUSH @SEGMENT_KERNEL_GENERAL
-    PUSH 0
+    DUP3
 
     %jump(memcpy)
 
