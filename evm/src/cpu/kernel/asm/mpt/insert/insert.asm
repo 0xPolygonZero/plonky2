@@ -17,6 +17,7 @@ global mpt_insert:
 
     // There's still the MPT_NODE_HASH case, but if we hit a hash node,
     // it means the prover failed to provide necessary Merkle data, so panic.
+global mpt_insert_hash_node:
     PANIC
 
 mpt_insert_empty:

@@ -6,12 +6,14 @@ use hex_literal::hex;
 use crate::cpu::decode::invalid_opcodes_user;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::journal_entry::JournalEntry;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub(crate) mod context_metadata;
 pub(crate) mod global_metadata;
+pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
@@ -32,7 +34,23 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    for (name, value) in REFUND_CONSTANTS {
+        c.insert(name.into(), U256::from(value));
+    }
+
     for (name, value) in PRECOMPILES {
+        c.insert(name.into(), U256::from(value));
+    }
+
+    for (name, value) in PRECOMPILES_GAS {
+        c.insert(name.into(), U256::from(value));
+    }
+
+    for (name, value) in CODE_SIZE_LIMIT {
+        c.insert(name.into(), U256::from(value));
+    }
+
+    for (name, value) in SNARKV_POINTERS {
         c.insert(name.into(), U256::from(value));
     }
 
@@ -50,6 +68,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
+    }
+    for entry in JournalEntry::all() {
+        c.insert(entry.var_name().into(), (entry as u32).into());
     }
     c.insert(
         "INVALID_OPCODES_USER".into(),
@@ -79,7 +100,7 @@ const HASH_CONSTANTS: [(&str, [u8; 32]); 2] = [
     ),
 ];
 
-const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
+const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     (
         "U256_MAX",
         hex!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
@@ -87,6 +108,14 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     (
         "BN_BASE",
         hex!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"),
+    ),
+    (
+        "BN_TWISTED_RE",
+        hex!("2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5"),
+    ),
+    (
+        "BN_TWISTED_IM",
+        hex!("009713b03af0fed4cd2cafadeed8fdf4a74fa084e52d1852e4a2bd0685c315d2"),
     ),
     (
         "BN_SCALAR",
@@ -155,7 +184,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 18] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 38] = [
+const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -172,8 +201,6 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
-    ("REFUND_SCLEAR", 15_000),
-    ("REFUND_SELFDESTRUCT", 24_000),
     ("GAS_SELFDESTRUCT", 5_000),
     ("GAS_CREATE", 32_000),
     ("GAS_CODEDEPOSIT", 200),
@@ -196,6 +223,8 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_BLOCKHASH", 20),
 ];
 
+const REFUND_CONSTANTS: [(&str, u16); 2] = [("REFUND_SCLEAR", 4_800), ("MAX_REFUND_QUOTIENT", 5)];
+
 const PRECOMPILES: [(&str, u16); 9] = [
     ("ECREC", 1),
     ("SHA256", 2),
@@ -206,4 +235,28 @@ const PRECOMPILES: [(&str, u16); 9] = [
     ("BN_MUL", 7),
     ("SNARKV", 8),
     ("BLAKE2_F", 9),
+];
+
+const PRECOMPILES_GAS: [(&str, u16); 13] = [
+    ("ECREC_GAS", 3_000),
+    ("SHA256_STATIC_GAS", 60),
+    ("SHA256_DYNAMIC_GAS", 12),
+    ("RIP160_STATIC_GAS", 600),
+    ("RIP160_DYNAMIC_GAS", 120),
+    ("ID_STATIC_GAS", 15),
+    ("ID_DYNAMIC_GAS", 3),
+    ("EXPMOD_MIN_GAS", 200),
+    ("BN_ADD_GAS", 150),
+    ("BN_MUL_GAS", 6_000),
+    ("SNARKV_STATIC_GAS", 45_000),
+    ("SNARKV_DYNAMIC_GAS", 34_000),
+    ("BLAKE2_F__GAS", 1),
+];
+
+const SNARKV_POINTERS: [(&str, u64); 2] = [("SNARKV_INP", 112), ("SNARKV_OUT", 100)];
+
+const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
+    ("MAX_CODE_SIZE", 0x6000),
+    ("MAX_INITCODE_SIZE", 0xc000),
+    ("INITCODE_WORD_COST", 2),
 ];

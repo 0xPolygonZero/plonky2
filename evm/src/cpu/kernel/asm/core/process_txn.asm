@@ -144,9 +144,37 @@ process_contract_creation_txn_after_code_loaded:
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
     POP // TODO: Success will go into the receipt when we support that.
+
+    // EIP-3541: Reject new contract code starting with the 0xEF byte
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+
+    // stack: leftover_gas, new_ctx, address, retdest
+    %returndatasize // Size of the code.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %mul_const(@GAS_CODEDEPOSIT) SWAP1
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    SUB
+
+    // Store the code hash of the new contract.
+    // stack: leftover_gas, new_ctx, address, retdest
+    GET_CONTEXT
+    %returndatasize
+    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    KECCAK_GENERAL
+    // stack: codehash, leftover_gas, new_ctx, address, retdest
+    %observe_new_contract
+    DUP4
+    // stack: address, codehash, leftover_gas, new_ctx, address, retdest
+    %set_codehash
+
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, address, retdest
     POP
     POP
@@ -165,6 +193,13 @@ global process_message_txn:
     %jumpi(process_message_txn_insufficient_balance)
     // stack: retdest
 
+    %handle_precompiles_from_eoa
+
+    // If to's code is empty, return.
+    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
+    // stack: code_empty, retdest
+    %jumpi(process_message_txn_return)
+
     // Add precompiles to accessed addresses.
     PUSH @ECREC %insert_accessed_addresses_no_return
     PUSH @SHA256 %insert_accessed_addresses_no_return
@@ -175,12 +210,6 @@ global process_message_txn:
     PUSH @BN_MUL %insert_accessed_addresses_no_return
     PUSH @SNARKV %insert_accessed_addresses_no_return
     PUSH @BLAKE2_F %insert_accessed_addresses_no_return
-    // TODO: Handle precompiles.
-
-    // If to's code is empty, return.
-    %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
-    // stack: code_empty, retdest
-    %jumpi(process_message_txn_return)
 
     // Otherwise, load to's code and execute it in a new context.
     // stack: retdest
@@ -203,6 +232,7 @@ global process_message_txn_return:
     %non_intrinisic_gas
     // stack: leftover_gas, retdest
     %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
     // stack: retdest
     JUMP
 
@@ -233,13 +263,25 @@ process_message_txn_code_loaded_finish:
 
 global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
-    POP // TODO: Success will go into the receipt when we support that.
+    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    ISZERO %jumpi(process_message_txn_fail)
+process_message_txn_after_call_contd:
     // stack: leftover_gas, new_ctx, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, retdest
     POP
     JUMP
+
+process_message_txn_fail:
+    // stack: leftover_gas, new_ctx, retdest
+    // Transfer value back to the caller.
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    %mload_txn_field(@TXN_FIELD_TO)
+    %transfer_eth %jumpi(panic)
+    %jump(process_message_txn_after_call_contd)
 
 %macro pay_coinbase_and_refund_sender
     // stack: leftover_gas
@@ -250,7 +292,7 @@ global process_message_txn_after_call:
     // stack: used_gas, leftover_gas
     %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
     // stack: refund, used_gas, leftover_gas
-    DUP2 %div_const(2) // max_refund = used_gas/2
+    DUP2 %div_const(@MAX_REFUND_QUOTIENT) // max_refund = used_gas/5
     // stack: max_refund, refund, used_gas, leftover_gas
     %min
     %stack (refund, used_gas, leftover_gas) -> (leftover_gas, refund, refund, used_gas)

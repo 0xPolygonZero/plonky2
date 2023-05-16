@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::{U256, U512};
@@ -7,6 +7,8 @@ use rand::Rng;
 
 pub trait FieldExt:
     Copy
+    + std::fmt::Debug
+    + std::cmp::PartialEq
     + std::ops::Add<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::Sub<Output = Self>
@@ -15,6 +17,7 @@ pub trait FieldExt:
 {
     const ZERO: Self;
     const UNIT: Self;
+    fn new(val: usize) -> Self;
     fn inv(self) -> Self;
 }
 
@@ -28,14 +31,6 @@ pub const BN_BASE: U256 = U256([
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BN254 {
     pub val: U256,
-}
-
-impl BN254 {
-    pub fn new(val: usize) -> BN254 {
-        BN254 {
-            val: U256::from(val),
-        }
-    }
 }
 
 impl Distribution<BN254> for Standard {
@@ -91,6 +86,11 @@ impl Mul for BN254 {
 impl FieldExt for BN254 {
     const ZERO: Self = BN254 { val: U256::zero() };
     const UNIT: Self = BN254 { val: U256::one() };
+    fn new(val: usize) -> BN254 {
+        BN254 {
+            val: U256::from(val),
+        }
+    }
     fn inv(self) -> BN254 {
         let exp = BN_BASE - 2;
         let mut current = self;
@@ -131,12 +131,6 @@ pub struct BLS381 {
 }
 
 impl BLS381 {
-    pub fn new(val: usize) -> BLS381 {
-        BLS381 {
-            val: U512::from(val),
-        }
-    }
-
     pub fn lo(self) -> U256 {
         U256(self.val.0[..4].try_into().unwrap())
     }
@@ -234,6 +228,11 @@ impl Mul for BLS381 {
 impl FieldExt for BLS381 {
     const ZERO: Self = BLS381 { val: U512::zero() };
     const UNIT: Self = BLS381 { val: U512::one() };
+    fn new(val: usize) -> BLS381 {
+        BLS381 {
+            val: U512::from(val),
+        }
+    }
     fn inv(self) -> BLS381 {
         let exp = BLS_BASE - 2;
         let mut current = self;
@@ -365,6 +364,14 @@ impl<T: FieldExt> FieldExt for Fp2<T> {
         re: T::UNIT,
         im: T::ZERO,
     };
+
+    fn new(val: usize) -> Fp2<T> {
+        Fp2 {
+            re: T::new(val),
+            im: T::ZERO,
+        }
+    }
+
     /// The inverse of z is given by z'/||z||^2 since ||z||^2 = zz'
     fn inv(self) -> Fp2<T> {
         let norm_sq = self.norm_sq();
@@ -975,6 +982,14 @@ where
         t2: Fp2::<T>::ZERO,
     };
 
+    fn new(val: usize) -> Fp6<T> {
+        Fp6 {
+            t0: Fp2::<T>::new(val),
+            t1: Fp2::<T>::ZERO,
+            t2: Fp2::<T>::ZERO,
+        }
+    }
+
     /// Let x_n = x^(p^n) and note that
     ///     x_0 = x^(p^0) = x^1 = x
     ///     (x_n)_m = (x^(p^n))^(p^m) = x^(p^n * p^m) = x^(p^(n+m)) = x_{n+m}
@@ -1039,6 +1054,13 @@ where
         z0: Fp6::<T>::UNIT,
         z1: Fp6::<T>::ZERO,
     };
+
+    fn new(val: usize) -> Fp12<T> {
+        Fp12 {
+            z0: Fp6::<T>::new(val),
+            z1: Fp6::<T>::ZERO,
+        }
+    }
 
     /// By Galois Theory, given x: Fp12, the product
     ///     phi = Prod_{i=0}^11 x_i
@@ -1201,39 +1223,29 @@ where
 }
 
 pub trait Stack {
-    fn to_stack(self) -> Vec<U256>;
+    const SIZE: usize;
+
+    fn to_stack(&self) -> Vec<U256>;
 
     fn from_stack(stack: &[U256]) -> Self;
 }
 
-impl Stack for Fp6<BN254> {
-    fn to_stack(self) -> Vec<U256> {
-        let f: [U256; 6] = unsafe { transmute(self) };
-        f.into_iter().collect()
+impl Stack for BN254 {
+    const SIZE: usize = 1;
+
+    fn to_stack(&self) -> Vec<U256> {
+        vec![self.val]
     }
 
-    fn from_stack(stack: &[U256]) -> Self {
-        let mut f = [U256::zero(); 6];
-        f.copy_from_slice(stack);
-        unsafe { transmute(f) }
-    }
-}
-
-impl Stack for Fp12<BN254> {
-    fn to_stack(self) -> Vec<U256> {
-        let f: [U256; 12] = unsafe { transmute(self) };
-        f.into_iter().collect()
-    }
-
-    fn from_stack(stack: &[U256]) -> Self {
-        let mut f = [U256::zero(); 12];
-        f.copy_from_slice(stack);
-        unsafe { transmute(f) }
+    fn from_stack(stack: &[U256]) -> BN254 {
+        BN254 { val: stack[0] }
     }
 }
 
 impl Stack for BLS381 {
-    fn to_stack(self) -> Vec<U256> {
+    const SIZE: usize = 2;
+
+    fn to_stack(&self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
     }
 
@@ -1245,46 +1257,65 @@ impl Stack for BLS381 {
     }
 }
 
-impl Stack for Fp2<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
-        let mut res = self.re.to_stack();
-        res.extend(self.im.to_stack());
-        res
+impl<T: FieldExt + Stack> Stack for Fp2<T> {
+    const SIZE: usize = 2 * T::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.re.to_stack();
+        stack.extend(self.im.to_stack());
+        stack
     }
 
-    fn from_stack(stack: &[U256]) -> Fp2<BLS381> {
-        let re = BLS381::from_stack(&stack[0..2]);
-        let im = BLS381::from_stack(&stack[2..4]);
+    fn from_stack(stack: &[U256]) -> Fp2<T> {
+        let field_size = T::SIZE;
+        let re = T::from_stack(&stack[0..field_size]);
+        let im = T::from_stack(&stack[field_size..2 * field_size]);
         Fp2 { re, im }
     }
 }
 
-impl Stack for Fp6<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
-        let mut res = self.t0.to_stack();
-        res.extend(self.t1.to_stack());
-        res.extend(self.t2.to_stack());
-        res
+impl<T> Stack for Fp6<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp2<T>: Stack,
+{
+    const SIZE: usize = 3 * Fp2::<T>::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.t0.to_stack();
+        stack.extend(self.t1.to_stack());
+        stack.extend(self.t2.to_stack());
+        stack
     }
 
-    fn from_stack(stack: &[U256]) -> Fp6<BLS381> {
-        let t0 = Fp2::<BLS381>::from_stack(&stack[0..4]);
-        let t1 = Fp2::<BLS381>::from_stack(&stack[4..8]);
-        let t2 = Fp2::<BLS381>::from_stack(&stack[8..12]);
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp2::<T>::SIZE;
+        let t0 = Fp2::<T>::from_stack(&stack[0..field_size]);
+        let t1 = Fp2::<T>::from_stack(&stack[field_size..2 * field_size]);
+        let t2 = Fp2::<T>::from_stack(&stack[2 * field_size..3 * field_size]);
         Fp6 { t0, t1, t2 }
     }
 }
 
-impl Stack for Fp12<BLS381> {
-    fn to_stack(self) -> Vec<U256> {
-        let mut res = self.z0.to_stack();
-        res.extend(self.z1.to_stack());
-        res
+impl<T> Stack for Fp12<T>
+where
+    T: FieldExt,
+    Fp2<T>: Adj,
+    Fp6<T>: Stack,
+{
+    const SIZE: usize = 2 * Fp6::<T>::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.z0.to_stack();
+        stack.extend(self.z1.to_stack());
+        stack
     }
 
-    fn from_stack(stack: &[U256]) -> Fp12<BLS381> {
-        let z0 = Fp6::<BLS381>::from_stack(&stack[0..12]);
-        let z1 = Fp6::<BLS381>::from_stack(&stack[12..24]);
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp6::<T>::SIZE;
+        let z0 = Fp6::<T>::from_stack(&stack[0..field_size]);
+        let z1 = Fp6::<T>::from_stack(&stack[field_size..2 * field_size]);
         Fp12 { z0, z1 }
     }
 }

@@ -16,7 +16,7 @@ unsafe fn transpose_in_place_square_small<T>(
     lb_size: usize,
     x: usize,
 ) {
-    for i in x..x + (1 << lb_size) {
+    for i in x + 1..x + (1 << lb_size) {
         for j in x..i {
             swap(
                 arr.get_unchecked_mut(i + (j << lb_stride)),

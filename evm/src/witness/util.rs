@@ -45,9 +45,7 @@ pub(crate) fn kernel_peek<F: Field>(
     segment: Segment,
     virt: usize,
 ) -> U256 {
-    state
-        .memory
-        .get(MemoryAddress::new(state.registers.context, segment, virt))
+    state.memory.get(MemoryAddress::new(0, segment, virt))
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

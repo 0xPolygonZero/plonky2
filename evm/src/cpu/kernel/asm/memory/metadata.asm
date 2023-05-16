@@ -34,6 +34,15 @@
     // stack: (empty)
 %endmacro
 
+// Store the given context metadata field to memory.
+%macro mstore_context_metadata(field, value)
+    PUSH $value
+    PUSH $field
+    // stack: offset, value
+    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    // stack: (empty)
+%endmacro
+
 %macro mstore_parent_context_metadata(field)
     // stack: value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
@@ -200,6 +209,19 @@ global sys_gaslimit:
     SWAP1
     EXIT_KERNEL
 
+%macro blockchainid
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
+%endmacro
+
+global sys_chainid:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blockchainid
+    // stack: chain_id, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
 %macro basefee
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
 %endmacro
@@ -282,4 +304,24 @@ global sys_basefee:
     // stack: is_unreasonable
     %jumpi(fault_exception)
     // stack: (empty)
+%endmacro
+
+// Convenience macro for checking if the current context is static.
+// Called before state-changing opcodes.
+%macro check_static
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %jumpi(fault_exception)
+%endmacro
+
+// Adds the two top elements of the stack, and faults in case of overflow.
+%macro add_or_fault
+    // stack: x, y
+    DUP2 ADD
+    // stack: sum, y
+    DUP1 SWAP2
+    // stack: y, sum, sum
+    GT
+    // stack: is_overflow, sum
+    %jumpi(fault_exception)
+    // stack: sum
 %endmacro

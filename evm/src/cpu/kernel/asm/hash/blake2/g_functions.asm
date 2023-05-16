@@ -1,4 +1,4 @@
-%macro blake2b_g_function
+%macro blake2_g_function
     // Function to mix two input words, x and y, into the four words indexed by a, b, c, d (which
     // are in the range 0..16) in the internal state.
     // The internal state is stored in memory starting at the address start.
@@ -11,28 +11,28 @@
     DUP11
     // stack: start, a, b, c, d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[a], b, c, d, a, b, c, d, x, y, start
     SWAP1
     // stack: b, v[a], c, d, a, b, c, d, x, y, start
     DUP11
     // stack: start, b, v[a], c, d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[b], v[a], c, d, a, b, c, d, x, y, start
     SWAP2
     // stack: c, v[a], v[b], d, a, b, c, d, x, y, start
     DUP11
     // stack: start, c, v[a], v[b], d, a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[c], v[a], v[b], d, a, b, c, d, x, y, start
     SWAP3
     // stack: d, v[a], v[b], v[c], a, b, c, d, x, y, start
     DUP11
     // stack: start, d, v[a], v[b], v[c], a, b, c, d, x, y, start
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v[d], v[a], v[b], v[c], a, b, c, d, x, y, start
     %stack (vd, vs: 3) -> (vs, vd)
     // stack: v[a], v[b], v[c], v[d], a, b, c, d, x, y, start
@@ -95,34 +95,34 @@
     %stack (vb, vc, vd, va, a, b, c, d, x, y, start) -> (start, a, va, start, b, vb, start, c, vc, start, d, vd)
     // stack: start, a, v[a]'', start, b, v[b]'', start, c, v[c]'', start, d, v[d]''
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
     ADD
-    %mstore_kernel_general
+    %mstore_current_general
 %endmacro
 
-%macro call_blake2b_g_function(a, b, c, d, x_idx, y_idx)
+%macro call_blake2_g_function(a, b, c, d, x_idx, y_idx)
     // stack: round, start
     PUSH $y_idx
     DUP2
     // stack: round, y_idx, round, start
-    %blake2b_permutation
+    %blake2_permutation
     // stack: s[y_idx], round, start
-    %blake2b_message_addr
+    %blake2_message_addr
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: m[s[y_idx]], round, start
     PUSH $x_idx
     DUP3
     // stack: round, 2, m[s[y_idx]], round, start
-    %blake2b_permutation
+    %blake2_permutation
     // stack: s[x_idx], m[s[y_idx]], round, start
-    %blake2b_message_addr
+    %blake2_message_addr
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: m[s[x_idx]], m[s[y_idx]], round, start
     %stack (ss: 2, r, s) -> (ss, s, r, s)
     // stack: m[s[x_idx]], m[s[y_idx]], start, round, start
@@ -131,48 +131,45 @@
     PUSH $b
     PUSH $a
     // stack: a, b, c, d, m[s[x_idx]], m[s[y_idx]], start, round, start
-    %blake2b_g_function
+    %blake2_g_function
     // stack: round, start
 %endmacro
 
 run_g_function_round:
     // stack: round, start, retdest
-    %call_blake2b_g_function(0, 4, 8, 12, 0, 1)
-    %call_blake2b_g_function(1, 5, 9, 13, 2, 3)
-    %call_blake2b_g_function(2, 6, 10, 14, 4, 5)
-    %call_blake2b_g_function(3, 7, 11, 15, 6, 7)
-    %call_blake2b_g_function(0, 5, 10, 15, 8, 9)
-    %call_blake2b_g_function(1, 6, 11, 12, 10, 11)
-    %call_blake2b_g_function(2, 7, 8, 13, 12, 13)
-    %call_blake2b_g_function(3, 4, 9, 14, 14, 15)
+    %call_blake2_g_function(0, 4, 8, 12, 0, 1)
+    %call_blake2_g_function(1, 5, 9, 13, 2, 3)
+    %call_blake2_g_function(2, 6, 10, 14, 4, 5)
+    %call_blake2_g_function(3, 7, 11, 15, 6, 7)
+    %call_blake2_g_function(0, 5, 10, 15, 8, 9)
+    %call_blake2_g_function(1, 6, 11, 12, 10, 11)
+    %call_blake2_g_function(2, 7, 8, 13, 12, 13)
+    %call_blake2_g_function(3, 4, 9, 14, 14, 15)
     %stack (r, s, ret) -> (ret, r, s)
     // stack: retdest, round, start
     JUMP
 
-global run_12_rounds_g_function:
-    // stack: start, retdest
-    PUSH 0
-    // stack: round=0, start, retdest
-run_next_round_g_function:
-    // stack: round, start, retdest
-    PUSH run_next_round_g_function_return
-    // stack: run_next_round_g_function_return, round, start, retdest
-    SWAP2
-    // stack: start, round, run_next_round_g_function_return, retdest
-    SWAP1
-    // stack: round, start, run_next_round_g_function_return, retdest
+global run_rounds_g_function:
+    // stack: current_round, start, rounds, retdest
+    DUP3
+    // stack: rounds, current_round, start, rounds, retdest
+    DUP2
+    // stack: current_round, rounds, current_round, start, rounds, retdest
+    EQ
+    %jumpi(run_rounds_g_function_end)
+    // stack: current_round, start, rounds, retdest
+    PUSH run_rounds_g_function_return
+    // stack: run_rounds_g_function_return, current_round, start, rounds, retdest
+    %stack (ret, r, s) -> (r, s, ret)
+    // stack: current_round, start, run_rounds_g_function_return, rounds, retdest
     %jump(run_g_function_round)
-run_next_round_g_function_return:
-    // stack: round, start, retdest
+run_rounds_g_function_return:
+    // stack: round, start, rounds, retdest
     %increment
-    // stack: round+1, start, retdest
-    DUP1
-    // stack: round+1, round+1, start, retdest
-    %lt_const(12)
-    // stack: round+1 < 12, round+1, start, retdest
-    %jumpi(run_next_round_g_function)
-    // stack: round+1, start, retdest
-    %pop2
+    // stack: round + 1, start, rounds, retdest
+    %jump(run_rounds_g_function)
+run_rounds_g_function_end:
+    // stack: current_round, start, rounds, retdest
+    %pop3
     // stack: retdest
     JUMP
-

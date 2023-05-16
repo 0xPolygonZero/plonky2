@@ -3,7 +3,6 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
-#![feature(generic_const_exprs)]
 #![allow(clippy::upper_case_acronyms)]
 
 use core::num::ParseIntError;
@@ -14,13 +13,13 @@ use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
+use plonky2::util::serialization::DefaultGateSerializer;
 use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
 use plonky2_maybe_rayon::rayon;
@@ -66,11 +65,7 @@ struct Options {
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<ProofTuple<F, C, D>> {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -107,11 +102,7 @@ fn recursive_proof<
     min_degree_bits: Option<usize>,
 ) -> Result<ProofTuple<F, C, D>>
 where
-    InnerC::Hasher: AlgebraicHasher<F, InnerC::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-    [(); InnerC::HCO::WIDTH]:,
-    [(); InnerC::HCI::WIDTH]:,
+    InnerC::Hasher: AlgebraicHasher<F>,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -153,11 +144,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     proof: &ProofWithPublicInputs<F, C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
     cd: &CommonCircuitData<F, D>,
-) -> Result<()>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> Result<()> {
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
     let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
@@ -179,6 +166,19 @@ where
     let compressed_proof_from_bytes =
         CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
     assert_eq!(compressed_proof, compressed_proof_from_bytes);
+
+    let gate_serializer = DefaultGateSerializer;
+    let common_data_bytes = cd
+        .to_bytes(&gate_serializer)
+        .map_err(|_| anyhow::Error::msg("CommonCircuitData serialization failed."))?;
+    info!(
+        "Common circuit data length: {} bytes",
+        common_data_bytes.len()
+    );
+    let common_data_from_bytes =
+        CommonCircuitData::<F, D>::from_bytes(common_data_bytes, &gate_serializer)
+            .map_err(|_| anyhow::Error::msg("CommonCircuitData deserialization failed."))?;
+    assert_eq!(cd, &common_data_from_bytes);
 
     Ok(())
 }
@@ -237,7 +237,7 @@ fn main() -> Result<()> {
     builder.try_init()?;
 
     // Initialize randomness source
-    let rng_seed = options.seed.unwrap_or_else(|| OsRng::default().next_u64());
+    let rng_seed = options.seed.unwrap_or_else(|| OsRng.next_u64());
     info!("Using random seed {rng_seed:16x}");
     let _rng = ChaCha8Rng::seed_from_u64(rng_seed);
     // TODO: Use `rng` to create deterministic runs

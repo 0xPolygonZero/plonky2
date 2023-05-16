@@ -119,19 +119,6 @@
     // stack:                 z0, z1
 %endmacro
 
-global test_add_fp381:
-    %add_fp381
-    %jump(0xdeadbeef)
-
-global test_sub_fp381:
-    %sub_fp381
-    %jump(0xdeadbeef)
-
-global test_mul_fp381:
-    %mul_fp381
-    %jump(0xdeadbeef)
-
-
 %macro add_fp381_2
     // stack: x_re, x_im, y_re, y_im
     %stack (x_re: 2, x_im: 2, y_re: 2, y_im: 2) -> (y_im, x_im, y_re, x_re)
@@ -156,15 +143,7 @@ global test_mul_fp381:
     // stack:             z_re, z_im
 %endmacro
 
-global test_add_fp381_2:
-    %add_fp381_2
-    %jump(0xdeadbeef)
-
-global test_sub_fp381_2:
-    %sub_fp381_2
-    %jump(0xdeadbeef)
-
-
+// note that {x,y}_{re,im} all take up two stack terms
 global mul_fp381_2:
     // stack:                          x_re, x_im, y_re, y_im, jumpdest
     DUP4
@@ -199,7 +178,6 @@ global mul_fp381_2:
     // stack:                                      z_re, z_im, jumpdest
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
     JUMP
-
 
 %macro i1
     // stack:             x_re, x_im

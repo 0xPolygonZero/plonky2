@@ -51,10 +51,18 @@ pub(crate) enum GlobalMetadata {
     AccessedStorageKeysLen = 24,
     /// Length of the self-destruct list.
     SelfDestructListLen = 25,
+
+    /// Length of the journal.
+    JournalLen = 26,
+    /// Length of the `JournalData` segment.
+    JournalDataLen = 27,
+    /// Current checkpoint.
+    CurrentCheckpoint = 28,
+    TouchedAddressesLen = 29,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 25;
+    pub(crate) const COUNT: usize = 29;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -83,6 +91,10 @@ impl GlobalMetadata {
             Self::AccessedAddressesLen,
             Self::AccessedStorageKeysLen,
             Self::SelfDestructListLen,
+            Self::JournalLen,
+            Self::JournalDataLen,
+            Self::CurrentCheckpoint,
+            Self::TouchedAddressesLen,
         ]
     }
 
@@ -114,6 +126,10 @@ impl GlobalMetadata {
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
             Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
+            Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
+            Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
+            Self::CurrentCheckpoint => "GLOBAL_METADATA_CURRENT_CHECKPOINT",
+            Self::TouchedAddressesLen => "GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN",
         }
     }
 }

@@ -14,7 +14,7 @@ global sys_stop:
 global sys_return:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
-    ADD // TODO: Check for overflow?
+    %add_or_fault 
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
@@ -45,6 +45,7 @@ sys_return_finish:
     %jump(terminate_common)
 
 global sys_selfdestruct:
+    %check_static
     // stack: kexit_info, recipient
     SWAP1 %u256_to_addr
     %address DUP1 %balance
@@ -84,9 +85,13 @@ global sys_selfdestruct:
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
     %mstore_trie_data // TODO: This should be a copy-on-write operation.
 
+    %stack (balance, address, recipient, kexit_info) ->
+        (address, recipient, balance, address, recipient, recipient, balance, kexit_info)
+    %journal_add_account_destroyed
+
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.
-    %stack (balance, address, recipient, kexit_info) -> (address, recipient, recipient, balance, kexit_info)
+    // stack: address, recipient, recipient, balance, kexit_info
     EQ %jumpi(sys_selfdestruct_same_addr)
     // stack: recipient, balance, kexit_info
     %add_eth
@@ -108,7 +113,7 @@ sys_selfdestruct_same_addr:
 global sys_revert:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
-    ADD // TODO: Check for overflow?
+    %add_or_fault
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
@@ -147,8 +152,8 @@ sys_revert_finish:
 // - state modification is attempted during a static call
 global fault_exception:
     // stack: (empty)
+    %revert_checkpoint
     PUSH 0 // leftover_gas
-    // TODO: Revert state changes.
     // Set the parent context's return data size to 0.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     PUSH 0 // success

@@ -8,7 +8,7 @@
     // stack: length % (1 << 8), length, last_addr
     DUP3
     // stack: last_addr, length % (1 << 8), length, last_addr
-    %mstore_kernel_general
+    %mstore_current_general
     
     %rep 7
         // For i = 0 to 6
@@ -25,7 +25,7 @@
         // stack: (length >> (8 * (i + 1))) % (1 << 8), length >> (8 * (i + 1)), last_addr - i - 2
         DUP3
         // stack: last_addr - i - 2, (length >> (8 * (i + 1))) % (1 << 8), length >> (8 * (i + 1)), last_addr - i - 2
-        %mstore_kernel_general
+        %mstore_current_general
     %endrep
 
     %pop2

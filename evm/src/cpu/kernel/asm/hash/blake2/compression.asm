@@ -1,20 +1,20 @@
-global blake2b_compression:
+global blake2_compression:
     // stack: retdest
     PUSH 0
     // stack: cur_block = 0, retdest
     PUSH compression_loop
     // stack: compression_loop, cur_block, retdest
-    %jump(blake2b_initial_hash_value)
+    %jump(blake2_initial_hash_value)
 compression_loop:
     // stack: h_0, ..., h_7, cur_block, retdest
     
     // Store the hash values.
-    %blake2b_hash_value_addr
+    %blake2_hash_value_addr
     // stack: addr, h_0, ..., h_7, cur_block, retdest
     %rep 8
         SWAP1
         DUP2
-        %mstore_kernel_general
+        %mstore_current_general
         %increment
     %endrep
 
@@ -22,7 +22,7 @@ compression_loop:
     POP
     // stack: cur_block, retdest
     PUSH 0
-    %mload_kernel_general
+    %mload_current_general
     // stack: num_blocks, cur_block, retdest
     %decrement
     // stack: num_blocks - 1, cur_block, retdest
@@ -33,7 +33,7 @@ compression_loop:
     SWAP1
     // stack: cur_block, is_last_block, retdest
     PUSH 1
-    %mload_kernel_general
+    %mload_current_general
     // stack: num_bytes, cur_block, is_last_block, retdest
 
     // Calculate t counter value.
@@ -63,17 +63,17 @@ compression_loop:
     // stack: cur_block_start_byte, t, cur_block, is_last_block, retdest
 
     // Copy the message from the input space to the message working space.
-    %blake2b_message_addr
+    %blake2_message_addr
     // stack: message_addr, cur_block_start_byte, t, cur_block, is_last_block, retdest
     %rep 16
         // stack: cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_block_byte, cur_message_addr, cur_block_byte, ...
-        %mload_kernel_general_u64_LE
+        %mload_current_general_u64_LE
         // stack: m_i, cur_message_addr, cur_block_byte, ...
         DUP2
         // stack: cur_message_addr, m_i, cur_message_addr, cur_block_byte, ...
-        %mstore_kernel_general
+        %mstore_current_general
         // stack: cur_message_addr, cur_block_byte, ...
         %increment
         // stack: cur_message_addr + 1, cur_block_byte, ...
@@ -93,13 +93,13 @@ compression_loop:
     // stack: is_last_block, t, cur_block, retdest
     %mul_const(0xFFFFFFFFFFFFFFFF)
     // stack: invert_if_last_block, t, cur_block, retdest
-    %blake2b_hash_value_addr
+    %blake2_hash_value_addr
     %add_const(7)
     %rep 8
         // stack: addr, ...
         DUP1
         // stack: addr, addr, ...
-        %mload_kernel_general
+        %mload_current_general
         // stack: val, addr, ...
         SWAP1
         // stack: addr, val, ...
@@ -110,14 +110,14 @@ compression_loop:
     // stack: h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
 
     // Store the initial 16 values of the internal state.
-    %blake2b_internal_state_addr
+    %blake2_internal_state_addr
     // stack: start, h_0, ..., h_7, invert_if_last_block, t, cur_block, retdest
 
     // First eight words of the internal state: current hash value h_0, ..., h_7.
     %rep 8
         SWAP1
         DUP2
-        %mstore_kernel_general
+        %mstore_current_general
         %increment
     %endrep
     // stack: start + 8, invert_if_last_block, t, cur_block, retdest
@@ -129,11 +129,11 @@ compression_loop:
         // stack: i, loc, ...
         DUP1
         // stack: i, i, loc, ...
-        %blake2b_iv
+        %blake2_iv
         // stack: IV_i, i, loc, ...
         DUP3
         // stack: loc, IV_i, i, loc, ...
-        %mstore_kernel_general
+        %mstore_current_general
         // stack: i, loc, ...
         %increment
         SWAP1
@@ -159,7 +159,7 @@ compression_loop:
         // stack: i, loc, val, next_val,...
         DUP1
         // stack: i, i, loc, val, next_val,...
-        %blake2b_iv
+        %blake2_iv
         // stack: IV_i, i, loc, val, next_val,...
         DUP4
         // stack: val, IV_i, i, loc, val, next_val,...
@@ -167,7 +167,7 @@ compression_loop:
         // stack: val ^ IV_i, i, loc, val, next_val,...
         DUP3
         // stack: loc, val ^ IV_i, i, loc, val, next_val,...
-        %mstore_kernel_general
+        %mstore_current_general
         // stack: i, loc, val, next_val,...
         %increment
         // stack: i + 1, loc, val, next_val,...
@@ -187,15 +187,18 @@ compression_loop:
     // Run 12 rounds of G functions.
     PUSH g_functions_return
     // stack: g_functions_return, cur_block, retdest
-    %blake2b_internal_state_addr
-    // stack: start, g_functions_return, cur_block, retdest
-    %jump(run_12_rounds_g_function)
+    PUSH 12
+    %blake2_internal_state_addr
+    // stack: start, 12, g_functions_return, cur_block, retdest
+    PUSH 0
+    // stack: current_round=0, start, 12, g_functions_return, cur_block, retdest
+    %jump(run_rounds_g_function)
 g_functions_return:
     // Finalize hash value.
     // stack: cur_block, retdest
     PUSH hash_generate_return
     // stack: hash_generate_return, cur_block, retdest
-    %jump(blake2b_generate_all_hash_values)
+    %jump(blake2_generate_all_hash_values)
 hash_generate_return:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     DUP9
@@ -207,7 +210,7 @@ hash_generate_return:
     %increment
     // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     PUSH 0
-    %mload_kernel_general
+    %mload_current_general
     // stack: num_blocks, cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     GT
     // stack: not_last_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest

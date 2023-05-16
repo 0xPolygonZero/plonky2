@@ -53,7 +53,7 @@ global doubly_encode_rlp_scalar:
     %increment
     %mstore_rlp
     // stack: pos, retdest
-    %increment
+    %add_const(2)
     // stack: pos, retdest
     SWAP1
     JUMP
