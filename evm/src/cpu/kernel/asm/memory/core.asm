@@ -194,6 +194,16 @@
     // stack: (empty)
 %endmacro
 
+// set offset i to offset j in kernel general
+%macro mupdate_current_general
+    // stack: j, i
+    %mload_current_general
+    // stack: x, i
+    SWAP1
+    %mstore_current_general
+    // stack: (empty)
+%endmacro
+
 // Load a single value from the given segment of kernel (context 0) memory.
 %macro mload_kernel(segment)
     // stack: offset
@@ -407,16 +417,6 @@
 %macro mstore_kernel_general_u32
     // stack: offset, value
     %mstore_kernel_u32(@SEGMENT_KERNEL_GENERAL)
-%endmacro
-
-// set offset i to offset j in kernel general
-%macro mupdate_kernel_general
-    // stack: j, i
-    %mload_kernel_general
-    // stack: x, i
-    SWAP1
-    %mstore_kernel_general
-    // stack: (empty)
 %endmacro
 
 // Load a single value from kernel general 2 memory.
