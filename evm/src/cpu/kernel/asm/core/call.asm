@@ -36,7 +36,7 @@ global sys_call:
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
+    DUP5 DUP5 %address %transfer_eth %jumpi(call_insufficient_balance)
     DUP5 DUP5 %address %journal_add_balance_transfer
     DUP3 %set_new_ctx_gas_limit
     %set_new_ctx_parent_pc(after_call_instruction)
@@ -83,6 +83,8 @@ global sys_callcode:
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 %address %address %transfer_eth %jumpi(call_insufficient_balance)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
     %set_new_ctx_parent_pc(after_call_instruction)
@@ -225,6 +227,12 @@ after_call_instruction_failed:
     // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
     %revert_checkpoint
     %jump(after_call_instruction_contd)
+
+call_insufficient_balance:
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (callgas, kexit_info, 0)
+    %shl_const(192) SWAP1 SUB
+    EXIT_KERNEL
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
 // because it will already be 0 by default.
