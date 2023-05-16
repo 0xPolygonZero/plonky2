@@ -25,11 +25,20 @@ impl<T: FieldExt> Curve<T> {
     }
 }
 
-impl<T: FieldExt + Stack> Curve<T> {
-    pub fn on_stack(self) -> Vec<U256> {
-        let mut stack = self.x.on_stack();
-        stack.extend(self.y.on_stack());
+impl<T: FieldExt + Stack> Stack for Curve<T> {
+    const SIZE: usize = 2 * T::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.x.to_stack();
+        stack.extend(self.y.to_stack());
         stack
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        Curve {
+            x: T::from_stack(&stack[0..T::SIZE]),
+            y: T::from_stack(&stack[T::SIZE..2 * T::SIZE]),
+        }
     }
 }
 
