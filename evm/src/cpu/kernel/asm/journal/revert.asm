@@ -13,7 +13,8 @@
     DUP1 %eq_const(@JOURNAL_ENTRY_NONCE_CHANGE)      %jumpi(revert_nonce_change)
     DUP1 %eq_const(@JOURNAL_ENTRY_STORAGE_CHANGE)    %jumpi(revert_storage_change)
     DUP1 %eq_const(@JOURNAL_ENTRY_STORAGE_LOADED)    %jumpi(revert_storage_loaded)
-         %eq_const(@JOURNAL_ENTRY_CODE_CHANGE)       %jumpi(revert_code_change)
+    DUP1 %eq_const(@JOURNAL_ENTRY_CODE_CHANGE)       %jumpi(revert_code_change)
+    DUP1 %eq_const(@JOURNAL_ENTRY_REFUND)            %jumpi(revert_refund)
     PANIC // This should never happen.
 %%after:
     // stack: journal_size-1

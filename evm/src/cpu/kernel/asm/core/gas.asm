@@ -28,6 +28,7 @@ global refund_gas_hook:
 
 %macro refund_gas_original
     // stack: amount
+    DUP1 %journal_refund
     %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
     ADD
     %mstore_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
