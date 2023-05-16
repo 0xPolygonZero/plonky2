@@ -5,13 +5,13 @@ blake2_generate_new_hash_value:
     // stack: addr, i, retdest
     DUP2
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: h_i, i, retdest
     %blake2_internal_state_addr
     // stack: addr, h_i, i, retdest
     DUP3
     ADD
-    %mload_kernel_general
+    %mload_current_general
     // stack: v_i, h_i, i, retdest
     %blake2_internal_state_addr
     // stack: addr, v_i, h_i, i, retdest
@@ -21,7 +21,7 @@ blake2_generate_new_hash_value:
     // stack: i, addr, h_i, v_i, retdest
     ADD
     %add_const(8)
-    %mload_kernel_general
+    %mload_current_general
     // stack: v_(i+8), h_i, v_i, retdest
     XOR
     XOR

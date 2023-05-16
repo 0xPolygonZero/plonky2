@@ -227,17 +227,6 @@ where
     zero_extend
 }
 
-pub(crate) fn pol_extend_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; N_LIMBS],
-) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
-    let zero = builder.zero_extension();
-    let mut zero_extend = [zero; 2 * N_LIMBS - 1];
-
-    zero_extend[..N_LIMBS].copy_from_slice(&a);
-    zero_extend
-}
-
 /// Given polynomial a(x) = \sum_{i=0}^{N-2} a[i] x^i and an element
 /// `root`, return b = (x - root) * a(x).
 pub(crate) fn pol_adjoin_root<T, U, const N: usize>(a: [T; N], root: U) -> [T; N]

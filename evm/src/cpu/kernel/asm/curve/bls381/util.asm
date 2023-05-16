@@ -1,3 +1,82 @@
+// Load a single BLS value, consisting of two terms, from KernelGeneral
+%macro mload_bls
+    // stack:            offset
+    DUP1
+    %add_const(1)
+    // stack: offset_hi, offset
+    %mload_kernel_general
+    // stack:    val_hi, offset
+    SWAP1
+    // stack: offset_lo, val_hi
+    %mload_kernel_general
+    // stack:    val_lo, val_hi
+%endmacro
+
+// Store a single BLS value, consisting of two terms, to KernelGeneral
+%macro mstore_bls
+    // stack:            offset, val_lo, val_hi
+    SWAP1
+    // stack:            val_lo, offset, val_hi
+    DUP2
+    // stack: offset_lo, val_lo, offset, val_hi
+    %mstore_kernel_general
+    // stack:                    offset, val_hi
+    %add_const(1)
+    // stack:                 offset_hi, val_hi
+    %mstore_kernel_general
+%endmacro
+
+%macro mload_bls_fp2
+    // stack:                                        offset
+    DUP1
+    %add_const(3)
+    // stack:                          offset_im_hi, offset
+    %mload_kernel_general
+    // stack:                             val_im_hi, offset
+    SWAP1
+    // stack:                             offset, val_im_hi
+    DUP1
+    %add_const(2)
+    // stack:               offset_im_lo, offset, val_im_hi
+    %mload_kernel_general
+    // stack:                  val_im_lo, offset, val_im_hi
+    SWAP1
+    // stack:                  offset, val_im_lo, val_im_hi
+    DUP1
+    %add_const(1)
+    // stack:    offset_re_hi, offset, val_im_lo, val_im_hi
+    %mload_kernel_general
+    // stack:       val_re_hi, offset, val_im_lo, val_im_hi
+    SWAP1
+    // stack: offset_re_lo, val_re_hi, val_im_lo, val_im_hi
+    %mload_kernel_general
+    // stack:    val_re_lo, val_re_hi, val_im_lo, val_im_hi
+%endmacro
+
+%macro mstore_bls_fp2
+    // stack:               offset, val_re_lo, val_re_hi, val_im_lo, val_im_hi
+    SWAP3
+    // stack:               val_im_lo, val_re_lo, val_re_hi, offset, val_im_hi
+    DUP4
+    %add_const(2)
+    // stack: offset_im_lo, val_im_lo, val_re_lo, val_re_hi, offset, val_im_hi
+    %mstore_kernel_general
+    // stack:                          val_re_lo, val_re_hi, offset, val_im_hi
+    DUP3
+    // stack:            offset_re_lo, val_re_lo, val_re_hi, offset, val_im_hi
+    %mstore_kernel_general
+    // stack:                                     val_re_hi, offset, val_im_hi
+    DUP2
+    %add_const(1)
+    // stack:                       offset_re_hi, val_re_hi, offset, val_im_hi
+    %mstore_kernel_general
+    // stack:                                                offset, val_im_hi
+    %add_const(3)
+    // stack:                                          offset_im_hi, val_im_hi
+    %mstore_kernel_general
+%endmacro
+
+
 %macro add_fp381
     // stack:         x0, x1, y0, y1
     PROVER_INPUT(sf::bls381_base::add_hi)
@@ -99,3 +178,91 @@ global mul_fp381_2:
     // stack:                                      z_re, z_im, jumpdest
     %stack (z_re: 2, z_im: 2, jumpdest) -> (jumpdest, z_re, z_im)
     JUMP
+
+
+%macro i1
+    // stack:             x_re, x_im
+    %stack (x_re: 2, x_im: 2) -> (x_re, x_im, x_im, x_re)
+    // stack: x_re, x_im, x_im, x_re
+    %add_fp381
+    // stack:       z_im, x_im, x_re
+    %stack (z_im: 2, x_im: 2, x_re: 2) -> (x_re, x_im, z_im)
+    // stack:       x_re, x_im, z_im
+    %sub_fp381
+    // stack:             z_re, z_im
+%endmacro
+
+
+global add_fp381_6:
+    // stack:           inA, inB, out, jumpdest  { out: [ 0,  0,  0,  0,  0,  0 ] }
+    %add_term_kernel(0)                          
+    // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
+    %add_term_kernel(2)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
+    %add_term_kernel(4)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2,  0,  0,  0 ] }
+    %add_term_kernel(6)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3,  0,  0 ] }
+    %add_term_kernel(8)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4,  0 ] }
+    %add_term_kernel(10)                      
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4, C5 ] }
+    %pop3
+    JUMP
+
+global sub_fp381_6:
+    // stack:           inA, inB, out, jumpdest  { out: [ 0,  0,  0,  0,  0,  0 ] }
+    %sub_term_kernel(0)                          
+    // stack:           inA, inB, out, jumpdest  { out: [C0,  0,  0,  0,  0,  0 ] }
+    %sub_term_kernel(2)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1,  0,  0,  0,  0 ] }
+    %sub_term_kernel(4)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2,  0,  0,  0 ] }
+    %sub_term_kernel(6)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3,  0,  0 ] }
+    %sub_term_kernel(8)                       
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4,  0 ] }
+    %sub_term_kernel(10)                      
+    // stack:           inA, inB, out, jumpdest  { out: [C0, C1, C2, C3, C4, C5 ] }
+    %pop3
+    JUMP
+
+%macro add_term_kernel(n)
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const($n)
+    // stack:     inBn, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       Bn, inA, inB, out, jumpdest
+    DUP3
+    %add_const($n)
+    // stack: inAn, Bn, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   An, Bn, inA, inB, out, jumpdest
+    %add_fp381
+    // stack:       Cn, inA, inB, out, jumpdest
+    DUP5
+    %add_const($n)
+    // stack: outn, Cn, inA, inB, out, jumpdest
+    %mstore_bls
+%endmacro
+
+%macro sub_term_kernel(n)
+    // stack:           inA, inB, out, jumpdest
+    DUP2
+    %add_const($n)
+    // stack:     inBn, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:       Bn, inA, inB, out, jumpdest
+    DUP3
+    %add_const($n)
+    // stack: inAn, Bn, inA, inB, out, jumpdest
+    %mload_bls
+    // stack:   An, Bn, inA, inB, out, jumpdest
+    %sub_fp381
+    // stack:       Cn, inA, inB, out, jumpdest
+    DUP5
+    %add_const($n)
+    // stack: outn, Cn, inA, inB, out, jumpdest
+    %mstore_bls
+%endmacro

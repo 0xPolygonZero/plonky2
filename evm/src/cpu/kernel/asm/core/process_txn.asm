@@ -173,7 +173,8 @@ global process_contract_creation_txn_after_constructor:
 
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, address, retdest
     POP
     POP
@@ -231,6 +232,7 @@ global process_message_txn_return:
     %non_intrinisic_gas
     // stack: leftover_gas, retdest
     %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
     // stack: retdest
     JUMP
 
@@ -261,13 +263,25 @@ process_message_txn_code_loaded_finish:
 
 global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
-    POP // TODO: Success will go into the receipt when we support that.
+    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    ISZERO %jumpi(process_message_txn_fail)
+process_message_txn_after_call_contd:
     // stack: leftover_gas, new_ctx, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
     // stack: new_ctx, retdest
     POP
     JUMP
+
+process_message_txn_fail:
+    // stack: leftover_gas, new_ctx, retdest
+    // Transfer value back to the caller.
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    %mload_txn_field(@TXN_FIELD_TO)
+    %transfer_eth %jumpi(panic)
+    %jump(process_message_txn_after_call_contd)
 
 %macro pay_coinbase_and_refund_sender
     // stack: leftover_gas
@@ -278,7 +292,7 @@ global process_message_txn_after_call:
     // stack: used_gas, leftover_gas
     %mload_global_metadata(@GLOBAL_METADATA_REFUND_COUNTER)
     // stack: refund, used_gas, leftover_gas
-    DUP2 %div_const(2) // max_refund = used_gas/2
+    DUP2 %div_const(@MAX_REFUND_QUOTIENT) // max_refund = used_gas/5
     // stack: max_refund, refund, used_gas, leftover_gas
     %min
     %stack (refund, used_gas, leftover_gas) -> (leftover_gas, refund, refund, used_gas)

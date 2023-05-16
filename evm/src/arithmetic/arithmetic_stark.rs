@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -8,15 +9,82 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
+use static_assertions::const_assert;
 
-use crate::arithmetic::{addcy, columns, modular, mul, Operation};
+use crate::all_stark::Table;
+use crate::arithmetic::{addcy, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-#[derive(Copy, Clone)]
+/// Link the 16-bit columns of the arithmetic table, split into groups
+/// of N_LIMBS at a time in `regs`, with the corresponding 32-bit
+/// columns of the CPU table. Does this for all ops in `ops`.
+///
+/// This is done by taking pairs of columns (x, y) of the arithmetic
+/// table and combining them as x + y*2^16 to ensure they equal the
+/// corresponding 32-bit number in the CPU table.
+fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Column<F>> {
+    let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
+
+    let mut res = Column::singles(ops).collect_vec();
+
+    // The inner for loop below assumes N_LIMBS is even.
+    const_assert!(columns::N_LIMBS % 2 == 0);
+
+    for reg_cols in regs {
+        // Loop below assumes we're operating on a "register" of N_LIMBS columns.
+        debug_assert_eq!(reg_cols.len(), columns::N_LIMBS);
+
+        for i in 0..(columns::N_LIMBS / 2) {
+            let c0 = reg_cols.start + 2 * i;
+            let c1 = reg_cols.start + 2 * i + 1;
+            res.push(Column::linear_combination([(c0, F::ONE), (c1, limb_base)]));
+        }
+    }
+    res
+}
+
+pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
+    const ARITH_OPS: [usize; 13] = [
+        columns::IS_ADD,
+        columns::IS_SUB,
+        columns::IS_MUL,
+        columns::IS_LT,
+        columns::IS_GT,
+        columns::IS_ADDFP254,
+        columns::IS_MULFP254,
+        columns::IS_SUBFP254,
+        columns::IS_ADDMOD,
+        columns::IS_MULMOD,
+        columns::IS_SUBMOD,
+        columns::IS_DIV,
+        columns::IS_MOD,
+    ];
+
+    const REGISTER_MAP: [Range<usize>; 4] = [
+        columns::INPUT_REGISTER_0,
+        columns::INPUT_REGISTER_1,
+        columns::INPUT_REGISTER_2,
+        columns::OUTPUT_REGISTER,
+    ];
+
+    // Create the Arithmetic Table whose columns are those of the
+    // operations listed in `ops` whose inputs and outputs are given
+    // by `regs`, where each element of `regs` is a range of columns
+    // corresponding to a 256-bit input or output register (also `ops`
+    // is used as the operation filter).
+    TableWithColumns::new(
+        Table::Arithmetic,
+        cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
+        Some(Column::sum(ARITH_OPS)),
+    )
+}
+
+#[derive(Copy, Clone, Default)]
 pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
@@ -48,8 +116,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    #[allow(unused)]
-    pub(crate) fn generate(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -114,7 +181,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_packed_generic(lv, yield_constr);
         addcy::eval_packed_generic(lv, yield_constr);
-        modular::eval_packed_generic(lv, nv, yield_constr);
+        divmod::eval_packed(lv, nv, yield_constr);
+        modular::eval_packed(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -144,6 +212,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 
         mul::eval_ext_circuit(builder, lv, yield_constr);
         addcy::eval_ext_circuit(builder, lv, yield_constr);
+        divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
@@ -176,6 +245,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::{columns, ArithmeticStark};
+    use crate::arithmetic::columns::OUTPUT_REGISTER;
     use crate::arithmetic::*;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -249,7 +319,7 @@ mod tests {
 
         let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
@@ -259,26 +329,23 @@ mod tests {
                 && pols.iter().all(|v| v.len() == super::RANGE_MAX)
         );
 
-        // Wrap the single value GENERAL_REGISTER_BIT in a Range.
-        let cmp_range = columns::GENERAL_REGISTER_BIT..columns::GENERAL_REGISTER_BIT + 1;
-
         // Each operation has a single word answer that we can check
         let expected_output = [
-            // Row (some ops take two rows), col, expected
-            (0, &columns::GENERAL_REGISTER_2, 579), // ADD_OUTPUT
-            (1, &columns::MODULAR_OUTPUT, 703),
-            (3, &columns::MODULAR_OUTPUT, 794),
-            (5, &columns::MUL_OUTPUT, 56088),
-            (6, &columns::MODULAR_OUTPUT, 11),
-            (8, &cmp_range, 0),
-            (9, &cmp_range, 1),
-            (10, &cmp_range, 0),
-            (11, &columns::DIV_OUTPUT, 9),
+            // Row (some ops take two rows), expected
+            (0, 579), // ADD_OUTPUT
+            (1, 703),
+            (3, 794),
+            (5, 56088),
+            (6, 11),
+            (8, 0),
+            (9, 1),
+            (10, 0),
+            (11, 9),
         ];
 
-        for (row, col, expected) in expected_output {
+        for (row, expected) in expected_output {
             // First register should match expected value...
-            let first = col.start;
+            let first = OUTPUT_REGISTER.start;
             let out = pols[first].values[row].to_canonical_u64();
             assert_eq!(
                 out, expected,
@@ -286,7 +353,7 @@ mod tests {
                 first, row, expected, out,
             );
             // ...other registers should be zero
-            let rest = col.start + 1..col.end;
+            let rest = OUTPUT_REGISTER.start + 1..OUTPUT_REGISTER.end;
             assert!(pols[rest].iter().all(|v| v.values[row] == F::ZERO));
         }
     }
@@ -314,7 +381,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there
@@ -335,7 +402,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let pols = stark.generate(ops);
+        let pols = stark.generate_trace(ops);
 
         // Trace should always have NUM_ARITH_COLUMNS columns and
         // min(RANGE_MAX, operations.len()) rows. In this case there

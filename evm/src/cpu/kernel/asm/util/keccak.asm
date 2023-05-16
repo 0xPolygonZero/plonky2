@@ -11,7 +11,7 @@ global sys_keccak256:
     // stack: kexit_info, offset, len
 
     %stack (kexit_info, offset, len) -> (offset, len, kexit_info, offset, len)
-    ADD // TODO: need to check for overflow?
+    %add_or_fault
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 

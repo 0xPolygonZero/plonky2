@@ -60,16 +60,6 @@ fn main() -> Result<()> {
     let proof_serialized = serde_json::to_string(&proof).unwrap();
     fs::write("proof_with_public_inputs.json", proof_serialized).expect("Unable to write file");
 
-    let proof_challenges = proof
-        .get_challenges(
-            proof.get_public_inputs_hash(),
-            &data.verifier_only.circuit_digest,
-            &data.common,
-        )
-        .unwrap();
-    let proof_challenges_serialized = serde_json::to_string(&proof_challenges).unwrap();
-    fs::write("proof_challenges.json", proof_challenges_serialized).expect("Unable to write file");
-
     println!(
         "100th Fibonacci number mod |F| (starting with {}, {}) is: {}",
         proof.public_inputs[0], proof.public_inputs[1], proof.public_inputs[2]

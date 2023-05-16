@@ -10,7 +10,6 @@ use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
-use crate::hash::hashing::HashConfig;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -39,9 +38,7 @@ pub fn cyclic_base_proof<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<C::F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     let pis_len = common_data.num_public_inputs;
     let cap_elements = common_data.config.fri_config.num_cap_elements();
@@ -76,8 +73,6 @@ pub(crate) fn dummy_proof<
     nonzero_public_inputs: HashMap<usize, F>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
 {
     let mut pw = PartialWitness::new();
     for i in 0..circuit.common.num_public_inputs {
@@ -94,11 +89,7 @@ pub(crate) fn dummy_circuit<
     const D: usize,
 >(
     common_data: &CommonCircuitData<F, D>,
-) -> CircuitData<F, C, D>
-where
-    [(); C::HCO::WIDTH]:,
-    [(); C::HCI::WIDTH]:,
-{
+) -> CircuitData<F, C, D> {
     let config = common_data.config.clone();
     assert!(
         !common_data.config.zero_knowledge,
@@ -132,9 +123,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<(ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)>
     where
-        C::Hasher: AlgebraicHasher<F, C::HCO>,
-        [(); C::HCO::WIDTH]:,
-        [(); C::HCI::WIDTH]:,
+        C::Hasher: AlgebraicHasher<F>,
     {
         let dummy_circuit = dummy_circuit::<F, C, D>(common_data);
         let dummy_proof_with_pis = dummy_proof::<F, C, D>(&dummy_circuit, HashMap::new())?;
@@ -212,10 +201,9 @@ where
 
         let verifier_data = VerifierOnlyCircuitData {
             constants_sigmas_cap: MerkleCap(vec![]),
-            circuit_digest:
-                <<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::Hash::from_bytes(
-                    &vec![0; <<C as GenericConfig<D>>::Hasher as Hasher<C::F, C::HCO>>::HASH_SIZE],
-                ),
+            circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash::from_bytes(
+                &vec![0; <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::HASH_SIZE],
+            ),
         };
 
         Self {
@@ -231,7 +219,7 @@ impl<F, C, const D: usize> DummyProofGenerator<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    C::Hasher: AlgebraicHasher<F>,
 {
     pub fn deserialize_with_circuit_data(
         src: &mut Buffer,
@@ -254,7 +242,7 @@ impl<F, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    C::Hasher: AlgebraicHasher<F>,
 {
     fn id(&self) -> String {
         "DummyProofGenerator".to_string()

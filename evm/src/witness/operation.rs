@@ -189,7 +189,7 @@ pub(crate) fn generate_jump<F: Field>(
     );
     if state.registers.is_kernel {
         // Don't actually do the read, just set the address, etc.
-        let mut channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
+        let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
         channel.used = F::ZERO;
         channel.value[0] = F::ONE;
 
@@ -250,7 +250,7 @@ pub(crate) fn generate_jumpi<F: Field>(
     );
     if !should_jump || state.registers.is_kernel {
         // Don't actually do the read, just set the address, etc.
-        let mut channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
+        let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
         channel.used = F::ZERO;
         channel.value[0] = F::ONE;
     } else {
@@ -471,7 +471,7 @@ fn append_shift<F: Field>(
         state.traces.push_memory(read);
     } else {
         // The shift constraints still expect the address to be set, even though no read will occur.
-        let mut channel = &mut row.mem_channels[LOOKUP_CHANNEL];
+        let channel = &mut row.mem_channels[LOOKUP_CHANNEL];
         channel.addr_context = F::from_canonical_usize(lookup_addr.context);
         channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
         channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
