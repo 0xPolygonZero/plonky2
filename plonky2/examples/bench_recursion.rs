@@ -4,6 +4,7 @@
 // `[dev-dependencies]`.
 
 #![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
 #![allow(clippy::upper_case_acronyms)]
 
 use core::num::ParseIntError;
@@ -21,6 +22,7 @@ use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnl
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
+use plonky2::util::serialization::DefaultGateSerializer;
 use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
 use plonky2_maybe_rayon::rayon;
@@ -179,6 +181,19 @@ where
     let compressed_proof_from_bytes =
         CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
     assert_eq!(compressed_proof, compressed_proof_from_bytes);
+
+    let gate_serializer = DefaultGateSerializer;
+    let common_data_bytes = cd
+        .to_bytes(&gate_serializer)
+        .map_err(|_| anyhow::Error::msg("CommonCircuitData serialization failed."))?;
+    info!(
+        "Common circuit data length: {} bytes",
+        common_data_bytes.len()
+    );
+    let common_data_from_bytes =
+        CommonCircuitData::<F, D>::from_bytes(common_data_bytes, &gate_serializer)
+            .map_err(|_| anyhow::Error::msg("CommonCircuitData deserialization failed."))?;
+    assert_eq!(cd, &common_data_from_bytes);
 
     Ok(())
 }

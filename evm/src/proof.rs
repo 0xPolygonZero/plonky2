@@ -12,6 +12,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
@@ -148,6 +149,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
     pub permutation_ctl_zs_cap: MerkleCapTarget,
@@ -157,6 +159,31 @@ pub struct StarkProofTarget<const D: usize> {
 }
 
 impl<const D: usize> StarkProofTarget<D> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_merkle_cap(&self.trace_cap)?;
+        buffer.write_target_merkle_cap(&self.permutation_ctl_zs_cap)?;
+        buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
+        buffer.write_target_fri_proof(&self.opening_proof)?;
+        self.openings.to_buffer(buffer)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let trace_cap = buffer.read_target_merkle_cap()?;
+        let permutation_ctl_zs_cap = buffer.read_target_merkle_cap()?;
+        let quotient_polys_cap = buffer.read_target_merkle_cap()?;
+        let opening_proof = buffer.read_target_fri_proof()?;
+        let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            trace_cap,
+            permutation_ctl_zs_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        })
+    }
+
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
@@ -276,6 +303,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     }
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
@@ -286,6 +314,34 @@ pub struct StarkOpeningSetTarget<const D: usize> {
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_ext_vec(&self.local_values)?;
+        buffer.write_target_ext_vec(&self.next_values)?;
+        buffer.write_target_ext_vec(&self.permutation_ctl_zs)?;
+        buffer.write_target_ext_vec(&self.permutation_ctl_zs_next)?;
+        buffer.write_target_vec(&self.ctl_zs_last)?;
+        buffer.write_target_ext_vec(&self.quotient_polys)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let local_values = buffer.read_target_ext_vec::<D>()?;
+        let next_values = buffer.read_target_ext_vec::<D>()?;
+        let permutation_ctl_zs = buffer.read_target_ext_vec::<D>()?;
+        let permutation_ctl_zs_next = buffer.read_target_ext_vec::<D>()?;
+        let ctl_zs_last = buffer.read_target_vec()?;
+        let quotient_polys = buffer.read_target_ext_vec::<D>()?;
+
+        Ok(Self {
+            local_values,
+            next_values,
+            permutation_ctl_zs,
+            permutation_ctl_zs_next,
+            ctl_zs_last,
+            quotient_polys,
+        })
+    }
+
     pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self
