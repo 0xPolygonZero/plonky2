@@ -76,7 +76,7 @@ impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for CustomGeneratorS
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
+    C::Hasher: AlgebraicHasher<F>,
 {
     impl_generator_serializer! {
         CustomGeneratorSerializer,

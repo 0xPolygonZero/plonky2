@@ -8,7 +8,6 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::hash::hashing::HashConfig;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -328,10 +327,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_permutation_zs: &[usize; NUM_TABLES],
-    ) -> [Vec<Self>; NUM_TABLES]
-    where
-        [(); C::HCO::WIDTH]:,
-    {
+    ) -> [Vec<Self>; NUM_TABLES] {
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)

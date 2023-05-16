@@ -70,11 +70,12 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // TODO: It would probably be clearer/cleaner to read the U256
     // into an [i64;N] and then copy that to the lv table.
-    u256_to_array(&mut lv[MUL_INPUT_0], left_in);
-    u256_to_array(&mut lv[MUL_INPUT_1], right_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_2], U256::zero());
 
-    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
-    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
+    let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0);
+    let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_1);
 
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
@@ -96,7 +97,7 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // aux_limbs to handle the fact that unreduced_prod will
     // inevitably contain one digit's worth that is > 2^256.
 
-    lv[MUL_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[OUTPUT_REGISTER].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
@@ -121,9 +122,9 @@ pub fn eval_packed_generic<P: PackedField>(
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let aux_limbs = {
         // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
@@ -173,9 +174,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let aux_limbs = {
         let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
@@ -253,7 +254,7 @@ mod tests {
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values
-            for (ai, bi) in MUL_INPUT_0.zip(MUL_INPUT_1) {
+            for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }

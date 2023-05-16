@@ -28,66 +28,39 @@ use crate::arithmetic::utils::u256_to_array;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.
-///
-/// A row consists of four values, GENERAL_REGISTER_[012] and
-/// GENERAL_REGISTER_BIT. The interpretation of these values for each
-/// operation is as follows:
-///
-/// ADD: REGISTER_0 + REGISTER_1, output in REGISTER_2, ignore REGISTER_BIT
-/// SUB: REGISTER_2 - REGISTER_0, output in REGISTER_1, ignore REGISTER_BIT
-///  GT: REGISTER_0 > REGISTER_2, output in REGISTER_BIT, auxiliary output in REGISTER_1
-///  LT: REGISTER_2 < REGISTER_0, output in REGISTER_BIT, auxiliary output in REGISTER_1
 pub(crate) fn generate<F: PrimeField64>(
     lv: &mut [F],
     filter: usize,
     left_in: U256,
     right_in: U256,
 ) {
-    // Swap left_in and right_in for LT
-    let (left_in, right_in) = if filter == IS_LT {
-        (right_in, left_in)
-    } else {
-        (left_in, right_in)
-    };
+    u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_2], U256::zero());
 
     match filter {
         IS_ADD => {
-            // x + y == z + cy*2^256
             let (result, cy) = left_in.overflowing_add(right_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], right_in); // y
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], result); // z
-            lv[GENERAL_REGISTER_BIT] = F::from_bool(cy);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], U256::from(cy as u32));
+            u256_to_array(&mut lv[OUTPUT_REGISTER], result);
         }
-        IS_SUB | IS_GT | IS_LT => {
-            // y == z - x + cy*2^256
+        IS_SUB => {
+            let (diff, cy) = left_in.overflowing_sub(right_in);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], U256::from(cy as u32));
+            u256_to_array(&mut lv[OUTPUT_REGISTER], diff);
+        }
+        IS_LT => {
+            let (diff, cy) = left_in.overflowing_sub(right_in);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
+            u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
+        }
+        IS_GT => {
             let (diff, cy) = right_in.overflowing_sub(left_in);
-            u256_to_array(&mut lv[GENERAL_REGISTER_0], left_in); // x
-            u256_to_array(&mut lv[GENERAL_REGISTER_2], right_in); // z
-            u256_to_array(&mut lv[GENERAL_REGISTER_1], diff); // y
-            lv[GENERAL_REGISTER_BIT] = F::from_bool(cy);
+            u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], diff);
+            u256_to_array(&mut lv[OUTPUT_REGISTER], U256::from(cy as u32));
         }
         _ => panic!("unexpected operation filter"),
     };
-}
-
-fn eval_packed_generic_check_is_one_bit<P: PackedField>(
-    yield_constr: &mut ConstraintConsumer<P>,
-    filter: P,
-    x: P,
-) {
-    yield_constr.constraint(filter * x * (x - P::ONES));
-}
-
-fn eval_ext_circuit_check_is_one_bit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    filter: ExtensionTarget<D>,
-    x: ExtensionTarget<D>,
-) {
-    let constr = builder.mul_sub_extension(x, x, x);
-    let filtered_constr = builder.mul_extension(filter, constr);
-    yield_constr.constraint(builder, filtered_constr);
 }
 
 /// 2^-16 mod (2^64 - 2^32 + 1)
@@ -126,10 +99,12 @@ pub(crate) fn eval_packed_generic_addcy<P: PackedField>(
     x: &[P],
     y: &[P],
     z: &[P],
-    given_cy: P,
+    given_cy: &[P],
     is_two_row_op: bool,
 ) {
-    debug_assert!(x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS);
+    debug_assert!(
+        x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS && given_cy.len() == N_LIMBS
+    );
 
     let overflow = P::Scalar::from_canonical_u64(1u64 << LIMB_BITS);
     let overflow_inv = P::Scalar::from_canonical_u64(GOLDILOCKS_INVERSE_65536);
@@ -154,9 +129,22 @@ pub(crate) fn eval_packed_generic_addcy<P: PackedField>(
     }
 
     if is_two_row_op {
-        yield_constr.constraint_transition(filter * (cy - given_cy));
+        // NB: Mild hack: We don't check that given_cy[0] is 0 or 1
+        // when is_two_row_op is true because that's only the case
+        // when this function is called from
+        // modular::modular_constr_poly(), in which case (1) this
+        // condition has already been checked and (2) it exceeds the
+        // degree budget because given_cy[0] is already degree 2.
+        yield_constr.constraint_transition(filter * (cy - given_cy[0]));
+        for i in 1..N_LIMBS {
+            yield_constr.constraint_transition(filter * given_cy[i]);
+        }
     } else {
-        yield_constr.constraint(filter * (cy - given_cy));
+        yield_constr.constraint(filter * given_cy[0] * (given_cy[0] - P::ONES));
+        yield_constr.constraint(filter * (cy - given_cy[0]));
+        for i in 1..N_LIMBS {
+            yield_constr.constraint(filter * given_cy[i]);
+        }
     }
 }
 
@@ -169,30 +157,32 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let x = &lv[GENERAL_REGISTER_0];
-    let y = &lv[GENERAL_REGISTER_1];
-    let z = &lv[GENERAL_REGISTER_2];
-    let cy = lv[GENERAL_REGISTER_BIT];
+    let in0 = &lv[INPUT_REGISTER_0];
+    let in1 = &lv[INPUT_REGISTER_1];
+    let out = &lv[OUTPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER_0];
 
-    let op_filter = is_add + is_sub + is_lt + is_gt;
-    eval_packed_generic_check_is_one_bit(yield_constr, op_filter, cy);
-
-    // x + y = z + cy*2^256
-    eval_packed_generic_addcy(yield_constr, op_filter, x, y, z, cy, false);
+    // x + y = z + w*2^256
+    eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
+    eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[allow(clippy::needless_collect)]
 pub(crate) fn eval_ext_circuit_addcy<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
     x: &[ExtensionTarget<D>],
     y: &[ExtensionTarget<D>],
     z: &[ExtensionTarget<D>],
-    given_cy: ExtensionTarget<D>,
+    given_cy: &[ExtensionTarget<D>],
     is_two_row_op: bool,
 ) {
-    debug_assert!(x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS);
+    debug_assert!(
+        x.len() == N_LIMBS && y.len() == N_LIMBS && z.len() == N_LIMBS && given_cy.len() == N_LIMBS
+    );
 
     // 2^LIMB_BITS in the base field
     let overflow_base = F::from_canonical_u64(1 << LIMB_BITS);
@@ -222,17 +212,31 @@ pub(crate) fn eval_ext_circuit_addcy<F: RichField + Extendable<D>, const D: usiz
         cy = builder.mul_const_extension(overflow_inv, t);
     }
 
-    let good_cy = builder.sub_extension(cy, given_cy);
-    let filter = builder.mul_extension(filter, good_cy);
+    let good_cy = builder.sub_extension(cy, given_cy[0]);
+    let cy_filter = builder.mul_extension(filter, good_cy);
+
+    // Check given carry is one bit
+    let bit_constr = builder.mul_sub_extension(given_cy[0], given_cy[0], given_cy[0]);
+    let bit_filter = builder.mul_extension(filter, bit_constr);
+
     if is_two_row_op {
-        yield_constr.constraint_transition(builder, filter);
+        yield_constr.constraint_transition(builder, cy_filter);
+        for i in 1..N_LIMBS {
+            let t = builder.mul_extension(filter, given_cy[i]);
+            yield_constr.constraint_transition(builder, t);
+        }
     } else {
-        yield_constr.constraint(builder, filter);
+        yield_constr.constraint(builder, bit_filter);
+        yield_constr.constraint(builder, cy_filter);
+        for i in 1..N_LIMBS {
+            let t = builder.mul_extension(filter, given_cy[i]);
+            yield_constr.constraint(builder, t);
+        }
     }
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
@@ -241,14 +245,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
 
-    let x = &lv[GENERAL_REGISTER_0];
-    let y = &lv[GENERAL_REGISTER_1];
-    let z = &lv[GENERAL_REGISTER_2];
-    let cy = lv[GENERAL_REGISTER_BIT];
+    let in0 = &lv[INPUT_REGISTER_0];
+    let in1 = &lv[INPUT_REGISTER_1];
+    let out = &lv[OUTPUT_REGISTER];
+    let aux = &lv[AUX_INPUT_REGISTER_0];
 
-    let op_filter = builder.add_many_extension([is_add, is_sub, is_lt, is_gt]);
-    eval_ext_circuit_check_is_one_bit(builder, yield_constr, op_filter, cy);
-    eval_ext_circuit_addcy(builder, yield_constr, op_filter, x, y, z, cy, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
+    eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
 }
 
 #[cfg(test)]
@@ -264,7 +269,7 @@ mod tests {
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
-    fn generate_eval_consistency_not_addcc() {
+    fn generate_eval_consistency_not_addcy() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -291,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn generate_eval_consistency_addcc() {
+    fn generate_eval_consistency_addcy() {
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -328,6 +333,21 @@ mod tests {
                 for &acc in &constrant_consumer.constraint_accs {
                     assert_eq!(acc, F::ZERO);
                 }
+
+                let expected = match op_filter {
+                    IS_ADD => left_in.overflowing_add(right_in).0,
+                    IS_SUB => left_in.overflowing_sub(right_in).0,
+                    IS_LT => U256::from((left_in < right_in) as u8),
+                    IS_GT => U256::from((left_in > right_in) as u8),
+                    _ => panic!("unrecognised operation"),
+                };
+
+                let mut expected_limbs = [F::ZERO; N_LIMBS];
+                u256_to_array(&mut expected_limbs, expected);
+                assert!(expected_limbs
+                    .iter()
+                    .zip(&lv[OUTPUT_REGISTER])
+                    .all(|(x, y)| x == y));
             }
         }
     }

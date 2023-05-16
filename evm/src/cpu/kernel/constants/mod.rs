@@ -6,12 +6,14 @@ use hex_literal::hex;
 use crate::cpu::decode::invalid_opcodes_user;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::journal_entry::JournalEntry;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub(crate) mod context_metadata;
 pub(crate) mod global_metadata;
+pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
@@ -29,6 +31,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
 
     for (name, value) in GAS_CONSTANTS {
+        c.insert(name.into(), U256::from(value));
+    }
+
+    for (name, value) in REFUND_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
 
@@ -62,6 +68,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
+    }
+    for entry in JournalEntry::all() {
+        c.insert(entry.var_name().into(), (entry as u32).into());
     }
     c.insert(
         "INVALID_OPCODES_USER".into(),
@@ -175,7 +184,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 38] = [
+const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -192,8 +201,6 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
-    ("REFUND_SCLEAR", 15_000),
-    ("REFUND_SELFDESTRUCT", 24_000),
     ("GAS_SELFDESTRUCT", 5_000),
     ("GAS_CREATE", 32_000),
     ("GAS_CODEDEPOSIT", 200),
@@ -215,6 +222,8 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
 ];
+
+const REFUND_CONSTANTS: [(&str, u16); 2] = [("REFUND_SCLEAR", 4_800), ("MAX_REFUND_QUOTIENT", 5)];
 
 const PRECOMPILES: [(&str, u16); 9] = [
     ("ECREC", 1),

@@ -41,16 +41,6 @@ unsafe impl PackedField for Avx512GoldilocksField {
     const ONES: Self = Self([GoldilocksField::ONE; 8]);
 
     #[inline]
-    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
-        Self(arr)
-    }
-
-    #[inline]
-    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
-        self.0
-    }
-
-    #[inline]
     fn from_slice(slice: &[Self::Scalar]) -> &Self {
         assert_eq!(slice.len(), Self::WIDTH);
         unsafe { &*slice.as_ptr().cast() }
@@ -444,13 +434,13 @@ mod tests {
         let a_arr = test_vals_a();
         let b_arr = test_vals_b();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
-        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
+        let packed_b = *Avx512GoldilocksField::from_slice(&b_arr);
         let packed_res = packed_a + packed_b;
-        let arr_res = packed_res.as_arr();
+        let arr_res = packed_res.as_slice();
 
         let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a + b);
-        for (exp, res) in expected.zip(arr_res) {
+        for (exp, &res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
     }
@@ -460,13 +450,13 @@ mod tests {
         let a_arr = test_vals_a();
         let b_arr = test_vals_b();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
-        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
+        let packed_b = *Avx512GoldilocksField::from_slice(&b_arr);
         let packed_res = packed_a * packed_b;
-        let arr_res = packed_res.as_arr();
+        let arr_res = packed_res.as_slice();
 
         let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a * b);
-        for (exp, res) in expected.zip(arr_res) {
+        for (exp, &res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
     }
@@ -475,12 +465,12 @@ mod tests {
     fn test_square() {
         let a_arr = test_vals_a();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
         let packed_res = packed_a.square();
-        let arr_res = packed_res.as_arr();
+        let arr_res = packed_res.as_slice();
 
         let expected = a_arr.iter().map(|&a| a.square());
-        for (exp, res) in expected.zip(arr_res) {
+        for (exp, &res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
     }
@@ -489,12 +479,12 @@ mod tests {
     fn test_neg() {
         let a_arr = test_vals_a();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
         let packed_res = -packed_a;
-        let arr_res = packed_res.as_arr();
+        let arr_res = packed_res.as_slice();
 
         let expected = a_arr.iter().map(|&a| -a);
-        for (exp, res) in expected.zip(arr_res) {
+        for (exp, &res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
     }
@@ -504,13 +494,13 @@ mod tests {
         let a_arr = test_vals_a();
         let b_arr = test_vals_b();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
-        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
+        let packed_b = *Avx512GoldilocksField::from_slice(&b_arr);
         let packed_res = packed_a - packed_b;
-        let arr_res = packed_res.as_arr();
+        let arr_res = packed_res.as_slice();
 
         let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a - b);
-        for (exp, res) in expected.zip(arr_res) {
+        for (exp, &res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
     }
@@ -520,32 +510,32 @@ mod tests {
         let a_arr = test_vals_a();
         let b_arr = test_vals_b();
 
-        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
-        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_a = *Avx512GoldilocksField::from_slice(&a_arr);
+        let packed_b = *Avx512GoldilocksField::from_slice(&b_arr);
         {
             // Interleave, then deinterleave.
             let (x, y) = packed_a.interleave(packed_b, 1);
             let (res_a, res_b) = x.interleave(y, 1);
-            assert_eq!(res_a.as_arr(), a_arr);
-            assert_eq!(res_b.as_arr(), b_arr);
+            assert_eq!(res_a.as_slice(), a_arr);
+            assert_eq!(res_b.as_slice(), b_arr);
         }
         {
             let (x, y) = packed_a.interleave(packed_b, 2);
             let (res_a, res_b) = x.interleave(y, 2);
-            assert_eq!(res_a.as_arr(), a_arr);
-            assert_eq!(res_b.as_arr(), b_arr);
+            assert_eq!(res_a.as_slice(), a_arr);
+            assert_eq!(res_b.as_slice(), b_arr);
         }
         {
             let (x, y) = packed_a.interleave(packed_b, 4);
             let (res_a, res_b) = x.interleave(y, 4);
-            assert_eq!(res_a.as_arr(), a_arr);
-            assert_eq!(res_b.as_arr(), b_arr);
+            assert_eq!(res_a.as_slice(), a_arr);
+            assert_eq!(res_b.as_slice(), b_arr);
         }
         {
             let (x, y) = packed_a.interleave(packed_b, 8);
             let (res_a, res_b) = x.interleave(y, 8);
-            assert_eq!(res_a.as_arr(), a_arr);
-            assert_eq!(res_b.as_arr(), b_arr);
+            assert_eq!(res_a.as_slice(), a_arr);
+            assert_eq!(res_b.as_slice(), b_arr);
         }
     }
 
@@ -632,27 +622,27 @@ mod tests {
             GoldilocksField::from_noncanonical_u64(17),
         ];
 
-        let packed_a = Avx512GoldilocksField::from_arr(in_a);
-        let packed_b = Avx512GoldilocksField::from_arr(in_b);
+        let packed_a = *Avx512GoldilocksField::from_slice(&in_a);
+        let packed_b = *Avx512GoldilocksField::from_slice(&in_b);
         {
             let (x1, y1) = packed_a.interleave(packed_b, 1);
-            assert_eq!(x1.as_arr(), int1_a);
-            assert_eq!(y1.as_arr(), int1_b);
+            assert_eq!(x1.as_slice(), int1_a);
+            assert_eq!(y1.as_slice(), int1_b);
         }
         {
             let (x2, y2) = packed_a.interleave(packed_b, 2);
-            assert_eq!(x2.as_arr(), int2_a);
-            assert_eq!(y2.as_arr(), int2_b);
+            assert_eq!(x2.as_slice(), int2_a);
+            assert_eq!(y2.as_slice(), int2_b);
         }
         {
             let (x4, y4) = packed_a.interleave(packed_b, 4);
-            assert_eq!(x4.as_arr(), int4_a);
-            assert_eq!(y4.as_arr(), int4_b);
+            assert_eq!(x4.as_slice(), int4_a);
+            assert_eq!(y4.as_slice(), int4_b);
         }
         {
             let (x8, y8) = packed_a.interleave(packed_b, 8);
-            assert_eq!(x8.as_arr(), in_a);
-            assert_eq!(y8.as_arr(), in_b);
+            assert_eq!(x8.as_slice(), in_a);
+            assert_eq!(y8.as_slice(), in_b);
         }
     }
 }
