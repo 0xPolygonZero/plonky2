@@ -11,7 +11,7 @@ global sys_call:
     MUL // Cheaper than AND
     %jumpi(fault_exception)
 
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
 
     %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -36,7 +36,7 @@ global sys_call:
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
+    DUP5 DUP5 %address %transfer_eth %jumpi(call_insufficient_balance)
     DUP5 DUP5 %address %journal_add_balance_transfer
     DUP3 %set_new_ctx_gas_limit
     %set_new_ctx_parent_pc(after_call_instruction)
@@ -59,7 +59,7 @@ global sys_call:
 // Creates a new sub context as if calling itself, but with the code of the
 // given account. In particular the storage remains the same.
 global sys_callcode:
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
 
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
@@ -83,6 +83,8 @@ global sys_callcode:
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 %address %address %transfer_eth %jumpi(call_insufficient_balance)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
     %set_new_ctx_parent_pc(after_call_instruction)
@@ -109,7 +111,7 @@ global sys_callcode:
 // are CREATE, CREATE2, LOG0, LOG1, LOG2, LOG3, LOG4, SSTORE, SELFDESTRUCT and
 // CALL if the value sent is not 0.
 global sys_staticcall:
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
 
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
@@ -160,7 +162,7 @@ global sys_staticcall:
 // given account. In particular the storage, the current sender and the current
 // value remain the same.
 global sys_delegatecall:
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
 
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
@@ -209,6 +211,7 @@ global sys_delegatecall:
 global after_call_instruction:
     // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
     DUP1 ISZERO %jumpi(after_call_instruction_failed)
+    %pop_checkpoint
 after_call_instruction_contd:
     SWAP3
     // stack: kexit_info, leftover_gas, new_ctx, success, ret_offset, ret_size
@@ -222,8 +225,14 @@ after_call_instruction_contd:
 
 after_call_instruction_failed:
     // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
-    %mload_context_metadata(@CTX_METADATA_CHECKPOINT) %revert_checkpoint
+    %revert_checkpoint
     %jump(after_call_instruction_contd)
+
+call_insufficient_balance:
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (callgas, kexit_info, 0)
+    %shl_const(192) SWAP1 SUB
+    EXIT_KERNEL
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
 // because it will already be 0 by default.
@@ -313,7 +322,7 @@ after_call_instruction_failed:
     // Switch to the new context and go to usermode with PC=0.
     DUP1 // new_ctx
     SET_CONTEXT
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx

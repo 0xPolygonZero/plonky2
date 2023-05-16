@@ -4,7 +4,7 @@ global precompile_ecrec:
     // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
-    %checkpoint %mstore_context_metadata(@CTX_METADATA_CHECKPOINT) // Checkpoint and store it in context metadata.
+    %checkpoint // Checkpoint
     // stack: (empty)
     PUSH 0x100000000 // = 2^32 (is_kernel = true)
     // stack: kexit_info
