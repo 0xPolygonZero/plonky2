@@ -5,7 +5,8 @@
 %endmacro
 
 global revert_code_change:
-    // stack: ptr, retdest
+    // stack: entry_ptr, ptr, retdest
+    POP
     %journal_load_2
     // stack: address, prev_codehash, retdest
     %mpt_read_state_trie

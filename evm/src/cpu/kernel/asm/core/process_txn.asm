@@ -173,7 +173,6 @@ global process_contract_creation_txn_after_constructor:
 
     // stack: leftover_gas, new_ctx, address, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
     // stack: new_ctx, address, retdest
@@ -264,15 +263,25 @@ process_message_txn_code_loaded_finish:
 
 global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
-    POP // TODO: Success will go into the receipt when we support that.
+    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    ISZERO %jumpi(process_message_txn_fail)
+process_message_txn_after_call_contd:
     // stack: leftover_gas, new_ctx, retdest
     %pay_coinbase_and_refund_sender
-    // TODO: Delete accounts in self-destruct list and empty touched addresses.
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
     // stack: new_ctx, retdest
     POP
     JUMP
+
+process_message_txn_fail:
+    // stack: leftover_gas, new_ctx, retdest
+    // Transfer value back to the caller.
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    %mload_txn_field(@TXN_FIELD_TO)
+    %transfer_eth %jumpi(panic)
+    %jump(process_message_txn_after_call_contd)
 
 %macro pay_coinbase_and_refund_sender
     // stack: leftover_gas

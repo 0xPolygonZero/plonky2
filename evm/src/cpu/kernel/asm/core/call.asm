@@ -11,8 +11,6 @@ global sys_call:
     MUL // Cheaper than AND
     %jumpi(fault_exception)
 
-    %checkpoint // Checkpoint
-
     %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
     %checked_mem_expansion
@@ -23,8 +21,9 @@ global sys_call:
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
+    %checkpoint // Checkpoint
+    DUP1 %insert_touched_addresses
 
     %call_charge_gas(1, 1)
 
@@ -59,7 +58,6 @@ global sys_call:
 // Creates a new sub context as if calling itself, but with the code of the
 // given account. In particular the storage remains the same.
 global sys_callcode:
-    %checkpoint // Checkpoint
 
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
@@ -73,6 +71,7 @@ global sys_callcode:
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
+    %checkpoint // Checkpoint
 
     %call_charge_gas(1, 0)
 
@@ -111,8 +110,6 @@ global sys_callcode:
 // are CREATE, CREATE2, LOG0, LOG1, LOG2, LOG3, LOG4, SSTORE, SELFDESTRUCT and
 // CALL if the value sent is not 0.
 global sys_staticcall:
-    %checkpoint // Checkpoint
-
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
         (args_size, args_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -124,8 +121,9 @@ global sys_staticcall:
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
-    DUP1 %insert_touched_addresses
     DUP1 %insert_accessed_addresses
+    %checkpoint // Checkpoint
+    DUP1 %insert_touched_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
@@ -162,7 +160,6 @@ global sys_staticcall:
 // given account. In particular the storage, the current sender and the current
 // value remain the same.
 global sys_delegatecall:
-    %checkpoint // Checkpoint
 
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
     %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
@@ -176,6 +173,7 @@ global sys_delegatecall:
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
+    %checkpoint // Checkpoint
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)

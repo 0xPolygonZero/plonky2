@@ -21,8 +21,10 @@ global revert_storage_change:
     %add_const(2)
     // stack: storage_root_ptr_ptr, 64, storage_key, address, prev_value, retdest
     %mload_trie_data
-    %stack (storage_root_ptr, num_nibbles, storage_key, address, prev_value, retdest) ->
-        (storage_root_ptr, num_nibbles, storage_key, prev_value, new_storage_root, address, retdest)
+    %get_trie_data_size
+    DUP6 %append_to_trie_data
+    %stack (prev_value_ptr, storage_root_ptr, num_nibbles, storage_key, address, prev_value, retdest) ->
+        (storage_root_ptr, num_nibbles, storage_key, prev_value_ptr, new_storage_root, address, retdest)
     %jump(mpt_insert)
 
 delete:
