@@ -20,7 +20,7 @@ fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
         .collect::<Vec<U256>>()
 }
 
-fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Vec<U256> {
+fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
     let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.to_stack().to_vec());
@@ -52,7 +52,7 @@ fn test_bn_mul_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Vec<U256> {
+fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Fp12<BN254> {
     let in0: usize = 100;
     let in1: usize = 112;
     let out: usize = 124;
@@ -118,7 +118,7 @@ fn test_bn_frob_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_bn_frob_fp12(f: Fp12<BN254>, n: usize) -> Vec<U256> {
+fn run_bn_frob_fp12(f: Fp12<BN254>, n: usize) -> Fp12<BN254> {
     let ptr: usize = 100;
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_12_{}", n),

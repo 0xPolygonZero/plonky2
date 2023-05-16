@@ -1225,7 +1225,7 @@ where
 pub trait Stack {
     const SIZE: usize;
 
-    fn to_stack(&self) -> &[U256];
+    fn to_stack(&self) -> Vec<U256>;
 
     fn from_stack(stack: &[U256]) -> Self;
 }
@@ -1233,9 +1233,8 @@ pub trait Stack {
 impl Stack for BN254 {
     const SIZE: usize = 1;
 
-    fn to_stack(&self) -> &[U256] {
-        let boxed: Box<[U256]> = Box::new([self.val]);
-        Box::leak(boxed)
+    fn to_stack(&self) -> Vec<U256> {
+        vec![self.val]
     }
 
     fn from_stack(stack: &[U256]) -> BN254 {
@@ -1243,18 +1242,11 @@ impl Stack for BN254 {
     }
 }
 
-impl Stack for BN254 {
-    fn on_stack(self) -> Vec<U256> {
-        vec![self.val]
-    }
-}
-
 impl Stack for BLS381 {
     const SIZE: usize = 2;
 
-    fn to_stack(&self) -> &[U256] {
-        let boxed: Box<[U256]> = Box::new([self.lo(), self.hi()]);
-        Box::leak(boxed)
+    fn to_stack(&self) -> Vec<U256> {
+        vec![self.lo(), self.hi()]
     }
 
     fn from_stack(stack: &[U256]) -> BLS381 {
@@ -1268,13 +1260,10 @@ impl Stack for BLS381 {
 impl<T: FieldExt + Stack> Stack for Fp2<T> {
     const SIZE: usize = 2 * T::SIZE;
 
-    fn to_stack(&self) -> &[U256] {
-        let re = self.re.to_stack();
-        let im = self.im.to_stack();
-        let mut combined: Vec<U256> = Vec::new();
-        combined.extend_from_slice(re);
-        combined.extend_from_slice(im);
-        Box::leak(combined.into_boxed_slice())
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.re.to_stack();
+        stack.extend(self.im.to_stack());
+        stack
     }
 
     fn from_stack(stack: &[U256]) -> Fp2<T> {
@@ -1293,16 +1282,11 @@ where
 {
     const SIZE: usize = 3 * Fp2::<T>::SIZE;
 
-    fn to_stack(&self) -> &[U256] {
-        let t0 = self.t0.to_stack();
-        let t1 = self.t1.to_stack();
-        let t2 = self.t2.to_stack();
-
-        let mut combined: Vec<U256> = Vec::new();
-        combined.extend_from_slice(t0);
-        combined.extend_from_slice(t1);
-        combined.extend_from_slice(t2);
-        Box::leak(combined.into_boxed_slice())
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.t0.to_stack();
+        stack.extend(self.t1.to_stack());
+        stack.extend(self.t2.to_stack());
+        stack
     }
 
     fn from_stack(stack: &[U256]) -> Self {
@@ -1322,14 +1306,10 @@ where
 {
     const SIZE: usize = 2 * Fp6::<T>::SIZE;
 
-    fn to_stack(&self) -> &[U256] {
-        let z0 = self.z0.to_stack();
-        let z1 = self.z1.to_stack();
-
-        let mut combined: Vec<U256> = Vec::new();
-        combined.extend_from_slice(z0);
-        combined.extend_from_slice(z1);
-        Box::leak(combined.into_boxed_slice())
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.z0.to_stack();
+        stack.extend(self.z1.to_stack());
+        stack
     }
 
     fn from_stack(stack: &[U256]) -> Self {
