@@ -13,7 +13,7 @@ edition = "2021"
 anyhow = "1.0.40"
 blake2 = "0.10.5"
 env_logger = "0.10.0"
-eth_trie_utils = "0.5.0"
+eth_trie_utils = "0.6.0"
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.3.4"
@@ -36,6 +36,7 @@ serde = { version = "1.0.144", features = ["derive"] }
 static_assertions = "1.1.0"
 hashbrown = { version = "0.12.3" }
 tiny-keccak = "2.0.2"
+serde_json = "1.0"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.5.0"

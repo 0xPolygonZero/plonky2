@@ -1,16 +1,16 @@
 %macro handle_precompiles
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, new_ctx, (old stack)
     PUSH %%after
     SWAP1
-    // stack: address, %%after, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, %%after, new_ctx, (old stack)
     %jump(handle_precompiles)
 %%after:
-    // stack: new_ctx, kexit_info, ret_offset, ret_size
+    // stack: new_ctx, (old stack)
     %pop4
 %endmacro
 
 global handle_precompiles:
-    // stack: address, retdest, new_ctx, kexit_info, ret_offset, ret_size
+    // stack: address, retdest, new_ctx, (old stack)
     DUP1 %eq_const(@ECREC)  %jumpi(precompile_ecrec)
     DUP1 %eq_const(@SHA256) %jumpi(precompile_sha256)
     DUP1 %eq_const(@RIP160) %jumpi(precompile_rip160)
@@ -30,6 +30,36 @@ global pop_and_return_success:
     // stack: leftover_gas
     PUSH 1 // success
     %jump(terminate_common)
+
+%macro handle_precompiles_from_eoa
+    // stack: retdest
+    %mload_txn_field(@TXN_FIELD_TO)
+    // stack: addr, retdest
+    DUP1 %is_precompile
+    %jumpi(handle_precompiles_from_eoa)
+    // stack: addr, retdest
+    POP
+%endmacro
+
+global handle_precompiles_from_eoa:
+    // stack: addr, retdest
+    %create_context
+    // stack: new_ctx, addr, retdest
+    %set_new_ctx_parent_pc(process_message_txn_after_call)
+    %non_intrinisic_gas %set_new_ctx_gas_limit
+    // stack: new_ctx, addr, retdest
+
+    // Set calldatasize and copy txn data to calldata.
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    %stack (calldata_size, new_ctx) -> (calldata_size, new_ctx, calldata_size)
+    %set_new_ctx_calldata_size
+    %stack (new_ctx, calldata_size) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, handle_precompiles_from_eoa_finish, new_ctx)
+    %jump(memcpy)
+
+handle_precompiles_from_eoa_finish:
+    %stack (new_ctx, addr, retdest) -> (addr, new_ctx, retdest)
+    %handle_precompiles
+    PANIC // We already checked that a precompile is called, so this should be unreachable.
 
 %macro zero_out_kernel_general
     PUSH 0 PUSH 0 %mstore_kernel_general

@@ -43,6 +43,12 @@ mload_packing_return:
     %stack (packed_value, addr: 3, len, retdest) -> (retdest, packed_value)
     JUMP
 
+%macro mload_packing
+    %stack (addr: 3, len) -> (addr, len, %%after)
+    %jump(mload_packing)
+%%after:
+%endmacro
+
 // Pre stack: context, segment, offset, value, len, retdest
 // Post stack: offset'
 global mstore_unpacking:
@@ -82,3 +88,9 @@ mstore_unpacking_finish:
     %pop3
     %stack (offset, value, len, retdest) -> (retdest, offset)
     JUMP
+
+%macro mstore_unpacking
+    %stack (addr: 3, value, len) -> (addr, value, len, %%after)
+    %jump(mstore_unpacking)
+%%after:
+%endmacro

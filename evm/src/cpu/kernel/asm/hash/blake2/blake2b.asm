@@ -12,4 +12,4 @@ global blake2b:
     %add_const(1)
     %mstore_kernel_general
     // stack: retdest
-    %jump(blake2b_compression)
+    %jump(blake2_compression)

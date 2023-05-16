@@ -13,6 +13,7 @@ use crate::plonk::circuit_data::{
 };
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
+use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
     fn from_slice(slice: &[C::F], common_data: &CommonCircuitData<C::F, D>) -> Result<Self>
@@ -41,6 +42,23 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
 }
 
 impl VerifierCircuitTarget {
+    pub fn to_bytes(&self) -> IoResult<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_target_merkle_cap(&self.constants_sigmas_cap)?;
+        buffer.write_target_hash(&self.circuit_digest)?;
+        Ok(buffer)
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> IoResult<Self> {
+        let mut buffer = Buffer::new(bytes);
+        let constants_sigmas_cap = buffer.read_target_merkle_cap()?;
+        let circuit_digest = buffer.read_target_hash()?;
+        Ok(Self {
+            constants_sigmas_cap,
+            circuit_digest,
+        })
+    }
+
     fn from_slice<F: RichField + Extendable<D>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,

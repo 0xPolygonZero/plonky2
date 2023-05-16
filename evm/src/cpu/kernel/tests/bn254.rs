@@ -2,17 +2,26 @@ use anyhow::Result;
 use ethereum_types::U256;
 use rand::Rng;
 
-use crate::bn254_pairing::{
-    gen_fp12_sparse, invariant_exponent, miller_loop, tate, Curve, TwistedCurve,
-};
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
+};
+use crate::curve_pairings::{
+    bn_final_exponent, bn_miller_loop, gen_bn_fp12_sparse, Curve, CyclicGroup,
 };
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 use crate::memory::segments::Segment::BnPairing;
 
-fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
-    let mut stack = f.to_stack().to_vec();
+fn extract_stack(interpreter: Interpreter<'static>) -> Vec<U256> {
+    interpreter
+        .stack()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<U256>>()
+}
+
+fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Vec<U256> {
+    let mut stack = f.to_stack();
     if label == "mul_fp254_6" {
         stack.extend(g.to_stack().to_vec());
     }
@@ -43,10 +52,10 @@ fn test_bn_mul_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Fp12<BN254> {
-    let in0: usize = 200;
-    let in1: usize = 212;
-    let out: usize = 224;
+fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Vec<U256> {
+    let in0: usize = 100;
+    let in1: usize = 112;
+    let out: usize = 124;
 
     let mut stack = vec![
         U256::from(in0),
@@ -73,7 +82,7 @@ fn test_bn_mul_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
     let g: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
-    let h: Fp12<BN254> = gen_fp12_sparse(&mut rng);
+    let h: Fp12<BN254> = gen_bn_fp12_sparse(&mut rng);
 
     let output_normal = run_bn_mul_fp12(f, g, "mul_fp254_12");
     let output_sparse = run_bn_mul_fp12(f, h, "mul_fp254_12_sparse");
@@ -109,8 +118,8 @@ fn test_bn_frob_fp6() -> Result<()> {
     Ok(())
 }
 
-fn run_bn_frob_fp12(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
-    let ptr: usize = 200;
+fn run_bn_frob_fp12(f: Fp12<BN254>, n: usize) -> Vec<U256> {
+    let ptr: usize = 100;
     let setup = InterpreterMemoryInitialization {
         label: format!("test_frob_fp254_12_{}", n),
         stack: vec![U256::from(ptr)],
@@ -126,8 +135,9 @@ fn run_bn_frob_fp12(n: usize, f: Fp12<BN254>) -> Fp12<BN254> {
 fn test_frob_fp12() -> Result<()> {
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
+
     for n in [1, 2, 3, 6] {
-        let output = run_bn_frob_fp12(n, f);
+        let output = run_bn_frob_fp12(f, n);
         assert_eq!(output, f.frob(n));
     }
     Ok(())
@@ -135,8 +145,8 @@ fn test_frob_fp12() -> Result<()> {
 
 #[test]
 fn test_bn_inv_fp12() -> Result<()> {
-    let ptr: usize = 200;
-    let inv: usize = 212;
+    let ptr: usize = 100;
+    let inv: usize = 112;
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
@@ -156,103 +166,54 @@ fn test_bn_inv_fp12() -> Result<()> {
 }
 
 #[test]
-fn test_bn_final_exponentiation() -> Result<()> {
-    let ptr: usize = 200;
+fn test_bn_final_exponent() -> Result<()> {
+    let ptr: usize = 100;
+
     let mut rng = rand::thread_rng();
     let f: Fp12<BN254> = rng.gen::<Fp12<BN254>>();
 
     let setup = InterpreterMemoryInitialization {
-        label: "bn254_invariant_exponent".to_string(),
-        stack: vec![U256::from(ptr), U256::from(0xdeadbeefu32)],
+        label: "bn254_final_exponent".to_string(),
+        stack: vec![
+            U256::zero(),
+            U256::zero(),
+            U256::from(ptr),
+            U256::from(0xdeadbeefu32),
+        ],
         segment: BnPairing,
         memory: vec![(ptr, f.to_stack().to_vec())],
     };
 
     let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
-    let expected: Vec<U256> = invariant_exponent(f).to_stack().to_vec();
+    let expected: Vec<U256> = bn_final_exponent(f).to_stack();
 
     assert_eq!(output, expected);
 
     Ok(())
 }
 
-// The curve is cyclic with generator (1, 2)
-pub const CURVE_GENERATOR: Curve = {
-    Curve {
-        x: BN254 { val: U256::one() },
-        y: BN254 {
-            val: U256([2, 0, 0, 0]),
-        },
-    }
-};
-
-// The twisted curve is cyclic with generator (x, y) as follows
-pub const TWISTED_GENERATOR: TwistedCurve = {
-    TwistedCurve {
-        x: Fp2 {
-            re: BN254 {
-                val: U256([
-                    0x46debd5cd992f6ed,
-                    0x674322d4f75edadd,
-                    0x426a00665e5c4479,
-                    0x1800deef121f1e76,
-                ]),
-            },
-            im: BN254 {
-                val: U256([
-                    0x97e485b7aef312c2,
-                    0xf1aa493335a9e712,
-                    0x7260bfb731fb5d25,
-                    0x198e9393920d483a,
-                ]),
-            },
-        },
-        y: Fp2 {
-            re: BN254 {
-                val: U256([
-                    0x4ce6cc0166fa7daa,
-                    0xe3d1e7690c43d37b,
-                    0x4aab71808dcb408f,
-                    0x12c85ea5db8c6deb,
-                ]),
-            },
-            im: BN254 {
-                val: U256([
-                    0x55acdadcd122975b,
-                    0xbc4b313370b38ef3,
-                    0xec9e99ad690c3395,
-                    0x090689d0585ff075,
-                ]),
-            },
-        },
-    }
-};
-
 #[test]
-fn test_bn_miller_loop() -> Result<()> {
-    let ptr: usize = 200;
-    let out: usize = 206;
-    let inputs: Vec<U256> = vec![
-        CURVE_GENERATOR.x.val,
-        CURVE_GENERATOR.y.val,
-        TWISTED_GENERATOR.x.re.val,
-        TWISTED_GENERATOR.x.im.val,
-        TWISTED_GENERATOR.y.re.val,
-        TWISTED_GENERATOR.y.im.val,
-    ];
+fn test_bn_miller() -> Result<()> {
+    let ptr: usize = 100;
+    let out: usize = 106;
+
+    let mut rng = rand::thread_rng();
+    let p: Curve<BN254> = rng.gen::<Curve<BN254>>();
+    let q: Curve<Fp2<BN254>> = rng.gen::<Curve<Fp2<BN254>>>();
+
+    let mut input = p.to_stack();
+    input.extend(q.to_stack());
 
     let setup = InterpreterMemoryInitialization {
         label: "bn254_miller".to_string(),
         stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
         segment: BnPairing,
-        memory: vec![(ptr, inputs)],
+        memory: vec![(ptr, input)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = miller_loop(CURVE_GENERATOR, TWISTED_GENERATOR)
-        .to_stack()
-        .to_vec();
+    let expected = bn_miller_loop(p, q).to_stack();
 
     assert_eq!(output, expected);
 
@@ -260,29 +221,41 @@ fn test_bn_miller_loop() -> Result<()> {
 }
 
 #[test]
-fn test_bn_tate_pairing() -> Result<()> {
-    let ptr: usize = 200;
-    let out: usize = 206;
-    let inputs: Vec<U256> = vec![
-        CURVE_GENERATOR.x.val,
-        CURVE_GENERATOR.y.val,
-        TWISTED_GENERATOR.x.re.val,
-        TWISTED_GENERATOR.x.im.val,
-        TWISTED_GENERATOR.y.re.val,
-        TWISTED_GENERATOR.y.im.val,
-    ];
+fn test_bn_pairing() -> Result<()> {
+    let out: usize = 100;
+    let ptr: usize = 112;
+
+    let mut rng = rand::thread_rng();
+    let k: usize = rng.gen_range(1..10);
+    let mut acc: i32 = 0;
+    let mut input: Vec<U256> = vec![];
+    for _ in 1..k {
+        let m: i32 = rng.gen_range(-8..8);
+        let n: i32 = rng.gen_range(-8..8);
+        acc -= m * n;
+
+        let p: Curve<BN254> = Curve::<BN254>::int(m);
+        let q: Curve<Fp2<BN254>> = Curve::<Fp2<BN254>>::int(n);
+        input.extend(p.to_stack());
+        input.extend(q.to_stack());
+    }
+    let p: Curve<BN254> = Curve::<BN254>::int(acc);
+    let q: Curve<Fp2<BN254>> = Curve::<Fp2<BN254>>::GENERATOR;
+    input.extend(p.to_stack());
+    input.extend(q.to_stack());
 
     let setup = InterpreterMemoryInitialization {
-        label: "bn254_tate".to_string(),
-        stack: vec![U256::from(ptr), U256::from(out), U256::from(0xdeadbeefu32)],
+        label: "bn254_pairing".to_string(),
+        stack: vec![
+            U256::from(k),
+            U256::from(ptr),
+            U256::from(out),
+            U256::from(0xdeadbeefu32),
+        ],
         segment: BnPairing,
-        memory: vec![(ptr, inputs)],
+        memory: vec![(ptr, input)],
     };
     let interpreter = run_interpreter_with_memory(setup).unwrap();
-    let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
-    let expected = tate(CURVE_GENERATOR, TWISTED_GENERATOR).to_stack().to_vec();
-
-    assert_eq!(output, expected);
-
+    assert_eq!(interpreter.stack()[0], U256::one());
     Ok(())
 }

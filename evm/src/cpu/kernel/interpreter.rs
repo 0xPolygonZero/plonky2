@@ -332,21 +332,21 @@ impl<'a> Interpreter<'a> {
             0x1d => self.run_sar(),                                     // "SAR",
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
-            0x30 => todo!(),                                            // "ADDRESS",
+            0x30 => self.run_address(),                                 // "ADDRESS",
             0x31 => todo!(),                                            // "BALANCE",
-            0x32 => todo!(),                                            // "ORIGIN",
-            0x33 => todo!(),                                            // "CALLER",
+            0x32 => self.run_origin(),                                  // "ORIGIN",
+            0x33 => self.run_caller(),                                  // "CALLER",
             0x34 => self.run_callvalue(),                               // "CALLVALUE",
             0x35 => self.run_calldataload(),                            // "CALLDATALOAD",
             0x36 => self.run_calldatasize(),                            // "CALLDATASIZE",
             0x37 => self.run_calldatacopy(),                            // "CALLDATACOPY",
-            0x38 => todo!(),                                            // "CODESIZE",
-            0x39 => todo!(),                                            // "CODECOPY",
-            0x3a => todo!(),                                            // "GASPRICE",
+            0x38 => self.run_codesize(),                                // "CODESIZE",
+            0x39 => self.run_codecopy(),                                // "CODECOPY",
+            0x3a => self.run_gasprice(),                                // "GASPRICE",
             0x3b => todo!(),                                            // "EXTCODESIZE",
             0x3c => todo!(),                                            // "EXTCODECOPY",
-            0x3d => todo!(),                                            // "RETURNDATASIZE",
-            0x3e => todo!(),                                            // "RETURNDATACOPY",
+            0x3d => self.run_returndatasize(),                          // "RETURNDATASIZE",
+            0x3e => self.run_returndatacopy(),                          // "RETURNDATACOPY",
             0x3f => todo!(),                                            // "EXTCODEHASH",
             0x40 => todo!(),                                            // "BLOCKHASH",
             0x41 => self.run_coinbase(),                                // "COINBASE",
@@ -734,6 +734,26 @@ impl<'a> Interpreter<'a> {
         self.push(U256::from_big_endian(hash.as_bytes()));
     }
 
+    fn run_address(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::Address as usize),
+        )
+    }
+
+    fn run_origin(&mut self) {
+        self.push(self.get_txn_field(NormalizedTxnField::Origin))
+    }
+
+    fn run_caller(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::Caller as usize),
+        )
+    }
+
     fn run_callvalue(&mut self) {
         self.push(
             self.generation_state.memory.contexts[self.context].segments
@@ -780,6 +800,63 @@ impl<'a> Interpreter<'a> {
                 Segment::MainMemory,
                 dest_offset + i,
                 calldata_byte,
+            );
+        }
+    }
+
+    fn run_codesize(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::CodeSize as usize),
+        )
+    }
+
+    fn run_codecopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let code_byte =
+                self.generation_state
+                    .memory
+                    .mload_general(self.context, Segment::Code, offset + i);
+            self.generation_state.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                code_byte,
+            );
+        }
+    }
+
+    fn run_gasprice(&mut self) {
+        self.push(self.get_txn_field(NormalizedTxnField::ComputedFeePerGas))
+    }
+
+    fn run_returndatasize(&mut self) {
+        self.push(
+            self.generation_state.memory.contexts[self.context].segments
+                [Segment::ContextMetadata as usize]
+                .get(ContextMetadata::ReturndataSize as usize),
+        )
+    }
+
+    fn run_returndatacopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+        for i in 0..size {
+            let returndata_byte = self.generation_state.memory.mload_general(
+                self.context,
+                Segment::Returndata,
+                offset + i,
+            );
+            self.generation_state.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                returndata_byte,
             );
         }
     }

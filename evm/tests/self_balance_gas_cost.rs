@@ -26,6 +26,7 @@ type C = PoseidonGoldilocksConfig;
 
 /// The `selfBalanceGasCost` test case from https://github.com/ethereum/tests
 #[test]
+#[ignore] // Too slow to run on CI.
 fn self_balance_gas_cost() -> anyhow::Result<()> {
     init_logger();
 

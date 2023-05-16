@@ -1,6 +1,7 @@
 mod account_code;
 mod balance;
 mod bignum;
+mod blake2_f;
 mod bls381;
 mod bn254;
 mod core;
