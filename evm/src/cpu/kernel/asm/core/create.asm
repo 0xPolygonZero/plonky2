@@ -79,22 +79,14 @@ global create_common:
 
     %checkpoint
 
-    // Deduct value from the caller.
-    DUP2
-    %address
-    // stack: sender, value, address, value, code_offset, code_len, kexit_info
-    %deduct_eth
-    // stack: deduct_eth_status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
-    // stack: address, value, code_offset, code_len, kexit_info
-
     // Create the new contract account in the state trie.
-    DUP1 DUP3
-    // stack: value, address, address, value, code_offset, code_len, kexit_info
+    DUP1
+    // stack: address, address, value, code_offset, code_len, kexit_info
     %create_contract_account
     // stack: status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 DUP2 %address %transfer_eth %jumpi(fault_exception)
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
@@ -150,15 +142,16 @@ after_constructor:
     PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
 
     // Charge gas for the code size.
-    SWAP3
-    // stack: kexit_info, success, address, leftover_gas
+    // stack: leftover_gas, success, address, kexit_info
     %returndatasize // Size of the code.
-    // stack: code_size, kexit_info, success, address, leftover_gas
-    DUP1 %gt_const(@MAX_CODE_SIZE)
-    %jumpi(fault_exception)
-    // stack: code_size, kexit_info, success, address, leftover_gas
-    %mul_const(@GAS_CODEDEPOSIT) %charge_gas
-    SWAP3
+    // stack: code_size, leftover_gas, success, address, kexit_info
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(fault_exception)
+    // stack: code_size, leftover_gas, success, address, kexit_info
+    %mul_const(@GAS_CODEDEPOSIT)
+    // stack: code_size_cost, leftover_gas, success, address, kexit_info
+    DUP2 DUP2 GT %jumpi(fault_exception)
+    SWAP1 SUB
+    // stack: leftover_gas, success, address, kexit_info
 
     // Store the code hash of the new contract.
     GET_CONTEXT

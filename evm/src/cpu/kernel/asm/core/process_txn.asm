@@ -88,32 +88,37 @@ global process_contract_creation_txn:
     // stack: origin, retdest
     DUP1 %nonce
     // stack: origin_nonce, origin, retdest
+    %decrement // Need the non-incremented nonce
     SWAP1
     // stack: origin, origin_nonce, retdest
     %get_create_address
     // stack: address, retdest
 
-    // Deduct value from caller.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    %deduct_eth
-    // stack: deduct_eth_status, address, retdest
-    %jumpi(panic)
-    // stack: address, retdest
+    %checkpoint
 
     // Create the new contract account in the state trie.
     DUP1
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    // stack: value, address, address, retdest
+    // stack: address, address, retdest
     %create_contract_account
     // stack: status, address, retdest
     // It should be impossible to create address collisions with a contract creation txn,
     // since the address was derived from nonce, unlike with CREATE2.
-    %jumpi(panic)
+    %jumpi(create_contract_account_fault)
+global gtra:
+
+    // stack: address, retdest
+    // Transfer value to new contract
+    DUP1 %mload_txn_field(@TXN_FIELD_VALUE)
+    SWAP1
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    DUP3 DUP3 DUP3
+    %transfer_eth %jumpi(panic)
+    %journal_add_balance_transfer
     // stack: address, retdest
 
     %create_context
     // stack: new_ctx, address, retdest
+global gtr:
 
     // Copy the code from txdata to the new context's code segment.
     PUSH process_contract_creation_txn_after_code_loaded
@@ -123,10 +128,10 @@ global process_contract_creation_txn:
     PUSH 0 // SRC.context
     PUSH 0 // DST.offset
     PUSH @SEGMENT_CODE // DST.segment
-    DUP7 // DST.context = new_ctx
+    DUP8 // DST.context = new_ctx
     %jump(memcpy)
 
-process_contract_creation_txn_after_code_loaded:
+global process_contract_creation_txn_after_code_loaded:
     // stack: new_ctx, address, retdest
 
     // Each line in the block below does not change the stack.
@@ -143,19 +148,21 @@ process_contract_creation_txn_after_code_loaded:
 
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
-    POP // TODO: Success will go into the receipt when we support that.
+    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    ISZERO %jumpi(contract_creation_fault_3)
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(contract_creation_fault_3)
 
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+global hrt:
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(contract_creation_fault_4)
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
-    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    DUP2 DUP2 LT %jumpi(contract_creation_fault_4)
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
     SUB
 
@@ -351,3 +358,34 @@ process_message_txn_fail:
     SUB
     // stack: gas_limit - intrinsic_gas
 %endmacro
+
+create_contract_account_fault:
+    %revert_checkpoint
+    // stack: address, retdest
+    POP
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+contract_creation_fault_3:
+    %revert_checkpoint
+    // stack: success, leftover_gas, new_ctx, address, retdest
+    %pop3
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+contract_creation_fault_4:
+    %revert_checkpoint
+    %revert_checkpoint
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %pop4
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
