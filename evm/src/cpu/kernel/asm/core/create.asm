@@ -70,10 +70,14 @@ global create_common:
     // stack: address, value, code_offset, code_len, kexit_info
     DUP1 %insert_accessed_addresses_no_return
 
+    // TODO: Check call stack depth.
+    // TODO: Check balance of caller first.
     // Increment the sender's nonce.
     %address
     %increment_nonce
     // stack: address, value, code_offset, code_len, kexit_info
+
+    %checkpoint
 
     // Deduct value from the caller.
     DUP2
@@ -134,12 +138,14 @@ run_constructor:
 
 after_constructor:
     // stack: success, leftover_gas, new_ctx, address, kexit_info
+    DUP1 ISZERO %jumpi(after_constructor_failed)
+    %pop_checkpoint
+
+    // stack: success, leftover_gas, new_ctx, address, kexit_info
     SWAP2
     // stack: new_ctx, leftover_gas, success, address, kexit_info
     POP
 
-
-    // TODO: Skip blocks below if success is false.
     // EIP-3541: Reject new contract code starting with the 0xEF byte
     PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
 
@@ -168,6 +174,7 @@ after_constructor:
     // Set the return data size to 0.
     %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
 
+after_constructor_contd:
     // stack: leftover_gas, success, address, kexit_info
     %shl_const(192)
     // stack: leftover_gas << 192, success, address, kexit_info
@@ -180,6 +187,11 @@ after_constructor:
     SUB
     // stack: kexit_info, address_if_success
     EXIT_KERNEL
+
+after_constructor_failed:
+    %revert_checkpoint
+    %stack (success, leftover_gas, new_ctx, address, kexit_info) -> (leftover_gas, success, address, kexit_info)
+    %jump(after_constructor_contd)
 
 %macro set_codehash
     %stack (addr, codehash) -> (addr, codehash, %%after)

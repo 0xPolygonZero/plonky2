@@ -230,6 +230,8 @@ call_insufficient_balance:
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
         (callgas, kexit_info, 0)
     %shl_const(192) SWAP1 SUB
+    // stack: kexit_info', 0
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     EXIT_KERNEL
 
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
