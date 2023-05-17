@@ -139,7 +139,7 @@ global sys_revert:
 sys_revert_finish:
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Revert state changes.
+    %revert_checkpoint
     PUSH 0 // success
     %jump(terminate_common)
 
