@@ -88,29 +88,34 @@ global process_contract_creation_txn:
     // stack: origin, retdest
     DUP1 %nonce
     // stack: origin_nonce, origin, retdest
+    %decrement // Need the non-incremented nonce
     SWAP1
     // stack: origin, origin_nonce, retdest
     %get_create_address
     // stack: address, retdest
 
-    // Deduct value from caller.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    %deduct_eth
-    // stack: deduct_eth_status, address, retdest
-    %jumpi(panic)
-    // stack: address, retdest
+    %checkpoint
 
     // Create the new contract account in the state trie.
     DUP1
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    // stack: value, address, address, retdest
+    // stack: address, address, retdest
     %create_contract_account
     // stack: status, address, retdest
     // It should be impossible to create address collisions with a contract creation txn,
     // since the address was derived from nonce, unlike with CREATE2.
-    %jumpi(panic)
+    %jumpi(create_contract_account_fault)
+
     // stack: address, retdest
+    // Transfer value to new contract
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    SWAP1
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    %transfer_eth %jumpi(panic)
+    // stack: address, retdest
+    %mload_txn_field(@TXN_FIELD_VALUE)
+    SWAP1
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    %journal_add_balance_transfer
 
     %create_context
     // stack: new_ctx, address, retdest
@@ -351,3 +356,13 @@ process_message_txn_fail:
     SUB
     // stack: gas_limit - intrinsic_gas
 %endmacro
+
+global create_contract_account_fault:
+    // stack: address, retdest
+    %revert_checkpoint
+    POP
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP

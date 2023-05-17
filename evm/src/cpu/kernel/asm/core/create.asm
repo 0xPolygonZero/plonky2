@@ -79,22 +79,14 @@ global create_common:
 
     %checkpoint
 
-    // Deduct value from the caller.
-    DUP2
-    %address
-    // stack: sender, value, address, value, code_offset, code_len, kexit_info
-    %deduct_eth
-    // stack: deduct_eth_status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
-    // stack: address, value, code_offset, code_len, kexit_info
-
     // Create the new contract account in the state trie.
-    DUP1 DUP3
-    // stack: value, address, address, value, code_offset, code_len, kexit_info
+    DUP1
+    // stack: address, address, value, code_offset, code_len, kexit_info
     %create_contract_account
     // stack: status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 DUP2 %address %transfer_eth %jumpi(fault_exception)
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
