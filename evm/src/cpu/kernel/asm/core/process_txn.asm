@@ -151,17 +151,17 @@ global process_contract_creation_txn_after_constructor:
     POP // TODO: Success will go into the receipt when we support that.
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(code_first_byte_ef)
 
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
 global hrt:
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(code_too_large) // TODO: need to revert changes here.
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(code_fault)
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
-    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    DUP2 DUP2 LT %jumpi(code_fault)
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
     SUB
 
@@ -368,10 +368,20 @@ create_contract_account_fault:
     %delete_all_selfdestructed_addresses
     JUMP
 
-code_too_large:
+code_fault:
     %revert_checkpoint
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %pop4
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+code_first_byte_ef:
+    %revert_checkpoint
+    // stack: leftover_gas, new_ctx, address, retdest
+    %pop3
     PUSH 0 // leftover gas
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
