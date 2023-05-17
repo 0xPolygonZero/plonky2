@@ -70,6 +70,8 @@ global create_common:
     // stack: address, value, code_offset, code_len, kexit_info
     DUP1 %insert_accessed_addresses_no_return
 
+    // TODO: Check call stack depth.
+    // TODO: Check balance of caller first.
     // Increment the sender's nonce.
     %address
     %increment_nonce
@@ -137,6 +139,7 @@ run_constructor:
 after_constructor:
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     DUP1 ISZERO %jumpi(after_constructor_failed)
+    %pop_checkpoint
 
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     SWAP2
