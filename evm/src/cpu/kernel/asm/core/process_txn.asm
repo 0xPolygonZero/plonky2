@@ -104,21 +104,21 @@ global process_contract_creation_txn:
     // It should be impossible to create address collisions with a contract creation txn,
     // since the address was derived from nonce, unlike with CREATE2.
     %jumpi(create_contract_account_fault)
+global gtra:
 
     // stack: address, retdest
     // Transfer value to new contract
-    %mload_txn_field(@TXN_FIELD_VALUE)
+    DUP1 %mload_txn_field(@TXN_FIELD_VALUE)
     SWAP1
     %mload_txn_field(@TXN_FIELD_ORIGIN)
+    DUP3 DUP3 DUP3
     %transfer_eth %jumpi(panic)
-    // stack: address, retdest
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    SWAP1
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
     %journal_add_balance_transfer
+    // stack: address, retdest
 
     %create_context
     // stack: new_ctx, address, retdest
+global gtr:
 
     // Copy the code from txdata to the new context's code segment.
     PUSH process_contract_creation_txn_after_code_loaded
@@ -128,10 +128,10 @@ global process_contract_creation_txn:
     PUSH 0 // SRC.context
     PUSH 0 // DST.offset
     PUSH @SEGMENT_CODE // DST.segment
-    DUP7 // DST.context = new_ctx
+    DUP8 // DST.context = new_ctx
     %jump(memcpy)
 
-process_contract_creation_txn_after_code_loaded:
+global process_contract_creation_txn_after_code_loaded:
     // stack: new_ctx, address, retdest
 
     // Each line in the block below does not change the stack.
@@ -156,7 +156,8 @@ global process_contract_creation_txn_after_constructor:
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+global hrt:
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(code_too_large) // TODO: need to revert changes here.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
@@ -357,10 +358,20 @@ process_message_txn_fail:
     // stack: gas_limit - intrinsic_gas
 %endmacro
 
-global create_contract_account_fault:
-    // stack: address, retdest
+create_contract_account_fault:
     %revert_checkpoint
+    // stack: address, retdest
     POP
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+code_too_large:
+    %revert_checkpoint
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %pop4
     PUSH 0 // leftover gas
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
