@@ -75,6 +75,7 @@ global create_common:
     DUP2 %selfbalance LT %jumpi(create_insufficient_balance)
     // Increment the sender's nonce.
     %address
+    DUP1 %nonce %eq_const(@MAX_NONCE) %jumpi(nonce_overflow) // EIP-2681
     %increment_nonce
     // stack: address, value, code_offset, code_len, kexit_info
 
@@ -190,6 +191,10 @@ after_constructor_failed:
 create_insufficient_balance:
     // stack: address, value, code_offset, code_len, kexit_info
     %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+nonce_overflow:
+    %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 %macro set_codehash
