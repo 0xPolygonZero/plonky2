@@ -71,7 +71,8 @@ global create_common:
     DUP1 %insert_accessed_addresses_no_return
 
     // TODO: Check call stack depth.
-    // TODO: Check balance of caller first.
+    // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 %selfbalance LT %jumpi(create_insufficient_balance)
     // Increment the sender's nonce.
     %address
     %increment_nonce
@@ -86,7 +87,7 @@ global create_common:
     // stack: status, address, value, code_offset, code_len, kexit_info
     %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
-    DUP2 DUP2 %address %transfer_eth %jumpi(fault_exception)
+    DUP2 DUP2 %address %transfer_eth %jumpi(panic) // We checked the balance above, so this should never happen.
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
@@ -185,6 +186,11 @@ after_constructor_failed:
     %revert_checkpoint
     %stack (success, leftover_gas, new_ctx, address, kexit_info) -> (leftover_gas, success, address, kexit_info)
     %jump(after_constructor_contd)
+
+create_insufficient_balance:
+    // stack: address, value, code_offset, code_len, kexit_info
+    %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
 
 %macro set_codehash
     %stack (addr, codehash) -> (addr, codehash, %%after)
