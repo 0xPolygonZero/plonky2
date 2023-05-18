@@ -133,7 +133,6 @@ run_constructor:
 after_constructor:
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     DUP1 ISZERO %jumpi(after_constructor_failed)
-    %pop_checkpoint
 
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     SWAP2
@@ -154,6 +153,7 @@ after_constructor:
     DUP2 DUP2 GT %jumpi(fault_exception)
     SWAP1 SUB
     // stack: leftover_gas, success, address, kexit_info
+    %pop_checkpoint
 
     // Store the code hash of the new contract.
     GET_CONTEXT
