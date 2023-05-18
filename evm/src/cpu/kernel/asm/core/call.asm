@@ -323,6 +323,13 @@ call_insufficient_balance:
     DUP1 // new_ctx
     SET_CONTEXT
     %checkpoint // Checkpoint
+    // Perform jumpdest analyis
+    PUSH %%after
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    GET_CONTEXT
+    // stack: ctx, code_size, retdest
+    %jump(jumpdest_analysis)
+%%after:
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx
