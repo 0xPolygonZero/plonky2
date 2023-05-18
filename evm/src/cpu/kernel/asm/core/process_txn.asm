@@ -93,6 +93,7 @@ global process_contract_creation_txn:
     // stack: origin, origin_nonce, retdest
     %get_create_address
     // stack: address, retdest
+    DUP1 %insert_accessed_addresses_no_return
 
     %checkpoint
 
@@ -101,8 +102,6 @@ global process_contract_creation_txn:
     // stack: address, address, retdest
     %create_contract_account
     // stack: status, address, retdest
-    // It should be impossible to create address collisions with a contract creation txn,
-    // since the address was derived from nonce, unlike with CREATE2.
     %jumpi(create_contract_account_fault)
 global gtra:
 
@@ -118,7 +117,16 @@ global gtra:
 
     %create_context
     // stack: new_ctx, address, retdest
-global gtr:
+
+    // Store constructor code length
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    // stack: data_len, new_ctx, address, retdest
+    PUSH @CTX_METADATA_CODE_SIZE
+    PUSH @SEGMENT_CONTEXT_METADATA
+    // stack: segment, offset, data_len, new_ctx, address, retdest
+    DUP4 // new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx, address, retdest
 
     // Copy the code from txdata to the new context's code segment.
     PUSH process_contract_creation_txn_after_code_loaded
@@ -157,7 +165,6 @@ global process_contract_creation_txn_after_constructor:
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
-global hrt:
     DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(contract_creation_fault_4)
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
@@ -371,16 +378,14 @@ create_contract_account_fault:
 
 contract_creation_fault_3:
     %revert_checkpoint
-    // stack: success, leftover_gas, new_ctx, address, retdest
-    %pop3
-    PUSH 0 // leftover gas
+    // stack: leftover_gas, new_ctx, address, retdest
+    %stack (leftover_gas, new_ctx, address, retdest) -> (leftover_gas, retdest)
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
     JUMP
 
 contract_creation_fault_4:
-    %revert_checkpoint
     %revert_checkpoint
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %pop4
