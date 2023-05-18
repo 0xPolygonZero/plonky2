@@ -71,7 +71,7 @@ pub struct TrieInputs {
 
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
-    pub storage_tries: Vec<(Address, HashedPartialTrie)>,
+    pub storage_tries: Vec<(H256, HashedPartialTrie)>,
 }
 
 fn apply_metadata_memops<F: RichField + Extendable<D>, const D: usize>(
