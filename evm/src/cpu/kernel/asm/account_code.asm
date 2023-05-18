@@ -154,7 +154,7 @@ extcodecopy_loop:
     // stack: offset < code_size, offset, code_size, dest_offset, i, size, retdest
     DUP2
     // stack: offset, offset < code_size, offset, code_size, dest_offset, i, size, retdest
-    %mload_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
+    %mload_kernel(@SEGMENT_KERNEL_ACCOUNT_CODE)
     // stack: opcode, offset < code_size, offset, code_size, dest_offset, i, size, retdest
     %stack (opcode, offset_lt_code_size, offset, code_size, dest_offset, i, size, retdest)
         -> (offset_lt_code_size, 0, opcode, offset, code_size, dest_offset, i, size, retdest)
