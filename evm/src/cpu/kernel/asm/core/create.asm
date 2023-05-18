@@ -81,12 +81,6 @@ global create_common:
 
     %checkpoint
 
-    // Create the new contract account in the state trie.
-    DUP1
-    // stack: address, address, value, code_offset, code_len, kexit_info
-    %create_contract_account
-    // stack: status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
     DUP2 DUP2 %address %transfer_eth %jumpi(panic) // We checked the balance above, so this should never happen.
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
@@ -126,6 +120,12 @@ run_constructor:
     %stack (kexit_info, drained_gas, address, new_ctx) -> (drained_gas, new_ctx, address, kexit_info)
     %set_new_ctx_gas_limit
     // stack: new_ctx, address, kexit_info
+
+    // Create the new contract account in the state trie.
+    DUP2
+    %create_contract_account
+    // stack: status, new_ctx, address, kexit_info
+    %jumpi(create_collision)
 
     %enter_new_ctx
     // (Old context) stack: new_ctx, address, kexit_info
@@ -195,6 +195,12 @@ create_insufficient_balance:
 
 nonce_overflow:
     %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_collision:
+    %revert_checkpoint
+    // stack: new_ctx, address, kexit_info
+    %stack (new_ctx, address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 %macro set_codehash
