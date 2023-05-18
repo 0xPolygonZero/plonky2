@@ -141,13 +141,13 @@ after_constructor:
     POP
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(create_first_byte_ef)
 
     // Charge gas for the code size.
     // stack: leftover_gas, success, address, kexit_info
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, success, address, kexit_info
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(fault_exception)
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(create_code_too_large)
     // stack: code_size, leftover_gas, success, address, kexit_info
     %mul_const(@GAS_CODEDEPOSIT)
     // stack: code_size_cost, leftover_gas, success, address, kexit_info
@@ -189,18 +189,28 @@ after_constructor_failed:
     %jump(after_constructor_contd)
 
 create_insufficient_balance:
-    // stack: address, value, code_offset, code_len, kexit_info
+    %revert_checkpoint
     %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 nonce_overflow:
+    %revert_checkpoint
     %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 create_collision:
     %revert_checkpoint
-    // stack: new_ctx, address, kexit_info
     %stack (new_ctx, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_first_byte_ef:
+    %revert_checkpoint
+    %stack (leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_code_too_large:
+    %revert_checkpoint
+    %stack (code_size, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 %macro set_codehash
