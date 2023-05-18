@@ -8,7 +8,7 @@
     // stack: existing_account_ptr, address
     // If the account doesn't exist, there's no need to check its balance or nonce,
     // so we can skip ahead, setting existing_balance = existing_account_ptr = 0.
-    DUP1 ISZERO %jumpi(%%do_insert)
+    DUP1 ISZERO %jumpi(%%add_account)
 
     // stack: existing_account_ptr, address
     DUP1 %mload_trie_data // nonce = account[0]
@@ -16,10 +16,12 @@
     %jumpi(%%error_nonzero_nonce)
     // stack: existing_account_ptr, address
     %increment %mload_trie_data // balance = account[1]
+    %jump(%%do_insert)
 
-%%do_insert:
+%%add_account:
     // stack: existing_balance, address
     DUP2 %journal_add_account_created
+%%do_insert:
     // stack: new_acct_value, address
     // Write the new account's data to MPT data, and get a pointer to it.
     %get_trie_data_size
