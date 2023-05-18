@@ -25,6 +25,7 @@ global process_normalized_txn:
 
     // Check that txn nonce matches account nonce.
      DUP1 %nonce
+     DUP1 %eq_const(@MAX_NONCE) %assert_zero // EIP-2681
     // stack: sender_nonce, sender, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)
     // stack: tx_nonce, sender_nonce, sender, retdest
@@ -103,7 +104,6 @@ global process_contract_creation_txn:
     %create_contract_account
     // stack: status, address, retdest
     %jumpi(create_contract_account_fault)
-global gtra:
 
     // stack: address, retdest
     // Transfer value to new contract
