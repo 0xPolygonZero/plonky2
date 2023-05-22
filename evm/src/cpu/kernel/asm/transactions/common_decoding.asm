@@ -152,40 +152,36 @@ global decode_and_store_access_list_loop:
     // stack: pos, end_pos
     %decode_rlp_list_len
     // stack: pos, internal_len, end_pos
-    SWAP1 DUP2
-    // stack: pos, internal_len, pos, end_pos
-    ADD
-    // stack: end_internal_pos, pos, end_pos // TODO: Don't need end_internal_pos
-    SWAP1
-    // stack: pos, end_internal_pos, end_pos
+    SWAP1 POP
+    // stack: pos, end_pos
     %decode_rlp_scalar // TODO: Should panic when address is not 20 bytes?
-    // stack: pos, addr, end_internal_pos, end_pos
+    // stack: pos, addr, end_pos
     SWAP1
-    // stack: addr, pos, end_internal_pos, end_pos
+    // stack: addr, pos, end_pos
     DUP1 %insert_accessed_addresses_no_return
-    // stack: addr, pos, end_internal_pos, end_pos
+    // stack: addr, pos, end_pos
     %add_address_cost
-    // stack: addr, pos, end_internal_pos, end_pos
+    // stack: addr, pos, end_pos
     SWAP1
-    // stack: pos, addr, end_internal_pos, end_pos
+    // stack: pos, addr, end_pos
     %decode_rlp_list_len
-    // stack: pos, sk_len, addr, end_internal_pos, end_pos
+    // stack: pos, sk_len, addr, end_pos
     SWAP1 DUP2 ADD
-    // stack: sk_end_pos, pos, addr, end_internal_pos, end_pos
+    // stack: sk_end_pos, pos, addr, end_pos
     SWAP1
-    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+    // stack: pos, sk_end_pos, addr, end_pos
 global sk_loop:
     DUP2 DUP2 EQ %jumpi(end_sk)
-    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+    // stack: pos, sk_end_pos, addr, end_pos
     %decode_rlp_scalar // TODO: Should panic when key is not 32 bytes?
-    %stack (pos, key, sk_end_pos, addr, end_internal_pos, end_pos) ->
-        (addr, key, 0, pos, sk_end_pos, addr, end_internal_pos, end_pos)
+    %stack (pos, key, sk_end_pos, addr, end_pos) ->
+        (addr, key, 0, pos, sk_end_pos, addr, end_pos)
     %insert_accessed_storage_keys_no_return
-    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+    // stack: pos, sk_end_pos, addr, end_pos
     %add_storage_key_cost
     %jump(sk_loop)
 global end_sk:
-    %stack (pos, sk_end_pos, addr, end_internal_pos, end_pos) -> (pos, end_pos)
+    %stack (pos, sk_end_pos, addr, end_pos) -> (pos, end_pos)
     %jump(decode_and_store_access_list_loop)
 global decode_and_store_access_list_finish:
     %stack (pos, end_pos, retdest) -> (retdest, pos)
