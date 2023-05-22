@@ -105,10 +105,15 @@
 
 %macro decode_and_store_access_list
     // stack: pos
+    DUP1 %mstore_kernel_general_2(0x4CC355)
     %decode_rlp_list_len
-    %stack (pos, len) -> (len, pos)
-    %jumpi(todo_access_lists_not_supported_yet)
+    %stack (pos, len) -> (len, len, pos, %%after)
+    %jumpi(decode_and_store_access_list)
+    // stack: len, pos, %%after
+    POP SWAP1 POP
     // stack: pos
+    %mload_kernel_general_2(0x4CC355) DUP2 SUB %mstore_kernel_general_2(0x4CC356)
+ %%after:
 %endmacro
 
 %macro decode_and_store_y_parity
@@ -135,5 +140,65 @@
     // stack: pos
 %endmacro
 
-global todo_access_lists_not_supported_yet:
-    PANIC
+global decode_and_store_access_list:
+    // stack: len, pos
+    DUP2 ADD
+    // stack: end_pos, pos
+    %mload_kernel_general_2(0x4CC355) DUP2 SUB %mstore_kernel_general_2(0x4CC356)
+    SWAP1
+global decode_and_store_access_list_loop:
+    // stack: pos, end_pos
+    DUP2 DUP2 EQ %jumpi(decode_and_store_access_list_finish)
+    // stack: pos, end_pos
+    %decode_rlp_list_len
+    // stack: pos, internal_len, end_pos
+    SWAP1 DUP2
+    // stack: pos, internal_len, pos, end_pos
+    ADD
+    // stack: end_internal_pos, pos, end_pos // TODO: Don't need end_internal_pos
+    SWAP1
+    // stack: pos, end_internal_pos, end_pos
+    %decode_rlp_scalar // TODO: Should panic when address is not 20 bytes?
+    // stack: pos, addr, end_internal_pos, end_pos
+    SWAP1
+    // stack: addr, pos, end_internal_pos, end_pos
+    DUP1 %insert_accessed_addresses_no_return
+    // stack: addr, pos, end_internal_pos, end_pos
+    %add_address_cost
+    // stack: addr, pos, end_internal_pos, end_pos
+    SWAP1
+    // stack: pos, addr, end_internal_pos, end_pos
+    %decode_rlp_list_len
+    // stack: pos, sk_len, addr, end_internal_pos, end_pos
+    SWAP1 DUP2 ADD
+    // stack: sk_end_pos, pos, addr, end_internal_pos, end_pos
+    SWAP1
+    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+global sk_loop:
+    DUP2 DUP2 EQ %jumpi(end_sk)
+    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+    %decode_rlp_scalar // TODO: Should panic when key is not 32 bytes?
+    %stack (pos, key, sk_end_pos, addr, end_internal_pos, end_pos) ->
+        (addr, key, 0, pos, sk_end_pos, addr, end_internal_pos, end_pos)
+    %insert_accessed_storage_keys_no_return
+    // stack: pos, sk_end_pos, addr, end_internal_pos, end_pos
+    %add_storage_key_cost
+    %jump(sk_loop)
+global end_sk:
+    %stack (pos, sk_end_pos, addr, end_internal_pos, end_pos) -> (pos, end_pos)
+    %jump(decode_and_store_access_list_loop)
+global decode_and_store_access_list_finish:
+    %stack (pos, end_pos, retdest) -> (retdest, pos)
+    JUMP
+
+%macro add_address_cost
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
+    %add_const(@GAS_ACCESSLISTADDRESS)
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
+%endmacro
+
+%macro add_storage_key_cost
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
+    %add_const(@GAS_ACCESSLISTSTORAGE)
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
+%endmacro

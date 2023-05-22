@@ -59,10 +59,11 @@ pub(crate) enum GlobalMetadata {
     /// Current checkpoint.
     CurrentCheckpoint = 28,
     TouchedAddressesLen = 29,
+    AccessListDataCost = 30,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 29;
+    pub(crate) const COUNT: usize = 30;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -95,6 +96,7 @@ impl GlobalMetadata {
             Self::JournalDataLen,
             Self::CurrentCheckpoint,
             Self::TouchedAddressesLen,
+            Self::AccessListDataCost,
         ]
     }
 
@@ -130,6 +132,7 @@ impl GlobalMetadata {
             Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
             Self::CurrentCheckpoint => "GLOBAL_METADATA_CURRENT_CHECKPOINT",
             Self::TouchedAddressesLen => "GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN",
+            Self::AccessListDataCost => "GLOBAL_METADATA_ACCESS_LIST_DATA_COST",
         }
     }
 }

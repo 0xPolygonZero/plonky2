@@ -65,12 +65,11 @@ count_zeros_finish:
     PUSH @GAS_TRANSACTION
     // stack: gas_txn, gas_creation, gas_txndata, retdest
 
-    // TODO: Add num_access_list_addresses * GAS_ACCESSLISTADDRESS
-    // TODO: Add num_access_list_slots * GAS_ACCESSLISTSTORAGE
-
     ADD
     ADD
     // stack: total_gas, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
+    ADD
 
     SWAP1
     JUMP
