@@ -105,14 +105,14 @@
 
 %macro decode_and_store_access_list
     // stack: pos
-    DUP1 %mstore_kernel_general_2(0x4CC355)
+    DUP1 %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START)
     %decode_rlp_list_len
     %stack (pos, len) -> (len, len, pos, %%after)
     %jumpi(decode_and_store_access_list)
     // stack: len, pos, %%after
     POP SWAP1 POP
     // stack: pos
-    %mload_kernel_general_2(0x4CC355) DUP2 SUB %mstore_kernel_general_2(0x4CC356)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
  %%after:
 %endmacro
 
@@ -144,7 +144,7 @@ global decode_and_store_access_list:
     // stack: len, pos
     DUP2 ADD
     // stack: end_pos, pos
-    %mload_kernel_general_2(0x4CC355) DUP2 SUB %mstore_kernel_general_2(0x4CC356)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
     SWAP1
 global decode_and_store_access_list_loop:
     // stack: pos, end_pos

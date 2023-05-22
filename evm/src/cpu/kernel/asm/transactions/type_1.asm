@@ -77,8 +77,8 @@ type_1_compute_signed_data:
     %jump(encode_rlp_string)
 
 after_serializing_txn_data:
-    %mload_kernel_general_2(0x4CC355)
-    %mload_kernel_general_2(0x4CC356)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START)
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
     %stack (al_len, al_start, rlp_pos, rlp_start, retdest) ->
         (
             0, @SEGMENT_RLP_RAW, rlp_pos,
@@ -89,7 +89,7 @@ after_serializing_txn_data:
     %jump(memcpy)
 after_serializing_access_list:
     // stack: rlp_pos, rlp_start, retdest
-    %mload_kernel_general_2(0x4CC356) ADD
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN) ADD
     %prepend_rlp_list_prefix
     // stack: prefix_start_pos, rlp_len, retdest
     %decrement
