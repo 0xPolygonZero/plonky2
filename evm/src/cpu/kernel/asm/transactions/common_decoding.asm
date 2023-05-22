@@ -175,8 +175,9 @@ global sk_loop:
     // stack: pos, sk_end_pos, addr, end_pos
     %decode_rlp_scalar // TODO: Should panic when key is not 32 bytes?
     %stack (pos, key, sk_end_pos, addr, end_pos) ->
-        (addr, key, 0, pos, sk_end_pos, addr, end_pos)
-    %insert_accessed_storage_keys_no_return
+        (addr, key, sk_loop_contd, pos, sk_end_pos, addr, end_pos)
+    %jump(insert_accessed_storage_keys_with_original_value)
+sk_loop_contd:
     // stack: pos, sk_end_pos, addr, end_pos
     %add_storage_key_cost
     %jump(sk_loop)
@@ -198,3 +199,34 @@ global decode_and_store_access_list_finish:
     %add_const(@GAS_ACCESSLISTSTORAGE)
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
 %endmacro
+
+global insert_accessed_storage_keys_with_original_value:
+    %stack (addr, key, retdest) -> (key, addr, after_read, addr, key, retdest)
+    %jump(sload_with_addr)
+after_read:
+    %stack (value, addr, key, retdest) -> ( addr, key, value, retdest)
+    %insert_accessed_storage_keys
+    %pop2
+    JUMP
+
+
+global sload_with_addr:
+    %stack (slot, addr) -> (slot, addr, after_storage_read)
+    %slot_to_storage_key
+    // stack: storage_key, addr, after_storage_read
+    PUSH 64 // storage_key has 64 nibbles
+    %stack (n64, storage_key, addr, after_storage_read) -> (addr, n64, storage_key, after_storage_read)
+    %mpt_read_state_trie
+    // stack: account_ptr, 64, storage_key, after_storage_read
+    DUP1 ISZERO %jumpi(ret_zero) // TODO: Fix this. This should never happen.
+    // stack: account_ptr, 64, storage_key, after_storage_read
+    %add_const(2)
+    // stack: storage_root_ptr_ptr
+    %mload_trie_data
+    // stack: storage_root_ptr, 64, storage_key, after_storage_read
+    %jump(mpt_read)
+
+ret_zero:
+    // stack: account_ptr, 64, storage_key, after_storage_read, retdest
+    %pop4
+    PUSH 0 SWAP1 JUMP
