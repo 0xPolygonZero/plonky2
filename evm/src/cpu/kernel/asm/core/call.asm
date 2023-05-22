@@ -23,7 +23,7 @@ global sys_call:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     %call_charge_gas(1, 1)
 
@@ -123,7 +123,7 @@ global sys_staticcall:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)

@@ -78,6 +78,11 @@ global increment_sender_nonce:
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     %increment_nonce
 
+// EIP-3651
+global warm_coinbase:
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
+    %insert_accessed_addresses_no_return
+
 global process_based_on_type:
     %is_contract_creation
     %jumpi(process_contract_creation_txn)
