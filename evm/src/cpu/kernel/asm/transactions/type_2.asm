@@ -34,7 +34,6 @@ global process_type_2_txn:
     POP
     // stack: retdest
 
-    // TODO: Check signature.
 // From EIP-1559:
 // The signature_y_parity, signature_r, signature_s elements of this transaction represent a secp256k1 signature over
 // keccak256(0x02 || rlp([chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list]))

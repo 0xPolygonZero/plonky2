@@ -20,6 +20,7 @@ global process_normalized_txn:
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %assert_ge(invalid_txn)
 
+    // Assert block gas limit >= txn gas limit.
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_LIMIT)
     %assert_ge(invalid_txn)
