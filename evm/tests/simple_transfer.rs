@@ -45,7 +45,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
     let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
-    let beneficiary_account_before = AccountRlp::default();
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
@@ -72,7 +71,12 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
-        ..BlockMetadata::default()
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_gaslimit: 0xff112233445566u64.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
     };
 
     let mut contract_code = HashMap::new();
@@ -94,10 +98,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + txdata_gas;
 
-        let beneficiary_account_after = AccountRlp {
-            balance: beneficiary_account_before.balance + gas_used * 10,
-            ..beneficiary_account_before
-        };
         let sender_account_after = AccountRlp {
             balance: sender_account_before.balance - value - gas_used * 10,
             nonce: sender_account_before.nonce + 1,
@@ -109,11 +109,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         };
 
         let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&beneficiary_account_after).to_vec(),
-        }
-        .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_after).to_vec(),
