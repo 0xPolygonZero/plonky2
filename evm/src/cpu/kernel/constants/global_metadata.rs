@@ -59,10 +59,16 @@ pub(crate) enum GlobalMetadata {
     /// Current checkpoint.
     CurrentCheckpoint = 28,
     TouchedAddressesLen = 29,
+    // Gas cost for the access list in type-1 txns. See EIP-2930.
+    AccessListDataCost = 30,
+    // Start of the access list in the RLP for type-1 txns.
+    AccessListRlpStart = 31,
+    // Length of the access list in the RLP for type-1 txns.
+    AccessListRlpLen = 32,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 29;
+    pub(crate) const COUNT: usize = 32;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -95,6 +101,9 @@ impl GlobalMetadata {
             Self::JournalDataLen,
             Self::CurrentCheckpoint,
             Self::TouchedAddressesLen,
+            Self::AccessListDataCost,
+            Self::AccessListRlpStart,
+            Self::AccessListRlpLen,
         ]
     }
 
@@ -130,6 +139,9 @@ impl GlobalMetadata {
             Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
             Self::CurrentCheckpoint => "GLOBAL_METADATA_CURRENT_CHECKPOINT",
             Self::TouchedAddressesLen => "GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN",
+            Self::AccessListDataCost => "GLOBAL_METADATA_ACCESS_LIST_DATA_COST",
+            Self::AccessListRlpStart => "GLOBAL_METADATA_ACCESS_LIST_RLP_START",
+            Self::AccessListRlpLen => "GLOBAL_METADATA_ACCESS_LIST_RLP_LEN",
         }
     }
 }
