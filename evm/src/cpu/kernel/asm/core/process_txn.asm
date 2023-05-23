@@ -18,22 +18,26 @@ global process_normalized_txn:
     // Assert gas_limit >= intrinsic_gas.
     %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    %assert_ge
+    %assert_ge(invalid_txn)
+
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_LIMIT)
+    %assert_ge(invalid_txn)
 
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender, retdest
 
     // Check that txn nonce matches account nonce.
      DUP1 %nonce
-     DUP1 %eq_const(@MAX_NONCE) %assert_zero // EIP-2681
+     DUP1 %eq_const(@MAX_NONCE) %assert_zero(invalid_txn) // EIP-2681
     // stack: sender_nonce, sender, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)
     // stack: tx_nonce, sender_nonce, sender, retdest
-    %assert_eq
+    %assert_eq(invalid_txn)
     // stack: sender, retdest
 
     // Assert sender has no code.
-    DUP1 %ext_code_empty %assert_nonzero
+    DUP1 %ext_code_empty %assert_nonzero(invalid_txn)
     // stack: sender, retdest
 
     // Assert sender balance >= gas_limit * gas_price + value.
@@ -44,7 +48,7 @@ global process_normalized_txn:
     MUL
     %mload_txn_field(@TXN_FIELD_VALUE)
     ADD
-    %assert_le
+    %assert_le(invalid_txn)
     // stack: retdest
 
     // Assert chain ID matches block metadata
@@ -58,7 +62,7 @@ global process_normalized_txn:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
     MUL
     // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
-    %assert_eq
+    %assert_eq(invalid_txn)
     // stack: retdest
 
 global buy_gas:
@@ -348,8 +352,9 @@ process_message_txn_fail:
     %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
     // stack: max_fee, max_priority_fee, base_fee
-    DUP3 DUP2 %assert_ge // Assert max_fee >= base_fee
+    DUP3 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= base_fee
     // stack: max_fee, max_priority_fee, base_fee
+    DUP2 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= max_priority_fee
     %stack (max_fee, max_priority_fee, base_fee) -> (max_fee, base_fee, max_priority_fee, base_fee)
     SUB
     // stack: max_fee - base_fee, max_priority_fee, base_fee
@@ -399,3 +404,7 @@ contract_creation_fault_4:
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
     JUMP
+
+
+invalid_txn:
+    %jump(txn_loop)
