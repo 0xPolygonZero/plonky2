@@ -4,6 +4,7 @@ use core::cmp::min;
 use core::mem::swap;
 
 use anyhow::{ensure, Result};
+use hashbrown::HashMap;
 use plonky2_maybe_rayon::*;
 
 use super::circuit_builder::{LookupChallenges, LookupWire};
@@ -58,13 +59,18 @@ pub fn set_lookup_wires<
 
         // Compute multiplicities.
         let mut multiplicities = vec![0; lut_len];
+
+        let table_value_to_idx: HashMap<u16, usize> = common_data.luts[lut_index]
+            .iter()
+            .enumerate()
+            .map(|(i, (inp_target, _))| (inp_target.clone(), i))
+            .collect();
+
         for (inp_target, _) in prover_data.lut_to_lookups[lut_index].iter() {
             let inp_value = pw.get_target(*inp_target);
-            let mut idx = 0;
-            while F::from_canonical_u16(common_data.luts[lut_index][idx].0) != inp_value {
-                idx += 1;
-            }
-            multiplicities[idx] += 1;
+            let idx = table_value_to_idx.get(&u16::try_from(inp_value.to_canonical_u64()).unwrap()).unwrap();
+
+            multiplicities[*idx] += 1;
         }
 
         // Pad the last `LookupGate` with the first entry from the LUT.
