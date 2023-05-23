@@ -58,8 +58,7 @@ global process_normalized_txn:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
     MUL
     // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
-    //%assert_eq
-    POP POP
+    %assert_eq
     // stack: retdest
 
 global buy_gas:

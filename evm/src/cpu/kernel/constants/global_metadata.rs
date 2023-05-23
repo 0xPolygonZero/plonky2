@@ -59,8 +59,11 @@ pub(crate) enum GlobalMetadata {
     /// Current checkpoint.
     CurrentCheckpoint = 28,
     TouchedAddressesLen = 29,
+    // Gas cost for the access list in type-1 txns. See EIP-2930.
     AccessListDataCost = 30,
+    // Start of the access list in the RLP for type-1 txns.
     AccessListRlpStart = 31,
+    // Length of the access list in the RLP for type-1 txns.
     AccessListRlpLen = 32,
 }
 

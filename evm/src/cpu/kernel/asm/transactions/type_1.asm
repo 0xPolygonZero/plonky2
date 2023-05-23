@@ -84,6 +84,7 @@ after_to:
     %jump(encode_rlp_string)
 
 after_serializing_txn_data:
+    // Instead of manually encoding the access list, we just copy the raw RLP from the transaction.
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START)
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
     %stack (al_len, al_start, rlp_pos, rlp_start, retdest) ->
@@ -97,12 +98,17 @@ after_serializing_txn_data:
 after_serializing_access_list:
     // stack: rlp_pos, rlp_start, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN) ADD
+    // stack: rlp_pos, rlp_start, retdest
     %prepend_rlp_list_prefix
     // stack: prefix_start_pos, rlp_len, retdest
+
+    // Store a `1` in front of the RLP
     %decrement
     %stack (pos) -> (0, @SEGMENT_RLP_RAW, pos, 1, pos)
     MSTORE_GENERAL
     // stack: pos, rlp_len, retdest
+
+    // Hash the RLP + the leading `1`
     SWAP1 %increment SWAP1
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context

@@ -113,7 +113,7 @@
     POP SWAP1 POP
     // stack: pos
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
- %%after:
+%%after:
 %endmacro
 
 %macro decode_and_store_y_parity
@@ -140,21 +140,24 @@
     // stack: pos
 %endmacro
 
+
+// The access list is of the form `[[{20 bytes}, [{32 bytes}...]]...]`.
 global decode_and_store_access_list:
     // stack: len, pos
     DUP2 ADD
     // stack: end_pos, pos
+    // Store the RLP length.
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
     SWAP1
-global decode_and_store_access_list_loop:
+decode_and_store_access_list_loop:
     // stack: pos, end_pos
     DUP2 DUP2 EQ %jumpi(decode_and_store_access_list_finish)
     // stack: pos, end_pos
-    %decode_rlp_list_len
+    %decode_rlp_list_len // Should be a list `[{20 bytes}, [{32 bytes}...]]`
     // stack: pos, internal_len, end_pos
-    SWAP1 POP
+    SWAP1 POP // We don't need the length of this list.
     // stack: pos, end_pos
-    %decode_rlp_scalar // TODO: Should panic when address is not 20 bytes?
+    %decode_rlp_scalar // Address // TODO: Should panic when address is not 20 bytes?
     // stack: pos, addr, end_pos
     SWAP1
     // stack: addr, pos, end_pos
@@ -164,16 +167,16 @@ global decode_and_store_access_list_loop:
     // stack: addr, pos, end_pos
     SWAP1
     // stack: pos, addr, end_pos
-    %decode_rlp_list_len
+    %decode_rlp_list_len // Should be a list of storage keys `[{32 bytes}...]`
     // stack: pos, sk_len, addr, end_pos
     SWAP1 DUP2 ADD
     // stack: sk_end_pos, pos, addr, end_pos
     SWAP1
     // stack: pos, sk_end_pos, addr, end_pos
-global sk_loop:
+sk_loop:
     DUP2 DUP2 EQ %jumpi(end_sk)
     // stack: pos, sk_end_pos, addr, end_pos
-    %decode_rlp_scalar // TODO: Should panic when key is not 32 bytes?
+    %decode_rlp_scalar // Storage key // TODO: Should panic when key is not 32 bytes?
     %stack (pos, key, sk_end_pos, addr, end_pos) ->
         (addr, key, sk_loop_contd, pos, sk_end_pos, addr, end_pos)
     %jump(insert_accessed_storage_keys_with_original_value)
@@ -181,10 +184,10 @@ sk_loop_contd:
     // stack: pos, sk_end_pos, addr, end_pos
     %add_storage_key_cost
     %jump(sk_loop)
-global end_sk:
+end_sk:
     %stack (pos, sk_end_pos, addr, end_pos) -> (pos, end_pos)
     %jump(decode_and_store_access_list_loop)
-global decode_and_store_access_list_finish:
+decode_and_store_access_list_finish:
     %stack (pos, end_pos, retdest) -> (retdest, pos)
     JUMP
 
@@ -200,7 +203,7 @@ global decode_and_store_access_list_finish:
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_DATA_COST)
 %endmacro
 
-global insert_accessed_storage_keys_with_original_value:
+insert_accessed_storage_keys_with_original_value:
     %stack (addr, key, retdest) -> (key, addr, after_read, addr, key, retdest)
     %jump(sload_with_addr)
 after_read:
@@ -210,7 +213,7 @@ after_read:
     JUMP
 
 
-global sload_with_addr:
+sload_with_addr:
     %stack (slot, addr) -> (slot, addr, after_storage_read)
     %slot_to_storage_key
     // stack: storage_key, addr, after_storage_read
