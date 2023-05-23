@@ -144,4 +144,3 @@ store_origin:
     %mstore_txn_field(@TXN_FIELD_ORIGIN)
     // stack: retdest
     %jump(process_normalized_txn)
-    %jump(process_normalized_txn)
