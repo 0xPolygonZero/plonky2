@@ -37,11 +37,9 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender = hex!("2c7536e3605d9c16a7a3d7b1898e529396a65c23");
     let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
 
-    let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
     let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
