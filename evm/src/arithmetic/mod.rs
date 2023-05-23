@@ -5,6 +5,7 @@ use crate::extension_tower::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
 mod addcy;
+mod byte;
 mod divmod;
 mod modular;
 mod mul;
@@ -25,6 +26,7 @@ pub(crate) enum BinaryOperator {
     AddFp254,
     MulFp254,
     SubFp254,
+    //    Byte,
 }
 
 impl BinaryOperator {
