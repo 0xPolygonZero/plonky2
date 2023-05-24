@@ -201,7 +201,7 @@ global sys_delegatecall:
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, callgas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
