@@ -41,6 +41,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/transfer.asm"),
         include_str!("asm/core/util.asm"),
         include_str!("asm/core/access_lists.asm"),
+        include_str!("asm/core/log.asm"),
         include_str!("asm/core/selfdestruct_list.asm"),
         include_str!("asm/core/touched_addresses.asm"),
         include_str!("asm/core/precompiles/main.asm"),
