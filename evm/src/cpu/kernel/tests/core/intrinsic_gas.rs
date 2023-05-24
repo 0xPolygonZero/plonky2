@@ -1,6 +1,8 @@
 use anyhow::Result;
+use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::cpu::kernel::interpreter::Interpreter;
 
@@ -14,6 +16,7 @@ fn test_intrinsic_gas() -> Result<()> {
     // Contract creation transaction.
     let initial_stack = vec![0xdeadbeefu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(intrinsic_gas, initial_stack.clone());
+    interpreter.set_global_metadata_field(GlobalMetadata::ContractCreation, U256::one());
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![(GAS_TX + GAS_TXCREATE).into()]);
 
