@@ -13,9 +13,13 @@ global sys_extcodehash:
     // stack: kexit_info, address
 
     SWAP1
+    DUP1 %is_dead %jumpi(extcodehash_dead)
     %extcodehash
     // stack: hash, kexit_info
     SWAP1
+    EXIT_KERNEL
+extcodehash_dead:
+    %stack (address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 global extcodehash:
