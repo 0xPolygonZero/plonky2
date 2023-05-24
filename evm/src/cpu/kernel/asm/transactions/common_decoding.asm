@@ -61,12 +61,31 @@
 %endmacro
 
 // Decode the "to" field and store it.
+// This field is either 160-bit or empty in the case of a contract creation txn.
 %macro decode_and_store_to
     // stack: pos
-    %decode_rlp_scalar
-    %stack (pos, to) -> (to, pos)
+    %decode_rlp_string_len
+    // stack: pos, len
+    SWAP1
+    // stack: len, pos
+    DUP1 ISZERO %jumpi(%%contract_creation)
+    // stack: len, pos
+    DUP1 %eq_const(20) ISZERO %jumpi(invalid_txn) // Address is 160-bit
+    %stack (len, pos) -> (pos, len, %%with_scalar)
+    %jump(decode_int_given_len)
+%%with_scalar:
+    // stack: pos, int
+    SWAP1
     %mstore_txn_field(@TXN_FIELD_TO)
     // stack: pos
+    %jump(%%end)
+%%contract_creation:
+    // stack: len, pos
+    POP
+    PUSH 1 %mstore_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION)
+    // stack: pos
+    //%increment
+%%end:
 %endmacro
 
 // Decode the "value" field and store it.

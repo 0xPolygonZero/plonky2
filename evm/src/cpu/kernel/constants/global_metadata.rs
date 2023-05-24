@@ -65,10 +65,12 @@ pub(crate) enum GlobalMetadata {
     AccessListRlpStart = 31,
     // Length of the access list in the RLP for type-1 txns.
     AccessListRlpLen = 32,
+    // Boolean flag indicating if the txn is a contract creation txn.
+    ContractCreation = 33,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 32;
+    pub(crate) const COUNT: usize = 33;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -104,6 +106,7 @@ impl GlobalMetadata {
             Self::AccessListDataCost,
             Self::AccessListRlpStart,
             Self::AccessListRlpLen,
+            Self::ContractCreation,
         ]
     }
 
@@ -142,6 +145,7 @@ impl GlobalMetadata {
             Self::AccessListDataCost => "GLOBAL_METADATA_ACCESS_LIST_DATA_COST",
             Self::AccessListRlpStart => "GLOBAL_METADATA_ACCESS_LIST_RLP_START",
             Self::AccessListRlpLen => "GLOBAL_METADATA_ACCESS_LIST_RLP_LEN",
+            Self::ContractCreation => "GLOBAL_METADATA_CONTRACT_CREATION",
         }
     }
 }

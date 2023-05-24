@@ -407,5 +407,5 @@ contract_creation_fault_4:
     JUMP
 
 
-invalid_txn:
+global invalid_txn:
     %jump(txn_loop)
