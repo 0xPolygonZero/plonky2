@@ -102,13 +102,13 @@ type_0_compute_signed_data:
     // stack: rlp_pos, rlp_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
-    DUP1 %jumpi(nonzero_to)
-    // stack: to, rlp_pos, rlp_start, retdest
-    SWAP1 %encode_rlp_scalar
-    %jump(after_to)
-nonzero_to:
+    %mload_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION) %jumpi(zero_to)
     // stack: to, rlp_pos, rlp_start, retdest
     SWAP1 %encode_rlp_160
+    %jump(after_to)
+zero_to:
+    // stack: to, rlp_pos, rlp_start, retdest
+    SWAP1 %encode_rlp_scalar
     // stack: rlp_pos, rlp_start, retdest
 
 after_to:
