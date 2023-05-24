@@ -84,7 +84,6 @@
     POP
     PUSH 1 %mstore_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION)
     // stack: pos
-    //%increment
 %%end:
 %endmacro
 
