@@ -43,6 +43,7 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
@@ -135,7 +136,7 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     // `lvl_len` is the number of elements of the current level of the
     // "tree". Can think of `val_limbs` as level 0, with length =
     // N_LIMBS = 16.
-    assert!(N_LIMBS == 16); // Enforce assumption
+    const_assert!(N_LIMBS == 16); // Enforce assumption
 
     let (prev, next) = lv[val_idx..].split_at_mut(tree_idx - val_idx);
     let lvl_len = 8;
