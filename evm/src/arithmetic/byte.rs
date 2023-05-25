@@ -246,8 +246,9 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint(is_byte * (base8_inv * lo_byte + base8 * hi_byte - limb));
 
     let bit = idx_decomp[0];
-    let expected_out_byte = bit * base8_inv * lo_byte + (P::ONES - bit) * hi_byte;
-    yield_constr.constraint(is_byte * (tree[15] - expected_out_byte));
+    let t = bit * base8_inv * lo_byte + (P::ONES - bit) * hi_byte;
+    yield_constr.constraint(is_byte * (tree[15] - t));
+    let expected_out_byte = tree[15];
 
     // Sum all higher limbs; sum will be non-zero iff idx >= 32.
     //let hi_limb_sum: P = idx0_hi + idx[1..].iter().sum::<P>(); // doesn't work
@@ -369,10 +370,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let bit = idx_decomp[0];
     let nbit = builder.sub_extension(one, bit);
     let t = builder.mul_many_extension([bit, lo_byte, base8_inv]);
-    let expected_out_byte = builder.mul_add_extension(nbit, hi_byte, t);
-    let u = builder.sub_extension(tree[15], expected_out_byte);
+    let t = builder.mul_add_extension(nbit, hi_byte, t);
+    let u = builder.sub_extension(tree[15], t);
     let t = builder.mul_extension(is_byte, u);
     yield_constr.constraint(builder, t);
+    let expected_out_byte = tree[15];
 
     let mut hi_limb_sum = idx0_hi;
     for i in 1..N_LIMBS {
