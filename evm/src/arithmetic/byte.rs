@@ -285,6 +285,136 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 }
 
+pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let is_byte = lv[IS_BYTE];
+
+    let val = &lv[INPUT_REGISTER_0];
+    let idx = &lv[INPUT_REGISTER_1];
+    let out = &lv[OUTPUT_REGISTER];
+    let idx_decomp = &lv[AUX_INPUT_REGISTER_0];
+    let tree = &lv[AUX_INPUT_REGISTER_1];
+
+    let mut idx0_lo5 = builder.zero_extension();
+    for i in 0..5 {
+        let bit = idx_decomp[i];
+        let t = builder.mul_sub_extension(bit, bit, bit);
+        let t = builder.mul_extension(t, is_byte);
+        yield_constr.constraint(builder, t);
+        let scale = F::Extension::from(F::from_canonical_u64(1 << i));
+        let scale = builder.constant_extension(scale);
+        idx0_lo5 = builder.mul_add_extension(bit, scale, idx0_lo5);
+    }
+    let t = F::Extension::from(F::from_canonical_u64(32));
+    let t = builder.constant_extension(t);
+    let idx0_hi = builder.mul_extension(idx_decomp[5], t);
+    let t = builder.add_extension(idx0_lo5, idx0_hi);
+    let t = builder.sub_extension(idx[0], t);
+    let t = builder.mul_extension(is_byte, t);
+    yield_constr.constraint(builder, t);
+
+    let one = builder.one_extension();
+    let bit = idx_decomp[4];
+    for i in 0..8 {
+        let t = builder.mul_extension(bit, val[i]);
+        let u = builder.sub_extension(one, bit);
+        let v = builder.mul_add_extension(u, val[i + 8], t);
+        let t = builder.sub_extension(tree[i], v);
+        let t = builder.mul_extension(is_byte, t);
+        yield_constr.constraint(builder, t);
+    }
+
+    let bit = idx_decomp[3];
+    for i in 0..4 {
+        let t = builder.mul_extension(bit, tree[i]);
+        let u = builder.sub_extension(one, bit);
+        let v = builder.mul_add_extension(u, tree[i + 4], t);
+        let t = builder.sub_extension(tree[i + 8], v);
+        let t = builder.mul_extension(is_byte, t);
+        yield_constr.constraint(builder, t);
+    }
+
+    let bit = idx_decomp[2];
+    for i in 0..2 {
+        let t = builder.mul_extension(bit, tree[i + 8]);
+        let u = builder.sub_extension(one, bit);
+        let v = builder.mul_add_extension(u, tree[i + 10], t);
+        let t = builder.sub_extension(tree[i + 12], v);
+        let t = builder.mul_extension(is_byte, t);
+        yield_constr.constraint(builder, t);
+    }
+
+    let bit = idx_decomp[1];
+    let t = builder.mul_extension(bit, tree[12]);
+    let u = builder.sub_extension(one, bit);
+    let limb = builder.mul_add_extension(u, tree[13], t);
+    let t = builder.sub_extension(tree[14], limb);
+    let t = builder.mul_extension(is_byte, t);
+    yield_constr.constraint(builder, t);
+
+    let base8 = F::Extension::from(F::from_canonical_u64(1 << 8));
+    let base8 = builder.constant_extension(base8);
+    let base8_inv = F::Extension::from(F::from_canonical_u64(0xfeffffff01000001));
+    let base8_inv = builder.constant_extension(base8_inv);
+    let lo_byte = lv[BYTE_LAST_LIMB_LO];
+    let hi_byte = lv[BYTE_LAST_LIMB_HI];
+    let t = builder.mul_sub_extension(base8, hi_byte, limb);
+    let t = builder.mul_add_extension(base8_inv, lo_byte, t);
+    let t = builder.mul_extension(is_byte, t);
+    yield_constr.constraint(builder, t);
+
+    let bit = idx_decomp[0];
+    let nbit = builder.sub_extension(one, bit);
+    let t = builder.mul_many_extension([bit, lo_byte, base8_inv]);
+    let expected_out_byte = builder.mul_add_extension(nbit, hi_byte, t);
+    let u = builder.sub_extension(tree[15], expected_out_byte);
+    let t = builder.mul_extension(is_byte, u);
+    yield_constr.constraint(builder, t);
+
+    let mut hi_limb_sum = idx0_hi;
+    for i in 1..N_LIMBS {
+        hi_limb_sum = builder.add_extension(hi_limb_sum, idx[i]);
+    }
+    let idx_is_large = lv[BYTE_IDX_IS_LARGE];
+    let t = builder.mul_sub_extension(idx_is_large, idx_is_large, idx_is_large);
+    let t = builder.mul_extension(is_byte, t);
+    yield_constr.constraint(builder, t);
+
+    let t = builder.sub_extension(idx_is_large, one);
+    let t = builder.mul_many_extension([is_byte, hi_limb_sum, t]);
+    yield_constr.constraint(builder, t);
+
+    let base16 = F::from_canonical_u64(1 << 16);
+    let hi_limb_sum_inv = builder.mul_const_add_extension(
+        base16,
+        lv[BYTE_IDX_HI_LIMB_SUM_INV_3],
+        lv[BYTE_IDX_HI_LIMB_SUM_INV_2],
+    );
+    let hi_limb_sum_inv =
+        builder.mul_const_add_extension(base16, hi_limb_sum_inv, lv[BYTE_IDX_HI_LIMB_SUM_INV_1]);
+    let hi_limb_sum_inv =
+        builder.mul_const_add_extension(base16, hi_limb_sum_inv, lv[BYTE_IDX_HI_LIMB_SUM_INV_0]);
+    let t = builder.mul_sub_extension(hi_limb_sum, hi_limb_sum_inv, idx_is_large);
+    let t = builder.mul_extension(is_byte, t);
+    yield_constr.constraint(builder, t);
+
+    let out_byte = out[0];
+    let t = builder.sub_extension(one, idx_is_large);
+    let u = builder.sub_extension(out_byte, expected_out_byte);
+    let t = builder.mul_extension(t, u);
+    let check = builder.mul_add_extension(idx_is_large, out_byte, t);
+    let t = builder.mul_extension(is_byte, check);
+    yield_constr.constraint(builder, t);
+
+    for i in 1..N_LIMBS {
+        let t = builder.mul_extension(is_byte, out[i]);
+        yield_constr.constraint(builder, t);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
