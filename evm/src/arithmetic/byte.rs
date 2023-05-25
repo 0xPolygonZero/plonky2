@@ -37,18 +37,26 @@
 //! is 0.
 
 use ethereum_types::U256;
+use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::{Field, PrimeField64};
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
-use crate::constraint_consumer::ConstraintConsumer;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
+// Give meaningful names to the columns of AUX_INPUT_REGISTER_0 that
+// we're using
 const BYTE_LAST_LIMB_LO: usize = AUX_INPUT_REGISTER_0.start + 7;
 const BYTE_LAST_LIMB_HI: usize = AUX_INPUT_REGISTER_0.start + 8;
 const BYTE_IDX_IS_LARGE: usize = AUX_INPUT_REGISTER_0.start + 9;
-const BYTE_IDX_HI_LIMB_SUM_INV: usize = AUX_INPUT_REGISTER_0.start + 10;
-const BYTE_IDX_HI_LIMB_SUM_INVINV: usize = AUX_INPUT_REGISTER_0.start + 11;
+const BYTE_IDX_HI_LIMB_SUM_INV_0: usize = AUX_INPUT_REGISTER_0.start + 10;
+const BYTE_IDX_HI_LIMB_SUM_INV_1: usize = AUX_INPUT_REGISTER_0.start + 11;
+const BYTE_IDX_HI_LIMB_SUM_INV_2: usize = AUX_INPUT_REGISTER_0.start + 12;
+const BYTE_IDX_HI_LIMB_SUM_INV_3: usize = AUX_INPUT_REGISTER_0.start + 13;
 
 /// Decompose `idx` into bits and bobs and store in `idx_decomp`.
 ///
@@ -75,14 +83,24 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     u256_to_array(&mut lv[INPUT_REGISTER_1], idx);
     set_idx_decomp(&mut lv[AUX_INPUT_REGISTER_0], &idx);
 
-    // FIXME: Tidy this up
-    let sum = lv[INPUT_REGISTER_1][1..]
+    let idx0_hi = lv[AUX_INPUT_REGISTER_0][5];
+    let hi_limb_sum = lv[INPUT_REGISTER_1][1..]
         .iter()
-        .fold(lv[AUX_INPUT_REGISTER_0][5], |acc, &x| acc + x);
-    let sum_inv = sum.try_inverse().unwrap_or(F::ONE);
-    lv[BYTE_IDX_HI_LIMB_SUM_INV] = sum_inv;
-    lv[BYTE_IDX_HI_LIMB_SUM_INVINV] = sum_inv.inverse();
-    lv[BYTE_IDX_IS_LARGE] = F::from_bool(!sum.is_zero());
+        .fold(idx0_hi, |acc, &x| acc + x);
+    let hi_limb_sum_inv = hi_limb_sum
+        .try_inverse()
+        .unwrap_or(F::ONE)
+        .to_canonical_u64();
+    // It's a bit silly that we have to split this value, which
+    // doesn't need to be range-checked, into 16-bit limbs so that it
+    // can be range-checked; but the rigidity of the range-checking
+    // mechanism means we can't optionally switch it off for some
+    // instructions.
+    lv[BYTE_IDX_HI_LIMB_SUM_INV_0] = F::from_canonical_u16(hi_limb_sum_inv as u16);
+    lv[BYTE_IDX_HI_LIMB_SUM_INV_1] = F::from_canonical_u16((hi_limb_sum_inv >> 16) as u16);
+    lv[BYTE_IDX_HI_LIMB_SUM_INV_2] = F::from_canonical_u16((hi_limb_sum_inv >> 32) as u16);
+    lv[BYTE_IDX_HI_LIMB_SUM_INV_3] = F::from_canonical_u16((hi_limb_sum_inv >> 48) as u16);
+    lv[BYTE_IDX_IS_LARGE] = F::from_bool(!hi_limb_sum.is_zero());
 
     // Set the tree values according to the low 5 bits of idx, even
     // when idx >= 32.
@@ -119,8 +137,6 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     // N_LIMBS = 16.
     assert!(N_LIMBS == 16); // Enforce assumption
 
-    // TODO: Not sure whether it would be clearer to put these in a loop...
-
     let (prev, next) = lv[val_idx..].split_at_mut(tree_idx - val_idx);
     let lvl_len = 8;
     let offset = (!idx.bit(4) as usize) * lvl_len;
@@ -146,7 +162,8 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     let lo = t as u8 as u64;
     let hi = t >> 8;
 
-    lv[BYTE_LAST_LIMB_LO] = F::from_canonical_u64(lo);
+    // Store 256 * lo rather than lo:
+    lv[BYTE_LAST_LIMB_LO] = F::from_canonical_u64(lo << 8);
     lv[BYTE_LAST_LIMB_HI] = F::from_canonical_u64(hi);
 
     let tree = &mut lv[AUX_INPUT_REGISTER_1];
@@ -217,28 +234,37 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint(is_byte * (tree[14] - limb));
 
     // Check byte decomposition of last limb:
-    let base = P::Scalar::from_canonical_u64(256);
+
+    let base8 = P::Scalar::from_canonical_u64(1 << 8);
+    // base8_inv is Goldilocks-specific
+    debug_assert!(P::Scalar::order() == 0xffff_ffff_0000_0001u64.into());
+    let base8_inv = P::Scalar::from_canonical_u64(0xfeffffff01000001);
+    debug_assert!(base8 * base8_inv == P::Scalar::ONE);
+
     let lo_byte = lv[BYTE_LAST_LIMB_LO];
     let hi_byte = lv[BYTE_LAST_LIMB_HI];
-    yield_constr.constraint(is_byte * (lo_byte + base * hi_byte - limb));
+    yield_constr.constraint(is_byte * (base8_inv * lo_byte + base8 * hi_byte - limb));
 
     let bit = idx_decomp[0];
-    let expected_out_byte = bit * lo_byte + (P::ONES - bit) * hi_byte;
+    let expected_out_byte = bit * base8_inv * lo_byte + (P::ONES - bit) * hi_byte;
     yield_constr.constraint(is_byte * (tree[15] - expected_out_byte));
 
     // Sum all higher limbs; sum will be non-zero iff idx >= 32.
-    //let _idx_is_large: P = idx0_hi + idx[1..].iter().sum::<P>(); // doesn't work
+    //let hi_limb_sum: P = idx0_hi + idx[1..].iter().sum::<P>(); // doesn't work
     let hi_limb_sum = idx[1..].iter().fold(idx0_hi, |acc, &i| i + acc);
-    let hi_limb_sum_inv = lv[BYTE_IDX_HI_LIMB_SUM_INV];
-    let hi_limb_sum_invinv = lv[BYTE_IDX_HI_LIMB_SUM_INVINV];
     let idx_is_large = lv[BYTE_IDX_IS_LARGE];
-
-    // hi_limb_sum_inv and hi_limb_sum_invinv are both non-zero and
-    // are inverses of one another.
-    yield_constr.constraint(is_byte * (hi_limb_sum_inv * hi_limb_sum_invinv - P::ONES));
 
     // idx_is_large is 0 or 1
     yield_constr.constraint(is_byte * (idx_is_large * idx_is_large - idx_is_large));
+
+    // If hi_limb_sum is nonzero, then idx_is_large must be one.
+    yield_constr.constraint(is_byte * hi_limb_sum * (idx_is_large - P::ONES));
+
+    let base16 = P::Scalar::from_canonical_u64(1 << 16);
+    let hi_limb_sum_inv = lv[BYTE_IDX_HI_LIMB_SUM_INV_0]
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_1] * base16
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_2] * base16 * base16
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_3] * base16 * base16 * base16;
 
     // If idx_is_large is 1, then hi_limb_sum_inv must be the inverse
     // of hi_limb_sum, hence hi_limb_sum is non-zero, hence idx is
@@ -247,7 +273,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // Otherwise, if idx_is_large is 0, then hi_limb_sum * hi_limb_sum_inv
     // is zero, which is only possible if hi_limb_sum is zero, since
     // hi_limb_sum_inv is non-zero.
-    yield_constr.constraint(is_byte * (idx_is_large - hi_limb_sum * hi_limb_sum_inv));
+    yield_constr.constraint(is_byte * (hi_limb_sum * hi_limb_sum_inv - idx_is_large));
 
     let out_byte = out[0];
     let check = idx_is_large * out_byte + (P::ONES - idx_is_large) * (out_byte - expected_out_byte);
