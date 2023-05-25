@@ -127,8 +127,6 @@ global sys_revert:
 revert_zero_size:
     POP
 revert_after_gas:
-    %update_mem_bytes
-
     // Load the parent's context.
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
 
