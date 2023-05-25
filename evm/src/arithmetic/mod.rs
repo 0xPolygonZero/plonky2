@@ -26,7 +26,7 @@ pub(crate) enum BinaryOperator {
     AddFp254,
     MulFp254,
     SubFp254,
-    //    Byte,
+    Byte,
 }
 
 impl BinaryOperator {
@@ -54,6 +54,13 @@ impl BinaryOperator {
             BinaryOperator::AddFp254 => addmod(input0, input1, BN_BASE),
             BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE),
             BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE),
+            BinaryOperator::Byte => {
+                if input1 >= 32.into() {
+                    U256::zero()
+                } else {
+                    input0.byte(31 - input1.as_usize()).into()
+                }
+            }
         }
     }
 
@@ -69,6 +76,7 @@ impl BinaryOperator {
             BinaryOperator::AddFp254 => columns::IS_ADDFP254,
             BinaryOperator::MulFp254 => columns::IS_MULFP254,
             BinaryOperator::SubFp254 => columns::IS_SUBFP254,
+            BinaryOperator::Byte => columns::IS_BYTE,
         }
     }
 }
@@ -100,7 +108,6 @@ impl TernaryOperator {
 }
 
 #[derive(Debug)]
-#[allow(unused)] // TODO: Should be used soon.
 pub(crate) enum Operation {
     BinaryOperation {
         operator: BinaryOperator,
@@ -218,6 +225,10 @@ fn binary_op_to_rows<F: PrimeField64>(
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
             ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE, result)
+        }
+        BinaryOperator::Byte => {
+            byte::generate(&mut row, input0, input1);
+            (row, None)
         }
     }
 }

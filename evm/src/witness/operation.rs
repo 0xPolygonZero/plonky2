@@ -25,7 +25,6 @@ use crate::{arithmetic, logic};
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Byte,
     Shl,
     Shr,
     Syscall(u8),
@@ -408,27 +407,6 @@ pub(crate) fn generate_not<F: Field>(
     let log_out = stack_push_log_and_fill(state, &mut row, result)?;
 
     state.traces.push_memory(log_in);
-    state.traces.push_memory(log_out);
-    state.traces.push_cpu(row);
-    Ok(())
-}
-
-pub(crate) fn generate_byte<F: Field>(
-    state: &mut GenerationState<F>,
-    mut row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    let [(i, log_in0), (x, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-
-    let byte = if i < 32.into() {
-        // byte(i) is the i'th little-endian byte; we want the i'th big-endian byte.
-        x.byte(31 - i.as_usize())
-    } else {
-        0
-    };
-    let log_out = stack_push_log_and_fill(state, &mut row, byte.into())?;
-
-    state.traces.push_memory(log_in0);
-    state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())

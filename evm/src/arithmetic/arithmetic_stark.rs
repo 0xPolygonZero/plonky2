@@ -12,7 +12,7 @@ use plonky2::util::transpose;
 use static_assertions::const_assert;
 
 use crate::all_stark::Table;
-use crate::arithmetic::{addcy, columns, divmod, modular, mul, Operation};
+use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
@@ -49,7 +49,7 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 13] = [
+    const ARITH_OPS: [usize; 14] = [
         columns::IS_ADD,
         columns::IS_SUB,
         columns::IS_MUL,
@@ -63,6 +63,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::IS_SUBMOD,
         columns::IS_DIV,
         columns::IS_MOD,
+        columns::IS_BYTE,
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -183,6 +184,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         addcy::eval_packed_generic(lv, yield_constr);
         divmod::eval_packed(lv, nv, yield_constr);
         modular::eval_packed(lv, nv, yield_constr);
+        byte::eval_packed(lv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -214,6 +216,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         addcy::eval_ext_circuit(builder, lv, yield_constr);
         divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
+        byte::eval_ext_circuit(builder, lv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
@@ -317,7 +320,10 @@ mod tests {
         // 128 % 13 == 11
         let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
 
-        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div];
+        // byte(0xABCD, 30) = 0xAB
+        let byte = Operation::binary(BinaryOperator::Byte, U256::from(0xABCD), U256::from(30));
+
+        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte];
 
         let pols = stark.generate_trace(ops);
 
@@ -341,6 +347,7 @@ mod tests {
             (9, 1),
             (10, 0),
             (11, 9),
+            (13, 0xAB),
         ];
 
         for (row, expected) in expected_output {

@@ -185,7 +185,7 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     );
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub fn eval_packed<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -463,7 +463,7 @@ mod tests {
                     F::ONE,
                     F::ONE,
                 );
-                eval_packed_generic(&lv, &mut constrant_consumer);
+                eval_packed(&lv, &mut constrant_consumer);
                 for &acc in &constrant_consumer.constraint_accs {
                     assert_eq!(acc, F::ZERO);
                 }
