@@ -23,15 +23,34 @@ mpt_insert_state_trie_save:
 %%after:
 %endmacro
 
+// Insert a node in the transaction trie. The payload
+// must be pointing to the rlp encoded txn
+// Pre stack: key, txn_rlp_ptr, redest
+// Post stack: (empty)
+global mpt_insert_txn_trie:
+    // stack: key=rlp(key), num_nibbles, txn_rlp_ptr, retdest 
+    %stack (key, num_nibbles, txn_rlp_ptr)
+        -> (num_nibbles, key, txn_rlp_ptr, mpt_insert_txn_trie_save)
+    %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
+    // stack: txn_trie_root_ptr, num_nibbles, key, txn_rlp_ptr, mpt_insert_state_trie_save, retdest
+    %jump(mpt_insert)
+
+mpt_insert_txn_trie_save:
+    // stack: updated_node_ptr, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
+    JUMP
+
+%macro mpt_insert_txn_trie
+    %stack (key, txn_rpl_ptr) -> (key, txn_rlp_ptr, %%after)
+    %jump(mpt_insert_txn_trie)
+%%after:
+%endmacro
+
 global mpt_insert_receipt_trie:
-    // stack: scalar, value_ptr, retdest
-    %stack (scalar, value_ptr)
-        -> (scalar, value_ptr, mpt_insert_receipt_trie_save)
-    // The key is the RLP encoding of scalar.
-    %scalar_to_rlp
-    // stack: key, value_ptr, mpt_insert_receipt_trie_save, retdest
-    DUP1
-    %num_bytes %mul_const(2)
+    // stack: num_nibbles, scalar, value_ptr, retdest
+    %stack (num_nibbles, scalar, value_ptr)
+        -> (num_nibbles, scalar, value_ptr, mpt_insert_receipt_trie_save)
+    // The key is the scalar, which is an RLP encoding of the transaction number
     // stack: num_nibbles, key, value_ptr, mpt_insert_receipt_trie_save, retdest
     %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
     // stack: receipt_root_ptr, num_nibbles, key, value_ptr, mpt_insert_receipt_trie_save, retdest
@@ -49,20 +68,22 @@ mpt_insert_receipt_trie_save:
 
 // Pre stack: scalar, retdest
 // Post stack: rlp_scalar
-// We will make use of %encode_rlp_scalar, which clobbers RlpRaw.
-// We're not hashing tries yet, so it's not an issue.
 global scalar_to_rlp:
     // stack: scalar, retdest
-    PUSH 0
+    %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
     // stack: pos, scalar, retdest
+    SWAP1 DUP2
     %encode_rlp_scalar
-    // stack: pos', retdest
-    // Now our rlp_encoding is in RlpRaw in the first pos' cells.
-    DUP1 // len of the key
-    PUSH 0 PUSH @SEGMENT_RLP_RAW PUSH 0 // address where we get the key from
+    // stack: pos', init_pos, retdest
+    // Now our rlp_encoding is in RlpRaw.
+    // Set new RlpRaw data size
+    DUP1 %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
+    DUP2 DUP2 SUB // len of the key
+    // stack: len, pos', init_pos, retdest
+    DUP3 PUSH @SEGMENT_RLP_RAW PUSH 0 // address where we get the key from
     %mload_packing
-    // stack: packed_key, pos', retdest
-    SWAP1 POP
+    // stack: packed_key, pos', init_pos, retdest
+    SWAP2 %pop2
     // stack: key, retdest
     SWAP1
     JUMP

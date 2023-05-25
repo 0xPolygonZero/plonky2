@@ -63,7 +63,6 @@ loop:
     // stack: i, hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // If i == 0, break to first_byte.
     DUP1 ISZERO %jumpi(first_byte)
-
     // stack: i, hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     DUP5 // packed_nibbles
     %and_const(0xFF)
@@ -79,6 +78,7 @@ loop:
     %jump(loop)
 
 first_byte:
+
     // stack: 0, hp_len, rlp_pos, num_nibbles, first_nibble_or_zero, terminated, retdest
     POP
     // stack: hp_len, rlp_pos, num_nibbles, first_nibble_or_zero, terminated, retdest
@@ -91,6 +91,7 @@ first_byte:
     %stack (terminated_x2, rlp_pos, num_nibbles, first_nibble_or_zero)
         -> (num_nibbles, terminated_x2, first_nibble_or_zero, rlp_pos)
     // stack: num_nibbles, terminated * 2, first_nibble_or_zero, rlp_pos, rlp_end_pos, retdest
+
     %mod_const(2) // parity
     ADD
     // stack: parity + terminated * 2, first_nibble_or_zero, rlp_pos, rlp_end_pos, retdest

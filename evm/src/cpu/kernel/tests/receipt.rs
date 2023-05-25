@@ -37,7 +37,15 @@ fn test_process_receipt() -> Result<()> {
     let expected_bloom = logs_bloom_bytes_fn(test_logs_list).to_vec();
 
     // Set memory.
-    let initial_stack = vec![retdest, 0.into(), prev_cum_gas, leftover_gas, success];
+    let num_nibbles = 2.into();
+    let initial_stack = vec![
+        retdest,
+        num_nibbles,
+        0.into(),
+        prev_cum_gas,
+        leftover_gas,
+        success,
+    ];
     let mut interpreter = Interpreter::new_with_kernel(process_receipt, initial_stack);
     interpreter.set_memory_segment(
         Segment::LogsData,
@@ -423,7 +431,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
     }
 
     // stack: transaction_nb, value_ptr, retdest
-    let initial_stack = [retdest, cur_trie_data.len().into(), 0.into()];
+    let num_nibbles = 2;
+    let initial_stack = vec![
+        retdest,
+        cur_trie_data.len().into(),
+        0x80.into(),
+        num_nibbles.into(),
+    ];
     for i in 0..initial_stack.len() {
         interpreter.push(initial_stack[i]);
     }
@@ -487,7 +501,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
 
     // Get updated TrieData segment.
     cur_trie_data = interpreter.get_memory_segment(Segment::TrieData);
-    let initial_stack2 = [retdest, cur_trie_data.len().into(), 1.into()];
+    let num_nibbles = 2;
+    let initial_stack2 = vec![
+        retdest,
+        cur_trie_data.len().into(),
+        0x01.into(),
+        num_nibbles.into(),
+    ];
     for i in 0..initial_stack2.len() {
         interpreter.push(initial_stack2[i]);
     }

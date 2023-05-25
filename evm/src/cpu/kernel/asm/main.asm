@@ -6,6 +6,8 @@ global main:
     %initialize_block_bloom
 
     // Second, load all MPT data from the prover.
+    PUSH 2 // number of nibbles of 0x80
+    PUSH 0x80 // rlp encoded txn_counter
     PUSH hash_initial_tries
     %jump(load_all_mpts)
 
@@ -17,8 +19,34 @@ global hash_initial_tries:
 global start_txns:
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_BEFORE)
+    // stack: txn_nb
+    // If the txn trie is empty, we want to make sure that txn_nb is 0.
+    DUP1 ISZERO ISZERO
+    // stack: txn_nb != 0, txn_nb, txn_counter, num_nibbles
+    %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
+    PUSH @EMPTY_NODE_HASH EQ
+    // stack: txn_trie_hash == empty_hash, txn_nb != 0, txn_nb
+    MUL
+    // stack: is_invalid_txn_nb, txn_nb, txn_counter, num_nibbles
+    %jumpi(panic)
+    // stack: txn_nb
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE)
+    // If the txn trie is empty, we want to make sure that gas_used is 0.
+    DUP1 ISZERO ISZERO
+    // stack: init_gas_used != 0, init_gas_used, txn_nb
+    %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
+    PUSH @EMPTY_NODE_HASH EQ
+    // stack: txn_trie_hash == empty_hash, init_gas_used != 0, init_gas_used, txn_nb
+    MUL
+    // stack: is_invalid_gas_used, init_gas_used, txn_nb
+    %jumpi(panic)
     // stack: init_used_gas, txn_nb
+    DUP2 %scalar_to_rlp
+    // stack: txn_counter, init_gas_used, txn_nb
+    DUP1 %num_bytes %mul_const(2)
+    // stack: num_nibbles, txn_counter, init_gas_used, txn_nb
+    SWAP2
+    // stack: init_gas_used, txn_counter, num_nibbles, txn_nb
 
 txn_loop:
     // If the prover has no more txns for us to process, halt.
@@ -27,18 +55,20 @@ txn_loop:
 
     // Call route_txn. When we return, continue the txn loop.
     PUSH txn_loop_after
-    // stack: retdest, prev_used_gas, txn_nb
+    // stack: retdest, prev_gas_used, txn_counter, num_nibbles, txn_nb
+    DUP4 DUP4 %increment_bounded_rlp
+    %stack (next_txn_counter, next_num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles) -> (txn_counter, num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles)
     %jump(route_txn)
 
 global txn_loop_after:
-    // stack: success, leftover_gas, cur_cum_gas, txn_nb
+    // stack: success, leftover_gas, cur_cum_gas, prev_txn_counter, prev_num_nibbles, txn_counter, num_nibbles, txn_nb
     %process_receipt
-    // stack: new_cum_gas, txn_nb
-    SWAP1 %increment SWAP1
+    // stack: new_cum_gas, txn_counter, num_nibbles, txn_nb
+    SWAP3 %increment SWAP3
     %jump(txn_loop)
 
 global hash_final_tries:
-    // stack: cum_gas, txn_nb
+    // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
     %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq

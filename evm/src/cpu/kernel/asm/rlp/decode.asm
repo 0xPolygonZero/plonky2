@@ -90,6 +90,8 @@ global decode_rlp_list_len:
     // stack: pos, retdest
     DUP1
     %mload_kernel(@SEGMENT_RLP_RAW)
+    PUSH @SEGMENT_RLP_RAW // Debug
+    POP
     // stack: first_byte, pos, retdest
     SWAP1
     %increment // increment pos

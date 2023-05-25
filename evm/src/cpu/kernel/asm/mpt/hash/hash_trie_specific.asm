@@ -97,7 +97,30 @@ global encode_account:
     JUMP
 
 global encode_txn:
-    PANIC // TODO
+    // stack: rlp_pos, value_ptr, retdest
+    
+    // Load the txn_rlp_len which is at the beginnig of value_ptr
+    DUP2 %mload_trie_data
+    // stack: txn_rlp_len, rlp_pos, value_ptr, retdest
+    SWAP2 %increment
+    // stack: txn_rlp_ptr=value_ptr+1, rlp_pos, txn_rlp_len, retdest
+
+    %stack (txn_rlp_ptr, rlp_pos, txn_rlp_len) -> (rlp_pos, txn_rlp_len, txn_rlp_len, txn_rlp_ptr)
+    // Encode the txn rlp prefix
+    // stack: rlp_pos, txn_rlp_len, txn_rlp_len, txn_rlp_ptr, retdest
+    %encode_rlp_multi_byte_string_prefix
+    // copy txn_rlp to the new block
+    // stack: rlp_pos, txn_rlp_len, txn_rlp_ptr, retdest
+    %stack (rlp_pos, txn_rlp_len, txn_rlp_ptr) -> (
+        0, @SEGMENT_RLP_RAW, rlp_pos, // dest addr
+        0, @SEGMENT_TRIE_DATA, txn_rlp_ptr, // src addr. Kernel has context 0
+        txn_rlp_len, // mcpy len
+        txn_rlp_len, rlp_pos)
+    %memcpy
+    ADD
+    // stack new_rlp_pos, retdest
+    SWAP1
+    JUMP
 
 // We assume a receipt in memory is stored as:
 // [payload_len, status, cum_gas_used, bloom, logs_payload_len, num_logs, [logs]].
