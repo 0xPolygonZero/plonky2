@@ -55,10 +55,10 @@ impl BinaryOperator {
             BinaryOperator::MulFp254 => mulmod(input0, input1, BN_BASE),
             BinaryOperator::SubFp254 => submod(input0, input1, BN_BASE),
             BinaryOperator::Byte => {
-                if input1 >= 32.into() {
+                if input0 >= 32.into() {
                     U256::zero()
                 } else {
-                    input0.byte(31 - input1.as_usize()).into()
+                    input1.byte(31 - input0.as_usize()).into()
                 }
             }
         }

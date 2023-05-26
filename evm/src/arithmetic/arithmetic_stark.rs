@@ -320,8 +320,8 @@ mod tests {
         // 128 % 13 == 11
         let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
 
-        // byte(0xABCD, 30) = 0xAB
-        let byte = Operation::binary(BinaryOperator::Byte, U256::from(0xABCD), U256::from(30));
+        // byte(30, 0xABCD) = 0xAB
+        let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
 
         let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte];
 

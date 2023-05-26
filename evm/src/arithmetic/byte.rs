@@ -2,7 +2,7 @@
 //!
 //! This crate verifies the EVM BYTE instruction, defined as follows:
 //!
-//! INPUTS: 256-bit values X = \sum_{i=0}^31 X_i B^i and I,
+//! INPUTS: 256-bit values I and X = \sum_{i=0}^31 X_i B^i,
 //! where B = 2^8 and 0 <= X_i < B for all i.
 //!
 //! OUTPUT: X_{31-I} if 0 <= I < 32, otherwise 0.
@@ -103,13 +103,13 @@ fn set_idx_decomp<F: PrimeField64>(idx_decomp: &mut [F], idx: &U256) {
     }
 }
 
-pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
-    u256_to_array(&mut lv[INPUT_REGISTER_0], val);
-    u256_to_array(&mut lv[INPUT_REGISTER_1], idx);
+pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], idx: U256, val: U256) {
+    u256_to_array(&mut lv[INPUT_REGISTER_0], idx);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], val);
     set_idx_decomp(&mut lv[AUX_INPUT_REGISTER_0], &idx);
 
     let idx0_hi = lv[AUX_INPUT_REGISTER_0][5];
-    let hi_limb_sum = lv[INPUT_REGISTER_1][1..]
+    let hi_limb_sum = lv[INPUT_REGISTER_0][1..]
         .iter()
         .fold(idx0_hi, |acc, &x| acc + x);
     let hi_limb_sum_inv = hi_limb_sum
@@ -145,14 +145,14 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     // like this:
     //
     //   let tree = &mut lv[AUX_INPUT_REGISTER_1];
-    //   let val_limbs = &lv[INPUT_REGISTER_0];
+    //   let val_limbs = &lv[INPUT_REGISTER_1];
     //   tree[..8].copy_from_slice(&val_limbs[offset..offset + 8]);
     //
     // but we can't borrow both `tree` and `val_limbs` simultaneously.
     // Apparently the solution is to use `split_at_mut()`; below we
     // assume that the `val` registers are earlier in the row than the
     // `tree` registers, so we enforce that assumption here.
-    let val_idx = INPUT_REGISTER_0.start;
+    let val_idx = INPUT_REGISTER_1.start;
     let tree_idx = AUX_INPUT_REGISTER_1.start;
     assert!(val_idx + N_LIMBS < tree_idx);
 
@@ -215,8 +215,8 @@ pub fn eval_packed<P: PackedField>(
 ) {
     let is_byte = lv[IS_BYTE];
 
-    let val = &lv[INPUT_REGISTER_0];
-    let idx = &lv[INPUT_REGISTER_1];
+    let idx = &lv[INPUT_REGISTER_0];
+    let val = &lv[INPUT_REGISTER_1];
     let out = &lv[OUTPUT_REGISTER];
     let idx_decomp = &lv[AUX_INPUT_REGISTER_0];
     let tree = &lv[AUX_INPUT_REGISTER_1];
@@ -316,8 +316,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let is_byte = lv[IS_BYTE];
 
-    let val = &lv[INPUT_REGISTER_0];
-    let idx = &lv[INPUT_REGISTER_1];
+    let idx = &lv[INPUT_REGISTER_0];
+    let val = &lv[INPUT_REGISTER_1];
     let out = &lv[OUTPUT_REGISTER];
     let idx_decomp = &lv[AUX_INPUT_REGISTER_0];
     let tree = &lv[AUX_INPUT_REGISTER_1];
@@ -474,7 +474,7 @@ mod tests {
             let val = U256::from(rng.gen::<[u8; 32]>());
             for i in 0..32 {
                 let idx = i.into();
-                generate(&mut lv, val, idx);
+                generate(&mut lv, idx, val);
 
                 // Check correctness
                 let out_byte = val.byte(31 - i) as u64;
@@ -494,7 +494,7 @@ mod tests {
             // Check that output is zero when the index is big.
             let big_indices = [32.into(), 33.into(), val, U256::max_value()];
             for idx in big_indices {
-                generate(&mut lv, val, idx);
+                generate(&mut lv, idx, val);
                 verify_output(&lv, 0);
             }
         }
