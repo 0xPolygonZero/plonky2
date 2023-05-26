@@ -19,7 +19,7 @@
 //!
 //! The technique (hat tip to Jacqui for the idea) is to store a tree
 //! of limbs of X that are selected according to the bits in I.  The
-//! main observation is that each bit bi halves the number of
+//! main observation is that each bit `bi` halves the number of
 //! candidate bytes that we might return: If b4 is 0, then I < 16 and
 //! the possible bytes are in the top half of X: Y_8,..,Y_15
 //! (corresponding to bytes X_16,..,X_31), and if b4 is 1 then I >= 16
@@ -33,8 +33,32 @@
 //! among the limbs 4 selected limbs.
 //!
 //! Repeating for b2 and b1, we reduce to a single 16-bit limb
-//! L=L0+L1*256; the desired byte will be L0 if b0 is 1 and L1 if b0
+//! L=x+y*256; the desired byte will be x if b0 is 1 and y if b0
 //! is 0.
+//!
+//! -*-
+//!
+//! To prove that the bytes x and y are in the range [0, 2^8) (rather
+//! than [0, 2^16), which is all the range-checker guarantees) we do
+//! the following (hat tip to Jacqui for this trick too): Instead of
+//! storing x and y, we store w = 256 * x and y. Then, to verify that
+//! x, y < 256 and the last limb L = x + y * 256, we check that
+//! L = w / 256 + y * 256.
+//!
+//! The proof of why verifying that L = w / 256 + y * 256
+//! suffices is as follows:
+//!
+//! 1. The given L, w and y are range-checked to be less than 2^16.
+//! 2. y * 256 ∈ {0, 256, 512, ..., 2^24 - 512, 2^24 - 256}
+//! 3. w / 256 = L - y * 256 ∈ {-2^24 + 256, -2^24 + 257, ..., 2^16 - 2, 2^16 - 1}
+//! 4. By inspection, for w < 2^16, if w / 256 < 2^16 or
+//!    w / 256 >= P - 2^24 + 256 (i.e. if w / 256 falls in the range
+//!    of point 3 above), then w = 256 * m for some 0 <= m < 256.
+//! 5. Hence w / 256 ∈ {0, 1, ..., 255}
+//! 6. Hence y * 256 = L - w / 256 ∈ {-255, -254, ..., 2^16 - 1}
+//! 7. Taking the intersection of ranges in 2. and 6. we see that
+//!    y * 256 ∈ {0, 256, 512, ..., 2^16 - 256}
+//! 8. Hence y ∈ {0, 1, ..., 255}
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
@@ -124,11 +148,10 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], val: U256, idx: U256) {
     //   let val_limbs = &lv[INPUT_REGISTER_0];
     //   tree[..8].copy_from_slice(&val_limbs[offset..offset + 8]);
     //
-    // but we can't borrow both tree and val_limbs
-    // simultaneously. Apparently the solution is to use
-    // `split_at_mut()`; below we assume that the val registers are
-    // earlier in the row than the tree registers, so we enforce that
-    // assumption here.
+    // but we can't borrow both `tree` and `val_limbs` simultaneously.
+    // Apparently the solution is to use `split_at_mut()`; below we
+    // assume that the `val` registers are earlier in the row than the
+    // `tree` registers, so we enforce that assumption here.
     let val_idx = INPUT_REGISTER_0.start;
     let tree_idx = AUX_INPUT_REGISTER_1.start;
     assert!(val_idx + N_LIMBS < tree_idx);
@@ -262,11 +285,10 @@ pub fn eval_packed<P: PackedField>(
     // If hi_limb_sum is nonzero, then idx_is_large must be one.
     yield_constr.constraint(is_byte * hi_limb_sum * (idx_is_large - P::ONES));
 
-    let base16 = P::Scalar::from_canonical_u64(1 << 16);
     let hi_limb_sum_inv = lv[BYTE_IDX_HI_LIMB_SUM_INV_0]
-        + lv[BYTE_IDX_HI_LIMB_SUM_INV_1] * base16
-        + lv[BYTE_IDX_HI_LIMB_SUM_INV_2] * base16 * base16
-        + lv[BYTE_IDX_HI_LIMB_SUM_INV_3] * base16 * base16 * base16;
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_1] * P::Scalar::from_canonical_u64(1 << 16)
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_2] * P::Scalar::from_canonical_u64(1 << 32)
+        + lv[BYTE_IDX_HI_LIMB_SUM_INV_3] * P::Scalar::from_canonical_u64(1 << 48);
 
     // If idx_is_large is 1, then hi_limb_sum_inv must be the inverse
     // of hi_limb_sum, hence hi_limb_sum is non-zero, hence idx is
