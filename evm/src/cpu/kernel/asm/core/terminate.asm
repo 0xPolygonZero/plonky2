@@ -15,9 +15,10 @@ global sys_return:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
     %add_or_fault 
-    DUP1 %ensure_reasonable_offset
     // stack: offset+size, kexit_info, offset, size
     DUP4 ISZERO %jumpi(return_zero_size)
+    // stack: offset+size, kexit_info, offset, size
+    DUP1 %ensure_reasonable_offset
     %update_mem_bytes
     %jump(return_after_gas)
 return_zero_size:
