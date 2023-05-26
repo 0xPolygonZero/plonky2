@@ -87,7 +87,7 @@ const BYTE_IDX_HI_LIMB_SUM_INV_3: usize = AUX_INPUT_REGISTER_0.start + 13;
 ///
 /// Specifically, write
 ///
-///     idx = idx0_lo5 + idx0_hi * 2^5 + \sum_i idx[i] * 2^(16i),
+///   idx = idx0_lo5 + idx0_hi * 2^5 + \sum_i idx[i] * 2^(16i),
 ///
 /// where `0 <= idx0_lo5 < 32` and `0 <= idx0_hi < 2^11`.  Store the
 /// 5 bits of `idx0_lo5` in `idx_decomp[0..5]`; we don't explicitly need
