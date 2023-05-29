@@ -6,7 +6,6 @@
     %jump(handle_precompiles)
 %%after:
     // stack: new_ctx, (old stack)
-    %pop4
 %endmacro
 
 global handle_precompiles:
@@ -30,6 +29,11 @@ global pop_and_return_success:
     // stack: leftover_gas
     PUSH 1 // success
     %jump(terminate_common)
+
+global after_precompile:
+    %stack (success, leftover_gas, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size)
+    %jump(after_call_instruction)
 
 %macro handle_precompiles_from_eoa
     // stack: retdest
