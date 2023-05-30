@@ -80,9 +80,9 @@ store_limbs_return:
 
 calculate_l_E_prime:
     // stack: l_E, l_B, retdest
-    DUP1
-    // stack: l_E, l_E, l_B, retdest
-    %le_const(32)
+    DUP1 ISZERO %jumpi(case_le_zero)
+    // stack: l_E, l_B, retdest
+    DUP1 %le_const(32)
     // stack: l_E <= 32, l_E, l_B, retdest
     %jumpi(case_le_32)
     // stack: l_E, l_B, retdest
@@ -105,11 +105,14 @@ calculate_l_E_prime:
     // stack: 8 * (l_E - 32), log2(i[96 + l_B..128 + l_B]), l_B, retdest
     ADD
     // stack: 8 * (l_E - 32) + log2(i[96 + l_B..128 + l_B]), l_B, retdest
-    SWAP2
-    %pop2
+    SWAP1
+    POP
     // stack: 8 * (l_E - 32) + log2(i[96 + l_B..128 + l_B]), retdest
     SWAP1
     // stack: retdest, 8 * (l_E - 32) + log2(i[96 + l_B..128 + l_B])
+    JUMP
+case_le_zero:
+    %stack (l_E, l_B, retdest) -> (retdest, 0)
     JUMP
 case_le_32:
     // stack: l_E, l_B, retdest
