@@ -39,11 +39,11 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
 
     let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
-    let to_state_key = keccak(to);
+    let to_hashed = keccak(to);
 
     let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
+    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
 
     let code = [
         0x5a, 0x47, 0x5a, 0x90, 0x50, 0x90, 0x03, 0x60, 0x02, 0x90, 0x03, 0x60, 0x01, 0x55, 0x00,
@@ -72,7 +72,7 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         state_trie: state_trie_before,
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(Address::from_slice(&to), Node::Empty.into())],
+        storage_tries: vec![(to_hashed, Node::Empty.into())],
     };
 
     let txn = hex!("f861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b");

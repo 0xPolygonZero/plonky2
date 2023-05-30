@@ -13,9 +13,13 @@ global sys_extcodehash:
     // stack: kexit_info, address
 
     SWAP1
+    DUP1 %is_dead %jumpi(extcodehash_dead)
     %extcodehash
     // stack: hash, kexit_info
     SWAP1
+    EXIT_KERNEL
+extcodehash_dead:
+    %stack (address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 global extcodehash:
@@ -154,7 +158,7 @@ extcodecopy_loop:
     // stack: offset < code_size, offset, code_size, dest_offset, i, size, retdest
     DUP2
     // stack: offset, offset < code_size, offset, code_size, dest_offset, i, size, retdest
-    %mload_current(@SEGMENT_KERNEL_ACCOUNT_CODE)
+    %mload_kernel(@SEGMENT_KERNEL_ACCOUNT_CODE)
     // stack: opcode, offset < code_size, offset, code_size, dest_offset, i, size, retdest
     %stack (opcode, offset_lt_code_size, offset, code_size, dest_offset, i, size, retdest)
         -> (offset_lt_code_size, 0, opcode, offset, code_size, dest_offset, i, size, retdest)

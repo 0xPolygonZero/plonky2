@@ -16,7 +16,7 @@ global call_charge_gas:
     %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
     %add_const(@GAS_WARMACCESS)
     // stack: cost, is_call_or_staticcall, is_call_or_callcode, address, gas, kexit_info, value, retdest
-    DUP4
+    DUP3
     // stack: is_call_or_callcode, cost, is_call_or_staticcall, is_call_or_callcode, address, gas, kexit_info, value, retdest
     %jumpi(xfer_cost)
 after_xfer_cost:
@@ -60,7 +60,7 @@ after_new_cost:
         (retdest, kexit_info, C_callgas, address, value)
     JUMP
 
-xfer_cost:
+global xfer_cost:
     // stack: cost, is_call_or_staticcall, is_call_or_callcode, address, gas, kexit_info, value, retdest
     DUP7
     // stack: value, cost, is_call_or_staticcall, is_call_or_callcode, address, gas, kexit_info, value, retdest

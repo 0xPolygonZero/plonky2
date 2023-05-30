@@ -31,7 +31,7 @@ global precompile_sha256:
     //
     //    %stack (ctx, size) ->
     //        (
-    //        0, @SEGMENT_KERNEL_GENERAL, 1, // DST
+    //        ctx, @SEGMENT_KERNEL_GENERAL, 1, // DST
     //        ctx, @SEGMENT_CALLDATA, 0,     // SRC
     //        size, sha2,                    // count, retdest
     //        0, size, sha256_contd          // sha2 input: virt, num_bytes, retdest
@@ -47,7 +47,7 @@ global precompile_sha256:
     SWAP6
     PUSH 1
     PUSH @SEGMENT_KERNEL_GENERAL
-    PUSH 0
+    DUP3
 
     %jump(memcpy)
 

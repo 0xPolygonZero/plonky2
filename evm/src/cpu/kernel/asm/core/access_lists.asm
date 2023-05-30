@@ -87,7 +87,7 @@ remove_accessed_addresses_found:
     %stack (addr, key, value) -> (addr, key, value, %%after)
     %jump(insert_accessed_storage_keys)
 %%after:
-    // stack: cold_access
+    // stack: cold_access, original_value
 %endmacro
 
 /// Inserts the storage key and value into the access list if it is not already present.

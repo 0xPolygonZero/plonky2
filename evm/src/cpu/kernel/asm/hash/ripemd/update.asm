@@ -117,7 +117,7 @@ buffer_update:
     DUP2
     DUP2
     // stack: get, set, get  , set  , times  , retdest
-    %mupdate_kernel_general
+    %mupdate_current_general
     // stack:           get  , set  , times  , retdest
     %increment
     SWAP1 

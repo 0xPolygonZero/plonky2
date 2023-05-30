@@ -39,11 +39,11 @@ fn add11_yml() -> anyhow::Result<()> {
 
     let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
-    let to_state_key = keccak(to);
+    let to_hashed = keccak(to);
 
     let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
+    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
 
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
     let code_hash = keccak(code);
@@ -74,15 +74,19 @@ fn add11_yml() -> anyhow::Result<()> {
         state_trie: state_trie_before,
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(Address::from_slice(&to), Node::Empty.into())],
+        storage_tries: vec![(to_hashed, Node::Empty.into())],
     };
 
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_gaslimit: 0xff112233445566u64.into(),
+        block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
-        ..BlockMetadata::default()
     };
 
     let mut contract_code = HashMap::new();

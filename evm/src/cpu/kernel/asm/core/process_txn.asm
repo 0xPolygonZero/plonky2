@@ -18,21 +18,27 @@ global process_normalized_txn:
     // Assert gas_limit >= intrinsic_gas.
     %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    %assert_ge
+    %assert_ge(invalid_txn)
+
+    // Assert block gas limit >= txn gas limit.
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_LIMIT)
+    %assert_ge(invalid_txn)
 
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender, retdest
 
     // Check that txn nonce matches account nonce.
      DUP1 %nonce
+     DUP1 %eq_const(@MAX_NONCE) %assert_zero(invalid_txn) // EIP-2681
     // stack: sender_nonce, sender, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)
     // stack: tx_nonce, sender_nonce, sender, retdest
-    %assert_eq
+    %assert_eq(invalid_txn)
     // stack: sender, retdest
 
     // Assert sender has no code.
-    DUP1 %ext_code_empty %assert_nonzero
+    DUP1 %ext_code_empty %assert_nonzero(invalid_txn)
     // stack: sender, retdest
 
     // Assert sender balance >= gas_limit * gas_price + value.
@@ -43,7 +49,7 @@ global process_normalized_txn:
     MUL
     %mload_txn_field(@TXN_FIELD_VALUE)
     ADD
-    %assert_le
+    %assert_le(invalid_txn)
     // stack: retdest
 
     // Assert chain ID matches block metadata
@@ -57,7 +63,7 @@ global process_normalized_txn:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
     MUL
     // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
-    %assert_eq
+    %assert_eq(invalid_txn)
     // stack: retdest
 
 global buy_gas:
@@ -76,6 +82,11 @@ global increment_sender_nonce:
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     %increment_nonce
 
+// EIP-3651
+global warm_coinbase:
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
+    %insert_accessed_addresses_no_return
+
 global process_based_on_type:
     %is_contract_creation
     %jumpi(process_contract_creation_txn)
@@ -88,31 +99,43 @@ global process_contract_creation_txn:
     // stack: origin, retdest
     DUP1 %nonce
     // stack: origin_nonce, origin, retdest
+    %decrement // Need the non-incremented nonce
     SWAP1
     // stack: origin, origin_nonce, retdest
     %get_create_address
     // stack: address, retdest
+    DUP1 %insert_accessed_addresses_no_return
 
-    // Deduct value from caller.
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    %mload_txn_field(@TXN_FIELD_ORIGIN)
-    %deduct_eth
-    // stack: deduct_eth_status, address, retdest
-    %jumpi(panic)
-    // stack: address, retdest
+    %checkpoint
 
     // Create the new contract account in the state trie.
     DUP1
-    %mload_txn_field(@TXN_FIELD_VALUE)
-    // stack: value, address, address, retdest
+    // stack: address, address, retdest
     %create_contract_account
     // stack: status, address, retdest
-    // It should be impossible to create address collisions with a contract creation txn,
-    // since the address was derived from nonce, unlike with CREATE2.
-    %jumpi(panic)
+    %jumpi(create_contract_account_fault)
+
+    // stack: address, retdest
+    // Transfer value to new contract
+    DUP1 %mload_txn_field(@TXN_FIELD_VALUE)
+    SWAP1
+    %mload_txn_field(@TXN_FIELD_ORIGIN)
+    DUP3 DUP3 DUP3
+    %transfer_eth %jumpi(panic)
+    %journal_add_balance_transfer
     // stack: address, retdest
 
     %create_context
+    // stack: new_ctx, address, retdest
+
+    // Store constructor code length
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    // stack: data_len, new_ctx, address, retdest
+    PUSH @CTX_METADATA_CODE_SIZE
+    PUSH @SEGMENT_CONTEXT_METADATA
+    // stack: segment, offset, data_len, new_ctx, address, retdest
+    DUP4 // new_ctx
+    MSTORE_GENERAL
     // stack: new_ctx, address, retdest
 
     // Copy the code from txdata to the new context's code segment.
@@ -123,10 +146,10 @@ global process_contract_creation_txn:
     PUSH 0 // SRC.context
     PUSH 0 // DST.offset
     PUSH @SEGMENT_CODE // DST.segment
-    DUP7 // DST.context = new_ctx
+    DUP8 // DST.context = new_ctx
     %jump(memcpy)
 
-process_contract_creation_txn_after_code_loaded:
+global process_contract_creation_txn_after_code_loaded:
     // stack: new_ctx, address, retdest
 
     // Each line in the block below does not change the stack.
@@ -143,19 +166,20 @@ process_contract_creation_txn_after_code_loaded:
 
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
-    POP // TODO: Success will go into the receipt when we support that.
+    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    ISZERO %jumpi(contract_creation_fault_3)
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %assert_zero // TODO: need to revert changes here.
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(contract_creation_fault_3)
 
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, new_ctx, address, retdest
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(panic) // TODO: need to revert changes here.
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(contract_creation_fault_4)
     // stack: code_size, leftover_gas, new_ctx, address, retdest
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
-    DUP2 DUP2 LT %jumpi(panic) // TODO: need to revert changes here.
+    DUP2 DUP2 LT %jumpi(contract_creation_fault_4)
     // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
     SUB
 
@@ -329,8 +353,9 @@ process_message_txn_fail:
     %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
     // stack: max_fee, max_priority_fee, base_fee
-    DUP3 DUP2 %assert_ge // Assert max_fee >= base_fee
+    DUP3 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= base_fee
     // stack: max_fee, max_priority_fee, base_fee
+    DUP2 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= max_priority_fee
     %stack (max_fee, max_priority_fee, base_fee) -> (max_fee, base_fee, max_priority_fee, base_fee)
     SUB
     // stack: max_fee - base_fee, max_priority_fee, base_fee
@@ -351,3 +376,36 @@ process_message_txn_fail:
     SUB
     // stack: gas_limit - intrinsic_gas
 %endmacro
+
+create_contract_account_fault:
+    %revert_checkpoint
+    // stack: address, retdest
+    POP
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+contract_creation_fault_3:
+    %revert_checkpoint
+    // stack: leftover_gas, new_ctx, address, retdest
+    %stack (leftover_gas, new_ctx, address, retdest) -> (leftover_gas, retdest)
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+contract_creation_fault_4:
+    %revert_checkpoint
+    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    %pop4
+    PUSH 0 // leftover gas
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+
+global invalid_txn:
+    %jump(txn_loop)

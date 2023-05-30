@@ -100,7 +100,13 @@ ecdsa_after_precompute_loop_contd2:
     %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, a0, a1, b0, b1, retdest)
     %decrement %jump(ecdsa_after_precompute_loop)
 ecdsa_after_precompute_loop_end:
+    // Check that the public key is not the point at infinity. See https://github.com/ethereum/eth-keys/pull/76 for discussion.
+    DUP2 DUP2 ISZERO SWAP1 ISZERO MUL %jumpi(pk_is_infinity)
     %stack (accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, retdest) -> (retdest, accx, accy)
+    JUMP
+
+pk_is_infinity:
+    %stack (accx, accy, ecdsa_after_precompute_loop_contd2, i, a0, a1, b0, b1, pubkey_to_addr, retdest) -> (retdest, @U256_MAX)
     JUMP
 
 // Take a public key (PKx, PKy) and return the associated address KECCAK256(PKx || PKy)[-20:].
