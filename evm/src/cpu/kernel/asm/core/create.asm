@@ -150,7 +150,7 @@ after_constructor:
     // stack: code_size, leftover_gas, success, address, kexit_info
     %mul_const(@GAS_CODEDEPOSIT)
     // stack: code_size_cost, leftover_gas, success, address, kexit_info
-    DUP2 DUP2 GT %jumpi(fault_exception)
+    DUP2 DUP2 GT %jumpi(create_oog)
     SWAP1 SUB
     // stack: leftover_gas, success, address, kexit_info
     %pop_checkpoint
@@ -211,6 +211,11 @@ create_first_byte_ef:
 create_code_too_large:
     %revert_checkpoint
     %stack (code_size, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_oog:
+    %revert_checkpoint
+    %stack (code_size_cost, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 %macro set_codehash
