@@ -72,6 +72,9 @@ store_limbs_return:
 
 %macro expmod_gas_f
     // stack: x
+    // Overflow check
+    DUP1 %ge_const(0x800000000000000000000000000000007) %jumpi(fault_exception)
+    // stack: x
     %ceil_div_const(8)
     // stack: ceil(x/8)
     %square
@@ -101,6 +104,8 @@ calculate_l_E_prime:
     SWAP1
     // stack: l_E, log2(i[96 + l_B..128 + l_B]), l_B, retdest
     %sub_const(32)
+    // Overflow check
+    DUP1 %ge_const(0x2000000000000000000000000000000000000000000000000000000000000000) %jumpi(fault_exception)
     %mul_const(8)
     // stack: 8 * (l_E - 32), log2(i[96 + l_B..128 + l_B]), l_B, retdest
     ADD
@@ -162,7 +167,10 @@ global precompile_expmod:
     GET_CONTEXT
     %mload_packing
     // stack: l_M, l_E, l_B, kexit_info
-
+    DUP3 ISZERO DUP2 ISZERO
+    MUL // AND
+    // stack: l_M==0 && l_B==0, l_M, l_E, l_B, kexit_info
+    %jumpi(zero_base_zero_mod)
     %stack (l: 3) -> (l, l)
     // stack: l_M, l_E, l_B, l_M, l_E, l_B, kexit_info
     %max_3
@@ -420,6 +428,20 @@ expmod_store_loop:
 expmod_store_end:
     // stack: i, cur_address, end_address, len, kexit_info
     %pop4
+    // stack: kexit_info
+    %leftover_gas
+    // stack: leftover_gas
+    PUSH 1 // success
+    %jump(terminate_common)
+
+zero_base_zero_mod:
+    // stack: l_M, l_E, l_B, kexit_info
+    %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+    // stack: l_E, l_B, kexit_info
+    %pop2
+    // stack: kexit_info
+    PUSH 200
+    %charge_gas
     // stack: kexit_info
     %leftover_gas
     // stack: leftover_gas
