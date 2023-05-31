@@ -60,6 +60,8 @@
 //!    y * 256 ∈ {0, 256, 512, ..., 2^16 - 256}
 //! 8. Hence y ∈ {0, 1, ..., 255}
 
+use std::ops::Range;
+
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -75,13 +77,15 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 
 // Give meaningful names to the columns of AUX_INPUT_REGISTER_0 that
 // we're using
-const BYTE_LAST_LIMB_LO: usize = AUX_INPUT_REGISTER_0.start + 7;
-const BYTE_LAST_LIMB_HI: usize = AUX_INPUT_REGISTER_0.start + 8;
-const BYTE_IDX_IS_LARGE: usize = AUX_INPUT_REGISTER_0.start + 9;
-const BYTE_IDX_HI_LIMB_SUM_INV_0: usize = AUX_INPUT_REGISTER_0.start + 10;
-const BYTE_IDX_HI_LIMB_SUM_INV_1: usize = AUX_INPUT_REGISTER_0.start + 11;
-const BYTE_IDX_HI_LIMB_SUM_INV_2: usize = AUX_INPUT_REGISTER_0.start + 12;
-const BYTE_IDX_HI_LIMB_SUM_INV_3: usize = AUX_INPUT_REGISTER_0.start + 13;
+const BYTE_IDX_DECOMP: Range<usize> = AUX_INPUT_REGISTER_0.start..AUX_INPUT_REGISTER_0.start + 6;
+const BYTE_IDX_DECOMP_HI: usize = AUX_INPUT_REGISTER_0.start + 5;
+const BYTE_LAST_LIMB_LO: usize = AUX_INPUT_REGISTER_0.start + 6;
+const BYTE_LAST_LIMB_HI: usize = AUX_INPUT_REGISTER_0.start + 7;
+const BYTE_IDX_IS_LARGE: usize = AUX_INPUT_REGISTER_0.start + 8;
+const BYTE_IDX_HI_LIMB_SUM_INV_0: usize = AUX_INPUT_REGISTER_0.start + 9;
+const BYTE_IDX_HI_LIMB_SUM_INV_1: usize = AUX_INPUT_REGISTER_0.start + 10;
+const BYTE_IDX_HI_LIMB_SUM_INV_2: usize = AUX_INPUT_REGISTER_0.start + 11;
+const BYTE_IDX_HI_LIMB_SUM_INV_3: usize = AUX_INPUT_REGISTER_0.start + 12;
 
 /// Decompose `idx` into bits and bobs and store in `idx_decomp`.
 ///
@@ -94,21 +98,19 @@ const BYTE_IDX_HI_LIMB_SUM_INV_3: usize = AUX_INPUT_REGISTER_0.start + 13;
 /// the higher 11 bits of the first limb, so we put them in
 /// `idx_decomp[5]`. The rest of `idx_decomp` is set to 0.
 fn set_idx_decomp<F: PrimeField64>(idx_decomp: &mut [F], idx: &U256) {
+    debug_assert!(idx_decomp.len() == 6);
     for i in 0..5 {
         idx_decomp[i] = F::from_bool(idx.bit(i));
     }
     idx_decomp[5] = F::from_canonical_u16((idx.low_u64() as u16) >> 5);
-    for i in 6..N_LIMBS {
-        idx_decomp[i] = F::ZERO;
-    }
 }
 
 pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], idx: U256, val: U256) {
     u256_to_array(&mut lv[INPUT_REGISTER_0], idx);
     u256_to_array(&mut lv[INPUT_REGISTER_1], val);
-    set_idx_decomp(&mut lv[AUX_INPUT_REGISTER_0], &idx);
+    set_idx_decomp(&mut lv[BYTE_IDX_DECOMP], &idx);
 
-    let idx0_hi = lv[AUX_INPUT_REGISTER_0][5];
+    let idx0_hi = lv[BYTE_IDX_DECOMP_HI];
     let hi_limb_sum = lv[INPUT_REGISTER_0][1..]
         .iter()
         .fold(idx0_hi, |acc, &x| acc + x);
@@ -141,48 +143,34 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], idx: U256, val: U256) {
     // separately, the offset is 2^i * ( ! bit[i + 1]). (The !bit
     // corresponds to calculating 31 - bits which is just bitwise NOT.)
 
-    // Conceptually we want to initialise the tree using something
-    // like this:
-    //
-    //   let tree = &mut lv[AUX_INPUT_REGISTER_1];
-    //   let val_limbs = &lv[INPUT_REGISTER_1];
-    //   tree[..8].copy_from_slice(&val_limbs[offset..offset + 8]);
-    //
-    // but we can't borrow both `tree` and `val_limbs` simultaneously.
-    // Apparently the solution is to use `split_at_mut()`; below we
-    // assume that the `val` registers are earlier in the row than the
-    // `tree` registers, so we enforce that assumption here.
-    let val_idx = INPUT_REGISTER_1.start;
-    let tree_idx = AUX_INPUT_REGISTER_1.start;
-    assert!(val_idx + N_LIMBS < tree_idx);
-
     // `lvl_len` is the number of elements of the current level of the
     // "tree". Can think of `val_limbs` as level 0, with length =
     // N_LIMBS = 16.
     const_assert!(N_LIMBS == 16); // Enforce assumption
 
-    let (prev, next) = lv[val_idx..].split_at_mut(tree_idx - val_idx);
-    let lvl_len = 8;
-    let offset = (!idx.bit(4) as usize) * lvl_len;
-    next[..lvl_len].copy_from_slice(&prev[offset..offset + lvl_len]);
-
-    let (prev, next) = next.split_at_mut(lvl_len);
-    let lvl_len = 4;
-    let offset = (!idx.bit(3) as usize) * lvl_len;
-    next[..lvl_len].copy_from_slice(&prev[offset..offset + lvl_len]);
-
-    let (prev, next) = next.split_at_mut(lvl_len);
-    let lvl_len = 2;
-    let offset = (!idx.bit(2) as usize) * lvl_len;
-    next[..lvl_len].copy_from_slice(&prev[offset..offset + lvl_len]);
-
-    let (prev, next) = next.split_at_mut(lvl_len);
-    // lvl_len = 1
-    let offset = !idx.bit(1) as usize;
-    next[0] = prev[offset]; // tree[14] = tree[offset + 12]
+    // Build the tree of limbs from the low 5 bits of idx:
+    let mut i = 3; // tree level, from 3 downto 0.
+    let mut src = INPUT_REGISTER_1.start; // val_limbs start
+    let mut dest = AUX_INPUT_REGISTER_1.start; // tree start
+    loop {
+        let lvl_len = 1 << i;
+        // pick which half of src becomes the new tree level
+        let offset = (!idx.bit(i + 1) as usize) * lvl_len;
+        src += offset;
+        // copy new tree level to dest
+        lv.copy_within(src..src + lvl_len, dest);
+        if i == 0 {
+            break;
+        }
+        // next src is this new tree level
+        src = dest;
+        // next dest is after this new tree level
+        dest += lvl_len;
+        i -= 1;
+    }
 
     // Handle the last bit; i.e. pick a byte of the final limb.
-    let t = next[0].to_canonical_u64();
+    let t = lv[dest].to_canonical_u64();
     let lo = t as u8 as u64;
     let hi = t >> 8;
 
@@ -228,7 +216,9 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(is_byte * (bit * bit - bit));
         idx0_lo5 += bit * P::Scalar::from_canonical_u64(1 << i);
     }
-    // high (11) bits of the first limb of idx:
+    // Verify that idx0_hi is the high (11) bits of the first limb of
+    // idx (in particular idx0_hi is at most 11 bits, since idx[0] is
+    // at most 16 bits).
     let idx0_hi = idx_decomp[5] * P::Scalar::from_canonical_u64(32u64);
     yield_constr.constraint(is_byte * (idx[0] - (idx0_lo5 + idx0_hi)));
 
@@ -300,7 +290,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(is_byte * (hi_limb_sum * hi_limb_sum_inv - idx_is_large));
 
     let out_byte = out[0];
-    let check = idx_is_large * out_byte + (P::ONES - idx_is_large) * (out_byte - expected_out_byte);
+    let check = out_byte - (P::ONES - idx_is_large) * expected_out_byte;
     yield_constr.constraint(is_byte * check);
 
     // Check that the rest of the output limbs are zero
@@ -428,9 +418,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let out_byte = out[0];
     let t = builder.sub_extension(one, idx_is_large);
-    let u = builder.sub_extension(out_byte, expected_out_byte);
-    let t = builder.mul_extension(t, u);
-    let check = builder.mul_add_extension(idx_is_large, out_byte, t);
+    let t = builder.mul_extension(t, expected_out_byte);
+    let check = builder.sub_extension(out_byte, t);
     let t = builder.mul_extension(is_byte, check);
     yield_constr.constraint(builder, t);
 
