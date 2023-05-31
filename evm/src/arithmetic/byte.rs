@@ -250,23 +250,17 @@ pub fn eval_packed<P: PackedField>(
     // Check byte decomposition of last limb:
 
     let base8 = P::Scalar::from_canonical_u64(1 << 8);
-    // base8_inv is Goldilocks-specific
-    debug_assert!(P::Scalar::order() == 0xffff_ffff_0000_0001u64.into());
-    let base8_inv = P::Scalar::from_canonical_u64(0xfeffffff01000001);
-    debug_assert!(base8 * base8_inv == P::Scalar::ONE);
-
     let lo_byte = lv[BYTE_LAST_LIMB_LO];
     let hi_byte = lv[BYTE_LAST_LIMB_HI];
-    yield_constr.constraint(is_byte * (base8_inv * lo_byte + base8 * hi_byte - limb));
+    yield_constr.constraint(is_byte * (lo_byte + base8 * (base8 * hi_byte - limb)));
 
     let bit = idx_decomp[0];
-    let t = bit * base8_inv * lo_byte + (P::ONES - bit) * hi_byte;
-    yield_constr.constraint(is_byte * (tree[15] - t));
+    let t = bit * lo_byte + (P::ONES - bit) * base8 * hi_byte;
+    yield_constr.constraint(is_byte * (base8 * tree[15] - t));
     let expected_out_byte = tree[15];
 
     // Sum all higher limbs; sum will be non-zero iff idx >= 32.
-    //let hi_limb_sum: P = idx0_hi + idx[1..].iter().sum::<P>(); // doesn't work
-    let hi_limb_sum = idx[1..].iter().fold(idx0_hi, |acc, &i| i + acc);
+    let hi_limb_sum = idx0_hi + idx[1..].iter().copied().sum::<P>();
     let idx_is_large = lv[BYTE_IDX_IS_LARGE];
 
     // idx_is_large is 0 or 1
@@ -371,21 +365,19 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let base8 = F::Extension::from(F::from_canonical_u64(1 << 8));
     let base8 = builder.constant_extension(base8);
-    let base8_inv = F::Extension::from(F::from_canonical_u64(0xfeffffff01000001));
-    let base8_inv = builder.constant_extension(base8_inv);
     let lo_byte = lv[BYTE_LAST_LIMB_LO];
     let hi_byte = lv[BYTE_LAST_LIMB_HI];
     let t = builder.mul_sub_extension(base8, hi_byte, limb);
-    let t = builder.mul_add_extension(base8_inv, lo_byte, t);
+    let t = builder.mul_add_extension(base8, t, lo_byte);
     let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);
 
     let bit = idx_decomp[0];
     let nbit = builder.sub_extension(one, bit);
-    let t = builder.mul_many_extension([bit, lo_byte, base8_inv]);
-    let t = builder.mul_add_extension(nbit, hi_byte, t);
-    let u = builder.sub_extension(tree[15], t);
-    let t = builder.mul_extension(is_byte, u);
+    let t = builder.mul_many_extension([nbit, base8, hi_byte]);
+    let t = builder.mul_add_extension(bit, lo_byte, t);
+    let t = builder.mul_sub_extension(base8, tree[15], t);
+    let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);
     let expected_out_byte = tree[15];
 
