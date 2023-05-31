@@ -1,4 +1,4 @@
-// Mod 16 to the range [1,16].
+// Mod 16 to the range [1, 16].
 %macro mod_16
     // stack: x
     %mod_const(16)
@@ -399,12 +399,8 @@ expmod_contd:
     // stack: l_M, len, kexit_info
     DUP1 %ceil_div_const(16)
     // stack: l_M_128, l_M, len, kexit_info
-    SWAP1 %mod_const(16)
+    SWAP1 %mod_16
     // stack: l_M%16, l_M_128, len, kexit_info
-    DUP1 %jumpi(expmod_contd2)
-    // stack: 0, l_M_128, len, kexit_info
-    POP PUSH 16
-expmod_contd2:
     SWAP2
     // stack: len, l_M_128, l_M%16, kexit_info
     %mul_const(3)
