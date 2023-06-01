@@ -85,7 +85,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     )
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
