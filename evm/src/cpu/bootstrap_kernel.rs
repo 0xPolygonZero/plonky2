@@ -93,16 +93,16 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
         yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
     }
     println!("  3");
-    for (&expected, actual) in KERNEL
-        .code_hash
-        .iter()
-        .zip(local_values.mem_channels.last().unwrap().value)
-    {
+    let blah = local_values.mem_channels.last();
+    println!("  4: {blah:?}");
+    let val = blah.unwrap().value;
+    println!("  5");
+    for (&expected, actual) in KERNEL.code_hash.iter().zip(val) {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
         yield_constr.constraint_transition(delta_is_bootstrap * diff);
     }
-    println!("  4");
+    println!("  9");
 }
 
 pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const D: usize>(
