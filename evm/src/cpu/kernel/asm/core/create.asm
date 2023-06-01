@@ -215,6 +215,7 @@ create_code_too_large:
 
 create_oog:
     %revert_checkpoint
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     %stack (code_size_cost, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
