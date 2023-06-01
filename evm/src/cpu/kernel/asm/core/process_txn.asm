@@ -82,6 +82,18 @@ global increment_sender_nonce:
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     %increment_nonce
 
+global warm_precompiles:
+    // Add precompiles to accessed addresses.
+    PUSH @ECREC %insert_accessed_addresses_no_return
+    PUSH @SHA256 %insert_accessed_addresses_no_return
+    PUSH @RIP160 %insert_accessed_addresses_no_return
+    PUSH @ID %insert_accessed_addresses_no_return
+    PUSH @EXPMOD %insert_accessed_addresses_no_return
+    PUSH @BN_ADD %insert_accessed_addresses_no_return
+    PUSH @BN_MUL %insert_accessed_addresses_no_return
+    PUSH @SNARKV %insert_accessed_addresses_no_return
+    PUSH @BLAKE2_F %insert_accessed_addresses_no_return
+
 // EIP-3651
 global warm_coinbase:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BENEFICIARY)
@@ -223,17 +235,6 @@ global process_message_txn:
     %mload_txn_field(@TXN_FIELD_TO) %ext_code_empty
     // stack: code_empty, retdest
     %jumpi(process_message_txn_return)
-
-    // Add precompiles to accessed addresses.
-    PUSH @ECREC %insert_accessed_addresses_no_return
-    PUSH @SHA256 %insert_accessed_addresses_no_return
-    PUSH @RIP160 %insert_accessed_addresses_no_return
-    PUSH @ID %insert_accessed_addresses_no_return
-    PUSH @EXPMOD %insert_accessed_addresses_no_return
-    PUSH @BN_ADD %insert_accessed_addresses_no_return
-    PUSH @BN_MUL %insert_accessed_addresses_no_return
-    PUSH @SNARKV %insert_accessed_addresses_no_return
-    PUSH @BLAKE2_F %insert_accessed_addresses_no_return
 
     // Otherwise, load to's code and execute it in a new context.
     // stack: retdest
