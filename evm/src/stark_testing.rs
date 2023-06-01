@@ -111,6 +111,7 @@ where
     );
     println!("\n1");
     println!("{:?}", consumer);
+    println!("{:?}", stark);
     stark.eval_ext(vars, &mut consumer);
     println!("1.1");
     let accs = consumer.accumulators();
