@@ -117,6 +117,7 @@ pub(crate) fn assemble(
     optimize: bool,
 ) -> Kernel {
     let macros = find_macros(&files);
+    println!(" find macros");
     let mut global_labels = HashMap::new();
     let mut prover_inputs = HashMap::new();
     let mut offset = 0;
@@ -124,14 +125,20 @@ pub(crate) fn assemble(
     let mut local_labels = Vec::with_capacity(files.len());
     let mut macro_counter = 0;
     for file in files {
+        println!(" assembling file {file}");
         let start = Instant::now();
         let mut file = file.body;
+        println!("  expand macros");
         file = expand_macros(file, &macros, &mut macro_counter);
+        println!("  inline consts");
         file = inline_constants(file, &constants);
+        println!("  stack manip");
         file = expand_stack_manipulation(file);
         if optimize {
+            println!("  optimise");
             optimize_asm(&mut file);
         }
+        println!("  find labels");
         local_labels.push(find_labels(
             &file,
             &mut offset,
@@ -144,6 +151,7 @@ pub(crate) fn assemble(
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
         let prev_len = code.len();
+        println!("  assembling {file} with locals {locals}");
         assemble_file(file, &mut code, locals, &global_labels);
         let file_len = code.len() - prev_len;
         debug!("Assembled file size: {} bytes", file_len);
