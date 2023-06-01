@@ -116,8 +116,8 @@ pub(crate) fn assemble(
     constants: HashMap<String, U256>,
     optimize: bool,
 ) -> Kernel {
-    let macros = find_macros(&files);
     println!(" find macros");
+    let macros = find_macros(&files);
     let mut global_labels = HashMap::new();
     let mut prover_inputs = HashMap::new();
     let mut offset = 0;

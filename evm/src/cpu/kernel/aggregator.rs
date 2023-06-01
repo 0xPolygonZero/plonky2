@@ -162,7 +162,8 @@ pub(crate) fn combined_kernel() -> Kernel {
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();
     println!(" ** assembling:");
-    assemble(parsed_files, evm_constants(), true)
+    let consts = evm_constants();
+    assemble(parsed_files, consts, true)
 }
 
 #[cfg(test)]

@@ -21,6 +21,7 @@ pub(crate) mod txn_fields;
 pub fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
+    println!("c0");
     let hex_constants = MISC_CONSTANTS
         .iter()
         .chain(EC_CONSTANTS.iter())
@@ -30,6 +31,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
 
+    println!("c1");
     for (name, value) in GAS_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
@@ -54,6 +56,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    println!("c2");
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -63,6 +66,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
     for txn_field in GlobalMetadata::all() {
         c.insert(txn_field.var_name().into(), (txn_field as u32).into());
     }
+    println!("c3");
     for txn_field in ContextMetadata::all() {
         c.insert(txn_field.var_name().into(), (txn_field as u32).into());
     }
@@ -72,6 +76,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
     for entry in JournalEntry::all() {
         c.insert(entry.var_name().into(), (entry as u32).into());
     }
+    println!("c4");
     c.insert(
         "INVALID_OPCODES_USER".into(),
         U256::from_little_endian(&invalid_opcodes_user()),
