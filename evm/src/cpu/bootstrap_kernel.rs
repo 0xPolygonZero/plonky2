@@ -96,7 +96,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     let blah = local_values.mem_channels.last();
     println!("  4: {blah:?}");
     let val = blah.unwrap().value;
-    println!("  5");
+    println!("  5: {:?}", KERNEL);
     for (&expected, actual) in KERNEL.code_hash.iter().zip(val) {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
