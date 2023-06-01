@@ -125,7 +125,7 @@ pub(crate) fn assemble(
     let mut local_labels = Vec::with_capacity(files.len());
     let mut macro_counter = 0;
     for file in files {
-        println!(" assembling file {file}");
+        println!(" assembling file {file:?}");
         let start = Instant::now();
         let mut file = file.body;
         println!("  expand macros");
@@ -151,7 +151,7 @@ pub(crate) fn assemble(
     let mut code = vec![];
     for (file, locals) in izip!(expanded_files, local_labels) {
         let prev_len = code.len();
-        println!("  assembling {file} with locals {locals}");
+        println!("  assembling {file:?} with locals {locals:?}");
         assemble_file(file, &mut code, locals, &global_labels);
         let file_len = code.len() - prev_len;
         debug!("Assembled file size: {} bytes", file_len);
