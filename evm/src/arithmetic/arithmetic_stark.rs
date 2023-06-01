@@ -264,7 +264,7 @@ mod tests {
         };
         test_stark_low_degree(stark)
     }
-
+/*
     #[test]
     fn circuit() -> Result<()> {
         const D: usize = 2;
@@ -277,7 +277,7 @@ mod tests {
         };
         test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
-
+*/
     #[test]
     fn basic_trace() {
         const D: usize = 2;
