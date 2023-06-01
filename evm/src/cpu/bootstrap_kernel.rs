@@ -72,6 +72,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     let delta_is_bootstrap = next_is_bootstrap - local_is_bootstrap;
     yield_constr.constraint_transition(delta_is_bootstrap * (delta_is_bootstrap + P::ONES));
 
+    println!("  1");
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
     let code_segment = F::from_canonical_usize(Segment::Code as usize);
@@ -84,12 +85,14 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
         yield_constr.constraint(filter * (channel.addr_virtual - expected_virt));
     }
 
+    println!("  2");
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
     // - all memory channels are disabled
     // - the current kernel hash matches a precomputed one
     for channel in local_values.mem_channels.iter() {
         yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
     }
+    println!("  3");
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
@@ -99,6 +102,7 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
         let diff = expected - actual;
         yield_constr.constraint_transition(delta_is_bootstrap * diff);
     }
+    println!("  4");
 }
 
 pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const D: usize>(
