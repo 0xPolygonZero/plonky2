@@ -97,6 +97,7 @@ struct MacroSignature {
     num_params: usize,
 }
 
+#[derive(Debug)]
 struct Macro {
     params: Vec<String>,
     items: Vec<Item>,
@@ -173,12 +174,17 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
                     name: name.clone(),
                     num_params: params.len(),
                 };
+                println!("       signature: {signature:?}");
                 let macro_ = Macro {
                     params: params.clone(),
                     items: items.clone(),
                 };
+                println!("       macro: {macro_:?}");
                 let old = macros.insert(signature.clone(), macro_);
+                println!("       old: {old:?}");
                 assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
+            } else {
+                println!("       iflet failed");
             }
         }
     }
