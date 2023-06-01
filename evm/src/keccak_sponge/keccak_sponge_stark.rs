@@ -164,7 +164,7 @@ pub(crate) struct KeccakSpongeOp {
     pub(crate) input: Vec<u8>,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
