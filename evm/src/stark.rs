@@ -20,7 +20,7 @@ const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;
 const QUOTIENT_ORACLE_INDEX: usize = 2;
 
 /// Represents a STARK system.
-pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
+pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync + std::fmt::Debug {
     /// The total number of columns in the trace.
     const COLUMNS: usize;
 
