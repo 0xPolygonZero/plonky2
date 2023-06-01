@@ -183,8 +183,6 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
                 let old = macros.insert(signature.clone(), macro_);
                 println!("       old: {old:?}");
                 assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
-            } else {
-                println!("       iflet failed");
             }
         }
     }
