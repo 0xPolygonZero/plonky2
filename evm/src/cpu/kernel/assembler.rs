@@ -163,8 +163,11 @@ pub(crate) fn assemble(
 
 fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
     let mut macros = HashMap::new();
+    println!("files.len() = {}", files.len());
     for file in files {
+        println!("  find_macro({file:?})");
         for item in &file.body {
+            println!("    item: {item:?}");
             if let Item::MacroDef(name, params, items) = item {
                 let signature = MacroSignature {
                     name: name.clone(),
