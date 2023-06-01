@@ -109,9 +109,11 @@ where
         lagrange_first,
         lagrange_last,
     );
+    println!("1");
     stark.eval_ext(vars, &mut consumer);
     let native_eval = consumer.accumulators()[0];
 
+    println!("2");
     // Compute circuit constraint evaluation on same random values.
     let circuit_config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
@@ -129,7 +131,8 @@ where
     pw.set_extension_target(lagrange_first_t, lagrange_first);
     let lagrange_last_t = builder.add_virtual_extension_target();
     pw.set_extension_target(lagrange_last_t, lagrange_last);
-
+    
+    println!("3");
     let vars = StarkEvaluationTargets::<D, { S::COLUMNS }> {
         local_values: &locals_t.try_into().unwrap(),
         next_values: &nexts_t.try_into().unwrap(),
@@ -142,12 +145,16 @@ where
         lagrange_last_t,
     );
     stark.eval_ext_circuit(&mut builder, vars, &mut consumer);
+    println!("4");
     let circuit_eval = consumer.accumulators()[0];
     let native_eval_t = builder.constant_extension(native_eval);
     builder.connect_extension(circuit_eval, native_eval_t);
 
+    println!("5");
     let data = builder.build::<C>();
+    println!("6");
     let proof = data.prove(pw)?;
+    println!("7");
     data.verify(proof)
 }
 
