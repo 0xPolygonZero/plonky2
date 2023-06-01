@@ -7,6 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Debug)]
 pub struct ConstraintConsumer<P: PackedField> {
     /// Random values used to combine multiple constraints into one.
     pub alphas: Vec<P::Scalar>,
