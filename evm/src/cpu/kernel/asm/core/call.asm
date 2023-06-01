@@ -45,6 +45,7 @@ global sys_call:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -93,6 +94,7 @@ global sys_callcode:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -195,6 +197,7 @@ global sys_delegatecall:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
@@ -239,6 +242,15 @@ call_insufficient_balance:
 %macro set_static_true
     // stack: new_ctx
     %stack (new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, 1, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
+// Set @CTX_METADATA_STATIC of the next context to the current value.
+%macro set_static
+    // stack: new_ctx
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %stack (is_static, new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, is_static, new_ctx)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
