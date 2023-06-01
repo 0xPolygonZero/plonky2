@@ -158,7 +158,7 @@ pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
     Column::single(COL_MAP.mem_channels[channel].used)
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
