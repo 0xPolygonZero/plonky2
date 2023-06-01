@@ -109,9 +109,13 @@ where
         lagrange_first,
         lagrange_last,
     );
-    println!("1");
+    println!("\n1");
+    println!("{:?}", consumer);
     stark.eval_ext(vars, &mut consumer);
-    let native_eval = consumer.accumulators()[0];
+    println!("1.1");
+    let accs = consumer.accumulators();
+    println!("accs.len() = {}", accs.len());
+    let native_eval = accs[0];
 
     println!("2");
     // Compute circuit constraint evaluation on same random values.
