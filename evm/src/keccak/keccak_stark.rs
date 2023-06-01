@@ -42,7 +42,7 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(REG_FILTER)
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct KeccakStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
