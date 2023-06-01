@@ -44,8 +44,8 @@ jobs:
           command: test
           args: --all
         env:
-          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Cprefer-dynamic=y
-          RUST_LOG: 1
+          RUSTFLAGS: -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=2 -Cprefer-dynamic=y
+          RUST_LOG: 2
           CARGO_INCREMENTAL: 1
           RUST_BACKTRACE: 1
           RUST_TEST_THREADS: 1
