@@ -39,7 +39,7 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(FILTER)
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
