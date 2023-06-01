@@ -184,24 +184,43 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        println!("a");
         let local_values = vars.local_values.borrow();
+        println!("b");
         let next_values = vars.next_values.borrow();
+        println!("c");
         bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
+        println!("d");
         contextops::eval_packed(local_values, next_values, yield_constr);
+        println!("e");
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
+        println!("f");
         decode::eval_packed_generic(local_values, yield_constr);
+        println!("g");
         dup_swap::eval_packed(local_values, yield_constr);
+        println!("h");
         gas::eval_packed(local_values, next_values, yield_constr);
+        println!("i");
         jumps::eval_packed(local_values, next_values, yield_constr);
+        println!("j");
         membus::eval_packed(local_values, yield_constr);
+        println!("k");
         memio::eval_packed(local_values, yield_constr);
+        println!("l");
         modfp254::eval_packed(local_values, yield_constr);
+        println!("m");
         pc::eval_packed(local_values, yield_constr);
+        println!("n");
         shift::eval_packed(local_values, yield_constr);
+        println!("o");
         simple_logic::eval_packed(local_values, yield_constr);
+        println!("p");
         stack::eval_packed(local_values, yield_constr);
+        println!("q");
         stack_bounds::eval_packed(local_values, yield_constr);
+        println!("s");
         syscalls::eval_packed(local_values, next_values, yield_constr);
+        println!("t");
     }
 
     fn eval_ext_circuit(
