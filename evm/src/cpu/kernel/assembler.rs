@@ -173,7 +173,7 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
         println!("******* last: {:?}", file.body[nitems - 1]);
         //for (i, item) in file.body.iter().enumerate() {
         for i in 0..nitems {
-            let item = &file.body[i];
+            let item = file.body[i].clone();
             print!("    item {}/{nitems}: {item:?}", i + 1);
             io::stdout().flush().unwrap();
             if let Item::MacroDef(name, params, items) = item {
