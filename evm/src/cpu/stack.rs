@@ -122,6 +122,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: true,
         disable_other_channels: false,
     }),
+    exception: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: false,
+    }),
 };
 
 fn eval_packed_one<P: PackedField>(

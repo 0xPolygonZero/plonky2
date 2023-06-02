@@ -29,22 +29,22 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
 
 fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
     match (opcode, registers.is_kernel) {
-        (0x00, _) => Ok(Operation::Syscall(opcode)),
+        (0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
         (0x02, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)),
         (0x03, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)),
         (0x04, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div)),
-        (0x05, _) => Ok(Operation::Syscall(opcode)),
+        (0x05, _) => Ok(Operation::Syscall(opcode, 2, false)), // SDIV
         (0x06, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod)),
-        (0x07, _) => Ok(Operation::Syscall(opcode)),
+        (0x07, _) => Ok(Operation::Syscall(opcode, 2, false)), // SMOD
         (0x08, _) => Ok(Operation::TernaryArithmetic(
             arithmetic::TernaryOperator::AddMod,
         )),
         (0x09, _) => Ok(Operation::TernaryArithmetic(
             arithmetic::TernaryOperator::MulMod,
         )),
-        (0x0a, _) => Ok(Operation::Syscall(opcode)),
-        (0x0b, _) => Ok(Operation::Syscall(opcode)),
+        (0x0a, _) => Ok(Operation::Syscall(opcode, 2, false)), // EXP
+        (0x0b, _) => Ok(Operation::Syscall(opcode, 2, false)), // SIGNEXTEND
         (0x0c, true) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::AddFp254,
         )),
@@ -59,8 +59,8 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         )),
         (0x10, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)),
         (0x11, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt)),
-        (0x12, _) => Ok(Operation::Syscall(opcode)),
-        (0x13, _) => Ok(Operation::Syscall(opcode)),
+        (0x12, _) => Ok(Operation::Syscall(opcode, 2, false)), // SLT
+        (0x13, _) => Ok(Operation::Syscall(opcode, 2, false)), // SGT
         (0x14, _) => Ok(Operation::Eq),
         (0x15, _) => Ok(Operation::Iszero),
         (0x16, _) => Ok(Operation::BinaryLogic(logic::Op::And)),
@@ -70,76 +70,76 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x1a, _) => Ok(Operation::Byte),
         (0x1b, _) => Ok(Operation::Shl),
         (0x1c, _) => Ok(Operation::Shr),
-        (0x1d, _) => Ok(Operation::Syscall(opcode)),
-        (0x20, _) => Ok(Operation::Syscall(opcode)),
+        (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
+        (0x20, _) => Ok(Operation::Syscall(opcode, 2, false)), // KECCAK256
         (0x21, true) => Ok(Operation::KeccakGeneral),
-        (0x30, _) => Ok(Operation::Syscall(opcode)),
-        (0x31, _) => Ok(Operation::Syscall(opcode)),
-        (0x32, _) => Ok(Operation::Syscall(opcode)),
-        (0x33, _) => Ok(Operation::Syscall(opcode)),
-        (0x34, _) => Ok(Operation::Syscall(opcode)),
-        (0x35, _) => Ok(Operation::Syscall(opcode)),
-        (0x36, _) => Ok(Operation::Syscall(opcode)),
-        (0x37, _) => Ok(Operation::Syscall(opcode)),
-        (0x38, _) => Ok(Operation::Syscall(opcode)),
-        (0x39, _) => Ok(Operation::Syscall(opcode)),
-        (0x3a, _) => Ok(Operation::Syscall(opcode)),
-        (0x3b, _) => Ok(Operation::Syscall(opcode)),
-        (0x3c, _) => Ok(Operation::Syscall(opcode)),
-        (0x3d, _) => Ok(Operation::Syscall(opcode)),
-        (0x3e, _) => Ok(Operation::Syscall(opcode)),
-        (0x3f, _) => Ok(Operation::Syscall(opcode)),
-        (0x40, _) => Ok(Operation::Syscall(opcode)),
-        (0x41, _) => Ok(Operation::Syscall(opcode)),
-        (0x42, _) => Ok(Operation::Syscall(opcode)),
-        (0x43, _) => Ok(Operation::Syscall(opcode)),
-        (0x44, _) => Ok(Operation::Syscall(opcode)),
-        (0x45, _) => Ok(Operation::Syscall(opcode)),
-        (0x46, _) => Ok(Operation::Syscall(opcode)),
-        (0x47, _) => Ok(Operation::Syscall(opcode)),
-        (0x48, _) => Ok(Operation::Syscall(opcode)),
-        (0x49, _) => Ok(Operation::ProverInput),
+        (0x30, _) => Ok(Operation::Syscall(opcode, 0, true)), // ADDRESS
+        (0x31, _) => Ok(Operation::Syscall(opcode, 1, false)), // BALANCE
+        (0x32, _) => Ok(Operation::Syscall(opcode, 0, true)), // ORIGIN
+        (0x33, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLER
+        (0x34, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLVALUE
+        (0x35, _) => Ok(Operation::Syscall(opcode, 1, false)), // CALLDATALOAD
+        (0x36, _) => Ok(Operation::Syscall(opcode, 0, true)), // CALLDATASIZE
+        (0x37, _) => Ok(Operation::Syscall(opcode, 3, false)), // CALLDATACOPY
+        (0x38, _) => Ok(Operation::Syscall(opcode, 0, true)), // CODESIZE
+        (0x39, _) => Ok(Operation::Syscall(opcode, 3, false)), // CODECOPY
+        (0x3a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GASPRICE
+        (0x3b, _) => Ok(Operation::Syscall(opcode, 1, false)), // EXTCODESIZE
+        (0x3c, _) => Ok(Operation::Syscall(opcode, 4, false)), // EXTCODECOPY
+        (0x3d, _) => Ok(Operation::Syscall(opcode, 0, true)), // RETURNDATASIZE
+        (0x3e, _) => Ok(Operation::Syscall(opcode, 3, false)), // RETURNDATACOPY
+        (0x3f, _) => Ok(Operation::Syscall(opcode, 1, false)), // EXTCODEHASH
+        (0x40, _) => Ok(Operation::Syscall(opcode, 1, false)), // BLOCKHASH
+        (0x41, _) => Ok(Operation::Syscall(opcode, 0, true)), // COINBASE
+        (0x42, _) => Ok(Operation::Syscall(opcode, 0, true)), // TIMESTAMP
+        (0x43, _) => Ok(Operation::Syscall(opcode, 0, true)), // NUMBER
+        (0x44, _) => Ok(Operation::Syscall(opcode, 0, true)), // DIFFICULTY
+        (0x45, _) => Ok(Operation::Syscall(opcode, 0, true)), // GASLIMIT
+        (0x46, _) => Ok(Operation::Syscall(opcode, 0, true)), // CHAINID
+        (0x47, _) => Ok(Operation::Syscall(opcode, 0, true)), // SELFBALANCE
+        (0x48, _) => Ok(Operation::Syscall(opcode, 0, true)), // BASEFEE
+        (0x49, true) => Ok(Operation::ProverInput),
         (0x50, _) => Ok(Operation::Pop),
-        (0x51, _) => Ok(Operation::Syscall(opcode)),
-        (0x52, _) => Ok(Operation::Syscall(opcode)),
-        (0x53, _) => Ok(Operation::Syscall(opcode)),
-        (0x54, _) => Ok(Operation::Syscall(opcode)),
-        (0x55, _) => Ok(Operation::Syscall(opcode)),
+        (0x51, _) => Ok(Operation::Syscall(opcode, 1, false)), // MLOAD
+        (0x52, _) => Ok(Operation::Syscall(opcode, 2, false)), // MSTORE
+        (0x53, _) => Ok(Operation::Syscall(opcode, 2, false)), // MSTORE8
+        (0x54, _) => Ok(Operation::Syscall(opcode, 1, false)), // SLOAD
+        (0x55, _) => Ok(Operation::Syscall(opcode, 2, false)), // SSTORE
         (0x56, _) => Ok(Operation::Jump),
         (0x57, _) => Ok(Operation::Jumpi),
         (0x58, _) => Ok(Operation::Pc),
-        (0x59, _) => Ok(Operation::Syscall(opcode)),
-        (0x5a, _) => Ok(Operation::Syscall(opcode)),
+        (0x59, _) => Ok(Operation::Syscall(opcode, 0, true)), // MSIZE
+        (0x5a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GAS
         (0x5b, _) => Ok(Operation::Jumpdest),
         (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
         (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
-        (0xa0, _) => Ok(Operation::Syscall(opcode)),
-        (0xa1, _) => Ok(Operation::Syscall(opcode)),
-        (0xa2, _) => Ok(Operation::Syscall(opcode)),
-        (0xa3, _) => Ok(Operation::Syscall(opcode)),
-        (0xa4, _) => Ok(Operation::Syscall(opcode)),
-        (0xa5, _) => {
+        (0xa0, _) => Ok(Operation::Syscall(opcode, 2, false)), // LOG0
+        (0xa1, _) => Ok(Operation::Syscall(opcode, 3, false)), // LOG1
+        (0xa2, _) => Ok(Operation::Syscall(opcode, 4, false)), // LOG2
+        (0xa3, _) => Ok(Operation::Syscall(opcode, 5, false)), // LOG3
+        (0xa4, _) => Ok(Operation::Syscall(opcode, 6, false)), // LOG4
+        (0xa5, true) => {
             log::warn!(
                 "Kernel panic at {}",
                 KERNEL.offset_name(registers.program_counter),
             );
             Err(ProgramError::KernelPanic)
         }
-        (0xf0, _) => Ok(Operation::Syscall(opcode)),
-        (0xf1, _) => Ok(Operation::Syscall(opcode)),
-        (0xf2, _) => Ok(Operation::Syscall(opcode)),
-        (0xf3, _) => Ok(Operation::Syscall(opcode)),
-        (0xf4, _) => Ok(Operation::Syscall(opcode)),
-        (0xf5, _) => Ok(Operation::Syscall(opcode)),
+        (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
+        (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
+        (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
+        (0xf3, _) => Ok(Operation::Syscall(opcode, 2, false)), // RETURN
+        (0xf4, _) => Ok(Operation::Syscall(opcode, 6, false)), // DELEGATECALL
+        (0xf5, _) => Ok(Operation::Syscall(opcode, 4, false)), // CREATE2
         (0xf6, true) => Ok(Operation::GetContext),
         (0xf7, true) => Ok(Operation::SetContext),
         (0xf9, true) => Ok(Operation::ExitKernel),
-        (0xfa, _) => Ok(Operation::Syscall(opcode)),
+        (0xfa, _) => Ok(Operation::Syscall(opcode, 6, false)), // STATICCALL
         (0xfb, true) => Ok(Operation::MloadGeneral),
         (0xfc, true) => Ok(Operation::MstoreGeneral),
-        (0xfd, _) => Ok(Operation::Syscall(opcode)),
-        (0xff, _) => Ok(Operation::Syscall(opcode)),
+        (0xfd, _) => Ok(Operation::Syscall(opcode, 2, false)), // REVERT
+        (0xff, _) => Ok(Operation::Syscall(opcode, 1, false)), // SELFDESTRUCT
         _ => {
             log::warn!("Invalid opcode: {}", opcode);
             Err(ProgramError::InvalidOpcode)
@@ -156,7 +156,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Iszero => &mut flags.iszero,
         Operation::Not => &mut flags.not,
         Operation::Byte => &mut flags.byte,
-        Operation::Syscall(_) => &mut flags.syscall,
+        Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::Eq => &mut flags.eq,
         Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
         Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
@@ -205,7 +205,7 @@ fn perform_op<F: Field>(
         Operation::Byte => generate_byte(state, row)?,
         Operation::Shl => generate_shl(state, row)?,
         Operation::Shr => generate_shr(state, row)?,
-        Operation::Syscall(opcode) => generate_syscall(opcode, state, row)?,
+        Operation::Syscall(opcode, stack_values_read, stack_len_increased) => generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?,
         Operation::Eq => generate_eq(state, row)?,
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, state, row)?
@@ -227,7 +227,7 @@ fn perform_op<F: Field>(
     };
 
     state.registers.program_counter += match op {
-        Operation::Syscall(_) | Operation::ExitKernel => 0,
+        Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
         Operation::Push(n) => n as usize + 2,
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
@@ -238,7 +238,10 @@ fn perform_op<F: Field>(
     Ok(())
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
+/// Row that has the correct values for system registers and the code channel, but is otherwise
+/// blank. It fulfills the constraints that are common to successful operations and the exception
+/// operation. It also returns the opcode.
+fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.is_cpu_cycle = F::ONE;
     row.clock = F::from_canonical_usize(state.traces.clock());
@@ -249,6 +252,11 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
     let opcode = read_code_memory(state, &mut row);
+    (row, opcode)
+}
+
+fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
+    let (mut row, opcode) = base_row(state);
     let op = decode(state.registers, opcode)?;
 
     if state.registers.is_kernel {
@@ -309,8 +317,25 @@ fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operatio
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }
 
-fn handle_error<F: Field>(_state: &mut GenerationState<F>) -> anyhow::Result<()> {
-    bail!("TODO: generation for exception handling is not implemented");
+fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> anyhow::Result<()> {
+    let exc_code: u8 = match err {
+        ProgramError::OutOfGas => 0,
+        ProgramError::InvalidOpcode => 1,
+        ProgramError::StackUnderflow => 2,
+        ProgramError::InvalidJumpDestination => 3,
+        ProgramError::InvalidJumpiDestination => 4,
+        ProgramError::StackOverflow => 5,
+        _ => bail!("TODO: figure out what to do with this...")
+    };
+
+    let checkpoint = state.checkpoint();
+
+    let (row, _) = base_row(state);
+    generate_exception(exc_code, state, row).map_err(|_| anyhow::Error::msg("error handling errored..."))?;
+
+    state.memory
+         .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+    Ok(())
 }
 
 pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
@@ -336,7 +361,7 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
                 );
             }
             state.rollback(checkpoint);
-            handle_error(state)
+            handle_error(state, e)
         }
     }
 }

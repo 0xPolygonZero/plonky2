@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use ethereum_types::U256;
 use hex_literal::hex;
 
-use crate::cpu::decode::invalid_opcodes_user;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::journal_entry::JournalEntry;
@@ -16,6 +15,7 @@ pub(crate) mod global_metadata;
 pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
+mod exc_bitfields;
 
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {
@@ -76,7 +76,11 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
     c.insert(
         "INVALID_OPCODES_USER".into(),
-        U256::from_little_endian(&invalid_opcodes_user()),
+        exc_bitfields::INVALID_OPCODES_USER,
+    );
+    c.insert(
+        "STACK_LENGTH_INCREASING_OPCODES_USER".into(),
+        exc_bitfields::STACK_LENGTH_INCREASING_OPCODES_USER,
     );
     c
 }

@@ -73,3 +73,21 @@
     SWAP1 %is_empty
     OR
 %endmacro
+
+// Gets the size of the stack _before_ the macro is run
+// WARNING: this macro is side-effecting. It writes the current stack length to offset
+// `CTX_METADATA_STACK_SIZE`, segment `SEGMENT_CONTEXT_METADATA` in the current context. But I can't
+// imagine it being an issue unless someone's doing something dumb.
+%macro stack_length
+    // stack: (empty)
+    GET_CONTEXT
+    // stack: current_ctx
+    // It seems odd to switch to the context that we are already in. We do this because SET_CONTEXT
+    // saves the stack length of the context we are leaving in its metadata segment.
+    SET_CONTEXT
+    // stack: (empty)
+    // We can now read this stack length from memory.
+    push @CTX_METADATA_STACK_SIZE
+    %mload_current(@SEGMENT_CONTEXT_METADATA)
+    // stack: stack_length
+%endmacro

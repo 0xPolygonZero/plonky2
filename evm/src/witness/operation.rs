@@ -9,12 +9,13 @@ use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
+use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
-use crate::witness::memory::{MemoryAddress, MemoryOp};
+use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::util::{
     keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
     stack_pop_with_log_and_fill, stack_push_log_and_fill,
@@ -28,7 +29,7 @@ pub(crate) enum Operation {
     Byte,
     Shl,
     Shr,
-    Syscall(u8),
+    Syscall(u8, usize, bool),
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator),
@@ -309,7 +310,18 @@ pub(crate) fn generate_set_context<F: Field>(
     let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
 
     let log_write_old_sp = mem_write_gp_log_and_fill(1, old_sp_addr, state, &mut row, sp_to_save);
-    let (new_sp, log_read_new_sp) = mem_read_gp_with_log_and_fill(2, new_sp_addr, state, &mut row);
+    let (new_sp, log_read_new_sp) = if old_ctx == new_ctx {
+        let op = MemoryOp::new(
+            MemoryChannel::GeneralPurpose(2),
+            state.traces.clock(),
+            new_sp_addr,
+            MemoryOpKind::Read,
+            sp_to_save,
+        );
+        (sp_to_save, op)
+    } else {
+        mem_read_gp_with_log_and_fill(2, new_sp_addr, state, &mut row)
+    };
 
     state.registers.context = new_ctx;
     state.registers.stack_len = new_sp.as_usize();
@@ -506,11 +518,20 @@ pub(crate) fn generate_shr<F: Field>(
 
 pub(crate) fn generate_syscall<F: Field>(
     opcode: u8,
+    stack_values_read: usize,
+    stack_len_increased: bool,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
         panic!();
+    }
+
+    if state.registers.stack_len < stack_values_read {
+        return Err(ProgramError::StackUnderflow);
+    }
+    if stack_len_increased && !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
+        return Err(ProgramError::StackOverflow);
     }
 
     let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
@@ -591,6 +612,17 @@ pub(crate) fn generate_exit_kernel<F: Field>(
         panic!();
     }
 
+    if is_kernel_mode {
+        row.general.exit_kernel_mut().stack_len_check_aux = F::ZERO;
+    } else {
+        let diff = F::from_canonical_usize(state.registers.stack_len + 1) - F::from_canonical_u32(1026);
+        if let Some(inv) = diff.try_inverse() {
+            row.general.exit_kernel_mut().stack_len_check_aux = inv;
+        } else {
+            panic!("stack overflow; should have been caught before entering the syscall")
+        }
+    }
+
     state.registers.program_counter = program_counter;
     state.registers.is_kernel = is_kernel_mode;
     state.registers.gas_used = gas_used_val;
@@ -657,5 +689,66 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
     state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_exception<F: Field>(
+    exc_code: u8,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
+        panic!();
+    }
+
+    row.stack_len_bounds_aux = (row.stack_len + F::ONE).inverse();
+
+    row.general.exception_mut().exc_code_bits = [
+        F::from_bool(exc_code & 1 != 0),
+        F::from_bool(exc_code & 2 != 0),
+        F::from_bool(exc_code & 4 != 0),
+    ];
+
+    let handler_jumptable_addr = KERNEL.global_labels["exception_jumptable"];
+    let handler_addr_addr =
+        handler_jumptable_addr + (exc_code as usize) * (BYTES_PER_OFFSET as usize);
+    assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
+    let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
+        0,
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
+        state,
+        &mut row,
+    );
+    let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
+        1,
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
+        state,
+        &mut row,
+    );
+    let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
+        2,
+        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
+        state,
+        &mut row,
+    );
+
+    let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
+    let new_program_counter = handler_addr.as_usize();
+
+    let exc_info = U256::from(state.registers.program_counter)
+        + (U256::from(state.registers.gas_used) << 192);
+    let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
+
+    state.registers.program_counter = new_program_counter;
+    log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
+    state.registers.is_kernel = true;
+    state.registers.gas_used = 0;
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_out);
+    state.traces.push_cpu(row);
+
     Ok(())
 }

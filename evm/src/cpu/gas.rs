@@ -56,6 +56,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     mload_general: KERNEL_ONLY_INSTR,
     mstore_general: KERNEL_ONLY_INSTR,
     syscall: None,
+    exception: None,
 };
 
 fn eval_packed_accumulate<P: PackedField>(
