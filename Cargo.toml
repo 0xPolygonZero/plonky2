@@ -2,7 +2,6 @@
 members = ["evm", "field", "maybe_rayon", "plonky2", "starky", "util"]
 
 [profile.release]
-rpath = true
 opt-level = 3
 incremental = true
 #lto = "fat"
@@ -10,7 +9,6 @@ incremental = true
 
 [profile.bench]
 opt-level = 3
-rpath = true
 
 [patch.crates-io]
 plonky2_evm = { path = "evm" }
