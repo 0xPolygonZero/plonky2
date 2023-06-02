@@ -176,9 +176,6 @@ global sys_codecopy:
 global sys_returndatacopy:
     // stack: kexit_info, dest_offset, offset, size
     PUSH @GAS_VERYLOW
-    DUP5
-    // stack: size, Gverylow, kexit_info, dest_offset, offset, size
-    ISZERO %jumpi(wcopy_empty)
     // stack: Gverylow, kexit_info, dest_offset, offset, size
     DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
 
@@ -191,6 +188,11 @@ global sys_returndatacopy:
     DUP4 DUP4 %add_or_fault // Overflow check
     %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE) LT %jumpi(fault_exception) // Data len check
 
+    // stack:  kexit_info, dest_offset, offset, size
+    DUP4
+    // stack:  size, kexit_info, dest_offset, offset, size
+    ISZERO %jumpi(returndatacopy_empty)
+
     %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
     // stack: total_size, kexit_info, dest_offset, offset, size
     DUP4
@@ -201,3 +203,7 @@ global sys_returndatacopy:
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_RETURNDATA, offset, size, wcopy_after, kexit_info)
     %jump(memcpy)
+
+returndatacopy_empty:
+    %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
+    EXIT_KERNEL
