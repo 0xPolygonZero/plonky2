@@ -187,8 +187,8 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
                 };
                 let old = macros.insert(signature.clone(), macro_);
                 assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
-                print!("   ?????   ");
-                io::stdout().flush().unwrap();
+                //print!("   ?????   ");
+                //io::stdout().flush().unwrap();
             }
             println!("......okay");
         }
