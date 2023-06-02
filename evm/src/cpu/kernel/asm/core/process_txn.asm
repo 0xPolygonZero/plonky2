@@ -301,6 +301,7 @@ process_message_txn_after_call_contd:
 process_message_txn_fail:
     // stack: leftover_gas, new_ctx, retdest
     // Transfer value back to the caller.
+    %mload_txn_field(@TXN_FIELD_VALUE) ISZERO %jumpi(process_message_txn_after_call_contd)
     %mload_txn_field(@TXN_FIELD_VALUE)
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     %mload_txn_field(@TXN_FIELD_TO)
