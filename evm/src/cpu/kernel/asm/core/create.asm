@@ -71,22 +71,18 @@ global create_common:
     DUP1 %insert_accessed_addresses_no_return
 
     // TODO: Check call stack depth.
-    // TODO: Check balance of caller first.
+    // stack: address, value, code_offset, code_len, kexit_info
+    DUP2 %selfbalance LT %jumpi(create_insufficient_balance)
     // Increment the sender's nonce.
     %address
+    DUP1 %nonce %eq_const(@MAX_NONCE) %jumpi(nonce_overflow) // EIP-2681
     %increment_nonce
     // stack: address, value, code_offset, code_len, kexit_info
 
     %checkpoint
 
-    // Create the new contract account in the state trie.
-    DUP1
-    // stack: address, address, value, code_offset, code_len, kexit_info
-    %create_contract_account
-    // stack: status, address, value, code_offset, code_len, kexit_info
-    %jumpi(fault_exception)
     // stack: address, value, code_offset, code_len, kexit_info
-    DUP2 DUP2 %address %transfer_eth %jumpi(fault_exception)
+    DUP2 DUP2 %address %transfer_eth %jumpi(panic) // We checked the balance above, so this should never happen.
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
 
     %create_context
@@ -125,13 +121,18 @@ run_constructor:
     %set_new_ctx_gas_limit
     // stack: new_ctx, address, kexit_info
 
+    // Create the new contract account in the state trie.
+    DUP2
+    %create_contract_account
+    // stack: status, new_ctx, address, kexit_info
+    %jumpi(create_collision)
+
     %enter_new_ctx
     // (Old context) stack: new_ctx, address, kexit_info
 
 after_constructor:
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     DUP1 ISZERO %jumpi(after_constructor_failed)
-    %pop_checkpoint
 
     // stack: success, leftover_gas, new_ctx, address, kexit_info
     SWAP2
@@ -139,19 +140,20 @@ after_constructor:
     POP
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(fault_exception)
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(create_first_byte_ef)
 
     // Charge gas for the code size.
     // stack: leftover_gas, success, address, kexit_info
     %returndatasize // Size of the code.
     // stack: code_size, leftover_gas, success, address, kexit_info
-    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(fault_exception)
+    DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(create_code_too_large)
     // stack: code_size, leftover_gas, success, address, kexit_info
     %mul_const(@GAS_CODEDEPOSIT)
     // stack: code_size_cost, leftover_gas, success, address, kexit_info
     DUP2 DUP2 GT %jumpi(fault_exception)
     SWAP1 SUB
     // stack: leftover_gas, success, address, kexit_info
+    %pop_checkpoint
 
     // Store the code hash of the new contract.
     GET_CONTEXT
@@ -185,6 +187,31 @@ after_constructor_failed:
     %revert_checkpoint
     %stack (success, leftover_gas, new_ctx, address, kexit_info) -> (leftover_gas, success, address, kexit_info)
     %jump(after_constructor_contd)
+
+create_insufficient_balance:
+    %revert_checkpoint
+    %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+nonce_overflow:
+    %revert_checkpoint
+    %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_collision:
+    %revert_checkpoint
+    %stack (new_ctx, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_first_byte_ef:
+    %revert_checkpoint
+    %stack (leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_code_too_large:
+    %revert_checkpoint
+    %stack (code_size, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
 
 %macro set_codehash
     %stack (addr, codehash) -> (addr, codehash, %%after)

@@ -23,7 +23,7 @@ global sys_call:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     %call_charge_gas(1, 1)
 
@@ -123,7 +123,7 @@ global sys_staticcall:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
@@ -201,7 +201,7 @@ global sys_delegatecall:
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, callgas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -323,6 +323,13 @@ call_insufficient_balance:
     DUP1 // new_ctx
     SET_CONTEXT
     %checkpoint // Checkpoint
+    // Perform jumpdest analyis
+    PUSH %%after
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    GET_CONTEXT
+    // stack: ctx, code_size, retdest
+    %jump(jumpdest_analysis)
+%%after:
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx

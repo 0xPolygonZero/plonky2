@@ -130,7 +130,7 @@ decode_rlp_list_len_big:
 // fit in a single (256-bit) word on the stack.
 // Pre stack: pos, len, retdest
 // Post stack: pos', int
-decode_int_given_len:
+global decode_int_given_len:
     %stack (pos, len, retdest) -> (pos, len, pos, retdest)
     ADD
     // stack: end_pos, pos, retdest
