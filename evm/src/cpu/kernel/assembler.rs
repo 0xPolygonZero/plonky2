@@ -167,21 +167,19 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
     println!("files.len() = {}", files.len());
     for file in files {
         println!("  find_macro({file:?})");
-        for item in &file.body {
-            println!("    item: {item:?}");
+        let nitems = file.body.len();
+        for (i, item) in file.body.iter().enumerate() {
+            println!("    item {i}/{nitems}: {item:?}");
             if let Item::MacroDef(name, params, items) = item {
                 let signature = MacroSignature {
                     name: name.clone(),
                     num_params: params.len(),
                 };
-                println!("       signature: {signature:?}");
                 let macro_ = Macro {
                     params: params.clone(),
                     items: items.clone(),
                 };
-                println!("       macro: {macro_:?}");
                 let old = macros.insert(signature.clone(), macro_);
-                println!("       old: {old:?}");
                 assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
             }
         }
