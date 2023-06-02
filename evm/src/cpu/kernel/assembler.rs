@@ -162,15 +162,20 @@ pub(crate) fn assemble(
     Kernel::new(code, global_labels, prover_inputs)
 }
 
+use std::io::{self, Write};
+
 fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
     let mut macros = HashMap::new();
     println!("files.len() = {}", files.len());
     for file in files {
         println!("  find_macro({file:?})");
         let nitems = file.body.len();
-        println!("     *** last: {:?}", file.body[nitems - 1]);
-        for (i, item) in file.body.iter().enumerate() {
-            println!("    item {}/{nitems}: {item:?}", i + 1);
+        println!("******* last: {:?}", file.body[nitems - 1]);
+        //for (i, item) in file.body.iter().enumerate() {
+        for i in 0..nitems {
+            let item = &file.body[i];
+            print!("    item {}/{nitems}: {item:?}", i + 1);
+            io::stdout().flush().unwrap();
             if let Item::MacroDef(name, params, items) = item {
                 let signature = MacroSignature {
                     name: name.clone(),
@@ -183,6 +188,7 @@ fn find_macros(files: &[File]) -> HashMap<MacroSignature, Macro> {
                 let old = macros.insert(signature.clone(), macro_);
                 assert!(old.is_none(), "Duplicate macro signature: {signature:?}");
             }
+            println!("......okay");
         }
     }
     macros
