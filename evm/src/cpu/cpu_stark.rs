@@ -80,7 +80,7 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 13] = [
+    const OPS: [usize; 14] = [
         COL_MAP.op.add,
         COL_MAP.op.sub,
         COL_MAP.op.mul,
@@ -94,6 +94,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.submod,
         COL_MAP.op.div,
         COL_MAP.op.mod_,
+        COL_MAP.op.byte,
     ];
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
