@@ -6,7 +6,6 @@
     %jump(handle_precompiles)
 %%after:
     // stack: new_ctx, (old stack)
-    %pop4
 %endmacro
 
 global handle_precompiles:
@@ -31,6 +30,12 @@ global pop_and_return_success:
     PUSH 1 // success
     %jump(terminate_common)
 
+global after_precompile:
+    %mload_global_metadata(@GLOBAL_METADATA_IS_PRECOMPILE_FROM_EOA) %jumpi(process_message_txn_after_call)
+    %stack (success, leftover_gas, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size)
+    %jump(after_call_instruction)
+
 %macro handle_precompiles_from_eoa
     // stack: retdest
     %mload_txn_field(@TXN_FIELD_TO)
@@ -42,10 +47,10 @@ global pop_and_return_success:
 %endmacro
 
 global handle_precompiles_from_eoa:
+    PUSH 1 %mstore_global_metadata(@GLOBAL_METADATA_IS_PRECOMPILE_FROM_EOA)
     // stack: addr, retdest
     %create_context
     // stack: new_ctx, addr, retdest
-    %set_new_ctx_parent_pc(process_message_txn_after_call)
     %non_intrinisic_gas %set_new_ctx_gas_limit
     // stack: new_ctx, addr, retdest
 

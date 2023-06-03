@@ -38,10 +38,12 @@ global sys_call:
     DUP5 DUP5 %address %transfer_eth %jumpi(call_insufficient_balance)
     DUP5 DUP5 %address %journal_add_balance_transfer
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
@@ -87,11 +89,12 @@ global sys_callcode:
     DUP5 %address %address %transfer_eth %jumpi(call_insufficient_balance)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
 
     // Each line in the block below does not change the stack.
     %set_static
@@ -140,10 +143,12 @@ global sys_staticcall:
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
@@ -190,10 +195,12 @@ global sys_delegatecall:
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.

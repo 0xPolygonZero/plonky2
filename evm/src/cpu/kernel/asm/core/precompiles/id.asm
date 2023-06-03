@@ -2,6 +2,8 @@ global precompile_id:
     // stack: address, retdest, new_ctx, (old stack)
     %pop2
     // stack: new_ctx, (old stack)
+    %set_new_ctx_parent_pc(after_precompile)
+    // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
     %checkpoint // Checkpoint
