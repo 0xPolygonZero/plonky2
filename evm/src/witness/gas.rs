@@ -25,6 +25,7 @@ pub(crate) fn gas_to_charge(op: Operation) -> u64 {
         BinaryArithmetic(Mod) => G_LOW,
         BinaryArithmetic(Lt) => G_VERYLOW,
         BinaryArithmetic(Gt) => G_VERYLOW,
+        BinaryArithmetic(Byte) => G_VERYLOW,
         Shl => G_VERYLOW,
         Shr => G_VERYLOW,
         BinaryArithmetic(AddFp254) => KERNEL_ONLY_INSTR,

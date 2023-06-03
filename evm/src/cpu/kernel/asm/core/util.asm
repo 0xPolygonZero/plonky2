@@ -21,11 +21,7 @@
 // Returns whether the current transaction is a contract creation transaction.
 %macro is_contract_creation
     // stack: (empty)
-    %mload_txn_field(@TXN_FIELD_TO)
-    // stack: to
-    ISZERO
-    // If there is no "to" field, then this is a contract creation.
-    // stack: to == 0
+    %mload_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION)
 %endmacro
 
 %macro is_precompile

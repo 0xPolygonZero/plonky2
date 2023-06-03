@@ -78,7 +78,7 @@ bn254_input_check:
 
 bn_pairing_invalid_input:
     // stack:  inp_j, j, k, inp, out, retdest
-    %stack (inp_j, j, k, inp, out, retdest) -> (retdest, inp_j)
+    %stack (inp_j, j, k, inp, out, retdest) -> (retdest, @U256_MAX)
     JUMP
 
 bn254_pairing_start:

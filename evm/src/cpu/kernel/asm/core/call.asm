@@ -23,7 +23,7 @@ global sys_call:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     %call_charge_gas(1, 1)
 
@@ -45,6 +45,7 @@ global sys_call:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -93,6 +94,7 @@ global sys_callcode:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -123,7 +125,7 @@ global sys_staticcall:
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
     %checkpoint // Checkpoint
-    DUP1 %insert_touched_addresses
+    DUP2 %insert_touched_addresses
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
@@ -195,13 +197,14 @@ global sys_delegatecall:
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, callgas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
@@ -239,6 +242,15 @@ call_insufficient_balance:
 %macro set_static_true
     // stack: new_ctx
     %stack (new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, 1, new_ctx)
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
+// Set @CTX_METADATA_STATIC of the next context to the current value.
+%macro set_static
+    // stack: new_ctx
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    %stack (is_static, new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, is_static, new_ctx)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro

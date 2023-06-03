@@ -67,7 +67,9 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x17, _) => Ok(Operation::BinaryLogic(logic::Op::Or)),
         (0x18, _) => Ok(Operation::BinaryLogic(logic::Op::Xor)),
         (0x19, _) => Ok(Operation::Not),
-        (0x1a, _) => Ok(Operation::Byte),
+        (0x1a, _) => Ok(Operation::BinaryArithmetic(
+            arithmetic::BinaryOperator::Byte,
+        )),
         (0x1b, _) => Ok(Operation::Shl),
         (0x1c, _) => Ok(Operation::Shr),
         (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
@@ -168,6 +170,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt) => &mut flags.lt,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.gt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
         Operation::Shl => &mut flags.shl,
         Operation::Shr => &mut flags.shr,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => &mut flags.addfp254,
@@ -202,7 +205,6 @@ fn perform_op<F: Field>(
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        Operation::Byte => generate_byte(state, row)?,
         Operation::Shl => generate_shl(state, row)?,
         Operation::Shr => generate_shr(state, row)?,
         Operation::Syscall(opcode, stack_values_read, stack_len_increased) => generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?,
