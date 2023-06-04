@@ -28,7 +28,7 @@ pub(crate) enum Operation {
     Not,
     Shl,
     Shr,
-    Syscall(u8, usize, bool),
+    Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
     BinaryArithmetic(arithmetic::BinaryOperator),
