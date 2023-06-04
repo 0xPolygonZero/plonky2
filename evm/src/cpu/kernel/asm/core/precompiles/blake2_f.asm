@@ -2,6 +2,8 @@ global precompile_blake2_f:
     // stack: retdest, new_ctx, (old stack)
     POP
     // stack: new_ctx, (old stack)
+    %set_new_ctx_parent_pc(after_precompile)
+    // stack: new_ctx, (old stack)
     DUP1
     SET_CONTEXT
     %checkpoint // Checkpoint
