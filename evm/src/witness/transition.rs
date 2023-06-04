@@ -157,7 +157,6 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero => &mut flags.iszero,
         Operation::Not => &mut flags.not,
-        Operation::Byte => &mut flags.byte,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::Eq => &mut flags.eq,
         Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
