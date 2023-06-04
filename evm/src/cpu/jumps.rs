@@ -76,7 +76,13 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     // See detailed comments in the packed implementation.
     {
         let stack_len_check_aux = lv.general.exit_kernel().stack_len_check_aux;
-        let lhs = builder.arithmetic_extension(F::ONE, -F::from_canonical_u32(1026), lv.stack_len, stack_len_check_aux, stack_len_check_aux);
+        let lhs = builder.arithmetic_extension(
+            F::ONE,
+            -F::from_canonical_u32(1026),
+            lv.stack_len,
+            stack_len_check_aux,
+            stack_len_check_aux,
+        );
         let constr = builder.add_extension(lhs, input[1]);
         let constr = builder.mul_sub_extension(filter, constr, filter);
         yield_constr.constraint(builder, constr);

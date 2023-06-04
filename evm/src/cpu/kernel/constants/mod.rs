@@ -11,11 +11,11 @@ use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub(crate) mod context_metadata;
+mod exc_bitfields;
 pub(crate) mod global_metadata;
 pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
-mod exc_bitfields;
 
 /// Constants that are accessible to our kernel assembly code.
 pub fn evm_constants() -> HashMap<String, U256> {

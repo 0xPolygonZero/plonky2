@@ -508,7 +508,10 @@ pub(crate) fn generate_syscall<F: Field>(
     if state.registers.stack_len < stack_values_read {
         return Err(ProgramError::StackUnderflow);
     }
-    if stack_len_increased && !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
+    if stack_len_increased
+        && !state.registers.is_kernel
+        && state.registers.stack_len >= MAX_USER_STACK_SIZE
+    {
         return Err(ProgramError::StackOverflow);
     }
 
@@ -593,7 +596,8 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     if is_kernel_mode {
         row.general.exit_kernel_mut().stack_len_check_aux = F::ZERO;
     } else {
-        let diff = F::from_canonical_usize(state.registers.stack_len + 1) - F::from_canonical_u32(1026);
+        let diff =
+            F::from_canonical_usize(state.registers.stack_len + 1) - F::from_canonical_u32(1026);
         if let Some(inv) = diff.try_inverse() {
             row.general.exit_kernel_mut().stack_len_check_aux = inv;
         } else {
@@ -713,8 +717,8 @@ pub(crate) fn generate_exception<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr.as_usize();
 
-    let exc_info = U256::from(state.registers.program_counter)
-        + (U256::from(state.registers.gas_used) << 192);
+    let exc_info =
+        U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
     let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
 
     state.registers.program_counter = new_program_counter;

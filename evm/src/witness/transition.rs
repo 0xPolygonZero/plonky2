@@ -207,7 +207,9 @@ fn perform_op<F: Field>(
         Operation::Not => generate_not(state, row)?,
         Operation::Shl => generate_shl(state, row)?,
         Operation::Shr => generate_shr(state, row)?,
-        Operation::Syscall(opcode, stack_values_read, stack_len_increased) => generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?,
+        Operation::Syscall(opcode, stack_values_read, stack_len_increased) => {
+            generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?
+        }
         Operation::Eq => generate_eq(state, row)?,
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, state, row)?
@@ -327,16 +329,18 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
         ProgramError::InvalidJumpDestination => 3,
         ProgramError::InvalidJumpiDestination => 4,
         ProgramError::StackOverflow => 5,
-        _ => bail!("TODO: figure out what to do with this...")
+        _ => bail!("TODO: figure out what to do with this..."),
     };
 
     let checkpoint = state.checkpoint();
 
     let (row, _) = base_row(state);
-    generate_exception(exc_code, state, row).map_err(|_| anyhow::Error::msg("error handling errored..."))?;
+    generate_exception(exc_code, state, row)
+        .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
 
-    state.memory
-         .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+    state
+        .memory
+        .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
     Ok(())
 }
 
