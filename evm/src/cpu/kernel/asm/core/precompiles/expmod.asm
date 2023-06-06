@@ -151,6 +151,7 @@ case_le_32:
     JUMP
 
 global precompile_expmod:
+    %zerooo
     // stack: address, retdest, new_ctx, (old stack)
     %pop2
     // stack: new_ctx, (old stack)

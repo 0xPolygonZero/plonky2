@@ -123,17 +123,28 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
+    log::info!(
+        "Root: {:?}",
+        &state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].content
+            [GlobalMetadata::StateTrieRoot as usize]
+    );
+    log::info!(
+        "Trie: {:?}",
+        &state.memory.contexts[0].segments[Segment::TrieData as usize]
+    );
+
     assert!(
         state.mpt_prover_inputs.is_empty(),
         "All MPT data should have been consumed"
     );
 
-    log::info!(
-        "Trace lengths (before padding): {:?}",
-        state.traces.checkpoint()
-    );
+    // log::info!(
+    //     "Trace lengths (before padding): {:?}",
+    //     state.traces.checkpoint()
+    // );
 
     let outputs = get_outputs(&mut state);
+    log::info!("addrs = {:?}", &state.state_key_to_address);
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {

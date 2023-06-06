@@ -168,3 +168,17 @@ handle_precompiles_from_eoa_finish:
     PUSH 0 PUSH 98 %mstore_kernel_general
     PUSH 0 PUSH 99 %mstore_kernel_general
 %endmacro
+
+%macro zerooo
+    PUSH 10000 PUSH 0
+    // stack : i, N
+%%loop:
+    DUP2 DUP2 EQ %jumpi(%%end)
+    %stack (i, N) -> (i, 0, i, N)
+    %mstore_kernel_general
+    %increment
+    %jump(%%loop)
+%%end:
+    // stack : i, N
+    %pop2
+%endmacro

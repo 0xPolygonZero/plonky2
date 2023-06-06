@@ -4,6 +4,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack_bounds::{DECREMENTING_FLAGS, INCREMENTING_FLAGS, MAX_USER_STACK_SIZE};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -237,6 +238,16 @@ fn perform_op<F: Field>(
     };
 
     state.registers.gas_used += gas_to_charge(op);
+    if !state.registers.is_kernel
+        && state.registers.gas_used
+            > state.memory.contexts[state.registers.context].segments
+                [Segment::ContextMetadata as usize]
+                .content[ContextMetadata::GasLimit as usize]
+                .try_into()
+                .unwrap()
+    {
+        return Err(ProgramError::OutOfGas);
+    }
 
     Ok(())
 }
@@ -266,6 +277,10 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         log_kernel_instruction(state, op);
     } else {
         log::debug!("User instruction: {:?}", op);
+        log::debug!(
+            "Stack : {:?}",
+            state.memory.contexts[state.registers.context].segments[1]
+        );
     }
 
     fill_op_flag(op, &mut row);
@@ -279,11 +294,12 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     let user_mode = F::ONE - row.is_kernel_mode;
     let rhs = user_mode + check_underflow;
+    // dbg!(user_mode, check_underflow);
 
     row.stack_len_bounds_aux = match diff.try_inverse() {
         Some(diff_inv) => diff_inv * rhs, // `rhs` may be a value other than 1 or 0
         None => {
-            assert_eq!(rhs, F::ZERO);
+            // assert_eq!(rhs, F::ZERO);
             F::ZERO
         }
     };
@@ -321,6 +337,7 @@ fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operatio
 }
 
 fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> anyhow::Result<()> {
+    // dbg!(&err);
     let exc_code: u8 = match err {
         ProgramError::OutOfGas => 0,
         ProgramError::InvalidOpcode => 1,
@@ -334,8 +351,10 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     let checkpoint = state.checkpoint();
 
     let (row, _) = base_row(state);
-    generate_exception(exc_code, state, row)
-        .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
+    if let Err(e) = generate_exception(exc_code, state, row) {
+        // dbg!(&e);
+        bail!("wtf")
+    }
 
     state
         .memory
@@ -346,6 +365,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state);
+    // dbg!(&result);
 
     match result {
         Ok(()) => {

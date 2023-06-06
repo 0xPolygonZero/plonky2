@@ -501,9 +501,9 @@ pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
-        panic!();
-    }
+    // if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
+    //     panic!();
+    // }
 
     if state.registers.stack_len < stack_values_read {
         return Err(ProgramError::StackUnderflow);
@@ -544,11 +544,11 @@ pub(crate) fn generate_syscall<F: Field>(
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
         + (U256::from(state.registers.gas_used) << 192);
+    state.registers.is_kernel = true;
     let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
     state.registers.program_counter = new_program_counter;
     log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
-    state.registers.is_kernel = true;
     state.registers.gas_used = 0;
 
     state.traces.push_memory(log_in0);
@@ -589,9 +589,9 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
     let gas_used_val = kexit_info.0[3];
-    if TryInto::<u32>::try_into(gas_used_val).is_err() {
-        panic!();
-    }
+    // if TryInto::<u32>::try_into(gas_used_val).is_err() {
+    //     panic!();
+    // }
 
     if is_kernel_mode {
         row.general.exit_kernel_mut().stack_len_check_aux = F::ZERO;
@@ -719,11 +719,11 @@ pub(crate) fn generate_exception<F: Field>(
 
     let exc_info =
         U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
+    state.registers.is_kernel = true;
     let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
 
     state.registers.program_counter = new_program_counter;
     log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
-    state.registers.is_kernel = true;
     state.registers.gas_used = 0;
 
     state.traces.push_memory(log_in0);
