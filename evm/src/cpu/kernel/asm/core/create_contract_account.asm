@@ -19,11 +19,14 @@
     // Check that the code is empty.
     %add_const(3)
     // stack: existing_codehash_ptr, address
-    DUP1 %mload_trie_data // nonce = account[0]
+    %mload_trie_data // codehash = account[3]
     %eq_const(@EMPTY_STRING_HASH) ISZERO %jumpi(%%error_collision)
-    // stack: existing_codehash_ptr, address
-    %sub_const(2) %mload_trie_data // balance = account[1]
-    %jump(%%do_insert)
+    // stack: address
+    PUSH 0 DUP2 %journal_add_nonce_change
+    // stack: address
+    %increment_nonce
+    PUSH 0 // success
+    %jump(%%end)
 
 %%add_account:
     // stack: existing_balance, address
