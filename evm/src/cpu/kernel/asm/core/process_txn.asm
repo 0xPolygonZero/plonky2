@@ -80,7 +80,11 @@ global buy_gas:
 
 global increment_sender_nonce:
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    %increment_nonce
+    DUP1 %increment_nonce
+
+global warm_origin:
+    // stack: origin, retdest
+    %insert_accessed_addresses_no_return
 
 global warm_precompiles:
     // Add precompiles to accessed addresses.
@@ -182,7 +186,7 @@ global process_contract_creation_txn_after_constructor:
     ISZERO %jumpi(contract_creation_fault_3)
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(contract_creation_fault_3)
+    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(contract_creation_fault_3_zero_leftover)
 
     // stack: leftover_gas, new_ctx, address, retdest
     %returndatasize // Size of the code.
@@ -222,7 +226,6 @@ global process_message_txn:
     %mload_txn_field(@TXN_FIELD_TO)
     DUP1 %insert_accessed_addresses_no_return
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    DUP1 %insert_accessed_addresses_no_return
     // stack: from, to, amount, retdest
     %transfer_eth
     // stack: transfer_eth_status, retdest
@@ -393,6 +396,16 @@ contract_creation_fault_3:
     %revert_checkpoint
     // stack: leftover_gas, new_ctx, address, retdest
     %stack (leftover_gas, new_ctx, address, retdest) -> (leftover_gas, retdest)
+    %pay_coinbase_and_refund_sender
+    %delete_all_touched_addresses
+    %delete_all_selfdestructed_addresses
+    JUMP
+
+contract_creation_fault_3_zero_leftover:
+    %revert_checkpoint
+    // stack: leftover_gas, new_ctx, address, retdest
+    %pop3
+    PUSH 0 // leftover gas
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
