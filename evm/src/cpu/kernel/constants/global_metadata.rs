@@ -68,10 +68,11 @@ pub(crate) enum GlobalMetadata {
     // Boolean flag indicating if the txn is a contract creation txn.
     ContractCreation = 33,
     IsPrecompileFromEoa = 34,
+    CallStackDepth = 35,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 34;
+    pub(crate) const COUNT: usize = 35;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -109,6 +110,7 @@ impl GlobalMetadata {
             Self::AccessListRlpLen,
             Self::ContractCreation,
             Self::IsPrecompileFromEoa,
+            Self::CallStackDepth,
         ]
     }
 
@@ -149,6 +151,7 @@ impl GlobalMetadata {
             Self::AccessListRlpLen => "GLOBAL_METADATA_ACCESS_LIST_RLP_LEN",
             Self::ContractCreation => "GLOBAL_METADATA_CONTRACT_CREATION",
             Self::IsPrecompileFromEoa => "GLOBAL_METADATA_IS_PRECOMPILE_FROM_EOA",
+            Self::CallStackDepth => "GLOBAL_METADATA_CALL_STACK_DEPTH",
         }
     }
 }
