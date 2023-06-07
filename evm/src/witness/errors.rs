@@ -11,6 +11,7 @@ pub enum ProgramError {
     StackOverflow,
     KernelPanic,
     MemoryError(MemoryError),
+    GasLimitError,
 }
 
 #[allow(clippy::enum_variant_names)]

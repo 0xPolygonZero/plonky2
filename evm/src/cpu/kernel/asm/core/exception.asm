@@ -155,8 +155,8 @@ min_stack_len_for_opcode:
     BYTES 2  // 0x05, SDIV
     BYTES 2  // 0x06, MOD
     BYTES 2  // 0x07, SMOD
-    BYTES 2  // 0x08, ADDMOD
-    BYTES 2  // 0x09, MULMOD
+    BYTES 3  // 0x08, ADDMOD
+    BYTES 3  // 0x09, MULMOD
     BYTES 2  // 0x0a, EXP
     BYTES 2  // 0x0b, SIGNEXTEND
     %rep 4  // 0x0c-0x0f, invalid
@@ -222,7 +222,7 @@ min_stack_len_for_opcode:
     BYTES 1  // 0x54, SLOAD
     BYTES 2  // 0x55, SSTORE
     BYTES 1  // 0x56, JUMP
-    BYTES 1  // 0x57, JUMPI
+    BYTES 2  // 0x57, JUMPI
     BYTES 0  // 0x58, PC
     BYTES 0  // 0x59, MSIZE
     BYTES 0  // 0x5a, GAS

@@ -502,7 +502,7 @@ pub(crate) fn generate_syscall<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
-        panic!();
+        return Err(ProgramError::GasLimitError);
     }
 
     if state.registers.stack_len < stack_values_read {
@@ -544,12 +544,17 @@ pub(crate) fn generate_syscall<F: Field>(
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
         + (U256::from(state.registers.gas_used) << 192);
-    let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
+    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
+    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
+    // make `syscall_info`, which should contain the old values.
     state.registers.program_counter = new_program_counter;
-    log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
     state.registers.is_kernel = true;
     state.registers.gas_used = 0;
+
+    let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
+
+    log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
@@ -680,7 +685,7 @@ pub(crate) fn generate_exception<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
-        panic!();
+        return Err(ProgramError::GasLimitError);
     }
 
     row.stack_len_bounds_aux = (row.stack_len + F::ONE).inverse();
@@ -719,12 +724,17 @@ pub(crate) fn generate_exception<F: Field>(
 
     let exc_info =
         U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
-    let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
 
+    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
+    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
+    // make `exc_info`, which should contain the old values.
     state.registers.program_counter = new_program_counter;
-    log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
     state.registers.is_kernel = true;
     state.registers.gas_used = 0;
+
+    let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
+
+    log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
