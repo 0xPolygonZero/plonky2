@@ -325,3 +325,19 @@ global sys_basefee:
     %jumpi(fault_exception)
     // stack: sum
 %endmacro
+
+%macro call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
+
+%macro increment_call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
+
+%macro decrement_call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+    %decrement
+    %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
