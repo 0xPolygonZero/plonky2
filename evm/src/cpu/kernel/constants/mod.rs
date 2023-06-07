@@ -55,6 +55,7 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
 
     c.insert(MAX_NONCE.0.into(), U256::from(MAX_NONCE.1));
+    c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
 
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
@@ -268,3 +269,4 @@ const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
 ];
 
 const MAX_NONCE: (&str, u64) = ("MAX_NONCE", 0xffffffffffffffff);
+const CALL_STACK_LIMIT: (&str, u64) = ("CALL_STACK_LIMIT", 1024);
