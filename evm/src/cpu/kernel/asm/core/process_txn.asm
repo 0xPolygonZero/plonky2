@@ -80,10 +80,11 @@ global buy_gas:
 
 global increment_sender_nonce:
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    %increment_nonce
+    DUP1 %increment_nonce
 
 global warm_origin:
-    %mload_txn_field(@TXN_FIELD_ORIGIN) %insert_accessed_addresses_no_return
+    // stack: origin, retdest
+    %insert_accessed_addresses_no_return
 
 global warm_precompiles:
     // Add precompiles to accessed addresses.
