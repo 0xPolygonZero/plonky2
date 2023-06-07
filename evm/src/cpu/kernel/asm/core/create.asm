@@ -189,12 +189,10 @@ after_constructor_failed:
     %jump(after_constructor_contd)
 
 create_insufficient_balance:
-    %revert_checkpoint
     %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 nonce_overflow:
-    %revert_checkpoint
     %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
