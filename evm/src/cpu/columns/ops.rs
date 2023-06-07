@@ -47,12 +47,13 @@ pub struct OpsColumnsView<T: Copy> {
     // TODO: combine GET_CONTEXT and SET_CONTEXT into one flag
     pub get_context: T,
     pub set_context: T,
-    pub exit_kernel: T,
+    pub exit_kernel: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
     pub mload_general: T,
     pub mstore_general: T,
 
-    pub syscall: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub syscall: T,   // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub exception: T, // Note: This column must be 0 when is_cpu_cycle = 0.
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

@@ -45,6 +45,7 @@ const NATIVE_INSTRUCTIONS: [usize; 31] = [
     COL_MAP.op.mload_general,
     COL_MAP.op.mstore_general,
     // not SYSCALL (performs a jump)
+    // not exceptions (also jump)
 ];
 
 pub(crate) fn get_halt_pcs<F: Field>() -> (F, F) {
