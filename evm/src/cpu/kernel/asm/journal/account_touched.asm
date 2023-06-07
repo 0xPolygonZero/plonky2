@@ -9,4 +9,11 @@ global revert_account_touched:
     POP
     %journal_load_1
     // stack: address, retdest
+    DUP1 %eq_const(@RIP160) %jumpi(ripemd)
     %jump(remove_touched_addresses)
+
+// The address 0x3 shouldn't become untouched.
+// See https://github.com/ethereum/EIPs/issues/716.
+ripemd:
+    // stack: address, retdest
+    POP JUMP
