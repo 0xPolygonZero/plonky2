@@ -120,9 +120,10 @@ global sys_revert:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
     %add_or_fault
-    DUP1 %ensure_reasonable_offset
     // stack: offset+size, kexit_info, offset, size
     DUP4 ISZERO %jumpi(revert_zero_size)
+    // stack: offset+size, kexit_info, offset, size
+    DUP1 %ensure_reasonable_offset
     %update_mem_bytes
     %jump(revert_after_gas)
 revert_zero_size:
