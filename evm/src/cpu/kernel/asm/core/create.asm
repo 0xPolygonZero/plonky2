@@ -189,15 +189,18 @@ after_constructor_failed:
     %jump(after_constructor_contd)
 
 create_insufficient_balance:
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 nonce_overflow:
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     %stack (sender, address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
 create_collision:
     %revert_checkpoint
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     %stack (new_ctx, address, kexit_info) -> (kexit_info, 0)
     EXIT_KERNEL
 
