@@ -16,7 +16,7 @@ use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
-use crate::witness::util::{kernel_peek, stack_peek};
+use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
 /// Example: `PROVER_INPUT(ff::bn254_base::inverse)` is represented as `ProverInputFn([ff, bn254_base, inverse])`.
@@ -97,7 +97,7 @@ impl<F: Field> GenerationState<F> {
             .as_usize();
 
         let f: [U256; 12] = match field {
-            Bn254Base => std::array::from_fn(|i| kernel_peek(self, BnPairing, ptr + i)),
+            Bn254Base => std::array::from_fn(|i| current_context_peek(self, BnPairing, ptr + i)),
             _ => todo!(),
         };
         field.field_extension_inverse(n, f)

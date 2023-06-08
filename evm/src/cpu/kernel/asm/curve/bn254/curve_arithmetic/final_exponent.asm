@@ -59,9 +59,9 @@ final_exp:
     // stack:             0, val, retdest  {0: sqr}
     %stack () -> (1, 1, 1)
     // stack:    1, 1, 1, 0, val, retdest
-    %mstore_kernel_bn254_pairing(12)  
-    %mstore_kernel_bn254_pairing(24)  
-    %mstore_kernel_bn254_pairing(36)
+    %mstore_bn254_pairing(12)
+    %mstore_bn254_pairing(24)
+    %mstore_bn254_pairing(36)
     // stack:             0, val, retdest  {0: sqr, 12: y0, 24: y2, 36: y4}
     %stack () -> (64, 62, 65)
     // stack: 64, 62, 65, 0, val, retdest  {0: sqr, 12: y0, 24: y2, 36: y4}
