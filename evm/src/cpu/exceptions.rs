@@ -81,15 +81,16 @@ pub fn eval_packed<P: PackedField>(
     // Maintain current context
     yield_constr.constraint_transition(filter * (nv.context - lv.context));
     // Reset gas counter to zero.
-    yield_constr.constraint_transition(filter * nv.gas);
+    yield_constr.constraint_transition(filter * nv.gas[0]);
+    yield_constr.constraint_transition(filter * nv.gas[1]);
 
     // This memory channel is constrained in `stack.rs`.
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     // Push to stack: current PC (limb 0), gas counter (limbs 6 and 7).
     yield_constr.constraint(filter * (output[0] - lv.program_counter));
-    yield_constr.constraint(filter * (output[6] - lv.gas));
-    // TODO: Range check `output[6]`.
-    yield_constr.constraint(filter * output[7]); // High limb of gas is zero.
+    yield_constr.constraint(filter * (output[6] - lv.gas[0]));
+    yield_constr.constraint(filter * (output[7] - lv.gas[1]));
+    // TODO: Range check `output[6]` and `output[7].
 
     // Zero the rest of that register
     for &limb in &output[1..6] {
@@ -209,7 +210,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
     // Reset gas counter to zero.
     {
-        let constr = builder.mul_extension(filter, nv.gas);
+        let constr = builder.mul_extension(filter, nv.gas[0]);
+        yield_constr.constraint_transition(builder, constr);
+        let constr = builder.mul_extension(filter, nv.gas[1]);
         yield_constr.constraint_transition(builder, constr);
     }
 
@@ -222,16 +225,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
     {
-        let diff = builder.sub_extension(output[6], lv.gas);
+        let diff = builder.sub_extension(output[6], lv.gas[0]);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    // TODO: Range check `output[6]`.
     {
-        // High limb of gas is zero.
-        let constr = builder.mul_extension(filter, output[7]);
+        let diff = builder.sub_extension(output[7], lv.gas[1]);
+        let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
+    // TODO: Range check `output[6]` and `output[7].
 
     // Zero the rest of that register
     for &limb in &output[1..6] {

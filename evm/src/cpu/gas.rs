@@ -85,16 +85,20 @@ fn eval_packed_accumulate<P: PackedField>(
         })
         .sum();
 
-    let constr = nv.gas - (lv.gas + gas_used);
+    let constr = nv.gas[0] - (lv.gas[0] + gas_used);
     yield_constr.constraint_transition(filter * constr);
 
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
             let cost = P::Scalar::from_canonical_u32(cost);
             yield_constr
-                .constraint_transition(lv.is_cpu_cycle * op_flag * (nv.gas - lv.gas - cost));
+                .constraint_transition(lv.is_cpu_cycle * op_flag * (nv.gas[0] - lv.gas[0] - cost));
         }
     }
+
+    // High limb of gas counter shouldn't be affected.
+    let constr = nv.gas[1] - lv.gas[1];
+    yield_constr.constraint_transition(filter * constr);
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -105,7 +109,8 @@ fn eval_packed_init<P: PackedField>(
     // `nv` is the first row that executes an instruction.
     let filter = (lv.is_cpu_cycle - P::ONES) * nv.is_cpu_cycle;
     // Set initial gas to zero.
-    yield_constr.constraint_transition(filter * nv.gas);
+    yield_constr.constraint_transition(filter * nv.gas[0]);
+    yield_constr.constraint_transition(filter * nv.gas[1]);
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -150,8 +155,8 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     );
 
     let constr = {
-        let t = builder.add_extension(lv.gas, gas_used);
-        builder.sub_extension(nv.gas, t)
+        let t = builder.add_extension(lv.gas[0], gas_used);
+        builder.sub_extension(nv.gas[0], t)
     };
     let filtered_constr = builder.mul_extension(filter, constr);
     yield_constr.constraint_transition(builder, filtered_constr);
@@ -159,7 +164,7 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
             let filter = builder.mul_extension(lv.is_cpu_cycle, op_flag);
-            let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
+            let nv_lv_diff = builder.sub_extension(nv.gas[0], lv.gas[0]);
             let constr = builder.arithmetic_extension(
                 F::ONE,
                 -F::from_canonical_u32(cost),
@@ -170,6 +175,13 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
             yield_constr.constraint_transition(builder, constr);
         }
     }
+
+    // High limb of gas counter shouldn't be affected.
+    let constr = {
+        let t = builder.sub_extension(nv.gas[1], lv.gas[1]);
+        builder.mul_extension(filter, t)
+    };
+    yield_constr.constraint_transition(builder, constr)
 }
 
 fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
@@ -181,7 +193,9 @@ fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
     // `nv` is the first row that executes an instruction.
     let filter = builder.mul_sub_extension(lv.is_cpu_cycle, nv.is_cpu_cycle, nv.is_cpu_cycle);
     // Set initial gas to zero.
-    let constr = builder.mul_extension(filter, nv.gas);
+    let constr = builder.mul_extension(filter, nv.gas[0]);
+    yield_constr.constraint_transition(builder, constr);
+    let constr = builder.mul_extension(filter, nv.gas[1]);
     yield_constr.constraint_transition(builder, constr);
 }
 
