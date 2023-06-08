@@ -70,7 +70,11 @@ global create_common:
     // stack: address, value, code_offset, code_len, kexit_info
     DUP1 %insert_accessed_addresses_no_return
 
-    // TODO: Check call stack depth.
+    // Check call depth
+    %call_depth
+    %gt_const(@CALL_STACK_LIMIT)
+    %jumpi(create_too_deep)
+
     // stack: address, value, code_offset, code_len, kexit_info
     DUP2 %selfbalance LT %jumpi(create_insufficient_balance)
     // Increment the sender's nonce.
@@ -218,6 +222,12 @@ create_oog:
     %revert_checkpoint
     %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     %stack (code_size_cost, leftover_gas, success, address, kexit_info) -> (kexit_info, 0)
+    EXIT_KERNEL
+
+create_too_deep:
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
+    %stack (address, value, code_offset, code_len, kexit_info) -> (kexit_info, 0)
+    // stack: kexit_info, 0
     EXIT_KERNEL
 
 %macro set_codehash
