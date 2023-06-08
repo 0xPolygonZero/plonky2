@@ -160,6 +160,7 @@ global precompile_expmod:
     DUP1
     SET_CONTEXT
     %checkpoint // Checkpoint
+    %increment_call_depth
     // stack: (empty)
     PUSH 0x100000000 // = 2^32 (is_kernel = true)
     // stack: kexit_info
