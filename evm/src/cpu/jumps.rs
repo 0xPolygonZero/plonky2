@@ -25,19 +25,6 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     yield_constr.constraint_transition(filter * (input[6] - nv.gas));
     // High limb of gas must be 0 for convenient detection of overflow.
     yield_constr.constraint(filter * input[7]);
-
-    // Check that the syscall did not cause a stack overflow.
-    // A standard EVM instruction increases the length of the user's stack by at most one. We assume
-    // that the stack length was valid when we entered the syscall (i.e. it was <= 1024). If the
-    // syscall caused the stack to overflow, then the stack length is 1025 upon exit into userspace;
-    // that corresponds to a stack length of 1026 before `EXIT_KERNEL` is executed.
-    // This constraint ensures that the current stack length is not 1026 if we're returning to user
-    // mode. If we're remaining in kernel mode upon return from this syscall, the RHS will be 0, so
-    // the constraint is trivially satisfied by setting `stack_len_check_aux = 0`.
-    let offset_stack_len = lv.stack_len - P::Scalar::from_canonical_u32(1026);
-    let lhs = offset_stack_len * lv.general.exit_kernel().stack_len_check_aux;
-    let rhs = P::ONES - input[1];
-    yield_constr.constraint(filter * (lhs - rhs));
 }
 
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
@@ -69,22 +56,6 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     {
         // High limb of gas must be 0 for convenient detection of overflow.
         let constr = builder.mul_extension(filter, input[7]);
-        yield_constr.constraint(builder, constr);
-    }
-
-    // Check that the syscall did not cause a stack overflow.
-    // See detailed comments in the packed implementation.
-    {
-        let stack_len_check_aux = lv.general.exit_kernel().stack_len_check_aux;
-        let lhs = builder.arithmetic_extension(
-            F::ONE,
-            -F::from_canonical_u32(1026),
-            lv.stack_len,
-            stack_len_check_aux,
-            stack_len_check_aux,
-        );
-        let constr = builder.add_extension(lhs, input[1]);
-        let constr = builder.mul_sub_extension(filter, constr, filter);
         yield_constr.constraint(builder, constr);
     }
 }
