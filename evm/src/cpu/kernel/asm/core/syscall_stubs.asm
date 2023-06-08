@@ -9,11 +9,12 @@ global sys_blockhash:
     %stack (kexit_info, block_number) -> (kexit_info, 0)
     EXIT_KERNEL
 
-// This is a temporary version that returns 0.
+// This is a temporary version that returns the block difficulty (i.e. the old version of this opcode).
 // TODO: Fix this.
 // TODO: What semantics will this have for Edge?
 global sys_prevrandao:
     // stack: kexit_info
     %charge_gas_const(@GAS_BASE)
-    %stack (kexit_info) -> (kexit_info, 0)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_DIFFICULTY)
+    %stack (difficulty, kexit_info) -> (kexit_info, difficulty)
     EXIT_KERNEL
