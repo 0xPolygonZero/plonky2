@@ -110,6 +110,9 @@ global sys_calldataload:
     // stack: kexit_info, i
     %charge_gas_const(@GAS_VERYLOW)
     // stack: kexit_info, i
+    %mload_context_metadata(@CTX_METADATA_CALLDATA_SIZE)
+    %stack (calldata_size, kexit_info, i) -> (calldata_size, i, kexit_info, i)
+    LT %jumpi(calldataload_large_offset)
     %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
     GET_CONTEXT
     // stack: ADDR: 3, 32, sys_calldataload_after_mload_packing, kexit_info
@@ -119,6 +122,9 @@ sys_calldataload_after_mload_packing:
     SWAP1
     EXIT_KERNEL
     PANIC
+calldataload_large_offset:
+    %stack (kexit_info, i) -> (kexit_info, 0)
+    EXIT_KERNEL
 
 // Macro for {CALLDATA,CODE,RETURNDATA}COPY (W_copy in Yellow Paper).
 %macro wcopy(segment, context_metadata_size)
