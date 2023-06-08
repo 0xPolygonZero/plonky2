@@ -40,12 +40,13 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
 }
 
 /// Peek at kernel at specified segment and address
-pub(crate) fn kernel_peek<F: Field>(
+pub(crate) fn current_context_peek<F: Field>(
     state: &GenerationState<F>,
     segment: Segment,
     virt: usize,
 ) -> U256 {
-    state.memory.get(MemoryAddress::new(0, segment, virt))
+    let context = state.registers.context;
+    state.memory.get(MemoryAddress::new(context, segment, virt))
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(

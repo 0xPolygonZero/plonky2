@@ -194,7 +194,7 @@ after_add:
     // stack:      py^2 , 9, px, py, qx, qx_,  qy, qy_
     SUBFP254
     // stack:      py^2 - 9, px, py, qx, qx_,  qy, qy_
-    %mstore_kernel_bn254_pairing(12)
+    %mstore_bn254_pairing(12)
     // stack:                px, py, qx, qx_,  qy, qy_
     DUP1  
     MULFP254
@@ -210,7 +210,7 @@ after_add:
     DUP3  
     MULFP254
     // stack:   (-3*px^2)qx, py, -3px^2, qx_,  qy, qy_ 
-    %mstore_kernel_bn254_pairing(14)
+    %mstore_bn254_pairing(14)
     // stack:                py, -3px^2, qx_,  qy, qy_ 
     PUSH 2  
     MULFP254
@@ -220,15 +220,15 @@ after_add:
     DUP4  
     MULFP254
     // stack:           (2py)qy, -3px^2, qx_, 2py, qy_ 
-    %mstore_kernel_bn254_pairing(20)
+    %mstore_bn254_pairing(20)
     // stack:                    -3px^2, qx_, 2py, qy_ 
     MULFP254
     // stack:                   (-3px^2)*qx_, 2py, qy_ 
-    %mstore_kernel_bn254_pairing(15)
+    %mstore_bn254_pairing(15)
     // stack:                                 2py, qy_ 
     MULFP254
     // stack:                                (2py)*qy_ 
-    %mstore_kernel_bn254_pairing(21)
+    %mstore_bn254_pairing(21)
 %endmacro
 
 /// def cord(p1x, p1y, p2x, p2y, qx, qy):
@@ -250,7 +250,7 @@ after_add:
     // stack: p1y*p2x , p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     SUBFP254
     // stack: p1y*p2x - p2y*p1x, p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
-    %mstore_kernel_bn254_pairing(12)
+    %mstore_bn254_pairing(12)
     // stack:                    p1x , p1y, p2x , p2y, qx, qx_, qy, qy_
     SWAP3
     // stack:                    p2y , p1y, p2x , p1x, qx, qx_, qy, qy_
@@ -265,29 +265,29 @@ after_add:
     DUP5
     MULFP254
     // stack:         (p1x - p2x)qy, p2y - p1y, qx, qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(20)
+    %mstore_bn254_pairing(20)
     // stack:                        p2y - p1y, qx, qx_, p1x - p2x, qy_
     SWAP1
     // stack:                        qx, p2y - p1y, qx_, p1x - p2x, qy_
     DUP2
     MULFP254
     // stack:             (p2y - p1y)qx, p2y - p1y, qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(14)
+    %mstore_bn254_pairing(14)
     // stack:                            p2y - p1y, qx_, p1x - p2x, qy_
     MULFP254
     // stack:                            (p2y - p1y)qx_, p1x - p2x, qy_
-    %mstore_kernel_bn254_pairing(15)
+    %mstore_bn254_pairing(15)
     // stack:                                            p1x - p2x, qy_
     MULFP254
     // stack:                                           (p1x - p2x)*qy_
-    %mstore_kernel_bn254_pairing(21)
+    %mstore_bn254_pairing(21)
 %endmacro
 
 %macro clear_line
     %stack () -> (0, 0, 0, 0, 0)
-    %mstore_kernel_bn254_pairing(12)
-    %mstore_kernel_bn254_pairing(14)
-    %mstore_kernel_bn254_pairing(15)
-    %mstore_kernel_bn254_pairing(20)
-    %mstore_kernel_bn254_pairing(21)
+    %mstore_bn254_pairing(12)
+    %mstore_bn254_pairing(14)
+    %mstore_bn254_pairing(15)
+    %mstore_bn254_pairing(20)
+    %mstore_bn254_pairing(21)
 %endmacro
