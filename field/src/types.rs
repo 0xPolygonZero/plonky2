@@ -341,6 +341,26 @@ pub trait Field:
     /// Returns `n % Self::characteristic()`.
     fn from_noncanonical_u128(n: u128) -> Self;
 
+    /// Returns `x % Self::CHARACTERISTIC`.
+    ///
+    /// Implemented by default via `from_noncanonical_u128`
+    /// Override, if you have a faster implementation for your field.
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self::from_noncanonical_u128(n as u128)
+    }
+
+    /// Returns `n` as an element of this field.
+    ///
+    /// Implemented by default via `from_noncanonical_u128` and case analysis.
+    /// Override, if you have a faster implementation for your field.
+    fn from_noncanonical_i64(n: i64) -> Self {
+        if n < 0 {
+            -Self::from_noncanonical_u128((n as i128).unsigned_abs())
+        } else {
+            Self::from_noncanonical_u128(n as u128)
+        }
+    }
+
     /// Returns `n % Self::characteristic()`. May be cheaper than from_noncanonical_u128 when we know
     /// that `n < 2 ** 96`.
     #[inline]
@@ -500,14 +520,6 @@ pub trait PrimeField: Field {
 /// A finite field of order less than 2^64.
 pub trait Field64: Field {
     const ORDER: u64;
-
-    /// Returns `x % Self::CHARACTERISTIC`.
-    // TODO: Move to `Field`.
-    fn from_noncanonical_u64(n: u64) -> Self;
-
-    /// Returns `n` as an element of this field.
-    // TODO: Move to `Field`.
-    fn from_noncanonical_i64(n: i64) -> Self;
 
     /// Returns `n` as an element of this field. Assumes that `0 <= n < Self::ORDER`.
     // TODO: Move to `Field`.
