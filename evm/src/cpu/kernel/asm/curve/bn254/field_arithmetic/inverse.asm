@@ -44,7 +44,7 @@ check_inv_fp254_12:
     // stack:        retdest
     PUSH 0
     // stack:     0, retdest
-    %mstore_kernel_bn254_pairing(60)
+    %mstore_bn254_pairing(60)
     JUMP
 
 %macro prover_inv_fp254_12

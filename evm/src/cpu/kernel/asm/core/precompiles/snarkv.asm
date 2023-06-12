@@ -73,37 +73,37 @@ loading_loop_contd6:
     // stack: i, y_im, y_re, x_re, x_im, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(5)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack: y_re, x_re, x_im, y, x, i, k, kexit_info
     DUP6
     // stack: i, y_re, x_re, x_im, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(4)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     SWAP1  // the EVM serializes the imaginary part first
     // stack: x_im, x_re, y, x, i, k, kexit_info
     DUP5
     // stack: i, x_im, x_re, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(3)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack: x_re, y, x, i, k, kexit_info
     DUP4
     // stack: i, x_re, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(2)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack: y, x, i, k, kexit_info
     DUP3
     // stack: i, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
     %add_const(1)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack: x, i, k, kexit_info
     DUP2
     // stack: i, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack: i, k, kexit_info
     %increment
     %jump(loading_loop)

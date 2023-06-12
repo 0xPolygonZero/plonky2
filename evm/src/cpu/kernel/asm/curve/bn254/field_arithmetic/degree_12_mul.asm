@@ -160,7 +160,7 @@ global mul_fp254_12_sparse:
     // stack:                           f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     DUP13 
     // stack:                      inB, f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
-    %mload_kernel_bn254_pairing
+    %mload_bn254_pairing
     // stack:                      g0 , f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
     %scale_re_fp254_6
     // stack:                      g0 * f, f', inB, f, inB, f', out, f, inB, f', inA, inB, out
@@ -189,7 +189,7 @@ global mul_fp254_12_sparse:
     // stack: out, G1 * sh(f) + G2 * sh2(f') + g0 * f, inB, f', out, f, inB, f', inA, inB, out
     %store_fp254_6
     // stack:                                          inB, f', out, f, inB, f', inA, inB, out
-    %mload_kernel_bn254_pairing
+    %mload_bn254_pairing
     // stack:                                          g0 , f', out, f, inB, f', inA, inB, out
     %scale_re_fp254_6
     // stack:                                          g0 * f', out, f, inB, f', inA, inB, out
