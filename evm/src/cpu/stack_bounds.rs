@@ -1,8 +1,7 @@
 //! Checks for stack overflow.
 //!
 //! The constraints defined herein validate that stack overflow did not occur. For example, if `dup`
-//! is set but the copy would overflow would underflow, these constraints would make the proof
-//! unverifiable.
+//! is set but the copy would overflow, these constraints would make the proof unverifiable.
 //!
 //! Faults are handled under a separate operation flag, `exception` , which traps to the kernel. The
 //! kernel then handles the exception. However, before it may do so, it must verify in software that
