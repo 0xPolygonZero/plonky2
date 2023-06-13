@@ -22,7 +22,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 36] = [
+const OPCODES: [(u8, usize, bool, usize); 37] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     (0x01, 0, false, COL_MAP.op.add),
     (0x02, 0, false, COL_MAP.op.mul),
@@ -52,6 +52,7 @@ const OPCODES: [(u8, usize, bool, usize); 36] = [
     (0x57, 0, false, COL_MAP.op.jumpi),
     (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
+    (0x5f, 0, false, COL_MAP.op.push0),
     (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
     (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
     (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f

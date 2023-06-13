@@ -113,7 +113,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x59, _) => Ok(Operation::Syscall(opcode, 0, true)), // MSIZE
         (0x5a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GAS
         (0x5b, _) => Ok(Operation::Jumpdest),
-        (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
+        (0x5f..=0x7f, _) => Ok(Operation::Push(opcode - 0x5f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
         (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
         (0xa0, _) => Ok(Operation::Syscall(opcode, 2, false)), // LOG0
@@ -152,7 +152,8 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(_) => &mut flags.push,
+        Operation::Push(0) => &mut flags.push0,
+        Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero => &mut flags.iszero,
@@ -231,7 +232,7 @@ fn perform_op<F: Field>(
 
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
-        Operation::Push(n) => n as usize + 2,
+        Operation::Push(n) => n as usize + 1,
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
