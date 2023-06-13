@@ -182,7 +182,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let in_halt_loop = pc == halt_pc0 || pc == halt_pc1;
+        let in_halt_loop = state.registers.is_kernel && (pc == halt_pc0 || pc == halt_pc1);
         if in_halt_loop && !already_in_halt_loop {
             log::info!("CPU halted after {} cycles", state.traces.clock());
         }
