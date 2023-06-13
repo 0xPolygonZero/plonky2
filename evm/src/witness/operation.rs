@@ -161,13 +161,11 @@ pub(crate) fn generate_prover_input<F: Field>(
 
 pub(crate) fn generate_pop<F: Field>(
     state: &mut GenerationState<F>,
-    row: CpuColumnsView<F>,
+    mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if state.registers.stack_len == 0 {
-        return Err(ProgramError::StackUnderflow);
-    }
+    let [(_, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
 
-    state.registers.stack_len -= 1;
+    state.traces.push_memory(log_in);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -605,19 +603,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     let is_kernel_mode = is_kernel_mode_val != 0;
     let gas_used_val = kexit_info.0[3];
     if TryInto::<u32>::try_into(gas_used_val).is_err() {
-        panic!();
-    }
-
-    if is_kernel_mode {
-        row.general.exit_kernel_mut().stack_len_check_aux = F::ZERO;
-    } else {
-        let diff =
-            F::from_canonical_usize(state.registers.stack_len + 1) - F::from_canonical_u32(1026);
-        if let Some(inv) = diff.try_inverse() {
-            row.general.exit_kernel_mut().stack_len_check_aux = inv;
-        } else {
-            panic!("stack overflow; should have been caught before entering the syscall")
-        }
+        return Err(ProgramError::GasLimitError);
     }
 
     state.registers.program_counter = program_counter;
