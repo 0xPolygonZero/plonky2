@@ -37,7 +37,7 @@ pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_range
     0x3d..=0x3d, // RETURNDATASIZE
     0x41..=0x48, // COINBASE, TIMESTAMP, NUMBER, DIFFICULTY, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE
     0x58..=0x5a, // PC, MSIZE, GAS
-    0x60..=0x8f, // PUSH*, DUP*
+    0x5f..=0x8f, // PUSH*, DUP*
 ]);
 
 pub const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges([
@@ -45,7 +45,7 @@ pub const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges([
     0x1e..=0x1f,
     0x21..=0x2f,
     0x49..=0x4f,
-    0x5c..=0x5f,
+    0x5c..=0x5e,
     0xa5..=0xef,
     0xf6..=0xf9,
     0xfb..=0xfc,

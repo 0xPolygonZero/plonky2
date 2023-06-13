@@ -13,6 +13,7 @@ pub(crate) mod membus;
 mod memio;
 mod modfp254;
 mod pc;
+mod push0;
 mod shift;
 pub(crate) mod simple_logic;
 mod stack;

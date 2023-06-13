@@ -72,7 +72,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     }),
     keccak_general: None, // TODO
     prover_input: None,   // TODO
-    pop: None,            // TODO
+    pop: Some(StackBehavior {
+        num_pops: 1,
+        pushes: false,
+        disable_other_channels: true,
+    }),
     jump: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
@@ -91,6 +95,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     jumpdest: Some(StackBehavior {
         num_pops: 0,
         pushes: false,
+        disable_other_channels: true,
+    }),
+    push0: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
         disable_other_channels: true,
     }),
     push: None, // TODO

@@ -114,7 +114,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x59, _) => Ok(Operation::Syscall(opcode, 0, true)), // MSIZE
         (0x5a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GAS
         (0x5b, _) => Ok(Operation::Jumpdest),
-        (0x60..=0x7f, _) => Ok(Operation::Push(opcode & 0x1f)),
+        (0x5f..=0x7f, _) => Ok(Operation::Push(opcode - 0x5f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
         (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
         (0xa0, _) => Ok(Operation::Syscall(opcode, 2, false)), // LOG0
@@ -153,7 +153,8 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(_) => &mut flags.push,
+        Operation::Push(0) => &mut flags.push0,
+        Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero => &mut flags.iszero,
@@ -232,7 +233,7 @@ fn perform_op<F: Field>(
 
     state.registers.program_counter += match op {
         Operation::Syscall(_, _, _) | Operation::ExitKernel => 0,
-        Operation::Push(n) => n as usize + 2,
+        Operation::Push(n) => n as usize + 1,
         Operation::Jump | Operation::Jumpi => 0,
         _ => 1,
     };
@@ -285,24 +286,18 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     fill_op_flag(op, &mut row);
 
-    let check_underflow: F = DECREMENTING_FLAGS.map(|i| row[i]).into_iter().sum();
-    let check_overflow: F = INCREMENTING_FLAGS.map(|i| row[i]).into_iter().sum();
-    let no_check = F::ONE - (check_underflow + check_overflow);
-
-    let disallowed_len = check_overflow * F::from_canonical_usize(MAX_USER_STACK_SIZE) - no_check;
-    let diff = row.stack_len - disallowed_len;
-
-    let user_mode = F::ONE - row.is_kernel_mode;
-    let rhs = user_mode + check_underflow;
-    // dbg!(user_mode, check_underflow);
-
-    row.stack_len_bounds_aux = match diff.try_inverse() {
-        Some(diff_inv) => diff_inv * rhs, // `rhs` may be a value other than 1 or 0
-        None => {
-            // assert_eq!(rhs, F::ZERO);
-            F::ZERO
+    if state.registers.is_kernel {
+        row.stack_len_bounds_aux = F::ZERO;
+    } else {
+        let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+        let diff = row.stack_len - disallowed_len;
+        if let Some(inv) = diff.try_inverse() {
+            row.stack_len_bounds_aux = inv;
+        } else {
+            // This is a stack overflow that should have been caught earlier.
+            return Err(ProgramError::InterpreterError);
         }
-    };
+    }
 
     perform_op(state, op, row)
 }

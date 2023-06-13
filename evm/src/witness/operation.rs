@@ -161,13 +161,11 @@ pub(crate) fn generate_prover_input<F: Field>(
 
 pub(crate) fn generate_pop<F: Field>(
     state: &mut GenerationState<F>,
-    row: CpuColumnsView<F>,
+    mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if state.registers.stack_len == 0 {
-        return Err(ProgramError::StackUnderflow);
-    }
+    let [(_, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
 
-    state.registers.stack_len -= 1;
+    state.traces.push_memory(log_in);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -337,7 +335,7 @@ pub(crate) fn generate_push<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let code_context = state.registers.code_context();
-    let num_bytes = n as usize + 1;
+    let num_bytes = n as usize;
     let initial_offset = state.registers.program_counter + 1;
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
@@ -512,7 +510,7 @@ pub(crate) fn generate_syscall<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     // if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
-    //     panic!();
+    //     return Err(ProgramError::GasLimitError);
     // }
 
     if state.registers.stack_len < stack_values_read {
@@ -554,12 +552,17 @@ pub(crate) fn generate_syscall<F: Field>(
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
         + (U256::from(state.registers.gas_used) << 192);
+
+    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
+    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
+    // make `syscall_info`, which should contain the old values.
+    state.registers.program_counter = new_program_counter;
     state.registers.is_kernel = true;
+    state.registers.gas_used = 0;
+
     let log_out = stack_push_log_and_fill(state, &mut row, syscall_info)?;
 
-    state.registers.program_counter = new_program_counter;
     log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
-    state.registers.gas_used = 0;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
@@ -600,20 +603,8 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     let is_kernel_mode = is_kernel_mode_val != 0;
     let gas_used_val = kexit_info.0[3];
     // if TryInto::<u32>::try_into(gas_used_val).is_err() {
-    //     panic!();
+    //     return Err(ProgramError::GasLimitError);
     // }
-
-    if is_kernel_mode {
-        row.general.exit_kernel_mut().stack_len_check_aux = F::ZERO;
-    } else {
-        let diff =
-            F::from_canonical_usize(state.registers.stack_len + 1) - F::from_canonical_u32(1026);
-        if let Some(inv) = diff.try_inverse() {
-            row.general.exit_kernel_mut().stack_len_check_aux = inv;
-        } else {
-            panic!("stack overflow; should have been caught before entering the syscall")
-        }
-    }
 
     state.registers.program_counter = program_counter;
     state.registers.is_kernel = is_kernel_mode;
@@ -690,7 +681,7 @@ pub(crate) fn generate_exception<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
-        panic!();
+        return Err(ProgramError::GasLimitError);
     }
 
     row.stack_len_bounds_aux = (row.stack_len + F::ONE).inverse();
@@ -729,12 +720,17 @@ pub(crate) fn generate_exception<F: Field>(
 
     let exc_info =
         U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
+
+    // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
+    // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
+    // make `exc_info`, which should contain the old values.
+    state.registers.program_counter = new_program_counter;
     state.registers.is_kernel = true;
+    state.registers.gas_used = 0;
+
     let log_out = stack_push_log_and_fill(state, &mut row, exc_info)?;
 
-    state.registers.program_counter = new_program_counter;
     log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
-    state.registers.gas_used = 0;
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);

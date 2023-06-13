@@ -8,7 +8,6 @@ use std::mem::{size_of, transmute};
 pub(crate) union CpuGeneralColumnsView<T: Copy> {
     arithmetic: CpuArithmeticView<T>,
     exception: CpuExceptionView<T>,
-    exit_kernel: CpuExitKernelView<T>,
     logic: CpuLogicView<T>,
     jumps: CpuJumpsView<T>,
     shift: CpuShiftView<T>,
@@ -33,16 +32,6 @@ impl<T: Copy> CpuGeneralColumnsView<T> {
     // SAFETY: Each view is a valid interpretation of the underlying array.
     pub(crate) fn exception_mut(&mut self) -> &mut CpuExceptionView<T> {
         unsafe { &mut self.exception }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exit_kernel(&self) -> &CpuExitKernelView<T> {
-        unsafe { &self.exit_kernel }
-    }
-
-    // SAFETY: Each view is a valid interpretation of the underlying array.
-    pub(crate) fn exit_kernel_mut(&mut self) -> &mut CpuExitKernelView<T> {
-        unsafe { &mut self.exit_kernel }
     }
 
     // SAFETY: Each view is a valid interpretation of the underlying array.
@@ -115,11 +104,6 @@ pub(crate) struct CpuArithmeticView<T: Copy> {
 pub(crate) struct CpuExceptionView<T: Copy> {
     // Exception code as little-endian bits.
     pub(crate) exc_code_bits: [T; 3],
-}
-
-#[derive(Copy, Clone)]
-pub(crate) struct CpuExitKernelView<T: Copy> {
-    pub(crate) stack_len_check_aux: T,
 }
 
 #[derive(Copy, Clone)]
