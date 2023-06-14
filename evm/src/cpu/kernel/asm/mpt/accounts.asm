@@ -19,35 +19,3 @@
     %mload_trie_data
     // stack: storage_root_ptr
 %endmacro
-
-global make_default_account:
-    PANIC // TODO
-
-// Create a copy of the given account. The copy can then safely be mutated as
-// needed, while leaving the original account data untouched.
-//
-// This writes the new account's data to MPT data, but does not register the new
-// account in the state trie.
-//
-// Pre stack: old_account_ptr, retdest
-// Post stack: new_account_ptr
-global make_account_copy:
-    // stack: old_account_ptr, retdest
-    %get_trie_data_size // pointer to new account we're about to create
-    // stack: new_account_ptr, old_account_ptr, retdest
-
-    DUP2                %mload_trie_data %append_to_trie_data
-    DUP2  %add_const(1) %mload_trie_data %append_to_trie_data
-    DUP2  %add_const(2) %mload_trie_data %append_to_trie_data
-    SWAP1 %add_const(3) %mload_trie_data %append_to_trie_data
-
-    // stack: new_account_ptr, retdest
-    SWAP1
-    JUMP
-
-// Convenience macro to call make_account_copy and return where we left off.
-%macro make_account_copy
-    %stack (old_account_ptr) -> (old_account_ptr, %%after)
-    %jump(make_account_copy)
-%%after:
-%endmacro

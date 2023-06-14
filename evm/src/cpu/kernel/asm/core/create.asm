@@ -239,7 +239,6 @@ create_too_deep:
 
 // Pre stack: addr, codehash, redest
 // Post stack: (empty)
-// TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
 global set_codehash:
     // stack: addr, codehash, retdest
     DUP1 %insert_touched_addresses

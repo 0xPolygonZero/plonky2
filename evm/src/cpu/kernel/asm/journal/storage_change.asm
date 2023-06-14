@@ -47,17 +47,11 @@ delete:
 new_storage_root:
     // stack: new_storage_root_ptr, address, retdest
     DUP2 %mpt_read_state_trie
-    // stack: old_account_ptr, new_storage_root_ptr, address, retdest
-    %make_account_copy
-    // stack: new_account_ptr, new_storage_root_ptr, address, retdest
+    // stack: account_ptr, new_storage_root_ptr, address, retdest
 
-    // Update the copied account with our new storage root pointer.
-    %stack (new_account_ptr, new_storage_root_ptr) -> (new_account_ptr, new_storage_root_ptr, new_account_ptr)
+    // Update account with our new storage root pointer.
     %add_const(2)
-    // stack: new_account_storage_root_ptr_ptr, new_storage_root_ptr, new_account_ptr, address, retdest
+    // stack: account_storage_root_ptr_ptr, new_storage_root_ptr, address, retdest
     %mstore_trie_data
-    // stack: new_account_ptr, address, retdest
-
-    DUP2 %addr_to_state_key
-    %stack (state_key, new_account_ptr, address, retdest) -> (state_key, new_account_ptr, retdest)
-    %jump(mpt_insert_state_trie)
+    // stack: address, retdest
+    POP JUMP

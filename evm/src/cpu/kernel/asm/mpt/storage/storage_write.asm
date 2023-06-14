@@ -116,24 +116,12 @@ sstore_after_refund:
 after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
     %current_account_data
-    // stack: old_account_ptr, new_storage_root_ptr, kexit_info
-    %make_account_copy
-    // stack: new_account_ptr, new_storage_root_ptr, kexit_info
+    // stack: account_ptr, new_storage_root_ptr, kexit_info
 
     // Update the copied account with our new storage root pointer.
-    %stack (new_account_ptr, new_storage_root_ptr) -> (new_account_ptr, new_storage_root_ptr, new_account_ptr)
     %add_const(2)
-    // stack: new_account_storage_root_ptr_ptr, new_storage_root_ptr, new_account_ptr, kexit_info
+    // stack: account_storage_root_ptr_ptr, new_storage_root_ptr, kexit_info
     %mstore_trie_data
-    // stack: new_account_ptr, kexit_info
-
-    // Save this updated account to the state trie.
-    %stack (new_account_ptr) -> (new_account_ptr, after_state_insert)
-    %address %addr_to_state_key
-    // stack: state_key, new_account_ptr, after_state_insert, kexit_info
-    %jump(mpt_insert_state_trie)
-
-after_state_insert:
     // stack: kexit_info
     EXIT_KERNEL
 

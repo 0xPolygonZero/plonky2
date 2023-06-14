@@ -28,8 +28,7 @@ pub enum Segment {
     TxnData = 11,
     /// A buffer used to hold raw RLP data.
     RlpRaw = 12,
-    /// Contains all trie data. Tries are stored as immutable, copy-on-write trees, so this is an
-    /// append-only buffer. It is owned by the kernel, so it only lives on context 0.
+    /// Contains all trie data. It is owned by the kernel, so it only lives on context 0.
     TrieData = 13,
     /// A buffer used to store the encodings of a branch node's children.
     TrieEncodedChild = 14,
