@@ -26,7 +26,6 @@ global transfer_eth_failure:
 // Returns 0 on success, or 1 if addr has insufficient balance. Panics if addr isn't found in the trie.
 // Pre stack: addr, amount, retdest
 // Post stack: status (0 indicates success)
-// TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
 global deduct_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
@@ -63,7 +62,6 @@ global deduct_eth_insufficient_balance:
 
 // Pre stack: addr, amount, redest
 // Post stack: (empty)
-// TODO: Should it be copy-on-write (with make_account_copy) instead of mutating the trie?
 global add_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
