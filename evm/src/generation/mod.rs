@@ -164,12 +164,16 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         block_metadata: inputs.block_metadata,
     };
 
-    let tables = timed!(
-        timing,
-        "convert trace data to tables",
-        state.traces.into_tables(all_stark, config, timing)
-    );
-    Ok((tables, public_values, outputs))
+    // let tables = timed!(
+    //     timing,
+    //     "convert trace data to tables",
+    //     state.traces.into_tables(all_stark, config, timing)
+    // );
+    Ok((
+        [vec![], vec![], vec![], vec![], vec![], vec![]],
+        public_values,
+        outputs,
+    ))
 }
 
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(

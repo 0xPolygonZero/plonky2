@@ -5,7 +5,7 @@ use plonky2::field::types::Field;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::cpu::stack_bounds::{DECREMENTING_FLAGS, INCREMENTING_FLAGS, MAX_USER_STACK_SIZE};
+use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
