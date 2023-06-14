@@ -2,6 +2,7 @@
 //
 // Pre stack: node_ptr, num_nibbles, key, value_ptr, retdest
 // Post stack: updated_node_ptr
+// TODO: Optimize this by removing the copy-on-write logic.
 global mpt_insert:
     // stack: node_ptr, num_nibbles, key, value_ptr, retdest
     DUP1 %mload_trie_data
