@@ -14,7 +14,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, exceptions, gas, jumps, membus,
-    memio, modfp254, pc, shift, simple_logic, stack, stack_bounds, syscalls,
+    memio, modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::memory::segments::Segment;
@@ -197,6 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         memio::eval_packed(local_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
         pc::eval_packed(local_values, yield_constr);
+        push0::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, yield_constr);
         stack::eval_packed(local_values, yield_constr);
@@ -224,6 +225,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         memio::eval_ext_circuit(builder, local_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, yield_constr);
+        push0::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
         stack::eval_ext_circuit(builder, local_values, yield_constr);

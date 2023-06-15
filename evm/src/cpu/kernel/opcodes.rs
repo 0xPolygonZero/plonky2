@@ -1,8 +1,7 @@
 /// The opcode of the `PUSH[n]` instruction, given a byte count `n`.
 pub fn get_push_opcode(n: u8) -> u8 {
-    assert!(n > 0);
     assert!(n <= 32);
-    0x60 + n - 1
+    0x5f + n
 }
 
 /// The opcode of a standard instruction (not a `PUSH`).

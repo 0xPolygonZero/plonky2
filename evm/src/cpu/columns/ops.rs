@@ -41,6 +41,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub jumpi: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     pub pc: T,
     pub jumpdest: T,
+    pub push0: T,
     pub push: T,
     pub dup: T,
     pub swap: T,

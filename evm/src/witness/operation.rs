@@ -335,7 +335,7 @@ pub(crate) fn generate_push<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let code_context = state.registers.code_context();
-    let num_bytes = n as usize + 1;
+    let num_bytes = n as usize;
     let initial_offset = state.registers.program_counter + 1;
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
