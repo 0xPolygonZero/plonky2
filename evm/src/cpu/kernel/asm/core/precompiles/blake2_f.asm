@@ -120,7 +120,6 @@ global blake2_f_contd:
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     // stack: parent_ctx, addr_0=0, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', kexit_info
 
-global wtf:
     %rep 8
         // stack: parent_ctx, addr_i, h_i', ..., h_7', kexit_info
         %stack (ctx, addr, h_i) -> (ctx, @SEGMENT_RETURNDATA, addr, h_i, addr, ctx)

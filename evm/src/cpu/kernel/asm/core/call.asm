@@ -237,7 +237,6 @@ after_call_instruction_contd:
     // stack: kexit_info, new_ctx, success, ret_offset, ret_size
 
     // The callee's terminal instruction will have populated RETURNDATA.
-global wtf2:
     %copy_returndata_to_mem
     EXIT_KERNEL
 
