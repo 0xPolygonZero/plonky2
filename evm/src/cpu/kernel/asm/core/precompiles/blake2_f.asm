@@ -109,7 +109,7 @@ global precompile_blake2_f:
     
     DUP1
     // stack: rounds, rounds, h_0..h_7, m_0..m_15, t_0, t_1, flag, blake2_f_contd, kexit_info
-    charge_gas
+    %charge_gas
     
     // stack: rounds, h_0..h_7, m_0..m_15, t_0, t_1, flag, blake2_f_contd, kexit_info
     %jump(blake2_f)
