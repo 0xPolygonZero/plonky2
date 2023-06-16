@@ -191,7 +191,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
-    pub fn observe_element(&mut self, target: Target) {
+    pub(crate) fn observe_element(&mut self, target: Target) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
 

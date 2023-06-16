@@ -37,31 +37,27 @@ use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
-    AggregatedPublicValues, AggregatedPublicValuesTarget, BlockMetadataTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_aggregated_public_values, recursive_stark_circuit,
-    set_aggregated_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
+    set_public_value_targets, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 
 /// An EVM proof, corresponding to either a root, an aggregation, or a block proof,
 /// along with public memory values.
 #[derive(Debug, Clone)]
-pub struct EvmProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-where
-    [(); C::HCO::WIDTH]:,
-{
+pub struct EvmProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub proof: ProofWithPublicInputs<F, C, D>,
-    pub public_values: AggregatedPublicValues,
+    pub public_values: PublicValues,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EvmProofTarget<const D: usize> {
     pub proof: ProofWithPublicInputsTarget<D>,
-    pub public_values: AggregatedPublicValuesTarget,
+    pub public_values: PublicValuesTarget,
 }
 
 impl<const D: usize> EvmProofTarget<D> {
@@ -72,7 +68,7 @@ impl<const D: usize> EvmProofTarget<D> {
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let proof = buffer.read_target_proof_with_public_inputs()?;
-        let public_values = AggregatedPublicValuesTarget::from_buffer(buffer)?;
+        let public_values = PublicValuesTarget::from_buffer(buffer)?;
 
         Ok(Self {
             proof,
@@ -87,7 +83,7 @@ fn add_virtual_evm_proof<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> EvmProofTarget<D> {
     let proof = builder.add_virtual_proof_with_pis(common_data);
-    let public_values = add_virtual_aggregated_public_values(builder);
+    let public_values = add_virtual_public_values(builder);
     EvmProofTarget {
         proof,
         public_values,
@@ -102,11 +98,10 @@ fn set_evm_proof_target<F, C, W, const D: usize>(
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     W: Witness<F>,
-    C::Hasher: AlgebraicHasher<F, C::HCO>,
-    [(); C::HCO::WIDTH]:,
+    C::Hasher: AlgebraicHasher<F>,
 {
     witness.set_proof_with_pis_target(&evm_proof_target.proof, &evm_proof.proof);
-    set_aggregated_public_value_targets(
+    set_public_value_targets(
         witness,
         &evm_proof_target.public_values,
         &evm_proof.public_values,
@@ -140,44 +135,13 @@ where
     }
 }
 
-/// Selects `bm0` or `bm1` based on `b`, i.e., this returns `if b { bm0 } else { bm1 }`.
-fn select_block_metadata<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    b: BoolTarget,
-    bm0: &BlockMetadataTarget,
-    bm1: &BlockMetadataTarget,
-) -> BlockMetadataTarget
-where
-    F: RichField + Extendable<D>,
-{
-    let block_beneficiary: [Target; 5] = core::array::from_fn(|i| {
-        builder.select(b, bm0.block_beneficiary[i], bm1.block_beneficiary[i])
-    });
-    let block_timestamp = builder.select(b, bm0.block_timestamp, bm1.block_timestamp);
-    let block_number = builder.select(b, bm0.block_number, bm1.block_number);
-    let block_difficulty = builder.select(b, bm0.block_difficulty, bm1.block_difficulty);
-    let block_gaslimit = builder.select(b, bm0.block_gaslimit, bm1.block_gaslimit);
-    let block_chain_id = builder.select(b, bm0.block_chain_id, bm1.block_chain_id);
-    let block_base_fee = builder.select(b, bm0.block_base_fee, bm1.block_base_fee);
-
-    BlockMetadataTarget {
-        block_beneficiary,
-        block_timestamp,
-        block_number,
-        block_difficulty,
-        block_gaslimit,
-        block_chain_id,
-        block_base_fee,
-    }
-}
-
 /// Selects `pv0` or `pv1` based on `b`, i.e., this returns `if b { pv0 } else { pv1 }`.
 fn select_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     b: BoolTarget,
-    pv0: &AggregatedPublicValuesTarget,
-    pv1: &AggregatedPublicValuesTarget,
-) -> AggregatedPublicValuesTarget
+    pv0: &PublicValuesTarget,
+    pv1: &PublicValuesTarget,
+) -> PublicValuesTarget
 where
     F: RichField + Extendable<D>,
 {
@@ -186,66 +150,51 @@ where
     let trie_roots_after =
         select_trie_roots(builder, b, &pv0.trie_roots_after, &pv1.trie_roots_after);
 
-    let block_metadata_pair = (
-        select_block_metadata(
-            builder,
-            b,
-            &pv0.block_metadata_pair.0,
-            &pv1.block_metadata_pair.0,
-        ),
-        select_block_metadata(
-            builder,
-            b,
-            &pv0.block_metadata_pair.1,
-            &pv1.block_metadata_pair.1,
-        ),
-    );
-
-    AggregatedPublicValuesTarget {
+    PublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
-        block_metadata_pair,
+        block_metadata: pv0.block_metadata.clone(),
     }
 }
 
-/// Connect trie roots across two consecutive proofs.
-/// If we combine two proofs representing chunks from a same block,
-/// `connect_intra_roots` boolean target should be activated, to
-/// enforce consistency between the intermediary transaction/receipt tries.
+/// Connect trie roots across two consecutive proofs within a same block.
 fn connect_trie_roots<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    connect_intra_roots: BoolTarget,
     x: &TrieRootsTarget,
     y: &TrieRootsTarget,
 ) where
     F: RichField + Extendable<D>,
 {
-    connect_state_roots(builder, x, y);
-
-    let zero = builder.zero();
+    for (&limb0, &limb1) in x.state_root.iter().zip(&y.state_root) {
+        builder.connect(limb0, limb1);
+    }
 
     for (&limb0, &limb1) in x.transactions_root.iter().zip(&y.transactions_root) {
-        let limb_left = builder.select(connect_intra_roots, limb0, zero);
-        let limb_right = builder.select(connect_intra_roots, limb1, zero);
-        builder.connect(limb_left, limb_right);
+        builder.connect(limb0, limb1);
     }
     for (&limb0, &limb1) in x.receipts_root.iter().zip(&y.receipts_root) {
-        let limb_left = builder.select(connect_intra_roots, limb0, zero);
-        let limb_right = builder.select(connect_intra_roots, limb1, zero);
-        builder.connect(limb_left, limb_right);
+        builder.connect(limb0, limb1);
     }
 }
 
-fn connect_state_roots<F: RichField + Extendable<D>, const D: usize>(
+/// Connect block metadata across two consecutive proofs within a same block.
+fn connect_block_metadata<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    x: &TrieRootsTarget,
-    y: &TrieRootsTarget,
+    x: &BlockMetadataTarget,
+    y: &BlockMetadataTarget,
 ) where
     F: RichField + Extendable<D>,
 {
-    for (limb0, limb1) in x.state_root.iter().zip(&y.state_root) {
-        builder.connect(*limb0, *limb1);
+    for (&limb0, &limb1) in x.block_beneficiary.iter().zip(&y.block_beneficiary) {
+        builder.connect(limb0, limb1);
     }
+
+    builder.connect(x.block_timestamp, y.block_timestamp);
+    builder.connect(x.block_number, y.block_number);
+    builder.connect(x.block_difficulty, y.block_difficulty);
+    builder.connect(x.block_gaslimit, y.block_gaslimit);
+    builder.connect(x.block_chain_id, y.block_chain_id);
+    builder.connect(x.block_base_fee, y.block_base_fee);
 }
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
@@ -771,17 +720,8 @@ where
             &rhs.evm_proof.public_values,
         );
 
-        let blocks_are_equal = builder.is_equal(
-            pv_lhs.block_metadata_pair.1.block_timestamp,
-            pv_rhs.block_metadata_pair.0.block_timestamp,
-        );
-
-        connect_trie_roots(
-            builder,
-            blocks_are_equal,
-            &pv_lhs.trie_roots_after,
-            &pv_rhs.trie_roots_before,
-        );
+        connect_trie_roots(builder, &pv_lhs.trie_roots_after, &pv_rhs.trie_roots_before);
+        connect_block_metadata(builder, &pv_lhs.block_metadata, &pv_rhs.block_metadata);
     }
 
     fn connect_block_proof(
@@ -789,60 +729,16 @@ where
         lhs: &EvmProofTarget<D>,
         rhs: &EvmProofTarget<D>,
     ) {
-        connect_state_roots(
+        connect_trie_roots(
             builder,
             &lhs.public_values.trie_roots_after,
             &rhs.public_values.trie_roots_before,
         );
-
-        const EMPTY_ROOT_HASH_LIMBS: [u32; 8] = [
-            0x171fe856, 0xa655cc1b, 0xe64583ff, 0x6ef8c092, 0x1be0485b, 0xc0ad6c99, 0xb52f6201,
-            0x21b463e3,
-        ];
-
-        let empty_root: [Target; 8] = core::array::from_fn(|i| {
-            builder.constant(F::from_canonical_u32(EMPTY_ROOT_HASH_LIMBS[i]))
-        });
-
-        // Block proofs combine two entire blocks together,
-        // hence txn / receipt roots before should be empty.
-        for (limb1, limb2) in lhs
-            .public_values
-            .trie_roots_before
-            .transactions_root
-            .iter()
-            .zip(empty_root)
-        {
-            builder.connect(*limb1, limb2);
-        }
-        for (limb1, limb2) in lhs
-            .public_values
-            .trie_roots_before
-            .receipts_root
-            .iter()
-            .zip(empty_root)
-        {
-            builder.connect(*limb1, limb2);
-        }
-
-        for (limb1, limb2) in rhs
-            .public_values
-            .trie_roots_before
-            .transactions_root
-            .iter()
-            .zip(empty_root)
-        {
-            builder.connect(*limb1, limb2);
-        }
-        for (limb1, limb2) in rhs
-            .public_values
-            .trie_roots_before
-            .receipts_root
-            .iter()
-            .zip(empty_root)
-        {
-            builder.connect(*limb1, limb2);
-        }
+        connect_block_metadata(
+            builder,
+            &lhs.public_values.block_metadata,
+            &rhs.public_values.block_metadata,
+        );
     }
 
     fn create_block_circuit(agg: &AggregationCircuitData<F, C, D>) -> BlockCircuitData<F, C, D> {
@@ -925,14 +821,7 @@ where
 
         Ok(EvmProof {
             proof: self.root.circuit.prove(root_inputs)?,
-            public_values: AggregatedPublicValues {
-                trie_roots_before: all_proof.public_values.trie_roots_before,
-                trie_roots_after: all_proof.public_values.trie_roots_after,
-                block_metadata_pair: (
-                    all_proof.public_values.block_metadata.clone(),
-                    all_proof.public_values.block_metadata,
-                ),
-            },
+            public_values: all_proof.public_values,
         })
     }
 
@@ -964,13 +853,11 @@ where
 
         Ok(EvmProof {
             proof: self.aggregation.circuit.prove(agg_inputs)?,
-            public_values: AggregatedPublicValues {
+            public_values: PublicValues {
                 trie_roots_before: lhs_proof.public_values.trie_roots_before.clone(),
                 trie_roots_after: rhs_proof.public_values.trie_roots_after.clone(),
-                block_metadata_pair: (
-                    lhs_proof.public_values.block_metadata_pair.0.clone(),
-                    rhs_proof.public_values.block_metadata_pair.1.clone(),
-                ),
+                // Block metadata should be the same.
+                block_metadata: lhs_proof.public_values.block_metadata.clone(),
             },
         })
     }
@@ -1011,10 +898,10 @@ where
                         &self.block.circuit.verifier_only,
                         HashMap::new(),
                     ),
-                    // We plug the aggregation_proof trie_roots_before
-                    // to this proof trie_roots_after for valid connection
+                    // We plug the `aggregation_proof`'s `trie_roots_before`
+                    // to this proof `trie_roots_after` for valid connection
                     // between proofs state tries. We do not care about the rest.
-                    public_values: AggregatedPublicValues {
+                    public_values: PublicValues {
                         trie_roots_after: agg_root_proof.public_values.trie_roots_before.clone(),
                         ..agg_root_proof.public_values.clone()
                     },
@@ -1031,27 +918,17 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        let (trie_roots_before, block_metadata_pair) = if let Some(bp) = opt_parent_block_proof {
-            (
-                bp.public_values.trie_roots_before.clone(),
-                (
-                    bp.public_values.block_metadata_pair.0.clone(),
-                    agg_root_proof.public_values.block_metadata_pair.1.clone(),
-                ),
-            )
+        let trie_roots_before = if let Some(bp) = opt_parent_block_proof {
+            bp.public_values.trie_roots_before.clone()
         } else {
-            (
-                agg_root_proof.public_values.trie_roots_before.clone(),
-                agg_root_proof.public_values.block_metadata_pair.clone(),
-            )
+            agg_root_proof.public_values.trie_roots_before.clone()
         };
 
         Ok(EvmProof {
             proof: self.block.circuit.prove(block_inputs)?,
-            public_values: AggregatedPublicValues {
+            public_values: PublicValues {
                 trie_roots_before,
-                trie_roots_after: agg_root_proof.public_values.trie_roots_after.clone(),
-                block_metadata_pair,
+                ..agg_root_proof.public_values.clone()
             },
         })
     }

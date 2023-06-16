@@ -61,7 +61,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[9..18, 9..15, 9..15, 9..10, 9..12, 9..18], // Minimal ranges to prove an empty list
+        &[9..17, 9..15, 9..15, 9..10, 9..13, 9..19], // Minimal ranges to prove an empty list
         &config,
     );
 
@@ -124,9 +124,12 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     all_circuits.verify_root(root_proof.clone())?;
 
-    // We can duplicate the root_proof here because the state hasn't mutated.
+    // We can duplicate the proofs here because the state hasn't mutated.
     let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
-    all_circuits.verify_aggregation(&agg_proof)
+    all_circuits.verify_aggregation(&agg_proof)?;
+
+    let block_proof = all_circuits.prove_block(None, &agg_proof)?;
+    all_circuits.verify_block(&block_proof)
 }
 
 fn init_logger() {

@@ -54,16 +54,6 @@ pub struct PublicValues {
     pub block_metadata: BlockMetadata,
 }
 
-/// Memory values  which are public over an aggregaton of blocks.
-#[derive(Debug, Clone, Default)]
-pub struct AggregatedPublicValues {
-    pub trie_roots_before: TrieRoots,
-    pub trie_roots_after: TrieRoots,
-    /// Represents the leftmost and rightmost block_metadata of the associated
-    /// aggregation proof, to allow combination on both sides with another proof.
-    pub block_metadata_pair: (BlockMetadata, BlockMetadata),
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct TrieRoots {
     pub state_root: H256,
@@ -84,29 +74,18 @@ pub struct BlockMetadata {
 
 /// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
 }
 
-/// Memory values which are public over an aggregaton of blocks.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct AggregatedPublicValuesTarget {
-    pub trie_roots_before: TrieRootsTarget,
-    pub trie_roots_after: TrieRootsTarget,
-    /// Represents the leftmost and rightmost block_metadata of the associated
-    /// aggregation proof, to allow combination on both sides with another proof.
-    pub block_metadata_pair: (BlockMetadataTarget, BlockMetadataTarget),
-}
-
-impl AggregatedPublicValuesTarget {
+impl PublicValuesTarget {
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         self.trie_roots_before.to_buffer(buffer)?;
         self.trie_roots_after.to_buffer(buffer)?;
-        self.block_metadata_pair.0.to_buffer(buffer)?;
-        self.block_metadata_pair.1.to_buffer(buffer)?;
+        self.block_metadata.to_buffer(buffer)?;
 
         Ok(())
     }
@@ -114,15 +93,12 @@ impl AggregatedPublicValuesTarget {
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget::from_buffer(buffer)?;
         let trie_roots_after = TrieRootsTarget::from_buffer(buffer)?;
-        let block_metadata_pair = (
-            BlockMetadataTarget::from_buffer(buffer)?,
-            BlockMetadataTarget::from_buffer(buffer)?,
-        );
+        let block_metadata = BlockMetadataTarget::from_buffer(buffer)?;
 
         Ok(Self {
             trie_roots_before,
             trie_roots_after,
-            block_metadata_pair,
+            block_metadata,
         })
     }
 }
