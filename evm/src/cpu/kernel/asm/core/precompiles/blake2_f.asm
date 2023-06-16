@@ -17,7 +17,6 @@ global precompile_blake2_f:
 
     // Load inputs from calldata memory into stack.
 
-
     %calldatasize
     // stack: calldatasize, blake2_f_contd, kexit_info
     DUP1
@@ -109,10 +108,9 @@ global precompile_blake2_f:
     
     // stack: rounds, h_0..h_7, m_0..m_15, t_0, t_1, flag, blake2_f_contd, kexit_info
     %jump(blake2_f)
-global blake2_f_contd:
+blake2_f_contd:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', kexit_info
-    // Store the result hash to the parent's return data using `mstore_unpacking_LE`.
-    //%pop8
+    // Store the result hash to the parent's return data using `mstore_unpacking_u64_LE`.
 
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 64)
     PUSH 0
