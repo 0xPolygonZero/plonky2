@@ -49,6 +49,59 @@ mload_packing_return:
 %%after:
 %endmacro
 
+global mload_packing_LE:
+    // stack: context, segment, offset, len, retdest
+    SWAP2
+    // stack: offset, segment, context, len, retdest
+    DUP4
+    // stack: len, offset, segment, context, len, retdest
+    ADD
+    %decrement
+    // stack: end_offset, segment, context, len, retdest
+    SWAP2
+    // stack: context, segment, end_offset, len, retdest
+    DUP3                DUP3 DUP3 MLOAD_GENERAL     DUP5 %eq_const(1)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(1)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(2)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(2)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(3)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(3)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(4)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(4)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(5)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(5)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(6)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(6)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(7)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(7)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(8)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(8)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(9)  %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(9)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(10) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(10) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(11) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(11) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(12) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(12) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(13) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(13) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(14) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(14) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(15) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(15) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(16) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(16) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(17) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(17) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(18) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(18) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(19) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(19) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(20) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(20) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(21) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(21) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(22) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(22) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(23) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(23) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(24) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(24) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(25) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(25) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(26) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(26) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(27) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(27) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(28) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(28) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(29) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(29) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(30) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(30) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(31) %jumpi(mload_packing_LE_return) %shl_const(8)
+    DUP4 %sub_const(31) DUP4 DUP4 MLOAD_GENERAL ADD
+mload_packing_LE_return:
+    %stack (packed_value, addr: 3, len, retdest) -> (retdest, packed_value)
+    JUMP
+
+%macro mload_packing_LE
+    %stack (addr: 3, len) -> (addr, len, %%after)
+    %jump(mload_packing_LE)
+%%after:
+%endmacro
+
 // Pre stack: context, segment, offset, value, len, retdest
 // Post stack: offset'
 global mstore_unpacking:
@@ -92,5 +145,58 @@ mstore_unpacking_finish:
 %macro mstore_unpacking
     %stack (addr: 3, value, len) -> (addr, value, len, %%after)
     %jump(mstore_unpacking)
+%%after:
+%endmacro
+
+// Pre stack: context, segment, offset, value, len, retdest
+// Post stack: offset'
+global mstore_unpacking_LE:
+    // stack: context, segment, offset, value, len, retdest
+    SWAP2
+    // stack: offset, segment, context, value, len, retdest
+    DUP5
+    // stack: len, offset, segment, context, value, len, retdest
+    ADD
+    // stack: end_offset, segment, context, value, len, retdest
+    SWAP2
+    // stack: context, segment, end_offset, value, len, retdest
+
+    PUSH 0
+    // stack: i=0, context, segment, end_offset, value, len, retdest
+
+mstore_unpacking_LE_loop:
+    // stack: i, context, segment, offset, value, len, retdest
+    // If i == len, finish.
+    DUP6
+    DUP2
+    EQ
+    %jumpi(mstore_unpacking_LE_finish)
+
+    // stack: i, context, segment, offset, value, len, retdest
+    DUP5 // value
+    DUP2 // i
+    BYTE
+    // stack: value[i], i, context, segment, offset, value, len, retdest
+    DUP5 DUP5 DUP5 // context, segment, offset
+    // stack: context, segment, offset, value[i], i, context, segment, offset, value, len, retdest
+    MSTORE_GENERAL
+    // stack: i, context, segment, offset, value, len, retdest
+
+    // Decrement offset.
+    SWAP3 %decrement SWAP3
+    // Increment i.
+    %increment
+
+    %jump(mstore_unpacking_LE_loop)
+
+mstore_unpacking_LE_finish:
+    // stack: i, context, segment, offset, value, len, retdest
+    %pop3
+    %stack (offset, value, len, retdest) -> (retdest, offset)
+    JUMP
+
+%macro mstore_unpacking_LE
+    %stack (addr: 3, value, len) -> (addr, value, len, %%after)
+    %jump(mstore_unpacking_LE)
 %%after:
 %endmacro
