@@ -1,5 +1,5 @@
 [workspace]
-members = ["evm", "field", "maybe_rayon", "plonky2", "starky", "util"]
+members = ["field", "maybe_rayon", "plonky2", "starky", "util"]
 
 [profile.release]
 opt-level = 3
@@ -11,7 +11,6 @@ incremental = true
 opt-level = 3
 
 [patch.crates-io]
-plonky2_evm = { path = "evm" }
 plonky2_field = { path = "field" }
 plonky2_maybe_rayon = { path = "maybe_rayon" }
 plonky2 = { path = "plonky2" }
