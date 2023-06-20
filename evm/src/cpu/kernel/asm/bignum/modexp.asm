@@ -72,7 +72,7 @@ e_zero_return:
     PUSH 1
     DUP6
     // stack: out_loc, 1, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5,  retdest
-    %mstore_kernel_general
+    %mstore_current_general
 
 modexp_loop:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
@@ -80,7 +80,7 @@ modexp_loop:
     // y := e % 2
     DUP3
     // stack: e_loc, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: e_first, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     %mod_const(2)
     // stack: y = e_first % 2 = e % 2, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
@@ -186,7 +186,7 @@ b_and_e_zero:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     PUSH 1
     DUP6
-    %mstore_kernel_general
+    %mstore_current_general
     %pop10
     // stack: retdest
     JUMP
