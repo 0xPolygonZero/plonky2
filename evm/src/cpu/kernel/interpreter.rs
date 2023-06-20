@@ -196,7 +196,6 @@ impl<'a> Interpreter<'a> {
             .clone()
     }
     
-
     pub(crate) fn get_memory_segment_bytes(&self, segment: Segment) -> Vec<u8> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
