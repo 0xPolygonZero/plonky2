@@ -323,6 +323,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         t
     }
 
+    pub fn add_virtual_public_input_arr<const N: usize>(&mut self) -> [Target; N] {
+        let ts = [0; N].map(|_| self.add_virtual_target());
+        self.register_public_inputs(&ts);
+        ts
+    }
+
     pub fn add_virtual_verifier_data(&mut self, cap_height: usize) -> VerifierCircuitTarget {
         VerifierCircuitTarget {
             constants_sigmas_cap: self.add_virtual_cap(cap_height),

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use anyhow::{ensure, Result};
+use ethereum_types::BigEndianHash;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -509,26 +510,27 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
-#[allow(unused)] // TODO: used later?
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {
     let trie_roots_before = add_virtual_trie_roots(builder);
     let trie_roots_after = add_virtual_trie_roots(builder);
     let block_metadata = add_virtual_block_metadata(builder);
+    let cpu_trace_len = builder.add_virtual_public_input();
     PublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
         block_metadata,
+        cpu_trace_len,
     }
 }
 
 pub(crate) fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> TrieRootsTarget {
-    let state_root = builder.add_virtual_target_arr();
-    let transactions_root = builder.add_virtual_target_arr();
-    let receipts_root = builder.add_virtual_target_arr();
+    let state_root = builder.add_virtual_public_input_arr();
+    let transactions_root = builder.add_virtual_public_input_arr();
+    let receipts_root = builder.add_virtual_public_input_arr();
     TrieRootsTarget {
         state_root,
         transactions_root,
@@ -539,13 +541,13 @@ pub(crate) fn add_virtual_trie_roots<F: RichField + Extendable<D>, const D: usiz
 pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> BlockMetadataTarget {
-    let block_beneficiary = builder.add_virtual_target_arr();
-    let block_timestamp = builder.add_virtual_target();
-    let block_number = builder.add_virtual_target();
-    let block_difficulty = builder.add_virtual_target();
-    let block_gaslimit = builder.add_virtual_target();
-    let block_chain_id = builder.add_virtual_target();
-    let block_base_fee = builder.add_virtual_target();
+    let block_beneficiary = builder.add_virtual_public_input_arr();
+    let block_timestamp = builder.add_virtual_public_input();
+    let block_number = builder.add_virtual_public_input();
+    let block_difficulty = builder.add_virtual_public_input();
+    let block_gaslimit = builder.add_virtual_public_input();
+    let block_chain_id = builder.add_virtual_public_input();
+    let block_base_fee = builder.add_virtual_public_input();
     BlockMetadataTarget {
         block_beneficiary,
         block_timestamp,
@@ -668,18 +670,50 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
-    witness.set_target_arr(
-        &trie_roots_target.state_root,
-        &h256_limbs(trie_roots.state_root),
-    );
-    witness.set_target_arr(
-        &trie_roots_target.transactions_root,
-        &h256_limbs(trie_roots.transactions_root),
-    );
-    witness.set_target_arr(
-        &trie_roots_target.receipts_root,
-        &h256_limbs(trie_roots.receipts_root),
-    );
+    for (i, limb) in trie_roots.state_root.into_uint().0.into_iter().enumerate() {
+        witness.set_target(
+            trie_roots_target.state_root[2 * i],
+            F::from_canonical_u32(limb as u32),
+        );
+        witness.set_target(
+            trie_roots_target.state_root[2 * i + 1],
+            F::from_canonical_u32((limb >> 32) as u32),
+        );
+    }
+
+    for (i, limb) in trie_roots
+        .transactions_root
+        .into_uint()
+        .0
+        .into_iter()
+        .enumerate()
+    {
+        witness.set_target(
+            trie_roots_target.transactions_root[2 * i],
+            F::from_canonical_u32(limb as u32),
+        );
+        witness.set_target(
+            trie_roots_target.transactions_root[2 * i + 1],
+            F::from_canonical_u32((limb >> 32) as u32),
+        );
+    }
+
+    for (i, limb) in trie_roots
+        .receipts_root
+        .into_uint()
+        .0
+        .into_iter()
+        .enumerate()
+    {
+        witness.set_target(
+            trie_roots_target.receipts_root[2 * i],
+            F::from_canonical_u32(limb as u32),
+        );
+        witness.set_target(
+            trie_roots_target.receipts_root[2 * i + 1],
+            F::from_canonical_u32((limb >> 32) as u32),
+        );
+    }
 }
 
 pub(crate) fn set_block_metadata_target<F, W, const D: usize>(

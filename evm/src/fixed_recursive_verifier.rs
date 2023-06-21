@@ -2,7 +2,6 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-use ethereum_types::BigEndianHash;
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -33,7 +32,7 @@ use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
-use crate::generation::GenerationInputs;
+use crate::generation::{self, GenerationInputs};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
@@ -43,11 +42,15 @@ use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::{
     get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{BlockMetadataTarget, PublicValues, StarkProofWithMetadata};
+use crate::proof::{
+    BlockMetadata, BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata,
+    TrieRootsTarget,
+};
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_trie_roots, recursive_stark_circuit,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, add_virtual_trie_roots,
+    recursive_stark_circuit, set_block_metadata_target, set_trie_roots_target, PlonkWrapperCircuit,
+    PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h160_limbs;
@@ -88,6 +91,8 @@ where
     /// For each table, various inner circuits may be used depending on the initial table size.
     /// This target holds the index of the circuit (within `final_circuits()`) that was used.
     index_verifier_data: [Target; NUM_TABLES],
+    /// Public inputs containing public values.
+    public_values: PublicValuesTarget,
     /// Public inputs used for cyclic verification. These aren't actually used for EVM root
     /// proofs; the circuit has them just to match the structure of aggregation proofs.
     cyclic_vk: VerifierCircuitTarget,
@@ -111,6 +116,7 @@ where
         for index in self.index_verifier_data {
             buffer.write_target(index)?;
         }
+        self.public_values.to_buffer(buffer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
@@ -129,12 +135,14 @@ where
         for _ in 0..NUM_TABLES {
             index_verifier_data.push(buffer.read_target()?);
         }
+        let public_values = PublicValuesTarget::from_buffer(buffer)?;
         let cyclic_vk = buffer.read_target_verifier_circuit()?;
 
         Ok(Self {
             circuit,
             proof_with_pis: proof_with_pis.try_into().unwrap(),
             index_verifier_data: index_verifier_data.try_into().unwrap(),
+            public_values,
             cyclic_vk,
         })
     }
@@ -151,6 +159,7 @@ where
     pub circuit: CircuitData<F, C, D>,
     lhs: AggregationChildTarget<D>,
     rhs: AggregationChildTarget<D>,
+    public_values: PublicValuesTarget,
     cyclic_vk: VerifierCircuitTarget,
 }
 
@@ -167,6 +176,7 @@ where
     ) -> IoResult<()> {
         buffer.write_circuit_data(&self.circuit, gate_serializer, generator_serializer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
+        self.public_values.to_buffer(buffer)?;
         self.lhs.to_buffer(buffer)?;
         self.rhs.to_buffer(buffer)?;
         Ok(())
@@ -179,12 +189,14 @@ where
     ) -> IoResult<Self> {
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
         let cyclic_vk = buffer.read_target_verifier_circuit()?;
+        let public_values = PublicValuesTarget::from_buffer(buffer)?;
         let lhs = AggregationChildTarget::from_buffer(buffer)?;
         let rhs = AggregationChildTarget::from_buffer(buffer)?;
         Ok(Self {
             circuit,
             lhs,
             rhs,
+            public_values,
             cyclic_vk,
         })
     }
@@ -227,6 +239,7 @@ where
     has_parent_block: BoolTarget,
     parent_block_proof: ProofWithPublicInputsTarget<D>,
     agg_root_proof: ProofWithPublicInputsTarget<D>,
+    public_values: PublicValuesTarget,
     cyclic_vk: VerifierCircuitTarget,
 }
 
@@ -245,6 +258,7 @@ where
         buffer.write_target_bool(self.has_parent_block)?;
         buffer.write_target_proof_with_public_inputs(&self.parent_block_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_root_proof)?;
+        self.public_values.to_buffer(buffer)?;
         buffer.write_target_verifier_circuit(&self.cyclic_vk)?;
         Ok(())
     }
@@ -258,12 +272,14 @@ where
         let has_parent_block = buffer.read_target_bool()?;
         let parent_block_proof = buffer.read_target_proof_with_public_inputs()?;
         let agg_root_proof = buffer.read_target_proof_with_public_inputs()?;
+        let public_values = PublicValuesTarget::from_buffer(buffer)?;
         let cyclic_vk = buffer.read_target_verifier_circuit()?;
         Ok(Self {
             circuit,
             has_parent_block,
             parent_block_proof,
             agg_root_proof,
+            public_values,
             cyclic_vk,
         })
     }
@@ -346,8 +362,6 @@ where
     pub fn new(
         all_stark: &AllStark<F, D>,
         degree_bits_ranges: &[Range<usize>; NUM_TABLES],
-        public_values: &PublicValues,
-        cpu_trace_len: usize,
         stark_config: &StarkConfig,
     ) -> Self {
         let arithmetic = RecursiveCircuitsForTable::new(
@@ -394,7 +408,7 @@ where
         );
 
         let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
-        let root = Self::create_root_circuit(public_values, cpu_trace_len, &by_table, stark_config);
+        let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
         Self {
@@ -406,8 +420,6 @@ where
     }
 
     fn create_root_circuit(
-        public_values: &PublicValues,
-        cpu_trace_len: usize,
         by_table: &[RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
         stark_config: &StarkConfig,
     ) -> RootCircuitData<F, C, D> {
@@ -415,6 +427,8 @@ where
             core::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
 
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_config());
+
+        let public_values = add_virtual_public_values(&mut builder);
 
         let recursive_proofs =
             core::array::from_fn(|i| builder.add_virtual_proof_with_pis(inner_common_data[i]));
@@ -476,8 +490,7 @@ where
             extra_looking_products[Table::Memory as usize].push(
                 Self::get_memory_extra_looking_products_circuit(
                     &mut builder,
-                    public_values,
-                    cpu_trace_len,
+                    &public_values,
                     ctl_challenges.challenges[c],
                 ),
             );
@@ -532,6 +545,7 @@ where
             circuit: builder.build::<C>(),
             proof_with_pis: recursive_proofs,
             index_verifier_data,
+            public_values,
             cyclic_vk,
         }
     }
@@ -539,57 +553,37 @@ where
     /// Recursive version of `get_memory_extra_looking_products`.
     pub(crate) fn get_memory_extra_looking_products_circuit(
         builder: &mut CircuitBuilder<F, D>,
-        public_values: &PublicValues,
-        cpu_trace_len: usize,
+        public_values: &PublicValuesTarget,
         challenge: GrandProductChallenge<Target>,
     ) -> Target {
         let mut prod = builder.constant(F::ONE);
 
         // Add metadata writes.
-        let metadata_target = BlockMetadataTarget {
-            block_beneficiary: builder.add_virtual_target_arr::<5>(),
-            block_timestamp: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_timestamp.as_u64(),
-            )),
-            block_difficulty: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_difficulty.as_u64(),
-            )),
-            block_number: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_number.as_u64(),
-            )),
-            block_gaslimit: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_gaslimit.as_u64(),
-            )),
-            block_chain_id: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_chain_id.as_u64(),
-            )),
-            block_base_fee: builder.constant(F::from_canonical_u64(
-                public_values.block_metadata.block_base_fee.as_u64(),
-            )),
-        };
-
-        let beneficiary_limbs = h160_limbs(public_values.block_metadata.block_beneficiary);
-        for i in 0..5 {
-            let limb_target = builder.constant(beneficiary_limbs[i]);
-            builder.connect(metadata_target.block_beneficiary[i], limb_target);
-        }
-
         let block_fields_without_beneficiary = [
             (
                 GlobalMetadata::BlockTimestamp,
-                metadata_target.block_timestamp,
+                public_values.block_metadata.block_timestamp,
             ),
-            (GlobalMetadata::BlockNumber, metadata_target.block_number),
+            (
+                GlobalMetadata::BlockNumber,
+                public_values.block_metadata.block_number,
+            ),
             (
                 GlobalMetadata::BlockDifficulty,
-                metadata_target.block_difficulty,
+                public_values.block_metadata.block_difficulty,
             ),
             (
                 GlobalMetadata::BlockGasLimit,
-                metadata_target.block_gaslimit,
+                public_values.block_metadata.block_gaslimit,
             ),
-            (GlobalMetadata::BlockChainId, metadata_target.block_chain_id),
-            (GlobalMetadata::BlockBaseFee, metadata_target.block_base_fee),
+            (
+                GlobalMetadata::BlockChainId,
+                public_values.block_metadata.block_chain_id,
+            ),
+            (
+                GlobalMetadata::BlockBaseFee,
+                public_values.block_metadata.block_base_fee,
+            ),
         ];
 
         let zero = builder.constant(F::ZERO);
@@ -610,7 +604,10 @@ where
         builder.connect(row[3], field_target);
         // values
         for j in 0..5 {
-            builder.connect(row[4 + j], metadata_target.block_beneficiary[j]);
+            builder.connect(
+                row[4 + j],
+                public_values.block_metadata.block_beneficiary[j],
+            );
         }
         for j in 5..VALUE_LIMBS {
             builder.connect(row[4 + j], zero);
@@ -644,75 +641,38 @@ where
         });
 
         // Add public values reads.
-        let tries_before_target = add_virtual_trie_roots(builder);
-        for (targets, hash) in [
-            tries_before_target.state_root,
-            tries_before_target.transactions_root,
-            tries_before_target.receipts_root,
-        ]
-        .iter()
-        .zip([
-            public_values.trie_roots_before.state_root,
-            public_values.trie_roots_before.transactions_root,
-            public_values.trie_roots_before.receipts_root,
-        ]) {
-            for (i, limb) in hash.into_uint().0.into_iter().enumerate() {
-                let low_limb_target = builder.constant(F::from_canonical_u32(limb as u32));
-                let high_limb_target = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
-                builder.connect(targets[2 * i], low_limb_target);
-                builder.connect(targets[2 * i + 1], high_limb_target);
-            }
-        }
-
-        let tries_after_target = add_virtual_trie_roots(builder);
-        for (targets, hash) in [
-            tries_after_target.state_root,
-            tries_after_target.transactions_root,
-            tries_after_target.receipts_root,
-        ]
-        .iter()
-        .zip([
-            public_values.trie_roots_after.state_root,
-            public_values.trie_roots_after.transactions_root,
-            public_values.trie_roots_after.receipts_root,
-        ]) {
-            for (i, limb) in hash.into_uint().0.into_iter().enumerate() {
-                let low_limb_target = builder.constant(F::from_canonical_u32(limb as u32));
-                let high_limb_target = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
-                builder.connect(targets[2 * i], low_limb_target);
-                builder.connect(targets[2 * i + 1], high_limb_target);
-            }
-        }
-
         let trie_fields = [
             (
                 GlobalMetadata::StateTrieRootDigestBefore,
-                tries_before_target.state_root,
+                public_values.trie_roots_before.state_root,
             ),
             (
                 GlobalMetadata::TransactionTrieRootDigestBefore,
-                tries_before_target.transactions_root,
+                public_values.trie_roots_before.transactions_root,
             ),
             (
                 GlobalMetadata::ReceiptTrieRootDigestBefore,
-                tries_before_target.receipts_root,
+                public_values.trie_roots_before.receipts_root,
             ),
             (
                 GlobalMetadata::StateTrieRootDigestAfter,
-                tries_after_target.state_root,
+                public_values.trie_roots_after.state_root,
             ),
             (
                 GlobalMetadata::TransactionTrieRootDigestAfter,
-                tries_after_target.transactions_root,
+                public_values.trie_roots_after.transactions_root,
             ),
             (
                 GlobalMetadata::ReceiptTrieRootDigestAfter,
-                tries_after_target.receipts_root,
+                public_values.trie_roots_after.receipts_root,
             ),
         ];
 
-        let timestamp_target =
-            builder.constant(F::from_canonical_usize(cpu_trace_len * NUM_CHANNELS + 1));
+        let mut timestamp_target = builder.mul_const(
+            F::from_canonical_usize(NUM_CHANNELS),
+            public_values.cpu_trace_len,
+        );
+        timestamp_target = builder.add_const(timestamp_target, F::ONE);
         trie_fields.map(|(field, targets)| {
             let row = builder.add_virtual_targets(13);
             // is_read
@@ -742,6 +702,7 @@ where
         root: &RootCircuitData<F, C, D>,
     ) -> AggregationCircuitData<F, C, D> {
         let mut builder = CircuitBuilder::<F, D>::new(root.circuit.common.config.clone());
+        let public_values = add_virtual_public_values(&mut builder);
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         let lhs = Self::add_agg_child(&mut builder, root);
         let rhs = Self::add_agg_child(&mut builder, root);
@@ -756,6 +717,7 @@ where
             circuit,
             lhs,
             rhs,
+            public_values,
             cyclic_vk,
         }
     }
@@ -793,6 +755,7 @@ where
         };
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let public_values = add_virtual_public_values(&mut builder);
         let has_parent_block = builder.add_virtual_bool_target_safe();
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
@@ -815,6 +778,7 @@ where
             has_parent_block,
             parent_block_proof,
             agg_root_proof,
+            public_values,
             cyclic_vk,
         }
     }
@@ -826,7 +790,7 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
         let mut root_inputs = PartialWitness::new();
 
@@ -853,7 +817,30 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        self.root.circuit.prove(root_inputs)
+        set_block_metadata_target(
+            &mut root_inputs,
+            &self.root.public_values.block_metadata,
+            &all_proof.public_values.block_metadata,
+        );
+
+        root_inputs.set_target(
+            self.root.public_values.cpu_trace_len,
+            F::from_canonical_usize(all_proof.public_values.cpu_trace_len),
+        );
+        set_trie_roots_target(
+            &mut root_inputs,
+            &self.root.public_values.trie_roots_before,
+            &all_proof.public_values.trie_roots_before,
+        );
+        set_trie_roots_target(
+            &mut root_inputs,
+            &self.root.public_values.trie_roots_after,
+            &all_proof.public_values.trie_roots_after,
+        );
+
+        let root_proof = self.root.circuit.prove(root_inputs)?;
+
+        Ok((root_proof, all_proof.public_values))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
@@ -866,7 +853,8 @@ where
         lhs_proof: &ProofWithPublicInputs<F, C, D>,
         rhs_is_agg: bool,
         rhs_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        public_values: PublicValues,
+    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
         agg_inputs.set_bool_target(self.aggregation.lhs.is_agg, lhs_is_agg);
@@ -882,7 +870,29 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        self.aggregation.circuit.prove(agg_inputs)
+        set_block_metadata_target(
+            &mut agg_inputs,
+            &self.aggregation.public_values.block_metadata,
+            &public_values.block_metadata,
+        );
+
+        agg_inputs.set_target(
+            self.aggregation.public_values.cpu_trace_len,
+            F::from_canonical_usize(public_values.cpu_trace_len),
+        );
+        set_trie_roots_target(
+            &mut agg_inputs,
+            &self.aggregation.public_values.trie_roots_before,
+            &public_values.trie_roots_before,
+        );
+        set_trie_roots_target(
+            &mut agg_inputs,
+            &self.aggregation.public_values.trie_roots_after,
+            &public_values.trie_roots_after,
+        );
+
+        let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
+        Ok((aggregation_proof, public_values))
     }
 
     pub fn verify_aggregation(
@@ -901,7 +911,8 @@ where
         &self,
         opt_parent_block_proof: Option<&ProofWithPublicInputs<F, C, D>>,
         agg_root_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        public_values: PublicValues,
+    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut block_inputs = PartialWitness::new();
 
         block_inputs.set_bool_target(
@@ -927,7 +938,29 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        self.block.circuit.prove(block_inputs)
+        set_block_metadata_target(
+            &mut block_inputs,
+            &self.block.public_values.block_metadata,
+            &public_values.block_metadata,
+        );
+
+        block_inputs.set_target(
+            self.block.public_values.cpu_trace_len,
+            F::from_canonical_usize(public_values.cpu_trace_len),
+        );
+        set_trie_roots_target(
+            &mut block_inputs,
+            &self.block.public_values.trie_roots_before,
+            &public_values.trie_roots_before,
+        );
+        set_trie_roots_target(
+            &mut block_inputs,
+            &self.block.public_values.trie_roots_after,
+            &public_values.trie_roots_after,
+        );
+
+        let block_proof = self.block.circuit.prove(block_inputs)?;
+        Ok((block_proof, public_values))
     }
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {

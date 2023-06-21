@@ -38,7 +38,6 @@ use crate::witness::util::mem_write_log;
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
-
     pub tries: TrieInputs,
 
     /// Mapping between smart contract code hashes and the contract byte code.
@@ -153,7 +152,7 @@ fn apply_trie_memops<F: RichField + Extendable<D>, const D: usize>(
     state.traces.memory_ops.extend(ops);
 }
 
-pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
+pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
     config: &StarkConfig,
@@ -201,6 +200,7 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
+        cpu_trace_len: state.traces.clock(),
     };
 
     let tables = timed!(
