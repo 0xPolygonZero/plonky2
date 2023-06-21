@@ -13,7 +13,7 @@ pub fn eval_packed<P: PackedField>(
 ) {
     let filter = lv.op.push0;
     let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    for &limb in &push_value[0..] {
+    for limb in push_value {
         yield_constr.constraint(filter * limb);
     }
 }
@@ -25,7 +25,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let filter = lv.op.push0;
     let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    for &limb in &push_value[0..] {
+    for limb in push_value {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }

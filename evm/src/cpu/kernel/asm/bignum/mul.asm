@@ -20,7 +20,7 @@ mul_loop:
     // stack: mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
     DUP5
     // stack: bi, mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
     DUP5
     // stack: a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
@@ -37,7 +37,7 @@ mul_addmul_return:
     // stack: len, output_cur, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
     ADD
     // stack: output_cur + len, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: n, len, a_start_loc, bi, output_cur, retdest
     %decrement
     // stack: n-1, len, a_start_loc, bi, output_cur, retdest

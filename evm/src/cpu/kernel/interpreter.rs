@@ -204,6 +204,13 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
+    pub(crate) fn get_current_general_memory(&self) -> Vec<U256> {
+        self.generation_state.memory.contexts[self.context].segments
+            [Segment::KernelGeneral as usize]
+            .content
+            .clone()
+    }
+
     pub(crate) fn get_kernel_general_memory(&self) -> Vec<U256> {
         self.get_memory_segment(Segment::KernelGeneral)
     }
@@ -212,12 +219,10 @@ impl<'a> Interpreter<'a> {
         self.get_memory_segment_bytes(Segment::RlpRaw)
     }
 
-    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
-        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
-    }
-
-    pub(crate) fn set_kernel_general_memory(&mut self, memory: Vec<U256>) {
-        self.set_memory_segment(Segment::KernelGeneral, memory)
+    pub(crate) fn set_current_general_memory(&mut self, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[self.context].segments
+            [Segment::KernelGeneral as usize]
+            .content = memory;
     }
 
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {

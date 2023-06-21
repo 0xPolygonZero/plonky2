@@ -10,7 +10,7 @@ global isone_bignum:
     // stack: len, start_loc, retdest
     DUP2
     // stack: start_loc, len, start_loc, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: start_val, len, start_loc, retdest
     %eq_const(1)
     %jumpi(starts_with_one)

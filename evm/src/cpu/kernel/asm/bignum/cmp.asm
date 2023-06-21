@@ -32,9 +32,9 @@ ge_loop:
     DUP3
     DUP3
     // stack: a_i_loc, b_i_loc, i, a_i_loc, b_i_loc, retdest
-    %mload_kernel_general
+    %mload_current_general
     SWAP1
-    %mload_kernel_general
+    %mload_current_general
     SWAP1
     // stack: a[i], b[i], i, a_i_loc, b_i_loc, retdest
     %stack (vals: 2) -> (vals, vals)

@@ -14,10 +14,10 @@ global add_bignum:
 add_loop:
     // stack: carry, i, a_cur_loc, b_cur_loc, retdest
     DUP4
-    %mload_kernel_general
+    %mload_current_general
     // stack: b[cur], carry, i, a_cur_loc, b_cur_loc, retdest
     DUP4
-    %mload_kernel_general
+    %mload_current_general
     // stack: a[cur], b[cur], carry, i, a_cur_loc, b_cur_loc, retdest
     ADD
     ADD
@@ -32,7 +32,7 @@ add_loop:
     // stack: c[cur] = (a[cur] + b[cur] + carry) % 2^128, carry_new = (a[cur] + b[cur] + carry) // 2^128, i, a_cur_loc, b_cur_loc, retdest
     DUP4
     // stack: a_cur_loc, c[cur], carry_new, i, a_cur_loc, b_cur_loc, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: carry_new, i, a_cur_loc, b_cur_loc, retdest
     SWAP2
     %increment

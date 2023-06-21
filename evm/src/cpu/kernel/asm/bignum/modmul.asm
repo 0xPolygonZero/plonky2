@@ -31,7 +31,7 @@ modmul_remainder_loop:
     DUP3
     ADD
     // stack: out_loc[i], PI, i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %increment
     DUP2
@@ -79,7 +79,7 @@ modmul_quotient_loop:
     DUP3
     ADD
     // stack: s1[i], PI, i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %increment
     DUP2
@@ -136,9 +136,9 @@ modmul_check_loop:
     // stack: n, i, j, retdest
     %stack (l, idx: 2) -> (idx, l, idx)
     // stack: i, j, n, i, j, retdest
-    %mload_kernel_general
+    %mload_current_general
     SWAP1
-    %mload_kernel_general
+    %mload_current_general
     SWAP1
     // stack: mem[i], mem[j], n, i, j, retdest
     %assert_eq
