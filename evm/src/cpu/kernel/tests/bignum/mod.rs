@@ -100,10 +100,10 @@ fn run_test(fn_label: &str, memory: Vec<U256>, stack: Vec<U256>) -> Result<(Vec<
     initial_stack.reverse();
 
     let mut interpreter = Interpreter::new_with_kernel(fn_label, initial_stack);
-    interpreter.set_kernel_general_memory(memory);
+    interpreter.set_current_general_memory(memory);
     interpreter.run()?;
 
-    let new_memory = interpreter.get_kernel_general_memory();
+    let new_memory = interpreter.get_current_general_memory();
 
     Ok((new_memory, interpreter.stack().to_vec()))
 }

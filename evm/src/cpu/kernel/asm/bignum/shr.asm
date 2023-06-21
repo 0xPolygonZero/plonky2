@@ -22,7 +22,7 @@ shr_loop:
     // stack: i, carry, start_loc, retdest
     DUP1
     // stack: i, i, carry, start_loc, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: a[i], i, carry, start_loc, retdest
     DUP1
     // stack: a[i], a[i], i, carry, start_loc, retdest
@@ -40,7 +40,7 @@ shr_loop:
     // stack: carry << 127 | a[i] >> 1, i, new_carry, start_loc, retdest
     DUP2
     // stack: i, carry << 127 | a[i] >> 1, i, new_carry, start_loc, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: i, new_carry, start_loc, retdest
     DUP1
     // stack: i, i, new_carry, start_loc, retdest
