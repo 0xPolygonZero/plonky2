@@ -61,7 +61,7 @@ store_limbs:
     // stack: offset, retdest, num_limbs, limb[num_limbs - 1], ..limb[0]
     %stack (offset, ret, num, limb) -> (offset, limb, offset, ret, num)
     // stack: offset, limb[num_limbs - 1], offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
     %increment
     SWAP2
@@ -230,7 +230,7 @@ l_E_prime_return:
     %stack (kexit_info, l: 4) -> (l, kexit_info)
     // stack: len, l_M, l_E, l_B, kexit_info
 
-    // Copy B to kernel general memory.
+    // Copy B to memory.
     // stack: len, l_M, l_E, l_B, kexit_info
     DUP1
     // stack: len, len, l_M, l_E, l_B, kexit_info
@@ -262,7 +262,7 @@ copy_b_len_zero:
     %pop3
 copy_b_end:
     
-    // Copy E to kernel general memory.
+    // Copy E to memory.
     // stack: len, l_M, l_E, l_B, kexit_info
     DUP1
     // stack: len, len, l_M, l_E, l_B, kexit_info
@@ -294,7 +294,7 @@ copy_e_len_zero:
     %pop3
 copy_e_end:
 
-    // Copy M to kernel general memory.
+    // Copy M to memory.
     // stack: len, l_M, l_E, l_B, kexit_info
     DUP1
     // stack: len, len, l_M, l_E, l_B, kexit_info
@@ -389,7 +389,7 @@ copy_m_end:
 expmod_contd:
     // stack: len, l_M, kexit_info
 
-    // Copy the result value from kernel general memory to the parent's return data.
+    // Copy the result value from memory to the parent's return data.
 
     // Store return data size: l_M (number of bytes).
     SWAP1
@@ -411,7 +411,7 @@ expmod_contd:
     DUP2
     ADD
     // stack: cur_address=out+l_M_128-1, end_address=out-1, l_M_128, l_M%16, kexit_info
-    DUP1 %mload_kernel_general
+    DUP1 %mload_current_general
     %stack (cur_limb, cur_address, end_address, l_M_128, l_M_mod16, kexit_info) ->
         (@SEGMENT_RETURNDATA, 0, cur_limb, l_M_mod16, cur_address, end_address, l_M_128, kexit_info)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
@@ -425,7 +425,7 @@ expmod_store_loop:
     // stack: cur_address, offset, end_address, l_M_128, kexit_info
     DUP3 DUP2 EQ %jumpi(expmod_store_end)
     // stack: cur_address, offset, end_address, l_M_128, kexit_info
-    DUP1 %mload_kernel_general
+    DUP1 %mload_current_general
     %stack (cur_limb, cur_address, offset, end_address, l_M_128, kexit_info) ->
          (offset, cur_limb, cur_address, end_address, l_M_128, kexit_info)
     %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, cur_limb, 16)
