@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use eth_trie_utils::partial_trie::HashedPartialTrie;
 use keccak_hash::keccak;
 use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -15,10 +15,8 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
-use plonky2_evm::generation::{generate_traces, GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
-use plonky2_evm::prover::prove;
-use plonky2_evm::verifier::verify_proof;
+use plonky2_evm::generation::{GenerationInputs, TrieInputs};
+use plonky2_evm::proof::BlockMetadata;
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
@@ -27,7 +25,7 @@ type C = PoseidonGoldilocksConfig;
 
 /// Execute the empty list of transactions, i.e. a no-op.
 #[test]
-//#[ignore] // Too slow to run on CI.
+#[ignore] // Too slow to run on CI.
 fn test_empty_txn_list() -> anyhow::Result<()> {
     init_logger();
 

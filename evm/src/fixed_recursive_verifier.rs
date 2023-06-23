@@ -32,7 +32,7 @@ use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
-use crate::generation::{self, GenerationInputs};
+use crate::generation::GenerationInputs;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
@@ -42,18 +42,14 @@ use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::{
     get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{
-    BlockMetadata, BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata,
-    TrieRootsTarget,
-};
+use crate::proof::{PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values, add_virtual_trie_roots,
-    recursive_stark_circuit, set_block_metadata_target, set_trie_roots_target, PlonkWrapperCircuit,
-    PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
+    set_block_metadata_target, set_trie_roots_target, PlonkWrapperCircuit, PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
-use crate::util::h160_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
