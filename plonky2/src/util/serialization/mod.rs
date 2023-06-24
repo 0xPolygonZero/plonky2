@@ -1991,14 +1991,12 @@ impl Write for Vec<u8> {
 }
 
 /// Buffer
-#[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct Buffer<'a> {
     bytes: &'a [u8],
     pos: usize,
 }
 
-#[cfg(feature = "std")]
 impl<'a> Buffer<'a> {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
