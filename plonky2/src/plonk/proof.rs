@@ -116,7 +116,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         let proof = buffer
             .read_proof_with_public_inputs(common_data)
             .map_err(anyhow::Error::msg)?;
@@ -246,7 +246,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         let proof = buffer
             .read_compressed_proof_with_public_inputs(common_data)
             .map_err(anyhow::Error::msg)?;

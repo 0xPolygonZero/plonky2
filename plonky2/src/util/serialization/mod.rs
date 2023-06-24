@@ -1993,16 +1993,16 @@ impl Write for Vec<u8> {
 /// Buffer
 #[cfg(feature = "std")]
 #[derive(Debug)]
-pub struct Buffer {
-    bytes: Vec<u8>,
+pub struct Buffer<'a> {
+    bytes: &'a [u8],
     pos: usize,
 }
 
 #[cfg(feature = "std")]
-impl Buffer {
+impl<'a> Buffer<'a> {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
-    pub fn new(bytes: Vec<u8>) -> Self {
+    pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
 
@@ -2014,26 +2014,24 @@ impl Buffer {
 
     /// Returns the inner buffer.
     #[inline]
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub fn bytes(&self) -> &'a [u8] {
+        self.bytes
     }
 
     /// Returns the inner unread buffer.
     #[inline]
-    pub fn unread_bytes(&self) -> Vec<u8> {
-        self.bytes[self.pos..].to_vec()
+    pub fn unread_bytes(&self) -> &'a [u8] {
+        &self.bytes()[self.pos()..]
     }
 }
 
-#[cfg(feature = "std")]
-impl Remaining for Buffer {
+impl<'a> Remaining for Buffer<'a> {
     fn remaining(&self) -> usize {
-        self.bytes.len() - self.pos
+        self.bytes.len() - self.pos()
     }
 }
 
-#[cfg(feature = "std")]
-impl Read for Buffer {
+impl<'a> Read for Buffer<'a> {
     #[inline]
     fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
         let n = bytes.len();
