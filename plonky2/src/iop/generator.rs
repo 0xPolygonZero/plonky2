@@ -112,7 +112,7 @@ pub trait WitnessGenerator<F: RichField + Extendable<D>, const D: usize>:
     /// run next time a target in its watch list is populated.
     fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool;
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
+    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()>;
 
     fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
@@ -213,7 +213,7 @@ pub trait SimpleGenerator<F: RichField + Extendable<D>, const D: usize>:
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
+    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()>;
 
     fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
@@ -250,8 +250,8 @@ impl<F: RichField + Extendable<D>, SG: SimpleGenerator<F, D>, const D: usize> Wi
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
-        self.inner.serialize(dst)
+    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()> {
+        self.inner.serialize(dst, cd)
     }
 
     fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
@@ -283,7 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Cop
         out_buffer.set_target(self.dst, value);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.src)?;
         dst.write_target(self.dst)
     }
@@ -315,7 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Ran
         out_buffer.set_target(self.target, random_value);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.target)
     }
 
@@ -353,7 +353,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
         out_buffer.set_target(self.dummy, dummy_value);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.to_test)?;
         dst.write_target(self.dummy)
     }
@@ -393,7 +393,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Con
         out_buffer.set_target(Target::wire(self.row, self.wire_index), self.constant);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_usize(self.constant_index)?;
         dst.write_usize(self.wire_index)?;

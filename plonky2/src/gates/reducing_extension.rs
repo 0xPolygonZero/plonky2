@@ -64,7 +64,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_coeffs)?;
         Ok(())
     }
@@ -220,9 +220,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Red
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        <ReducingExtensionGate<D> as Gate<F, D>>::serialize(&self.gate, dst)
+        <ReducingExtensionGate<D> as Gate<F, D>>::serialize(&self.gate, dst, _cd)
     }
 
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {

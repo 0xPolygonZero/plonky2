@@ -60,7 +60,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
         dst.write_lut(&self.lut)
     }
@@ -184,7 +184,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         out_buffer.set_target(out_wire, output_val);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_lut(&self.lut)?;
         dst.write_usize(self.slot_nb)

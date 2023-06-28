@@ -32,7 +32,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGat
         "PublicInputGate".into()
     }
 
-    fn serialize(&self, _dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, _dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         Ok(())
     }
 

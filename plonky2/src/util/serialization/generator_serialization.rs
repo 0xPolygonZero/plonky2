@@ -18,6 +18,7 @@ pub trait WitnessGeneratorSerializer<F: RichField + Extendable<D>, const D: usiz
         &self,
         buf: &mut Vec<u8>,
         generator: &WitnessGeneratorRef<F, D>,
+        cd: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 }
 
@@ -60,10 +61,6 @@ macro_rules! get_generator_tag_impl {
 /// To serialize a list of generators used for a circuit,
 /// this macro should be called with a struct on which to implement
 /// this as first argument, followed by all the targeted generators.
-///
-/// ***NOTE:*** If you need to include `DummyProofGenerator`, you **MUST**
-/// place it at the *beginning* of the generators list, right after
-/// the serializer struct.
 macro_rules! impl_generator_serializer {
     ($target:ty, $($generator_types:ty),+) => {
         fn read_generator(
@@ -79,11 +76,12 @@ macro_rules! impl_generator_serializer {
             &self,
             buf: &mut Vec<u8>,
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
+            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
             let tag = get_generator_tag_impl!(generator, $($generator_types),+)?;
 
             $crate::util::serialization::Write::write_u32(buf, tag)?;
-            generator.0.serialize(buf)?;
+            generator.0.serialize(buf, common)?;
             Ok(())
         }
     };
@@ -132,13 +130,13 @@ pub mod default {
     {
         impl_generator_serializer! {
             DefaultGeneratorSerializer,
-            DummyProofGenerator<F, C, D>,
             ArithmeticBaseGenerator<F, D>,
             ArithmeticExtensionGenerator<F, D>,
             BaseSplitGenerator<2>,
             BaseSumGenerator<2>,
             ConstantGenerator<F>,
             CopyGenerator,
+            DummyProofGenerator<F, C, D>,
             EqualityGenerator,
             ExponentiationGenerator<F, D>,
             InterpolationGenerator<F, D>,

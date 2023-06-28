@@ -122,7 +122,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         format!("{self:?}<D={D}>")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.bits)?;
         dst.write_usize(self.num_copies)?;
         dst.write_usize(self.num_extra_constants)?;
@@ -394,10 +394,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_usize(self.copy)?;
-        self.gate.serialize(dst)
+        self.gate.serialize(dst, _cd)
     }
 
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {

@@ -119,7 +119,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         format!("{self:?}<WIDTH={SPONGE_WIDTH}>")
     }
 
-    fn serialize(&self, _dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, _dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         Ok(())
     }
 
@@ -251,7 +251,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)
     }
 

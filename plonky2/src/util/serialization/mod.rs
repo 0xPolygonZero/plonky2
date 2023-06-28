@@ -1697,12 +1697,14 @@ pub trait Write {
         &mut self,
         gate: &GateRef<F, D>,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 
     fn write_selectors_info(&mut self, selectors_info: &SelectorsInfo) -> IoResult<()> {
@@ -1785,7 +1787,7 @@ pub trait Write {
 
         self.write_usize(gates.len())?;
         for gate in gates.iter() {
-            self.write_gate::<F, D>(gate, gate_serializer)?;
+            self.write_gate::<F, D>(gate, gate_serializer, common_data)?;
         }
 
         Ok(())
@@ -1802,7 +1804,11 @@ pub trait Write {
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         self.write_common_circuit_data(&circuit_data.common, gate_serializer)?;
-        self.write_prover_only_circuit_data(&circuit_data.prover_only, generator_serializer)?;
+        self.write_prover_only_circuit_data(
+            &circuit_data.prover_only,
+            generator_serializer,
+            &circuit_data.common,
+        )?;
         self.write_verifier_only_circuit_data(&circuit_data.verifier_only)
     }
 
@@ -1814,6 +1820,7 @@ pub trait Write {
         &mut self,
         prover_only_circuit_data: &ProverOnlyCircuitData<F, C, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
         let ProverOnlyCircuitData {
             generators,
@@ -1831,7 +1838,7 @@ pub trait Write {
 
         self.write_usize(generators.len())?;
         for generator in generators.iter() {
-            self.write_generator::<F, D>(generator, generator_serializer)?;
+            self.write_generator::<F, D>(generator, generator_serializer, common_data)?;
         }
 
         self.write_usize(generator_indices_by_watches.len())?;
@@ -1891,7 +1898,11 @@ pub trait Write {
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         self.write_common_circuit_data(&prover_circuit_data.common, gate_serializer)?;
-        self.write_prover_only_circuit_data(&prover_circuit_data.prover_only, generator_serializer)
+        self.write_prover_only_circuit_data(
+            &prover_circuit_data.prover_only,
+            generator_serializer,
+            &prover_circuit_data.common,
+        )
     }
 
     fn write_verifier_only_circuit_data<
@@ -2118,16 +2129,18 @@ impl Write for Vec<u8> {
         &mut self,
         gate: &GateRef<F, D>,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
-        gate_serializer.write_gate(self, gate)
+        gate_serializer.write_gate(self, gate, common_data)
     }
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
-        generator_serializer.write_generator(self, generator)
+        generator_serializer.write_generator(self, generator, common_data)
     }
 }
 

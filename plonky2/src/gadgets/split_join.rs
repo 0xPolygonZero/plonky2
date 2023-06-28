@@ -87,7 +87,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Spl
         );
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.integer)?;
         dst.write_target_vec(&self.bits)
     }
@@ -142,7 +142,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
         );
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.integer)?;
         dst.write_usize_vec(&self.gates)?;
         dst.write_usize(self.num_limbs)

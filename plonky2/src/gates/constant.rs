@@ -43,7 +43,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_consts)
     }
 

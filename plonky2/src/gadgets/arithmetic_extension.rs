@@ -522,7 +522,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         out_buffer.set_extension_target(self.quotient, quotient)
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target_ext(self.numerator)?;
         dst.write_target_ext(self.denominator)?;
         dst.write_target_ext(self.quotient)

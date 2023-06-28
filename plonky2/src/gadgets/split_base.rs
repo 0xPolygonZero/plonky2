@@ -110,7 +110,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
         out_buffer.set_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM), sum);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_target_bool_vec(&self.limbs)
     }

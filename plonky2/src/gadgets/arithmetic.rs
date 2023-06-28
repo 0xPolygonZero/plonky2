@@ -399,7 +399,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Equ
         out_buffer.set_target(self.inv, inv);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.x)?;
         dst.write_target(self.y)?;
         dst.write_target_bool(self.equal)?;

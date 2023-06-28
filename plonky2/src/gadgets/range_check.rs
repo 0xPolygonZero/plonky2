@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Low
         out_buffer.set_target(self.high, F::from_canonical_u64(high));
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.integer)?;
         dst.write_usize(self.n_log)?;
         dst.write_target(self.low)?;

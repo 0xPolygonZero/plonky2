@@ -234,7 +234,7 @@ where
         out_buffer.set_verifier_data_target(&self.verifier_data_target, &self.verifier_data);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target_proof_with_public_inputs(&self.proof_with_pis_target)?;
         dst.write_proof_with_public_inputs(&self.proof_with_pis)?;
         dst.write_target_verifier_circuit(&self.verifier_data_target)?;

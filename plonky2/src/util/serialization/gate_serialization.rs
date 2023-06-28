@@ -6,12 +6,13 @@ use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::serialization::{Buffer, IoResult};
 
 pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {
-    fn read_gate(
+    fn read_gate(&self, buf: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<GateRef<F, D>>;
+    fn write_gate(
         &self,
-        buf: &mut Buffer,
-        common: &CommonCircuitData<F, D>,
-    ) -> IoResult<GateRef<F, D>>;
-    fn write_gate(&self, buf: &mut Vec<u8>, gate: &GateRef<F, D>) -> IoResult<()>;
+        buf: &mut Vec<u8>,
+        gate: &GateRef<F, D>,
+        cd: &CommonCircuitData<F, D>,
+    ) -> IoResult<()>;
 }
 
 #[macro_export]
@@ -61,11 +62,16 @@ macro_rules! impl_gate_serializer {
             read_gate_impl!(buf, tag, common, $($gate_types),+)
         }
 
-        fn write_gate(&self, buf: &mut Vec<u8>, gate: &$crate::gates::gate::GateRef<F, D>) -> $crate::util::serialization::IoResult<()> {
+        fn write_gate(
+            &self,
+            buf: &mut Vec<u8>,
+            gate: &$crate::gates::gate::GateRef<F, D>,
+            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
+        ) -> $crate::util::serialization::IoResult<()> {
             let tag = get_gate_tag_impl!(gate, $($gate_types),+)?;
 
             $crate::util::serialization::Write::write_u32(buf, tag)?;
-            gate.0.serialize(buf)?;
+            gate.0.serialize(buf, common)?;
             Ok(())
         }
     };
