@@ -66,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized,
     {
@@ -233,7 +233,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Red
 
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = <ReducingGate<D> as Gate<F, D>>::deserialize(src)?;
+        let gate = <ReducingGate<D> as Gate<F, D>>::deserialize(src, _cd)?;
         Ok(Self { row, gate })
     }
 }

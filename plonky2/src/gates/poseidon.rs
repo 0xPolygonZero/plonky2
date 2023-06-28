@@ -104,7 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         Ok(())
     }
 
-    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(_src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         Ok(PoseidonGate::new())
     }
 

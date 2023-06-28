@@ -19,6 +19,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
 };
@@ -30,7 +31,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 

@@ -684,6 +684,7 @@ pub trait Read {
     fn read_gate<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<GateRef<F, D>>;
 
     fn read_generator<F: RichField + Extendable<D>, const D: usize>(
@@ -743,13 +744,6 @@ pub trait Read {
         let config = self.read_circuit_config()?;
         let fri_params = self.read_fri_params()?;
 
-        let gates_len = self.read_usize()?;
-        let mut gates = Vec::with_capacity(gates_len);
-        for _ in 0..gates_len {
-            let gate = self.read_gate::<F, D>(gate_serializer)?;
-            gates.push(gate);
-        }
-
         let selectors_info = self.read_selectors_info()?;
         let quotient_degree_factor = self.read_usize()?;
         let num_gate_constraints = self.read_usize()?;
@@ -770,10 +764,15 @@ pub trait Read {
             luts.push(Arc::new(self.read_lut()?));
         }
 
-        Ok(CommonCircuitData {
+        let gates_len = self.read_usize()?;
+        let mut gates = Vec::with_capacity(gates_len);
+
+        // We construct the common data without gates first,
+        // to pass it as argument when reading the gates.
+        let mut cd = CommonCircuitData {
             config,
             fri_params,
-            gates,
+            gates: vec![],
             selectors_info,
             quotient_degree_factor,
             num_gate_constraints,
@@ -784,7 +783,16 @@ pub trait Read {
             num_lookup_polys,
             num_lookup_selectors,
             luts,
-        })
+        };
+
+        for _ in 0..gates_len {
+            let gate = self.read_gate::<F, D>(gate_serializer, &cd)?;
+            gates.push(gate);
+        }
+
+        cd.gates = gates;
+
+        Ok(cd)
     }
 
     fn read_circuit_data<
@@ -1757,11 +1765,6 @@ pub trait Write {
         self.write_circuit_config(config)?;
         self.write_fri_params(fri_params)?;
 
-        self.write_usize(gates.len())?;
-        for gate in gates.iter() {
-            self.write_gate::<F, D>(gate, gate_serializer)?;
-        }
-
         self.write_selectors_info(selectors_info)?;
         self.write_usize(*quotient_degree_factor)?;
         self.write_usize(*num_gate_constraints)?;
@@ -1778,6 +1781,11 @@ pub trait Write {
         self.write_usize(luts.len())?;
         for lut in luts.iter() {
             self.write_lut(lut)?;
+        }
+
+        self.write_usize(gates.len())?;
+        for gate in gates.iter() {
+            self.write_gate::<F, D>(gate, gate_serializer)?;
         }
 
         Ok(())
@@ -2178,8 +2186,9 @@ impl<'a> Read for Buffer<'a> {
     fn read_gate<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<GateRef<F, D>> {
-        gate_serializer.read_gate(self)
+        gate_serializer.read_gate(self, common_data)
     }
 
     fn read_generator<F: RichField + Extendable<D>, const D: usize>(

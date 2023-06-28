@@ -176,7 +176,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         dst.write_field_vec(&self.barycentric_weights)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let subgroup_bits = src.read_usize()?;
         let degree = src.read_usize()?;
         let length = src.read_usize()?;
@@ -504,7 +504,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = CosetInterpolationGate::deserialize(src)?;
+        let gate = CosetInterpolationGate::deserialize(src, _cd)?;
         Ok(Self::new(row, gate))
     }
 }

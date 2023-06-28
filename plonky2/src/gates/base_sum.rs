@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         dst.write_usize(self.num_limbs)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_limbs = src.read_usize()?;
         Ok(Self { num_limbs })
     }

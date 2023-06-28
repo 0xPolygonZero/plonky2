@@ -129,7 +129,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let bits = src.read_usize()?;
         let num_copies = src.read_usize()?;
         let num_extra_constants = src.read_usize()?;
@@ -403,7 +403,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
         let copy = src.read_usize()?;
-        let gate = RandomAccessGate::<F, D>::deserialize(src)?;
+        let gate = RandomAccessGate::<F, D>::deserialize(src, _cd)?;
         Ok(Self { row, gate, copy })
     }
 }

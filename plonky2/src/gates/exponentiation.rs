@@ -80,7 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         dst.write_usize(self.num_power_bits)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_power_bits = src.read_usize()?;
         Ok(Self::new(num_power_bits))
     }
@@ -302,7 +302,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
     fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = ExponentiationGate::deserialize(src)?;
+        let gate = ExponentiationGate::deserialize(src, _cd)?;
         Ok(Self { row, gate })
     }
 }

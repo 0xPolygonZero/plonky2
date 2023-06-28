@@ -123,7 +123,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         Ok(())
     }
 
-    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(_src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         Ok(PoseidonMdsGate::new())
     }
 
