@@ -321,6 +321,29 @@ pub struct ProverOnlyCircuitData<
     pub lut_to_lookups: Vec<Lookup>,
 }
 
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    ProverOnlyCircuitData<F, C, D>
+{
+    pub fn to_bytes(
+        &self,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_prover_only_circuit_data(self, generator_serializer, common_data)?;
+        Ok(buffer)
+    }
+
+    pub fn from_bytes(
+        bytes: &[u8],
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<Self> {
+        let mut buffer = Buffer::new(bytes);
+        buffer.read_prover_only_circuit_data(generator_serializer, common_data)
+    }
+}
+
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
