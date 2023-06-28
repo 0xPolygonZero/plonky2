@@ -60,7 +60,7 @@ pub struct LowHighGenerator {
     high: Target,
 }
 
-impl<F: RichField> SimpleGenerator<F> for LowHighGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LowHighGenerator {
     fn id(&self) -> String {
         "LowHighGenerator".to_string()
     }

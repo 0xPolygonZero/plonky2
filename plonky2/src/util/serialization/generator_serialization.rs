@@ -11,12 +11,13 @@ pub trait WitnessGeneratorSerializer<F: RichField + Extendable<D>, const D: usiz
     fn read_generator(
         &self,
         buf: &mut Buffer,
-        common: &CommonCircuitData<F, D>,
-    ) -> IoResult<WitnessGeneratorRef<F>>;
+        cd: &CommonCircuitData<F, D>,
+    ) -> IoResult<WitnessGeneratorRef<F, D>>;
+
     fn write_generator(
         &self,
         buf: &mut Vec<u8>,
-        generator: &WitnessGeneratorRef<F>,
+        generator: &WitnessGeneratorRef<F, D>,
     ) -> IoResult<()>;
 }
 
@@ -30,16 +31,16 @@ macro_rules! read_generator_impl {
         if tag == 0 {
             let generator: $crate::recursion::dummy_circuit::DummyProofGenerator<F, C, D> =
                 $crate::recursion::dummy_circuit::DummyProofGenerator::deserialize_with_circuit_data(buf, $common)?;
-            return Ok($crate::iop::generator::WitnessGeneratorRef::<F>::new(
-                $crate::iop::generator::SimpleGenerator::<F>::adapter(generator),
+            return Ok($crate::iop::generator::WitnessGeneratorRef::<F, D>::new(
+                $crate::iop::generator::SimpleGenerator::<F, D>::adapter(generator),
             ));
         }
 
         $(if tag == i.next().unwrap() {
         let generator =
-            <$generator_types as $crate::iop::generator::SimpleGenerator<F>>::deserialize(buf)?;
-        Ok($crate::iop::generator::WitnessGeneratorRef::<F>::new(
-            $crate::iop::generator::SimpleGenerator::<F>::adapter(generator),
+            <$generator_types as $crate::iop::generator::SimpleGenerator<F, D>>::deserialize(buf)?;
+        Ok($crate::iop::generator::WitnessGeneratorRef::<F, D>::new(
+            $crate::iop::generator::SimpleGenerator::<F, D>::adapter(generator),
         ))
         } else)*
         {
@@ -52,7 +53,7 @@ macro_rules! read_generator_impl {
 macro_rules! get_generator_tag_impl {
     ($generator:expr, $($generator_types:ty),+) => {{
         let mut i = 0..;
-        $(if let (tag, true) = (i.next().unwrap(), $generator.0.id() == $crate::iop::generator::SimpleGenerator::<F>::id(&<$generator_types>::default())) {
+        $(if let (tag, true) = (i.next().unwrap(), $generator.0.id() == $crate::iop::generator::SimpleGenerator::<F, D>::id(&<$generator_types>::default())) {
             Ok(tag)
         } else)*
         {
@@ -77,7 +78,7 @@ macro_rules! impl_generator_serializer {
             &self,
             buf: &mut $crate::util::serialization::Buffer,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
-        ) -> $crate::util::serialization::IoResult<$crate::iop::generator::WitnessGeneratorRef<F>> {
+        ) -> $crate::util::serialization::IoResult<$crate::iop::generator::WitnessGeneratorRef<F, D>> {
             let tag = $crate::util::serialization::Read::read_u32(buf)?;
             read_generator_impl!(buf, tag, common, $($generator_types),+)
         }
@@ -85,7 +86,7 @@ macro_rules! impl_generator_serializer {
         fn write_generator(
             &self,
             buf: &mut Vec<u8>,
-            generator: &$crate::iop::generator::WitnessGeneratorRef<F>,
+            generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
             let tag = get_generator_tag_impl!(generator, $($generator_types),+)?;
 

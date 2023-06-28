@@ -118,7 +118,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = BaseSplitGenerator::<B> {
             row,
             num_limbs: self.num_limbs,
@@ -175,7 +175,9 @@ pub struct BaseSplitGenerator<const B: usize> {
     num_limbs: usize,
 }
 
-impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
+impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerator<F, D>
+    for BaseSplitGenerator<B>
+{
     fn id(&self) -> String {
         "BaseSplitGenerator".to_string()
     }

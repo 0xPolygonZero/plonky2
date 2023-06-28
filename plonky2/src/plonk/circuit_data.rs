@@ -295,7 +295,7 @@ pub struct ProverOnlyCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub generators: Vec<WitnessGeneratorRef<F>>,
+    pub generators: Vec<WitnessGeneratorRef<F, D>>,
     /// Generator indices (within the `Vec` above), indexed by the representative of each target
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,

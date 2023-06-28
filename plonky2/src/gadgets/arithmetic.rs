@@ -379,7 +379,7 @@ pub struct EqualityGenerator {
     inv: Target,
 }
 
-impl<F: RichField> SimpleGenerator<F> for EqualityGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for EqualityGenerator {
     fn id(&self) -> String {
         "EqualityGenerator".to_string()
     }

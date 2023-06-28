@@ -62,7 +62,7 @@ pub struct SplitGenerator {
     bits: Vec<Target>,
 }
 
-impl<F: RichField> SimpleGenerator<F> for SplitGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for SplitGenerator {
     fn id(&self) -> String {
         "SplitGenerator".to_string()
     }
@@ -105,7 +105,7 @@ pub struct WireSplitGenerator {
     num_limbs: usize,
 }
 
-impl<F: RichField> SimpleGenerator<F> for WireSplitGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for WireSplitGenerator {
     fn id(&self) -> String {
         "WireSplitGenerator".to_string()
     }

@@ -187,7 +187,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
             .collect()
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = PoseidonMdsGenerator::<D> { row };
         vec![WitnessGeneratorRef::new(gen.adapter())]
     }
@@ -214,7 +214,7 @@ pub struct PoseidonMdsGenerator<const D: usize> {
     row: usize,
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F, D>
     for PoseidonMdsGenerator<D>
 {
     fn id(&self) -> String {

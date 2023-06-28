@@ -362,7 +362,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = InterpolationGenerator::<F, D>::new(row, self.clone());
         vec![WitnessGeneratorRef::new(gen.adapter())]
     }
@@ -406,7 +406,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGenerator<F, D> 
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for InterpolationGenerator<F, D>
 {
     fn id(&self) -> String {

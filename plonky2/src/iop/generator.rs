@@ -98,7 +98,9 @@ pub(crate) fn generate_partial_witness<
 }
 
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator<F: Field>: 'static + Send + Sync + Debug {
+pub trait WitnessGenerator<F: RichField + Extendable<D>, const D: usize>:
+    'static + Send + Sync + Debug
+{
     fn id(&self) -> String;
 
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
@@ -119,23 +121,25 @@ pub trait WitnessGenerator<F: Field>: 'static + Send + Sync + Debug {
 
 /// A wrapper around an `Box<WitnessGenerator>` which implements `PartialEq`
 /// and `Eq` based on generator IDs.
-pub struct WitnessGeneratorRef<F: Field>(pub Box<dyn WitnessGenerator<F>>);
+pub struct WitnessGeneratorRef<F: RichField + Extendable<D>, const D: usize>(
+    pub Box<dyn WitnessGenerator<F, D>>,
+);
 
-impl<F: Field> WitnessGeneratorRef<F> {
-    pub fn new<G: WitnessGenerator<F>>(generator: G) -> WitnessGeneratorRef<F> {
+impl<F: RichField + Extendable<D>, const D: usize> WitnessGeneratorRef<F, D> {
+    pub fn new<G: WitnessGenerator<F, D>>(generator: G) -> WitnessGeneratorRef<F, D> {
         WitnessGeneratorRef(Box::new(generator))
     }
 }
 
-impl<F: Field> PartialEq for WitnessGeneratorRef<F> {
+impl<F: RichField + Extendable<D>, const D: usize> PartialEq for WitnessGeneratorRef<F, D> {
     fn eq(&self, other: &Self) -> bool {
         self.0.id() == other.0.id()
     }
 }
 
-impl<F: Field> Eq for WitnessGeneratorRef<F> {}
+impl<F: RichField + Extendable<D>, const D: usize> Eq for WitnessGeneratorRef<F, D> {}
 
-impl<F: Field> Debug for WitnessGeneratorRef<F> {
+impl<F: RichField + Extendable<D>, const D: usize> Debug for WitnessGeneratorRef<F, D> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0.id())
     }
@@ -190,14 +194,16 @@ impl<F: Field> GeneratedValues<F> {
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
-pub trait SimpleGenerator<F: Field>: 'static + Send + Sync + Debug {
+pub trait SimpleGenerator<F: RichField + Extendable<D>, const D: usize>:
+    'static + Send + Sync + Debug
+{
     fn id(&self) -> String;
 
     fn dependencies(&self) -> Vec<Target>;
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>);
 
-    fn adapter(self) -> SimpleGeneratorAdapter<F, Self>
+    fn adapter(self) -> SimpleGeneratorAdapter<F, Self, D>
     where
         Self: Sized,
     {
@@ -215,12 +221,18 @@ pub trait SimpleGenerator<F: Field>: 'static + Send + Sync + Debug {
 }
 
 #[derive(Debug)]
-pub struct SimpleGeneratorAdapter<F: Field, SG: SimpleGenerator<F> + ?Sized> {
+pub struct SimpleGeneratorAdapter<
+    F: RichField + Extendable<D>,
+    SG: SimpleGenerator<F, D> + ?Sized,
+    const D: usize,
+> {
     _phantom: PhantomData<F>,
     inner: SG,
 }
 
-impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SimpleGeneratorAdapter<F, SG> {
+impl<F: RichField + Extendable<D>, SG: SimpleGenerator<F, D>, const D: usize> WitnessGenerator<F, D>
+    for SimpleGeneratorAdapter<F, SG, D>
+{
     fn id(&self) -> String {
         self.inner.id()
     }
@@ -257,7 +269,7 @@ pub struct CopyGenerator {
     pub(crate) dst: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for CopyGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for CopyGenerator {
     fn id(&self) -> String {
         "CopyGenerator".to_string()
     }
@@ -289,7 +301,7 @@ pub struct RandomValueGenerator {
     pub(crate) target: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for RandomValueGenerator {
     fn id(&self) -> String {
         "RandomValueGenerator".to_string()
     }
@@ -320,7 +332,7 @@ pub struct NonzeroTestGenerator {
     pub(crate) dummy: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for NonzeroTestGenerator {
     fn id(&self) -> String {
         "NonzeroTestGenerator".to_string()
     }
@@ -368,7 +380,7 @@ impl<F: Field> ConstantGenerator<F> {
     }
 }
 
-impl<F: RichField> SimpleGenerator<F> for ConstantGenerator<F> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for ConstantGenerator<F> {
     fn id(&self) -> String {
         "ConstantGenerator".to_string()
     }

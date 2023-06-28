@@ -252,7 +252,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_copies)
             .map(|copy| {
                 WitnessGeneratorRef::new(
@@ -345,7 +345,7 @@ pub struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     copy: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for RandomAccessGenerator<F, D>
 {
     fn id(&self) -> String {

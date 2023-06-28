@@ -5,7 +5,6 @@ use core::borrow::Borrow;
 use itertools::Itertools;
 
 use crate::field::extension::Extendable;
-use crate::field::types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -86,7 +85,9 @@ pub struct BaseSumGenerator<const B: usize> {
     limbs: Vec<BoolTarget>,
 }
 
-impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
+impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerator<F, D>
+    for BaseSumGenerator<B>
+{
     fn id(&self) -> String {
         "BaseSumGenerator".to_string()
     }

@@ -690,7 +690,7 @@ pub trait Read {
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<WitnessGeneratorRef<F>>;
+    ) -> IoResult<WitnessGeneratorRef<F, D>>;
 
     fn read_selectors_info(&mut self) -> IoResult<SelectorsInfo> {
         let selector_indices = self.read_usize_vec()?;
@@ -1693,7 +1693,7 @@ pub trait Write {
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
-        generator: &WitnessGeneratorRef<F>,
+        generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()>;
 
@@ -2116,7 +2116,7 @@ impl Write for Vec<u8> {
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
-        generator: &WitnessGeneratorRef<F>,
+        generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         generator_serializer.write_generator(self, generator)
@@ -2186,7 +2186,7 @@ impl<'a> Read for Buffer<'a> {
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<WitnessGeneratorRef<F>> {
+    ) -> IoResult<WitnessGeneratorRef<F, D>> {
         generator_serializer.read_generator(self, common_data)
     }
 }

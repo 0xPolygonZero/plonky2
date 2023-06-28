@@ -238,7 +238,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, C, D>
+impl<F, C, const D: usize> SimpleGenerator<F, D> for DummyProofGenerator<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

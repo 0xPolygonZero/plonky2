@@ -101,7 +101,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
         vec![]
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_slots)
             .map(|i| {
                 WitnessGeneratorRef::new(
@@ -149,7 +149,7 @@ pub struct LookupGenerator {
     slot_nb: usize,
 }
 
-impl<F: RichField> SimpleGenerator<F> for LookupGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LookupGenerator {
     fn id(&self) -> String {
         "LookupGenerator".to_string()
     }
