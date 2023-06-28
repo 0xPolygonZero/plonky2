@@ -114,7 +114,7 @@ pub trait WitnessGenerator<F: RichField + Extendable<D>, const D: usize>:
 
     fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 }
@@ -215,7 +215,7 @@ pub trait SimpleGenerator<F: RichField + Extendable<D>, const D: usize>:
 
     fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 }
@@ -254,9 +254,9 @@ impl<F: RichField + Extendable<D>, SG: SimpleGenerator<F, D>, const D: usize> Wi
         self.inner.serialize(dst)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         Ok(Self {
-            inner: SG::deserialize(src)?,
+            inner: SG::deserialize(src, cd)?,
             _phantom: PhantomData,
         })
     }
@@ -288,7 +288,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Cop
         dst.write_target(self.dst)
     }
 
-    fn deserialize(source: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(source: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let src = source.read_target()?;
         let dst = source.read_target()?;
         Ok(Self { src, dst })
@@ -319,7 +319,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Ran
         dst.write_target(self.target)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let target = src.read_target()?;
         Ok(Self { target })
     }
@@ -358,7 +358,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
         dst.write_target(self.dummy)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let to_test = src.read_target()?;
         let dummy = src.read_target()?;
         Ok(Self { to_test, dummy })
@@ -400,7 +400,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Con
         dst.write_field(self.constant)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
         let constant_index = src.read_usize()?;
         let wire_index = src.read_usize()?;

@@ -28,17 +28,9 @@ macro_rules! read_generator_impl {
         let buf = $buf;
         let mut i = 0..;
 
-        if tag == 0 {
-            let generator: $crate::recursion::dummy_circuit::DummyProofGenerator<F, C, D> =
-                $crate::recursion::dummy_circuit::DummyProofGenerator::deserialize_with_circuit_data(buf, $common)?;
-            return Ok($crate::iop::generator::WitnessGeneratorRef::<F, D>::new(
-                $crate::iop::generator::SimpleGenerator::<F, D>::adapter(generator),
-            ));
-        }
-
         $(if tag == i.next().unwrap() {
         let generator =
-            <$generator_types as $crate::iop::generator::SimpleGenerator<F, D>>::deserialize(buf)?;
+            <$generator_types as $crate::iop::generator::SimpleGenerator<F, D>>::deserialize(buf, $common)?;
         Ok($crate::iop::generator::WitnessGeneratorRef::<F, D>::new(
             $crate::iop::generator::SimpleGenerator::<F, D>::adapter(generator),
         ))

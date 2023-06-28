@@ -12,6 +12,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::bits_u64;
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -527,7 +528,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         dst.write_target_ext(self.quotient)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let numerator = src.read_target_ext()?;
         let denominator = src.read_target_ext()?;
         let quotient = src.read_target_ext()?;

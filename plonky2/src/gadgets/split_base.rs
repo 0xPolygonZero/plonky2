@@ -11,6 +11,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::log_floor;
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -114,7 +115,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
         dst.write_target_bool_vec(&self.limbs)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
         let limbs = src.read_target_bool_vec()?;
         Ok(Self { row, limbs })
@@ -124,6 +125,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2_field::types::Field;
     use rand::rngs::OsRng;
     use rand::Rng;
 
