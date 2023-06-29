@@ -1,6 +1,7 @@
 name: Continuous Integration
 
 on:
+  merge_group: {}
   push:
     branches: [main]
   pull_request:
@@ -92,4 +93,3 @@ jobs:
           args: --all-features --all-targets -- -D warnings -A incomplete-features
         env:
           CARGO_INCREMENTAL: 1
-
