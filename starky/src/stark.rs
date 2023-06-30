@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
     FriPolynomialInfo,
@@ -16,6 +17,15 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationPair;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+
+const TRACE_ORACLE_INDEX: usize = 0;
+const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;
+const QUOTIENT_ORACLE_INDEX: usize = 2;
+
+pub struct LookupConfig {
+    degree_bits: usize,
+    num_zs: usize,
+}
 
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
@@ -90,33 +100,35 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         zeta: F::Extension,
         g: F,
         config: &StarkConfig,
+        lookup_cfg: Option<&LookupConfig>,
     ) -> FriInstanceInfo<F, D> {
-        let mut oracles = vec![];
-
-        let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
-        oracles.push(FriOracleInfo {
+        let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
+        let trace_oracle = FriOracleInfo {
             num_polys: Self::COLUMNS,
             blinding: false,
-        });
+        };
 
-        let permutation_zs_info = if self.uses_permutation_args() {
-            let num_z_polys = self.num_permutation_batches(config);
-            let polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_z_polys);
-            oracles.push(FriOracleInfo {
-                num_polys: num_z_polys,
-                blinding: false,
-            });
-            polys
-        } else {
-            vec![]
+        let num_ctl_zs = lookup_cfg.map(|n| n.num_zs).unwrap_or_default();
+        let num_permutation_batches = self.num_permutation_batches(config);
+        let num_z_polys = num_permutation_batches + num_ctl_zs;
+
+        let permutation_zs_info = self
+            .uses_permutation_args()
+            .then(|| FriPolynomialInfo::from_range(PERMUTATION_CTL_ORACLE_INDEX, 0..num_z_polys))
+            .unwrap_or_default();
+
+        let permutation_oracle = FriOracleInfo {
+            num_polys: num_z_polys,
+            blinding: false,
         };
 
         let num_quotient_polys = self.quotient_degree_factor() * config.num_challenges;
-        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
-        oracles.push(FriOracleInfo {
+        let quotient_info =
+            FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
+        let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
-        });
+        };
 
         let zeta_batch = FriBatchInfo {
             point: zeta,
@@ -131,9 +143,26 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
-        let batches = vec![zeta_batch, zeta_next_batch];
+        let mut batches = vec![zeta_batch, zeta_next_batch];
 
-        FriInstanceInfo { oracles, batches }
+        if let Some(lookup_cfg) = lookup_cfg {
+            let ctl_zs_info = FriPolynomialInfo::from_range(
+                PERMUTATION_CTL_ORACLE_INDEX,
+                num_permutation_batches..num_permutation_batches + num_ctl_zs,
+            );
+
+            let ctl_last_batch = FriBatchInfo {
+                point: F::Extension::primitive_root_of_unity(lookup_cfg.degree_bits).inverse(),
+                polynomials: ctl_zs_info,
+            };
+
+            batches.push(ctl_last_batch);
+        }
+
+        FriInstanceInfo {
+            oracles: vec![trace_oracle, permutation_oracle, quotient_oracle],
+            batches,
+        }
     }
 
     /// Computes the FRI instance used to prove this Stark.
