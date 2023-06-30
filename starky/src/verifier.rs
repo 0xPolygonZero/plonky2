@@ -133,6 +133,7 @@ where
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
             config,
+            None,
         ),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
