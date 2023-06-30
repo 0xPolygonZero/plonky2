@@ -158,7 +158,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         }
     }
 
-    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+    pub fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let zeta_batch = FriOpeningBatch {
             values: self
                 .local_values

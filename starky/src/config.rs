@@ -28,7 +28,7 @@ impl StarkConfig {
         }
     }
 
-    pub(crate) fn fri_params(&self, degree_bits: usize) -> FriParams {
+    pub fn fri_params(&self, degree_bits: usize) -> FriParams {
         self.fri_config.fri_params(degree_bits, false)
     }
 }
