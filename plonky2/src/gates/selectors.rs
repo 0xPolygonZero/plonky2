@@ -36,6 +36,7 @@ impl SelectorsInfo {
 ///         k
 ///     else
 ///         UNUSED_SELECTOR
+#[allow(clippy::single_range_in_vec_init)]
 pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>(
     gates: &[GateRef<F, D>],
     instances: &[GateInstance<F, D>],
