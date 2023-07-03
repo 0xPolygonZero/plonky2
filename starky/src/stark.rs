@@ -23,8 +23,8 @@ const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;
 const QUOTIENT_ORACLE_INDEX: usize = 2;
 
 pub struct LookupConfig {
-    degree_bits: usize,
-    num_zs: usize,
+    pub degree_bits: usize,
+    pub num_zs: usize,
 }
 
 /// Represents a STARK system.
