@@ -112,10 +112,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let num_permutation_batches = self.num_permutation_batches(config);
         let num_z_polys = num_permutation_batches + num_ctl_zs;
 
-        let permutation_zs_info = self
-            .uses_permutation_args()
-            .then(|| FriPolynomialInfo::from_range(PERMUTATION_CTL_ORACLE_INDEX, 0..num_z_polys))
-            .unwrap_or_default();
+        let permutation_zs_info =
+            FriPolynomialInfo::from_range(PERMUTATION_CTL_ORACLE_INDEX, 0..num_z_polys);
 
         let permutation_oracle = FriOracleInfo {
             num_polys: num_z_polys,
