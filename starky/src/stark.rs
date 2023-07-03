@@ -122,7 +122,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             blinding: false,
         };
 
-        if lookup_cfg.is_some() {
+        if self.uses_permutation_args() || lookup_cfg.is_some() {
             oracles.push(permutation_oracle);
         }
 
