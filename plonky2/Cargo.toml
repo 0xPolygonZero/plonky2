@@ -40,7 +40,7 @@ getrandom = { version = "0.2", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
-env_logger = { version = "0.9.0", default-features = false }
+env_logger = { version = "0.10.0", default-features = false }
 num_cpus = { version = "1.14.0", default-features = false }
 rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }
 rand_chacha = { version = "0.3.1", default-features = false }
