@@ -1,5 +1,6 @@
 [workspace]
 members = ["field", "maybe_rayon", "plonky2", "starky", "util"]
+resolver = "2"
 
 [profile.release]
 opt-level = 3
