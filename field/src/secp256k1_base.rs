@@ -142,6 +142,15 @@ impl Field for Secp256K1Base {
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self([n.0, n.1 as u64, 0, 0])
     }
+
+    fn from_noncanonical_i64(n: i64) -> Self {
+        let f = Self::from_canonical_u64(n.unsigned_abs());
+        if n < 0 { -f } else { f }
+    }
+
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self::from_canonical_u64(n)
+    }
 }
 
 impl PrimeField for Secp256K1Base {

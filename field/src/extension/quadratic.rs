@@ -109,6 +109,14 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     fn from_noncanonical_u128(n: u128) -> Self {
         F::from_noncanonical_u128(n).into()
     }
+
+    fn from_noncanonical_i64(n: i64) -> Self {
+        F::from_noncanonical_i64(n).into()
+    }
+
+    fn from_noncanonical_u64(n: u64) -> Self {
+        F::from_noncanonical_u64(n).into()
+    }
 }
 
 impl<F: Extendable<2>> Display for QuadraticExtension<F> {

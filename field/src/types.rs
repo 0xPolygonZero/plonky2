@@ -342,24 +342,10 @@ pub trait Field:
     fn from_noncanonical_u128(n: u128) -> Self;
 
     /// Returns `x % Self::CHARACTERISTIC`.
-    ///
-    /// Implemented by default via `from_noncanonical_u128`
-    /// Override, if you have a faster implementation for your field.
-    fn from_noncanonical_u64(n: u64) -> Self {
-        Self::from_noncanonical_u128(n as u128)
-    }
+    fn from_noncanonical_u64(n: u64) -> Self;
 
     /// Returns `n` as an element of this field.
-    ///
-    /// Implemented by default via `from_noncanonical_u128` and case analysis.
-    /// Override, if you have a faster implementation for your field.
-    fn from_noncanonical_i64(n: i64) -> Self {
-        if n < 0 {
-            -Self::from_noncanonical_u128((n as i128).unsigned_abs())
-        } else {
-            Self::from_noncanonical_u128(n as u128)
-        }
-    }
+    fn from_noncanonical_i64(n: i64) -> Self;
 
     /// Returns `n % Self::characteristic()`. May be cheaper than from_noncanonical_u128 when we know
     /// that `n < 2 ** 96`.
