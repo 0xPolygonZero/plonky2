@@ -6,6 +6,7 @@ use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
+use plonky2::gates::constant::ConstantGate;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::RecursiveChallenger;
@@ -490,6 +491,11 @@ where
         // We want EVM root proofs to have the exact same structure as aggregation proofs, so we add
         // public inputs for cyclic verification, even though they'll be ignored.
         let cyclic_vk = builder.add_verifier_data_public_inputs();
+
+        builder.add_gate(
+            ConstantGate::new(inner_common_data[0].config.num_constants),
+            vec![],
+        );
 
         RootCircuitData {
             circuit: builder.build::<C>(),
