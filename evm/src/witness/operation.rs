@@ -684,7 +684,18 @@ pub(crate) fn generate_exception<F: Field>(
         return Err(ProgramError::GasLimitError);
     }
 
-    row.stack_len_bounds_aux = (row.stack_len + F::ONE).inverse();
+    if state.registers.is_kernel {
+        row.stack_len_bounds_aux = F::ZERO;
+    } else {
+        let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+        let diff = row.stack_len - disallowed_len;
+        if let Some(inv) = diff.try_inverse() {
+            row.stack_len_bounds_aux = inv;
+        } else {
+            // This is a stack overflow that should have been caught earlier.
+            return Err(ProgramError::InterpreterError);
+        }
+    }
 
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),
