@@ -36,6 +36,7 @@ impl SelectorsInfo {
 ///         k
 ///     else
 ///         UNUSED_SELECTOR
+#[allow(clippy::single_range_in_vec_init)] // `groups` is a Vec of Ranges.
 pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>(
     gates: &[GateRef<F, D>],
     instances: &[GateInstance<F, D>],
@@ -48,7 +49,6 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
     let index = |id| gates.iter().position(|g| g.0.id() == id).unwrap();
 
     // Special case if we can use only one selector polynomial.
-    #[allow(clippy::single_range_in_vec_init)]
     if max_gate_degree + num_gates - 1 <= max_degree {
         return (
             vec![PolynomialValues::new(
