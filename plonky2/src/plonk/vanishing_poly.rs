@@ -37,11 +37,8 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let mut coeffs = Vec::new();
     let n = common_data.luts[lut_index].len();
-    for i in 0..n {
-        coeffs.push(
-            F::from_canonical_u16(common_data.luts[lut_index][i].0)
-                + b * F::from_canonical_u16(common_data.luts[lut_index][i].1),
-        );
+    for (input, output) in common_data.luts[lut_index].iter() {
+        coeffs.push(F::from_canonical_u16(*input) + b * F::from_canonical_u16(*output));
     }
     coeffs.append(&mut vec![F::ZERO; degree - n]);
     coeffs.reverse();
@@ -767,14 +764,11 @@ pub(crate) fn get_lut_poly_circuit<F: RichField + Extendable<D>, const D: usize>
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let delta = deltas[LookupChallenges::ChallengeDelta as usize];
     let n = common_data.luts[lut_index].len();
-    let mut coeffs: Vec<Target> = (0..n)
-        .map(|i| {
-            let temp =
-                builder.mul_const(F::from_canonical_u16(common_data.luts[lut_index][i].1), b);
-            builder.add_const(
-                temp,
-                F::from_canonical_u16(common_data.luts[lut_index][i].0),
-            )
+    let mut coeffs: Vec<Target> = common_data.luts[lut_index]
+        .iter()
+        .map(|(input, output)| {
+            let temp = builder.mul_const(F::from_canonical_u16(*output), b);
+            builder.add_const(temp, F::from_canonical_u16(*input))
         })
         .collect();
     for _ in n..degree {
