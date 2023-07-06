@@ -58,6 +58,7 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
             )],
             SelectorsInfo {
                 selector_indices: vec![0; num_gates],
+                #[allow(clippy::single_range_in_vec_init)]
                 groups: vec![0..num_gates],
             },
         );
