@@ -5,12 +5,16 @@
 
 #![allow(clippy::upper_case_acronyms)]
 
+extern crate alloc;
+use alloc::sync::Arc;
 use core::num::ParseIntError;
 use core::ops::RangeInclusive;
 use core::str::FromStr;
 
 use anyhow::{anyhow, Context as _, Result};
+use itertools::Itertools;
 use log::{info, Level, LevelFilter};
+use plonky2::gadgets::lookup::TIP5_TABLE;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
@@ -59,6 +63,12 @@ struct Options {
     /// range.
     #[structopt(long, default_value="14", parse(try_from_str = parse_range_usize))]
     size: RangeInclusive<usize>,
+
+    /// Lookup type. If `lookup_type == 0` or `lookup_type > 2`, then a benchmark with NoopGates only is run.
+    /// If `lookup_type == 1`, a benchmark with one lookup is run.
+    /// If `lookup_type == 2`, a benchmark with 515 lookups is run.
+    #[structopt(long, default_value="0", parse(try_from_str = parse_hex_u64))]
+    lookup_type: u64,
 }
 
 /// Creates a dummy proof which should have `2 ** log2_size` rows.
@@ -88,6 +98,101 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     timing.print();
     data.verify(proof.clone())?;
 
+    Ok((proof, data.verifier_only, data.common))
+}
+
+fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    config: &CircuitConfig,
+    log2_size: usize,
+) -> Result<ProofTuple<F, C, D>> {
+    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let tip5_table = TIP5_TABLE.to_vec();
+    let inps = 0..256;
+    let table = Arc::new(inps.zip_eq(tip5_table).collect());
+    let tip5_idx = builder.add_lookup_table_from_pairs(table);
+    let initial_a = builder.add_virtual_target();
+    builder.add_lookup_from_index(initial_a, tip5_idx);
+    builder.register_public_input(initial_a);
+
+    // 'size' is in degree, but we want the number of gates in the circuit.
+    // A non-zero amount of padding will be added and size will be rounded to the next power of two.
+    // To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
+    let targeted_num_gates = match log2_size {
+        0 => return Err(anyhow!("size must be at least 1")),
+        1 => 0,
+        2 => 1,
+        n => (1 << (n - 1)) + 1,
+    };
+    assert!(
+        targeted_num_gates >= builder.num_gates(),
+        "size is too small to support lookups"
+    );
+
+    for _ in builder.num_gates()..targeted_num_gates {
+        builder.add_gate(NoopGate, vec![]);
+    }
+    builder.print_gate_counts(0);
+
+    let data = builder.build::<C>();
+    let mut inputs = PartialWitness::<F>::new();
+    inputs.set_target(initial_a, F::ONE);
+    let mut timing = TimingTree::new("prove with one lookup", Level::Debug);
+    let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
+    timing.print();
+    data.verify(proof.clone())?;
+
+    Ok((proof, data.verifier_only, data.common))
+}
+
+/// Creates a dummy proof which has more than 256 lookups to one LUT
+fn dummy_many_rows_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    config: &CircuitConfig,
+    log2_size: usize,
+) -> Result<ProofTuple<F, C, D>> {
+    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let tip5_table = TIP5_TABLE.to_vec();
+    let inps: Vec<u16> = (0..256).collect();
+    let tip5_idx = builder.add_lookup_table_from_table(&inps, &tip5_table);
+    let initial_a = builder.add_virtual_target();
+
+    let output = builder.add_lookup_from_index(initial_a, tip5_idx);
+    for _ in 0..514 {
+        builder.add_lookup_from_index(output, 0);
+    }
+
+    // 'size' is in degree, but we want the number of gates in the circuit.
+    // A non-zero amount of padding will be added and size will be rounded to the next power of two.
+    // To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
+    let targeted_num_gates = match log2_size {
+        0 => return Err(anyhow!("size must be at least 1")),
+        1 => 0,
+        2 => 1,
+        n => (1 << (n - 1)) + 1,
+    };
+    assert!(
+        targeted_num_gates >= builder.num_gates(),
+        "size is too small to support so many lookups"
+    );
+
+    for _ in 0..targeted_num_gates {
+        builder.add_gate(NoopGate, vec![]);
+    }
+
+    builder.register_public_input(initial_a);
+    builder.register_public_input(output);
+
+    let mut pw = PartialWitness::new();
+    pw.set_target(initial_a, F::ONE);
+    let data = builder.build::<C>();
+    let mut timing = TimingTree::new("prove with many lookups", Level::Debug);
+    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    timing.print();
+
+    data.verify(proof.clone())?;
     Ok((proof, data.verifier_only, data.common))
 }
 
@@ -183,16 +288,34 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     Ok(())
 }
 
-fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
+pub fn benchmark_function(
+    config: &CircuitConfig,
+    log2_inner_size: usize,
+    lookup_type: u64,
+) -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
+    let dummy_proof_function = match lookup_type {
+        0 => dummy_proof::<F, C, D>,
+        1 => dummy_lookup_proof::<F, C, D>,
+        2 => dummy_many_rows_proof::<F, C, D>,
+        _ => dummy_proof::<F, C, D>,
+    };
+
+    let name = match lookup_type {
+        0 => "proof",
+        1 => "one lookup proof",
+        2 => "multiple lookups proof",
+        _ => "proof",
+    };
     // Start with a dummy proof of specified size
-    let inner = dummy_proof::<F, C, D>(config, log2_inner_size)?;
+    let inner = dummy_proof_function(config, log2_inner_size)?;
     let (_, _, cd) = &inner;
     info!(
-        "Initial proof degree {} = 2^{}",
+        "Initial {} degree {} = 2^{}",
+        name,
         cd.degree(),
         cd.degree_bits()
     );
@@ -201,7 +324,8 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     let middle = recursive_proof::<F, C, C, D>(&inner, config, None)?;
     let (_, _, cd) = &middle;
     info!(
-        "Single recursion proof degree {} = 2^{}",
+        "Single recursion {} degree {} = 2^{}",
+        name,
         cd.degree(),
         cd.degree_bits()
     );
@@ -210,7 +334,8 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
     let (proof, vd, cd) = &outer;
     info!(
-        "Double recursion proof degree {} = 2^{}",
+        "Double recursion {} degree {} = 2^{}",
+        name,
         cd.degree(),
         cd.degree_bits()
     );
@@ -223,7 +348,6 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
 fn main() -> Result<()> {
     // Parse command line arguments, see `--help` for details.
     let options = Options::from_args_safe()?;
-
     // Initialize logging
     let mut builder = env_logger::Builder::from_default_env();
     builder.parse_filters(&options.log_filter);
@@ -246,8 +370,9 @@ fn main() -> Result<()> {
     let threads = options.threads.unwrap_or(num_cpus..=num_cpus);
 
     let config = CircuitConfig::standard_recursion_config();
+
     for log2_inner_size in options.size {
-        // Since the `size` is most likely to be and unbounded range we make that the outer iterator.
+        // Since the `size` is most likely to be an unbounded range we make that the outer iterator.
         for threads in threads.clone() {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -259,8 +384,8 @@ fn main() -> Result<()> {
                         rayon::current_num_threads(),
                         num_cpus
                     );
-                    // Run the benchmark
-                    benchmark(&config, log2_inner_size)
+                    // Run the benchmark. `options.lookup_type` determines which benchmark to run.
+                    benchmark_function(&config, log2_inner_size, options.lookup_type)
                 })?;
         }
     }

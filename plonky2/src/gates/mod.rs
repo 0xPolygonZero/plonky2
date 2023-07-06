@@ -8,6 +8,8 @@ pub mod constant;
 pub mod coset_interpolation;
 pub mod exponentiation;
 pub mod gate;
+pub mod lookup;
+pub mod lookup_table;
 pub mod multiplication_extension;
 pub mod noop;
 pub mod packed_util;

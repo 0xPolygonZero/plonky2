@@ -100,6 +100,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
             row,
@@ -108,6 +109,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
+        vars.remove_prefix(num_lookup_selectors);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -123,6 +125,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
@@ -135,7 +138,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
                 )
             })
             .collect();
-        vars_batch.remove_prefix(num_selectors);
+        vars_batch.remove_prefix(num_selectors + num_lookup_selectors);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -152,6 +155,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
         let filter = compute_filter_circuit(
@@ -162,6 +166,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
+        vars.remove_prefix(num_lookup_selectors);
         let my_constraints = self.eval_unfiltered_circuit(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);
