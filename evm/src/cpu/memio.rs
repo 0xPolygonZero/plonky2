@@ -40,6 +40,7 @@ fn eval_packed_load<P: PackedField>(
     }
 }
 
+#[allow(clippy::tuple_array_conversions)] // For izip! macro.
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -109,6 +110,7 @@ fn eval_packed_store<P: PackedField>(
     }
 }
 
+#[allow(clippy::tuple_array_conversions)] // For izip! macro.
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
