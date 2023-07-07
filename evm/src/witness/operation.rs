@@ -315,6 +315,20 @@ pub(crate) fn generate_set_context<F: Field>(
             MemoryOpKind::Read,
             sp_to_save,
         );
+
+        let channel = &mut row.mem_channels[2];
+        assert_eq!(channel.used, F::ZERO);
+        channel.used = F::ONE;
+        channel.is_read = F::ONE;
+        channel.addr_context = F::from_canonical_usize(new_ctx);
+        channel.addr_segment = F::from_canonical_usize(Segment::ContextMetadata as usize);
+        channel.addr_virtual = F::from_canonical_usize(new_sp_addr.virt);
+        let val_limbs: [u64; 4] = sp_to_save.0;
+        for (i, limb) in val_limbs.into_iter().enumerate() {
+            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+        }
+
         (sp_to_save, op)
     } else {
         mem_read_gp_with_log_and_fill(2, new_sp_addr, state, &mut row)
