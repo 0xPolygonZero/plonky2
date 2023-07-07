@@ -60,7 +60,6 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     exception: None,
 };
 
-#[allow(clippy::useless_conversion)] // For izip! macro.
 fn eval_packed_accumulate<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -119,7 +118,6 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_init(lv, nv, yield_constr);
 }
 
-#[allow(clippy::useless_conversion)] // For izip! macro.
 fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

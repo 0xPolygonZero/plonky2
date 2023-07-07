@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0.40", default-features = false }
-itertools = { version = "0.11.0", default-features = false, features = ["use_alloc"] }
+itertools = { version = "0.10.0", default-features = false, features = ["use_alloc"] }
 num = { version = "0.4", default-features = false, features = ["alloc", "rand"] }
 plonky2_util = { version = "0.1.0", default-features = false }
 rand = { version = "0.8.5", default-features = false, features = ["getrandom"] }

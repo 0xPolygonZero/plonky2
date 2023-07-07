@@ -108,7 +108,6 @@ pub(crate) fn selector_ends_lookups<F: RichField + Extendable<D>, const D: usize
 ///         k
 ///     else
 ///         UNUSED_SELECTOR
-#[allow(clippy::single_range_in_vec_init)] // `groups` is a Vec of Ranges.
 pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>(
     gates: &[GateRef<F, D>],
     instances: &[GateInstance<F, D>],
