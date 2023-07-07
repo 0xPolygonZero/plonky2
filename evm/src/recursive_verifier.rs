@@ -188,7 +188,7 @@ where
         let circuit = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
         let target_vec = buffer.read_target_vec()?;
         let init_challenger_state_target =
-            <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(target_vec);
+            <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(target_vec.into_iter());
         let zero_target = buffer.read_target()?;
         let stark_proof_target = StarkProofTarget::from_buffer(buffer)?;
         let ctl_challenges_target = GrandProductChallengeSet::from_buffer(buffer)?;
