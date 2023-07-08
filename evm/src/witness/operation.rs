@@ -185,13 +185,14 @@ pub(crate) fn generate_jump<F: Field>(
         state,
         &mut row,
     );
+
+    row.mem_channels[1].value[0] = F::ONE;
+
     if state.registers.is_kernel {
         // Don't actually do the read, just set the address, etc.
         let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
         channel.used = F::ZERO;
         channel.value[0] = F::ONE;
-
-        row.mem_channels[1].value[0] = F::ONE;
     } else {
         if jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpDestination);
