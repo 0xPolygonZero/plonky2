@@ -153,7 +153,11 @@ impl Field for Secp256K1Scalar {
 
     fn from_noncanonical_i64(n: i64) -> Self {
         let f = Self::from_canonical_u64(n.unsigned_abs());
-        if n < 0 { -f } else { f }
+        if n < 0 {
+            -f
+        } else {
+            f
+        }
     }
 
     fn from_noncanonical_u64(n: u64) -> Self {
