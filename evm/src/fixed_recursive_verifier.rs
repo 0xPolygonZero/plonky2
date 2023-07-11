@@ -297,7 +297,7 @@ where
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes.to_vec());
+        let mut buffer = Buffer::new(bytes);
         let root =
             RootCircuitData::from_buffer(&mut buffer, gate_serializer, generator_serializer)?;
         let aggregation = AggregationCircuitData::from_buffer(

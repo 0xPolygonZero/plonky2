@@ -21,9 +21,7 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::verifier::verify_with_challenges;
-use crate::util::serialization::Write;
-#[cfg(feature = "std")]
-use crate::util::serialization::{Buffer, Read};
+use crate::util::serialization::{Buffer, Read, Write};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -111,12 +109,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         buffer
     }
 
-    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         let proof = buffer
             .read_proof_with_public_inputs(common_data)
             .map_err(anyhow::Error::msg)?;
@@ -241,12 +238,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         buffer
     }
 
-    #[cfg(feature = "std")]
     pub fn from_bytes(
         bytes: Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         let proof = buffer
             .read_compressed_proof_with_public_inputs(common_data)
             .map_err(anyhow::Error::msg)?;
