@@ -38,6 +38,7 @@ use crate::witness::util::mem_write_log;
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
+    pub withdrawals: Vec<(Address, U256)>,
 
     pub tries: TrieInputs,
 
@@ -132,16 +133,29 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "Trie: {:?}",
         &state.memory.contexts[0].segments[Segment::TrieData as usize]
     );
+    println!(
+        "Root: {:?}",
+        &state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].content
+            [GlobalMetadata::StateTrieRoot as usize]
+    );
+    println!(
+        "Trie: {:?}",
+        &state.memory.contexts[0].segments[Segment::TrieData as usize]
+    );
 
     assert!(
         state.mpt_prover_inputs.is_empty(),
         "All MPT data should have been consumed"
     );
 
-    // log::info!(
-    //     "Trace lengths (before padding): {:?}",
-    //     state.traces.checkpoint()
-    // );
+    log::info!(
+        "Trace lengths (before padding): {:?}",
+        state.traces.checkpoint()
+    );
+    println!(
+        "Trace lengths (before padding): {:?}",
+        state.traces.checkpoint()
+    );
 
     let outputs = get_outputs(&mut state);
     log::info!("addrs = {:?}", &state.state_key_to_address);

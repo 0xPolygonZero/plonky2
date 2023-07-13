@@ -101,6 +101,8 @@ loop_end:
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_BRANCH)     %jumpi(maybe_normalize_branch_branch)
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_EXTENSION)  %jumpi(maybe_normalize_branch_leafext)
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_LEAF)       %jumpi(maybe_normalize_branch_leafext)
+    %mload_kernel_general(1)
+global delete_hash_node_branch:
     PANIC // This should never happen.
 
 // The only child of the branch node is a branch node.

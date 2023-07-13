@@ -38,6 +38,7 @@ impl<F: Field> GenerationState<F> {
             "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
+            "withdrawal" => self.run_withdrawal(),
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
             _ => panic!("Unrecognized prover input function."),
@@ -115,6 +116,13 @@ impl<F: Field> GenerationState<F> {
         self.rlp_prover_inputs
             .pop()
             .unwrap_or_else(|| panic!("Out of RLP data"))
+    }
+
+    /// Withdrawal data.
+    fn run_withdrawal(&mut self) -> U256 {
+        self.withdrawal_prover_inputs
+            .pop()
+            .unwrap_or_else(|| panic!("Out of withdrawal data"))
     }
 
     /// Account code.

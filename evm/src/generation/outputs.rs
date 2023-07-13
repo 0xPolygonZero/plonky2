@@ -74,12 +74,13 @@ fn account_trie_record_to_output<F: Field>(
     // TODO: This won't work if the account was created during the txn.
     // Need to track changes to code, similar to how we track addresses
     // with observe_new_address.
-    let code = state
-        .inputs
-        .contract_code
-        .get(&account.code_hash)
-        .unwrap_or_else(|| panic!("Code not found: {:?}", account.code_hash))
-        .clone();
+    // let code = state
+    //     .inputs
+    //     .contract_code
+    //     .get(&account.code_hash)
+    //     .unwrap_or_else(|| panic!("Code not found: {:?}", account.code_hash))
+    //     .clone();
+    let code = vec![];
 
     AccountOutput {
         balance: account.balance,

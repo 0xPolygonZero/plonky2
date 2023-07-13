@@ -44,3 +44,21 @@ delete_account_save:
 %%after:
     // stack: (empty)
 %endmacro
+
+
+%macro delete_account_hook
+    PUSH %%after
+%%after:
+%endmacro
+
+global delete_account_hook:
+    JUMP
+
+%macro change_storage_slot_hook
+    PUSH %%after
+    %jump(change_storage_slot_hook)
+%%after:
+%endmacro
+
+global change_storage_slot_hook:
+    JUMP

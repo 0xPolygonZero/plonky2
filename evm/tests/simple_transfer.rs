@@ -77,6 +77,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         block_base_fee: 0xa.into(),
     };
 
+
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
@@ -86,6 +87,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         contract_code,
         block_metadata,
         addresses: vec![],
+        withdrawals: vec![]
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);

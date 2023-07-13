@@ -37,6 +37,8 @@ pub(crate) struct GenerationState<F: Field> {
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
 
+    pub(crate) withdrawal_prover_inputs: Vec<U256>,
+
     /// The state trie only stores state keys, which are hashes of addresses, but sometimes it is
     /// useful to see the actual addresses for debugging. Here we store the mapping for all known
     /// addresses.
@@ -46,6 +48,8 @@ pub(crate) struct GenerationState<F: Field> {
     /// inputs are obtained in big-endian order via `pop()`). Contains both the remainder and the
     /// quotient, in that order.
     pub(crate) bignum_modmul_result_limbs: Vec<U256>,
+
+    pub last_storage_slot_deleted: Option<(Address, U256, u8)>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -61,6 +65,14 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
+        let mut withdrawal_prover_inputs: Vec<_> = inputs
+            .withdrawals
+            .iter()
+            .flat_map(|w| [U256::from((w.0).0.as_slice()), w.1])
+            .collect();
+        withdrawal_prover_inputs.push(U256::MAX);
+        withdrawal_prover_inputs.push(U256::MAX);
+        withdrawal_prover_inputs.reverse();
         let bignum_modmul_result_limbs = Vec::new();
 
         Self {
@@ -71,8 +83,10 @@ impl<F: Field> GenerationState<F> {
             next_txn_index: 0,
             mpt_prover_inputs,
             rlp_prover_inputs,
+            withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
+            last_storage_slot_deleted: None,
         }
     }
 
@@ -89,6 +103,18 @@ impl<F: Field> GenerationState<F> {
             let tip_u256 = stack_peek(self, 0).expect("Empty stack");
             let tip_h256 = H256::from_uint(&tip_u256);
             self.observe_contract(tip_h256);
+        } else if dst == KERNEL.global_labels["change_storage_slot_hook"] {
+            let address = stack_peek(self, 1).expect("Stack length < 2");
+            let address = H256::from_uint(&address);
+            let slot = stack_peek(self, 2).expect("Stack length < 3");
+            self.last_storage_slot_deleted = Some((Address::from(address), slot, 0));
+        } else if dst == KERNEL.global_labels["after_storage_insert"] {
+            self.last_storage_slot_deleted = None;
+        } else if dst == KERNEL.global_labels["mpt_delete_branch"] {
+            let depth = stack_peek(self, 2).expect("Stack length < 3");
+            if let Some((address, slot, _)) = self.last_storage_slot_deleted {
+                self.last_storage_slot_deleted = Some((address, slot, depth.as_u32() as u8));
+            }
         }
     }
 

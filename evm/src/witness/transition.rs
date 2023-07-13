@@ -359,6 +359,11 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
 
 pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
+    if state.registers.is_kernel
+        && state.registers.program_counter == KERNEL.global_labels["invalid_txn"]
+    {
+        panic!("Invalid transaction");
+    }
     let result = try_perform_instruction(state);
     // dbg!(&result);
 
@@ -373,11 +378,12 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
             if state.registers.is_kernel {
                 let offset_name = KERNEL.offset_name(state.registers.program_counter);
                 bail!(
-                    "{:?} in kernel at pc={}, stack={:?}, memory={:?}",
+                    "{:?} in kernel at pc={}, stack={:?}, memory={:?}, last_storage_slot={:?}",
                     e,
                     offset_name,
                     state.stack(),
                     state.memory.contexts[0].segments[Segment::KernelGeneral as usize].content,
+                    state.last_storage_slot_deleted
                 );
             }
             state.rollback(checkpoint);

@@ -1,6 +1,7 @@
 // struct StorageChange { address, slot, prev_value }
 
 %macro journal_add_storage_change
+    %change_storage_slot_hook
     %journal_add_3(@JOURNAL_ENTRY_STORAGE_CHANGE)
 %endmacro
 
