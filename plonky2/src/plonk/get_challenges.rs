@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use hashbrown::HashSet;
 
+use super::circuit_builder::NUM_COINS_LOOKUP;
 use crate::field::extension::Extendable;
 use crate::field::polynomial::PolynomialCoeffs;
 use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
@@ -38,6 +39,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let num_challenges = config.num_challenges;
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
+    let has_lookup = common_data.num_lookup_polys != 0;
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(*circuit_digest);
@@ -47,6 +49,22 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let plonk_betas = challenger.get_n_challenges(num_challenges);
     let plonk_gammas = challenger.get_n_challenges(num_challenges);
 
+    // If there are lookups in the circuit, we should get delta challenges as well.
+    // But we can use the already generated `plonk_betas` and `plonk_gammas` as the first `plonk_deltas` challenges.
+    let plonk_deltas = if has_lookup {
+        let num_lookup_challenges = NUM_COINS_LOOKUP * num_challenges;
+        let mut deltas = Vec::with_capacity(num_lookup_challenges);
+        let num_additional_challenges = num_lookup_challenges - 2 * num_challenges;
+        let additional = challenger.get_n_challenges(num_additional_challenges);
+        deltas.extend(&plonk_betas);
+        deltas.extend(&plonk_gammas);
+        deltas.extend(additional);
+        deltas
+    } else {
+        vec![]
+    };
+
+    // `plonk_zs_partial_products_cap` also contains the commitment to lookup polynomials.
     challenger.observe_cap::<C::Hasher>(plonk_zs_partial_products_cap);
     let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -59,6 +77,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
         plonk_betas,
         plonk_gammas,
         plonk_alphas,
+        plonk_deltas,
         plonk_zeta,
         fri_challenges: challenger.fri_challenges::<C, D>(
             commit_phase_merkle_caps,
@@ -255,14 +274,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_challenges = config.num_challenges;
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
+        let has_lookup = inner_common_data.num_lookup_polys != 0;
 
         // Observe the instance.
         challenger.observe_hash(&inner_circuit_digest);
         challenger.observe_hash(&public_inputs_hash);
 
         challenger.observe_cap(wires_cap);
+
         let plonk_betas = challenger.get_n_challenges(self, num_challenges);
         let plonk_gammas = challenger.get_n_challenges(self, num_challenges);
+
+        // If there are lookups in the circuit, we should get delta challenges as well.
+        // But we can use the already generated `plonk_betas` and `plonk_gammas` as the first `plonk_deltas` challenges.
+        let plonk_deltas = if has_lookup {
+            let num_lookup_challenges = NUM_COINS_LOOKUP * num_challenges;
+            let mut deltas = Vec::with_capacity(num_lookup_challenges);
+            let num_additional_challenges = num_lookup_challenges - 2 * num_challenges;
+            let additional = challenger.get_n_challenges(self, num_additional_challenges);
+            deltas.extend(&plonk_betas);
+            deltas.extend(&plonk_gammas);
+            deltas.extend(additional);
+            deltas
+        } else {
+            vec![]
+        };
 
         challenger.observe_cap(plonk_zs_partial_products_cap);
         let plonk_alphas = challenger.get_n_challenges(self, num_challenges);
@@ -276,6 +312,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             plonk_betas,
             plonk_gammas,
             plonk_alphas,
+            plonk_deltas,
             plonk_zeta,
             fri_challenges: challenger.fri_challenges(
                 self,

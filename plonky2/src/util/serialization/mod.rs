@@ -5,6 +5,7 @@ pub mod generator_serialization;
 pub mod gate_serialization;
 
 use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
@@ -30,6 +31,7 @@ use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::gate::GateRef;
+use crate::gates::lookup::Lookup;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
@@ -38,6 +40,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::plonk::circuit_builder::LookupWire;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
@@ -110,6 +113,14 @@ pub trait Read {
         let mut buf = [0; size_of::<u8>()];
         self.read_exact(&mut buf)?;
         Ok(buf[0])
+    }
+
+    /// Reads a `u16` value from `self`.
+    #[inline]
+    fn read_u16(&mut self) -> IoResult<u16> {
+        let mut buf = [0; size_of::<u16>()];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_le_bytes(buf))
     }
 
     /// Reads a `u32` value from `self`.
@@ -334,6 +345,8 @@ pub trait Read {
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let plonk_zs_next = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
+        let lookup_zs = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
+        let lookup_zs_next = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(
@@ -347,6 +360,8 @@ pub trait Read {
             plonk_zs_next,
             partial_products,
             quotient_polys,
+            lookup_zs,
+            lookup_zs_next,
         })
     }
 
@@ -358,6 +373,8 @@ pub trait Read {
         let wires = self.read_target_ext_vec::<D>()?;
         let plonk_zs = self.read_target_ext_vec::<D>()?;
         let plonk_zs_next = self.read_target_ext_vec::<D>()?;
+        let lookup_zs = self.read_target_ext_vec::<D>()?;
+        let next_lookup_zs = self.read_target_ext_vec::<D>()?;
         let partial_products = self.read_target_ext_vec::<D>()?;
         let quotient_polys = self.read_target_ext_vec::<D>()?;
 
@@ -367,6 +384,8 @@ pub trait Read {
             wires,
             plonk_zs,
             plonk_zs_next,
+            lookup_zs,
+            next_lookup_zs,
             partial_products,
             quotient_polys,
         })
@@ -422,7 +441,9 @@ pub trait Read {
         evals_proofs.push((wires_v, wires_p));
 
         let zs_partial_v = self.read_field_vec(
-            config.num_challenges * (1 + common_data.num_partial_products) + salt,
+            config.num_challenges
+                * (1 + common_data.num_partial_products + common_data.num_lookup_polys)
+                + salt,
         )?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
@@ -740,6 +761,15 @@ pub trait Read {
 
         let num_partial_products = self.read_usize()?;
 
+        let num_lookup_polys = self.read_usize()?;
+        let num_lookup_selectors = self.read_usize()?;
+        let length = self.read_usize()?;
+        let mut luts = Vec::with_capacity(length);
+
+        for _ in 0..length {
+            luts.push(Arc::new(self.read_lut()?));
+        }
+
         Ok(CommonCircuitData {
             config,
             fri_params,
@@ -751,6 +781,9 @@ pub trait Read {
             num_public_inputs,
             k_is,
             num_partial_products,
+            num_lookup_polys,
+            num_lookup_selectors,
+            luts,
         })
     }
 
@@ -825,6 +858,22 @@ pub trait Read {
 
         let circuit_digest = self.read_hash::<F, <C as GenericConfig<D>>::Hasher>()?;
 
+        let length = self.read_usize()?;
+        let mut lookup_rows = Vec::with_capacity(length);
+        for _ in 0..length {
+            lookup_rows.push(LookupWire {
+                last_lu_gate: self.read_usize()?,
+                last_lut_gate: self.read_usize()?,
+                first_lut_gate: self.read_usize()?,
+            });
+        }
+
+        let length = self.read_usize()?;
+        let mut lut_to_lookups = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut_to_lookups.push(self.read_target_lut()?);
+        }
+
         Ok(ProverOnlyCircuitData {
             generators,
             generator_indices_by_watches,
@@ -835,6 +884,8 @@ pub trait Read {
             representative_map,
             fft_root_table,
             circuit_digest,
+            lookup_rows,
+            lut_to_lookups,
         })
     }
 
@@ -1089,6 +1140,30 @@ pub trait Read {
             public_inputs,
         })
     }
+
+    /// Reads a lookup table stored as `Vec<(u16, u16)>` from `self`.
+    #[inline]
+    fn read_lut(&mut self) -> IoResult<Vec<(u16, u16)>> {
+        let length = self.read_usize()?;
+        let mut lut = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut.push((self.read_u16()?, self.read_u16()?));
+        }
+
+        Ok(lut)
+    }
+
+    /// Reads a target lookup table stored as `Lookup` from `self`.
+    #[inline]
+    fn read_target_lut(&mut self) -> IoResult<Lookup> {
+        let length = self.read_usize()?;
+        let mut lut = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut.push((self.read_target()?, self.read_target()?));
+        }
+
+        Ok(lut)
+    }
 }
 
 /// Writing
@@ -1126,6 +1201,12 @@ pub trait Write {
     #[inline]
     fn write_u8(&mut self, x: u8) -> IoResult<()> {
         self.write_all(&[x])
+    }
+
+    /// Writes a word `x` to `self`.
+    #[inline]
+    fn write_u16(&mut self, x: u16) -> IoResult<()> {
+        self.write_all(&x.to_le_bytes())
     }
 
     /// Writes a word `x` to `self.`
@@ -1334,6 +1415,8 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.wires)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs_next)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }
@@ -1349,6 +1432,8 @@ pub trait Write {
         self.write_target_ext_vec::<D>(&os.wires)?;
         self.write_target_ext_vec::<D>(&os.plonk_zs)?;
         self.write_target_ext_vec::<D>(&os.plonk_zs_next)?;
+        self.write_target_ext_vec::<D>(&os.lookup_zs)?;
+        self.write_target_ext_vec::<D>(&os.next_lookup_zs)?;
         self.write_target_ext_vec::<D>(&os.partial_products)?;
         self.write_target_ext_vec::<D>(&os.quotient_polys)
     }
@@ -1664,6 +1749,9 @@ pub trait Write {
             num_public_inputs,
             k_is,
             num_partial_products,
+            num_lookup_polys,
+            num_lookup_selectors,
+            luts,
         } = common_data;
 
         self.write_circuit_config(config)?;
@@ -1684,6 +1772,13 @@ pub trait Write {
         self.write_field_vec(k_is.as_slice())?;
 
         self.write_usize(*num_partial_products)?;
+
+        self.write_usize(*num_lookup_polys)?;
+        self.write_usize(*num_lookup_selectors)?;
+        self.write_usize(luts.len())?;
+        for lut in luts.iter() {
+            self.write_lut(lut)?;
+        }
 
         Ok(())
     }
@@ -1722,6 +1817,8 @@ pub trait Write {
             representative_map,
             fft_root_table,
             circuit_digest,
+            lookup_rows,
+            lut_to_lookups,
         } = prover_only_circuit_data;
 
         self.write_usize(generators.len())?;
@@ -1759,6 +1856,18 @@ pub trait Write {
         }
 
         self.write_hash::<F, <C as GenericConfig<D>>::Hasher>(*circuit_digest)?;
+
+        self.write_usize(lookup_rows.len())?;
+        for wire in lookup_rows.iter() {
+            self.write_usize(wire.last_lu_gate)?;
+            self.write_usize(wire.last_lut_gate)?;
+            self.write_usize(wire.first_lut_gate)?;
+        }
+
+        self.write_usize(lut_to_lookups.len())?;
+        for tlut in lut_to_lookups.iter() {
+            self.write_target_lut(tlut)?;
+        }
 
         Ok(())
     }
@@ -1962,6 +2071,30 @@ pub trait Write {
         self.write_compressed_proof(proof)?;
         self.write_field_vec(public_inputs)
     }
+
+    /// Writes a lookup table to `self`.
+    #[inline]
+    fn write_lut(&mut self, lut: &[(u16, u16)]) -> IoResult<()> {
+        self.write_usize(lut.len())?;
+        for (a, b) in lut.iter() {
+            self.write_u16(*a)?;
+            self.write_u16(*b)?;
+        }
+
+        Ok(())
+    }
+
+    /// Writes a target lookup table to `self`.
+    #[inline]
+    fn write_target_lut(&mut self, lut: &[(Target, Target)]) -> IoResult<()> {
+        self.write_usize(lut.len())?;
+        for (a, b) in lut.iter() {
+            self.write_target(*a)?;
+            self.write_target(*b)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Write for Vec<u8> {
@@ -1991,18 +2124,16 @@ impl Write for Vec<u8> {
 }
 
 /// Buffer
-#[cfg(feature = "std")]
 #[derive(Debug)]
-pub struct Buffer {
-    bytes: Vec<u8>,
+pub struct Buffer<'a> {
+    bytes: &'a [u8],
     pos: usize,
 }
 
-#[cfg(feature = "std")]
-impl Buffer {
+impl<'a> Buffer<'a> {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
-    pub fn new(bytes: Vec<u8>) -> Self {
+    pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
 
@@ -2014,26 +2145,24 @@ impl Buffer {
 
     /// Returns the inner buffer.
     #[inline]
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub fn bytes(&self) -> &'a [u8] {
+        self.bytes
     }
 
     /// Returns the inner unread buffer.
     #[inline]
-    pub fn unread_bytes(&self) -> Vec<u8> {
-        self.bytes[self.pos..].to_vec()
+    pub fn unread_bytes(&self) -> &'a [u8] {
+        &self.bytes()[self.pos()..]
     }
 }
 
-#[cfg(feature = "std")]
-impl Remaining for Buffer {
+impl<'a> Remaining for Buffer<'a> {
     fn remaining(&self) -> usize {
-        self.bytes.len() - self.pos
+        self.bytes.len() - self.pos()
     }
 }
 
-#[cfg(feature = "std")]
-impl Read for Buffer {
+impl<'a> Read for Buffer<'a> {
     #[inline]
     fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
         let n = bytes.len();

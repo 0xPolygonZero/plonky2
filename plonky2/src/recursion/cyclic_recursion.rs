@@ -49,7 +49,7 @@ impl VerifierCircuitTarget {
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         let constants_sigmas_cap = buffer.read_target_merkle_cap()?;
         let circuit_digest = buffer.read_target_hash()?;
         Ok(Self {

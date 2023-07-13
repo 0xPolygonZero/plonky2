@@ -55,6 +55,8 @@ pub(crate) fn verify_with_challenges<
     };
     let local_zs = &proof.openings.plonk_zs;
     let next_zs = &proof.openings.plonk_zs_next;
+    let local_lookup_zs = &proof.openings.lookup_zs;
+    let next_lookup_zs = &proof.openings.lookup_zs_next;
     let s_sigmas = &proof.openings.plonk_sigmas;
     let partial_products = &proof.openings.partial_products;
 
@@ -65,11 +67,14 @@ pub(crate) fn verify_with_challenges<
         vars,
         local_zs,
         next_zs,
+        local_lookup_zs,
+        next_lookup_zs,
         partial_products,
         s_sigmas,
         &challenges.plonk_betas,
         &challenges.plonk_gammas,
         &challenges.plonk_alphas,
+        &challenges.plonk_deltas,
     );
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
@@ -93,6 +98,7 @@ pub(crate) fn verify_with_challenges<
     let merkle_caps = &[
         verifier_data.constants_sigmas_cap.clone(),
         proof.wires_cap,
+        // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
         proof.plonk_zs_partial_products_cap,
         proof.quotient_polys_cap,
     ];
