@@ -29,9 +29,9 @@ use crate::util::serialization::{Buffer, IoResult};
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
 
-    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()>;
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()>;
 
-    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 

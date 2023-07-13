@@ -769,7 +769,7 @@ pub trait Read {
 
         // We construct the common data without gates first,
         // to pass it as argument when reading the gates.
-        let mut cd = CommonCircuitData {
+        let mut common_data = CommonCircuitData {
             config,
             fri_params,
             gates: vec![],
@@ -786,13 +786,13 @@ pub trait Read {
         };
 
         for _ in 0..gates_len {
-            let gate = self.read_gate::<F, D>(gate_serializer, &cd)?;
+            let gate = self.read_gate::<F, D>(gate_serializer, &common_data)?;
             gates.push(gate);
         }
 
-        cd.gates = gates;
+        common_data.gates = gates;
 
-        Ok(cd)
+        Ok(common_data)
     }
 
     fn read_circuit_data<
@@ -821,12 +821,12 @@ pub trait Read {
     >(
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<ProverOnlyCircuitData<F, C, D>> {
         let gen_len = self.read_usize()?;
         let mut generators = Vec::with_capacity(gen_len);
         for _ in 0..gen_len {
-            generators.push(self.read_generator(generator_serializer, cd)?);
+            generators.push(self.read_generator(generator_serializer, common_data)?);
         }
         let map_len = self.read_usize()?;
         let mut generator_indices_by_watches = BTreeMap::new();

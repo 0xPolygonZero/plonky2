@@ -11,14 +11,14 @@ pub trait WitnessGeneratorSerializer<F: RichField + Extendable<D>, const D: usiz
     fn read_generator(
         &self,
         buf: &mut Buffer,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<WitnessGeneratorRef<F, D>>;
 
     fn write_generator(
         &self,
         buf: &mut Vec<u8>,
         generator: &WitnessGeneratorRef<F, D>,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 }
 

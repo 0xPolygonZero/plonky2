@@ -169,14 +169,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         format!("{self:?}<D={D}>")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.subgroup_bits)?;
         dst.write_usize(self.degree)?;
         dst.write_usize(self.barycentric_weights.len())?;
         dst.write_field_vec(&self.barycentric_weights)
     }
 
-    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let subgroup_bits = src.read_usize()?;
         let degree = src.read_usize()?;
         let length = src.read_usize()?;
@@ -497,14 +497,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         out_buffer.set_ext_wires(evaluation_value_wires, computed_eval);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>, _cd: &CommonCircuitData<F, D>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        self.gate.serialize(dst, _cd)
+        self.gate.serialize(dst, _common_data)
     }
 
-    fn deserialize(src: &mut Buffer, _cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = CosetInterpolationGate::deserialize(src, _cd)?;
+        let gate = CosetInterpolationGate::deserialize(src, _common_data)?;
         Ok(Self::new(row, gate))
     }
 }

@@ -6,12 +6,16 @@ use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::serialization::{Buffer, IoResult};
 
 pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {
-    fn read_gate(&self, buf: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<GateRef<F, D>>;
+    fn read_gate(
+        &self,
+        buf: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<GateRef<F, D>>;
     fn write_gate(
         &self,
         buf: &mut Vec<u8>,
         gate: &GateRef<F, D>,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 }
 

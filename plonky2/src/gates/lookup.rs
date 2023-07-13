@@ -59,9 +59,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
-        for (i, lut) in cd.luts.iter().enumerate() {
+        for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
                 return dst.write_usize(i);
             }
@@ -70,13 +70,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
         panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_slots = src.read_usize()?;
         let lut_index = src.read_usize()?;
 
         Ok(Self {
             num_slots,
-            lut: cd.luts[lut_index].clone(),
+            lut: common_data.luts[lut_index].clone(),
         })
     }
 
@@ -191,10 +191,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         };
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>, cd: &CommonCircuitData<F, D>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_usize(self.slot_nb)?;
-        for (i, lut) in cd.luts.iter().enumerate() {
+        for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
                 return dst.write_usize(i);
             }
@@ -203,14 +203,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer, cd: &CommonCircuitData<F, D>) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
         let slot_nb = src.read_usize()?;
         let lut_index = src.read_usize()?;
 
         Ok(Self {
             row,
-            lut: cd.luts[lut_index].clone(),
+            lut: common_data.luts[lut_index].clone(),
             slot_nb,
         })
     }
