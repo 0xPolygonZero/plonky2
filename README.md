@@ -47,7 +47,7 @@ RUSTFLAGS=-Ctarget-cpu=native cargo run --release --example bench_recursion -- -
 
 ## Jemalloc
 
-Plonky2 prefers the [Jemalloc](http://jemalloc.net) memory allocator due to its superior performance. To use it, include `jemallocator = "0.5.0"` in`Cargo.toml`and add the following lines
+Plonky2 prefers the [Jemalloc](http://jemalloc.net) memory allocator due to its superior performance. To use it, include `jemallocator = "0.5.0"` in your `Cargo.toml` and add the following lines
 to your `main.rs`:
 
 ```rust
