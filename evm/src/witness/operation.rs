@@ -10,6 +10,7 @@ use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
+use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
@@ -76,6 +77,19 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, input0, input1);
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
+
+    if operator == arithmetic::BinaryOperator::AddFp254
+        || operator == arithmetic::BinaryOperator::MulFp254
+        || operator == arithmetic::BinaryOperator::SubFp254
+    {
+        let channel = &mut row.mem_channels[2];
+
+        let val_limbs: [u64; 4] = BN_BASE.0;
+        for (i, limb) in val_limbs.into_iter().enumerate() {
+            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+        }
+    }
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
