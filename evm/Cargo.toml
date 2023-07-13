@@ -13,7 +13,8 @@ edition = "2021"
 anyhow = "1.0.40"
 blake2 = "0.10.5"
 env_logger = "0.10.0"
-eth_trie_utils = { path = "../../eth_trie_utils" }
+#eth_trie_utils = { path = "../../eth_trie_utils" }
+eth_trie_utils = { git = "https://github.com/mir-protocol/eth_trie_utils", branch = "williams_terrible_code" }
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.3.4"
