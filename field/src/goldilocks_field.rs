@@ -119,22 +119,6 @@ impl Field for GoldilocksField {
     }
 
     #[inline]
-    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
-        // u64 + u64 * u64 cannot overflow.
-        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
-    }
-}
-
-impl PrimeField for GoldilocksField {
-    fn to_canonical_biguint(&self) -> BigUint {
-        self.to_canonical_u64().into()
-    }
-}
-
-impl Field64 for GoldilocksField {
-    const ORDER: u64 = 0xFFFFFFFF00000001;
-
-    #[inline]
     fn from_noncanonical_u64(n: u64) -> Self {
         Self(n)
     }
@@ -150,6 +134,22 @@ impl Field64 for GoldilocksField {
             n as u64
         })
     }
+
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
+}
+
+impl PrimeField for GoldilocksField {
+    fn to_canonical_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
+    }
+}
+
+impl Field64 for GoldilocksField {
+    const ORDER: u64 = 0xFFFFFFFF00000001;
 
     #[inline]
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {

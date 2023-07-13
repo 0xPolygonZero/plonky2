@@ -137,7 +137,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes.to_vec());
+        let mut buffer = Buffer::new(bytes);
         buffer.read_circuit_data(gate_serializer, generator_serializer)
     }
 
@@ -234,7 +234,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes.to_vec());
+        let mut buffer = Buffer::new(bytes);
         buffer.read_prover_circuit_data(gate_serializer, generator_serializer)
     }
 
@@ -272,7 +272,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         bytes: Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
     ) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         buffer.read_verifier_circuit_data(gate_serializer)
     }
 
@@ -339,7 +339,7 @@ impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         buffer.read_verifier_only_circuit_data()
     }
 }
@@ -395,7 +395,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         bytes: Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
     ) -> IoResult<Self> {
-        let mut buffer = Buffer::new(bytes);
+        let mut buffer = Buffer::new(&bytes);
         buffer.read_common_circuit_data(gate_serializer)
     }
 
