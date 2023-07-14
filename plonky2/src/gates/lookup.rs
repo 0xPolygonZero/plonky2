@@ -3,6 +3,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::usize;
 
+use itertools::Itertools;
+use keccak_hash::keccak;
+
 use super::lookup_table::LookupTable;
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -31,13 +34,21 @@ pub struct LookupGate {
     pub num_slots: usize,
     /// LUT associated to the gate.
     lut: LookupTable,
+    /// The Keccak hash of the lookup table.
+    lut_hash: [u8; 32],
 }
 
 impl LookupGate {
     pub fn new_from_table(config: &CircuitConfig, lut: LookupTable) -> Self {
+        let table_bytes = lut
+            .iter()
+            .flat_map(|(input, output)| [input.to_le_bytes(), output.to_le_bytes()].concat())
+            .collect_vec();
+
         Self {
             num_slots: Self::num_slots(config),
             lut,
+            lut_hash: keccak(table_bytes).0,
         }
     }
     pub(crate) fn num_slots(config: &CircuitConfig) -> usize {
@@ -56,14 +67,19 @@ impl LookupGate {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
     fn id(&self) -> String {
-        format!("{self:?}")
+        // Custom implementation to not have the entire lookup table
+        format!(
+            "LookupGate {{num_slots: {}, lut_hash: {:?}}}",
+            self.num_slots, self.lut_hash
+        )
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
         for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
-                return dst.write_usize(i);
+                dst.write_usize(i)?;
+                return dst.write_all(&self.lut_hash);
             }
         }
 
@@ -73,10 +89,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
     fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_slots = src.read_usize()?;
         let lut_index = src.read_usize()?;
+        let mut lut_hash = [0u8; 32];
+        src.read_exact(&mut lut_hash)?;
 
         Ok(Self {
             num_slots,
             lut: common_data.luts[lut_index].clone(),
+            lut_hash,
         })
     }
 

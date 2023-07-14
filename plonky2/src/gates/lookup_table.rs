@@ -4,6 +4,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::usize;
 
+use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2_util::ceil_div_usize;
 
 use crate::field::extension::Extendable;
@@ -33,15 +35,23 @@ pub struct LookupTableGate {
     pub num_slots: usize,
     /// Lookup table associated to the gate.
     pub lut: LookupTable,
+    /// The Keccak hash of the lookup table.
+    lut_hash: [u8; 32],
     /// First row of the lookup table.
     last_lut_row: usize,
 }
 
 impl LookupTableGate {
     pub fn new_from_table(config: &CircuitConfig, lut: LookupTable, last_lut_row: usize) -> Self {
+        let table_bytes = lut
+            .iter()
+            .flat_map(|(input, output)| [input.to_le_bytes(), output.to_le_bytes()].concat())
+            .collect_vec();
+
         Self {
             num_slots: Self::num_slots(config),
             lut,
+            lut_hash: keccak(table_bytes).0,
             last_lut_row,
         }
     }
@@ -69,7 +79,11 @@ impl LookupTableGate {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGate {
     fn id(&self) -> String {
-        format!("{self:?}")
+        // Custom implementation to not have the entire lookup table
+        format!(
+            "LookupGate {{num_slots: {}, lut_hash: {:?}, last_lut_row: {}}}",
+            self.num_slots, self.lut_hash, self.last_lut_row
+        )
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -77,7 +91,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
         dst.write_usize(self.last_lut_row)?;
         for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
-                return dst.write_usize(i);
+                dst.write_usize(i)?;
+                return dst.write_all(&self.lut_hash);
             }
         }
 
@@ -88,10 +103,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
         let num_slots = src.read_usize()?;
         let last_lut_row = src.read_usize()?;
         let lut_index = src.read_usize()?;
+        let mut lut_hash = [0u8; 32];
+        src.read_exact(&mut lut_hash)?;
 
         Ok(Self {
             num_slots,
             lut: common_data.luts[lut_index].clone(),
+            lut_hash,
             last_lut_row,
         })
     }
