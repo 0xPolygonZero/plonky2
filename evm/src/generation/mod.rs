@@ -133,15 +133,6 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "Trie: {:?}",
         &state.memory.contexts[0].segments[Segment::TrieData as usize]
     );
-    println!(
-        "Root: {:?}",
-        &state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].content
-            [GlobalMetadata::StateTrieRoot as usize]
-    );
-    println!(
-        "Trie: {:?}",
-        &state.memory.contexts[0].segments[Segment::TrieData as usize]
-    );
 
     assert!(
         state.mpt_prover_inputs.is_empty(),
