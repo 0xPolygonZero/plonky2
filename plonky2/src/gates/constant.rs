@@ -26,6 +26,10 @@ pub struct ConstantGate {
 }
 
 impl ConstantGate {
+    pub fn new(num_consts: usize) -> Self {
+        Self { num_consts }
+    }
+
     pub fn const_input(&self, i: usize) -> usize {
         debug_assert!(i < self.num_consts);
         i
