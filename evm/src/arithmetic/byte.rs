@@ -260,7 +260,7 @@ pub fn eval_packed<P: PackedField>(
     let expected_out_byte = tree[15];
 
     // Sum all higher limbs; sum will be non-zero iff idx >= 32.
-    let hi_limb_sum = idx0_hi + idx[1..].iter().copied().sum::<P>();
+    let hi_limb_sum = lv[BYTE_IDX_DECOMP_HI] + idx[1..].iter().copied().sum::<P>();
     let idx_is_large = lv[BYTE_IDX_IS_LARGE];
 
     // idx_is_large is 0 or 1
@@ -381,7 +381,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, t);
     let expected_out_byte = tree[15];
 
-    let mut hi_limb_sum = idx0_hi;
+    let mut hi_limb_sum = lv[BYTE_IDX_DECOMP_HI];
     for i in 1..N_LIMBS {
         hi_limb_sum = builder.add_extension(hi_limb_sum, idx[i]);
     }
