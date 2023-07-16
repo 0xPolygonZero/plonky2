@@ -4,6 +4,7 @@ use std::str::FromStr;
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
 use itertools::Itertools;
+use num_bigint::BigUint;
 use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
 
@@ -203,7 +204,11 @@ impl<F: Field> GenerationState<F> {
         let m_biguint = mem_vec_to_biguint(m);
 
         let prod = a_biguint * b_biguint;
-        let quo = &prod / &m_biguint;
+        let quo = if m_biguint == BigUint::default() {
+            BigUint::default()
+        } else {
+            &prod / &m_biguint
+        };
         let rem = prod - m_biguint * &quo;
 
         (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
