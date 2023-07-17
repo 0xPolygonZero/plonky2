@@ -42,6 +42,8 @@ pub struct GenerationInputs {
 
     pub tries: TrieInputs,
 
+    pub trie_data: Vec<U256>,
+
     /// Mapping between smart contract code hashes and the contract byte code.
     /// All account smart contracts that are invoked will have an entry present.
     pub contract_code: HashMap<H256, Vec<u8>>,
@@ -134,10 +136,10 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         &state.memory.contexts[0].segments[Segment::TrieData as usize]
     );
 
-    assert!(
-        state.mpt_prover_inputs.is_empty(),
-        "All MPT data should have been consumed"
-    );
+    // assert!(
+    //     state.mpt_prover_inputs.is_empty(),
+    //     "All MPT data should have been consumed"
+    // );
 
     log::info!(
         "Trace lengths (before padding): {:?}",

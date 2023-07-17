@@ -39,6 +39,8 @@ pub(crate) struct GenerationState<F: Field> {
 
     pub(crate) withdrawal_prover_inputs: Vec<U256>,
 
+    pub(crate) trie_data: Vec<U256>,
+
     /// The state trie only stores state keys, which are hashes of addresses, but sometimes it is
     /// useful to see the actual addresses for debugging. Here we store the mapping for all known
     /// addresses.
@@ -73,6 +75,8 @@ impl<F: Field> GenerationState<F> {
         withdrawal_prover_inputs.push(U256::MAX);
         withdrawal_prover_inputs.push(U256::MAX);
         withdrawal_prover_inputs.reverse();
+        let mut trie_data = inputs.trie_data.clone();
+        trie_data.reverse();
         let bignum_modmul_result_limbs = Vec::new();
 
         Self {
@@ -84,6 +88,7 @@ impl<F: Field> GenerationState<F> {
             mpt_prover_inputs,
             rlp_prover_inputs,
             withdrawal_prover_inputs,
+            trie_data,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
             last_storage_slot_deleted: None,

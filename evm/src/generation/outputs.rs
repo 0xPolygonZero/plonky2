@@ -3,16 +3,19 @@ use std::collections::HashMap;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::types::Field;
 
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata::StateTrieRoot;
 use crate::generation::state::GenerationState;
 use crate::generation::trie_extractor::{
     read_state_trie_value, read_storage_trie_value, read_trie, AccountTrieRecord,
 };
+use crate::memory::segments::Segment;
 
 /// The post-state after trace generation; intended for debugging.
 #[derive(Clone, Debug)]
 pub struct GenerationOutputs {
     pub accounts: HashMap<AddressOrStateKey, AccountOutput>,
+    pub trie_data: Vec<U256>,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -62,7 +65,24 @@ pub(crate) fn get_outputs<F: Field>(state: &mut GenerationState<F>) -> Generatio
         })
         .collect();
 
-    GenerationOutputs { accounts }
+    let mut trie_data = state.memory.contexts[0].segments[Segment::TrieData as usize]
+        .content
+        .clone();
+    let trie_data_len = state
+        .memory
+        .read_global_metadata(GlobalMetadata::TrieDataSize)
+        .as_usize();
+    trie_data.truncate(trie_data_len);
+    trie_data.insert(0, trie_data_len.into());
+    let trie_root = state
+        .memory
+        .read_global_metadata(GlobalMetadata::StateTrieRoot);
+    trie_data.insert(1, trie_root);
+
+    GenerationOutputs {
+        accounts,
+        trie_data,
+    }
 }
 
 fn account_trie_record_to_output<F: Field>(

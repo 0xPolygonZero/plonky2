@@ -37,6 +37,7 @@ impl<F: Field> GenerationState<F> {
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
+            "trie_data" => self.run_trie_data(),
             "rlp" => self.run_rlp(),
             "withdrawal" => self.run_withdrawal(),
             "account_code" => self.run_account_code(input_fn),
@@ -109,6 +110,13 @@ impl<F: Field> GenerationState<F> {
         self.mpt_prover_inputs
             .pop()
             .unwrap_or_else(|| panic!("Out of MPT data"))
+    }
+
+    /// Trie data.
+    fn run_trie_data(&mut self) -> U256 {
+        self.trie_data
+            .pop()
+            .unwrap_or_else(|| panic!("Out of trie data"))
     }
 
     /// RLP data.

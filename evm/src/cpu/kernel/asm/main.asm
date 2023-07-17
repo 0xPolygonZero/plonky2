@@ -3,8 +3,34 @@ global main:
     %shift_table_init
 
     // Second, load all MPT data from the prover.
+    PROVER_INPUT(trie_data) DUP1 %jumpi(load_trie_data)
+    POP
     PUSH hash_initial_tries
     %jump(load_all_mpts)
+
+global load_trie_data:
+    // stack: trie_data_len
+    DUP1
+    %set_trie_data_size
+    // stack: trie_data_len
+    PROVER_INPUT(trie_data)
+    // stack: trie_root, trie_data_len
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    // stack: trie_data_len
+    PUSH 0
+load_trie_data_loop:
+    // stack: i, trie_data_len
+    DUP2 DUP2 EQ %jumpi(load_trie_data_end)
+    // stack: i, trie_data_len
+    PROVER_INPUT(trie_data)
+    %stack (val, i, trie_data_len) -> (i, val, i, trie_data_len)
+    %mstore_trie_data
+    // stack: i, trie_data_len
+    %increment
+    %jump(load_trie_data_loop)
+load_trie_data_end:
+    // stack: i, trie_data_len
+    %pop2
 
 global hash_initial_tries:
     %mpt_hash_state_trie   %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)
