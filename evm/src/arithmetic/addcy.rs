@@ -68,12 +68,13 @@ const GOLDILOCKS_INVERSE_65536: u64 = 18446462594437939201;
 
 /// Constrains x + y == z + cy*2^256, assuming filter != 0.
 ///
-/// NB: This function DOES NOT verify that cy is 0 or 1; the caller
-/// must do that.
-///
 /// Set `is_two_row_op=true` to allow the code to be called from the
 /// two-row `modular` code (for checking that the modular output is
 /// reduced).
+///
+/// NB: This function ONLY verifies that cy is 0 or 1 when
+/// is_two_row_op=false; when is_two_row_op=true the caller must
+/// verify for itself.
 ///
 /// Note that the digits of `x + y` are in `[0, 2*(2^16-1)]`
 /// (i.e. they are the sums of two 16-bit numbers), whereas the digits
@@ -162,16 +163,6 @@ pub fn eval_packed_generic<P: PackedField>(
     let out = &lv[OUTPUT_REGISTER];
     let aux = &lv[AUX_INPUT_REGISTER_0];
 
-    // verify that the given carry is 0 or 1.
-    let is_add_or_sub = is_add + is_sub;
-    for &cy in aux {
-        yield_constr.constraint(is_add_or_sub * cy * (cy - P::ONES));
-    }
-    let is_lt_or_gt = is_lt + is_gt;
-    for &cy in out {
-        yield_constr.constraint(is_lt_or_gt * cy * (cy - P::ONES));
-    }
-
     // x + y = z + w*2^256
     eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
     eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
@@ -259,20 +250,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let in1 = &lv[INPUT_REGISTER_1];
     let out = &lv[OUTPUT_REGISTER];
     let aux = &lv[AUX_INPUT_REGISTER_0];
-
-    // verify that the given carry is 0 or 1.
-    let is_add_or_sub = builder.add_extension(is_add, is_sub);
-    for &cy in aux {
-        let t = builder.mul_sub_extension(cy, cy, cy);
-        let t = builder.mul_extension(is_add_or_sub, t);
-        yield_constr.constraint(builder, t);
-    }
-    let is_lt_or_gt = builder.add_extension(is_lt, is_gt);
-    for &cy in out {
-        let t = builder.mul_sub_extension(cy, cy, cy);
-        let t = builder.mul_extension(is_lt_or_gt, t);
-        yield_constr.constraint(builder, t);
-    }
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
