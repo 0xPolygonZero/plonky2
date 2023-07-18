@@ -349,6 +349,13 @@ pub(crate) fn generate<F: PrimeField64>(
     lv[MODULAR_QUO_INPUT].copy_from_slice(&quo_input);
 }
 
+// TODO:
+//
+// - separate out the "output is reduced" check
+//
+// - for z ?= submod(x, y) or subfp254(x, y), verify x ?= z + y (mod m)
+//   rather than x - y ?= z (mod m)
+
 /// Build the part of the constraint polynomial that's common to all
 /// modular operations, and perform the common verifications.
 ///
