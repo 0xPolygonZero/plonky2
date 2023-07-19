@@ -51,8 +51,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     get_context: KERNEL_ONLY_INSTR,
     set_context: KERNEL_ONLY_INSTR,
     exit_kernel: None,
-    mload_general: KERNEL_ONLY_INSTR,
-    mstore_general: KERNEL_ONLY_INSTR,
+    m_op_general: KERNEL_ONLY_INSTR,
     syscall: None,
     exception: None,
 };

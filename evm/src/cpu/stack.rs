@@ -118,16 +118,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: false,
         disable_other_channels: true,
     }),
-    mload_general: Some(StackBehavior {
-        num_pops: 3,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    mstore_general: Some(StackBehavior {
-        num_pops: 4,
-        pushes: false,
-        disable_other_channels: false,
-    }),
+    m_op_general: None,
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,

@@ -185,8 +185,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral => &mut flags.mload_general,
-        Operation::MstoreGeneral => &mut flags.mstore_general,
+        Operation::MloadGeneral => &mut flags.m_op_general,
+        Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 

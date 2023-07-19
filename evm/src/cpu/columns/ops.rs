@@ -45,8 +45,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub set_context: T,
     pub exit_kernel: T,
     // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
-    pub mload_general: T,
-    pub mstore_general: T,
+    pub m_op_general: T,
 
     pub syscall: T,
     pub exception: T,

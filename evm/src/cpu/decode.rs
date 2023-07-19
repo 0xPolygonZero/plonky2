@@ -1,5 +1,6 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
@@ -22,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 32] = [
+const OPCODES: [(u8, usize, bool, usize); 30] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     (0x01, 0, false, COL_MAP.op.add),
     (0x02, 0, false, COL_MAP.op.mul),
@@ -55,8 +56,6 @@ const OPCODES: [(u8, usize, bool, usize); 32] = [
     (0xf6, 0, true, COL_MAP.op.get_context),
     (0xf7, 0, true, COL_MAP.op.set_context),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
-    (0xfb, 0, true, COL_MAP.op.mload_general),
-    (0xfc, 0, true, COL_MAP.op.mstore_general),
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -98,6 +97,10 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
         let flag = available && opcode_match;
         lv[col] = F::from_bool(flag);
     }
+
+    if opcode == 0xfb || opcode == 0xfc {
+        lv[COL_MAP.op.m_op_general] = F::from_bool(kernel);
+    }
 }
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -137,13 +140,17 @@ pub fn eval_packed_generic<P: PackedField>(
     let flag = lv.op.logic_op;
     yield_constr.constraint(flag * (flag - P::ONES));
 
+    let m_op_flag = lv.op.m_op_general;
+    yield_constr.constraint(m_op_flag * (m_op_flag - P::ONES));
+
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
         .sum::<P>()
-        + lv.op.logic_op;
+        + lv.op.logic_op
+        + lv.op.m_op_general;
     yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
@@ -172,6 +179,20 @@ pub fn eval_packed_generic<P: PackedField>(
         // correct mode.
         yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
     }
+
+    // Manually check lv.op.m_op_constr
+    let opcode: P = lv
+        .opcode_bits
+        .into_iter()
+        .enumerate()
+        .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
+        .sum();
+    yield_constr.constraint((P::ONES - kernel_mode) * lv[COL_MAP.op.m_op_general]);
+
+    let m_op_constr = (opcode - P::Scalar::from_canonical_usize(0xfb_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
+        * lv[COL_MAP.op.m_op_general];
+    yield_constr.constraint(m_op_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -208,10 +229,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_sub_extension(flag, flag, flag);
     yield_constr.constraint(builder, constr);
 
+    let m_op_flag = lv.op.m_op_general;
+    let constr = builder.mul_sub_extension(m_op_flag, m_op_flag, m_op_flag);
+    yield_constr.constraint(builder, constr);
+
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     {
         let mut flag_sum = lv.op.logic_op;
+        flag_sum = builder.add_extension(flag_sum, lv.op.m_op_general);
         for (_, _, _, flag_col) in OPCODES {
             let flag = lv[flag_col];
             flag_sum = builder.add_extension(flag_sum, flag);
@@ -249,4 +275,28 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(lv[col], constr);
         yield_constr.constraint(builder, constr);
     }
+
+    // Manually check lv.op.m_op_constr
+    let opcode = lv
+        .opcode_bits
+        .into_iter()
+        .rev()
+        .fold(builder.zero_extension(), |cumul, bit| {
+            builder.mul_const_add_extension(F::TWO, cumul, bit)
+        });
+
+    let mload_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfb_usize));
+    let mstore_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfc_usize));
+
+    let one_extension = builder.constant_extension(F::Extension::ONE);
+    let is_not_kernel_mode = builder.sub_extension(one_extension, kernel_mode);
+    let constr = builder.mul_extension(is_not_kernel_mode, lv[COL_MAP.op.m_op_general]);
+    yield_constr.constraint(builder, constr);
+
+    let mload_constr = builder.sub_extension(opcode, mload_opcode);
+    let mstore_constr = builder.sub_extension(opcode, mstore_opcode);
+    let mut m_op_constr = builder.mul_extension(mload_constr, mstore_constr);
+    m_op_constr = builder.mul_extension(m_op_constr, lv[COL_MAP.op.m_op_general]);
+
+    yield_constr.constraint(builder, m_op_constr);
 }
