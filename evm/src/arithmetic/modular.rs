@@ -302,11 +302,12 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
         nv[i] = F::from_canonical_u16((c >> 16) as u16);
     }
 
-    // quo_input can be negative for SUB* operations, so we bias it
-    // and then store the two halves separately. This is possible only
-    // because for ADD/SUB/etc. operations quot_limbs is half the
-    // length of what it is for MUL* operations, so we know the top
-    // half can be repurposed.
+    // quo_input can be negative for SUB* operations, so we offset it
+    // and then store the two parts separately (in fact, the hi "half"
+    // is just a single bit corresponding to the sign of the
+    // input). This is possible only because for SUB* operations
+    // quot_limbs is half the length of what it is for MUL*
+    // operations, so we know the top half can be repurposed.
     if [columns::IS_SUBMOD, columns::IS_SUBFP254].contains(&filter) {
         // The code in the loop assumes this.
         const_assert!(QUO_INPUT_ABS_MAX == 1 << 16);
@@ -314,7 +315,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
         let (lo, hi) = quot_limbs.split_at_mut(N_LIMBS);
 
         // Verify that the elements are in the expected range.
-        debug_assert!(lo.iter().all(|&c| c.abs() <= QUO_INPUT_ABS_MAX));
+        debug_assert!(lo.iter().all(|&c| c.abs() < QUO_INPUT_ABS_MAX));
 
         // Top half of quot_limbs should be zero.
         debug_assert!(hi.iter().all(|&d| d.is_zero()));
@@ -329,6 +330,8 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
 
             *c = t as u16 as i64; // lo
             *d = t >> 16; // hi
+
+            debug_assert!(*d == 0 || *d == 1);
         }
     }
 
@@ -526,6 +529,9 @@ pub(crate) fn submod_constr_poly<P: PackedField>(
     let (lo, hi) = quot.split_at_mut(N_LIMBS);
     let offset = P::Scalar::from_canonical_u64(QUO_INPUT_ABS_MAX as u64);
     for (c, d) in lo.iter_mut().zip(hi) {
+        // d must be 0 (negative) or 1 (positive)
+        yield_constr.constraint(filter * *d * (*d - P::ONES));
+
         *c += *d * base; // reconstruct original value
         *c -= offset; // remove offset
         *d = P::ZEROS; // clear high limb
@@ -704,6 +710,10 @@ pub(crate) fn submod_constr_poly_ext_circuit<F: RichField + Extendable<D>, const
     let offset =
         builder.constant_extension(F::Extension::from_canonical_u64(QUO_INPUT_ABS_MAX as u64));
     for (c, d) in lo.iter_mut().zip(hi) {
+        let t = builder.mul_sub_extension(*d, *d, *d);
+        let t = builder.mul_extension(filter, t);
+        yield_constr.constraint(builder, t);
+
         let t = builder.mul_const_add_extension(base, *d, *c);
         *c = builder.sub_extension(t, offset);
         *d = zero;
