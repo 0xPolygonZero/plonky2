@@ -309,7 +309,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
     // half can be repurposed.
     if [columns::IS_SUBMOD, columns::IS_SUBFP254].contains(&filter) {
         // The code in the loop assumes this.
-        debug_assert!(QUO_INPUT_ABS_MAX == 1 << 16);
+        const_assert!(QUO_INPUT_ABS_MAX == 1 << 16);
 
         let (lo, hi) = quot_limbs.split_at_mut(N_LIMBS);
 
@@ -325,7 +325,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
             let t = *c + QUO_INPUT_ABS_MAX;
 
             // The debug_assert!s above should make this one redundant:
-            debug_assert!(t >= 0 && t < 2 * QUO_INPUT_ABS_MAX);
+            debug_assert!((0..2 * QUO_INPUT_ABS_MAX).contains(&t));
 
             *c = t as u16 as i64; // lo
             *d = t >> 16; // hi
