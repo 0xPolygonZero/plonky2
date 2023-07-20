@@ -79,6 +79,11 @@ const AUX_REGISTER_2: Range<usize> = AUX_REGISTER_1.end..AUX_REGISTER_1.end + 2 
 // the range checks.
 pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
 
+// Each element c of MODULAR_QUO_INPUT is -2^16 <= c < 2^16;
+// this value is used as an offset so that everything is positive in
+// the range checks.
+pub(crate) const QUO_INPUT_ABS_MAX: i64 = 1 << 16;
+
 // MUL takes 5 * N_LIMBS = 80 columns
 pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = AUX_INPUT_REGISTER_0;
 pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = AUX_INPUT_REGISTER_1;
