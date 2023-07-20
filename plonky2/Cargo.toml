@@ -14,7 +14,7 @@ edition = "2021"
 default = ["gate_testing", "parallel", "rand_chacha", "std", "timing"]
 gate_testing = []
 parallel = ["hashbrown/rayon", "plonky2_maybe_rayon/parallel"]
-std = ["anyhow/std", "rand/std"]
+std = ["anyhow/std", "rand/std", "itertools/use_std"]
 timing = ["std"]
 
 [dependencies]
