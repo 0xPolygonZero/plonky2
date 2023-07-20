@@ -7,6 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::cpu::stack;
 use crate::memory::segments::Segment;
 
 pub fn eval_packed_exit_kernel<P: PackedField>(
@@ -68,17 +69,23 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let jumps_lv = lv.general.jumps();
     let dst = lv.mem_channels[0].value;
     let cond = lv.mem_channels[1].value;
-    let filter = lv.op.jump + lv.op.jumpi; // `JUMP` or `JUMPI`
+    let filter = lv.op.jumps; // `JUMP` or `JUMPI`
     let jumpdest_flag_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let is_jump = filter * (P::ONES - lv.opcode_bits[0]);
+    let is_jumpi = filter * lv.opcode_bits[0];
+
+    // Stack constraints.
+    stack::eval_packed_one(lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
-    yield_constr.constraint(lv.op.jump * (cond[0] - P::ONES));
+    yield_constr.constraint(is_jump * (cond[0] - P::ONES));
     for &limb in &cond[1..] {
         // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `cond[0] + ... + cond[7]` cannot overflow.
-        yield_constr.constraint(lv.op.jump * limb);
+        yield_constr.constraint(is_jump * limb);
     }
 
     // Check `should_jump`:
@@ -115,7 +122,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         yield_constr.constraint(filter * channel.used);
     }
     // Channel 1 is unused by the `JUMP` instruction.
-    yield_constr.constraint(lv.op.jump * lv.mem_channels[1].used);
+    yield_constr.constraint(is_jump * lv.mem_channels[1].used);
 
     // Finally, set the next program counter.
     let fallthrough_dst = lv.program_counter + P::ONES;
@@ -136,20 +143,34 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let jumps_lv = lv.general.jumps();
     let dst = lv.mem_channels[0].value;
     let cond = lv.mem_channels[1].value;
-    let filter = builder.add_extension(lv.op.jump, lv.op.jumpi); // `JUMP` or `JUMPI`
+    let filter = lv.op.jumps; // `JUMP` or `JUMPI`
     let jumpdest_flag_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let one_extension = builder.one_extension();
+    let is_jump = builder.sub_extension(one_extension, lv.opcode_bits[0]);
+    let is_jump = builder.mul_extension(filter, is_jump);
+    let is_jumpi = builder.mul_extension(filter, lv.opcode_bits[0]);
+
+    // Stack constraints.
+    stack::eval_ext_circuit_one(builder, lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        is_jumpi,
+        stack::JUMPI_OP.unwrap(),
+        yield_constr,
+    );
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
     {
-        let constr = builder.mul_sub_extension(lv.op.jump, cond[0], lv.op.jump);
+        let constr = builder.mul_sub_extension(is_jump, cond[0], is_jump);
         yield_constr.constraint(builder, constr);
     }
     for &limb in &cond[1..] {
         // Set all limbs (other than the least-significant limb) to 0.
         // NB: Technically, they don't have to be 0, as long as the sum
         // `cond[0] + ... + cond[7]` cannot overflow.
-        let constr = builder.mul_extension(lv.op.jump, limb);
+        let constr = builder.mul_extension(is_jump, limb);
         yield_constr.constraint(builder, constr);
     }
 
@@ -235,7 +256,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
     // Channel 1 is unused by the `JUMP` instruction.
     {
-        let constr = builder.mul_extension(lv.op.jump, lv.mem_channels[1].used);
+        let constr = builder.mul_extension(is_jump, lv.mem_channels[1].used);
         yield_constr.constraint(builder, constr);
     }
 

@@ -33,6 +33,16 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     pushes: true,
     disable_other_channels: true,
 });
+pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 1,
+    pushes: false,
+    disable_other_channels: false,
+});
+pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 2,
+    pushes: false,
+    disable_other_channels: false,
+});
 
 // AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
 // that every general-purpose memory channel is either disabled or has its read flag and address
@@ -78,16 +88,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: false,
         disable_other_channels: true,
     }),
-    jump: Some(StackBehavior {
-        num_pops: 1,
-        pushes: false,
-        disable_other_channels: false,
-    }),
-    jumpi: Some(StackBehavior {
-        num_pops: 2,
-        pushes: false,
-        disable_other_channels: false,
-    }),
+    jumps: None, // Depends on whether it's a JUMP or a JUMPI.
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
