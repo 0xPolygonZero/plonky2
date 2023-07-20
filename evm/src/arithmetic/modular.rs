@@ -303,36 +303,29 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
     }
 
     // quo_input can be negative for SUB* operations, so we offset it
-    // and then store the two parts separately (in fact, the hi "half"
-    // is just a single bit corresponding to the sign of the
-    // input). This is possible only because for SUB* operations
-    // quot_limbs is half the length of what it is for MUL*
-    // operations, so we know the top half can be repurposed.
+    // to ensure it's positive.
     if [columns::IS_SUBMOD, columns::IS_SUBFP254].contains(&filter) {
-        // The code in the loop assumes this.
-        const_assert!(QUO_INPUT_ABS_MAX == 1 << 16);
-
         let (lo, hi) = quot_limbs.split_at_mut(N_LIMBS);
 
         // Verify that the elements are in the expected range.
-        debug_assert!(lo.iter().all(|&c| c.abs() < QUO_INPUT_ABS_MAX));
+        debug_assert!(lo.iter().all(|&c| c < QUO_INPUT_ABS_MAX));
 
         // Top half of quot_limbs should be zero.
         debug_assert!(hi.iter().all(|&d| d.is_zero()));
 
-        // Bias bottom half and store lo and hi parts back into quot_limbs
-        for (c, d) in lo.iter_mut().zip(hi) {
-            // Bias to obtain the unsigned offset value c + 2^16.
-            let t = *c + QUO_INPUT_ABS_MAX;
-
-            // The debug_assert!s above should make this one redundant:
-            debug_assert!((0..2 * QUO_INPUT_ABS_MAX).contains(&t));
-
-            *c = t as u16 as i64; // lo
-            *d = t >> 16; // hi
-
-            debug_assert!(*d == 0 || *d == 1);
-        }
+        if quot.sign() == Sign::Minus {
+            // quot is negative, so each c should be negative, i.e. in
+            // the range [-(2^16 - 1), 0]; so we add 2^16 - 1 to c so
+            // it's in the range [0, 2^16 - 1] which will correctly
+            // range-check.
+            for c in lo {
+                *c += u16::max_value() as i64;
+            }
+            // Store the sign of the quotient after the quotient.
+            hi[0] = 1;
+        } else {
+            hi[0] = 0;
+        };
     }
 
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
@@ -522,19 +515,20 @@ pub(crate) fn submod_constr_poly<P: PackedField>(
     modulus: [P; N_LIMBS],
     mut quot: [P; 2 * N_LIMBS],
 ) -> [P; 2 * N_LIMBS] {
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
-
-    // quot was offset by QUO_INPUT_ABS_MAX to account for the
-    // possibility that it is negative; we undo that offset here:
+    // quot was offset by 2^16 - 1 if it was negative; we undo that
+    // offset here:
     let (lo, hi) = quot.split_at_mut(N_LIMBS);
-    let offset = P::Scalar::from_canonical_u64(QUO_INPUT_ABS_MAX as u64);
-    for (c, d) in lo.iter_mut().zip(hi) {
-        // d must be 0 (negative) or 1 (positive)
-        yield_constr.constraint(filter * *d * (*d - P::ONES));
-
-        *c += *d * base; // reconstruct original value
-        *c -= offset; // remove offset
-        *d = P::ZEROS; // clear high limb
+    let sign = hi[0];
+    // sign must be 1 (negative) or 0 (positive)
+    yield_constr.constraint(filter * sign * (sign - P::ONES));
+    let offset = P::Scalar::from_canonical_u16(u16::max_value());
+    for c in lo {
+        *c -= offset * sign;
+    }
+    hi[0] = P::ZEROS;
+    for d in hi {
+        // All higher limbs must be zero
+        yield_constr.constraint(filter * *d);
     }
 
     modular_constr_poly(lv, nv, yield_constr, filter, output, modulus, quot)
@@ -703,20 +697,20 @@ pub(crate) fn submod_constr_poly_ext_circuit<F: RichField + Extendable<D>, const
     modulus: [ExtensionTarget<D>; N_LIMBS],
     mut quot: [ExtensionTarget<D>; 2 * N_LIMBS],
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
-    let base = F::from_canonical_u64(1u64 << LIMB_BITS);
-    let zero = builder.zero_extension();
-
     let (lo, hi) = quot.split_at_mut(N_LIMBS);
-    let offset =
-        builder.constant_extension(F::Extension::from_canonical_u64(QUO_INPUT_ABS_MAX as u64));
-    for (c, d) in lo.iter_mut().zip(hi) {
-        let t = builder.mul_sub_extension(*d, *d, *d);
-        let t = builder.mul_extension(filter, t);
+    let sign = hi[0];
+    let t = builder.mul_sub_extension(sign, sign, sign);
+    let t = builder.mul_extension(filter, t);
+    yield_constr.constraint(builder, t);
+    let offset = F::from_canonical_u16(u16::max_value());
+    for c in lo {
+        let t = builder.mul_const_extension(offset, sign);
+        *c = builder.sub_extension(*c, t);
+    }
+    hi[0] = builder.zero_extension();
+    for d in hi {
+        let t = builder.mul_extension(filter, *d);
         yield_constr.constraint(builder, t);
-
-        let t = builder.mul_const_add_extension(base, *d, *c);
-        *c = builder.sub_extension(t, offset);
-        *d = zero;
     }
 
     modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter, output, modulus, quot)
