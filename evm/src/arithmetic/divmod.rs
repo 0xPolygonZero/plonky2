@@ -10,7 +10,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::modular::{
-    generate_modular_op, modular_constr_poly, modular_constr_poly_ext_circuit,
+    addsubmod_constr_poly, addsubmod_constr_poly_ext_circuit, generate_modular_op,
 };
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -89,7 +89,7 @@ fn eval_packed_divmod_helper<P: PackedField>(
     };
     let rem = read_value(lv, rem_range);
 
-    let mut constr_poly = modular_constr_poly(lv, nv, yield_constr, filter, rem, den, quo);
+    let mut constr_poly = addsubmod_constr_poly(lv, nv, yield_constr, filter, rem, den, quo);
 
     let input = num;
     pol_sub_assign(&mut constr_poly, input);
@@ -144,7 +144,7 @@ fn eval_ext_circuit_divmod_helper<F: RichField + Extendable<D>, const D: usize>(
     let rem = read_value(lv, rem_range);
 
     let mut constr_poly =
-        modular_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter, rem, den, quo);
+        addsubmod_constr_poly_ext_circuit(lv, nv, builder, yield_constr, filter, rem, den, quo);
 
     let input = num;
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, input);
