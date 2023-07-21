@@ -128,6 +128,11 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::extension_tower::BN_BASE;
 
+// Each element c of {MUL,MODULAR}_AUX_REGISTER is -2^20 <= c <= 2^20;
+// this value is used as an offset so that everything is positive in
+// the range checks.
+pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
+
 const fn bn254_modulus_limbs() -> [u16; N_LIMBS] {
     const_assert!(N_LIMBS == 16); // Assumed below
     let mut limbs = [0u16; N_LIMBS];
@@ -308,7 +313,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
         let (lo, hi) = quot_limbs.split_at_mut(N_LIMBS);
 
         // Verify that the elements are in the expected range.
-        debug_assert!(lo.iter().all(|&c| c < QUO_INPUT_ABS_MAX));
+        debug_assert!(lo.iter().all(|&c| c <= u16::max_value()));
 
         // Top half of quot_limbs should be zero.
         debug_assert!(hi.iter().all(|&d| d.is_zero()));
