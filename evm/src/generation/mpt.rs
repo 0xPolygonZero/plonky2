@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{BigEndianHash, H256, U256, U512};
 use keccak_hash::keccak;
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
@@ -98,12 +98,12 @@ pub(crate) fn mpt_prover_inputs<F>(
         }
         Node::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.packed);
+            prover_inputs.push(nibbles.try_into_u256().unwrap());
             mpt_prover_inputs(child, prover_inputs, parse_value);
         }
         Node::Leaf { nibbles, value } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.packed);
+            prover_inputs.push(nibbles.try_into_u256().unwrap());
             let leaf = parse_value(value);
             prover_inputs.extend(leaf);
         }
@@ -141,7 +141,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
         }
         Node::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.packed);
+            prover_inputs.push(nibbles.try_into_u256().unwrap());
             let extended_key = key.merge_nibbles(nibbles);
             mpt_prover_inputs_state_trie(
                 child,
@@ -170,7 +170,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                        "In TrieInputs, an account's storage_root didn't match the associated storage trie hash");
 
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.packed);
+            prover_inputs.push(nibbles.try_into_u256().unwrap());
             prover_inputs.push(nonce);
             prover_inputs.push(balance);
             mpt_prover_inputs(storage_trie, prover_inputs, &parse_storage_value);
@@ -187,6 +187,6 @@ fn parse_storage_value(value_rlp: &[u8]) -> Vec<U256> {
 fn empty_nibbles() -> Nibbles {
     Nibbles {
         count: 0,
-        packed: U256::zero(),
+        packed: U512::zero(),
     }
 }
