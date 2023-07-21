@@ -198,7 +198,7 @@ fn test_state_trie(
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.packed); // key
+    interpreter.push(k.try_into_u256().unwrap()); // key
 
     interpreter.run()?;
     assert_eq!(

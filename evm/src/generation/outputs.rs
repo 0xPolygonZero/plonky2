@@ -48,7 +48,7 @@ pub(crate) fn get_outputs<F: Field>(state: &mut GenerationState<F>) -> Generatio
                 state_key_nibbles.count, 64,
                 "Each state key should have 64 nibbles = 256 bits"
             );
-            let state_key_h256 = H256::from_uint(&state_key_nibbles.packed);
+            let state_key_h256 = H256::from_uint(&state_key_nibbles.try_into_u256().unwrap());
 
             let addr_or_state_key =
                 if let Some(address) = state.state_key_to_address.get(&state_key_h256) {
@@ -98,7 +98,7 @@ fn get_storage<F: Field>(state: &GenerationState<F>, storage_ptr: usize) -> Hash
                 storage_key_nibbles.count, 64,
                 "Each storage key should have 64 nibbles = 256 bits"
             );
-            (storage_key_nibbles.packed, value)
+            (storage_key_nibbles.try_into_u256().unwrap(), value)
         })
         .collect()
 }
