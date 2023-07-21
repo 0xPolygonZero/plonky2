@@ -13,8 +13,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
-    bootstrap_kernel, contextops, control_flow, decode, dup_swap, exceptions, gas, jumps, membus,
-    memio, modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls,
+    bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
+    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::memory::segments::Segment;
@@ -190,7 +190,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
         dup_swap::eval_packed(local_values, yield_constr);
-        exceptions::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
@@ -202,7 +201,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         simple_logic::eval_packed(local_values, yield_constr);
         stack::eval_packed(local_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
-        syscalls::eval_packed(local_values, next_values, yield_constr);
+        syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -218,7 +217,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
-        exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
@@ -230,7 +228,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
         stack::eval_ext_circuit(builder, local_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
-        syscalls::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {
