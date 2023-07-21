@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use eth_trie_utils::nibbles::Nibbles;
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{BigEndianHash, H256, U256, U512};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::memory::segments::Segment;
@@ -39,7 +39,7 @@ pub(crate) fn read_trie<V>(
     let mut res = HashMap::new();
     let empty_nibbles = Nibbles {
         count: 0,
-        packed: U256::zero(),
+        packed: U512::zero(),
     };
     read_trie_helper::<V>(memory, ptr, read_value, empty_nibbles, &mut res);
     res
@@ -75,7 +75,7 @@ pub(crate) fn read_trie_helper<V>(
         PartialTrieType::Extension => {
             let count = load(ptr + 1).as_usize();
             let packed = load(ptr + 2);
-            let nibbles = Nibbles { count, packed };
+            let nibbles = Nibbles { count, packed: packed.into() };
             let child_ptr = load(ptr + 3).as_usize();
             read_trie_helper::<V>(
                 memory,
@@ -88,7 +88,7 @@ pub(crate) fn read_trie_helper<V>(
         PartialTrieType::Leaf => {
             let count = load(ptr + 1).as_usize();
             let packed = load(ptr + 2);
-            let nibbles = Nibbles { count, packed };
+            let nibbles = Nibbles { count, packed: packed.into() };
             let value_ptr = load(ptr + 3).as_usize();
             res.insert(
                 prefix.merge_nibbles(&nibbles),
