@@ -74,6 +74,11 @@ const AUX_REGISTER_0: Range<usize> = START_SHARED_COLS..START_SHARED_COLS + N_LI
 const AUX_REGISTER_1: Range<usize> = AUX_REGISTER_0.end..AUX_REGISTER_0.end + 2 * N_LIMBS;
 const AUX_REGISTER_2: Range<usize> = AUX_REGISTER_1.end..AUX_REGISTER_1.end + 2 * N_LIMBS - 1;
 
+// Each element c of {MUL,MODULAR}_AUX_REGISTER is -2^20 <= c <= 2^20;
+// this value is used as an offset so that everything is positive in
+// the range checks.
+pub(crate) const AUX_COEFF_ABS_MAX: i64 = 1 << 20;
+
 // MUL takes 5 * N_LIMBS = 80 columns
 pub(crate) const MUL_AUX_INPUT_LO: Range<usize> = AUX_INPUT_REGISTER_0;
 pub(crate) const MUL_AUX_INPUT_HI: Range<usize> = AUX_INPUT_REGISTER_1;
