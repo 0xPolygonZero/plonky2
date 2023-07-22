@@ -64,7 +64,7 @@ pub fn set_lookup_wires<
         let table_value_to_idx: HashMap<u16, usize> = common_data.luts[lut_index]
             .iter()
             .enumerate()
-            .map(|(i, (inp_target, _))| (inp_target.clone(), i))
+            .map(|(i, (inp_target, _))| (*inp_target, i))
             .collect();
 
         for (inp_target, _) in prover_data.lut_to_lookups[lut_index].iter() {
