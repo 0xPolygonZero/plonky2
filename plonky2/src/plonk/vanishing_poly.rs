@@ -177,6 +177,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     deltas: &[F],
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
+    lut_re_poly_evals: &[&[F]],
 ) -> Vec<Vec<F>> {
     let has_lookup = common_data.num_lookup_polys != 0;
 
@@ -276,6 +277,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                     cur_next_lookup_zs,
                     &lookup_selectors,
                     cur_deltas.try_into().unwrap(),
+                    lut_re_poly_evals[i],
                 );
                 vanishing_all_lookup_terms.extend(lookup_constraints);
             }
@@ -514,6 +516,7 @@ pub fn check_lookup_constraints_batch<F: RichField + Extendable<D>, const D: usi
     next_lookup_zs: &[F],
     lookup_selectors: &[F],
     deltas: &[F; 4],
+    lut_re_poly_evals: &[F],
 ) -> Vec<F> {
     let num_lu_slots = LookupGate::num_slots(&common_data.config);
     let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
@@ -568,24 +571,14 @@ pub fn check_lookup_constraints_batch<F: RichField + Extendable<D>, const D: usi
     // Check initial RE constraint.
     constraints.push(lookup_selectors[LookupSelectors::InitSre as usize] * z_re);
 
-    let current_delta = deltas[LookupChallenges::ChallengeDelta as usize];
-
     // Check final RE constraints for each different LUT.
     for r in LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors {
         let cur_ends_selector = lookup_selectors[r];
-        let lut_row_number = ceil_div_usize(
-            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
-            num_lut_slots,
-        );
-        let cur_function_eval = get_lut_poly(
-            common_data,
-            r - LookupSelectors::StartEnd as usize,
-            deltas,
-            num_lut_slots * lut_row_number,
-        )
-        .eval(current_delta);
 
-        constraints.push(cur_ends_selector * (z_re - cur_function_eval))
+        // Use the precomputed value for the lut poly evaluation
+        let re_poly_eval = lut_re_poly_evals[r - LookupSelectors::StartEnd as usize];
+
+        constraints.push(cur_ends_selector * (z_re - re_poly_eval))
     }
 
     // Check RE row transition constraint.

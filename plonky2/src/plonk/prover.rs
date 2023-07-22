@@ -4,6 +4,7 @@ use core::cmp::min;
 use core::mem::swap;
 
 use anyhow::{ensure, Result};
+use hashbrown::HashMap;
 use plonky2_maybe_rayon::*;
 
 use super::circuit_builder::{LookupChallenges, LookupWire};
@@ -14,6 +15,7 @@ use crate::field::zero_poly_coset::ZeroPolyOnCoset;
 use crate::fri::oracle::PolynomialBatch;
 use crate::gates::lookup::LookupGate;
 use crate::gates::lookup_table::LookupTableGate;
+use crate::gates::selectors::LookupSelectors;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
@@ -24,7 +26,7 @@ use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{OpeningSet, Proof, ProofWithPublicInputs};
-use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
+use crate::plonk::vanishing_poly::{eval_vanishing_poly_base_batch, get_lut_poly};
 use crate::plonk::vars::EvaluationVarsBaseBatch;
 use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
@@ -58,13 +60,20 @@ pub fn set_lookup_wires<
 
         // Compute multiplicities.
         let mut multiplicities = vec![0; lut_len];
+
+        let table_value_to_idx: HashMap<u16, usize> = common_data.luts[lut_index]
+            .iter()
+            .enumerate()
+            .map(|(i, (inp_target, _))| (inp_target.clone(), i))
+            .collect();
+
         for (inp_target, _) in prover_data.lut_to_lookups[lut_index].iter() {
             let inp_value = pw.get_target(*inp_target);
-            let mut idx = 0;
-            while F::from_canonical_u16(common_data.luts[lut_index][idx].0) != inp_value {
-                idx += 1;
-            }
-            multiplicities[idx] += 1;
+            let idx = table_value_to_idx
+                .get(&u16::try_from(inp_value.to_canonical_u64()).unwrap())
+                .unwrap();
+
+            multiplicities[*idx] += 1;
         }
 
         // Pad the last `LookupGate` with the first entry from the LUT.
@@ -612,8 +621,45 @@ fn compute_quotient_polys<
 
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits(), quotient_degree_bits);
 
+    // Precompute the lookup table evals on the challenges in delta
+    // These values are used to produce the final RE constraints for each lut,
+    // and are the same each time in check_lookup_constraints_batched.
+    // lut_poly_evals[i][j] gives the eval for the i'th challenge and the j'th lookup table
+    let lut_re_poly_evals: Vec<Vec<F>> = if has_lookup {
+        let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
+        (0..num_challenges)
+            .map(move |i| {
+                let cur_deltas = &deltas[NUM_COINS_LOOKUP * i..NUM_COINS_LOOKUP * (i + 1)];
+                let cur_challenge_delta = cur_deltas[LookupChallenges::ChallengeDelta as usize];
+
+                (LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors)
+                    .map(|r| {
+                        let lut_row_number = ceil_div_usize(
+                            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
+                            num_lut_slots,
+                        );
+
+                        get_lut_poly(
+                            common_data,
+                            r - LookupSelectors::StartEnd as usize,
+                            cur_deltas,
+                            num_lut_slots * lut_row_number,
+                        )
+                        .eval(cur_challenge_delta)
+                    })
+                    .collect()
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    let lut_re_poly_evals_refs: Vec<&[F]> =
+        lut_re_poly_evals.iter().map(|v| v.as_slice()).collect();
+
     let points_batches = points.par_chunks(BATCH_SIZE);
     let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
+
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
         .flat_map(|(batch_i, xs_batch)| {
@@ -723,6 +769,7 @@ fn compute_quotient_polys<
                 deltas,
                 alphas,
                 &z_h_on_coset,
+                &lut_re_poly_evals_refs,
             );
 
             for (&i, quotient_values) in indices_batch.iter().zip(quotient_values_batch.iter_mut())
