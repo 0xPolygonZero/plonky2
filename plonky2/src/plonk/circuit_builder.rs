@@ -109,7 +109,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     context_log: ContextTree,
 
     /// Generators used to generate the witness.
-    generators: Vec<WitnessGeneratorRef<F>>,
+    generators: Vec<WitnessGeneratorRef<F, D>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -444,11 +444,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(x, one);
     }
 
-    pub fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F>>) {
+    pub fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F, D>>) {
         self.generators.extend(generators);
     }
 
-    pub fn add_simple_generator<G: SimpleGenerator<F>>(&mut self, generator: G) {
+    pub fn add_simple_generator<G: SimpleGenerator<F, D>>(&mut self, generator: G) {
         self.generators
             .push(WitnessGeneratorRef::new(generator.adapter()));
     }

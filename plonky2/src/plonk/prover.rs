@@ -80,15 +80,14 @@ pub fn set_lookup_wires<
         let remaining_slots = (num_entries
             - (prover_data.lut_to_lookups[lut_index].len() % num_entries))
             % num_entries;
-        let first_inp_value = F::from_canonical_u16(common_data.luts[lut_index][0].0);
-        let first_out_value = F::from_canonical_u16(common_data.luts[lut_index][0].1);
+        let (first_inp_value, first_out_value) = common_data.luts[lut_index][0];
         for slot in (num_entries - remaining_slots)..num_entries {
             let inp_target =
                 Target::wire(last_lut_gate - 1, LookupGate::wire_ith_looking_inp(slot));
             let out_target =
                 Target::wire(last_lut_gate - 1, LookupGate::wire_ith_looking_out(slot));
-            pw.set_target(inp_target, first_inp_value);
-            pw.set_target(out_target, first_out_value);
+            pw.set_target(inp_target, F::from_canonical_u16(first_inp_value));
+            pw.set_target(out_target, F::from_canonical_u16(first_out_value));
 
             multiplicities[0] += 1;
         }

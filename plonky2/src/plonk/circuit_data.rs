@@ -295,7 +295,7 @@ pub struct ProverOnlyCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub generators: Vec<WitnessGeneratorRef<F>>,
+    pub generators: Vec<WitnessGeneratorRef<F, D>>,
     /// Generator indices (within the `Vec` above), indexed by the representative of each target
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
@@ -319,6 +319,29 @@ pub struct ProverOnlyCircuitData<
     pub lookup_rows: Vec<LookupWire>,
     /// A vector of (looking_in, looking_out) pairs for for each lookup table index.
     pub lut_to_lookups: Vec<Lookup>,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    ProverOnlyCircuitData<F, C, D>
+{
+    pub fn to_bytes(
+        &self,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<Vec<u8>> {
+        let mut buffer = Vec::new();
+        buffer.write_prover_only_circuit_data(self, generator_serializer, common_data)?;
+        Ok(buffer)
+    }
+
+    pub fn from_bytes(
+        bytes: &[u8],
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<Self> {
+        let mut buffer = Buffer::new(bytes);
+        buffer.read_prover_only_circuit_data(generator_serializer, common_data)
+    }
 }
 
 /// Circuit data required by the verifier, but not the prover.

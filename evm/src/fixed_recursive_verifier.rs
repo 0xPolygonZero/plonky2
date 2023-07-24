@@ -837,6 +837,7 @@ where
             buffer.write_prover_only_circuit_data(
                 &wrapper.circuit.prover_only,
                 generator_serializer,
+                &wrapper.circuit.common,
             )?;
             buffer.write_verifier_only_circuit_data(&wrapper.circuit.verifier_only)?;
             buffer.write_target_proof_with_public_inputs(&wrapper.proof_with_pis_target)?;
