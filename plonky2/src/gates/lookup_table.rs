@@ -81,7 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
     fn id(&self) -> String {
         // Custom implementation to not have the entire lookup table
         format!(
-            "LookupGate {{num_slots: {}, lut_hash: {:?}, last_lut_row: {}}}",
+            "LookupTableGate {{num_slots: {}, lut_hash: {:?}, last_lut_row: {}}}",
             self.num_slots, self.lut_hash, self.last_lut_row
         )
     }
