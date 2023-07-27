@@ -40,6 +40,49 @@ mod tests {
         Ok(())
     }
 
+    #[should_panic]
+    #[test]
+    fn test_lookup_table_not_used() {
+        LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
+        use crate::plonk::circuit_builder::CircuitBuilder;
+        use crate::plonk::circuit_data::CircuitConfig;
+        use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let tip5_table = TIP5_TABLE.to_vec();
+        let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
+        builder.add_lookup_table_from_pairs(table);
+
+        builder.build::<C>();
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_lookup_without_table() {
+        LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
+        use crate::plonk::circuit_builder::CircuitBuilder;
+        use crate::plonk::circuit_data::CircuitConfig;
+        use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let dummy = builder.add_virtual_target();
+        builder.add_lookup_from_index(dummy, 0);
+
+        builder.build::<C>();
+    }
+
     // Tests two lookups in one lookup table.
     #[test]
     fn test_one_lookup() -> anyhow::Result<()> {
