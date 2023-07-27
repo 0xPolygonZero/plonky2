@@ -1,6 +1,6 @@
 //! Memory registers.
 
-use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
+use crate::memory::VALUE_LIMBS;
 
 // Columns for memory operations, ordered by (addr, timestamp).
 /// 1 if this is an actual memory operation, or 0 if it's a padding row.
@@ -28,7 +28,7 @@ pub(crate) const SEGMENT_FIRST_CHANGE: usize = CONTEXT_FIRST_CHANGE + 1;
 pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 
 // We use a range check to enforce the ordering.
-pub(crate) const RANGE_CHECK: usize = VIRTUAL_FIRST_CHANGE + NUM_CHANNELS;
+pub(crate) const RANGE_CHECK: usize = VIRTUAL_FIRST_CHANGE + 1;
 // The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 // Helper columns for the permutation argument used to enforce the range check.
