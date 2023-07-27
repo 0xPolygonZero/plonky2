@@ -244,7 +244,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.lut_to_lookups[lut_index].push((looking_in, looking_out));
     }
 
-    pub fn num_luts(&mut self) -> usize {
+    pub fn num_luts(&self) -> usize {
         self.lut_to_lookups.len()
     }
 
