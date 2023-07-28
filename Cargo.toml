@@ -12,7 +12,7 @@ incremental = true
 opt-level = 3
 
 [patch.crates-io]
-eth_trie_utils = { git = "https://github.com/mir-protocol/eth_trie_utils.git", rev = "7c2c65aca2cc6d21384137836b98277589f6fcba" }
+eth_trie_utils = { git = "https://github.com/mir-protocol/eth_trie_utils.git", rev = "e9ec4ec2aa2ae976b7c699ef40c1ffc716d87ed5" }
 plonky2_evm = { path = "evm" }
 plonky2_field = { path = "field" }
 plonky2_maybe_rayon = { path = "maybe_rayon" }
