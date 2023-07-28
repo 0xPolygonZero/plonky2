@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use eth_trie_utils::partial_trie::HashedPartialTrie;
 use keccak_hash::keccak;
 use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -17,8 +17,6 @@ use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::BlockMetadata;
-use plonky2_evm::prover::prove;
-use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
@@ -41,10 +39,6 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
     let storage_tries = vec![];
 
-    let state_trie_root = state_trie.hash();
-    let txns_trie_root = transactions_trie.hash();
-    let receipts_trie_root = receipts_trie.hash();
-
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
@@ -60,40 +54,6 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         block_metadata,
         addresses: vec![],
     };
-
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    // TODO: This is redundant; prove_root below calls this prove method internally.
-    // Just keeping it for now because the root proof returned by prove_root doesn't contain public
-    // values yet, and we want those for the assertions below.
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
-    assert_eq!(
-        proof.public_values.trie_roots_before.state_root,
-        state_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.state_root,
-        state_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_before.transactions_root,
-        txns_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.transactions_root,
-        txns_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_before.receipts_root,
-        receipts_trie_root
-    );
-    assert_eq!(
-        proof.public_values.trie_roots_after.receipts_root,
-        receipts_trie_root
-    );
-
-    verify_proof(&all_stark, proof, &config)?;
 
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
@@ -130,12 +90,18 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     }
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    let (root_proof, public_values) =
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof.clone())?;
 
-    let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
-    all_circuits.verify_aggregation(&agg_proof)
+    // We can duplicate the proofs here because the state hasn't mutated.
+    let (agg_proof, public_values) =
+        all_circuits.prove_aggregation(false, &root_proof, false, &root_proof, public_values)?;
+    all_circuits.verify_aggregation(&agg_proof)?;
+
+    let (block_proof, _) = all_circuits.prove_block(None, &agg_proof, public_values)?;
+    all_circuits.verify_block(&block_proof)
 }
 
 fn init_logger() {

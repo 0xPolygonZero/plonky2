@@ -141,12 +141,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    let val_u64s: [u64; 4] =
-        core::array::from_fn(|i| u64::from_le_bytes(core::array::from_fn(|j| hash.0[i * 8 + j])));
-    let hash_int = U256(val_u64s);
-
-    let mut log_push = stack_push_log_and_fill(state, &mut row, hash_int)?;
-    log_push.value = hash.into_uint();
+    let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
 
     keccak_sponge_log(state, base_address, input);
 

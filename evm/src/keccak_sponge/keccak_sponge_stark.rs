@@ -25,7 +25,17 @@ use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    let outputs = Column::singles(&cols.updated_state_u32s[..8]);
+    let mut outputs = vec![];
+    for i in (0..8).rev() {
+        let cur_col = Column::linear_combination(
+            cols.updated_state_bytes[i * 4..(i + 1) * 4]
+                .iter()
+                .enumerate()
+                .map(|(j, &c)| (c, F::from_canonical_u64(1 << (24 - 8 * j)))),
+        );
+        outputs.push(cur_col);
+    }
+
     Column::singles([
         cols.context,
         cols.segment,
@@ -137,7 +147,11 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     // - this is a full input block, or
     // - this is a final block of length `i` or greater
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i..]))
+    if i == KECCAK_RATE_BYTES - 1 {
+        Column::single(cols.is_full_input_block)
+    } else {
+        Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]))
+    }
 }
 
 /// CTL filter for looking at XORs in the logic table.
@@ -342,6 +356,25 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 
         keccakf_u32s(&mut sponge_state);
         row.updated_state_u32s = sponge_state.map(F::from_canonical_u32);
+        let is_final_block = row.is_final_input_len.iter().copied().sum::<F>() == F::ONE;
+        if is_final_block {
+            for (l, &elt) in row.updated_state_u32s[..8].iter().enumerate() {
+                let mut cur_bytes = vec![F::ZERO; 4];
+                let mut cur_elt = elt;
+                for i in 0..4 {
+                    cur_bytes[i] =
+                        F::from_canonical_u32((cur_elt.to_canonical_u64() & 0xFF) as u32);
+                    cur_elt = F::from_canonical_u64(cur_elt.to_canonical_u64() >> 8);
+                    row.updated_state_bytes[l * 4 + i] = cur_bytes[i];
+                }
+
+                let mut s = row.updated_state_bytes[l * 4].to_canonical_u64();
+                for i in 1..4 {
+                    s += row.updated_state_bytes[l * 4 + i].to_canonical_u64() << (8 * i);
+                }
+                assert_eq!(elt, F::from_canonical_u64(s), "not equal");
+            }
+        }
     }
 
     fn generate_padding_row(&self) -> [F; NUM_KECCAK_SPONGE_COLUMNS] {
@@ -447,6 +480,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
             let entry_match = offset - P::from(FE::from_canonical_usize(i));
             yield_constr.constraint(is_final_len * entry_match);
+        }
+
+        // Adding constraints for byte columns.
+        for (l, &elt) in local_values.updated_state_u32s[..8].iter().enumerate() {
+            let mut s = local_values.updated_state_bytes[l * 4];
+            for i in 1..4 {
+                s += local_values.updated_state_bytes[l * 4 + i]
+                    * P::from(FE::from_canonical_usize(1 << (8 * i)));
+            }
+            yield_constr.constraint(is_final_block * (s - elt));
         }
     }
 
@@ -570,6 +613,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             let entry_match = builder.sub_extension(offset, index);
 
             let constraint = builder.mul_extension(is_final_len, entry_match);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // Adding constraints for byte columns.
+        for (l, &elt) in local_values.updated_state_u32s[..8].iter().enumerate() {
+            let mut s = local_values.updated_state_bytes[l * 4];
+            for i in 1..4 {
+                s = builder.mul_const_add_extension(
+                    F::from_canonical_usize(1 << (8 * i)),
+                    local_values.updated_state_bytes[l * 4 + i],
+                    s,
+                );
+            }
+            let constraint = builder.sub_extension(s, elt);
+            let constraint = builder.mul_extension(is_final_block, constraint);
             yield_constr.constraint(builder, constraint);
         }
     }

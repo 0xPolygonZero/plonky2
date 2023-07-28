@@ -244,15 +244,6 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 &looked_table.filter_column,
                 challenge,
             );
-
-            debug_assert_eq!(
-                zs_looking
-                    .clone()
-                    .map(|z| *z.values.last().unwrap())
-                    .product::<F>(),
-                *z_looked.values.last().unwrap()
-            );
-
             for (table, z) in looking_tables.iter().zip(zs_looking) {
                 ctl_data_per_table[table.table as usize]
                     .zs_columns
@@ -542,6 +533,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_lasts: [Vec<F>; NUM_TABLES],
+    ctl_extra_looking_products: Vec<Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -550,13 +542,15 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
         looked_table,
     } in cross_table_lookups.iter()
     {
-        for _ in 0..config.num_challenges {
+        let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
+        for c in 0..config.num_challenges {
             let looking_zs_prod = looking_tables
                 .iter()
                 .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap())
-                .product::<F>();
-            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
+                .product::<F>()
+                * extra_product_vec[c];
 
+            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             ensure!(
                 looking_zs_prod == looked_z,
                 "Cross-table lookup verification failed."
@@ -572,6 +566,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
+    ctl_extra_looking_products: Vec<Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -580,14 +575,18 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
         looked_table,
     } in cross_table_lookups.into_iter()
     {
-        for _ in 0..inner_config.num_challenges {
-            let looking_zs_prod = builder.mul_many(
+        let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
+        for c in 0..inner_config.num_challenges {
+            let mut looking_zs_prod = builder.mul_many(
                 looking_tables
                     .iter()
                     .map(|table| *ctl_zs_openings[table.table as usize].next().unwrap()),
             );
+
+            looking_zs_prod = builder.mul(looking_zs_prod, extra_product_vec[c]);
+
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
-            builder.connect(looking_zs_prod, looked_z);
+            builder.connect(looked_z, looking_zs_prod);
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));

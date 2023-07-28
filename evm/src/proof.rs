@@ -52,9 +52,10 @@ pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
+    pub cpu_trace_len: usize,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TrieRoots {
     pub state_root: H256,
     pub transactions_root: H256,
@@ -74,18 +75,101 @@ pub struct BlockMetadata {
 
 /// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
+#[derive(Eq, PartialEq, Debug)]
 pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
+    pub cpu_trace_len: Target,
 }
 
+impl PublicValuesTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        let TrieRootsTarget {
+            state_root: state_root_before,
+            transactions_root: transactions_root_before,
+            receipts_root: receipts_root_before,
+        } = self.trie_roots_before;
+
+        buffer.write_target_vec(&state_root_before)?;
+        buffer.write_target_vec(&transactions_root_before)?;
+        buffer.write_target_vec(&receipts_root_before)?;
+
+        let TrieRootsTarget {
+            state_root: state_root_after,
+            transactions_root: transactions_root_after,
+            receipts_root: receipts_root_after,
+        } = self.trie_roots_after;
+
+        buffer.write_target_vec(&state_root_after)?;
+        buffer.write_target_vec(&transactions_root_after)?;
+        buffer.write_target_vec(&receipts_root_after)?;
+
+        let BlockMetadataTarget {
+            block_beneficiary,
+            block_timestamp,
+            block_number,
+            block_difficulty,
+            block_gaslimit,
+            block_chain_id,
+            block_base_fee,
+        } = self.block_metadata;
+
+        buffer.write_target_vec(&block_beneficiary)?;
+        buffer.write_target(block_timestamp)?;
+        buffer.write_target(block_number)?;
+        buffer.write_target(block_difficulty)?;
+        buffer.write_target(block_gaslimit)?;
+        buffer.write_target(block_chain_id)?;
+        buffer.write_target(block_base_fee)?;
+
+        buffer.write_target(self.cpu_trace_len)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let trie_roots_before = TrieRootsTarget {
+            state_root: buffer.read_target_vec()?.try_into().unwrap(),
+            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
+            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+        };
+
+        let trie_roots_after = TrieRootsTarget {
+            state_root: buffer.read_target_vec()?.try_into().unwrap(),
+            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
+            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+        };
+
+        let block_metadata = BlockMetadataTarget {
+            block_beneficiary: buffer.read_target_vec()?.try_into().unwrap(),
+            block_timestamp: buffer.read_target()?,
+            block_number: buffer.read_target()?,
+            block_difficulty: buffer.read_target()?,
+            block_gaslimit: buffer.read_target()?,
+            block_chain_id: buffer.read_target()?,
+            block_base_fee: buffer.read_target()?,
+        };
+
+        let cpu_trace_len = buffer.read_target()?;
+
+        Ok(Self {
+            trie_roots_before,
+            trie_roots_after,
+            block_metadata,
+            cpu_trace_len,
+        })
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
 pub struct TrieRootsTarget {
     pub state_root: [Target; 8],
     pub transactions_root: [Target; 8],
     pub receipts_root: [Target; 8],
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct BlockMetadataTarget {
     pub block_beneficiary: [Target; 5],
     pub block_timestamp: Target,
@@ -119,7 +203,8 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    pub(crate) proof: StarkProof<F, C, D>,
+    // TODO: set it back to pub(crate) when cpu trace len is a public input
+    pub proof: StarkProof<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {

@@ -61,6 +61,7 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
         .unwrap()
 }
 
+#[allow(unused)]
 /// Returns the 32-bit little-endian limbs of a `H256`.
 pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
     h256.0

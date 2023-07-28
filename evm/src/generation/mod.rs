@@ -22,7 +22,7 @@ use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
-use crate::witness::memory::{MemoryAddress, MemoryChannel};
+use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::transition::transition;
 
 pub mod mpt;
@@ -38,7 +38,6 @@ use crate::witness::util::mem_write_log;
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
     pub signed_txns: Vec<Vec<u8>>,
-
     pub tries: TrieInputs,
 
     /// Mapping between smart contract code hashes and the contract byte code.
@@ -105,7 +104,55 @@ fn apply_metadata_memops<F: RichField + Extendable<D>, const D: usize>(
     state.traces.memory_ops.extend(ops);
 }
 
-pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
+fn apply_trie_memops<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+    trie_roots_before: &TrieRoots,
+    trie_roots_after: &TrieRoots,
+) {
+    let fields = [
+        (
+            GlobalMetadata::StateTrieRootDigestBefore,
+            trie_roots_before.state_root,
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestBefore,
+            trie_roots_before.transactions_root,
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestBefore,
+            trie_roots_before.receipts_root,
+        ),
+        (
+            GlobalMetadata::StateTrieRootDigestAfter,
+            trie_roots_after.state_root,
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestAfter,
+            trie_roots_after.transactions_root,
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestAfter,
+            trie_roots_after.receipts_root,
+        ),
+    ];
+
+    let channel = MemoryChannel::GeneralPurpose(0);
+
+    let ops = fields.map(|(field, hash)| {
+        let val = hash.into_uint();
+        MemoryOp::new(
+            channel,
+            state.traces.cpu.len(),
+            MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+            MemoryOpKind::Read,
+            val,
+        )
+    });
+
+    state.traces.memory_ops.extend(ops);
+}
+
+pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
     config: &StarkConfig,
@@ -147,10 +194,13 @@ pub(crate) fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestAfter)),
     };
 
+    apply_trie_memops(&mut state, &trie_roots_before, &trie_roots_after);
+
     let public_values = PublicValues {
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
+        cpu_trace_len: state.traces.clock(),
     };
 
     let tables = timed!(
