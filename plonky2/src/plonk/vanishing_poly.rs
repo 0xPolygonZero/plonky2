@@ -37,8 +37,10 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let mut coeffs = Vec::new();
     let n = common_data.luts[lut_index].len();
-    for (input, output) in common_data.luts[lut_index].iter() {
-        coeffs.push(F::from_canonical_u16(*input) + b * F::from_canonical_u16(*output));
+    for &(input, output) in common_data.luts[lut_index].iter() {
+        let t = input as u128 + b.to_noncanonical_u64() as u128 * output as u128;
+
+        coeffs.push(F::from_noncanonical_u96((t as u64, (t >> 64) as u32)));
     }
     coeffs.append(&mut vec![F::ZERO; degree - n]);
     coeffs.reverse();
