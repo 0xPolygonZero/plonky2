@@ -16,7 +16,7 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
+use crate::plonk::plonk_common::{reduce_with_powers_ext_circuit, reduce_with_powers_u32};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -67,7 +67,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let sum = vars.local_wires[Self::WIRE_SUM];
         let limbs = vars.local_wires[self.limbs()].to_vec();
-        let computed_sum = reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
+        let computed_sum = reduce_with_powers_u32(&limbs, B as u32);
         let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
             constraints.push(
@@ -156,7 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> PackedEvaluab
     ) {
         let sum = vars.local_wires[Self::WIRE_SUM];
         let limbs = vars.local_wires.view(self.limbs());
-        let computed_sum = reduce_with_powers(limbs, F::from_canonical_usize(B));
+        let computed_sum = reduce_with_powers_u32(limbs, B as u32);
 
         yield_constr.one(computed_sum - sum);
 

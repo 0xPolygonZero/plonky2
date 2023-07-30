@@ -103,7 +103,10 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
             .iter()
             .map(|&t| witness.get_bool_target(t))
             .rev()
-            .fold(F::ZERO, |acc, limb| acc.mul_u32(B as u32 + limb as u32));
+            .fold(F::ZERO, |acc, limb| {
+                let t = acc.to_noncanonical_u64() as u128 * B as u128 + limb as u128;
+                F::from_noncanonical_u96((t as u64, (t >> 64) as u32))
+            });
 
         out_buffer.set_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM), sum);
     }
