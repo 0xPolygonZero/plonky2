@@ -140,6 +140,12 @@ impl Field for GoldilocksField {
         // u64 + u64 * u64 cannot overflow.
         reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
     }
+
+    #[inline]
+    fn mul_u32(&self, x: u32) -> Self {
+        let t = self.0 as u128 * x as u128;
+        Self::from_noncanonical_u96((t as u64, (t >> 64) as u32))
+    }
 }
 
 impl PrimeField for GoldilocksField {

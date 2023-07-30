@@ -444,6 +444,12 @@ pub trait Field:
         // Default implementation.
         *self + x * y
     }
+
+    /// Equivalent to regular multiplication, but may be cheaper.
+    #[inline]
+    fn mul_u32(&self, x: u32) -> Self {
+        *self * Self::from_canonical_u32(x)
+    }
 }
 
 pub trait PrimeField: Field {

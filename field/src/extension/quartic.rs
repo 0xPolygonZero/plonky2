@@ -127,6 +127,16 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
     fn from_noncanonical_u64(n: u64) -> Self {
         F::from_noncanonical_u64(n).into()
     }
+
+    #[inline]
+    fn mul_u32(&self, x: u32) -> Self {
+        Self([
+            self.0[0].mul_u32(x),
+            self.0[1].mul_u32(x),
+            self.0[2].mul_u32(x),
+            self.0[3].mul_u32(x),
+        ])
+    }
 }
 
 impl<F: Extendable<4>> Display for QuarticExtension<F> {
