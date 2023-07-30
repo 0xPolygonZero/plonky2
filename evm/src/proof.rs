@@ -91,9 +91,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_before,
         } = self.trie_roots_before;
 
-        buffer.write_target_vec(&state_root_before)?;
-        buffer.write_target_vec(&transactions_root_before)?;
-        buffer.write_target_vec(&receipts_root_before)?;
+        buffer.write_target_array(&state_root_before)?;
+        buffer.write_target_array(&transactions_root_before)?;
+        buffer.write_target_array(&receipts_root_before)?;
 
         let TrieRootsTarget {
             state_root: state_root_after,
@@ -101,9 +101,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_after,
         } = self.trie_roots_after;
 
-        buffer.write_target_vec(&state_root_after)?;
-        buffer.write_target_vec(&transactions_root_after)?;
-        buffer.write_target_vec(&receipts_root_after)?;
+        buffer.write_target_array(&state_root_after)?;
+        buffer.write_target_array(&transactions_root_after)?;
+        buffer.write_target_array(&receipts_root_after)?;
 
         let BlockMetadataTarget {
             block_beneficiary,
@@ -116,7 +116,7 @@ impl PublicValuesTarget {
             block_bloom,
         } = self.block_metadata;
 
-        buffer.write_target_vec(&block_beneficiary)?;
+        buffer.write_target_array(&block_beneficiary)?;
         buffer.write_target(block_timestamp)?;
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
@@ -130,19 +130,19 @@ impl PublicValuesTarget {
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let trie_roots_after = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let block_metadata = BlockMetadataTarget {
-            block_beneficiary: buffer.read_target_vec()?.try_into().unwrap(),
+            block_beneficiary: buffer.read_target_array()?,
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
