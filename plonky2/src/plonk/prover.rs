@@ -467,7 +467,11 @@ fn compute_lookup_polys<
                     let looked_inp = witness.get_wire(row, LookupTableGate::wire_ith_looked_inp(s));
                     let looked_out = witness.get_wire(row, LookupTableGate::wire_ith_looked_out(s));
 
-                    looked_inp + deltas[LookupChallenges::ChallengeA as usize] * looked_out
+                    let t = looked_inp.to_noncanonical_u64() as u128
+                        + deltas[LookupChallenges::ChallengeA as usize].to_noncanonical_u64()
+                            as u128
+                            * looked_out.to_noncanonical_u64() as u128;
+                    F::from_noncanonical_u96((t as u64, (t >> 64) as u32))
                 })
                 .collect();
             // Get (alpha - combo).
@@ -483,7 +487,11 @@ fn compute_lookup_polys<
                     let looked_inp = witness.get_wire(row, LookupTableGate::wire_ith_looked_inp(s));
                     let looked_out = witness.get_wire(row, LookupTableGate::wire_ith_looked_out(s));
 
-                    looked_inp + deltas[LookupChallenges::ChallengeB as usize] * looked_out
+                    let t = looked_inp.to_noncanonical_u64() as u128
+                        + deltas[LookupChallenges::ChallengeB as usize].to_noncanonical_u64()
+                            as u128
+                            * looked_out.to_noncanonical_u64() as u128;
+                    F::from_noncanonical_u96((t as u64, (t >> 64) as u32))
                 })
                 .collect();
 
@@ -520,7 +528,11 @@ fn compute_lookup_polys<
                     let looking_in = witness.get_wire(row, LookupGate::wire_ith_looking_inp(s));
                     let looking_out = witness.get_wire(row, LookupGate::wire_ith_looking_out(s));
 
-                    looking_in + deltas[LookupChallenges::ChallengeA as usize] * looking_out
+                    let t = looking_in.to_noncanonical_u64() as u128
+                        + deltas[LookupChallenges::ChallengeA as usize].to_noncanonical_u64()
+                            as u128
+                            * looking_out.to_noncanonical_u64() as u128;
+                    F::from_noncanonical_u96((t as u64, (t >> 64) as u32))
                 })
                 .collect();
             // Get (alpha - combo).
