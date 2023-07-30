@@ -70,8 +70,12 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: true,
         disable_other_channels: false,
     }),
-    keccak_general: None, // TODO
-    prover_input: None,   // TODO
+    keccak_general: Some(StackBehavior {
+        num_pops: 4,
+        pushes: true,
+        disable_other_channels: true,
+    }),
+    prover_input: None, // TODO
     pop: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
