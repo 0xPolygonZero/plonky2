@@ -113,6 +113,20 @@ pub(crate) fn reduce_with_powers_multi<
     cumul
 }
 
+pub fn reduce_with_powers_u32<'a, P: PackedField, T: IntoIterator<Item = &'a P>>(
+    terms: T,
+    alpha: u32,
+) -> P
+where
+    T::IntoIter: DoubleEndedIterator,
+{
+    let mut sum = P::ZEROS;
+    for &term in terms.into_iter().rev() {
+        sum = sum.mul_u32(alpha) + term;
+    }
+    sum
+}
+
 pub fn reduce_with_powers<'a, P: PackedField, T: IntoIterator<Item = &'a P>>(
     terms: T,
     alpha: P::Scalar,

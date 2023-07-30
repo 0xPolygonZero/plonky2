@@ -96,6 +96,11 @@ where
     fn doubles(&self) -> Self {
         *self * Self::Scalar::TWO
     }
+
+    #[inline]
+    fn mul_u32(&self, x: u32) -> Self {
+        *self * Self::Scalar::from_canonical_u32(x)
+    }
 }
 
 unsafe impl<F: Field> PackedField for F {

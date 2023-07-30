@@ -187,6 +187,8 @@ unsafe impl PackedField for Avx2GoldilocksField {
         };
         (Self::new(res0), Self::new(res1))
     }
+
+    // TODO: overriding default Self::mul_u32() may yield interesting speed-ups
 }
 
 impl Square for Avx2GoldilocksField {

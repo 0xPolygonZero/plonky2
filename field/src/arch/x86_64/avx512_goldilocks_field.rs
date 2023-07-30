@@ -71,6 +71,8 @@ unsafe impl PackedField for Avx512GoldilocksField {
         };
         (Self::new(res0), Self::new(res1))
     }
+
+    // TODO: overriding default Self::mul_u32() may yield interesting speed-ups
 }
 
 impl Add<Self> for Avx512GoldilocksField {
