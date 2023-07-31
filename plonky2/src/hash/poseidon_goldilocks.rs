@@ -4,9 +4,9 @@
 //! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
 //! repository.
 
-#[cfg(target_arch="x86_64")]
+#[cfg(target_arch = "x86_64")]
 use plonky2_field::types::Field;
-#[cfg(target_arch="x86_64")]
+#[cfg(target_arch = "x86_64")]
 use unroll::unroll_for_loops;
 
 use crate::field::goldilocks_field::GoldilocksField;
