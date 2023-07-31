@@ -218,10 +218,10 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&config, 4_000)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -234,10 +234,10 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
-        let (proof, vd, cd) = dummy_lookup_proof::<F, C, D>(&config, 10)?;
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) = dummy_lookup_proof::<F, C, D>(&config, 10)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -250,10 +250,10 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_two_luts_proof::<F, C, D>(&config)?;
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) = dummy_two_luts_proof::<F, C, D>(&config)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -266,10 +266,10 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_too_many_rows_proof::<F, C, D>(&config)?;
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) = dummy_too_many_rows_proof::<F, C, D>(&config)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -284,20 +284,20 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         // Start with a degree 2^14 proof
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
-        assert_eq!(cd.degree_bits(), 14);
+        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&config, 16_000)?;
+        assert_eq!(common_data.degree_bits(), 14);
 
         // Shrink it to 2^13.
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
-        assert_eq!(cd.degree_bits(), 13);
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, Some(13), false, false)?;
+        assert_eq!(common_data.degree_bits(), 13);
 
         // Shrink it to 2^12.
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-        assert_eq!(cd.degree_bits(), 12);
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+        assert_eq!(common_data.degree_bits(), 12);
 
-        test_serialization(&proof, &vd, &cd)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -316,13 +316,20 @@ mod tests {
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // An initial dummy proof.
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
-        assert_eq!(cd.degree_bits(), 12);
+        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
+        assert_eq!(common_data.degree_bits(), 12);
 
         // A standard recursive proof.
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &standard_config, None, false, false)?;
-        assert_eq!(cd.degree_bits(), 12);
+        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
+            proof,
+            vd,
+            common_data,
+            &standard_config,
+            None,
+            false,
+            false,
+        )?;
+        assert_eq!(common_data.degree_bits(), 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
@@ -334,9 +341,16 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
-        assert_eq!(cd.degree_bits(), 12);
+        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
+            proof,
+            vd,
+            common_data,
+            &high_rate_config,
+            None,
+            true,
+            true,
+        )?;
+        assert_eq!(common_data.degree_bits(), 12);
 
         // A final proof, optimized for size.
         let final_config = CircuitConfig {
@@ -350,11 +364,18 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, vd, cd) =
-            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
-        assert_eq!(cd.degree_bits(), 12, "final proof too large");
+        let (proof, vd, common_data) = recursive_proof::<F, KC, C, D>(
+            proof,
+            vd,
+            common_data,
+            &final_config,
+            None,
+            true,
+            true,
+        )?;
+        assert_eq!(common_data.degree_bits(), 12, "final proof too large");
 
-        test_serialization(&proof, &vd, &cd)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -368,15 +389,15 @@ mod tests {
         type F = <PC as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
-        let (proof, vd, cd) = dummy_proof::<F, PC, D>(&config, 4_000)?;
+        let (proof, vd, common_data) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
-        let (proof, vd, cd) =
-            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, None, false, false)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, PC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
-        let (proof, vd, cd) =
-            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, None, false, false)?;
-        test_serialization(&proof, &vd, &cd)?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, KC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+        test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
@@ -662,18 +683,18 @@ mod tests {
     >(
         proof: &ProofWithPublicInputs<F, C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> Result<()> {
         let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, common_data)?;
         assert_eq!(proof, &proof_from_bytes);
 
         let now = std::time::Instant::now();
-        let compressed_proof = proof.clone().compress(&vd.circuit_digest, cd)?;
+        let compressed_proof = proof.clone().compress(&vd.circuit_digest, common_data)?;
         let decompressed_compressed_proof = compressed_proof
             .clone()
-            .decompress(&vd.circuit_digest, cd)?;
+            .decompress(&vd.circuit_digest, common_data)?;
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
@@ -683,7 +704,7 @@ mod tests {
             compressed_proof_bytes.len()
         );
         let compressed_proof_from_bytes =
-            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, common_data)?;
         assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
         Ok(())

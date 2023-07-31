@@ -109,7 +109,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     context_log: ContextTree,
 
     /// Generators used to generate the witness.
-    generators: Vec<WitnessGeneratorRef<F>>,
+    generators: Vec<WitnessGeneratorRef<F, D>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -244,7 +244,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.lut_to_lookups[lut_index].push((looking_in, looking_out));
     }
 
-    pub fn num_luts(&mut self) -> usize {
+    pub fn num_luts(&self) -> usize {
         self.lut_to_lookups.len()
     }
 
@@ -321,6 +321,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let t = self.add_virtual_target();
         self.register_public_input(t);
         t
+    }
+
+    pub fn add_virtual_public_input_arr<const N: usize>(&mut self) -> [Target; N] {
+        let ts = [0; N].map(|_| self.add_virtual_target());
+        self.register_public_inputs(&ts);
+        ts
     }
 
     pub fn add_virtual_verifier_data(&mut self, cap_height: usize) -> VerifierCircuitTarget {
@@ -444,11 +450,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(x, one);
     }
 
-    pub fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F>>) {
+    pub fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F, D>>) {
         self.generators.extend(generators);
     }
 
-    pub fn add_simple_generator<G: SimpleGenerator<F>>(&mut self, generator: G) {
+    pub fn add_simple_generator<G: SimpleGenerator<F, D>>(&mut self, generator: G) {
         self.generators
             .push(WitnessGeneratorRef::new(generator.adapter()));
     }
