@@ -1,8 +1,10 @@
 use alloc::format;
 use alloc::string::String;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::usize;
+
+use itertools::Itertools;
+use keccak_hash::keccak;
 
 use super::lookup_table::LookupTable;
 use crate::field::extension::Extendable;
@@ -16,7 +18,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRe
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -32,13 +34,21 @@ pub struct LookupGate {
     pub num_slots: usize,
     /// LUT associated to the gate.
     lut: LookupTable,
+    /// The Keccak hash of the lookup table.
+    lut_hash: [u8; 32],
 }
 
 impl LookupGate {
     pub fn new_from_table(config: &CircuitConfig, lut: LookupTable) -> Self {
+        let table_bytes = lut
+            .iter()
+            .flat_map(|(input, output)| [input.to_le_bytes(), output.to_le_bytes()].concat())
+            .collect_vec();
+
         Self {
             num_slots: Self::num_slots(config),
             lut,
+            lut_hash: keccak(table_bytes).0,
         }
     }
     pub(crate) fn num_slots(config: &CircuitConfig) -> usize {
@@ -57,21 +67,35 @@ impl LookupGate {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
     fn id(&self) -> String {
-        format!("{self:?}")
+        // Custom implementation to not have the entire lookup table
+        format!(
+            "LookupGate {{num_slots: {}, lut_hash: {:?}}}",
+            self.num_slots, self.lut_hash
+        )
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
-        dst.write_lut(&self.lut)
+        for (i, lut) in common_data.luts.iter().enumerate() {
+            if lut == &self.lut {
+                dst.write_usize(i)?;
+                return dst.write_all(&self.lut_hash);
+            }
+        }
+
+        panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_slots = src.read_usize()?;
-        let lut = src.read_lut()?;
+        let lut_index = src.read_usize()?;
+        let mut lut_hash = [0u8; 32];
+        src.read_exact(&mut lut_hash)?;
 
         Ok(Self {
             num_slots,
-            lut: Arc::new(lut),
+            lut: common_data.luts[lut_index].clone(),
+            lut_hash,
         })
     }
 
@@ -101,7 +125,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupGate {
         vec![]
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_slots)
             .map(|i| {
                 WitnessGeneratorRef::new(
@@ -149,7 +173,7 @@ pub struct LookupGenerator {
     slot_nb: usize,
 }
 
-impl<F: RichField> SimpleGenerator<F> for LookupGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LookupGenerator {
     fn id(&self) -> String {
         "LookupGenerator".to_string()
     }
@@ -165,39 +189,47 @@ impl<F: RichField> SimpleGenerator<F> for LookupGenerator {
         let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
 
         let input_val = get_wire(LookupGate::wire_ith_looking_inp(self.slot_nb));
-        let output_val = if input_val
-            == F::from_canonical_u16(self.lut[input_val.to_canonical_u64() as usize].0)
-        {
-            F::from_canonical_u16(self.lut[input_val.to_canonical_u64() as usize].1)
+        let (input, output) = self.lut[input_val.to_canonical_u64() as usize];
+        if input_val == F::from_canonical_u16(input) {
+            let output_val = F::from_canonical_u16(output);
+
+            let out_wire = Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));
+            out_buffer.set_target(out_wire, output_val);
         } else {
-            let mut cur_idx = 0;
-            while input_val != F::from_canonical_u16(self.lut[cur_idx].0)
-                && cur_idx < self.lut.len()
-            {
-                cur_idx += 1;
+            for (input, output) in self.lut.iter() {
+                if input_val == F::from_canonical_u16(*input) {
+                    let output_val = F::from_canonical_u16(*output);
+
+                    let out_wire =
+                        Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));
+                    out_buffer.set_target(out_wire, output_val);
+                    return;
+                }
             }
-            assert!(cur_idx < self.lut.len(), "Incorrect input value provided");
-            F::from_canonical_u16(self.lut[cur_idx].1)
+            panic!("Incorrect input value provided");
         };
-
-        let out_wire = Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));
-        out_buffer.set_target(out_wire, output_val);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        dst.write_lut(&self.lut)?;
-        dst.write_usize(self.slot_nb)
+        dst.write_usize(self.slot_nb)?;
+        for (i, lut) in common_data.luts.iter().enumerate() {
+            if lut == &self.lut {
+                return dst.write_usize(i);
+            }
+        }
+
+        panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let lut = src.read_lut()?;
         let slot_nb = src.read_usize()?;
+        let lut_index = src.read_usize()?;
 
         Ok(Self {
             row,
-            lut: Arc::new(lut),
+            lut: common_data.luts[lut_index].clone(),
             slot_nb,
         })
     }

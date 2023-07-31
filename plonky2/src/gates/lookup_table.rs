@@ -4,6 +4,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::usize;
 
+use itertools::Itertools;
+use keccak_hash::keccak;
 use plonky2_util::ceil_div_usize;
 
 use crate::field::extension::Extendable;
@@ -17,7 +19,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRe
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -33,15 +35,23 @@ pub struct LookupTableGate {
     pub num_slots: usize,
     /// Lookup table associated to the gate.
     pub lut: LookupTable,
+    /// The Keccak hash of the lookup table.
+    lut_hash: [u8; 32],
     /// First row of the lookup table.
     last_lut_row: usize,
 }
 
 impl LookupTableGate {
     pub fn new_from_table(config: &CircuitConfig, lut: LookupTable, last_lut_row: usize) -> Self {
+        let table_bytes = lut
+            .iter()
+            .flat_map(|(input, output)| [input.to_le_bytes(), output.to_le_bytes()].concat())
+            .collect_vec();
+
         Self {
             num_slots: Self::num_slots(config),
             lut,
+            lut_hash: keccak(table_bytes).0,
             last_lut_row,
         }
     }
@@ -69,23 +79,37 @@ impl LookupTableGate {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGate {
     fn id(&self) -> String {
-        format!("{self:?}")
+        // Custom implementation to not have the entire lookup table
+        format!(
+            "LookupTableGate {{num_slots: {}, lut_hash: {:?}, last_lut_row: {}}}",
+            self.num_slots, self.lut_hash, self.last_lut_row
+        )
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
-        dst.write_lut(&self.lut)?;
-        dst.write_usize(self.last_lut_row)
+        dst.write_usize(self.last_lut_row)?;
+        for (i, lut) in common_data.luts.iter().enumerate() {
+            if lut == &self.lut {
+                dst.write_usize(i)?;
+                return dst.write_all(&self.lut_hash);
+            }
+        }
+
+        panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_slots = src.read_usize()?;
-        let lut = src.read_lut()?;
         let last_lut_row = src.read_usize()?;
+        let lut_index = src.read_usize()?;
+        let mut lut_hash = [0u8; 32];
+        src.read_exact(&mut lut_hash)?;
 
         Ok(Self {
             num_slots,
-            lut: Arc::new(lut),
+            lut: common_data.luts[lut_index].clone(),
+            lut_hash,
             last_lut_row,
         })
     }
@@ -116,7 +140,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
         vec![]
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_slots)
             .map(|i| {
                 WitnessGeneratorRef::new(
@@ -168,7 +192,7 @@ pub struct LookupTableGenerator {
     last_lut_row: usize,
 }
 
-impl<F: RichField> SimpleGenerator<F> for LookupTableGenerator {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LookupTableGenerator {
     fn id(&self) -> String {
         "LookupTableGenerator".to_string()
     }
@@ -187,14 +211,9 @@ impl<F: RichField> SimpleGenerator<F> for LookupTableGenerator {
             Target::wire(self.row, LookupTableGate::wire_ith_looked_out(self.slot_nb));
 
         if slot < self.lut.len() {
-            out_buffer.set_target(
-                slot_input_target,
-                F::from_canonical_usize(self.lut[slot].0 as usize),
-            );
-            out_buffer.set_target(
-                slot_output_target,
-                F::from_canonical_usize(self.lut[slot].1.into()),
-            );
+            let (input, output) = self.lut[slot];
+            out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize));
+            out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize));
         } else {
             // Pad with zeros.
             out_buffer.set_target(slot_input_target, F::ZERO);
@@ -202,24 +221,30 @@ impl<F: RichField> SimpleGenerator<F> for LookupTableGenerator {
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        dst.write_lut(&self.lut)?;
         dst.write_usize(self.slot_nb)?;
         dst.write_usize(self.num_slots)?;
-        dst.write_usize(self.last_lut_row)
+        dst.write_usize(self.last_lut_row)?;
+        for (i, lut) in common_data.luts.iter().enumerate() {
+            if lut == &self.lut {
+                return dst.write_usize(i);
+            }
+        }
+
+        panic!("The associated lookup table couldn't be found.")
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let lut = src.read_lut()?;
         let slot_nb = src.read_usize()?;
         let num_slots = src.read_usize()?;
         let last_lut_row = src.read_usize()?;
+        let lut_index = src.read_usize()?;
 
         Ok(Self {
             row,
-            lut: Arc::new(lut),
+            lut: common_data.luts[lut_index].clone(),
             slot_nb,
             num_slots,
             last_lut_row,

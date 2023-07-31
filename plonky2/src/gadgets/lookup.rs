@@ -77,7 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn add_all_lookups(&mut self) {
         for lut_index in 0..self.num_luts() {
             assert!(
-                !self.get_lut_lookups(lut_index).is_empty() || lut_index >= self.get_luts_length(),
+                !self.get_lut_lookups(lut_index).is_empty(),
                 "LUT number {:?} is unused",
                 lut_index
             );

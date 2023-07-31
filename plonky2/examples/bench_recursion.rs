@@ -248,18 +248,18 @@ where
 fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof: &ProofWithPublicInputs<F, C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
-    cd: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
-    let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
+    let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, common_data)?;
     assert_eq!(proof, &proof_from_bytes);
 
     let now = std::time::Instant::now();
-    let compressed_proof = proof.clone().compress(&vd.circuit_digest, cd)?;
+    let compressed_proof = proof.clone().compress(&vd.circuit_digest, common_data)?;
     let decompressed_compressed_proof = compressed_proof
         .clone()
-        .decompress(&vd.circuit_digest, cd)?;
+        .decompress(&vd.circuit_digest, common_data)?;
     info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
     assert_eq!(proof, &decompressed_compressed_proof);
 
@@ -269,11 +269,11 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
         compressed_proof_bytes.len()
     );
     let compressed_proof_from_bytes =
-        CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
+        CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, common_data)?;
     assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
     let gate_serializer = DefaultGateSerializer;
-    let common_data_bytes = cd
+    let common_data_bytes = common_data
         .to_bytes(&gate_serializer)
         .map_err(|_| anyhow::Error::msg("CommonCircuitData serialization failed."))?;
     info!(
@@ -283,7 +283,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     let common_data_from_bytes =
         CommonCircuitData::<F, D>::from_bytes(common_data_bytes, &gate_serializer)
             .map_err(|_| anyhow::Error::msg("CommonCircuitData deserialization failed."))?;
-    assert_eq!(cd, &common_data_from_bytes);
+    assert_eq!(common_data, &common_data_from_bytes);
 
     Ok(())
 }
@@ -312,35 +312,35 @@ pub fn benchmark_function(
     };
     // Start with a dummy proof of specified size
     let inner = dummy_proof_function(config, log2_inner_size)?;
-    let (_, _, cd) = &inner;
+    let (_, _, common_data) = &inner;
     info!(
         "Initial {} degree {} = 2^{}",
         name,
-        cd.degree(),
-        cd.degree_bits()
+        common_data.degree(),
+        common_data.degree_bits()
     );
 
     // Recursively verify the proof
     let middle = recursive_proof::<F, C, C, D>(&inner, config, None)?;
-    let (_, _, cd) = &middle;
+    let (_, _, common_data) = &middle;
     info!(
         "Single recursion {} degree {} = 2^{}",
         name,
-        cd.degree(),
-        cd.degree_bits()
+        common_data.degree(),
+        common_data.degree_bits()
     );
 
     // Add a second layer of recursion to shrink the proof size further
     let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
-    let (proof, vd, cd) = &outer;
+    let (proof, vd, common_data) = &outer;
     info!(
         "Double recursion {} degree {} = 2^{}",
         name,
-        cd.degree(),
-        cd.degree_bits()
+        common_data.degree(),
+        common_data.degree_bits()
     );
 
-    test_serialization(proof, vd, cd)?;
+    test_serialization(proof, vd, common_data)?;
 
     Ok(())
 }

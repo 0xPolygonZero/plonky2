@@ -17,7 +17,7 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -76,11 +76,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         format!("{self:?}<D={D}>")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_power_bits)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_power_bits = src.read_usize()?;
         Ok(Self::new(num_power_bits))
     }
@@ -173,7 +173,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = ExponentiationGenerator::<F, D> {
             row,
             gate: self.clone(),
@@ -243,7 +243,7 @@ pub struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize>
     gate: ExponentiationGate<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for ExponentiationGenerator<F, D>
 {
     fn id(&self) -> String {
@@ -295,14 +295,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        self.gate.serialize(dst)
+        self.gate.serialize(dst, _common_data)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = ExponentiationGate::deserialize(src)?;
+        let gate = ExponentiationGate::deserialize(src, _common_data)?;
         Ok(Self { row, gate })
     }
 }

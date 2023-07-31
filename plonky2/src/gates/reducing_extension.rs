@@ -12,6 +12,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRe
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -63,12 +64,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_coeffs)?;
         Ok(())
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized,
     {
@@ -150,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
             .collect()
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         vec![WitnessGeneratorRef::new(
             ReducingGenerator {
                 row,
@@ -183,7 +184,7 @@ pub struct ReducingGenerator<const D: usize> {
     gate: ReducingExtensionGate<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for ReducingGenerator<D> {
     fn id(&self) -> String {
         "ReducingExtensionGenerator".to_string()
     }
@@ -219,14 +220,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Reduci
         }
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        <ReducingExtensionGate<D> as Gate<F, D>>::serialize(&self.gate, dst)
+        <ReducingExtensionGate<D> as Gate<F, D>>::serialize(&self.gate, dst, _common_data)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = <ReducingExtensionGate<D> as Gate<F, D>>::deserialize(src)?;
+        let gate = <ReducingExtensionGate<D> as Gate<F, D>>::deserialize(src, _common_data)?;
         Ok(Self { row, gate })
     }
 }

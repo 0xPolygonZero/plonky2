@@ -7,6 +7,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::serialization::{Buffer, IoResult};
 
@@ -18,11 +19,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
         "NoopGate".into()
     }
 
-    fn serialize(&self, _dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(
+        &self,
+        _dst: &mut Vec<u8>,
+        _common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<()> {
         Ok(())
     }
 
-    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(_src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         Ok(Self)
     }
 
@@ -42,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
         Vec::new()
     }
 
-    fn generators(&self, _row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, _row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         Vec::new()
     }
 
