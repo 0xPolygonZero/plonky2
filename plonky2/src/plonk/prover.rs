@@ -697,7 +697,9 @@ fn compute_quotient_polys<
             let mut local_wires_batch_refs = Vec::with_capacity(xs_batch.len());
 
             for (&i, &x) in indices_batch.iter().zip(xs_batch) {
-                let shifted_x = F::coset_shift() * x;
+                // F::coset_shift() returns the multiplicative generator,
+                // which fits in a u32 for `RichField`.
+                let shifted_x = x.mul_u32(F::coset_shift().to_noncanonical_u64() as u32);
                 let i_next = (i + next_step) % lde_size;
                 let local_constants_sigmas = prover_data
                     .constants_sigmas_commitment

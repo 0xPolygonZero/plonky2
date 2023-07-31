@@ -84,6 +84,9 @@ pub trait Field:
     const CHARACTERISTIC_TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
+    ///
+    /// **For prime fields, this element is expected to fit in a u32
+    /// when canonically reduced.**
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
