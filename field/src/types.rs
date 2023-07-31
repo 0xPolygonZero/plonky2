@@ -598,3 +598,29 @@ impl<F: Field> Powers<F> {
         }
     }
 }
+
+/// An iterator similar to `Powers`, but which base fits in a `u32`.
+#[derive(Clone)]
+pub struct SmallPowers<F: Field> {
+    base: u32,
+    current: F,
+}
+
+impl<F: Field> SmallPowers<F> {
+    pub fn new(base: u32) -> Self {
+        Self {
+            base,
+            current: F::ONE,
+        }
+    }
+}
+
+impl<F: Field> Iterator for SmallPowers<F> {
+    type Item = F;
+
+    fn next(&mut self) -> Option<F> {
+        let result = self.current;
+        self.current = self.current.mul_u32(self.base);
+        Some(result)
+    }
+}

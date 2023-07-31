@@ -6,7 +6,7 @@ use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, SmallPowers};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -79,14 +79,14 @@ impl<F: Field> Column<F> {
     }
 
     pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
-        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
+        Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(SmallPowers::new(2)))
     }
 
     pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(
             cs.into_iter()
                 .map(|c| *c.borrow())
-                .zip(F::from_canonical_u16(256).powers()),
+                .zip(SmallPowers::new(256)),
         )
     }
 
