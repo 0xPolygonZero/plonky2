@@ -1,7 +1,7 @@
 [package]
 name = "plonky2_evm"
 description = "Implementation of STARKs for the Ethereum Virtual Machine"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
 repository = "https://github.com/mir-protocol/plonky2"
