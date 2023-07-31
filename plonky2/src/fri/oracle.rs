@@ -2,7 +2,7 @@ use alloc::format;
 use alloc::vec::Vec;
 
 use itertools::Itertools;
-use plonky2_field::types::Field;
+use plonky2_field::types::{Field, SmallPowers};
 use plonky2_maybe_rayon::*;
 
 use crate::field::extension::Extendable;
@@ -112,8 +112,17 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
-                p.lde(rate_bits)
-                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
+                let poly = p.lde(rate_bits);
+
+                // Custom coset_fft with small shift
+                let modified_poly: PolynomialCoeffs<F> =
+                    SmallPowers::<F>::new(F::coset_shift().to_noncanonical_u64() as u32)
+                        .zip(&poly.coeffs)
+                        .map(|(r, &c)| r * c)
+                        .collect::<Vec<_>>()
+                        .into();
+                modified_poly
+                    .fft_with_options(Some(rate_bits), fft_root_table)
                     .values
             })
             .chain(
@@ -197,10 +206,18 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
+
+        // Custom coset_fft with small shift
+        let modified_poly: PolynomialCoeffs<F::Extension> =
+            SmallPowers::<F::Extension>::new(F::coset_shift().to_noncanonical_u64() as u32)
+                .zip(&lde_final_poly.coeffs)
+                .map(|(r, &c)| r * c)
+                .collect::<Vec<_>>()
+                .into();
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),
-            lde_final_poly.coset_fft(F::coset_shift().into())
+            modified_poly.fft_with_options(None, None)
         );
 
         let fri_proof = fri_proof::<F, C, D>(

@@ -4,10 +4,11 @@ use core::iter::once;
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
+use plonky2::field::fft::ifft;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, SmallPowers};
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
@@ -227,12 +228,26 @@ where
     // When opening the `Z`s polys at the "next" point, need to look at the point `next_step` steps away.
     let next_step = 1 << quotient_degree_bits;
 
-    // Evaluation of the first Lagrange polynomial on the LDE domain.
-    let lagrange_first = PolynomialValues::selector(degree, 0).lde_onto_coset(quotient_degree_bits);
-    // Evaluation of the last Lagrange polynomial on the LDE domain.
-    let lagrange_last =
-        PolynomialValues::selector(degree, degree - 1).lde_onto_coset(quotient_degree_bits);
-
+    // Evaluation of the first Lagrange polynomial on the LDE domain, with custom lde_onto_coset.
+    let lagrange_first = PolynomialValues::<F>::selector(degree, 0);
+    let coeffs = ifft(lagrange_first).lde(quotient_degree_bits);
+    let modified_poly: PolynomialCoeffs<F> =
+        SmallPowers::<F>::new(F::coset_shift().to_noncanonical_u64() as u32)
+            .zip(&coeffs.coeffs)
+            .map(|(r, &c)| r * c)
+            .collect::<Vec<_>>()
+            .into();
+    let lagrange_first = modified_poly.fft_with_options(None, None);
+    // Evaluation of the last Lagrange polynomial on the LDE domain, with custom lde_onto_coset.
+    let lagrange_last = PolynomialValues::<F>::selector(degree, degree - 1);
+    let coeffs = ifft(lagrange_last).lde(quotient_degree_bits);
+    let modified_poly: PolynomialCoeffs<F> =
+        SmallPowers::<F>::new(F::coset_shift().to_noncanonical_u64() as u32)
+            .zip(&coeffs.coeffs)
+            .map(|(r, &c)| r * c)
+            .collect::<Vec<_>>()
+            .into();
+    let lagrange_last = modified_poly.fft_with_options(None, None);
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
