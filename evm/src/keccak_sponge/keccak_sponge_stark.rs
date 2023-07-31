@@ -359,7 +359,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         let is_final_block = row.is_final_input_len.iter().copied().sum::<F>() == F::ONE;
         if is_final_block {
             for (l, &elt) in row.updated_state_u32s[..8].iter().enumerate() {
-                let mut cur_bytes = vec![F::ZERO; 4];
+                let mut cur_bytes = [F::ZERO; 4];
                 let mut cur_elt = elt;
                 for i in 0..4 {
                     cur_bytes[i] =

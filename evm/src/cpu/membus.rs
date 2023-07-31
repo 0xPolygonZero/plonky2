@@ -33,7 +33,7 @@ pub mod channel_indices {
 pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 
 /// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
-pub fn generate<F: PrimeField64>(lv: &mut CpuColumnsView<F>) {
+pub fn generate<F: PrimeField64>(lv: &CpuColumnsView<F>) {
     let cycle_filter = lv.is_cpu_cycle;
     if cycle_filter != F::ZERO {
         assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);

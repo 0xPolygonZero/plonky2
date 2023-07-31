@@ -185,7 +185,7 @@ where
     let timestamp = F::ONE;
 
     block_fields.map(|(field, val)| {
-        let mut row = vec![F::ZERO; 13];
+        let mut row = [F::ZERO; 13];
         row[0] = is_read;
         row[1] = context;
         row[2] = segment;
@@ -229,7 +229,7 @@ where
     let timestamp = F::from_canonical_usize(cpu_trace_len * NUM_CHANNELS + 1);
 
     trie_fields.map(|(field, hash)| {
-        let mut row = vec![F::ZERO; 13];
+        let mut row = [F::ZERO; 13];
         row[0] = is_read;
         row[1] = context;
         row[2] = segment;

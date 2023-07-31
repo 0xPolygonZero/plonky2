@@ -89,7 +89,7 @@ fn eval_packed_accumulate<P: PackedField>(
     let constr = nv.gas - (lv.gas + gas_used);
     yield_constr.constraint_transition(filter * constr);
 
-    for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
+    for (maybe_cost, op_flag) in izip!(*SIMPLE_OPCODES, *lv.op) {
         if let Some(cost) = maybe_cost {
             let cost = P::Scalar::from_canonical_u32(cost);
             yield_constr
@@ -157,7 +157,7 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let filtered_constr = builder.mul_extension(filter, constr);
     yield_constr.constraint_transition(builder, filtered_constr);
 
-    for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
+    for (maybe_cost, op_flag) in izip!(*SIMPLE_OPCODES, *lv.op) {
         if let Some(cost) = maybe_cost {
             let filter = builder.mul_extension(lv.is_cpu_cycle, op_flag);
             let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
