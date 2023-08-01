@@ -82,9 +82,17 @@ impl<F: Field> PolynomialValues<F> {
     }
 
     /// Low-degree extend `Self` (seen as evaluations over the subgroup) onto a coset.
-    pub fn lde_onto_coset(self, rate_bits: usize) -> Self {
+    pub fn lde_onto_coset<'a, I>(self, rate_bits: usize, shift_powers: I) -> Self
+    where
+        I: Iterator<Item = &'a F>,
+    {
         let coeffs = ifft(self).lde(rate_bits);
-        coeffs.coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
+        let modified_poly: PolynomialCoeffs<F> = shift_powers
+            .zip(&coeffs.coeffs)
+            .map(|(&r, &c)| r * c)
+            .collect::<Vec<_>>()
+            .into();
+        modified_poly.fft_with_options(Some(rate_bits), None)
     }
 
     pub fn degree(&self) -> usize {
