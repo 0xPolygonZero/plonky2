@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use anyhow::{ensure, Result};
-use ethereum_types::BigEndianHash;
+use ethereum_types::{BigEndianHash, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -39,7 +39,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::h160_limbs;
+use crate::util::u256_limbs;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
@@ -727,10 +727,11 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
-    witness.set_target_arr(
-        &block_metadata_target.block_beneficiary,
-        &h160_limbs(block_metadata.block_beneficiary),
-    );
+    let beneficiary_limbs: [F; 5] =
+        u256_limbs::<F>(U256::from_big_endian(&block_metadata.block_beneficiary.0))[..5]
+            .try_into()
+            .unwrap();
+    witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
         F::from_canonical_u64(block_metadata.block_timestamp.as_u64()),
