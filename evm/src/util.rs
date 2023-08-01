@@ -73,6 +73,7 @@ pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
         .unwrap()
 }
 
+#[allow(unused)]
 /// Returns the 32-bit limbs of a `U160`.
 pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
     h160.0
