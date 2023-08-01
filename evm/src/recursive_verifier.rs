@@ -636,7 +636,6 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-#[allow(unused)] // TODO: used later?
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
@@ -659,6 +658,10 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         witness,
         &public_values_target.block_metadata,
         &public_values.block_metadata,
+    );
+    witness.set_target(
+        public_values_target.cpu_trace_len,
+        F::from_canonical_usize(public_values.cpu_trace_len),
     );
 }
 
