@@ -3,6 +3,7 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
+use super::util::{push_no_write, push_with_write, stack_peek, write_stack_top_registers};
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -57,14 +58,13 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(in0, log_in0), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = logic::Operation::new(op, in0, in1);
-    let log_out = stack_push_log_and_fill(state, &mut row, operation.result)?;
+
+    push_no_write(state, &mut row, operation.result);
 
     state.traces.push_logic(operation);
-    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -74,10 +74,10 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(input0, log_in0), (input1, log_in1)] =
-        stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let [(input0, _), (input1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = arithmetic::Operation::binary(operator, input0, input1);
-    let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
+
+    push_no_write(state, &mut row, operation.result());
 
     if operator == arithmetic::BinaryOperator::AddFp254
         || operator == arithmetic::BinaryOperator::MulFp254
@@ -93,9 +93,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     }
 
     state.traces.push_arithmetic(operation);
-    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -105,16 +103,15 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(input0, log_in0), (input1, log_in1), (input2, log_in2)] =
+    let [(input0, _), (input1, log_in1), (input2, log_in2)] =
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
     let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
-    let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
+
+    push_no_write(state, &mut row, operation.result());
 
     state.traces.push_arithmetic(operation);
-    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_out);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -124,7 +121,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     row.is_keccak_sponge = F::ONE;
-    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
+    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = len.as_usize();
 
@@ -142,15 +139,13 @@ pub(crate) fn generate_keccak_general<F: Field>(
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    let log_push = stack_push_log_and_fill(state, &mut row, hash.into_uint())?;
+    push_no_write(state, &mut row, hash.into_uint());
 
     keccak_sponge_log(state, base_address, input);
 
-    state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
-    state.traces.push_memory(log_push);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -162,9 +157,9 @@ pub(crate) fn generate_prover_input<F: Field>(
     let pc = state.registers.program_counter;
     let input_fn = &KERNEL.prover_inputs[&pc];
     let input = state.prover_input(input_fn);
-    let write = stack_push_log_and_fill(state, &mut row, input)?;
+    let write = push_with_write(state, &mut row, input)?;
 
-    state.traces.push_memory(write);
+    state.traces.push_memory_option(write);
     state.traces.push_cpu(row);
     Ok(())
 }

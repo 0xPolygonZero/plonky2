@@ -1,6 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
+use super::memory::DUMMY_MEMOP;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -47,6 +48,63 @@ pub(crate) fn current_context_peek<F: Field>(
 ) -> U256 {
     let context = state.registers.context;
     state.memory.get(MemoryAddress::new(context, segment, virt))
+}
+
+/// Updates the stack top registers.
+pub(crate) fn write_stack_top_registers<F: Field>(row: &mut CpuColumnsView<F>, val: U256) {
+    let val_limbs: [u64; 4] = val.0;
+    for (i, limb) in val_limbs.into_iter().enumerate() {
+        row.stack_top[2 * i] = F::from_canonical_u32(limb as u32);
+        row.stack_top[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+    }
+}
+
+/// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
+pub(crate) fn push_no_write<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+    val: U256,
+) {
+    state.registers.stack_top = val;
+    let val_limbs: [u64; 4] = val.0;
+    for (i, limb) in val_limbs.into_iter().enumerate() {
+        row.stack_top[2 * i] = F::from_canonical_u32(limb as u32);
+        row.stack_top[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+    }
+    state.registers.stack_len += 1;
+}
+
+/// Pushes and (maybe) writes in memory. This happens in opcodes which only push.
+pub(crate) fn push_with_write<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+    val: U256,
+) -> Result<Option<MemoryOp>, ProgramError> {
+    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
+        return Err(ProgramError::StackOverflow);
+    }
+
+    if state.registers.stack_len == 0 {
+        push_no_write(state, row, val);
+        Ok(None)
+    } else {
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len,
+        );
+
+        let res = mem_write_gp_log_and_fill(
+            NUM_GP_CHANNELS - 1,
+            address,
+            state,
+            row,
+            state.registers.stack_top,
+        );
+
+        push_no_write(state, row, val);
+        Ok(Some(res))
+    }
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(
@@ -142,6 +200,7 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     op
 }
 
+/// Beware: doesn't update `stack_top`.
 pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
@@ -151,12 +210,17 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     }
 
     let result = core::array::from_fn(|i| {
-        let address = MemoryAddress::new(
-            state.registers.context,
-            Segment::Stack,
-            state.registers.stack_len - 1 - i,
-        );
-        mem_read_gp_with_log_and_fill(i, address, state, row)
+        if i == 0 {
+            (state.registers.stack_top, DUMMY_MEMOP)
+        } else {
+            let address = MemoryAddress::new(
+                state.registers.context,
+                Segment::Stack,
+                state.registers.stack_len - 1 - (i + 1),
+            );
+
+            mem_read_gp_with_log_and_fill(i + 1, address, state, row)
+        }
     });
 
     state.registers.stack_len -= N;

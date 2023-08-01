@@ -2,6 +2,7 @@ use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
 
+use super::util::{stack_peek, write_stack_top_registers};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
@@ -251,6 +252,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
     row.gas = F::from_canonical_u64(state.registers.gas_used);
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
+    write_stack_top_registers(&mut row, state.registers.stack_top);
 
     let opcode = read_code_memory(state, &mut row);
     (row, opcode)

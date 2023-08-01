@@ -55,6 +55,9 @@ pub struct CpuColumnsView<T: Copy> {
     /// stack to underflow or overflow.
     pub stack_len_bounds_aux: T,
 
+    /// If CPU cycle: First element of the stack.
+    pub stack_top: MemValue<T>,
+
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
