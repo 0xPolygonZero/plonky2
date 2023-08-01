@@ -19,7 +19,7 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
     transpose(&poly_values)
 }
 
-pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
+pub fn transpose<T: Send + Sync + Copy>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
     let len = matrix[0].len();
     (0..len)
         .into_par_iter()
