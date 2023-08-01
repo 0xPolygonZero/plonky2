@@ -734,26 +734,26 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
-        F::from_canonical_u64(block_metadata.block_timestamp.as_u64()),
+        F::from_canonical_u32(block_metadata.block_timestamp.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_number,
-        F::from_canonical_u64(block_metadata.block_number.as_u64()),
+        F::from_canonical_u32(block_metadata.block_number.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_difficulty,
-        F::from_canonical_u64(block_metadata.block_difficulty.as_u64()),
+        F::from_canonical_u32(block_metadata.block_difficulty.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
-        F::from_canonical_u64(block_metadata.block_gaslimit.as_u64()),
+        F::from_canonical_u32(block_metadata.block_gaslimit.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_chain_id,
-        F::from_canonical_u64(block_metadata.block_chain_id.as_u64()),
+        F::from_canonical_u32(block_metadata.block_chain_id.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_base_fee,
-        F::from_canonical_u64(block_metadata.block_base_fee.as_u64()),
+        F::from_canonical_u32(block_metadata.block_base_fee.as_u32()),
     );
 }
