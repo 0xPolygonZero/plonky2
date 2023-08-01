@@ -68,12 +68,13 @@ const GOLDILOCKS_INVERSE_65536: u64 = 18446462594437939201;
 
 /// Constrains x + y == z + cy*2^256, assuming filter != 0.
 ///
-/// NB: This function DOES NOT verify that cy is 0 or 1; the caller
-/// must do that.
-///
 /// Set `is_two_row_op=true` to allow the code to be called from the
 /// two-row `modular` code (for checking that the modular output is
 /// reduced).
+///
+/// NB: This function ONLY verifies that cy is 0 or 1 when
+/// is_two_row_op=false; when is_two_row_op=true the caller must
+/// verify for itself.
 ///
 /// Note that the digits of `x + y` are in `[0, 2*(2^16-1)]`
 /// (i.e. they are the sums of two 16-bit numbers), whereas the digits
