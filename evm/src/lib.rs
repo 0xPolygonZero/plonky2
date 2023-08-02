@@ -3,7 +3,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::upper_case_acronyms)]
 #![feature(let_chains)]
 #![feature(generic_const_exprs)]
 

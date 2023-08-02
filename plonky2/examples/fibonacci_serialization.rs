@@ -1,5 +1,3 @@
-#![allow(clippy::upper_case_acronyms)]
-
 use std::fs;
 
 use anyhow::Result;
