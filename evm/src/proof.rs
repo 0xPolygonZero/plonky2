@@ -1,3 +1,4 @@
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -17,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
+use crate::generation::TrieInputs;
 use crate::permutation::GrandProductChallengeSet;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
@@ -54,14 +56,24 @@ pub struct PublicValues {
     pub block_metadata: BlockMetadata,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct TrieRoots {
     pub state_root: H256,
     pub transactions_root: H256,
     pub receipts_root: H256,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+impl From<TrieInputs> for TrieRoots {
+    fn from(trie_inputs: TrieInputs) -> Self {
+        Self {
+            state_root: trie_inputs.state_trie.hash(),
+            transactions_root: trie_inputs.transactions_trie.hash(),
+            receipts_root: trie_inputs.receipts_trie.hash(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize, Eq, PartialEq)]
 pub struct BlockMetadata {
     pub block_beneficiary: Address,
     pub block_timestamp: U256,

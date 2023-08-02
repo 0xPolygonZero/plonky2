@@ -130,12 +130,17 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     }
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    let root_proof = all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    let root_proof = all_circuits
+        .prove_root(&all_stark, &config, inputs, &mut timing)?
+        .0;
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof.clone())?;
 
     let agg_proof = all_circuits.prove_aggregation(false, &root_proof, false, &root_proof)?;
-    all_circuits.verify_aggregation(&agg_proof)
+    all_circuits.verify_aggregation(&agg_proof)?;
+
+    let block_proof = all_circuits.prove_block(None, &agg_proof)?;
+    all_circuits.verify_block(&block_proof)
 }
 
 fn init_logger() {

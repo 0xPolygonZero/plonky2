@@ -9,6 +9,7 @@
 
 pub mod all_stark;
 pub mod arithmetic;
+pub mod block_proof;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;

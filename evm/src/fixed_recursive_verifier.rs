@@ -37,7 +37,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
-use crate::proof::StarkProofWithMetadata;
+use crate::proof::{PublicValues, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, recursive_stark_circuit, PlonkWrapperCircuit, PublicInputs,
@@ -587,13 +587,14 @@ where
     }
 
     /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
+    /// TODO: Returned public values are not constrained.
     pub fn prove_root(
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
         let mut root_inputs = PartialWitness::new();
 
@@ -601,7 +602,17 @@ where
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
-            let shrunk_proof = table_circuits.by_stark_size[&original_degree_bits]
+            let shrunk_proof = table_circuits
+                .by_stark_size
+                .get(&original_degree_bits)
+                .expect(
+                    format!(
+                        "No circuit for degree {} for table {:?}",
+                        original_degree_bits,
+                        Table::all()[table]
+                    )
+                    .as_str(),
+                )
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;
             let index_verifier_data = table_circuits
                 .by_stark_size
@@ -619,8 +630,9 @@ where
             &self.root.cyclic_vk,
             &self.aggregation.circuit.verifier_only,
         );
+        let proof = self.root.circuit.prove(root_inputs)?;
 
-        self.root.circuit.prove(root_inputs)
+        Ok((proof, all_proof.public_values))
     }
 
     pub fn verify_root(&self, agg_proof: ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
