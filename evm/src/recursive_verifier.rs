@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use anyhow::{ensure, Result};
-use ethereum_types::BigEndianHash;
+use ethereum_types::{BigEndianHash, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -39,7 +39,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::h160_limbs;
+use crate::util::u256_limbs;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
@@ -636,7 +636,6 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-#[allow(unused)] // TODO: used later?
 pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
@@ -659,6 +658,10 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         witness,
         &public_values_target.block_metadata,
         &public_values.block_metadata,
+    );
+    witness.set_target(
+        public_values_target.cpu_trace_len,
+        F::from_canonical_usize(public_values.cpu_trace_len),
     );
 }
 
@@ -724,32 +727,33 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
-    witness.set_target_arr(
-        &block_metadata_target.block_beneficiary,
-        &h160_limbs(block_metadata.block_beneficiary),
-    );
+    let beneficiary_limbs: [F; 5] =
+        u256_limbs::<F>(U256::from_big_endian(&block_metadata.block_beneficiary.0))[..5]
+            .try_into()
+            .unwrap();
+    witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
-        F::from_canonical_u64(block_metadata.block_timestamp.as_u64()),
+        F::from_canonical_u32(block_metadata.block_timestamp.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_number,
-        F::from_canonical_u64(block_metadata.block_number.as_u64()),
+        F::from_canonical_u32(block_metadata.block_number.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_difficulty,
-        F::from_canonical_u64(block_metadata.block_difficulty.as_u64()),
+        F::from_canonical_u32(block_metadata.block_difficulty.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
-        F::from_canonical_u64(block_metadata.block_gaslimit.as_u64()),
+        F::from_canonical_u32(block_metadata.block_gaslimit.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_chain_id,
-        F::from_canonical_u64(block_metadata.block_chain_id.as_u64()),
+        F::from_canonical_u32(block_metadata.block_chain_id.as_u32()),
     );
     witness.set_target(
         block_metadata_target.block_base_fee,
-        F::from_canonical_u64(block_metadata.block_base_fee.as_u64()),
+        F::from_canonical_u32(block_metadata.block_base_fee.as_u32()),
     );
 }

@@ -46,8 +46,8 @@ use crate::proof::{PublicValues, PublicValuesTarget, StarkProofWithMetadata};
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
-    set_block_metadata_target, set_trie_roots_target, PlonkWrapperCircuit, PublicInputs,
-    StarkWrapperCircuit,
+    set_block_metadata_target, set_public_value_targets, set_trie_roots_target,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 
@@ -813,25 +813,10 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        set_block_metadata_target(
+        set_public_value_targets(
             &mut root_inputs,
-            &self.root.public_values.block_metadata,
-            &all_proof.public_values.block_metadata,
-        );
-
-        root_inputs.set_target(
-            self.root.public_values.cpu_trace_len,
-            F::from_canonical_usize(all_proof.public_values.cpu_trace_len),
-        );
-        set_trie_roots_target(
-            &mut root_inputs,
-            &self.root.public_values.trie_roots_before,
-            &all_proof.public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut root_inputs,
-            &self.root.public_values.trie_roots_after,
-            &all_proof.public_values.trie_roots_after,
+            &self.root.public_values,
+            &all_proof.public_values,
         );
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
