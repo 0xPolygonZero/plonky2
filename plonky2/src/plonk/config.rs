@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension::quadratic::QuadraticExtension;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -85,7 +85,7 @@ pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
 
 /// Generic configuration trait.
 pub trait GenericConfig<const D: usize>:
-    Debug + Clone + Sync + Sized + Send + Eq + PartialEq + Serialize
+    Debug + Clone + Sync + Sized + Send + Eq + PartialEq + Serialize + DeserializeOwned
 {
     /// Main field.
     type F: RichField + Extendable<D, Extension = Self::FE>;
@@ -98,7 +98,7 @@ pub trait GenericConfig<const D: usize>:
 }
 
 /// Configuration using Poseidon over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PoseidonGoldilocksConfig;
 impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
@@ -108,7 +108,7 @@ impl GenericConfig<2> for PoseidonGoldilocksConfig {
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct KeccakGoldilocksConfig;
 impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
