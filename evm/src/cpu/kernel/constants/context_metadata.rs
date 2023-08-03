@@ -26,9 +26,10 @@ pub(crate) enum ContextMetadata {
     /// Size of the active main memory, in (32 byte) words.
     MemWords = 10,
     StackSize = 11,
+    StackTop = 12,
     /// The gas limit for this call (not the entire transaction).
-    GasLimit = 12,
-    ContextCheckpointsLen = 13,
+    GasLimit = 13,
+    ContextCheckpointsLen = 14,
 }
 
 impl ContextMetadata {
@@ -68,6 +69,7 @@ impl ContextMetadata {
             ContextMetadata::StateTrieCheckpointPointer => "CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR",
             ContextMetadata::MemWords => "CTX_METADATA_MEM_WORDS",
             ContextMetadata::StackSize => "CTX_METADATA_STACK_SIZE",
+            ContextMetadata::StackTop => "CTX_METADATA_STACK_TOP",
             ContextMetadata::GasLimit => "CTX_METADATA_GAS_LIMIT",
             ContextMetadata::ContextCheckpointsLen => "CTX_METADATA_CHECKPOINTS_LEN",
         }

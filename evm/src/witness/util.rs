@@ -60,17 +60,8 @@ pub(crate) fn write_stack_top_registers<F: Field>(row: &mut CpuColumnsView<F>, v
 }
 
 /// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
-pub(crate) fn push_no_write<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    val: U256,
-) {
+pub(crate) fn push_no_write<F: Field>(state: &mut GenerationState<F>, val: U256) {
     state.registers.stack_top = val;
-    let val_limbs: [u64; 4] = val.0;
-    for (i, limb) in val_limbs.into_iter().enumerate() {
-        row.stack_top[2 * i] = F::from_canonical_u32(limb as u32);
-        row.stack_top[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
-    }
     state.registers.stack_len += 1;
 }
 
@@ -79,21 +70,19 @@ pub(crate) fn push_with_write<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: U256,
-) -> Result<Option<MemoryOp>, ProgramError> {
+) -> Result<(), ProgramError> {
     if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
         return Err(ProgramError::StackOverflow);
     }
 
-    if state.registers.stack_len == 0 {
-        push_no_write(state, row, val);
-        Ok(None)
+    let write = if state.registers.stack_len == 0 {
+        None
     } else {
         let address = MemoryAddress::new(
             state.registers.context,
             Segment::Stack,
-            state.registers.stack_len,
+            state.registers.stack_len - 1,
         );
-
         let res = mem_write_gp_log_and_fill(
             NUM_GP_CHANNELS - 1,
             address,
@@ -101,10 +90,13 @@ pub(crate) fn push_with_write<F: Field>(
             row,
             state.registers.stack_top,
         );
-
-        push_no_write(state, row, val);
-        Ok(Some(res))
+        Some(res)
+    };
+    push_no_write(state, val);
+    if let Some(log) = write {
+        state.traces.push_memory(log);
     }
+    Ok(())
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(
@@ -219,7 +211,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
                 state.registers.stack_len - 1 - (i + 1),
             );
 
-            mem_read_gp_with_log_and_fill(i + 1, address, state, row)
+            mem_read_gp_with_log_and_fill(i, address, state, row)
         }
     });
 

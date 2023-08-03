@@ -89,13 +89,6 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.push(op);
     }
 
-    pub fn push_memory_option(&mut self, mem_option: Option<MemoryOp>) {
-        match mem_option {
-            Some(op) => self.memory_ops.push(op),
-            None => (),
-        }
-    }
-
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
         self.keccak_inputs.push(input);
     }
