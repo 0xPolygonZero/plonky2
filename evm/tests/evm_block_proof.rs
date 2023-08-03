@@ -14,8 +14,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
-use plonky2_evm::block_proof::TxnInput;
 use plonky2_evm::config::StarkConfig;
+use plonky2_evm::evm_block_proof::TxnInput;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::AccountRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
@@ -70,8 +70,10 @@ fn test_block_proof() -> anyhow::Result<()> {
         storage_tries: vec![],
     };
 
+    // Generated with Python script.
     let txn0 = hex!("f86c80850ba43b7400825208944675c7e5baafbffbca748158becba61ef3b0a263880de0b6b3a7640000801ba003cc53dd2a5fa38720a3c39c766c51265f8666a2605afe7a1abafec23d65198ba04c7978af9ab1fc6ff2efa611a508881c66d829867ad767764938f9387b5a3da9");
     let txn1 = hex!("f86c01850ba43b7400825208946acd5490b675cb9525ed44ba6beb7e7ae526ed16880de0b6b3a7640000801ba04bc87c6077d52bb3a21e45c3892e71ee93d2dfff4f31fb471fc944faa359f3faa07565b327297a2f2f84ef42ba8bc7b5fe4200d2e9d451283d3a430df33e40ccef");
+
     let value = eth_to_wei(1.into());
 
     let block_metadata = BlockMetadata {
@@ -112,6 +114,7 @@ fn test_block_proof() -> anyhow::Result<()> {
             ..to0_account_before
         };
 
+        assert_ne!(sender_nibbles.get_nibble(0), to0_nibbles.get_nibble(0));
         let mut children = core::array::from_fn(|_| Node::Empty.into());
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
@@ -133,6 +136,8 @@ fn test_block_proof() -> anyhow::Result<()> {
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
+
+    // Prove the block consisting of only txn0.
     let proof = all_circuits.prove_evm_block(
         vec![txn0_inps.clone()],
         block_metadata.clone(),
@@ -208,6 +213,7 @@ fn test_block_proof() -> anyhow::Result<()> {
         .into()
     };
 
+    // Prove the block consisting of txn0 and txn1.
     let proof = all_circuits.prove_evm_block(
         vec![txn0_inps, txn1_inps],
         block_metadata.clone(),

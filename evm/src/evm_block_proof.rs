@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use ethereum_types::H256;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
@@ -22,12 +23,12 @@ use crate::stark::Stark;
 
 /// A proof of an EVM block.
 #[derive(Debug, Clone)]
-pub struct BlockProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct EvmBlockProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     block_proof: ProofWithPublicInputs<F, C, D>,
     public_values: PublicValues,
 }
 
-/// Inputs necessary to generate a proof of a transaction.
+/// Inputs necessary to generate a proof of a transaction (without block metadata).
 #[derive(Debug, Clone)]
 pub struct TxnInput {
     pub signed_txn: Vec<u8>,
@@ -55,7 +56,7 @@ where
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
         timing: &mut TimingTree,
-    ) -> anyhow::Result<BlockProof<F, C, D>> {
+    ) -> Result<EvmBlockProof<F, C, D>> {
         let to_gen_inps = |txn: TxnInput| -> GenerationInputs {
             GenerationInputs {
                 signed_txns: vec![txn.signed_txn],
@@ -68,7 +69,7 @@ where
         let txn_proofs = txns
             .into_iter() // TODO: Parallelize?
             .map(|txn| self.prove_root(all_stark, config, to_gen_inps(txn), timing))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         let PublicValues {
             mut trie_roots_before,
@@ -91,13 +92,13 @@ where
 
         let agg_proof = agg_proof.expect("Empty block?"); // TODO: Should empty blocks be allowed?
 
-        Ok(BlockProof {
+        Ok(EvmBlockProof {
             block_proof: agg_proof,
             public_values,
         })
     }
 
-    pub fn verify_evm_block(&self, block_proof: &BlockProof<F, C, D>) -> anyhow::Result<()> {
+    pub fn verify_evm_block(&self, block_proof: &EvmBlockProof<F, C, D>) -> Result<()> {
         // TODO: Add public values checks
         self.verify_aggregation(&block_proof.block_proof)
     }
