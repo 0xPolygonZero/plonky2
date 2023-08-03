@@ -10,7 +10,7 @@ use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
@@ -24,7 +24,7 @@ use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
-type C = PoseidonGoldilocksConfig;
+type C = KeccakGoldilocksConfig;
 
 /// Test a simple token transfer to a new address.
 #[test]
