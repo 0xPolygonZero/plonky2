@@ -17,7 +17,7 @@ jobs:
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install nightly toolchain
         id: rustc-toolchain
@@ -36,10 +36,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Check in plonky2 subdirectory
-        uses: actions-rs/cargo@v1
         with:
           command: check
           args: --manifest-path plonky2/Cargo.toml
@@ -50,7 +50,6 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Check in starky subdirectory
-        uses: actions-rs/cargo@v1
         with:
           command: check
           args: --manifest-path starky/Cargo.toml
@@ -61,7 +60,6 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Check in evm subdirectory
-        uses: actions-rs/cargo@v1
         with:
           command: check
           args: --manifest-path evm/Cargo.toml
@@ -72,7 +70,6 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace
