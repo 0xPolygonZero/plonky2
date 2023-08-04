@@ -492,7 +492,11 @@ fn append_shift<F: Field>(
     }
 
     // Convert the shift, and log the corresponding arithmetic operation.
-    let input0 = U256::from(2).pow(input0);
+    let input0 = if input0 > U256::from(255u64) {
+        U256::zero()
+    } else {
+        U256::one() << input0
+    };
     let operator = if row.op.shl.is_one() {
         BinaryOperator::Mul
     } else {
