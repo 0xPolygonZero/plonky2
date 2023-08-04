@@ -108,7 +108,10 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
 
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
-        vec![cpu_stark::ctl_arithmetic_rows()],
+        vec![
+            cpu_stark::ctl_arithmetic_base_rows(),
+            cpu_stark::ctl_arithmetic_shift_rows(),
+        ],
         arithmetic_stark::ctl_arithmetic_rows(),
     )
 }
