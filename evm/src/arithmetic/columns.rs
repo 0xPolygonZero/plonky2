@@ -36,8 +36,9 @@ pub(crate) const IS_SUBMOD: usize = IS_SUBFP254 + 1;
 pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
 pub(crate) const IS_GT: usize = IS_LT + 1;
 pub(crate) const IS_BYTE: usize = IS_GT + 1;
+pub(crate) const IS_RANGE_CHECK: usize = IS_BYTE + 1;
 
-pub(crate) const START_SHARED_COLS: usize = IS_BYTE + 1;
+pub(crate) const START_SHARED_COLS: usize = IS_RANGE_CHECK + 1;
 
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
@@ -110,5 +111,6 @@ pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
 pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + 1 + 2 * NUM_SHARED_COLS;
+pub(crate) const NUM_CPU_LIMBS: usize = 8;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + NUM_RANGE_CHECK_COLS;

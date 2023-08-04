@@ -49,7 +49,7 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 14] = [
+    const ARITH_OPS: [usize; 15] = [
         columns::IS_ADD,
         columns::IS_SUB,
         columns::IS_MUL,
@@ -64,6 +64,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::IS_DIV,
         columns::IS_MOD,
         columns::IS_BYTE,
+        columns::IS_RANGE_CHECK,
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -90,7 +91,7 @@ pub struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
-const RANGE_MAX: usize = 1usize << 16; // Range check strict upper bound
+pub(crate) const RANGE_MAX: usize = 1usize << 16; // Range check strict upper bound
 
 impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
     /// Expects input in *column*-major layout
