@@ -228,6 +228,7 @@ impl TrieRootsTarget {
             receipts_root,
         }
     }
+
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
