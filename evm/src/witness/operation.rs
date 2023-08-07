@@ -708,6 +708,8 @@ pub(crate) fn generate_exception<F: Field>(
         return Err(ProgramError::GasLimitError);
     }
 
+    row.op.exception = F::ONE;
+
     let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
     let diff = row.stack_len - disallowed_len;
     if let Some(inv) = diff.try_inverse() {
