@@ -53,8 +53,7 @@ pub(crate) mod columns {
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res = vec![
-        Column::single(columns::IS_AND),
-        Column::single(columns::IS_OR),
+        Column::sum([columns::IS_AND, columns::IS_OR]),
         Column::single(columns::IS_XOR),
     ];
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));

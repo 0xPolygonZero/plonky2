@@ -24,9 +24,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub gt: T,
     pub eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
     pub iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
-    // TODO: combine AND, OR, and XOR into one flag
-    pub and: T,
-    pub or: T,
+    // TODO: combine AND/OR, and XOR into one flag
+    pub and_or: T,
     pub xor: T,
     pub not: T,
     pub byte: T,

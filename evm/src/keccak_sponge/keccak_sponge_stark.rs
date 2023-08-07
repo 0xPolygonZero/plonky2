@@ -103,8 +103,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
     let mut res = vec![
-        Column::zero(), // is_and
-        Column::zero(), // is_or
+        Column::zero(), // is_and_or
         Column::one(),  // is_xor
     ];
 
