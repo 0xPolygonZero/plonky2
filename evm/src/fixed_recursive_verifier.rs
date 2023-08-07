@@ -42,7 +42,9 @@ use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::permutation::{
     get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{PublicValues, PublicValuesTarget, StarkProofWithMetadata};
+use crate::proof::{
+    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
+};
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
@@ -222,6 +224,15 @@ impl<const D: usize> AggregationChildTarget<D> {
             agg_proof,
             evm_proof,
         })
+    }
+
+    pub fn public_values<F: RichField + Extendable<D>>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PublicValuesTarget {
+        let agg_pv = PublicValuesTarget::from_public_inputs(&self.agg_proof.public_inputs);
+        let evm_pv = PublicValuesTarget::from_public_inputs(&self.evm_proof.public_inputs);
+        PublicValuesTarget::select(builder, self.is_agg, agg_pv, evm_pv)
     }
 }
 
@@ -702,6 +713,38 @@ where
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         let lhs = Self::add_agg_child(&mut builder, root);
         let rhs = Self::add_agg_child(&mut builder, root);
+
+        let lhs_public_values = lhs.public_values(&mut builder);
+        let rhs_public_values = rhs.public_values(&mut builder);
+        // Connect all block metadata values.
+        BlockMetadataTarget::connect(
+            &mut builder,
+            public_values.block_metadata,
+            lhs_public_values.block_metadata,
+        );
+        BlockMetadataTarget::connect(
+            &mut builder,
+            public_values.block_metadata,
+            rhs_public_values.block_metadata,
+        );
+        // Connect aggregation `trie_roots_before` with lhs `trie_roots_before`.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_before,
+            lhs_public_values.trie_roots_before,
+        );
+        // Connect aggregation `trie_roots_after` with rhs `trie_roots_after`.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_after,
+            rhs_public_values.trie_roots_after,
+        );
+        // Connect lhs `trie_roots_after` with rhs `trie_roots_before`.
+        TrieRootsTarget::connect(
+            &mut builder,
+            lhs_public_values.trie_roots_after,
+            rhs_public_values.trie_roots_before,
+        );
 
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {

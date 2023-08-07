@@ -9,7 +9,8 @@ use plonky2::fri::structure::{
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::iop::target::Target;
+use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
@@ -160,16 +161,111 @@ impl PublicValuesTarget {
             cpu_trace_len,
         })
     }
+
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        assert!(pis.len() > TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE);
+        Self {
+            trie_roots_before: TrieRootsTarget::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]),
+            trie_roots_after: TrieRootsTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE..TrieRootsTarget::SIZE * 2],
+            ),
+            block_metadata: BlockMetadataTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE * 2
+                    ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
+            ),
+            cpu_trace_len: pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        pv0: Self,
+        pv1: Self,
+    ) -> Self {
+        Self {
+            trie_roots_before: TrieRootsTarget::select(
+                builder,
+                condition,
+                pv0.trie_roots_before,
+                pv1.trie_roots_before,
+            ),
+            trie_roots_after: TrieRootsTarget::select(
+                builder,
+                condition,
+                pv0.trie_roots_after,
+                pv1.trie_roots_after,
+            ),
+            block_metadata: BlockMetadataTarget::select(
+                builder,
+                condition,
+                pv0.block_metadata,
+                pv1.block_metadata,
+            ),
+            cpu_trace_len: builder.select(condition, pv0.cpu_trace_len, pv1.cpu_trace_len),
+        }
+    }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct TrieRootsTarget {
     pub state_root: [Target; 8],
     pub transactions_root: [Target; 8],
     pub receipts_root: [Target; 8],
 }
 
-#[derive(Eq, PartialEq, Debug)]
+impl TrieRootsTarget {
+    const SIZE: usize = 24;
+
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        let state_root = pis[0..8].try_into().unwrap();
+        let transactions_root = pis[8..16].try_into().unwrap();
+        let receipts_root = pis[16..24].try_into().unwrap();
+
+        Self {
+            state_root,
+            transactions_root,
+            receipts_root,
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        tr0: Self,
+        tr1: Self,
+    ) -> Self {
+        Self {
+            state_root: core::array::from_fn(|i| {
+                builder.select(condition, tr0.state_root[i], tr1.state_root[i])
+            }),
+            transactions_root: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    tr0.transactions_root[i],
+                    tr1.transactions_root[i],
+                )
+            }),
+            receipts_root: core::array::from_fn(|i| {
+                builder.select(condition, tr0.receipts_root[i], tr1.receipts_root[i])
+            }),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        tr0: Self,
+        tr1: Self,
+    ) {
+        for i in 0..8 {
+            builder.connect(tr0.state_root[i], tr1.state_root[i]);
+            builder.connect(tr0.transactions_root[i], tr1.transactions_root[i]);
+            builder.connect(tr0.receipts_root[i], tr1.receipts_root[i]);
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct BlockMetadataTarget {
     pub block_beneficiary: [Target; 5],
     pub block_timestamp: Target,
@@ -178,6 +274,69 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: Target,
+}
+
+impl BlockMetadataTarget {
+    const SIZE: usize = 11;
+
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        let block_beneficiary = pis[0..5].try_into().unwrap();
+        let block_timestamp = pis[5];
+        let block_number = pis[6];
+        let block_difficulty = pis[7];
+        let block_gaslimit = pis[8];
+        let block_chain_id = pis[9];
+        let block_base_fee = pis[10];
+
+        Self {
+            block_beneficiary,
+            block_timestamp,
+            block_number,
+            block_difficulty,
+            block_gaslimit,
+            block_chain_id,
+            block_base_fee,
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        bm0: Self,
+        bm1: Self,
+    ) -> Self {
+        Self {
+            block_beneficiary: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    bm0.block_beneficiary[i],
+                    bm1.block_beneficiary[i],
+                )
+            }),
+            block_timestamp: builder.select(condition, bm0.block_timestamp, bm1.block_timestamp),
+            block_number: builder.select(condition, bm0.block_number, bm1.block_number),
+            block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
+            block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
+            block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
+            block_base_fee: builder.select(condition, bm0.block_base_fee, bm1.block_base_fee),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        bm0: Self,
+        bm1: Self,
+    ) {
+        for i in 0..5 {
+            builder.connect(bm0.block_beneficiary[i], bm1.block_beneficiary[i]);
+        }
+        builder.connect(bm0.block_timestamp, bm1.block_timestamp);
+        builder.connect(bm0.block_number, bm1.block_number);
+        builder.connect(bm0.block_difficulty, bm1.block_difficulty);
+        builder.connect(bm0.block_gaslimit, bm1.block_gaslimit);
+        builder.connect(bm0.block_chain_id, bm1.block_chain_id);
+        builder.connect(bm0.block_base_fee, bm1.block_base_fee);
+    }
 }
 
 #[derive(Debug, Clone)]
