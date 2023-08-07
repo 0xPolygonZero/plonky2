@@ -794,7 +794,16 @@ where
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
-            let shrunk_proof = table_circuits.by_stark_size[&original_degree_bits]
+            let shrunk_proof = table_circuits
+                .by_stark_size
+                .get(&original_degree_bits)
+                .ok_or_else(|| {
+                    anyhow::Error::msg(format!(
+                        "Missing preprocessed circuits for {:?} table with size {}.",
+                        Table::all()[table],
+                        original_degree_bits,
+                    ))
+                })?
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;
             let index_verifier_data = table_circuits
                 .by_stark_size
