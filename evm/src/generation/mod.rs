@@ -22,6 +22,7 @@ use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
+use crate::util::h2u;
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
@@ -82,7 +83,6 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     let metadata = &inputs.block_metadata;
     let tries = &inputs.tries;
     let trie_roots_after = &inputs.trie_roots_after;
-    let h2u = |h: H256| U256::from_big_endian(&h.0);
     let fields = [
         (
             GlobalMetadata::BlockBeneficiary,

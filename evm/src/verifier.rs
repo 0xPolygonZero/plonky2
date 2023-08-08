@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::{H256, U256};
+use ethereum_types::U256;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -27,6 +27,7 @@ use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
 use crate::stark::Stark;
+use crate::util::h2u;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
@@ -145,7 +146,6 @@ where
 {
     let mut prod = F::ONE;
 
-    let h2u = |h: H256| U256::from_big_endian(&h.0);
     // Add metadata and tries writes.
     let fields = [
         (
