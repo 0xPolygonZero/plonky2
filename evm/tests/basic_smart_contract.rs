@@ -15,7 +15,7 @@ use plonky2_evm::config::StarkConfig;
 use plonky2_evm::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 use plonky2_evm::generation::mpt::AccountRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::BlockMetadata;
+use plonky2_evm::proof::{BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -102,18 +102,6 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
-    let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
-        tries: tries_before,
-        contract_code,
-        block_metadata,
-        addresses: vec![],
-    };
-
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
     let expected_state_trie_after: HashedPartialTrie = {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + code_gas + txdata_gas;
@@ -154,11 +142,23 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         }
     }
     .into();
+    let trie_roots_after = TrieRoots {
+        state_root: expected_state_trie_after.hash(),
+        transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        receipts_root: tries_before.receipts_trie.hash(), // TODO: Fix this when we have receipts trie.
+    };
+    let inputs = GenerationInputs {
+        signed_txns: vec![txn.to_vec()],
+        tries: tries_before,
+        trie_roots_after,
+        contract_code,
+        block_metadata,
+        addresses: vec![],
+    };
 
-    assert_eq!(
-        proof.public_values.trie_roots_after.state_root,
-        expected_state_trie_after.hash()
-    );
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    timing.filter(Duration::from_millis(100)).print();
 
     verify_proof(&all_stark, proof, &config)
 }
