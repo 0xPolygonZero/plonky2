@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-use eth_trie_utils::partial_trie::HashedPartialTrie;
+use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use keccak_hash::keccak;
 use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -14,7 +14,7 @@ use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::BlockMetadata;
+use plonky2_evm::proof::{BlockMetadata, TrieRoots};
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
@@ -40,6 +40,12 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
+    // No transactions, so no trie roots change.
+    let trie_roots_after = TrieRoots {
+        state_root: state_trie.hash(),
+        transactions_root: transactions_trie.hash(),
+        receipts_root: receipts_trie.hash(),
+    };
     let inputs = GenerationInputs {
         signed_txns: vec![],
         tries: TrieInputs {
@@ -48,6 +54,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
             receipts_trie,
             storage_tries,
         },
+        trie_roots_after,
         contract_code,
         block_metadata,
         addresses: vec![],
