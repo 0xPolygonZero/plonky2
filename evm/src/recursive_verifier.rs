@@ -516,12 +516,10 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
     let trie_roots_before = add_virtual_trie_roots(builder);
     let trie_roots_after = add_virtual_trie_roots(builder);
     let block_metadata = add_virtual_block_metadata(builder);
-    let cpu_trace_len = builder.add_virtual_public_input();
     PublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
         block_metadata,
-        cpu_trace_len,
     }
 }
 
@@ -658,10 +656,6 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         witness,
         &public_values_target.block_metadata,
         &public_values.block_metadata,
-    );
-    witness.set_target(
-        public_values_target.cpu_trace_len,
-        F::from_canonical_usize(public_values.cpu_trace_len),
     );
 }
 

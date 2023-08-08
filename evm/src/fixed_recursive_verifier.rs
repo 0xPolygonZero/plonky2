@@ -38,7 +38,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::memory::segments::Segment;
-use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
+use crate::memory::VALUE_LIMBS;
 use crate::permutation::{
     get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
 };
@@ -647,7 +647,7 @@ where
             prod = builder.mul(prod, combined);
         });
 
-        // Add public values reads.
+        // Add trie roots writes.
         let trie_fields = [
             (
                 GlobalMetadata::StateTrieRootDigestBefore,
@@ -675,15 +675,10 @@ where
             ),
         ];
 
-        let mut timestamp_target = builder.mul_const(
-            F::from_canonical_usize(NUM_CHANNELS),
-            public_values.cpu_trace_len,
-        );
-        timestamp_target = builder.add_const(timestamp_target, F::ONE);
         trie_fields.map(|(field, targets)| {
             let row = builder.add_virtual_targets(13);
             // is_read
-            builder.connect(row[0], one);
+            builder.connect(row[0], zero);
             // context
             builder.connect(row[1], zero);
             // segment
@@ -696,7 +691,7 @@ where
                 builder.connect(row[4 + j], targets[j]);
             }
             // timestamp
-            builder.connect(row[12], timestamp_target);
+            builder.connect(row[12], one);
 
             let combined = challenge.combine_base_circuit(builder, &row);
             prod = builder.mul(prod, combined);
@@ -909,10 +904,6 @@ where
             &public_values.block_metadata,
         );
 
-        agg_inputs.set_target(
-            self.aggregation.public_values.cpu_trace_len,
-            F::from_canonical_usize(public_values.cpu_trace_len),
-        );
         set_trie_roots_target(
             &mut agg_inputs,
             &self.aggregation.public_values.trie_roots_before,
@@ -977,10 +968,6 @@ where
             &public_values.block_metadata,
         );
 
-        block_inputs.set_target(
-            self.block.public_values.cpu_trace_len,
-            F::from_canonical_usize(public_values.cpu_trace_len),
-        );
         set_trie_roots_target(
             &mut block_inputs,
             &self.block.public_values.trie_roots_before,

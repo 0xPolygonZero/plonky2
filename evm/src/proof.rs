@@ -53,7 +53,6 @@ pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
-    pub cpu_trace_len: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -81,7 +80,6 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
-    pub cpu_trace_len: Target,
 }
 
 impl PublicValuesTarget {
@@ -124,8 +122,6 @@ impl PublicValuesTarget {
         buffer.write_target(block_chain_id)?;
         buffer.write_target(block_base_fee)?;
 
-        buffer.write_target(self.cpu_trace_len)?;
-
         Ok(())
     }
 
@@ -152,18 +148,15 @@ impl PublicValuesTarget {
             block_base_fee: buffer.read_target()?,
         };
 
-        let cpu_trace_len = buffer.read_target()?;
-
         Ok(Self {
             trie_roots_before,
             trie_roots_after,
             block_metadata,
-            cpu_trace_len,
         })
     }
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        assert!(pis.len() > TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE);
+        assert!(pis.len() > TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE - 1);
         Self {
             trie_roots_before: TrieRootsTarget::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]),
             trie_roots_after: TrieRootsTarget::from_public_inputs(
@@ -173,7 +166,6 @@ impl PublicValuesTarget {
                 &pis[TrieRootsTarget::SIZE * 2
                     ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
             ),
-            cpu_trace_len: pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
         }
     }
 
@@ -202,7 +194,6 @@ impl PublicValuesTarget {
                 pv0.block_metadata,
                 pv1.block_metadata,
             ),
-            cpu_trace_len: builder.select(condition, pv0.cpu_trace_len, pv1.cpu_trace_len),
         }
     }
 }

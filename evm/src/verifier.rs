@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::{BigEndianHash, U256};
+use ethereum_types::{H256, U256};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -21,7 +21,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::memory::segments::Segment;
-use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
+use crate::memory::VALUE_LIMBS;
 use crate::permutation::{GrandProductChallenge, PermutationCheckVars};
 use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
@@ -118,11 +118,9 @@ where
 
     // Memory
     extra_looking_products.push(Vec::new());
-    let cpu_trace_len = 1 << all_proof.stark_proofs[1].proof.recover_degree_bits(config);
     for c in 0..config.num_challenges {
         extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
             &public_values,
-            cpu_trace_len,
             ctl_challenges.challenges[c],
         ));
     }
@@ -140,7 +138,6 @@ where
 /// - public values reads at the end of the execution.
 pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
     public_values: &PublicValues,
-    cpu_trace_len: usize,
     challenge: GrandProductChallenge<F>,
 ) -> F
 where
@@ -148,8 +145,9 @@ where
 {
     let mut prod = F::ONE;
 
-    // Add metadata writes.
-    let block_fields = [
+    let h2u = |h: H256| U256::from_big_endian(&h.0);
+    // Add metadata and tries writes.
+    let fields = [
         (
             GlobalMetadata::BlockBeneficiary,
             U256::from_big_endian(&public_values.block_metadata.block_beneficiary.0),
@@ -178,13 +176,37 @@ where
             GlobalMetadata::BlockBaseFee,
             public_values.block_metadata.block_base_fee,
         ),
+        (
+            GlobalMetadata::StateTrieRootDigestBefore,
+            h2u(public_values.trie_roots_before.state_root),
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestBefore,
+            h2u(public_values.trie_roots_before.transactions_root),
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestBefore,
+            h2u(public_values.trie_roots_before.receipts_root),
+        ),
+        (
+            GlobalMetadata::StateTrieRootDigestAfter,
+            h2u(public_values.trie_roots_after.state_root),
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestAfter,
+            h2u(public_values.trie_roots_after.transactions_root),
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestAfter,
+            h2u(public_values.trie_roots_after.receipts_root),
+        ),
     ];
     let is_read = F::ZERO;
     let context = F::ZERO;
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
     let timestamp = F::ONE;
 
-    block_fields.map(|(field, val)| {
+    fields.map(|(field, val)| {
         let mut row = vec![F::ZERO; 13];
         row[0] = is_read;
         row[1] = context;
@@ -198,51 +220,6 @@ where
         prod *= challenge.combine(row.iter());
     });
 
-    // Add public values reads.
-    let trie_fields = [
-        (
-            GlobalMetadata::StateTrieRootDigestBefore,
-            public_values.trie_roots_before.state_root,
-        ),
-        (
-            GlobalMetadata::TransactionTrieRootDigestBefore,
-            public_values.trie_roots_before.transactions_root,
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestBefore,
-            public_values.trie_roots_before.receipts_root,
-        ),
-        (
-            GlobalMetadata::StateTrieRootDigestAfter,
-            public_values.trie_roots_after.state_root,
-        ),
-        (
-            GlobalMetadata::TransactionTrieRootDigestAfter,
-            public_values.trie_roots_after.transactions_root,
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestAfter,
-            public_values.trie_roots_after.receipts_root,
-        ),
-    ];
-    let is_read = F::ONE;
-    let timestamp = F::from_canonical_usize(cpu_trace_len * NUM_CHANNELS + 1);
-
-    trie_fields.map(|(field, hash)| {
-        let mut row = vec![F::ZERO; 13];
-        row[0] = is_read;
-        row[1] = context;
-        row[2] = segment;
-        row[3] = F::from_canonical_usize(field as usize);
-
-        let val = hash.into_uint();
-
-        for j in 0..VALUE_LIMBS {
-            row[j + 4] = F::from_canonical_u32((val >> (j * 32)).low_u32());
-        }
-        row[12] = timestamp;
-        prod *= challenge.combine(row.iter());
-    });
     prod
 }
 

@@ -180,7 +180,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
-        cpu_trace_len: state.traces.clock(),
     };
 
     let tables = timed!(
