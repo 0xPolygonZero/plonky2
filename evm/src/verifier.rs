@@ -135,7 +135,7 @@ where
 
 /// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
 /// - block metadata writes before kernel bootstrapping,
-/// - public values reads at the end of the execution.
+/// - trie roots writes before kernel bootstrapping.
 pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
     public_values: &PublicValues,
     challenge: GrandProductChallenge<F>,

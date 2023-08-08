@@ -75,7 +75,7 @@ pub struct TrieInputs {
     pub storage_tries: Vec<(H256, HashedPartialTrie)>,
 }
 
-fn apply_metadata_and_trie_memops<F: RichField + Extendable<D>, const D: usize>(
+fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
     inputs: &GenerationInputs,
 ) {
@@ -146,7 +146,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 )> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
 
-    apply_metadata_and_trie_memops(&mut state, &inputs);
+    apply_metadata_and_tries_memops(&mut state, &inputs);
 
     generate_bootstrap_kernel::<F>(&mut state);
 
