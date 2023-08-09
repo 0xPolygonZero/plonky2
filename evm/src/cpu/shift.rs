@@ -54,7 +54,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     // (in the case of left shift) or DIV (in the case of right shift)
     // in the arithmetic table. Specifically, the mapping is
     //
-    // 0 -> 0  (value to be shifted is the same)
+    // 1 -> 0  (value to be shifted is the same)
     // 2 -> 1  (two_exp becomes the multiplicand (resp. divisor))
     // last -> last  (output is the same)
 }

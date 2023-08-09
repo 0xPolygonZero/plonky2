@@ -3,6 +3,7 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
+use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
@@ -470,6 +471,7 @@ fn append_shift<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
     input0: U256,
+    input1: U256,
     log_in0: MemoryOp,
     log_in1: MemoryOp,
     result: U256,
@@ -489,6 +491,20 @@ fn append_shift<F: Field>(
         channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
     }
 
+    // Convert the shift, and log the corresponding arithmetic operation.
+    let input0 = if input0 > U256::from(255u64) {
+        U256::zero()
+    } else {
+        U256::one() << input0
+    };
+    let operator = if row.op.shl.is_one() {
+        BinaryOperator::Mul
+    } else {
+        BinaryOperator::Div
+    };
+    let operation = arithmetic::Operation::binary(operator, input1, input0);
+
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out);
@@ -508,7 +524,7 @@ pub(crate) fn generate_shl<F: Field>(
     } else {
         input1 << input0
     };
-    append_shift(state, row, input0, log_in0, log_in1, result)
+    append_shift(state, row, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_shr<F: Field>(
@@ -523,7 +539,7 @@ pub(crate) fn generate_shr<F: Field>(
     } else {
         input1 >> input0
     };
-    append_shift(state, row, input0, log_in0, log_in1, result)
+    append_shift(state, row, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_syscall<F: Field>(
