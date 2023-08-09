@@ -73,6 +73,7 @@ fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
 fn ctl_data_ternops<F: Field>(ops: &[usize], is_shift: bool) -> Vec<Column<F>> {
     let offset = is_shift as usize;
     let mut res = Column::singles(ops).collect_vec();
+
     res.extend(Column::singles(COL_MAP.mem_channels[offset].value));
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 1].value));
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 2].value));
@@ -91,21 +92,18 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
+    const OPS: [usize; 11] = [
         COL_MAP.op.add,
         COL_MAP.op.sub,
         COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
         COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
         COL_MAP.op.submod,
         COL_MAP.op.div,
         COL_MAP.op.mod_,
         COL_MAP.op.byte,
+        COL_MAP.op.lt_gt,
+        COL_MAP.op.addfp254_mulfp254,
+        COL_MAP.op.addmod_mulmod,
     ];
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
@@ -120,23 +118,20 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
 }
 
 pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
+    const OPS: [usize; 11] = [
         COL_MAP.op.add,
         COL_MAP.op.sub,
         // SHL is interpreted as MUL on the arithmetic side
         COL_MAP.op.shl,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
         COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
         COL_MAP.op.submod,
         // SHR is interpreted as DIV on the arithmetic side
         COL_MAP.op.shr,
         COL_MAP.op.mod_,
         COL_MAP.op.byte,
+        COL_MAP.op.lt_gt,
+        COL_MAP.op.addfp254_mulfp254,
+        COL_MAP.op.addmod_mulmod,
     ];
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`

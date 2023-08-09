@@ -14,14 +14,11 @@ pub struct OpsColumnsView<T: Copy> {
     pub div: T,
     pub mod_: T,
     // TODO: combine ADDMOD, MULMOD and SUBMOD into one flag
-    pub addmod: T,
-    pub mulmod: T,
-    pub addfp254: T,
-    pub mulfp254: T,
+    pub addmod_mulmod: T,
+    pub addfp254_mulfp254: T,
     pub subfp254: T,
     pub submod: T,
-    pub lt: T,
-    pub gt: T,
+    pub lt_gt: T,
     pub eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
     pub iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     // TODO: combine AND, OR, and XOR into one flag

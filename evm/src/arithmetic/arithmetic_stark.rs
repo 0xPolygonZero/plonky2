@@ -27,10 +27,18 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// This is done by taking pairs of columns (x, y) of the arithmetic
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
-fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Column<F>> {
+fn cpu_arith_data_link<F: Field>(
+    ops: &[usize],
+    combined_ops: &[usize],
+    regs: &[Range<usize>],
+) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
     let mut res = Column::singles(ops).collect_vec();
+
+    for pair in combined_ops.chunks_exact(2) {
+        res.push(Column::sum(pair));
+    }
 
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
@@ -49,21 +57,26 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 14] = [
+    const ARITH_OPS: [usize; 8] = [
         columns::IS_ADD,
         columns::IS_SUB,
         columns::IS_MUL,
-        columns::IS_LT,
-        columns::IS_GT,
-        columns::IS_ADDFP254,
-        columns::IS_MULFP254,
         columns::IS_SUBFP254,
-        columns::IS_ADDMOD,
-        columns::IS_MULMOD,
         columns::IS_SUBMOD,
         columns::IS_DIV,
         columns::IS_MOD,
         columns::IS_BYTE,
+    ];
+
+    // Those operations are combined by pairs on the CPU side, hence the
+    // corresponding columns here will be created as linear combinations.
+    const COMBINED_ARITH_OPS: [usize; 6] = [
+        columns::IS_LT,
+        columns::IS_GT,
+        columns::IS_ADDFP254,
+        columns::IS_MULFP254,
+        columns::IS_ADDMOD,
+        columns::IS_MULMOD,
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -73,6 +86,9 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::OUTPUT_REGISTER,
     ];
 
+    let mut filter_columns = ARITH_OPS.to_vec();
+    filter_columns.extend(&COMBINED_ARITH_OPS);
+
     // Create the Arithmetic Table whose columns are those of the
     // operations listed in `ops` whose inputs and outputs are given
     // by `regs`, where each element of `regs` is a range of columns
@@ -80,8 +96,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
-        Some(Column::sum(ARITH_OPS)),
+        cpu_arith_data_link(&ARITH_OPS, &COMBINED_ARITH_OPS, &REGISTER_MAP),
+        Some(Column::sum(filter_columns)),
     )
 }
 

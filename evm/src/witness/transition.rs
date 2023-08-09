@@ -168,16 +168,20 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.sub,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => &mut flags.div,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt) => &mut flags.lt,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.gt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.lt_gt,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
         Operation::Shl => &mut flags.shl,
         Operation::Shr => &mut flags.shr,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => &mut flags.addfp254,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => &mut flags.mulfp254,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => {
+            &mut flags.addfp254_mulfp254
+        }
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.subfp254,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod)
+        | Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => {
+            &mut flags.addmod_mulmod
+        }
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => &mut flags.submod,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
