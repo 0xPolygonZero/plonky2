@@ -175,3 +175,7 @@ pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
     }
     mem_vec
 }
+
+pub(crate) fn h2u(h: H256) -> U256 {
+    U256::from_big_endian(&h.0)
+}
