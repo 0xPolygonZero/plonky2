@@ -7,7 +7,7 @@ use num::{BigUint, Integer};
 use plonky2_util::{assume, branch_hint};
 use serde::{Deserialize, Serialize};
 
-use crate::inversion::try_inverse_u64;
+use crate::ops::Square;
 use crate::types::{Field, Field64, PrimeField, PrimeField64, Sample};
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -96,8 +96,55 @@ impl Field for GoldilocksField {
     }
 
     #[inline(always)]
+    /// Returns the inverse of the field element, using Fermat's little theorem.
+    /// The inverse of `a` is computed as `a^(p-2)`, where `p` is the prime order of the field.
+    ///
+    /// Mathematically, this is equivalent to:
+    ///                $a^(p-1)     = 1 (mod p)$
+    ///                $a^(p-2) * a = 1 (mod p)$
+    /// Therefore      $a^(p-2)     = a^-1 (mod p)$
+    ///
+    /// The following code has been adapted from winterfell/math/src/field/f64/mod.rs
+    /// located at https://github.com/facebook/winterfell.
     fn try_inverse(&self) -> Option<Self> {
-        try_inverse_u64(self)
+        if self.is_zero() {
+            return None;
+        }
+
+        // compute base^(P - 2) using 72 multiplications
+        // The exponent P - 2 is represented in binary as:
+        // 0b1111111111111111111111111111111011111111111111111111111111111111
+
+        // compute base^11
+        let t2 = self.square() * *self;
+
+        // compute base^111
+        let t3 = t2.square() * *self;
+
+        // compute base^111111 (6 ones)
+        // repeatedly square t3 3 times and multiply by t3
+        let t6 = exp_acc::<3>(t3, t3);
+
+        // compute base^111111111111 (12 ones)
+        // repeatedly square t6 6 times and multiply by t6
+        let t12 = exp_acc::<6>(t6, t6);
+
+        // compute base^111111111111111111111111 (24 ones)
+        // repeatedly square t12 12 times and multiply by t12
+        let t24 = exp_acc::<12>(t12, t12);
+
+        // compute base^1111111111111111111111111111111 (31 ones)
+        // repeatedly square t24 6 times and multiply by t6 first. then square t30 and
+        // multiply by base
+        let t30 = exp_acc::<6>(t24, t6);
+        let t31 = t30.square() * *self;
+
+        // compute base^111111111111111111111111111111101111111111111111111111111111111
+        // repeatedly square t31 32 times and multiply by t31
+        let t63 = exp_acc::<32>(t31, t31);
+
+        // compute base^1111111111111111111111111111111011111111111111111111111111111111
+        Some(t63.square() * *self)
     }
 
     fn from_noncanonical_biguint(n: BigUint) -> Self {
@@ -400,6 +447,12 @@ pub(crate) unsafe fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
     // add, sbb, add
     let t2 = add_no_canonicalize_trashing_input(t0, t1);
     GoldilocksField(t2)
+}
+
+/// Squares the base N number of times and multiplies the result by the tail value.
+#[inline(always)]
+fn exp_acc<const N: usize>(base: GoldilocksField, tail: GoldilocksField) -> GoldilocksField {
+    base.exp_power_of_2(N) * tail
 }
 
 #[cfg(test)]
