@@ -283,7 +283,7 @@ pub trait Field:
     }
 
     fn cyclic_subgroup_unknown_order(generator: Self) -> Vec<Self> {
-        let mut subgroup = Vec::with_capacity(Self::TWO_ADICITY);
+        let mut subgroup = Vec::new();
         for power in generator.powers() {
             if power.is_one() && !subgroup.is_empty() {
                 break;
