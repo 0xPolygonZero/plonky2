@@ -92,10 +92,8 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 11] = [
+    const OPS: [usize; 10] = [
         COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
         COL_MAP.op.subfp254,
         COL_MAP.op.submod,
         COL_MAP.op.div,
@@ -104,6 +102,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.lt_gt,
         COL_MAP.op.addfp254_mulfp254,
         COL_MAP.op.addmod_mulmod,
+        COL_MAP.op.mul_sub,
     ];
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
@@ -118,11 +117,8 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
 }
 
 pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 11] = [
+    const OPS: [usize; 10] = [
         COL_MAP.op.add,
-        COL_MAP.op.sub,
-        // SHL is interpreted as MUL on the arithmetic side
-        COL_MAP.op.shl,
         COL_MAP.op.subfp254,
         COL_MAP.op.submod,
         // SHR is interpreted as DIV on the arithmetic side
@@ -132,7 +128,10 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.lt_gt,
         COL_MAP.op.addfp254_mulfp254,
         COL_MAP.op.addmod_mulmod,
+        // SHL is interpreted as MUL on the arithmetic side
+        COL_MAP.op.shl,
     ];
+
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of

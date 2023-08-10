@@ -164,8 +164,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
         Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add) => &mut flags.add,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => &mut flags.mul,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.sub,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.mul_sub,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => &mut flags.div,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)

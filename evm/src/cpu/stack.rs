@@ -41,8 +41,7 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     add: BASIC_BINARY_OP,
-    mul: BASIC_BINARY_OP,
-    sub: BASIC_BINARY_OP,
+    mul_sub: BASIC_BINARY_OP,
     div: BASIC_BINARY_OP,
     mod_: BASIC_BINARY_OP,
     addmod_mulmod: BASIC_TERNARY_OP,

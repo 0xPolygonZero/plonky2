@@ -19,8 +19,7 @@ const G_HIGH: Option<u32> = Some(10);
 
 const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     add: G_VERYLOW,
-    mul: G_LOW,
-    sub: G_VERYLOW,
+    mul_sub: None, // Combined flags handled separately
     div: G_LOW,
     mod_: G_LOW,
     addmod_mulmod: G_MID,
@@ -93,6 +92,15 @@ fn eval_packed_accumulate<P: PackedField>(
                 .constraint_transition(lv.is_cpu_cycle * op_flag * (nv.gas - lv.gas - cost));
         }
     }
+
+    // Gas for combined MUL / SUB flags is handled manually.
+    // MUL = 0x02 -> opcode_bits[0] == 0 (gas cost LOW)
+    // SUB = 0x03 -> opcode_bits[0] == 1 (gas cost LOW)
+    let cost = P::Scalar::from_canonical_u32(G_LOW.unwrap())
+        + lv.opcode_bits[0]
+            * (P::Scalar::from_canonical_u32(G_VERYLOW.unwrap())
+                - P::Scalar::from_canonical_u32(G_LOW.unwrap()));
+    yield_constr.constraint_transition(lv.is_cpu_cycle * lv.op.mul_sub * (nv.gas - lv.gas - cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -168,6 +176,19 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
             yield_constr.constraint_transition(builder, constr);
         }
     }
+
+    // Gas for combined MUL / SUB flags is handled manually.
+    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.mul_sub);
+    let cost = builder.mul_const_extension(
+        F::from_canonical_u32(G_VERYLOW.unwrap()) - F::from_canonical_u32(G_LOW.unwrap()),
+        lv.opcode_bits[0],
+    );
+    let cost = builder.add_const_extension(cost, F::from_canonical_u32(G_LOW.unwrap()));
+
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
+    let gas_diff = builder.sub_extension(nv_lv_diff, cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+    yield_constr.constraint_transition(builder, constr);
 }
 
 fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
