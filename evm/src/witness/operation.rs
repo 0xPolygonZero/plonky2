@@ -489,7 +489,7 @@ pub(crate) fn generate_swap<F: Field>(
     let other_addr_lo = state
         .registers
         .stack_len
-        .checked_sub(2 + (n as usize))
+        .checked_sub(1 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
     let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
 
@@ -758,7 +758,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     let (new_stack_top, context, segment, log_in1, virt, log_in2, val, log_in3) = if state
         .registers
         .stack_len
-        == 1
+        == 4
     {
         let [(context, _), (segment, log_in1), (virt, log_in2), (val, log_in3)] =
             stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;

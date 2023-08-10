@@ -33,10 +33,13 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     if i >= state.registers.stack_len {
         return None;
     }
+    if i == 0 {
+        return Some(state.registers.stack_top);
+    }
     Some(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
-        state.registers.stack_len - 1 - i,
+        state.registers.stack_len - 1 - (i - 1),
     )))
 }
 
@@ -81,7 +84,7 @@ pub(crate) fn push_with_write<F: Field>(
         let address = MemoryAddress::new(
             state.registers.context,
             Segment::Stack,
-            state.registers.stack_len - 1,
+            state.registers.stack_len,
         );
         let res = mem_write_gp_log_and_fill(
             NUM_GP_CHANNELS - 1,
@@ -208,10 +211,10 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
             let address = MemoryAddress::new(
                 state.registers.context,
                 Segment::Stack,
-                state.registers.stack_len - 1 - (i + 1),
+                state.registers.stack_len - 1 - (i - 1),
             );
 
-            mem_read_gp_with_log_and_fill(i, address, state, row)
+            mem_read_gp_with_log_and_fill(i - 1, address, state, row)
         }
     });
 
