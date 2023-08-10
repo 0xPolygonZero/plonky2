@@ -206,8 +206,8 @@ where
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
     let timestamp = F::ONE;
 
+    let mut row = vec![F::ZERO; 13];
     fields.map(|(field, val)| {
-        let mut row = vec![F::ZERO; 13];
         row[0] = is_read;
         row[1] = context;
         row[2] = segment;

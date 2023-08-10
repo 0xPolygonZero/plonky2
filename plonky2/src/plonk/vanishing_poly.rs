@@ -35,7 +35,7 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
     degree: usize,
 ) -> PolynomialCoeffs<F> {
     let b = deltas[LookupChallenges::ChallengeB as usize];
-    let mut coeffs = Vec::new();
+    let mut coeffs = Vec::with_capacity(common_data.luts[lut_index].len());
     let n = common_data.luts[lut_index].len();
     for (input, output) in common_data.luts[lut_index].iter() {
         coeffs.push(F::from_canonical_u16(*input) + b * F::from_canonical_u16(*output));
@@ -832,7 +832,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F: RichField + Extendable<D>, const D:
     let l_0_x = eval_l_0_circuit(builder, common_data.degree(), x, x_pow_deg);
 
     // Holds `k[i] * x`.
-    let mut s_ids = Vec::new();
+    let mut s_ids = Vec::with_capacity(common_data.config.num_routed_wires);
     for j in 0..common_data.config.num_routed_wires {
         let k = builder.constant(common_data.k_is[j]);
         s_ids.push(builder.scalar_mul_ext(k, x));
@@ -866,8 +866,8 @@ pub(crate) fn eval_vanishing_poly_circuit<F: RichField + Extendable<D>, const D:
             vanishing_all_lookup_terms.extend(lookup_constraints);
         }
 
-        let mut numerator_values = Vec::new();
-        let mut denominator_values = Vec::new();
+        let mut numerator_values = Vec::with_capacity(common_data.config.num_routed_wires);
+        let mut denominator_values = Vec::with_capacity(common_data.config.num_routed_wires);
 
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = vars.local_wires[j];
