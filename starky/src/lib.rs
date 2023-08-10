@@ -4,7 +4,7 @@
 #![allow(clippy::upper_case_acronyms)]
 #![feature(generic_const_exprs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#![feature(core_intrinsics)]
 extern crate alloc;
 
 mod get_challenges;

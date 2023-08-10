@@ -2,8 +2,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use backtrace::Backtrace;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -28,6 +30,9 @@ pub struct ConstraintConsumer<P: PackedField> {
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the last trace row, and zero at other points in the subgroup.
     lagrange_basis_last: P,
+
+    ///  debug constraints
+    debug_api: bool,
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
@@ -43,6 +48,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
             z_last,
             lagrange_basis_first,
             lagrange_basis_last,
+            debug_api: false,
         }
     }
 
@@ -56,7 +62,16 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 
     /// Add one constraint on all rows.
+    #[allow(clippy::collapsible_if)]
     pub fn constraint(&mut self, constraint: P) {
+        if std::intrinsics::unlikely(self.debug_api) {
+            if !constraint.as_slice().iter().all(|e| e.eq(&P::Scalar::ZERO)) {
+                println!(
+                    "ConstraintConsumer - DEBUG trace (non-zero-constraint): {:?}",
+                    Backtrace::new()
+                );
+            }
+        }
         for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
             *acc *= alpha;
             *acc += constraint;
@@ -73,6 +88,45 @@ impl<P: PackedField> ConstraintConsumer<P> {
     /// last row of the trace.
     pub fn constraint_last_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_last);
+    }
+
+    pub fn new_debug_api() -> Self {
+        Self {
+            constraint_accs: vec![P::ZEROS; 1],
+            alphas: vec![P::Scalar::ONE; 1],
+            z_last: P::ONES,
+            lagrange_basis_first: P::ONES,
+            lagrange_basis_last: P::ONES,
+            debug_api: true,
+        }
+    }
+
+    pub fn debug_api_activate_first_row(&mut self) {
+        assert!(self.debug_api);
+        self.lagrange_basis_first = P::ONES;
+        self.z_last = P::ONES;
+        self.lagrange_basis_last = P::ZEROS;
+    }
+    pub fn debug_api_activate_transition(&mut self) {
+        assert!(self.debug_api);
+        self.lagrange_basis_first = P::ZEROS;
+        self.z_last = P::ONES;
+        self.lagrange_basis_last = P::ZEROS;
+    }
+    pub fn debug_api_activate_last_row(&mut self) {
+        assert!(self.debug_api);
+        self.lagrange_basis_first = P::ZEROS;
+        self.z_last = P::ZEROS;
+        self.lagrange_basis_last = P::ONES;
+    }
+    pub fn debug_api_is_constraint_failed(&self) -> bool {
+        assert!(self.debug_api);
+        !self.constraint_accs.iter().all(|e| e.is_zeros())
+    }
+    pub fn debug_api_reset_failed_constraint(&mut self) {
+        assert!(self.debug_api);
+        self.constraint_accs.clear();
+        self.constraint_accs[0] = P::ZEROS;
     }
 }
 

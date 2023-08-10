@@ -22,6 +22,8 @@ itertools = { version = "0.11.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
 plonky2_maybe_rayon = { version = "0.1.1", default-features = false }
 plonky2 = { version = "0.1.2", default-features = false }
+backtrace = "0.3.68"
+
 
 [dev-dependencies]
 env_logger = { version = "0.10.0", default-features = false }

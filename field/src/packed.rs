@@ -96,6 +96,11 @@ where
     fn doubles(&self) -> Self {
         *self * Self::Scalar::TWO
     }
+
+    #[inline]
+    fn is_zeros(&self) -> bool {
+        self.as_slice().iter().all(|e| e.eq(&Self::Scalar::ZERO))
+    }
 }
 
 unsafe impl<F: Field> PackedField for F {
