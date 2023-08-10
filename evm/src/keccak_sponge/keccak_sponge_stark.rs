@@ -358,15 +358,13 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.updated_state_u32s = sponge_state.map(F::from_canonical_u32);
         let is_final_block = row.is_final_input_len.iter().copied().sum::<F>() == F::ONE;
         if is_final_block {
-            let mut cur_bytes = vec![F::ZERO; 4];
             for (l, &elt) in row.updated_state_u32s[..8].iter().enumerate() {
                 let mut cur_elt = elt;
-                for i in 0..4 {
-                    cur_bytes[i] =
+                (0..4).for_each(|i| {
+                    row.updated_state_bytes[l * 4 + i] =
                         F::from_canonical_u32((cur_elt.to_canonical_u64() & 0xFF) as u32);
                     cur_elt = F::from_canonical_u64(cur_elt.to_canonical_u64() >> 8);
-                    row.updated_state_bytes[l * 4 + i] = cur_bytes[i];
-                }
+                });
 
                 let mut s = row.updated_state_bytes[l * 4].to_canonical_u64();
                 for i in 1..4 {
