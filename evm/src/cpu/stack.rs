@@ -146,47 +146,96 @@ fn eval_packed_one<P: PackedField>(
     stack_behavior: StackBehavior,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let num_operands = stack_behavior.num_pops + (stack_behavior.pushes as usize);
-    assert!(num_operands <= NUM_GP_CHANNELS);
+    if stack_behavior.num_pops > 0 {
+        // Pops
+        for i in 1..stack_behavior.num_pops {
+            let channel = lv.mem_channels[i - 1];
 
-    // Pops
-    for i in 0..stack_behavior.num_pops {
-        let channel = lv.mem_channels[i];
+            yield_constr.constraint(filter * (channel.used - P::ONES));
+            yield_constr.constraint(filter * (channel.is_read - P::ONES));
 
-        yield_constr.constraint(filter * (channel.used - P::ONES));
-        yield_constr.constraint(filter * (channel.is_read - P::ONES));
+            yield_constr.constraint(filter * (channel.addr_context - lv.context));
+            yield_constr.constraint(
+                filter
+                    * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+            );
+            // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
+            let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i);
+            yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
+        }
 
-        yield_constr.constraint(filter * (channel.addr_context - lv.context));
-        yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-        );
-        // E.g. if `stack_len == 1` and `i == 0`, we want `add_virtual == 0`.
-        let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
-        yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    }
+        // If you also push, you don't need to read the new top of the stack. You can constrain it
+        // directly in the op's constraints.
+        // If you don't:
+        // - if the stack isn't empty after the pops, you read the new top from an extra pop.
+        // - if not, the extra read is disabled.
+        if !stack_behavior.pushes {
+            let channel = lv.mem_channels[stack_behavior.num_pops];
+            let new_filter =
+                (lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops)) * filter;
 
-    // Pushes
-    if stack_behavior.pushes {
-        let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+            yield_constr.constraint(
+                (lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops))
+                    * (channel.used - P::ONES),
+            );
+            yield_constr.constraint(new_filter * (channel.used - P::ONES));
+            yield_constr.constraint(new_filter * (channel.is_read - P::ONES));
 
-        yield_constr.constraint(filter * (channel.used - P::ONES));
-        yield_constr.constraint(filter * channel.is_read);
+            yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
+            yield_constr.constraint(
+                filter
+                    * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+            );
 
-        yield_constr.constraint(filter * (channel.addr_context - lv.context));
-        yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-        );
-        let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
-        yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    }
-
-    // Unused channels
-    if stack_behavior.disable_other_channels {
-        for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
-            let channel = lv.mem_channels[i];
-            yield_constr.constraint(filter * channel.used);
+            let addr_virtual =
+                lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+            yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
         }
     }
+    // If the op only pushes, you only need to constrain the top of the stack if the stack isn't empty.
+    else if pushes {
+    }
+    // let num_operands = stack_behavior.num_pops + (stack_behavior.pushes as usize);
+    // assert!(num_operands <= NUM_GP_CHANNELS);
+
+    // // Pops
+    // for i in 0..stack_behavior.num_pops {
+    //     let channel = lv.mem_channels[i];
+
+    //     yield_constr.constraint(filter * (channel.used - P::ONES));
+    //     yield_constr.constraint(filter * (channel.is_read - P::ONES));
+
+    //     yield_constr.constraint(filter * (channel.addr_context - lv.context));
+    //     yield_constr.constraint(
+    //         filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    //     );
+    //     // E.g. if `stack_len == 1` and `i == 0`, we want `add_virtual == 0`.
+    //     let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
+    //     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
+    // }
+
+    // // Pushes
+    // if stack_behavior.pushes {
+    //     let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+
+    //     yield_constr.constraint(filter * (channel.used - P::ONES));
+    //     yield_constr.constraint(filter * channel.is_read);
+
+    //     yield_constr.constraint(filter * (channel.addr_context - lv.context));
+    //     yield_constr.constraint(
+    //         filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    //     );
+    //     let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+    //     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
+    // }
+
+    // // Unused channels
+    // if stack_behavior.disable_other_channels {
+    //     for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
+    //         let channel = lv.mem_channels[i];
+    //         yield_constr.constraint(filter * channel.used);
+    //     }
+    // }
 }
 
 pub fn eval_packed<P: PackedField>(
