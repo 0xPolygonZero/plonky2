@@ -461,22 +461,70 @@ pub(crate) fn generate_push<F: Field>(
     Ok(())
 }
 
+// This instruction is special. The order of the operations are:
+// - Write `stack_top` at `stack[stack_len]`
+// - Read `val` at `stack[stack_len - n]`
+// - Update `stack_top` with `val` and add 1 to `stack_len`
+// Since the write must happen before the read, the normal way of assigning
+// GP channels doesn't work and we must handle them manually.
 pub(crate) fn generate_dup<F: Field>(
     n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let other_addr_lo = state
-        .registers
-        .stack_len
-        .checked_sub(1 + (n as usize))
-        .ok_or(ProgramError::StackUnderflow)?;
-    let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
+    // Same logic as in `push_with_write`, but we use the channel GP(0) instead.
+    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
+        return Err(ProgramError::StackOverflow);
+    }
+    if n as usize >= state.registers.stack_len {
+        return Err(ProgramError::StackUnderflow);
+    }
+    let stack_top = state.registers.stack_top;
+    let address = MemoryAddress::new(
+        state.registers.context,
+        Segment::Stack,
+        state.registers.stack_len,
+    );
+    let log_push = mem_write_gp_log_and_fill(0, address, state, &mut row, stack_top);
+    state.traces.push_memory(log_push);
 
-    let (val, log_in) = mem_read_gp_with_log_and_fill(0, other_addr, state, &mut row);
-    push_with_write(state, &mut row, val)?;
+    let other_addr = MemoryAddress::new(
+        state.registers.context,
+        Segment::Stack,
+        state.registers.stack_len - n as usize,
+    );
 
-    state.traces.push_memory(log_in);
+    // If n = 0, we read a value that hasn't been written to memory: the corresponding write
+    // is buffered in the mem_ops queue, but hasn't been applied yet.
+    let (val, log_read) = if n == 0 {
+        let op = MemoryOp::new(
+            MemoryChannel::GeneralPurpose(1),
+            state.traces.clock(),
+            other_addr,
+            MemoryOpKind::Read,
+            stack_top,
+        );
+
+        let channel = &mut row.mem_channels[2];
+        assert_eq!(channel.used, F::ZERO);
+        channel.used = F::ONE;
+        channel.is_read = F::ONE;
+        channel.addr_context = F::from_canonical_usize(other_addr.context);
+        channel.addr_segment = F::from_canonical_usize(other_addr.segment);
+        channel.addr_virtual = F::from_canonical_usize(other_addr.virt);
+        let val_limbs: [u64; 4] = state.registers.stack_top.0;
+        for (i, limb) in val_limbs.into_iter().enumerate() {
+            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+        }
+
+        (stack_top, op)
+    } else {
+        mem_read_gp_with_log_and_fill(2, other_addr, state, &mut row)
+    };
+    push_no_write(state, val);
+
+    state.traces.push_memory(log_read);
     state.traces.push_cpu(row);
     Ok(())
 }
