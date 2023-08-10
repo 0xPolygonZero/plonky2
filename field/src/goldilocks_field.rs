@@ -95,7 +95,6 @@ impl Field for GoldilocksField {
         Self::order()
     }
 
-    #[inline(always)]
     /// Returns the inverse of the field element, using Fermat's little theorem.
     /// The inverse of `a` is computed as `a^(p-2)`, where `p` is the prime order of the field.
     ///
