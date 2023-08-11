@@ -245,7 +245,6 @@ fn perform_op<F: Field>(
 /// operation. It also returns the opcode.
 fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
-    row.is_cpu_cycle = F::ONE;
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);

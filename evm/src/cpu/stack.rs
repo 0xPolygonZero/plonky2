@@ -195,8 +195,7 @@ pub fn eval_packed<P: PackedField>(
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            let filter = lv.is_cpu_cycle * op;
-            eval_packed_one(lv, filter, stack_behavior, yield_constr);
+            eval_packed_one(lv, op, stack_behavior, yield_constr);
         }
     }
 }
@@ -310,8 +309,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            let filter = builder.mul_extension(lv.is_cpu_cycle, op);
-            eval_ext_circuit_one(builder, lv, filter, stack_behavior, yield_constr);
+            eval_ext_circuit_one(builder, lv, op, stack_behavior, yield_constr);
         }
     }
 }

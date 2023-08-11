@@ -22,8 +22,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub submod: T,
     pub lt: T,
     pub gt: T,
-    pub eq: T,       // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub iszero: T,   // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub eq: T,
+    pub iszero: T,
     pub logic_op: T, // Combines AND, OR and XOR flags.
     pub not: T,
     pub byte: T,
@@ -34,8 +34,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub prover_input: T,
     pub pop: T,
     // TODO: combine JUMP and JUMPI into one flag
-    pub jump: T,  // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub jumpi: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub jump: T,
+    pub jumpi: T,
     pub pc: T,
     pub jumpdest: T,
     pub push0: T,
@@ -45,13 +45,13 @@ pub struct OpsColumnsView<T: Copy> {
     // TODO: combine GET_CONTEXT and SET_CONTEXT into one flag
     pub get_context: T,
     pub set_context: T,
-    pub exit_kernel: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub exit_kernel: T,
     // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
     pub mload_general: T,
     pub mstore_general: T,
 
-    pub syscall: T,   // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub exception: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub syscall: T,
+    pub exception: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
