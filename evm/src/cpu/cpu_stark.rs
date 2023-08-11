@@ -83,6 +83,7 @@ fn ctl_data_ternops<F: Field>(ops: &[usize], is_shift: bool) -> Vec<Column<F>> {
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
     res.extend(ctl_data_binops(&[]));
     res

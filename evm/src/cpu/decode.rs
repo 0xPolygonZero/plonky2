@@ -38,7 +38,7 @@ const OPCODES: [(u8, usize, bool, usize); 34] = [
     (0x11, 0, false, COL_MAP.op.gt),
     (0x14, 0, false, COL_MAP.op.eq),
     (0x15, 0, false, COL_MAP.op.iszero),
-    // AND, OR and XOR flags are handled directly on the logic table side
+    // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x19, 0, false, COL_MAP.op.not),
     (0x1a, 0, false, COL_MAP.op.byte),
     (0x1b, 0, false, COL_MAP.op.shl),
@@ -142,14 +142,14 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
-    // Manually check for the logic_op flag combining AND, OR and XOR.
+    // Manually check the logic_op flag combining AND, OR and XOR.
     // TODO: This would go away once cycle_filter is replaced by the sum
     // of all CPU opcode flags.
     let flag = lv.op.logic_op;
     yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
 
     // Now check that they sum to 0 or 1.
-    // Include the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     // TODO: This would go away once cycle_filter is replaced by the sum
     // of all CPU opcode flags.
     let flag_sum: P = OPCODES
@@ -220,7 +220,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
-    // Manually check for the logic_op flag combining AND, OR and XOR.
+    // Manually check the logic_op flag combining AND, OR and XOR.
     // TODO: This would go away once cycle_filter is replaced by the sum
     // of all CPU opcode flags.
     let flag = lv.op.logic_op;
@@ -229,7 +229,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     // Now check that they sum to 0 or 1.
-    // Include the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     // TODO: This would go away once cycle_filter is replaced by the sum
     // of all CPU opcode flags.
     {
