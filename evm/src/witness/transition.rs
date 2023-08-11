@@ -170,9 +170,9 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
         Operation::Shl => &mut flags.shl,
         Operation::Shr => &mut flags.shr,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => &mut flags.addfp254,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => &mut flags.mulfp254,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.subfp254,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
         Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => &mut flags.submod,

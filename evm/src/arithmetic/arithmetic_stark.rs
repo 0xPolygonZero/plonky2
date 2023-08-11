@@ -27,10 +27,16 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// This is done by taking pairs of columns (x, y) of the arithmetic
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
-fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Column<F>> {
+fn cpu_arith_data_link<F: Field>(
+    ops: &[usize],
+    combined_ops: Vec<(usize, F)>,
+    regs: &[Range<usize>],
+) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
     let mut res = Column::singles(ops).collect_vec();
+
+    res.push(Column::linear_combination(combined_ops.into_iter()));
 
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
@@ -49,21 +55,25 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 14] = [
+    const ARITH_OPS: [usize; 11] = [
         columns::IS_ADD,
         columns::IS_SUB,
         columns::IS_MUL,
         columns::IS_LT,
         columns::IS_GT,
-        columns::IS_ADDFP254,
-        columns::IS_MULFP254,
-        columns::IS_SUBFP254,
         columns::IS_ADDMOD,
         columns::IS_MULMOD,
         columns::IS_SUBMOD,
         columns::IS_DIV,
         columns::IS_MOD,
         columns::IS_BYTE,
+    ];
+
+    // Pair the FP254 related operations with their (custom) opcode value.
+    let fp254_arith_ops = vec![
+        (columns::IS_ADDFP254, F::from_canonical_u8(0x0c)),
+        (columns::IS_MULFP254, F::from_canonical_u8(0x0d)),
+        (columns::IS_SUBFP254, F::from_canonical_u8(0x0e)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -80,7 +90,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
+        cpu_arith_data_link(&ARITH_OPS, fp254_arith_ops, &REGISTER_MAP),
         Some(Column::sum(ARITH_OPS)),
     )
 }

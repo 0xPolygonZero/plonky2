@@ -22,7 +22,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 31] = [
+const OPCODES: [(u8, usize, bool, usize); 26] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     (0x01, 0, false, COL_MAP.op.add),
     (0x02, 0, false, COL_MAP.op.mul),
@@ -31,11 +31,7 @@ const OPCODES: [(u8, usize, bool, usize); 31] = [
     (0x06, 0, false, COL_MAP.op.mod_),
     (0x08, 0, false, COL_MAP.op.addmod),
     (0x09, 0, false, COL_MAP.op.mulmod),
-    (0x0c, 0, true, COL_MAP.op.addfp254),
-    (0x0d, 0, true, COL_MAP.op.mulfp254),
-    (0x0e, 0, true, COL_MAP.op.subfp254),
-    (0x10, 0, false, COL_MAP.op.lt),
-    (0x11, 0, false, COL_MAP.op.gt),
+    // FP254 operation flags are handled partly manually here, and partly through the Arithmetic table CTL.
     (0x14, 1, false, COL_MAP.op.eq_iszero),
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x19, 0, false, COL_MAP.op.not),
@@ -135,6 +131,8 @@ pub fn eval_packed_generic<P: PackedField>(
     // Manually check the logic_op flag combining AND, OR and XOR.
     let flag = lv.op.logic_op;
     yield_constr.constraint(flag * (flag - P::ONES));
+    let flag = lv.op.fp254_op;
+    yield_constr.constraint(flag * (flag - P::ONES));
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
@@ -142,7 +140,8 @@ pub fn eval_packed_generic<P: PackedField>(
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
         .sum::<P>()
-        + lv.op.logic_op;
+        + lv.op.logic_op
+        + lv.op.fp254_op;
     yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
@@ -206,11 +205,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let flag = lv.op.logic_op;
     let constr = builder.mul_sub_extension(flag, flag, flag);
     yield_constr.constraint(builder, constr);
+    let flag = lv.op.fp254_op;
+    let constr = builder.mul_sub_extension(flag, flag, flag);
+    yield_constr.constraint(builder, constr);
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     {
         let mut flag_sum = lv.op.logic_op;
+        flag_sum = builder.add_extension(flag_sum, lv.op.fp254_op);
         for (_, _, _, flag_col) in OPCODES {
             let flag = lv[flag_col];
             flag_sum = builder.add_extension(flag_sum, flag);
