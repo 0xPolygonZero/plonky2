@@ -3,8 +3,6 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
-#![allow(clippy::upper_case_acronyms)]
-
 extern crate alloc;
 use alloc::sync::Arc;
 use core::num::ParseIntError;
