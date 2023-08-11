@@ -55,9 +55,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     gt: BASIC_BINARY_OP,
     eq: BASIC_BINARY_OP,
     iszero: BASIC_UNARY_OP,
-    and: BASIC_BINARY_OP,
-    or: BASIC_BINARY_OP,
-    xor: BASIC_BINARY_OP,
+    logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
     byte: BASIC_BINARY_OP,
     shl: Some(StackBehavior {

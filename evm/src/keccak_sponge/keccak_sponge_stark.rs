@@ -103,9 +103,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
     let mut res = vec![
-        Column::zero(), // is_and
-        Column::zero(), // is_or
-        Column::one(),  // is_xor
+        Column::constant(F::from_canonical_u8(0x18)), // is_xor
     ];
 
     // Input 0 contains some of the sponge's original rate chunks. If this is the last CTL, we won't
