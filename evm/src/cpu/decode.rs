@@ -22,7 +22,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 31] = [
+const OPCODES: [(u8, usize, bool, usize); 32] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     (0x01, 0, false, COL_MAP.op.add),
     (0x02, 0, false, COL_MAP.op.mul),
@@ -49,10 +49,11 @@ const OPCODES: [(u8, usize, bool, usize); 31] = [
     (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
     (0x5f, 0, false, COL_MAP.op.push0),
-    (0x60, 5, false, COL_MAP.op.push),      // 0x60-0x7f
-    (0x80, 4, false, COL_MAP.op.dup),       // 0x80-0x8f
-    (0x90, 4, false, COL_MAP.op.swap),      // 0x90-0x9f
-    (0xf6, 1, true, COL_MAP.op.context_op), // 0xf6-0xf7
+    (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
+    (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
+    (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
+    (0xf6, 1, true, COL_MAP.op.get_context),
+    (0xf7, 1, true, COL_MAP.op.set_context),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
     (0xfb, 0, true, COL_MAP.op.mload_general),
     (0xfc, 0, true, COL_MAP.op.mstore_general),

@@ -238,17 +238,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
-        dup_swap::eval_packed(local_values, yield_constr);
+        dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
-        pc::eval_packed(local_values, yield_constr);
-        push0::eval_packed(local_values, yield_constr);
+        pc::eval_packed(local_values, next_values, yield_constr);
+        push0::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
-        simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, yield_constr);
+        simple_logic::eval_packed(local_values, next_values, yield_constr);
+        stack::eval_packed(local_values, next_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
         syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
     }
@@ -265,17 +265,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
-        dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
+        dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
-        pc::eval_ext_circuit(builder, local_values, yield_constr);
-        push0::eval_ext_circuit(builder, local_values, yield_constr);
+        pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }

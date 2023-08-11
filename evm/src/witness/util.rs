@@ -1,6 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
+use super::memory::DUMMY_MEMOP;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -32,6 +33,9 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     if i >= state.registers.stack_len {
         return None;
     }
+    if i == 0 {
+        return Some(state.registers.stack_top);
+    }
     Some(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
@@ -47,6 +51,77 @@ pub(crate) fn current_context_peek<F: Field>(
 ) -> U256 {
     let context = state.registers.context;
     state.memory.get(MemoryAddress::new(context, segment, virt))
+}
+
+pub(crate) fn fill_channel_with_value<F: Field>(row: &mut CpuColumnsView<F>, n: usize, val: U256) {
+    let channel = &mut row.mem_channels[n];
+    let val_limbs: [u64; 4] = val.0;
+    for (i, limb) in val_limbs.into_iter().enumerate() {
+        channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+        channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+    }
+}
+
+/// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
+/// The pushed value may be loaded in a memory channel, without creating a memory operation.
+pub(crate) fn push_no_write<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+    val: U256,
+    channel_opt: Option<usize>,
+) {
+    state.registers.stack_top = val;
+    state.registers.stack_len += 1;
+
+    if let Some(channel) = channel_opt {
+        let val_limbs: [u64; 4] = val.0;
+
+        let channel = &mut row.mem_channels[channel];
+        assert_eq!(channel.used, F::ZERO);
+        channel.used = F::ZERO;
+        channel.is_read = F::ZERO;
+        channel.addr_context = F::from_canonical_usize(0);
+        channel.addr_segment = F::from_canonical_usize(0);
+        channel.addr_virtual = F::from_canonical_usize(0);
+        for (i, limb) in val_limbs.into_iter().enumerate() {
+            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
+            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
+        }
+    }
+}
+
+/// Pushes and (maybe) writes the previous stack top in memory. This happens in opcodes which only push.
+pub(crate) fn push_with_write<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+    val: U256,
+) -> Result<(), ProgramError> {
+    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
+        return Err(ProgramError::StackOverflow);
+    }
+
+    let write = if state.registers.stack_len == 0 {
+        None
+    } else {
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
+        let res = mem_write_gp_log_and_fill(
+            NUM_GP_CHANNELS - 1,
+            address,
+            state,
+            row,
+            state.registers.stack_top,
+        );
+        Some(res)
+    };
+    push_no_write(state, row, val, None);
+    if let Some(log) = write {
+        state.traces.push_memory(log);
+    }
+    Ok(())
 }
 
 pub(crate) fn mem_read_with_log<F: Field>(
@@ -142,6 +217,9 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     op
 }
 
+// Channel 0 already contains the top of the stack. You only need to read
+// from the second popped element.
+// If the resulting stack isn't empty, update `stack_top`.
 pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
@@ -150,39 +228,33 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
         return Err(ProgramError::StackUnderflow);
     }
 
+    let new_stack_top = if state.registers.stack_len == N {
+        None
+    } else {
+        stack_peek(state, N)
+    };
+
     let result = core::array::from_fn(|i| {
-        let address = MemoryAddress::new(
-            state.registers.context,
-            Segment::Stack,
-            state.registers.stack_len - 1 - i,
-        );
-        mem_read_gp_with_log_and_fill(i, address, state, row)
+        if i == 0 {
+            (state.registers.stack_top, DUMMY_MEMOP)
+        } else {
+            let address = MemoryAddress::new(
+                state.registers.context,
+                Segment::Stack,
+                state.registers.stack_len - 1 - i,
+            );
+
+            mem_read_gp_with_log_and_fill(i, address, state, row)
+        }
     });
 
     state.registers.stack_len -= N;
 
-    Ok(result)
-}
-
-pub(crate) fn stack_push_log_and_fill<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    val: U256,
-) -> Result<MemoryOp, ProgramError> {
-    if !state.registers.is_kernel && state.registers.stack_len >= MAX_USER_STACK_SIZE {
-        return Err(ProgramError::StackOverflow);
+    if let Some(val) = new_stack_top {
+        state.registers.stack_top = val;
     }
 
-    let address = MemoryAddress::new(
-        state.registers.context,
-        Segment::Stack,
-        state.registers.stack_len,
-    );
-    let res = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 1, address, state, row, val);
-
-    state.registers.stack_len += 1;
-
-    Ok(res)
+    Ok(result)
 }
 
 fn xor_into_sponge<F: Field>(

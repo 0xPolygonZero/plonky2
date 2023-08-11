@@ -32,7 +32,6 @@ pub struct OpsColumnsView<T: Copy> {
     pub keccak_general: T,
     pub prover_input: T,
     pub pop: T,
-    // TODO: combine JUMP and JUMPI into one flag
     pub jumps: T, // Note: This column must be 0 when is_cpu_cycle = 0.
     pub pc: T,
     pub jumpdest: T,
@@ -40,7 +39,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub push: T,
     pub dup: T,
     pub swap: T,
-    pub context_op: T,
+    pub get_context: T,
+    pub set_context: T,
     pub exit_kernel: T,
     // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
     pub mload_general: T,

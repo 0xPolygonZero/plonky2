@@ -24,18 +24,14 @@ fn eval_packed_load<P: PackedField>(
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
     let load_channel = lv.mem_channels[3];
-    let push_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
     yield_constr.constraint(filter * (load_channel.used - P::ONES));
     yield_constr.constraint(filter * (load_channel.is_read - P::ONES));
     yield_constr.constraint(filter * (load_channel.addr_context - addr_context));
     yield_constr.constraint(filter * (load_channel.addr_segment - addr_segment));
     yield_constr.constraint(filter * (load_channel.addr_virtual - addr_virtual));
-    for (load_limb, push_limb) in izip!(load_channel.value, push_channel.value) {
-        yield_constr.constraint(filter * (load_limb - push_limb));
-    }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS - 1] {
+    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
         yield_constr.constraint(filter * channel.used);
     }
 }
@@ -50,7 +46,6 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
     let load_channel = lv.mem_channels[3];
-    let push_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
     {
         let constr = builder.mul_sub_extension(filter, load_channel.used, filter);
         yield_constr.constraint(builder, constr);
@@ -71,14 +66,9 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for (load_limb, push_limb) in izip!(load_channel.value, push_channel.value) {
-        let diff = builder.sub_extension(load_limb, push_limb);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS - 1] {
+    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

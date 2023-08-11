@@ -8,10 +8,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 /// Constrain two channels to have equal values.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channels_equal_packed<P: PackedField>(
     filter: P,
     ch_a: &MemoryChannelView<P>,
@@ -19,11 +20,13 @@ fn channels_equal_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (limb_a, limb_b) in izip!(ch_a.value, ch_b.value) {
-        yield_constr.constraint(filter * (limb_a - limb_b));
+        yield_constr.constraint_transition(filter * (limb_a - limb_b));
     }
 }
 
 /// Constrain two channels to have equal values.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     filter: ExtensionTarget<D>,
@@ -34,7 +37,7 @@ fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     for (limb_a, limb_b) in izip!(ch_a.value, ch_b.value) {
         let diff = builder.sub_extension(limb_a, limb_b);
         let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
+        yield_constr.constraint_transition(builder, constr);
     }
 }
 
@@ -112,56 +115,78 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 fn eval_packed_dup<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.dup;
 
-    let in_channel = &lv.mem_channels[0];
-    let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let write_channel = &lv.mem_channels[1];
+    let read_channel = &lv.mem_channels[2];
 
-    channels_equal_packed(filter, in_channel, out_channel, yield_constr);
+    channels_equal_packed(filter, write_channel, &lv.mem_channels[0], yield_constr);
+    constrain_channel_packed(false, filter, P::ZEROS, write_channel, lv, yield_constr);
 
-    constrain_channel_packed(true, filter, n, in_channel, lv, yield_constr);
-    constrain_channel_packed(
-        false,
-        filter,
-        P::Scalar::NEG_ONE.into(),
-        out_channel,
-        lv,
-        yield_constr,
-    );
+    channels_equal_packed(filter, read_channel, &nv.mem_channels[0], yield_constr);
+    constrain_channel_packed(true, filter, n, read_channel, lv, yield_constr);
+
+    // Constrain nv.stack_len.
+    yield_constr.constraint_transition(filter * (nv.stack_len - lv.stack_len - P::ONES));
+
+    // TODO: Constrain unused channels?
 }
 
 fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let neg_one = builder.constant_extension(F::NEG_ONE.into());
+    let zero = builder.zero_extension();
 
     let filter = lv.op.dup;
 
-    let in_channel = &lv.mem_channels[0];
-    let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let write_channel = &lv.mem_channels[1];
+    let read_channel = &lv.mem_channels[2];
 
-    channels_equal_ext_circuit(builder, filter, in_channel, out_channel, yield_constr);
-
-    constrain_channel_ext_circuit(builder, true, filter, n, in_channel, lv, yield_constr);
+    channels_equal_ext_circuit(
+        builder,
+        filter,
+        write_channel,
+        &lv.mem_channels[0],
+        yield_constr,
+    );
     constrain_channel_ext_circuit(
         builder,
         false,
         filter,
-        neg_one,
-        out_channel,
+        zero,
+        write_channel,
         lv,
         yield_constr,
     );
+
+    channels_equal_ext_circuit(
+        builder,
+        filter,
+        read_channel,
+        &nv.mem_channels[0],
+        yield_constr,
+    );
+    constrain_channel_ext_circuit(builder, true, filter, n, read_channel, lv, yield_constr);
+
+    // Constrain nv.stack_len.
+    let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+    let constr = builder.mul_sub_extension(filter, diff, filter);
+    yield_constr.constraint_transition(builder, constr);
+
+    // TODO: Constrain unused channels?
 }
 
 fn eval_packed_swap<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let n_plus_one = n + P::ONES;
@@ -170,25 +195,27 @@ fn eval_packed_swap<P: PackedField>(
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];
-    let out1_channel = &lv.mem_channels[NUM_GP_CHANNELS - 2];
-    let out2_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let out_channel = &lv.mem_channels[2];
 
-    channels_equal_packed(filter, in1_channel, out1_channel, yield_constr);
-    channels_equal_packed(filter, in2_channel, out2_channel, yield_constr);
+    channels_equal_packed(filter, in1_channel, out_channel, yield_constr);
+    constrain_channel_packed(false, filter, n_plus_one, out_channel, lv, yield_constr);
 
-    constrain_channel_packed(true, filter, P::ZEROS, in1_channel, lv, yield_constr);
+    channels_equal_packed(filter, in2_channel, &nv.mem_channels[0], yield_constr);
     constrain_channel_packed(true, filter, n_plus_one, in2_channel, lv, yield_constr);
-    constrain_channel_packed(false, filter, n_plus_one, out1_channel, lv, yield_constr);
-    constrain_channel_packed(false, filter, P::ZEROS, out2_channel, lv, yield_constr);
+
+    // Constrain nv.stack_len;
+    yield_constr.constraint(filter * (nv.stack_len - lv.stack_len));
+
+    // TODO: Constrain unused channels?
 }
 
 fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let zero = builder.zero_extension();
     let one = builder.one_extension();
     let n_plus_one = builder.add_extension(n, one);
 
@@ -196,13 +223,26 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];
-    let out1_channel = &lv.mem_channels[NUM_GP_CHANNELS - 2];
-    let out2_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
+    let out_channel = &lv.mem_channels[2];
 
-    channels_equal_ext_circuit(builder, filter, in1_channel, out1_channel, yield_constr);
-    channels_equal_ext_circuit(builder, filter, in2_channel, out2_channel, yield_constr);
+    channels_equal_ext_circuit(builder, filter, in1_channel, out_channel, yield_constr);
+    constrain_channel_ext_circuit(
+        builder,
+        false,
+        filter,
+        n_plus_one,
+        out_channel,
+        lv,
+        yield_constr,
+    );
 
-    constrain_channel_ext_circuit(builder, true, filter, zero, in1_channel, lv, yield_constr);
+    channels_equal_ext_circuit(
+        builder,
+        filter,
+        in2_channel,
+        &nv.mem_channels[0],
+        yield_constr,
+    );
     constrain_channel_ext_circuit(
         builder,
         true,
@@ -212,20 +252,18 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
         lv,
         yield_constr,
     );
-    constrain_channel_ext_circuit(
-        builder,
-        false,
-        filter,
-        n_plus_one,
-        out1_channel,
-        lv,
-        yield_constr,
-    );
-    constrain_channel_ext_circuit(builder, false, filter, zero, out2_channel, lv, yield_constr);
+
+    // Constrain nv.stack_len.
+    let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint(builder, constr);
+
+    // TODO: Constrain unused channels?
 }
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let n = lv.opcode_bits[0]
@@ -233,13 +271,14 @@ pub fn eval_packed<P: PackedField>(
         + lv.opcode_bits[2] * P::Scalar::from_canonical_u64(4)
         + lv.opcode_bits[3] * P::Scalar::from_canonical_u64(8);
 
-    eval_packed_dup(n, lv, yield_constr);
-    eval_packed_swap(n, lv, yield_constr);
+    eval_packed_dup(n, lv, nv, yield_constr);
+    eval_packed_swap(n, lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let n = lv.opcode_bits[..4].iter().enumerate().fold(
@@ -249,6 +288,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         },
     );
 
-    eval_ext_circuit_dup(builder, n, lv, yield_constr);
-    eval_ext_circuit_swap(builder, n, lv, yield_constr);
+    eval_ext_circuit_dup(builder, n, lv, nv, yield_constr);
+    eval_ext_circuit_swap(builder, n, lv, nv, yield_constr);
 }

@@ -51,6 +51,7 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let logic = lv.general.logic();
@@ -94,9 +95,10 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(eq_or_iszero_filter * (dot - unequal));
 
     // Stack constraints.
-    stack::eval_packed_one(lv, eq_filter, EQ_STACK_BEHAVIOR.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, eq_filter, EQ_STACK_BEHAVIOR.unwrap(), yield_constr);
     stack::eval_packed_one(
         lv,
+        nv,
         iszero_filter,
         IS_ZERO_STACK_BEHAVIOR.unwrap(),
         yield_constr,
@@ -106,6 +108,7 @@ pub fn eval_packed<P: PackedField>(
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let zero = builder.zero_extension();
@@ -173,6 +176,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
         eq_filter,
         EQ_STACK_BEHAVIOR.unwrap(),
         yield_constr,
@@ -180,6 +184,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
         iszero_filter,
         IS_ZERO_STACK_BEHAVIOR.unwrap(),
         yield_constr,
