@@ -24,7 +24,7 @@ pub fn eval_packed<P: PackedField>(
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
     // where the modulus goes in the generalized operations).
-    let channel_val = lv.mem_channels[2].value;
+    let channel_val = lv.mem_channels[1].value;
     for (channel_limb, p_limb) in izip!(channel_val, P_LIMBS) {
         let p_limb = P::Scalar::from_canonical_u32(p_limb);
         yield_constr.constraint(filter * (channel_limb - p_limb));
@@ -41,7 +41,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
     // where the modulus goes in the generalized operations).
-    let channel_val = lv.mem_channels[2].value;
+    let channel_val = lv.mem_channels[1].value;
     for (channel_limb, p_limb) in izip!(channel_val, P_LIMBS) {
         let p_limb = F::from_canonical_u32(p_limb);
         let constr = builder.arithmetic_extension(F::ONE, -p_limb, filter, channel_limb, filter);

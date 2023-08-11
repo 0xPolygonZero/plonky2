@@ -11,6 +11,8 @@ use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
 use crate::memory::segments::Segment;
 
 /// Constrain two channels to have equal values.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channels_equal_packed<P: PackedField>(
     filter: P,
     ch_a: &MemoryChannelView<P>,
@@ -18,11 +20,13 @@ fn channels_equal_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (limb_a, limb_b) in izip!(ch_a.value, ch_b.value) {
-        yield_constr.constraint(filter * (limb_a - limb_b));
+        yield_constr.constraint_transition(filter * (limb_a - limb_b));
     }
 }
 
 /// Constrain two channels to have equal values.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     filter: ExtensionTarget<D>,
@@ -33,7 +37,7 @@ fn channels_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     for (limb_a, limb_b) in izip!(ch_a.value, ch_b.value) {
         let diff = builder.sub_extension(limb_a, limb_b);
         let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
+        yield_constr.constraint_transition(builder, constr);
     }
 }
 

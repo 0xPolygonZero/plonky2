@@ -24,8 +24,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub push: T,
     pub dup: T,
     pub swap: T,
-    pub get_context: T,
-    pub set_context: T,
+    pub context_op: T, // Combines GET_CONTEXT and SET_CONTEXT.
     pub mstore_32bytes: T,
     pub mload_32bytes: T,
     pub exit_kernel: T,

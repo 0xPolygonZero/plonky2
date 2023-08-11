@@ -111,13 +111,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     push: None, // TODO
     dup: None,
     swap: None,
-    get_context: Some(StackBehavior {
-        num_pops: 0,
-        pushes: true,
-        new_top_stack_channel: None,
-        disable_other_channels: true,
-    }),
-    set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    context_op: None,
     mload_32bytes: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
