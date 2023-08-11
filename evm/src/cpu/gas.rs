@@ -19,17 +19,14 @@ const G_MID: Option<u32> = Some(8);
 const G_HIGH: Option<u32> = Some(10);
 
 const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
-    add: G_VERYLOW,
+    binary_op: G_VERYLOW,
     mul: G_LOW,
-    sub: G_VERYLOW,
     div: G_LOW,
     mod_: G_LOW,
     addmod: G_MID,
     mulmod: G_MID,
     fp254_op: KERNEL_ONLY_INSTR,
     submod: KERNEL_ONLY_INSTR,
-    lt: G_VERYLOW,
-    gt: G_VERYLOW,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
     not: G_VERYLOW,

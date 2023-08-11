@@ -64,12 +64,24 @@ impl BinaryOperator {
         }
     }
 
-    pub(crate) fn row_filter(&self) -> usize {
+    pub(crate) fn row_filter(&self, is_simulated: bool) -> usize {
         match self {
             BinaryOperator::Add => columns::IS_ADD,
-            BinaryOperator::Mul => columns::IS_MUL,
+            BinaryOperator::Mul => {
+                if is_simulated {
+                    columns::IS_SHL
+                } else {
+                    columns::IS_MUL
+                }
+            }
             BinaryOperator::Sub => columns::IS_SUB,
-            BinaryOperator::Div => columns::IS_DIV,
+            BinaryOperator::Div => {
+                if is_simulated {
+                    columns::IS_SHR
+                } else {
+                    columns::IS_DIV
+                }
+            }
             BinaryOperator::Mod => columns::IS_MOD,
             BinaryOperator::Lt => columns::IS_LT,
             BinaryOperator::Gt => columns::IS_GT,
@@ -164,14 +176,18 @@ impl Operation {
     /// use vectors because that's what utils::transpose (who consumes
     /// the result of this function as part of the range check code)
     /// expects.
-    fn to_rows<F: PrimeField64>(&self) -> (Vec<F>, Option<Vec<F>>) {
+    ///
+    /// The `is_simulated` bool indicates whether we use a native arithmetic
+    /// operation or simulate one with another. This is used to distinguish
+    /// SHL and SHR operations that are simulated through MUL and DIV respectively.
+    fn to_rows<F: PrimeField64>(&self, is_simulated: bool) -> (Vec<F>, Option<Vec<F>>) {
         match *self {
             Operation::BinaryOperation {
                 operator,
                 input0,
                 input1,
                 result,
-            } => binary_op_to_rows(operator, input0, input1, result),
+            } => binary_op_to_rows(operator, is_simulated, input0, input1, result),
             Operation::TernaryOperation {
                 operator,
                 input0,
@@ -202,16 +218,17 @@ fn ternary_op_to_rows<F: PrimeField64>(
 
 fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
+    is_simulated: bool,
     input0: U256,
     input1: U256,
     result: U256,
 ) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-    row[op.row_filter()] = F::ONE;
+    row[op.row_filter(is_simulated)] = F::ONE;
 
     match op {
         BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Lt | BinaryOperator::Gt => {
-            addcy::generate(&mut row, op.row_filter(), input0, input1);
+            addcy::generate(&mut row, op.row_filter(false), input0, input1);
             (row, None)
         }
         BinaryOperator::Mul => {
@@ -220,11 +237,18 @@ fn binary_op_to_rows<F: PrimeField64>(
         }
         BinaryOperator::Div | BinaryOperator::Mod => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
+            divmod::generate(
+                &mut row,
+                &mut nv,
+                op.row_filter(is_simulated),
+                input0,
+                input1,
+                result,
+            );
             (row, Some(nv))
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
-            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE, result)
+            ternary_op_to_rows::<F>(op.row_filter(false), input0, input1, BN_BASE, result)
         }
         BinaryOperator::Byte => {
             byte::generate(&mut row, input0, input1);

@@ -28,7 +28,7 @@ pub struct TraceCheckpoint {
 
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
-    pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
+    pub(crate) arithmetic_ops: Vec<(arithmetic::Operation, bool)>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -81,7 +81,7 @@ impl<T: Copy> Traces<T> {
         self.logic_ops.push(op);
     }
 
-    pub fn push_arithmetic(&mut self, op: arithmetic::Operation) {
+    pub fn push_arithmetic(&mut self, op: (arithmetic::Operation, bool)) {
         self.arithmetic_ops.push(op);
     }
 

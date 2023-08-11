@@ -8,17 +8,14 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 26] = [
-    COL_MAP.op.add,
+const NATIVE_INSTRUCTIONS: [usize; 23] = [
+    COL_MAP.op.binary_op,
     COL_MAP.op.mul,
-    COL_MAP.op.sub,
     COL_MAP.op.div,
     COL_MAP.op.mod_,
     COL_MAP.op.addmod,
     COL_MAP.op.mulmod,
     COL_MAP.op.fp254_op,
-    COL_MAP.op.lt,
-    COL_MAP.op.gt,
     COL_MAP.op.eq_iszero,
     COL_MAP.op.logic_op,
     COL_MAP.op.not,

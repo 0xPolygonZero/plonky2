@@ -28,15 +28,12 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
 fn cpu_arith_data_link<F: Field>(
-    ops: &[usize],
     combined_ops: Vec<(usize, F)>,
     regs: &[Range<usize>],
 ) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let mut res = Column::singles(ops).collect_vec();
-
-    res.push(Column::linear_combination(combined_ops.into_iter()));
+    let mut res = vec![Column::linear_combination(combined_ops.into_iter())];
 
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
@@ -55,25 +52,27 @@ fn cpu_arith_data_link<F: Field>(
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 11] = [
-        columns::IS_ADD,
-        columns::IS_SUB,
-        columns::IS_MUL,
-        columns::IS_LT,
-        columns::IS_GT,
-        columns::IS_ADDMOD,
-        columns::IS_MULMOD,
-        columns::IS_SUBMOD,
-        columns::IS_DIV,
-        columns::IS_MOD,
-        columns::IS_BYTE,
-    ];
-
-    // Pair the FP254 related operations with their (custom) opcode value.
-    let fp254_arith_ops = vec![
+    // We scale each filter flag with the associated opcode value.
+    // If an arithmetic operation is happening on the CPU side,
+    // the CTL will enforce that the reconstructed opcode value
+    // from the opcode bits matches.
+    let combined_ops = vec![
+        (columns::IS_ADD, F::from_canonical_u8(0x01)),
+        (columns::IS_MUL, F::from_canonical_u8(0x02)),
+        (columns::IS_SUB, F::from_canonical_u8(0x03)),
+        (columns::IS_DIV, F::from_canonical_u8(0x04)),
+        (columns::IS_MOD, F::from_canonical_u8(0x06)),
+        (columns::IS_ADDMOD, F::from_canonical_u8(0x08)),
+        (columns::IS_MULMOD, F::from_canonical_u8(0x09)),
         (columns::IS_ADDFP254, F::from_canonical_u8(0x0c)),
         (columns::IS_MULFP254, F::from_canonical_u8(0x0d)),
         (columns::IS_SUBFP254, F::from_canonical_u8(0x0e)),
+        (columns::IS_SUBMOD, F::from_canonical_u8(0x0f)),
+        (columns::IS_LT, F::from_canonical_u8(0x10)),
+        (columns::IS_GT, F::from_canonical_u8(0x11)),
+        (columns::IS_BYTE, F::from_canonical_u8(0x1a)),
+        (columns::IS_SHL, F::from_canonical_u8(0x1b)),
+        (columns::IS_SHR, F::from_canonical_u8(0x1c)),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -83,6 +82,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::OUTPUT_REGISTER,
     ];
 
+    let filter_column = Some(Column::sum(combined_ops.iter().map(|(c, _v)| *c)));
+
     // Create the Arithmetic Table whose columns are those of the
     // operations listed in `ops` whose inputs and outputs are given
     // by `regs`, where each element of `regs` is a range of columns
@@ -90,8 +91,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(&ARITH_OPS, fp254_arith_ops, &REGISTER_MAP),
-        Some(Column::sum(ARITH_OPS)),
+        cpu_arith_data_link(combined_ops, &REGISTER_MAP),
+        filter_column,
     )
 }
 
@@ -127,7 +128,10 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(
+        &self,
+        operations: Vec<(Operation, bool)>,
+    ) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -139,7 +143,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         let mut trace_rows = Vec::with_capacity(max_rows);
 
         for op in operations {
-            let (row1, maybe_row2) = op.to_rows();
+            let (row1, maybe_row2) = op.0.to_rows(op.1);
             trace_rows.push(row1);
 
             if let Some(row2) = maybe_row2 {
@@ -254,6 +258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 mod tests {
     use anyhow::Result;
     use ethereum_types::U256;
+    use itertools::Itertools;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};
@@ -335,7 +340,11 @@ mod tests {
         // byte(30, 0xABCD) = 0xAB
         let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
 
-        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte];
+        let ops: Vec<(Operation, bool)> =
+            [add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte]
+                .into_iter()
+                .map(|op| (op, false))
+                .collect_vec();
 
         let pols = stark.generate_trace(ops);
 
@@ -392,10 +401,13 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                Operation::binary(
-                    BinaryOperator::Mul,
-                    U256::from(rng.gen::<[u8; 32]>()),
-                    U256::from(rng.gen::<[u8; 32]>()),
+                (
+                    Operation::binary(
+                        BinaryOperator::Mul,
+                        U256::from(rng.gen::<[u8; 32]>()),
+                        U256::from(rng.gen::<[u8; 32]>()),
+                    ),
+                    false,
                 )
             })
             .collect::<Vec<_>>();
@@ -412,11 +424,14 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                Operation::ternary(
-                    TernaryOperator::MulMod,
-                    U256::from(rng.gen::<[u8; 32]>()),
-                    U256::from(rng.gen::<[u8; 32]>()),
-                    U256::from(rng.gen::<[u8; 32]>()),
+                (
+                    Operation::ternary(
+                        TernaryOperator::MulMod,
+                        U256::from(rng.gen::<[u8; 32]>()),
+                        U256::from(rng.gen::<[u8; 32]>()),
+                        U256::from(rng.gen::<[u8; 32]>()),
+                    ),
+                    false,
                 )
             })
             .collect::<Vec<_>>();

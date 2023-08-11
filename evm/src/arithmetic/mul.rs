@@ -121,7 +121,7 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
-    let is_mul = lv[IS_MUL];
+    let is_mul = lv[IS_MUL] + lv[IS_SHL];
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
@@ -173,7 +173,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_mul = lv[IS_MUL];
+    let is_mul = builder.add_extension(lv[IS_MUL], lv[IS_SHL]);
     let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
     let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
     let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);

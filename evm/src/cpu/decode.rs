@@ -22,11 +22,11 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 26] = [
+const OPCODES: [(u8, usize, bool, usize); 24] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
-    (0x01, 0, false, COL_MAP.op.add),
+    // ADD, SUB, LT and GT flags are handled partly manually here,
+    // and partly through the Arithmetic table CTL.
     (0x02, 0, false, COL_MAP.op.mul),
-    (0x03, 0, false, COL_MAP.op.sub),
     (0x04, 0, false, COL_MAP.op.div),
     (0x06, 0, false, COL_MAP.op.mod_),
     (0x08, 0, false, COL_MAP.op.addmod),
@@ -128,11 +128,10 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(flag * (flag - P::ONES));
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
-    let flag = lv.op.logic_op;
-    yield_constr.constraint(flag * (flag - P::ONES));
-    let flag = lv.op.fp254_op;
-    yield_constr.constraint(flag * (flag - P::ONES));
+    // Manually check the combined flags.
+    for flag in [lv.op.logic_op, lv.op.fp254_op, lv.op.binary_op] {
+        yield_constr.constraint(flag * (flag - P::ONES));
+    }
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
@@ -141,7 +140,8 @@ pub fn eval_packed_generic<P: PackedField>(
         .map(|(_, _, _, flag_col)| lv[flag_col])
         .sum::<P>()
         + lv.op.logic_op
-        + lv.op.fp254_op;
+        + lv.op.fp254_op
+        + lv.op.binary_op;
     yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
@@ -201,19 +201,20 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_sub_extension(flag, flag, flag);
         yield_constr.constraint(builder, constr);
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
-    let flag = lv.op.logic_op;
-    let constr = builder.mul_sub_extension(flag, flag, flag);
-    yield_constr.constraint(builder, constr);
-    let flag = lv.op.fp254_op;
-    let constr = builder.mul_sub_extension(flag, flag, flag);
-    yield_constr.constraint(builder, constr);
+    // Manually check the combined flags.
+    // TODO: This would go away once cycle_filter is replaced by the sum
+    // of all CPU opcode flags.
+    for flag in [lv.op.logic_op, lv.op.fp254_op, lv.op.binary_op] {
+        let constr = builder.mul_sub_extension(flag, flag, flag);
+        yield_constr.constraint(builder, constr);
+    }
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
     {
         let mut flag_sum = lv.op.logic_op;
         flag_sum = builder.add_extension(flag_sum, lv.op.fp254_op);
+        flag_sum = builder.add_extension(flag_sum, lv.op.binary_op);
         for (_, _, _, flag_col) in OPCODES {
             let flag = lv[flag_col];
             flag_sum = builder.add_extension(flag_sum, flag);
