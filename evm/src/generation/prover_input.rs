@@ -148,9 +148,9 @@ impl<F: Field> GenerationState<F> {
             }
             "get" => {
                 // Return `code[i]`.
-                // stack: i, code_length, codehash, ...
-                let i = stack_peek(self, 0).map(u256_to_usize)??;
-                let codehash = stack_peek(self, 2)?;
+                // stack: context, segment, i, i, code_size, codehash, ...
+                let i = stack_peek(self, 2).map(u256_to_usize)??;
+                let codehash = stack_peek(self, 5)?;
                 Ok(self
                     .inputs
                     .contract_code

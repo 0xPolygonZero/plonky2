@@ -6,9 +6,10 @@ use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 pub enum MemoryChannel {
     Code,
     GeneralPurpose(usize),
+    PartialChannel,
 }
 
-use MemoryChannel::{Code, GeneralPurpose};
+use MemoryChannel::{Code, GeneralPurpose, PartialChannel};
 
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::memory::segments::Segment;
@@ -24,6 +25,7 @@ impl MemoryChannel {
                 assert!(n < NUM_GP_CHANNELS);
                 n + 1
             }
+            PartialChannel => NUM_GP_CHANNELS + 1,
         }
     }
 }

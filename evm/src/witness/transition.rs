@@ -134,7 +134,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
             );
             Err(ProgramError::KernelPanic)
         }
-        (0xee, true) => Ok(Operation::Mstore32Bytes),
+        (0xc0..=0xdf, true) => Ok(Operation::Mstore32Bytes(opcode - 0xc0 + 1)),
         (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
         (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
         (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
@@ -184,7 +184,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::GetContext => &mut flags.get_context,
         Operation::SetContext => &mut flags.set_context,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -221,7 +221,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::GetContext => STACK_BEHAVIORS.get_context,
         Operation::SetContext => None,
         Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.mstore_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
@@ -268,7 +268,7 @@ fn perform_op<F: Field>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
-        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
+        Operation::Mstore32Bytes(n) => generate_mstore_32bytes(n, state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,

@@ -30,6 +30,18 @@ pub struct MemoryChannelView<T: Copy> {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// A more lightweight channel, sharing values with the 0-th memory channel
+// (which contains the top of the stack).
+pub struct PartialMemoryChannelView<T: Copy> {
+    pub used: T,
+    pub is_read: T,
+    pub addr_context: T,
+    pub addr_segment: T,
+    pub addr_virtual: T,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
@@ -72,6 +84,7 @@ pub struct CpuColumnsView<T: Copy> {
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+    pub partial_channel: PartialMemoryChannelView<T>,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.

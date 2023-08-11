@@ -117,23 +117,13 @@ global syscall_jumptable:
     JUMPTABLE sys_log2
     JUMPTABLE sys_log3
     JUMPTABLE sys_log4
-    %rep 11
-        JUMPTABLE panic // 0xa5-0xaf are invalid opcodes
+    %rep 27
+        JUMPTABLE panic // 0xa5-0xbf are invalid opcodes
     %endrep
 
-    // 0xb0-0xbf
-    %rep 16
-        JUMPTABLE panic // 0xb0-0xbf are invalid opcodes
-    %endrep
-
-    // 0xc0-0xcf
-    %rep 16
-        JUMPTABLE panic // 0xc0-0xcf are invalid opcodes
-    %endrep
-
-    // 0xd0-0xdf
-    %rep 16
-        JUMPTABLE panic // 0xd0-0xdf are invalid opcodes
+    // 0xc0-0xdf
+    %rep 32
+        JUMPTABLE panic // mstore_32bytes_1-32 are implemented natively
     %endrep
 
     // 0xe0-0xef

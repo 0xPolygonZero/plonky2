@@ -10,12 +10,12 @@ global memset:
     %jumpi(memset_finish)
     // stack: DST, value, count, retdest
     
-    DUP4
-    // stack: value, DST, value, count, retdest
-    DUP4
-    DUP4
-    DUP4
-    // stack: DST, value, DST, value, count, retdest
+    DUP3
+    DUP3
+    DUP3
+    // stack: DST, DST, value, count, retdest
+    DUP7
+    // stack: value, DST, DST, value, count, retdest
     MSTORE_GENERAL
     // stack: DST, value, count, retdest
 

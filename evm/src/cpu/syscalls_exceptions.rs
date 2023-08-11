@@ -80,8 +80,8 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(filter_exception * (channel.addr_virtual - limb_address_exception));
     }
 
-    // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    // Disable unused channels
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
@@ -234,7 +234,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

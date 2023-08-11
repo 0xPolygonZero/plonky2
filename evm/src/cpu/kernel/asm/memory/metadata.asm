@@ -47,7 +47,7 @@
     // stack: value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %stack (parent_ctx, value) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, value)
+        (value, parent_ctx, @SEGMENT_CONTEXT_METADATA, $field)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -56,7 +56,7 @@
     // stack: (empty)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %stack (parent_ctx) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, $value)
+        ($value, parent_ctx, @SEGMENT_CONTEXT_METADATA, $field)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

@@ -4,7 +4,7 @@ pub fn get_push_opcode(n: u8) -> u8 {
     0x5f + n
 }
 
-/// The opcode of a standard instruction (not a `PUSH`).
+/// The opcode of a standard instruction (not a `PUSH` or a `MSTORE_32BYTES`).
 pub fn get_opcode(mnemonic: &str) -> u8 {
     match mnemonic.to_uppercase().as_str() {
         "STOP" => 0x00,
@@ -113,7 +113,38 @@ pub fn get_opcode(mnemonic: &str) -> u8 {
         "LOG3" => 0xa3,
         "LOG4" => 0xa4,
         "PANIC" => 0xa5,
-        "MSTORE_32BYTES" => 0xee,
+        "MSTORE_32BYTES_1" => 0xc0,
+        "MSTORE_32BYTES_2" => 0xc1,
+        "MSTORE_32BYTES_3" => 0xc2,
+        "MSTORE_32BYTES_4" => 0xc3,
+        "MSTORE_32BYTES_5" => 0xc4,
+        "MSTORE_32BYTES_6" => 0xc5,
+        "MSTORE_32BYTES_7" => 0xc6,
+        "MSTORE_32BYTES_8" => 0xc7,
+        "MSTORE_32BYTES_9" => 0xc8,
+        "MSTORE_32BYTES_10" => 0xc9,
+        "MSTORE_32BYTES_11" => 0xca,
+        "MSTORE_32BYTES_12" => 0xcb,
+        "MSTORE_32BYTES_13" => 0xcc,
+        "MSTORE_32BYTES_14" => 0xcd,
+        "MSTORE_32BYTES_15" => 0xce,
+        "MSTORE_32BYTES_16" => 0xcf,
+        "MSTORE_32BYTES_17" => 0xd0,
+        "MSTORE_32BYTES_18" => 0xd1,
+        "MSTORE_32BYTES_19" => 0xd2,
+        "MSTORE_32BYTES_20" => 0xd3,
+        "MSTORE_32BYTES_21" => 0xd4,
+        "MSTORE_32BYTES_22" => 0xd5,
+        "MSTORE_32BYTES_23" => 0xd6,
+        "MSTORE_32BYTES_24" => 0xd7,
+        "MSTORE_32BYTES_25" => 0xd8,
+        "MSTORE_32BYTES_26" => 0xd9,
+        "MSTORE_32BYTES_27" => 0xda,
+        "MSTORE_32BYTES_28" => 0xdb,
+        "MSTORE_32BYTES_29" => 0xdc,
+        "MSTORE_32BYTES_30" => 0xdd,
+        "MSTORE_32BYTES_31" => 0xde,
+        "MSTORE_32BYTES_32" => 0xdf,
         "CREATE" => 0xf0,
         "CALL" => 0xf1,
         "CALLCODE" => 0xf2,

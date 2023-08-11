@@ -45,8 +45,9 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
     final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
-    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
-    final_cpu_row.mem_channels[4].value.reverse();
+
+    // The resulting hash will be written later in mem_channel[0] of the first CPU row, and will be checked
+    // with the CTL.
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
@@ -80,6 +81,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
             + F::from_canonical_usize(i);
         yield_constr.constraint(filter * (channel.addr_virtual - expected_virt));
     }
+    yield_constr.constraint(local_is_bootstrap * local_values.partial_channel.used);
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
     // - all memory channels are disabled
@@ -87,11 +89,12 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     for channel in local_values.mem_channels.iter() {
         yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
     }
+    yield_constr.constraint(delta_is_bootstrap * local_values.partial_channel.used);
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
         .rev()
-        .zip(local_values.mem_channels.last().unwrap().value)
+        .zip(next_values.mem_channels[0].value)
     {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
@@ -139,6 +142,10 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(filter, virt_diff);
         yield_constr.constraint(builder, constraint);
     }
+    {
+        let constr = builder.mul_extension(local_is_bootstrap, local_values.partial_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
     // - all memory channels are disabled
@@ -147,11 +154,16 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(delta_is_bootstrap, channel.used);
         yield_constr.constraint_transition(builder, constraint);
     }
+    {
+        let constr = builder.mul_extension(delta_is_bootstrap, local_values.partial_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
         .rev()
-        .zip(local_values.mem_channels.last().unwrap().value)
+        .zip(next_values.mem_channels[0].value)
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));
         let diff = builder.sub_extension(expected, actual);
