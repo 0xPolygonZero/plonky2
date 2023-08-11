@@ -200,7 +200,7 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_cpu_cycle)
+    Column::sum(COL_MAP.op.iter())
 }
 
 pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {

@@ -114,7 +114,7 @@ fn eval_packed_dup<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.is_cpu_cycle * lv.op.dup;
+    let filter = lv.op.dup;
 
     let in_channel = &lv.mem_channels[0];
     let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
@@ -140,7 +140,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let neg_one = builder.constant_extension(F::NEG_ONE.into());
 
-    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.dup);
+    let filter = lv.op.dup;
 
     let in_channel = &lv.mem_channels[0];
     let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
@@ -166,7 +166,7 @@ fn eval_packed_swap<P: PackedField>(
 ) {
     let n_plus_one = n + P::ONES;
 
-    let filter = lv.is_cpu_cycle * lv.op.swap;
+    let filter = lv.op.swap;
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];
@@ -192,7 +192,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
     let n_plus_one = builder.add_extension(n, one);
 
-    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.swap);
+    let filter = lv.op.swap;
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];
