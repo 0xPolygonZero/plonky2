@@ -23,10 +23,8 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     mul: G_LOW,
     div: G_LOW,
     mod_: G_LOW,
-    addmod: G_MID,
-    mulmod: G_MID,
+    ternary_op: None,
     fp254_op: KERNEL_ONLY_INSTR,
-    submod: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
     not: G_VERYLOW,
@@ -90,6 +88,11 @@ fn eval_packed_accumulate<P: PackedField>(
     let jump_gas_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_HIGH.unwrap() - G_MID.unwrap());
     yield_constr.constraint_transition(lv.op.jumps * (nv.gas - lv.gas - jump_gas_cost));
+
+    // For ternary_ops, as SUBMOD is not a native instruction.
+    let ternary_op_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
+        - lv.opcode_bits[1] * P::Scalar::from_canonical_u32(G_MID.unwrap());
+    yield_constr.constraint_transition(lv.op.ternary_op * (nv.gas - lv.gas - ternary_op_cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -177,6 +180,20 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
 
     let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, jump_gas_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+    yield_constr.constraint_transition(builder, constr);
+
+    // For ternary_ops, as SUBMOD is not a native instruction.
+    let filter = lv.op.ternary_op;
+    let ternary_op_cost = builder.add_const_extension(
+        lv.opcode_bits[1],
+        F::from_canonical_u32(G_MID.unwrap()).neg(),
+    );
+    let ternary_op_cost =
+        builder.add_const_extension(ternary_op_cost, F::from_canonical_u32(G_MID.unwrap()));
+
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
+    let gas_diff = builder.sub_extension(nv_lv_diff, ternary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
 }

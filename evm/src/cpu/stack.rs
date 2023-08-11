@@ -54,10 +54,8 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     mul: BASIC_BINARY_OP,
     div: BASIC_BINARY_OP,
     mod_: BASIC_BINARY_OP,
-    addmod: BASIC_TERNARY_OP,
-    mulmod: BASIC_TERNARY_OP,
+    ternary_op: BASIC_TERNARY_OP,
     fp254_op: BASIC_BINARY_OP,
-    submod: BASIC_TERNARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,

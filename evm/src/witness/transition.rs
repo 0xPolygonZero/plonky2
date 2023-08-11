@@ -173,9 +173,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => &mut flags.submod,
+        Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Pop => &mut flags.pop,
