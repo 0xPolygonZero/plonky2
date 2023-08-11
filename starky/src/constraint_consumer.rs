@@ -90,43 +90,21 @@ impl<P: PackedField> ConstraintConsumer<P> {
         self.constraint(constraint * self.lagrange_basis_last);
     }
 
-    pub fn new_debug_api() -> Self {
+    pub fn new_debug_api(is_first: bool, is_last: bool) -> Self {
+        let convert = |b: bool| P::from(P::Scalar::from_bool(b));
         Self {
-            constraint_accs: vec![P::ZEROS; 1],
-            alphas: vec![P::Scalar::ONE; 1],
-            z_last: P::ONES,
-            lagrange_basis_first: P::ONES,
-            lagrange_basis_last: P::ONES,
+            constraint_accs: vec![P::ZEROS],
+            alphas: vec![P::Scalar::ONE],
+            z_last: convert(!is_last),
+            lagrange_basis_first: convert(is_first),
+            lagrange_basis_last: convert(is_last),
             debug_api: true,
         }
     }
 
-    pub fn debug_api_activate_first_row(&mut self) {
-        assert!(self.debug_api);
-        self.lagrange_basis_first = P::ONES;
-        self.z_last = P::ONES;
-        self.lagrange_basis_last = P::ZEROS;
-    }
-    pub fn debug_api_activate_transition(&mut self) {
-        assert!(self.debug_api);
-        self.lagrange_basis_first = P::ZEROS;
-        self.z_last = P::ONES;
-        self.lagrange_basis_last = P::ZEROS;
-    }
-    pub fn debug_api_activate_last_row(&mut self) {
-        assert!(self.debug_api);
-        self.lagrange_basis_first = P::ZEROS;
-        self.z_last = P::ZEROS;
-        self.lagrange_basis_last = P::ONES;
-    }
-    pub fn debug_api_is_constraint_failed(&self) -> bool {
+    pub fn debug_api_has_constraint_failed(&self) -> bool {
         assert!(self.debug_api);
         !self.constraint_accs.iter().all(|e| e.is_zeros())
-    }
-    pub fn debug_api_reset_failed_constraint(&mut self) {
-        assert!(self.debug_api);
-        self.constraint_accs.clear();
-        self.constraint_accs[0] = P::ZEROS;
     }
 }
 
