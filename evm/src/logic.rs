@@ -52,6 +52,10 @@ pub(crate) mod columns {
 }
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    // We scale each filter flag with the associated opcode value.
+    // If a logic operation is happening on the CPU side, the CTL
+    // will enforce that the reconstructed opcode value from the
+    // opcode bits matches.
     let mut res = vec![Column::linear_combination([
         (columns::IS_AND, F::from_canonical_u8(0x16)),
         (columns::IS_OR, F::from_canonical_u8(0x17)),

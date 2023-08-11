@@ -160,10 +160,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::Eq => &mut flags.eq,
-        Operation::BinaryLogic(logic::Op::And) | Operation::BinaryLogic(logic::Op::Or) => {
-            &mut flags.and_or
-        }
-        Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
+        Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add) => &mut flags.add,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => &mut flags.mul,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.sub,
