@@ -8,6 +8,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
+use crate::cpu::stack::{self, EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR};
 
 fn limbs(x: U256) -> [u32; 8] {
     let mut res = [0; 8];
@@ -57,9 +58,10 @@ pub fn eval_packed<P: PackedField>(
     let input1 = lv.mem_channels[1].value;
     let output = lv.mem_channels[2].value;
 
-    let eq_filter = lv.op.eq;
-    let iszero_filter = lv.op.iszero;
-    let eq_or_iszero_filter = eq_filter + iszero_filter;
+    // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
+    let eq_filter = lv.op.eq_iszero * (P::ONES - lv.opcode_bits[0]);
+    let iszero_filter = lv.op.eq_iszero * lv.opcode_bits[0];
+    let eq_or_iszero_filter = lv.op.eq_iszero;
 
     let equal = output[0];
     let unequal = P::ONES - equal;
@@ -90,6 +92,15 @@ pub fn eval_packed<P: PackedField>(
         .map(|(limb0, limb1, diff_pinv_el)| (limb0 - limb1) * diff_pinv_el)
         .sum();
     yield_constr.constraint(eq_or_iszero_filter * (dot - unequal));
+
+    // Stack constraints.
+    stack::eval_packed_one(lv, eq_filter, EQ_STACK_BEHAVIOR.unwrap(), yield_constr);
+    stack::eval_packed_one(
+        lv,
+        iszero_filter,
+        IS_ZERO_STACK_BEHAVIOR.unwrap(),
+        yield_constr,
+    );
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -105,9 +116,12 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1 = lv.mem_channels[1].value;
     let output = lv.mem_channels[2].value;
 
-    let eq_filter = lv.op.eq;
-    let iszero_filter = lv.op.iszero;
-    let eq_or_iszero_filter = builder.add_extension(eq_filter, iszero_filter);
+    // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
+    let eq_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
+    let eq_filter = builder.sub_extension(lv.op.eq_iszero, eq_filter);
+
+    let iszero_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
+    let eq_or_iszero_filter = lv.op.eq_iszero;
 
     let equal = output[0];
     let unequal = builder.sub_extension(one, equal);
@@ -154,4 +168,20 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(eq_or_iszero_filter, constr);
         yield_constr.constraint(builder, constr);
     }
+
+    // Stack constraints.
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        eq_filter,
+        EQ_STACK_BEHAVIOR.unwrap(),
+        yield_constr,
+    );
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        iszero_filter,
+        IS_ZERO_STACK_BEHAVIOR.unwrap(),
+        yield_constr,
+    );
 }

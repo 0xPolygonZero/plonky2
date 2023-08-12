@@ -22,9 +22,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub submod: T,
     pub lt: T,
     pub gt: T,
-    pub eq: T,       // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub iszero: T,   // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub logic_op: T, // Combines AND, OR and XOR flags.
+    pub eq_iszero: T, // Combines EQ and ISZERO flags.
+    pub logic_op: T,  // Combines AND, OR and XOR flags.
     pub not: T,
     pub byte: T,
     // TODO: combine SHL and SHR into one flag
