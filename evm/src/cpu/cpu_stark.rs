@@ -119,11 +119,7 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(
-        Table::Cpu,
-        columns,
-        Some(Column::sum([COL_MAP.op.shl, COL_MAP.op.shr])),
-    )
+    TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;

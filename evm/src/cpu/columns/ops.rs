@@ -15,9 +15,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub logic_op: T,   // Combines AND, OR and XOR flags.
     pub not: T,
     pub byte: T,
-    // TODO: combine SHL and SHR into one flag
-    pub shl: T,
-    pub shr: T,
+    pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
     pub prover_input: T,
     pub pop: T,

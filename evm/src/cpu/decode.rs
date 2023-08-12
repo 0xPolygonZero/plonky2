@@ -31,8 +31,7 @@ const OPCODES: [(u8, usize, bool, usize); 19] = [
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x19, 0, false, COL_MAP.op.not),
     (0x1a, 0, false, COL_MAP.op.byte),
-    (0x1b, 0, false, COL_MAP.op.shl),
-    (0x1c, 0, false, COL_MAP.op.shr),
+    // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x21, 0, true, COL_MAP.op.keccak_general),
     (0x49, 0, true, COL_MAP.op.prover_input),
     (0x50, 0, false, COL_MAP.op.pop),
@@ -52,11 +51,12 @@ const OPCODES: [(u8, usize, bool, usize); 19] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 4] = [
+const COMBINED_OPCODES: [usize; 5] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
+    COL_MAP.op.shift,
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {

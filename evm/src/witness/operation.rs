@@ -470,6 +470,7 @@ pub(crate) fn generate_iszero<F: Field>(
 fn append_shift<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
+    is_shl: bool,
     input0: U256,
     input1: U256,
     log_in0: MemoryOp,
@@ -497,7 +498,7 @@ fn append_shift<F: Field>(
     } else {
         U256::one() << input0
     };
-    let operator = if row.op.shl.is_one() {
+    let operator = if is_shl {
         BinaryOperator::Mul
     } else {
         BinaryOperator::Div
@@ -524,7 +525,7 @@ pub(crate) fn generate_shl<F: Field>(
     } else {
         input1 << input0
     };
-    append_shift(state, row, input0, input1, log_in0, log_in1, result)
+    append_shift(state, row, true, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_shr<F: Field>(
@@ -539,7 +540,7 @@ pub(crate) fn generate_shr<F: Field>(
     } else {
         input1 >> input0
     };
-    append_shift(state, row, input0, input1, log_in0, log_in1, result)
+    append_shift(state, row, false, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_syscall<F: Field>(
