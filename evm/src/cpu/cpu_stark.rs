@@ -92,13 +92,6 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 4] = [
-        COL_MAP.op.byte,
-        COL_MAP.op.binary_op,
-        COL_MAP.op.ternary_op,
-        COL_MAP.op.fp254_op,
-    ];
-
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
     columns.extend(ctl_data_ternops(false));
@@ -107,7 +100,15 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(Table::Cpu, columns, Some(Column::sum(OPS)))
+    TableWithColumns::new(
+        Table::Cpu,
+        columns,
+        Some(Column::sum([
+            COL_MAP.op.binary_op,
+            COL_MAP.op.fp254_op,
+            COL_MAP.op.ternary_op,
+        ])),
+    )
 }
 
 pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {

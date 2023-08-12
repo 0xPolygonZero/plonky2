@@ -160,18 +160,11 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.binary_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
-        Operation::Shl | Operation::Shr => &mut flags.shift,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
+        Operation::BinaryArithmetic(_) => &mut flags.binary_op,
+        Operation::Shl | Operation::Shr => &mut flags.shift,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,

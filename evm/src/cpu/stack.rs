@@ -56,7 +56,6 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
-    byte: BASIC_BINARY_OP,
     shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,

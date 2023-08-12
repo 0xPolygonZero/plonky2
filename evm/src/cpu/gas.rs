@@ -25,7 +25,6 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
     not: G_VERYLOW,
-    byte: G_VERYLOW,
     shift: G_VERYLOW,
     keccak_general: KERNEL_ONLY_INSTR,
     prover_input: KERNEL_ONLY_INSTR,
@@ -86,7 +85,7 @@ fn eval_packed_accumulate<P: PackedField>(
     yield_constr.constraint_transition(lv.op.jumps * (nv.gas - lv.gas - jump_gas_cost));
 
     // For binary_ops.
-    // MUL, DIV and MOD are differentiated by their first and fifth bits set to 0.
+    // MUL, DIV and MOD are differentiated from ADD, SUB, LT, GT and BYTE by their first and fifth bits set to 0.
     let cost_filter = lv.opcode_bits[0] + lv.opcode_bits[4] - lv.opcode_bits[0] * lv.opcode_bits[4];
     let binary_op_cost = P::Scalar::from_canonical_u32(G_LOW.unwrap())
         + cost_filter
@@ -190,11 +189,13 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint_transition(builder, constr);
 
     // For binary_ops.
-    // MUL, DIV and MOD are differentiated by their first and fifth bits set to 0.
+    // MUL, DIV and MOD are differentiated from ADD, SUB, LT, GT and BYTE by their first and fifth bits set to 0.
     let filter = lv.op.binary_op;
-    let cost_filter =
-        builder.mul_sub_extension(lv.opcode_bits[0], lv.opcode_bits[4], lv.opcode_bits[0]);
-    let cost_filter = builder.sub_extension(cost_filter, lv.opcode_bits[4]);
+    let cost_filter = {
+        let a = builder.add_extension(lv.opcode_bits[0], lv.opcode_bits[4]);
+        let b = builder.mul_extension(lv.opcode_bits[0], lv.opcode_bits[4]);
+        builder.sub_extension(a, b)
+    };
     let binary_op_cost = builder.mul_const_extension(
         F::from_canonical_u32(G_VERYLOW.unwrap()) - F::from_canonical_u32(G_LOW.unwrap()),
         cost_filter,
