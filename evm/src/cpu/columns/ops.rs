@@ -7,11 +7,8 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T: Copy> {
-    // TODO: combine ADD, MUL, SUB, DIV, MOD, FP254_OP, LT, and GT into one flag
-    pub binary_op: T, // Combines ADD, SUB, LT and GT flags.
-    pub mul: T,
-    pub div: T,
-    pub mod_: T,
+    // TODO: combine BINARY_OP and FP254_OP into one flag
+    pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT and GT flags.
     pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
     pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
     pub eq_iszero: T,  // Combines EQ and ISZERO flags.

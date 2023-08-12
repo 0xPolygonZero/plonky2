@@ -161,12 +161,12 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.binary_op,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => &mut flags.mul,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => &mut flags.div,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
         Operation::Shl => &mut flags.shl,
         Operation::Shr => &mut flags.shr,

@@ -51,9 +51,6 @@ pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
 // address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     binary_op: BASIC_BINARY_OP,
-    mul: BASIC_BINARY_OP,
-    div: BASIC_BINARY_OP,
-    mod_: BASIC_BINARY_OP,
     ternary_op: BASIC_TERNARY_OP,
     fp254_op: BASIC_BINARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.

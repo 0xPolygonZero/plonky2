@@ -19,11 +19,8 @@ const G_MID: Option<u32> = Some(8);
 const G_HIGH: Option<u32> = Some(10);
 
 const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
-    binary_op: G_VERYLOW,
-    mul: G_LOW,
-    div: G_LOW,
-    mod_: G_LOW,
-    ternary_op: None,
+    binary_op: None,  // This is handled manually below
+    ternary_op: None, // This is handled manually below
     fp254_op: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
@@ -89,7 +86,17 @@ fn eval_packed_accumulate<P: PackedField>(
         + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_HIGH.unwrap() - G_MID.unwrap());
     yield_constr.constraint_transition(lv.op.jumps * (nv.gas - lv.gas - jump_gas_cost));
 
-    // For ternary_ops, as SUBMOD is not a native instruction.
+    // For binary_ops.
+    // MUL, DIV and MOD are differentiated by their first and fifth bits set to 0.
+    let cost_filter = lv.opcode_bits[0] + lv.opcode_bits[4] - lv.opcode_bits[0] * lv.opcode_bits[4];
+    let binary_op_cost = P::Scalar::from_canonical_u32(G_LOW.unwrap())
+        + cost_filter
+            * (P::Scalar::from_canonical_u32(G_VERYLOW.unwrap())
+                - P::Scalar::from_canonical_u32(G_LOW.unwrap()));
+    yield_constr.constraint_transition(lv.op.binary_op * (nv.gas - lv.gas - binary_op_cost));
+
+    // For ternary_ops.
+    // SUBMOD is differentiated by its second bit set to 1.
     let ternary_op_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         - lv.opcode_bits[1] * P::Scalar::from_canonical_u32(G_MID.unwrap());
     yield_constr.constraint_transition(lv.op.ternary_op * (nv.gas - lv.gas - ternary_op_cost));
@@ -183,11 +190,30 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
 
-    // For ternary_ops, as SUBMOD is not a native instruction.
+    // For binary_ops.
+    // MUL, DIV and MOD are differentiated by their first and fifth bits set to 0.
+    let filter = lv.op.binary_op;
+    let cost_filter =
+        builder.mul_sub_extension(lv.opcode_bits[0], lv.opcode_bits[4], lv.opcode_bits[0]);
+    let cost_filter = builder.sub_extension(cost_filter, lv.opcode_bits[4]);
+    let binary_op_cost = builder.mul_const_extension(
+        F::from_canonical_u32(G_VERYLOW.unwrap()) - F::from_canonical_u32(G_LOW.unwrap()),
+        cost_filter,
+    );
+    let binary_op_cost =
+        builder.add_const_extension(binary_op_cost, F::from_canonical_u32(G_LOW.unwrap()));
+
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
+    let gas_diff = builder.sub_extension(nv_lv_diff, binary_op_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+    yield_constr.constraint_transition(builder, constr);
+
+    // For ternary_ops.
+    // SUBMOD is differentiated by its second bit set to 1.
     let filter = lv.op.ternary_op;
-    let ternary_op_cost = builder.add_const_extension(
-        lv.opcode_bits[1],
+    let ternary_op_cost = builder.mul_const_extension(
         F::from_canonical_u32(G_MID.unwrap()).neg(),
+        lv.opcode_bits[1],
     );
     let ternary_op_cost =
         builder.add_const_extension(ternary_op_cost, F::from_canonical_u32(G_MID.unwrap()));

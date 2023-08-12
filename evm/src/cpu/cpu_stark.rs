@@ -92,10 +92,7 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 7] = [
-        COL_MAP.op.mul,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
+    const OPS: [usize; 4] = [
         COL_MAP.op.byte,
         COL_MAP.op.binary_op,
         COL_MAP.op.ternary_op,
