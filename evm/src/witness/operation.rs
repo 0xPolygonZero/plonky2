@@ -45,7 +45,8 @@ pub(crate) enum Operation {
     Push(u8),
     Dup(u8),
     Swap(u8),
-    ContextOp(bool),
+    GetContext,
+    SetContext,
     ExitKernel,
     MloadGeneral,
     MstoreGeneral,
@@ -290,19 +291,6 @@ pub(crate) fn generate_jumpdest<F: Field>(
 ) -> Result<(), ProgramError> {
     state.traces.push_cpu(row);
     Ok(())
-}
-
-pub(crate) fn generate_context_op<F: Field>(
-    is_set: bool,
-    state: &mut GenerationState<F>,
-    row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
-    // SET_CONTEXT uses mem_channels[0..=2]
-    if is_set {
-        generate_set_context(state, row)
-    } else {
-        generate_get_context(state, row)
-    }
 }
 
 pub(crate) fn generate_get_context<F: Field>(
