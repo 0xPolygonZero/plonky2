@@ -25,7 +25,7 @@ use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    let mut outputs = vec![];
+    let mut outputs = Vec::with_capacity(8);
     for i in (0..8).rev() {
         let cur_col = Column::linear_combination(
             cols.updated_state_bytes[i * 4..(i + 1) * 4]
@@ -209,7 +209,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let mut rows = vec![];
+        let base_len: usize = operations
+            .iter()
+            .map(|op| op.input.len() / KECCAK_RATE_BYTES + 1)
+            .sum();
+        let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
         for op in operations {
             rows.extend(self.generate_rows_for_op(op));
         }
@@ -221,7 +225,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     }
 
     fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let mut rows = vec![];
+        let mut rows = Vec::with_capacity(op.input.len() / KECCAK_RATE_BYTES + 1);
 
         let mut sponge_state = [0u32; KECCAK_WIDTH_U32S];
 
@@ -357,14 +361,12 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         let is_final_block = row.is_final_input_len.iter().copied().sum::<F>() == F::ONE;
         if is_final_block {
             for (l, &elt) in row.updated_state_u32s[..8].iter().enumerate() {
-                let mut cur_bytes = vec![F::ZERO; 4];
                 let mut cur_elt = elt;
-                for i in 0..4 {
-                    cur_bytes[i] =
+                (0..4).for_each(|i| {
+                    row.updated_state_bytes[l * 4 + i] =
                         F::from_canonical_u32((cur_elt.to_canonical_u64() & 0xFF) as u32);
                     cur_elt = F::from_canonical_u64(cur_elt.to_canonical_u64() >> 8);
-                    row.updated_state_bytes[l * 4 + i] = cur_bytes[i];
-                }
+                });
 
                 let mut s = row.updated_state_bytes[l * 4].to_canonical_u64();
                 for i in 1..4 {

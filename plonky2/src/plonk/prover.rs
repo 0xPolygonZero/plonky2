@@ -408,7 +408,7 @@ fn wires_permutation_partial_products_and_zs<
         .collect::<Vec<_>>();
 
     let mut z_x = F::ONE;
-    let mut all_partial_products_and_zs = Vec::new();
+    let mut all_partial_products_and_zs = Vec::with_capacity(all_quotient_chunk_products.len());
     for quotient_chunk_products in all_quotient_chunk_products {
         let mut partial_products_and_z_gx =
             partial_products_and_z_gx(z_x, &quotient_chunk_products);
