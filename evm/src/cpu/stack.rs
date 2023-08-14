@@ -15,22 +15,20 @@ use crate::memory::segments::Segment;
 struct StackBehavior {
     num_pops: usize,
     pushes: bool,
+    new_top_stack_channel: Option<usize>,
     disable_other_channels: bool,
 }
 
-const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
-    num_pops: 1,
-    pushes: true,
-    disable_other_channels: true,
-});
 const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
+    new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
 const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 3,
     pushes: true,
+    new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
 
@@ -53,55 +51,79 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     submod: BASIC_TERNARY_OP,
     lt: BASIC_BINARY_OP,
     gt: BASIC_BINARY_OP,
-    eq: BASIC_BINARY_OP,
-    iszero: BASIC_UNARY_OP,
+    eq: Some(StackBehavior {
+        num_pops: 2,
+        pushes: true,
+        new_top_stack_channel: Some(2),
+        disable_other_channels: true,
+    }),
+    iszero: Some(StackBehavior {
+        num_pops: 1,
+        pushes: true,
+        new_top_stack_channel: Some(2),
+        disable_other_channels: true,
+    }),
     logic_op: BASIC_BINARY_OP,
-    not: BASIC_UNARY_OP,
+    not: Some(StackBehavior {
+        num_pops: 1,
+        pushes: true,
+        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
+        disable_other_channels: true,
+    }),
     byte: BASIC_BINARY_OP,
     shl: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
+        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: false,
     }),
     shr: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
+        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: false,
     }),
     keccak_general: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
+        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: true,
     }),
     prover_input: None, // TODO
     pop: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
+        new_top_stack_channel: Some(0),
         disable_other_channels: true,
     }),
     jump: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
+        new_top_stack_channel: Some(0),
         disable_other_channels: false,
     }),
     jumpi: Some(StackBehavior {
         num_pops: 2,
         pushes: false,
+        new_top_stack_channel: Some(1),
         disable_other_channels: false,
     }),
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     jumpdest: Some(StackBehavior {
         num_pops: 0,
         pushes: false,
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     push0: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     push: None, // TODO
@@ -110,32 +132,38 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     get_context: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
+        new_top_stack_channel: Some(0),
         disable_other_channels: true,
     }),
     mload_general: Some(StackBehavior {
         num_pops: 3,
         pushes: true,
+        new_top_stack_channel: Some(2),
         disable_other_channels: false,
     }),
     mstore_general: Some(StackBehavior {
         num_pops: 4,
         pushes: false,
+        new_top_stack_channel: Some(3),
         disable_other_channels: false,
     }),
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     exception: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
 };
@@ -146,8 +174,8 @@ fn eval_packed_one<P: PackedField>(
     stack_behavior: StackBehavior,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    // If you have pops.
     if stack_behavior.num_pops > 0 {
-        // Pops
         for i in 1..stack_behavior.num_pops {
             let channel = lv.mem_channels[i - 1];
 

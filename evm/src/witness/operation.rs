@@ -61,7 +61,7 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = logic::Operation::new(op, in0, in1);
 
-    push_no_write(state, operation.result);
+    push_no_write(state, &mut row, operation.result, Some(NUM_GP_CHANNELS - 1));
 
     state.traces.push_logic(operation);
     state.traces.push_memory(log_in1);
@@ -90,7 +90,13 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         }
     }
 
-    push_no_write(state, operation.result());
+    push_no_write(
+        state,
+        &mut row,
+        operation.result(),
+        Some(NUM_GP_CHANNELS - 1),
+    );
+
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
@@ -106,7 +112,12 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
     let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
 
-    push_no_write(state, operation.result());
+    push_no_write(
+        state,
+        &mut row,
+        operation.result(),
+        Some(NUM_GP_CHANNELS - 1),
+    );
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in1);
@@ -138,7 +149,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    push_no_write(state, hash.into_uint());
+    push_no_write(state, &mut row, hash.into_uint(), Some(NUM_GP_CHANNELS - 1));
 
     keccak_sponge_log(state, base_address, input);
 
@@ -174,11 +185,10 @@ pub(crate) fn generate_pop<F: Field>(
         Some(val)
     };
 
-    state.traces.push_cpu(row);
-
     if let Some(val) = new_stack_top {
-        push_no_write(state, val);
+        push_no_write(state, &mut row, val, None);
     }
+    state.traces.push_cpu(row);
 
     Ok(())
 }
@@ -225,11 +235,10 @@ pub(crate) fn generate_jump<F: Field>(
     row.general.jumps_mut().should_jump = F::ONE;
     row.general.jumps_mut().cond_sum_pinv = F::ONE;
 
-    state.traces.push_cpu(row);
-
     if let Some(val) = new_stack_top {
-        push_no_write(state, val);
+        push_no_write(state, &mut row, val, None);
     }
+    state.traces.push_cpu(row);
 
     state.jump_to(dst as usize);
     Ok(())
@@ -293,11 +302,10 @@ pub(crate) fn generate_jumpi<F: Field>(
     }
 
     state.traces.push_memory(log_cond);
-    state.traces.push_cpu(row);
-
     if let Some(val) = new_stack_top {
-        push_no_write(state, val);
+        push_no_write(state, &mut row, val, None);
     }
+    state.traces.push_cpu(row);
 
     Ok(())
 }
@@ -505,7 +513,7 @@ pub(crate) fn generate_dup<F: Field>(
             stack_top,
         );
 
-        let channel = &mut row.mem_channels[2];
+        let channel = &mut row.mem_channels[1];
         assert_eq!(channel.used, F::ZERO);
         channel.used = F::ONE;
         channel.is_read = F::ONE;
@@ -520,9 +528,9 @@ pub(crate) fn generate_dup<F: Field>(
 
         (stack_top, op)
     } else {
-        mem_read_gp_with_log_and_fill(2, other_addr, state, &mut row)
+        mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row)
     };
-    push_no_write(state, val);
+    push_no_write(state, &mut row, val, None);
 
     state.traces.push_memory(log_read);
     state.traces.push_cpu(row);
@@ -544,7 +552,7 @@ pub(crate) fn generate_swap<F: Field>(
     let [(in0, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let (in1, log_in1) = mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row);
     let log_out0 = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 2, other_addr, state, &mut row, in0);
-    push_no_write(state, in1);
+    push_no_write(state, &mut row, in1, None);
 
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out0);
@@ -558,7 +566,7 @@ pub(crate) fn generate_not<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let result = !x;
-    push_no_write(state, result);
+    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
 
     state.traces.push_cpu(row);
     Ok(())
@@ -577,7 +585,7 @@ pub(crate) fn generate_iszero<F: Field>(
 
     generate_pinv_diff(x, U256::zero(), &mut row);
 
-    push_no_write(state, result);
+    push_no_write(state, &mut row, result, None);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -617,7 +625,7 @@ fn append_shift<F: Field>(
     let operation = arithmetic::Operation::binary(operator, input1, input0);
 
     state.traces.push_arithmetic(operation);
-    push_no_write(state, result);
+    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
     Ok(())
@@ -731,7 +739,7 @@ pub(crate) fn generate_eq<F: Field>(
 
     generate_pinv_diff(in0, in1, &mut row);
 
-    push_no_write(state, result);
+    push_no_write(state, &mut row, result, None);
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
     Ok(())
@@ -771,7 +779,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     state.traces.push_cpu(row);
 
     if let Some(val) = new_stack_top {
-        push_no_write(state, val);
+        push_no_write(state, &mut row, val, Some(0));
     }
 
     Ok(())
@@ -785,12 +793,12 @@ pub(crate) fn generate_mload_general<F: Field>(
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
 
     let (val, log_read) = mem_read_gp_with_log_and_fill(
-        3,
+        2,
         MemoryAddress::new_u256s(context, segment, virt)?,
         state,
         &mut row,
     );
-    push_no_write(state, val);
+    push_no_write(state, &mut row, val, None);
 
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
@@ -847,7 +855,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_cpu(row);
 
     if let Some(next_val) = new_stack_top {
-        push_no_write(state, next_val);
+        push_no_write(state, &mut row, next_val, None);
     }
 
     Ok(())
