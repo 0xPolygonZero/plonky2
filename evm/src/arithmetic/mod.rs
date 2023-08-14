@@ -1,9 +1,9 @@
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
-use self::columns::NUM_CPU_LIMBS;
-use crate::arithmetic::arithmetic_stark::RANGE_MAX;
-use crate::arithmetic::columns::{IS_RANGE_CHECK, NUM_SHARED_COLS, START_SHARED_COLS};
+use self::columns::{INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, OUTPUT_REGISTER};
+use self::utils::u256_to_array;
+use crate::arithmetic::columns::IS_RANGE_CHECK;
 use crate::extension_tower::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
@@ -127,7 +127,10 @@ pub(crate) enum Operation {
         result: U256,
     },
     RangeCheckOperation {
-        values: [u32; NUM_CPU_LIMBS],
+        input0: U256,
+        input1: U256,
+        input2: U256,
+        result: U256,
     },
 }
 
@@ -158,8 +161,13 @@ impl Operation {
         }
     }
 
-    pub(crate) fn range_check(values: [u32; NUM_CPU_LIMBS]) -> Self {
-        Self::RangeCheckOperation { values }
+    pub(crate) fn range_check(input0: U256, input1: U256, input2: U256, result: U256) -> Self {
+        Self::RangeCheckOperation {
+            input0,
+            input1,
+            input2,
+            result,
+        }
     }
 
     pub(crate) fn result(&self) -> U256 {
@@ -191,7 +199,12 @@ impl Operation {
                 input2,
                 result,
             } => ternary_op_to_rows(operator.row_filter(), input0, input1, input2, result),
-            Operation::RangeCheckOperation { values } => range_check_to_rows(&values),
+            Operation::RangeCheckOperation {
+                input0,
+                input1,
+                input2,
+                result,
+            } => range_check_to_rows(input0, input1, input2, result),
         }
     }
 }
@@ -246,16 +259,18 @@ fn binary_op_to_rows<F: PrimeField64>(
     }
 }
 
-fn range_check_to_rows<F: PrimeField64>(values: &[u32; NUM_CPU_LIMBS]) -> (Vec<F>, Option<Vec<F>>) {
-    // Each value is 32 bits long, so we split them into two 16-bit limbs.
-    assert!(2 * values.len() <= NUM_SHARED_COLS);
+fn range_check_to_rows<F: PrimeField64>(
+    input0: U256,
+    input1: U256,
+    input2: U256,
+    result: U256,
+) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
     row[IS_RANGE_CHECK] = F::ONE;
-    for i in 0..values.len() {
-        let low_limb = values[i] % RANGE_MAX as u32;
-        let high_limb = values[i] / RANGE_MAX as u32;
-        row[START_SHARED_COLS + 2 * i] = F::from_canonical_u32(low_limb);
-        row[START_SHARED_COLS + 2 * i + 1] = F::from_canonical_u32(high_limb);
-    }
+    u256_to_array(&mut row[INPUT_REGISTER_0], input0);
+    u256_to_array(&mut row[INPUT_REGISTER_1], input1);
+    u256_to_array(&mut row[INPUT_REGISTER_2], input2);
+    u256_to_array(&mut row[OUTPUT_REGISTER], result);
+
     (row, None)
 }

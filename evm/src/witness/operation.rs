@@ -164,13 +164,8 @@ pub(crate) fn generate_prover_input<F: Field>(
     let input = state.prover_input(input_fn);
     let write = stack_push_log_and_fill(state, &mut row, input)?;
 
-    let input_limbs: [u64; 4] = input.0;
-    let mut values = [0_u32; 8];
-    for (i, limb) in input_limbs.into_iter().enumerate() {
-        values[2 * i] = limb as u32;
-        values[2 * i + 1] = (limb >> 32) as u32;
-    }
-    let range_check_op = arithmetic::Operation::range_check(values);
+    let range_check_op =
+        arithmetic::Operation::range_check(U256::from(0), U256::from(0), U256::from(0), input);
     state.traces.push_arithmetic(range_check_op);
     state.traces.push_memory(write);
     state.traces.push_cpu(row);
@@ -597,16 +592,18 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr.as_usize();
 
+    let gas = U256::from(state.registers.gas_used);
+
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
-        + (U256::from(state.registers.gas_used) << 192);
+        + (gas << 192);
 
-    let mut values = [0_u32; 8];
-    let gas = state.registers.gas_used;
-    values[0] = gas as u32;
-    values[1] = (gas >> 32) as u32;
-
-    let range_check_op = arithmetic::Operation::range_check(values);
+    let range_check_op = arithmetic::Operation::range_check(
+        handler_addr0,
+        handler_addr1,
+        handler_addr2,
+        syscall_info,
+    );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `syscall_info`, which should contain the old values.
@@ -782,14 +779,12 @@ pub(crate) fn generate_exception<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = handler_addr.as_usize();
 
-    let exc_info =
-        U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
+    let gas = U256::from(state.registers.gas_used);
 
-    let mut values = [0_u32; 8];
-    let gas = state.registers.gas_used;
-    values[0] = gas as u32;
-    values[1] = (gas >> 32) as u32;
-    let range_check_op = arithmetic::Operation::range_check(values);
+    let exc_info = U256::from(state.registers.program_counter) + (gas << 192);
+
+    let range_check_op =
+        arithmetic::Operation::range_check(handler_addr0, handler_addr1, handler_addr2, exc_info);
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `exc_info`, which should contain the old values.

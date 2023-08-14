@@ -93,93 +93,12 @@ fn ctl_data_ternops<F: Field>(
     res
 }
 
-fn ctl_data_sys_exc_range_check<F: Field>(ops: &[usize], extra_ops: &[usize]) -> Vec<Column<F>> {
-    // All arithmetic flags are 0 when the operation is either a syscall or an exception
-    let mut res = Column::singles(ops).collect_vec();
-    res.push(Column::sum(extra_ops));
-    res.push(Column::single(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value[6],
-    ));
-    // Since we only need to check one limb, the rest of the columns are 0.
-    res.extend(vec![Column::zero(); VALUE_LIMBS * 4 - 1]);
-    res
-}
-
-fn ctl_data_prover_input_range_check<F: Field>(
-    ops: &[usize],
-    extra_ops: &[usize],
-) -> Vec<Column<F>> {
-    // All arithmetic flags are 0 when the operation is prover_input
-    let mut res = Column::singles(ops).collect_vec();
-    res.push(Column::sum(extra_ops));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
-    // Since we only need to check one `U256`'s limbs, the rest of the columns are set to 0.
-    res.extend(vec![Column::zero(); VALUE_LIMBS * 3]);
-    res
-}
-
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     ctl_data_binops(&[COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
 }
 
 pub fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
-}
-
-pub fn ctl_sys_exc_check_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
-    // Create the CPU Table whose columns are the gas value and the rest of the columns are 0.
-    let filter = Some(Column::sum([COL_MAP.op.syscall, COL_MAP.op.exception]));
-
-    TableWithColumns::new(
-        Table::Cpu,
-        ctl_data_sys_exc_range_check(&OPS, &EXTRA_OPS),
-        filter,
-    )
-}
-
-pub fn ctl_prover_input_check_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
-    // Create the CPU Table whose columns are the gas value and the rest of the columns are 0.
-    let filter = Some(Column::single(COL_MAP.op.prover_input));
-
-    TableWithColumns::new(
-        Table::Cpu,
-        ctl_data_prover_input_range_check(&OPS, &EXTRA_OPS),
-        filter,
-    )
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
@@ -199,6 +118,27 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         COL_MAP.op.mod_,
         COL_MAP.op.byte,
     ];
+
+    const ALL_OPS: [usize; 17] = [
+        COL_MAP.op.add,
+        COL_MAP.op.sub,
+        COL_MAP.op.mul,
+        COL_MAP.op.lt,
+        COL_MAP.op.gt,
+        COL_MAP.op.addfp254,
+        COL_MAP.op.mulfp254,
+        COL_MAP.op.subfp254,
+        COL_MAP.op.addmod,
+        COL_MAP.op.mulmod,
+        COL_MAP.op.submod,
+        COL_MAP.op.div,
+        COL_MAP.op.mod_,
+        COL_MAP.op.byte,
+        COL_MAP.op.syscall,
+        COL_MAP.op.exception,
+        COL_MAP.op.prover_input,
+    ];
+
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
@@ -207,7 +147,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         ctl_data_ternops(&OPS, &EXTRA_OPS, false),
-        Some(Column::sum(OPS)),
+        Some(Column::sum(ALL_OPS)),
     )
 }
 

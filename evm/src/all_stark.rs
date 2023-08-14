@@ -111,8 +111,6 @@ fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
         vec![
             cpu_stark::ctl_arithmetic_base_rows(),
             cpu_stark::ctl_arithmetic_shift_rows(),
-            cpu_stark::ctl_sys_exc_check_rows(),
-            cpu_stark::ctl_prover_input_check_rows(),
         ],
         arithmetic_stark::ctl_arithmetic_rows(),
     )
