@@ -40,8 +40,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     keccak_general: KERNEL_ONLY_INSTR,
     prover_input: KERNEL_ONLY_INSTR,
     pop: G_BASE,
-    jump: G_MID,
-    jumpi: G_HIGH,
+    jumps: None, // Combined flag handled separately.
     pc: G_BASE,
     jumpdest: G_JUMPDEST,
     push0: G_BASE,
@@ -93,6 +92,12 @@ fn eval_packed_accumulate<P: PackedField>(
                 .constraint_transition(lv.is_cpu_cycle * op_flag * (nv.gas - lv.gas - cost));
         }
     }
+
+    // For jumps.
+    let jump_gas_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
+        + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_HIGH.unwrap() - G_MID.unwrap());
+    yield_constr
+        .constraint_transition(lv.is_cpu_cycle * lv.op.jumps * (nv.gas - lv.gas - jump_gas_cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -168,6 +173,20 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
             yield_constr.constraint_transition(builder, constr);
         }
     }
+
+    // For jumps.
+    let filter = builder.mul_extension(lv.is_cpu_cycle, lv.op.jumps);
+    let jump_gas_cost = builder.mul_const_extension(
+        F::from_canonical_u32(G_HIGH.unwrap() - G_MID.unwrap()),
+        lv.opcode_bits[0],
+    );
+    let jump_gas_cost =
+        builder.add_const_extension(jump_gas_cost, F::from_canonical_u32(G_MID.unwrap()));
+
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
+    let gas_diff = builder.sub_extension(nv_lv_diff, jump_gas_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+    yield_constr.constraint_transition(builder, constr);
 }
 
 fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
