@@ -12,7 +12,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 #[derive(Clone, Copy)]
-struct StackBehavior {
+pub(crate) struct StackBehavior {
     num_pops: usize,
     pushes: bool,
     disable_other_channels: bool,
@@ -53,8 +53,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     submod: BASIC_TERNARY_OP,
     lt: BASIC_BINARY_OP,
     gt: BASIC_BINARY_OP,
-    eq: BASIC_BINARY_OP,
-    iszero: BASIC_UNARY_OP,
+    eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
     byte: BASIC_BINARY_OP,
@@ -140,7 +139,10 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     }),
 };
 
-fn eval_packed_one<P: PackedField>(
+pub(crate) const EQ_STACK_BEHAVIOR: Option<StackBehavior> = BASIC_BINARY_OP;
+pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = BASIC_UNARY_OP;
+
+pub(crate) fn eval_packed_one<P: PackedField>(
     lv: &CpuColumnsView<P>,
     filter: P,
     stack_behavior: StackBehavior,
@@ -201,7 +203,7 @@ pub fn eval_packed<P: PackedField>(
     }
 }
 
-fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     filter: ExtensionTarget<D>,
