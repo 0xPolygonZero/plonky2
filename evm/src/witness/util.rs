@@ -90,7 +90,8 @@ pub(crate) fn push_no_write<F: Field>(
     }
 }
 
-/// Pushes and (maybe) writes in memory. This happens in opcodes which only push.
+/// Pushes and (maybe) writes the previous stack top in memory. This happens in opcodes which only push.
+/// Since the last channel is already used to store the value to push, we use the second-to-last channel.
 pub(crate) fn push_with_write<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
@@ -106,10 +107,10 @@ pub(crate) fn push_with_write<F: Field>(
         let address = MemoryAddress::new(
             state.registers.context,
             Segment::Stack,
-            state.registers.stack_len,
+            state.registers.stack_len - 1,
         );
         let res = mem_write_gp_log_and_fill(
-            NUM_GP_CHANNELS - 1,
+            NUM_GP_CHANNELS - 2,
             address,
             state,
             row,

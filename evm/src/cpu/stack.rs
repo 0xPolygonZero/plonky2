@@ -198,65 +198,43 @@ fn eval_packed_one<P: PackedField>(
         // - if the stack isn't empty after the pops, you read the new top from an extra pop.
         // - if not, the extra read is disabled.
         if !stack_behavior.pushes {
-            let channel = lv.mem_channels[stack_behavior.num_pops];
+            // If stack_len != N...
             let new_filter =
                 (lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops)) * filter;
-
-            yield_constr.constraint(
-                (lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops))
-                    * (channel.used - P::ONES),
-            );
+            // Read an extra element.
+            let channel = lv.mem_channels[stack_behavior.num_pops - 1];
             yield_constr.constraint(new_filter * (channel.used - P::ONES));
             yield_constr.constraint(new_filter * (channel.is_read - P::ONES));
-
             yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
             yield_constr.constraint(
                 filter
                     * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
             );
-
             let addr_virtual =
                 lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
             yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
         }
+        // TODO: constrain next stack_top
     }
     // If the op only pushes, you only need to constrain the top of the stack if the stack isn't empty.
-    else if pushes {
+    else if stack_behavior.pushes {
+        // If len > 0...
+        let new_filter = lv.stack_len * filter;
+        // You write the previous top of the stack in memory, in the second-to-last channel.
+        let channel = lv.mem_channels[NUM_GP_CHANNELS - 2];
+        yield_constr.constraint(new_filter * (channel.used - P::ONES));
+        yield_constr.constraint(new_filter * channel.is_read);
+        yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
+        yield_constr.constraint(
+            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        );
+        let addr_virtual = lv.stack_len - P::ONES;
+        yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
+
+        // TODO: constrain next stack_top.
     }
-    // let num_operands = stack_behavior.num_pops + (stack_behavior.pushes as usize);
-    // assert!(num_operands <= NUM_GP_CHANNELS);
 
-    // // Pops
-    // for i in 0..stack_behavior.num_pops {
-    //     let channel = lv.mem_channels[i];
-
-    //     yield_constr.constraint(filter * (channel.used - P::ONES));
-    //     yield_constr.constraint(filter * (channel.is_read - P::ONES));
-
-    //     yield_constr.constraint(filter * (channel.addr_context - lv.context));
-    //     yield_constr.constraint(
-    //         filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-    //     );
-    //     // E.g. if `stack_len == 1` and `i == 0`, we want `add_virtual == 0`.
-    //     let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
-    //     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    // }
-
-    // // Pushes
-    // if stack_behavior.pushes {
-    //     let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
-
-    //     yield_constr.constraint(filter * (channel.used - P::ONES));
-    //     yield_constr.constraint(filter * channel.is_read);
-
-    //     yield_constr.constraint(filter * (channel.addr_context - lv.context));
-    //     yield_constr.constraint(
-    //         filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-    //     );
-    //     let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
-    //     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    // }
-
+    // TODO: constrain unused channels
     // // Unused channels
     // if stack_behavior.disable_other_channels {
     //     for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
