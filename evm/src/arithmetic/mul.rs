@@ -229,6 +229,8 @@ mod tests {
         // if `IS_MUL == 0`, then the constraints should be met even
         // if all values are garbage.
         lv[IS_MUL] = F::ZERO;
+        // Deactivate the SHL flag so that a MUL operation is not triggered.
+        lv[IS_SHL] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
