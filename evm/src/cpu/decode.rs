@@ -60,12 +60,8 @@ const OPCODES: [(u8, usize, bool, usize); 32] = [
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let cycle_filter = lv.is_cpu_cycle;
-    if cycle_filter == F::ZERO {
-        // This column cannot be shared.
-        lv.op.eq_iszero = F::ZERO;
-        return;
-    }
+    let cycle_filter: F = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
+
     // This assert is not _strictly_ necessary, but I include it as a sanity check.
     assert_eq!(cycle_filter, F::ONE, "cycle_filter should be 0 or 1");
 
@@ -122,7 +118,7 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let cycle_filter = lv.is_cpu_cycle;
+    let cycle_filter: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
 
     // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;
@@ -192,7 +188,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let one = builder.one_extension();
 
-    let cycle_filter = lv.is_cpu_cycle;
+    let cycle_filter = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
 
     // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;

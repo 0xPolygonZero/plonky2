@@ -19,7 +19,7 @@ pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.is_cpu_cycle * (lv.op.addfp254 + lv.op.mulfp254 + lv.op.subfp254);
+    let filter = lv.op.addfp254 + lv.op.mulfp254 + lv.op.subfp254;
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[2]` to be our prime (that's
@@ -36,10 +36,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = {
-        let flag_sum = builder.add_many_extension([lv.op.addfp254, lv.op.mulfp254, lv.op.subfp254]);
-        builder.mul_extension(lv.is_cpu_cycle, flag_sum)
-    };
+    let filter = builder.add_many_extension([lv.op.addfp254, lv.op.mulfp254, lv.op.subfp254]);
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[2]` to be our prime (that's

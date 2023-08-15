@@ -4,6 +4,7 @@ use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::columns::COL_MAP;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
@@ -34,7 +35,7 @@ pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 
 /// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
 pub fn generate<F: PrimeField64>(lv: &mut CpuColumnsView<F>) {
-    let cycle_filter = lv.is_cpu_cycle;
+    let cycle_filter: F = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     if cycle_filter != F::ZERO {
         assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);
     }
@@ -48,11 +49,11 @@ pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     // Validate `lv.code_context`. It should be 0 if in kernel mode and `lv.context` if in user
     // mode.
-    yield_constr.constraint(
-        lv.is_cpu_cycle * (lv.code_context - (P::ONES - lv.is_kernel_mode) * lv.context),
-    );
+    yield_constr
+        .constraint(is_cpu_cycle * (lv.code_context - (P::ONES - lv.is_kernel_mode) * lv.context));
 
     // Validate `channel.used`. It should be binary.
     for channel in lv.mem_channels {
@@ -69,7 +70,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // mode.
     let diff = builder.sub_extension(lv.context, lv.code_context);
     let constr = builder.mul_sub_extension(lv.is_kernel_mode, lv.context, diff);
-    let filtered_constr = builder.mul_extension(lv.is_cpu_cycle, constr);
+    let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
+    let filtered_constr = builder.mul_extension(is_cpu_cycle, constr);
     yield_constr.constraint(builder, filtered_constr);
 
     // Validate `channel.used`. It should be binary.

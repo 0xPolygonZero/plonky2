@@ -14,6 +14,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::columns::COL_MAP;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
@@ -27,7 +28,7 @@ pub fn eval_packed<P: PackedField>(
     // 1024 is valid. 1025 means we've gone one over, which is necessary for overflow, as an EVM
     // opcode increases the stack length by at most one.
 
-    let filter = lv.is_cpu_cycle;
+    let filter: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let diff = lv.stack_len - P::Scalar::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
     let lhs = diff * lv.stack_len_bounds_aux;
     let rhs = P::ONES - lv.is_kernel_mode;
@@ -44,7 +45,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // 1024 is valid. 1025 means we've gone one over, which is necessary for overflow, as an EVM
     // opcode increases the stack length by at most one.
 
-    let filter = lv.is_cpu_cycle;
+    let filter = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
 
     let lhs = builder.arithmetic_extension(
         F::ONE,
