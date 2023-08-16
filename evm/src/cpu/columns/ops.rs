@@ -17,8 +17,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub keccak_general: T,
     pub prover_input: T,
     pub pop: T,
-    // TODO: combine JUMP and JUMPI into one flag
-    pub jumps: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub jumps: T, // Combines JUMP and JUMPI flags.
     pub pc: T,
     pub jumpdest: T,
     pub push0: T,
