@@ -420,13 +420,13 @@ pub(crate) fn generate_set_context<F: Field>(
                 channel.value[2 * i] = F::from_canonical_u32(limb as u32);
                 channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
             }
-            state.registers.stack_len = top_to_save.as_usize();
+            state.registers.stack_top = top_to_save;
             state.traces.push_memory(op);
         }
     } else {
         let (new_top, log_read_new_top) =
             mem_read_gp_with_log_and_fill(4, new_top_addr, state, &mut row);
-        state.registers.stack_len = new_top.as_usize();
+        state.registers.stack_top = new_top;
         state.traces.push_memory(log_read_new_top);
     };
 
