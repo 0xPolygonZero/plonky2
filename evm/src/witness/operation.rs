@@ -491,7 +491,7 @@ pub(crate) fn generate_dup<F: Field>(
     let address = MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
-        state.registers.stack_len,
+        state.registers.stack_len - 1,
     );
     let log_push = mem_write_gp_log_and_fill(0, address, state, &mut row, stack_top);
     state.traces.push_memory(log_push);
@@ -499,7 +499,7 @@ pub(crate) fn generate_dup<F: Field>(
     let other_addr = MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
-        state.registers.stack_len - n as usize,
+        state.registers.stack_len - 1 - n as usize,
     );
 
     // If n = 0, we read a value that hasn't been written to memory: the corresponding write
@@ -545,7 +545,7 @@ pub(crate) fn generate_swap<F: Field>(
     let other_addr_lo = state
         .registers
         .stack_len
-        .checked_sub(1 + (n as usize))
+        .checked_sub(2 + (n as usize))
         .ok_or(ProgramError::StackUnderflow)?;
     let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
 

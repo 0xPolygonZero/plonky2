@@ -39,7 +39,7 @@ pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Opti
     Some(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
-        state.registers.stack_len - 1 - (i - 1),
+        state.registers.stack_len - 1 - i,
     )))
 }
 
@@ -234,7 +234,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
             let address = MemoryAddress::new(
                 state.registers.context,
                 Segment::Stack,
-                state.registers.stack_len - 1 - (i - 1),
+                state.registers.stack_len - 1 - i,
             );
 
             mem_read_gp_with_log_and_fill(i - 1, address, state, row)
