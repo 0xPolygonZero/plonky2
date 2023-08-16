@@ -56,6 +56,7 @@ const OPCODES: [(u8, usize, bool, usize); 30] = [
     (0xf6, 0, true, COL_MAP.op.get_context),
     (0xf7, 0, true, COL_MAP.op.set_context),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
+    // MLOAD_GENERAL and MSTORE_GENERAL combined flag, m_op_general, is handled manually here
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -136,7 +137,7 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(flag * (flag - P::ONES));
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
+    // Manually check the logic_op flag combining AND, OR and XOR, as well as the m_op_general flag combining MLOAD_GENERAL and MSTORE_GENERAL.
     let flag = lv.op.logic_op;
     yield_constr.constraint(flag * (flag - P::ONES));
 
@@ -144,7 +145,7 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint(m_op_flag * (m_op_flag - P::ONES));
 
     // Now check that they sum to 0 or 1.
-    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Includes the logic_op flag encompassing AND, OR and XOR opcodes, and the m_op_general flag encompassing MLOAD_GENERAL and MSTORE_GENERAL.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
@@ -224,7 +225,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_sub_extension(flag, flag, flag);
         yield_constr.constraint(builder, constr);
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
+    // Manually check the logic_op flag combining AND, OR and XOR, as well as the m_op_general flag combining MLOAD_GENERAL and MSTORE_GENERAL.
     let flag = lv.op.logic_op;
     let constr = builder.mul_sub_extension(flag, flag, flag);
     yield_constr.constraint(builder, constr);
@@ -234,7 +235,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     // Now check that they sum to 0 or 1.
-    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Includes the logic_op flag encompassing AND, OR and XOR opcodes, and the m_op_general flag encompassing MLOAD_GENERAL and MSTORE_GENERAL.
     {
         let mut flag_sum = lv.op.logic_op;
         flag_sum = builder.add_extension(flag_sum, lv.op.m_op_general);

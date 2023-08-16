@@ -1,14 +1,13 @@
 use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+use crate::cpu::stack;
 
 fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[0];
@@ -42,37 +41,8 @@ fn eval_packed_load<P: PackedField>(
         yield_constr.constraint(filter * channel.used);
     }
 
-    // Stack behavior constraints
-    let num_pops = 3;
-    let num_operands = num_pops + 1;
-    assert!(num_operands <= NUM_GP_CHANNELS);
-
-    // Pops
-    for i in 0..num_pops {
-        let channel = lv.mem_channels[i];
-
-        yield_constr.constraint(filter * (channel.used - P::ONES));
-        yield_constr.constraint(filter * (channel.is_read - P::ONES));
-
-        yield_constr.constraint(filter * (channel.addr_context - lv.context));
-        yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-        );
-        // E.g. if `stack_len == 1` and `i == 0`, we want `add_virtual == 0`.
-        let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
-        yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    }
-
-    // Pushes
-    yield_constr.constraint(filter * (push_channel.used - P::ONES));
-    yield_constr.constraint(filter * push_channel.is_read);
-
-    yield_constr.constraint(filter * (push_channel.addr_context - lv.context));
-    yield_constr.constraint(
-        filter * (push_channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-    );
-    let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(num_pops);
-    yield_constr.constraint(filter * (push_channel.addr_virtual - addr_virtual));
+    // Stack constraints
+    stack::eval_packed_one(lv, filter, stack::MLOAD_GENERAL_OP.unwrap(), yield_constr);
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
@@ -119,90 +89,14 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Stack behavior constraints
-    let num_pops = 3;
-    let num_operands = num_pops + 1;
-    assert!(num_operands <= NUM_GP_CHANNELS);
-
-    // Pops
-    for i in 0..num_pops {
-        let channel = lv.mem_channels[i];
-
-        {
-            let constr = builder.mul_sub_extension(filter, channel.used, filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
-            yield_constr.constraint(builder, constr);
-        }
-
-        {
-            let diff = builder.sub_extension(channel.addr_context, lv.context);
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -F::from_canonical_u64(Segment::Stack as u64),
-                filter,
-                channel.addr_segment,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                F::from_canonical_usize(i + 1),
-                filter,
-                diff,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-    }
-
-    // Pushes
-    let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
-
-    {
-        let constr = builder.mul_sub_extension(filter, channel.used, filter);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let constr = builder.mul_extension(filter, channel.is_read);
-        yield_constr.constraint(builder, constr);
-    }
-
-    {
-        let diff = builder.sub_extension(channel.addr_context, lv.context);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let constr = builder.arithmetic_extension(
-            F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
-            filter,
-            channel.addr_segment,
-            filter,
-        );
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
-        let constr = builder.arithmetic_extension(
-            F::ONE,
-            F::from_canonical_usize(num_pops),
-            filter,
-            diff,
-            filter,
-        );
-        yield_constr.constraint(builder, constr);
-    }
+    // Stack constraints
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        filter,
+        stack::MLOAD_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 fn eval_packed_store<P: PackedField>(
@@ -229,25 +123,8 @@ fn eval_packed_store<P: PackedField>(
         yield_constr.constraint(filter * channel.used);
     }
 
-    // Stack behavior constraints
-    let num_pops = 4;
-    assert!(num_pops <= NUM_GP_CHANNELS);
-
-    // Pops
-    for i in 0..num_pops {
-        let channel = lv.mem_channels[i];
-
-        yield_constr.constraint(filter * (channel.used - P::ONES));
-        yield_constr.constraint(filter * (channel.is_read - P::ONES));
-
-        yield_constr.constraint(filter * (channel.addr_context - lv.context));
-        yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
-        );
-        // E.g. if `stack_len == 1` and `i == 0`, we want `add_virtual == 0`.
-        let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
-        yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
-    }
+    // Stack constraints
+    stack::eval_packed_one(lv, filter, stack::MSTORE_GENERAL_OP.unwrap(), yield_constr);
 }
 
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
@@ -296,50 +173,14 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Stack behavior constraints
-    let num_pops = 4;
-    assert!(num_pops <= NUM_GP_CHANNELS);
-
-    // Pops
-    for i in 0..num_pops {
-        let channel = lv.mem_channels[i];
-
-        {
-            let constr = builder.mul_sub_extension(filter, channel.used, filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
-            yield_constr.constraint(builder, constr);
-        }
-
-        {
-            let diff = builder.sub_extension(channel.addr_context, lv.context);
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -F::from_canonical_u64(Segment::Stack as u64),
-                filter,
-                channel.addr_segment,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                F::from_canonical_usize(i + 1),
-                filter,
-                diff,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-    }
+    // Stack constraints
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        filter,
+        stack::MSTORE_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 pub fn eval_packed<P: PackedField>(
