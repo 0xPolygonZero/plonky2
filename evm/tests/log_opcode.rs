@@ -111,7 +111,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
             logs: vec![log_0],
         };
 
-    // Insert the first receipt into the initial receipt trie.
+    // Insert the first receipt into the initial receipt trie. The initial receipts trie has an initial node with a random nibble.
     let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
     receipts_trie.insert(
         Nibbles::from_str("0x1337").unwrap(),

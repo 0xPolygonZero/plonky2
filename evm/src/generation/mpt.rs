@@ -66,6 +66,33 @@ pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U2
     inputs
 }
 
+pub(crate) fn parse_receipts(rlp: &[u8]) -> Vec<U256> {
+    let payload_info = PayloadInfo::from(rlp).unwrap();
+    let decoded_receipt: LegacyReceiptRlp = rlp::decode(rlp).unwrap();
+    let mut parsed_receipt = Vec::new();
+
+    parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
+    parsed_receipt.push((decoded_receipt.status as u8).into());
+    parsed_receipt.push(decoded_receipt.cum_gas_used);
+    parsed_receipt.extend(decoded_receipt.bloom.iter().map(|byte| U256::from(*byte)));
+    let encoded_logs = rlp::encode_list(&decoded_receipt.logs);
+    let logs_payload_info = PayloadInfo::from(&encoded_logs).unwrap();
+    parsed_receipt.push(logs_payload_info.value_len.into()); // payload_len of all the logs
+    parsed_receipt.push(decoded_receipt.logs.len().into());
+
+    for log in decoded_receipt.logs {
+        let encoded_log = rlp::encode(&log);
+        let log_payload_info = PayloadInfo::from(&encoded_log).unwrap();
+        parsed_receipt.push(log_payload_info.value_len.into()); // payload of one log
+        parsed_receipt.push(U256::from_big_endian(&log.address.to_fixed_bytes()));
+        parsed_receipt.push(log.topics.len().into());
+        parsed_receipt.extend(log.topics.iter().map(|topic| U256::from(topic.as_bytes())));
+        parsed_receipt.push(log.data.len().into());
+        parsed_receipt.extend(log.data.iter().map(|byte| U256::from(*byte)));
+    }
+
+    parsed_receipt
+}
 /// Generate prover inputs for the initial MPT data, in the format expected by `mpt/load.asm`.
 pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut prover_inputs = vec![];
@@ -90,33 +117,11 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
         rlp::decode_list(rlp)
     });
 
-    mpt_prover_inputs(&trie_inputs.receipts_trie, &mut prover_inputs, &|rlp| {
-        let payload_info = PayloadInfo::from(rlp).unwrap();
-        let decoded_receipt: LegacyReceiptRlp = rlp::decode(rlp).unwrap();
-        let mut parsed_receipt = Vec::new();
-
-        parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
-        parsed_receipt.push((decoded_receipt.status as u8).into());
-        parsed_receipt.push(decoded_receipt.cum_gas_used);
-        parsed_receipt.extend(decoded_receipt.bloom.iter().map(|byte| U256::from(*byte)));
-        let encoded_logs = rlp::encode_list(&decoded_receipt.logs);
-        let logs_payload_info = PayloadInfo::from(&encoded_logs).unwrap();
-        parsed_receipt.push(logs_payload_info.value_len.into()); // payload_len of all the logs
-        parsed_receipt.push(decoded_receipt.logs.len().into());
-
-        for log in decoded_receipt.logs {
-            let encoded_log = rlp::encode(&log);
-            let log_payload_info = PayloadInfo::from(&encoded_log).unwrap();
-            parsed_receipt.push(log_payload_info.value_len.into()); // payload of one log
-            parsed_receipt.push(U256::from_big_endian(&log.address.to_fixed_bytes()));
-            parsed_receipt.push(log.topics.len().into());
-            parsed_receipt.extend(log.topics.iter().map(|topic| U256::from(topic.as_bytes())));
-            parsed_receipt.push(log.data.len().into());
-            parsed_receipt.extend(log.data.iter().map(|byte| U256::from(*byte)));
-        }
-
-        parsed_receipt
-    });
+    mpt_prover_inputs(
+        &trie_inputs.receipts_trie,
+        &mut prover_inputs,
+        &parse_receipts,
+    );
 
     // Temporary! The actual number of transactions in the trie cannot be known if the trie
     // contains hash nodes.

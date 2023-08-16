@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -12,7 +13,7 @@ use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::mpt::AccountRlp;
+use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
@@ -124,10 +125,22 @@ fn add11_yml() -> anyhow::Result<()> {
         expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
         expected_state_trie_after
     };
+
+    let receipt_0 = LegacyReceiptRlp {
+        status: true,
+        cum_gas_used: 0xa868u64.into(),
+        bloom: vec![0; 256].into(),
+        logs: vec![],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(
+        Nibbles::from_str("0x80").unwrap(),
+        rlp::encode(&receipt_0).to_vec(),
+    );
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
         transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
-        receipts_root: tries_before.receipts_trie.hash(), // TODO: Fix this when we have receipts trie.
+        receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
