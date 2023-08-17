@@ -15,6 +15,7 @@ use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::memory::VALUE_LIMBS;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
@@ -217,7 +218,8 @@ pub(crate) fn generate_jump<F: Field>(
         &mut row,
     );
 
-    row.mem_channels[1].value[0] = F::ONE;
+    // See `jumps.rs` for the reason.
+    row.mem_channels[NUM_GP_CHANNELS - 2].value[0] = F::ONE;
 
     if state.registers.is_kernel {
         // Don't actually do the read, just set the address, etc.
@@ -257,6 +259,11 @@ pub(crate) fn generate_jumpi<F: Field>(
         state.traces.push_memory(log);
         (Some(val), dst, cond, log_cond)
     };
+
+    // See `jumps.rs` for the reason.
+    for i in 0..VALUE_LIMBS {
+        row.mem_channels[NUM_GP_CHANNELS - 2].value[i] = row.mem_channels[0].value[i];
+    }
 
     let should_jump = !cond.is_zero();
     if should_jump {

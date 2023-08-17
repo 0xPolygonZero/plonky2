@@ -14,7 +14,7 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let input = lv.mem_channels[0].value;
+    let input = lv.stack_top;
     let filter = lv.op.exit_kernel;
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter, kernel mode
@@ -33,7 +33,7 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let input = lv.mem_channels[0].value;
+    let input = lv.stack_top;
     let filter = lv.op.exit_kernel;
 
     // If we are executing `EXIT_KERNEL` then we simply restore the program counter and kernel mode
@@ -66,8 +66,12 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let dst = lv.mem_channels[0].value;
-    let cond = lv.mem_channels[1].value;
+    let dst = lv.stack_top;
+    // Since the channel where the condition is read for `JUMPI` (channel 0) is
+    // potentially used for `JUMP` to read the next top of the stack, we copy the
+    // read value in this unused channel.
+    let cond = lv.mem_channels[NUM_GP_CHANNELS - 2].value;
+    let read_cond = lv.mem_channels[0].value;
     let filter = lv.op.jump + lv.op.jumpi; // `JUMP` or `JUMPI`
     let jumpdest_flag_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
@@ -79,6 +83,11 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         // NB: Technically, they don't have to be 0, as long as the sum
         // `cond[0] + ... + cond[7]` cannot overflow.
         yield_constr.constraint(lv.op.jump * limb);
+    }
+
+    // If `JUMPI`, make sure that the condition matches the one read from memory.
+    for (read_cond_limb, cond_limb) in read_cond.iter().zip(cond.iter()) {
+        yield_constr.constraint(lv.op.jumpi * (*read_cond_limb - *cond_limb));
     }
 
     // Check `should_jump`:
@@ -134,8 +143,12 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let jumps_lv = lv.general.jumps();
-    let dst = lv.mem_channels[0].value;
-    let cond = lv.mem_channels[1].value;
+    let dst = lv.stack_top;
+    // Since the channel where the condition is read for `JUMPI` (channel 0) is
+    // potentially used for `JUMP` to read the next top of the stack, we copy the
+    // read value in this unused channel.
+    let cond = lv.mem_channels[NUM_GP_CHANNELS - 2].value;
+    let read_cond = lv.mem_channels[0].value;
     let filter = builder.add_extension(lv.op.jump, lv.op.jumpi); // `JUMP` or `JUMPI`
     let jumpdest_flag_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
@@ -150,6 +163,13 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
         // NB: Technically, they don't have to be 0, as long as the sum
         // `cond[0] + ... + cond[7]` cannot overflow.
         let constr = builder.mul_extension(lv.op.jump, limb);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // If `JUMPI`, make sure that the condition matches the one read from memory.
+    for (read_cond_limb, cond_limb) in read_cond.iter().zip(cond.iter()) {
+        let diff = builder.sub_extension(*read_cond_limb, *cond_limb);
+        let constr = builder.mul_extension(lv.op.jumpi, diff);
         yield_constr.constraint(builder, constr);
     }
 
