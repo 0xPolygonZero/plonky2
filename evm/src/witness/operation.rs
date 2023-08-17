@@ -470,8 +470,8 @@ pub(crate) fn generate_push<F: Field>(
 }
 
 // This instruction is special. The order of the operations are:
-// - Write `stack_top` at `stack[stack_len]`
-// - Read `val` at `stack[stack_len - n]`
+// - Write `stack_top` at `stack[stack_len - 1]`
+// - Read `val` at `stack[stack_len - 1 - n]`
 // - Update `stack_top` with `val` and add 1 to `stack_len`
 // Since the write must happen before the read, the normal way of assigning
 // GP channels doesn't work and we must handle them manually.
@@ -550,8 +550,8 @@ pub(crate) fn generate_swap<F: Field>(
     let other_addr = MemoryAddress::new(state.registers.context, Segment::Stack, other_addr_lo);
 
     let [(in0, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
-    let (in1, log_in1) = mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row);
-    let log_out0 = mem_write_gp_log_and_fill(NUM_GP_CHANNELS - 2, other_addr, state, &mut row, in0);
+    let (in1, log_in1) = mem_read_gp_with_log_and_fill(0, other_addr, state, &mut row);
+    let log_out0 = mem_write_gp_log_and_fill(1, other_addr, state, &mut row, in0);
     push_no_write(state, &mut row, in1, None);
 
     state.traces.push_memory(log_in1);
