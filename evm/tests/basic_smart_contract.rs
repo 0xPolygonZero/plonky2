@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -13,7 +14,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
-use plonky2_evm::generation::mpt::AccountRlp;
+use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
@@ -102,10 +103,9 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
+    let txdata_gas = 2 * 16;
+    let gas_used = 21_000 + code_gas + txdata_gas;
     let expected_state_trie_after: HashedPartialTrie = {
-        let txdata_gas = 2 * 16;
-        let gas_used = 21_000 + code_gas + txdata_gas;
-
         let beneficiary_account_after = AccountRlp {
             balance: beneficiary_account_before.balance + gas_used * 10,
             ..beneficiary_account_before
@@ -142,10 +142,23 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         }
     }
     .into();
+
+    let receipt_0 = LegacyReceiptRlp {
+        status: true,
+        cum_gas_used: gas_used.into(),
+        bloom: vec![0; 256].into(),
+        logs: vec![],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(
+        Nibbles::from_str("0x80").unwrap(),
+        rlp::encode(&receipt_0).to_vec(),
+    );
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
         transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
-        receipts_root: tries_before.receipts_trie.hash(), // TODO: Fix this when we have receipts trie.
+        receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
