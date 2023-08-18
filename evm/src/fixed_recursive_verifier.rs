@@ -33,6 +33,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
+use crate::get_challenges::observe_public_values_target;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
@@ -453,6 +454,9 @@ where
                 challenger.observe_elements(h);
             }
         }
+
+        observe_public_values_target::<F, C, D>(&mut challenger, &public_values);
+
         let ctl_challenges = get_grand_product_challenge_set_target(
             &mut builder,
             &mut challenger,
