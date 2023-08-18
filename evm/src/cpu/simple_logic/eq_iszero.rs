@@ -28,7 +28,7 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
         .sum();
     let equal = num_unequal_limbs == 0;
 
-    let output = &mut lv.mem_channels[2].value;
+    let output = &mut lv.mem_channels[1].value;
     output[0] = F::from_bool(equal);
     for limb in &mut output[1..] {
         *limb = F::ZERO;
@@ -53,9 +53,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let logic = lv.general.logic();
-    let input0 = lv.mem_channels[0].value;
-    let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let input0 = lv.stack_top;
+    let input1 = lv.mem_channels[0].value;
+    let output = lv.mem_channels[1].value;
 
     let eq_filter = lv.op.eq;
     let iszero_filter = lv.op.iszero;
@@ -101,9 +101,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
 
     let logic = lv.general.logic();
-    let input0 = lv.mem_channels[0].value;
-    let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let input0 = lv.stack_top;
+    let input1 = lv.mem_channels[0].value;
+    let output = lv.mem_channels[1].value;
 
     let eq_filter = lv.op.eq;
     let iszero_filter = lv.op.iszero;

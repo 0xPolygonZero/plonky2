@@ -605,7 +605,7 @@ fn append_shift<F: Field>(
     log_in1: MemoryOp,
     result: U256,
 ) -> Result<(), ProgramError> {
-    const LOOKUP_CHANNEL: usize = 2;
+    const LOOKUP_CHANNEL: usize = 1;
     let lookup_addr = MemoryAddress::new(0, Segment::ShiftTable, input0.low_u32() as usize);
     if input0.bits() <= 32 {
         let (_, read) = mem_read_gp_with_log_and_fill(LOOKUP_CHANNEL, lookup_addr, state, &mut row);

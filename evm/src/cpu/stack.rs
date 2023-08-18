@@ -58,13 +58,13 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     eq: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
-        new_top_stack_channel: Some(2),
+        new_top_stack_channel: Some(1),
         disable_other_channels: true,
     }),
     iszero: Some(StackBehavior {
         num_pops: 1,
         pushes: true,
-        new_top_stack_channel: Some(2),
+        new_top_stack_channel: Some(1),
         disable_other_channels: true,
     }),
     logic_op: BASIC_BINARY_OP,

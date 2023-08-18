@@ -16,7 +16,7 @@ pub fn eval_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // This is simple: just do output = 0xffffffff - input.
-    let input = lv.mem_channels[0].value;
+    let input = lv.stack_top;
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     let filter = lv.op.not;
     for (input_limb, output_limb) in input.into_iter().zip(output) {
@@ -31,7 +31,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let input = lv.mem_channels[0].value;
+    let input = lv.stack_top;
     let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     let filter = lv.op.not;
     for (input_limb, output_limb) in input.into_iter().zip(output) {
