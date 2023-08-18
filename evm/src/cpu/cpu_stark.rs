@@ -24,21 +24,25 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
-    // GP channel 0: stack[-1] = context
-    // GP channel 1: stack[-2] = segment
-    // GP channel 2: stack[-3] = virt
-    // GP channel 3: stack[-4] = len
+    // Stack top: stack[-1] = context
+    // GP channel 0: stack[-2] = segment
+    // GP channel 1: stack[-3] = virt
+    // GP channel 2: stack[-4] = len
     // GP channel 4: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
-    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
-    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
-    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
+    let context = Column::single(COL_MAP.stack_top[0]);
+    let segment = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let virt = Column::single(COL_MAP.mem_channels[1].value[0]);
+    let len = Column::single(COL_MAP.mem_channels[2].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
     let mut cols = vec![context, segment, virt, len, timestamp];
-    cols.extend(COL_MAP.mem_channels[4].value.map(Column::single));
+    cols.extend(
+        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1]
+            .value
+            .map(Column::single),
+    );
     cols
 }
 
@@ -50,8 +54,8 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
     let mut res = Column::singles(ops).collect_vec();
+    res.extend(Column::singles(COL_MAP.stack_top));
     res.extend(Column::singles(COL_MAP.mem_channels[0].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
     res.extend(Column::singles(
         COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
     ));
@@ -60,22 +64,24 @@ fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
 
 /// Create the vector of Columns corresponding to the three inputs and
 /// one output of a ternary operation. By default, ternary operations use
-/// the first three memory channels, and the last one for the result (binary
+/// `stack_top` and the first two memory channels, and the last one for the result (binary
 /// operations do not use the third inputs).
 ///
 /// Shift operations are different, as they are simulated with `MUL` or `DIV`
 /// on the arithmetic side. We first convert the shift into the multiplicand
-/// (in case of `SHL`) or the divisor (in case of `SHR`), making the first memory
-/// channel not directly usable. We overcome this by adding an offset of 1 in
-/// case of shift operations, which will skip the first memory channel and use the
-/// next three as ternary inputs. Because both `MUL` and `DIV` are binary operations,
+/// (in case of `SHL`) or the divisor (in case of `SHR`), making the top of the stack
+///  not directly usable. Because both `MUL` and `DIV` are binary operations,
 /// the last memory channel used for the inputs will be safely ignored.
 fn ctl_data_ternops<F: Field>(ops: &[usize], is_shift: bool) -> Vec<Column<F>> {
     let offset = is_shift as usize;
     let mut res = Column::singles(ops).collect_vec();
+    if is_shift {
+        res.extend(Column::singles(COL_MAP.mem_channels[0].value));
+    } else {
+        res.extend(Column::singles(COL_MAP.stack_top));
+    }
     res.extend(Column::singles(COL_MAP.mem_channels[offset].value));
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[offset + 2].value));
     res.extend(Column::singles(
         COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
     ));
