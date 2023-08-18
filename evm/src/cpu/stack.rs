@@ -37,6 +37,10 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
+// If `new_top_stack_channel` contains a value, then this file will automatically constrain it
+// (for example if an instruction pops and pushes, and you know where the new top of the stack
+// will be). If it is set to `none`, the new top of the stack must be constrained manually by the
+// operation.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     add: BASIC_BINARY_OP,
     mul: BASIC_BINARY_OP,
@@ -220,8 +224,8 @@ fn eval_packed_one<P: PackedField>(
     else if stack_behavior.pushes {
         // If len > 0...
         let new_filter = lv.stack_len * filter;
-        // You write the previous top of the stack in memory, in the second-to-last channel.
-        let channel = lv.mem_channels[NUM_GP_CHANNELS - 2];
+        // You write the previous top of the stack in memory, in the last channel.
+        let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
         yield_constr.constraint(new_filter * (channel.used - P::ONES));
         yield_constr.constraint(new_filter * channel.is_read);
         yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
