@@ -219,6 +219,7 @@ pub(crate) fn generate_jump<F: Field>(
     );
 
     // See `jumps.rs` for the reason.
+    row.mem_channels[NUM_GP_CHANNELS - 2].used = F::ZERO;
     row.mem_channels[NUM_GP_CHANNELS - 2].value[0] = F::ONE;
 
     if state.registers.is_kernel {
@@ -783,11 +784,10 @@ pub(crate) fn generate_exit_kernel<F: Field>(
         is_kernel_mode
     );
 
-    state.traces.push_cpu(row);
-
     if let Some(val) = new_stack_top {
-        push_no_write(state, &mut row, val, Some(0));
+        push_no_write(state, &mut row, val, None);
     }
+    state.traces.push_cpu(row);
 
     Ok(())
 }
@@ -859,11 +859,11 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
-    state.traces.push_cpu(row);
 
     if let Some(next_val) = new_stack_top {
         push_no_write(state, &mut row, next_val, None);
     }
+    state.traces.push_cpu(row);
 
     Ok(())
 }

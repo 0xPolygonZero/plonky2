@@ -192,7 +192,7 @@ fn eval_packed_one<P: PackedField>(
                     * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
             );
             // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
-            let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i);
+            let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
             yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
         }
 
@@ -211,12 +211,14 @@ fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(new_filter * (channel.is_read - P::ONES));
             yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
             yield_constr.constraint(
-                filter
+                new_filter
                     * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
             );
             let addr_virtual =
-                lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+                lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops + 1);
             yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
+
+            // TODO: disable channel if stack_len == N.
         }
         // TODO: constrain next stack_top
     }
@@ -230,7 +232,8 @@ fn eval_packed_one<P: PackedField>(
         yield_constr.constraint(new_filter * channel.is_read);
         yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
         yield_constr.constraint(
-            filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+            new_filter
+                * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
         );
         let addr_virtual = lv.stack_len - P::ONES;
         yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
@@ -238,14 +241,13 @@ fn eval_packed_one<P: PackedField>(
         // TODO: constrain next stack_top.
     }
 
-    // TODO: constrain unused channels
-    // // Unused channels
-    // if stack_behavior.disable_other_channels {
-    //     for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
-    //         let channel = lv.mem_channels[i];
-    //         yield_constr.constraint(filter * channel.used);
-    //     }
-    // }
+    // Unused channels
+    if stack_behavior.disable_other_channels {
+        for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
+            let channel = lv.mem_channels[i];
+            yield_constr.constraint(filter * channel.used);
+        }
+    }
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -266,87 +268,131 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     stack_behavior: StackBehavior,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let num_operands = stack_behavior.num_pops + (stack_behavior.pushes as usize);
-    assert!(num_operands <= NUM_GP_CHANNELS);
+    // let num_operands = stack_behavior.num_pops + (stack_behavior.pushes as usize);
+    // assert!(num_operands <= NUM_GP_CHANNELS);
 
-    // Pops
-    for i in 0..stack_behavior.num_pops {
-        let channel = lv.mem_channels[i];
+    // If you have pops.
+    if stack_behavior.num_pops > 0 {
+        for i in 1..stack_behavior.num_pops {
+            let channel = lv.mem_channels[i - 1];
 
-        {
-            let constr = builder.mul_sub_extension(filter, channel.used, filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
-            yield_constr.constraint(builder, constr);
+            {
+                let constr = builder.mul_sub_extension(filter, channel.used, filter);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let diff = builder.sub_extension(channel.addr_context, lv.context);
+                let constr = builder.mul_extension(filter, diff);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let constr = builder.arithmetic_extension(
+                    F::ONE,
+                    -F::from_canonical_u64(Segment::Stack as u64),
+                    filter,
+                    channel.addr_segment,
+                    filter,
+                );
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
+                let constr = builder.arithmetic_extension(
+                    F::ONE,
+                    F::from_canonical_usize(i + 1),
+                    filter,
+                    diff,
+                    filter,
+                );
+                yield_constr.constraint(builder, constr);
+            }
         }
 
-        {
-            let diff = builder.sub_extension(channel.addr_context, lv.context);
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -F::from_canonical_u64(Segment::Stack as u64),
-                filter,
-                channel.addr_segment,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                F::from_canonical_usize(i + 1),
-                filter,
-                diff,
-                filter,
-            );
-            yield_constr.constraint(builder, constr);
+        // If you also push, you don't need to read the new top of the stack. You can constrain it
+        // directly in the op's constraints.
+        // If you don't:
+        // - if the stack isn't empty after the pops, you read the new top from an extra pop.
+        // - if not, the extra read is disabled.
+        if !stack_behavior.pushes {
+            let target_num_pops =
+                builder.constant_extension(F::from_canonical_usize(stack_behavior.num_pops).into());
+            let len_diff = builder.sub_extension(lv.stack_len, target_num_pops);
+            let new_filter = builder.mul_extension(filter, len_diff);
+            let channel = lv.mem_channels[stack_behavior.num_pops - 1];
+
+            {
+                let constr = builder.mul_sub_extension(new_filter, channel.used, new_filter);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let constr = builder.mul_sub_extension(new_filter, channel.is_read, new_filter);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let diff = builder.sub_extension(channel.addr_context, lv.context);
+                let constr = builder.mul_extension(new_filter, diff);
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let constr = builder.arithmetic_extension(
+                    F::ONE,
+                    -F::from_canonical_u64(Segment::Stack as u64),
+                    new_filter,
+                    channel.addr_segment,
+                    new_filter,
+                );
+                yield_constr.constraint(builder, constr);
+            }
+            {
+                let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
+                let constr = builder.arithmetic_extension(
+                    F::ONE,
+                    F::from_canonical_usize(stack_behavior.num_pops + 1),
+                    new_filter,
+                    diff,
+                    new_filter,
+                );
+                yield_constr.constraint(builder, constr);
+            }
         }
     }
-
-    // Pushes
-    if stack_behavior.pushes {
+    // If the op only pushes, you only need to constrain the top of the stack if the stack isn't empty.
+    else if stack_behavior.pushes {
+        // If len > 0...
+        let new_filter = builder.mul_extension(lv.stack_len, filter);
+        // You write the previous top of the stack in memory, in the last channel.
         let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
-
         {
-            let constr = builder.mul_sub_extension(filter, channel.used, filter);
+            let constr = builder.mul_sub_extension(new_filter, channel.used, new_filter);
             yield_constr.constraint(builder, constr);
         }
         {
-            let constr = builder.mul_extension(filter, channel.is_read);
+            let constr = builder.mul_extension(new_filter, channel.is_read);
             yield_constr.constraint(builder, constr);
         }
 
         {
             let diff = builder.sub_extension(channel.addr_context, lv.context);
-            let constr = builder.mul_extension(filter, diff);
+            let constr = builder.mul_extension(new_filter, diff);
             yield_constr.constraint(builder, constr);
         }
         {
             let constr = builder.arithmetic_extension(
                 F::ONE,
                 -F::from_canonical_u64(Segment::Stack as u64),
-                filter,
+                new_filter,
                 channel.addr_segment,
-                filter,
+                new_filter,
             );
             yield_constr.constraint(builder, constr);
         }
         {
             let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                F::from_canonical_usize(stack_behavior.num_pops),
-                filter,
-                diff,
-                filter,
-            );
+            let constr = builder.arithmetic_extension(F::ONE, F::ONE, new_filter, diff, new_filter);
             yield_constr.constraint(builder, constr);
         }
     }
