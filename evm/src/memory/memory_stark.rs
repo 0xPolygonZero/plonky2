@@ -408,7 +408,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let diff = builder.sub_extension(next_addr_context, addr_context);
             builder.sub_extension(diff, one)
         };
-        let context_range_check = builder.mul_extension(context_first_change, context_diff);
         let segment_diff = {
             let diff = builder.sub_extension(next_addr_segment, addr_segment);
             builder.sub_extension(diff, one)
@@ -423,7 +422,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let timestamp_range_check = builder.mul_extension(address_unchanged, timestamp_diff);
 
         let computed_range_check = {
-            let mut sum = builder.add_extension(context_range_check, segment_range_check);
+            // context_range_check = context_first_change * context_diff
+            let mut sum =
+                builder.mul_add_extension(context_first_change, context_diff, segment_range_check);
             sum = builder.add_extension(sum, virtual_range_check);
             builder.add_extension(sum, timestamp_range_check)
         };
