@@ -101,9 +101,8 @@ pub fn eval_packed<P: PackedField>(
     // Reset gas counter to zero.
     yield_constr.constraint_transition(total_filter * nv.gas);
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    // Push to stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
+    let output = nv.stack_top;
+    // New top of the stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     yield_constr.constraint(filter_syscall * (output[0] - (lv.program_counter + P::ONES)));
     yield_constr.constraint(filter_exception * (output[0] - lv.program_counter));
     // Check the kernel mode, for syscalls only
@@ -269,8 +268,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, constr);
     }
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
+    // New top of the stack.
+    let output = nv.stack_top;
     // Push to stack (syscall): current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     {
         let pc_plus_1 = builder.add_const_extension(lv.program_counter, F::ONE);
