@@ -28,6 +28,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
+use crate::get_challenges::observe_public_values;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
@@ -144,6 +145,8 @@ where
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
+
+    observe_public_values::<F, C, D>(&mut challenger, &public_values);
 
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(

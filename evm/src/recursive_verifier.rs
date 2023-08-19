@@ -116,6 +116,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 challenger.observe_elements(h);
             }
         }
+
+        // TODO: Observe public values if the code isn't deprecated.
+
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, inner_config.num_challenges);
         // Check that the correct CTL challenges are used in every proof.
