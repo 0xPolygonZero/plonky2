@@ -27,37 +27,16 @@ after_mpt_delete_branch:
     // If the updated child is empty, check if we need to normalize the branch node.
     DUP1 %mload_trie_data ISZERO %jumpi(maybe_normalize_branch)
 
-// Make a copy of the branch node and set `branch[first_nibble] = updated_child_ptr`.
+// Set `branch[first_nibble] = updated_child_ptr`.
 update_branch:
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    %get_trie_data_size
-    // stack: updated_branch_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    PUSH @MPT_NODE_BRANCH %append_to_trie_data
-    // stack: updated_branch_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP4                %mload_trie_data %append_to_trie_data // Copy child[0]
-    DUP4 %add_const(1)  %mload_trie_data %append_to_trie_data // ...
-    DUP4 %add_const(2)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(3)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(4)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(5)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(6)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(7)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(8)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(9)  %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(10) %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(11) %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(12) %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(13) %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(14) %mload_trie_data %append_to_trie_data
-    DUP4 %add_const(15) %mload_trie_data %append_to_trie_data // Copy child[15]
-    DUP4 %add_const(16) %mload_trie_data %append_to_trie_data // Copy value_ptr
-    // stack: updated_branch_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    SWAP1
-    // stack: updated_child_ptr, updated_branch_ptr, first_nibble, node_payload_ptr, retdest
-    DUP2 %increment DUP4 ADD
-    // stack: updated_branch_ptr+first_nibble+1, updated_child_ptr, updated_branch_ptr, first_nibble, node_payload_ptr, retdest
+    DUP3 DUP3 ADD
+    // stack: node_payload_ptr+first_nibble, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mstore_trie_data
-    %stack (updated_branch_ptr, first_nibble, node_payload_ptr, retdest) -> (retdest, updated_branch_ptr)
+    %stack (first_nibble, node_payload_ptr, retdest) -> (node_payload_ptr, 1, retdest)
+    SUB 
+    // stack: node_ptr, retdest
+    SWAP1
     JUMP
 
 // The updated child is empty. Count how many non-empty children the branch node has.
@@ -121,31 +100,24 @@ maybe_normalize_branch_branch:
 
 // The only child of the branch node is a leaf/extension node.
 // Transform the branch node into an leaf/extension node of length 1+len(child).
+// For that, return the modified child as the new node.
 maybe_normalize_branch_leafext:
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP1 %mload_trie_data
-    // stack: child_type, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP2 %increment %mload_trie_data
-    // stack: child_len, child_type, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP3 %add_const(2) %mload_trie_data
-    // stack: child_key, child_len, child_type, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    SWAP3 %add_const(3) %mload_trie_data
-    // stack: child_value_ptr, child_len, child_type, child_key, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+    DUP1 %increment %mload_trie_data
+    // stack: child_len, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+    DUP2 %add_const(2) %mload_trie_data
+    // stack: child_key, child_len, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mload_kernel_general(1)
-    %stack (i, child_value_ptr, child_len, child_type, child_key, updated_child_ptr, first_nibble, node_payload_ptr) ->
-        (1, i, child_len, child_key, child_type, child_value_ptr)
+    %stack (i, child_key, child_len, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr) ->
+        (1, i, child_len, child_key, only_child_ptr)
     %merge_nibbles
-    // stack: len, key, child_type, value_ptr, retdest
-    %get_trie_data_size // pointer to the leaf/extension node we're about to create
-    // stack: node_ptr, len, key, child_type, value_ptr, retdest
-    SWAP3
-    // stack: child_type, len, key, node_ptr, value_ptr, retdest
-    %append_to_trie_data // Append type to our node
-    // stack: len, key, node_ptr, value_ptr, retdest
-    %append_to_trie_data // Append len to our node
-    // stack: key, node_ptr, value_ptr, retdest
-    %append_to_trie_data // Append key to our node
-    // stack: node_ptr, value_ptr, retdest
-    SWAP1 %append_to_trie_data // Append value_ptr to our node
+    // stack: len, key, only_child_ptr,retdest
+    DUP3
+    // stack: node_ptr, len, key, only_child_ptr, retdest
+    SWAP1 DUP2
+    // stack: node_ptr, len, node_ptr, key, only_child_ptr, retdest
+    %increment %mstore_trie_data // Change len in the child node
+    // stack: node_ptr, key, only_child_ptr, retdest
+    %add_const(2) %mstore_trie_data // Change key in the child node
     // stack: node_ptr, retdest
     SWAP1 JUMP

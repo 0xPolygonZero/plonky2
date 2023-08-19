@@ -2,7 +2,6 @@
 //
 // Pre stack: node_ptr, num_nibbles, key, value_ptr, retdest
 // Post stack: updated_node_ptr
-// TODO: Optimize this by removing the copy-on-write logic.
 global mpt_insert:
     // stack: node_ptr, num_nibbles, key, value_ptr, retdest
     DUP1 %mload_trie_data
@@ -41,59 +40,40 @@ mpt_insert_empty:
 
 mpt_insert_branch:
     // stack: node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
-    %get_trie_data_size
-    // stack: updated_branch_ptr, node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
-    SWAP1
-    %append_to_trie_data
-    // stack: updated_branch_ptr, node_payload_ptr, num_nibbles, key, value_ptr, retdest
-    SWAP1
-    // stack: node_payload_ptr, updated_branch_ptr, num_nibbles, key, value_ptr, retdest
+    POP
 
-    // Copy the original node's data to our updated node.
-    DUP1                %mload_trie_data %append_to_trie_data // Copy child[0]
-    DUP1 %add_const(1)  %mload_trie_data %append_to_trie_data // ...
-    DUP1 %add_const(2)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(3)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(4)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(5)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(6)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(7)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(8)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(9)  %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(10) %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(11) %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(12) %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(13) %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(14) %mload_trie_data %append_to_trie_data
-    DUP1 %add_const(15) %mload_trie_data %append_to_trie_data // Copy child[15]
-         %add_const(16) %mload_trie_data %append_to_trie_data // Copy value_ptr
+    //stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
 
     // At this point, we branch based on whether the key terminates with this branch node.
-    // stack: updated_branch_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
     DUP2 %jumpi(mpt_insert_branch_nonterminal)
 
     // The key terminates here, so the value will be placed right in our (updated) branch node.
-    // stack: updated_branch_ptr, num_nibbles, key, value_ptr, retdest
+    // stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
     SWAP3
-    // stack: value_ptr, num_nibbles, key, updated_branch_ptr, retdest
-    DUP4 %add_const(17)
-    // stack: updated_branch_value_ptr_ptr, value_ptr, num_nibbles, key, updated_branch_ptr, retdest
+    // stack: value_ptr, num_nibbles, key, node_payload_ptr, retdest
+    DUP4 %add_const(16)
+    // stack: branch_value_ptr_ptr, value_ptr, num_nibbles, key, node_payload_ptr, retdest
     %mstore_trie_data
-    // stack: num_nibbles, key, updated_branch_ptr, retdest
+    // stack: num_nibbles, key, node_payload_ptr, retdest
     %pop2
-    // stack: updated_branch_ptr, retdest
+    // stack: node_payload_ptr, retdest
+    PUSH 1 SWAP1 SUB 
+    // stack: branch_ptr, retdest
     SWAP1
     JUMP
 
 mpt_insert_branch_nonterminal:
     // The key continues, so we split off the first (most significant) nibble,
     // and recursively insert into the child associated with that nibble.
-    // stack: updated_branch_ptr, num_nibbles, key, value_ptr, retdest
-    %stack (updated_branch_ptr, num_nibbles, key) -> (num_nibbles, key, updated_branch_ptr)
+    // stack: node_payload_ptr, num_nibbles, key, value_ptr, retdest
+    %stack (node_payload_ptr, num_nibbles, key) -> (num_nibbles, key, node_payload_ptr)
     %split_first_nibble
-    // stack: first_nibble, num_nibbles, key, updated_branch_ptr, value_ptr, retdest
-    DUP4 %increment ADD
-    // stack: child_ptr_ptr, num_nibbles, key, updated_branch_ptr, value_ptr, retdest
+    // stack: first_nibble, num_nibbles, key, node_payload_ptr, value_ptr, retdest
+    DUP4 ADD
+    // stack: child_ptr_ptr, num_nibbles, key, node_payload_ptr, value_ptr, retdest
+    // Replace node_payload_ptr with branch pointer
+    SWAP3 PUSH 1 SWAP1 SUB SWAP3
     %stack (child_ptr_ptr, num_nibbles, key, updated_branch_ptr, value_ptr)
         -> (child_ptr_ptr, num_nibbles, key, value_ptr,
             mpt_insert_branch_nonterminal_after_recursion,
