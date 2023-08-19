@@ -33,8 +33,8 @@ update_branch:
     DUP3 DUP3 ADD
     // stack: node_payload_ptr+first_nibble, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mstore_trie_data
-    %stack (first_nibble, node_payload_ptr, retdest) -> (node_payload_ptr, retdest)
-    PUSH 1 SWAP1 SUB 
+    %stack (first_nibble, node_payload_ptr, retdest) -> (node_payload_ptr, 1, retdest)
+    SUB 
     // stack: node_ptr, retdest
     SWAP1
     JUMP
