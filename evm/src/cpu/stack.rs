@@ -5,11 +5,13 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::kernel::stack;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
+use crate::memory::VALUE_LIMBS;
 
 #[derive(Clone, Copy)]
 struct StackBehavior {
@@ -38,9 +40,10 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
 // If `new_top_stack_channel` contains a value, then this file will automatically constrain it
-// (for example if an instruction pops and pushes, and you know where the new top of the stack
+// (typically if an instruction pops and pushes, and you know where the new top of the stack
 // will be). If it is set to `none`, the new top of the stack must be constrained manually by the
-// operation.
+// operation. Note that instructions which only pop also have it set to `None`, even if we constrain
+// the next top in this file: their logic is special and depends on stack_len.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     add: BASIC_BINARY_OP,
     mul: BASIC_BINARY_OP,
@@ -97,19 +100,19 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     pop: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
-        new_top_stack_channel: Some(0),
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     jump: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
-        new_top_stack_channel: Some(0),
+        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     jumpi: Some(StackBehavior {
         num_pops: 2,
         pushes: false,
-        new_top_stack_channel: Some(1),
+        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     pc: Some(StackBehavior {
@@ -143,7 +146,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
-        new_top_stack_channel: Some(0),
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     mload_general: Some(StackBehavior {
@@ -155,7 +158,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     mstore_general: Some(StackBehavior {
         num_pops: 4,
         pushes: false,
-        new_top_stack_channel: Some(3),
+        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     syscall: Some(StackBehavior {
@@ -174,6 +177,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
 
 fn eval_packed_one<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     filter: P,
     stack_behavior: StackBehavior,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -196,8 +200,7 @@ fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
         }
 
-        // If you also push, you don't need to read the new top of the stack. You can constrain it
-        // directly in the op's constraints.
+        // If you also push, you don't need to read the new top of the stack.
         // If you don't:
         // - if the stack isn't empty after the pops, you read the new top from an extra pop.
         // - if not, the extra read is disabled.
@@ -217,10 +220,14 @@ fn eval_packed_one<P: PackedField>(
             let addr_virtual =
                 lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops + 1);
             yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
+            // This element is the new top of the stack.
+            // Doesn't apply to the last row!
+            for (limb_ch, limb_top) in channel.value.iter().zip(nv.stack_top.iter()) {
+                yield_constr.constraint_transition(new_filter * (*limb_ch - *limb_top));
+            }
 
             // TODO: disable channel if stack_len == N.
         }
-        // TODO: constrain next stack_top
     }
     // If the op only pushes, you only need to constrain the top of the stack if the stack isn't empty.
     else if stack_behavior.pushes {
@@ -237,8 +244,17 @@ fn eval_packed_one<P: PackedField>(
         );
         let addr_virtual = lv.stack_len - P::ONES;
         yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
+    }
 
-        // TODO: constrain next stack_top.
+    // Maybe constrain next stack_top.
+    if let Some(next_top_ch) = stack_behavior.new_top_stack_channel {
+        for (limb_ch, limb_top) in lv.mem_channels[next_top_ch]
+            .value
+            .iter()
+            .zip(nv.stack_top.iter())
+        {
+            yield_constr.constraint(filter * (*limb_ch - *limb_top));
+        }
     }
 
     // Unused channels
@@ -252,11 +268,12 @@ fn eval_packed_one<P: PackedField>(
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            eval_packed_one(lv, op, stack_behavior, yield_constr);
+            eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }
