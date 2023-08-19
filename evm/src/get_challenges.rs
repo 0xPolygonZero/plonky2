@@ -74,7 +74,10 @@ fn observe_block_metadata<
         block_metadata.block_chain_id.as_u32(),
     ));
     challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_base_fee.as_u32(),
+        block_metadata.block_base_fee.as_u64() as u32,
+    ));
+    challenger.observe_element(F::from_canonical_u32(
+        (block_metadata.block_base_fee.as_u64() >> 32) as u32,
     ));
 }
 
@@ -94,7 +97,7 @@ fn observe_block_metadata_target<
     challenger.observe_element(block_metadata.block_difficulty);
     challenger.observe_element(block_metadata.block_gaslimit);
     challenger.observe_element(block_metadata.block_chain_id);
-    challenger.observe_element(block_metadata.block_base_fee);
+    challenger.observe_elements(&block_metadata.block_base_fee);
 }
 
 pub(crate) fn observe_public_values<

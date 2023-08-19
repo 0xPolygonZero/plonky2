@@ -548,7 +548,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_difficulty = builder.add_virtual_public_input();
     let block_gaslimit = builder.add_virtual_public_input();
     let block_chain_id = builder.add_virtual_public_input();
-    let block_base_fee = builder.add_virtual_public_input();
+    let block_base_fee = builder.add_virtual_public_input_arr();
     BlockMetadataTarget {
         block_beneficiary,
         block_timestamp,
@@ -749,8 +749,13 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
         block_metadata_target.block_chain_id,
         F::from_canonical_u32(block_metadata.block_chain_id.as_u32()),
     );
+    // Basefee fits in 2 limbs
     witness.set_target(
-        block_metadata_target.block_base_fee,
-        F::from_canonical_u32(block_metadata.block_base_fee.as_u32()),
+        block_metadata_target.block_base_fee[0],
+        F::from_canonical_u32(block_metadata.block_base_fee.as_u64() as u32),
+    );
+    witness.set_target(
+        block_metadata_target.block_base_fee[1],
+        F::from_canonical_u32((block_metadata.block_base_fee.as_u64() >> 32) as u32),
     );
 }

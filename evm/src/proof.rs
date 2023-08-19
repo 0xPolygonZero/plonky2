@@ -120,7 +120,7 @@ impl PublicValuesTarget {
         buffer.write_target(block_difficulty)?;
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
-        buffer.write_target(block_base_fee)?;
+        buffer.write_target_vec(&block_base_fee)?;
 
         Ok(())
     }
@@ -145,7 +145,7 @@ impl PublicValuesTarget {
             block_difficulty: buffer.read_target()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
-            block_base_fee: buffer.read_target()?,
+            block_base_fee: buffer.read_target_vec()?.try_into().unwrap(),
         };
 
         Ok(Self {
@@ -264,11 +264,11 @@ pub struct BlockMetadataTarget {
     pub block_difficulty: Target,
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
-    pub block_base_fee: Target,
+    pub block_base_fee: [Target; 2],
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 11;
+    const SIZE: usize = 12;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -277,7 +277,7 @@ impl BlockMetadataTarget {
         let block_difficulty = pis[7];
         let block_gaslimit = pis[8];
         let block_chain_id = pis[9];
-        let block_base_fee = pis[10];
+        let block_base_fee = pis[10..12].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -309,7 +309,9 @@ impl BlockMetadataTarget {
             block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
             block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
             block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
-            block_base_fee: builder.select(condition, bm0.block_base_fee, bm1.block_base_fee),
+            block_base_fee: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
+            }),
         }
     }
 
@@ -326,7 +328,9 @@ impl BlockMetadataTarget {
         builder.connect(bm0.block_difficulty, bm1.block_difficulty);
         builder.connect(bm0.block_gaslimit, bm1.block_gaslimit);
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
-        builder.connect(bm0.block_base_fee, bm1.block_base_fee);
+        for i in 0..2 {
+            builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
+        }
     }
 }
 

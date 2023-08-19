@@ -570,7 +570,7 @@ where
         let mut prod = builder.constant(F::ONE);
 
         // Add metadata writes.
-        let block_fields_without_beneficiary = [
+        let block_fields_without_beneficiary_and_basefee = [
             (
                 GlobalMetadata::BlockTimestamp,
                 public_values.block_metadata.block_timestamp,
@@ -591,16 +591,13 @@ where
                 GlobalMetadata::BlockChainId,
                 public_values.block_metadata.block_chain_id,
             ),
-            (
-                GlobalMetadata::BlockBaseFee,
-                public_values.block_metadata.block_base_fee,
-            ),
         ];
 
         let zero = builder.constant(F::ZERO);
         let one = builder.constant(F::ONE);
         let segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
 
+        // Include the block beneficiary.
         let row = builder.add_virtual_targets(13);
         // is_read
         builder.connect(row[0], zero);
@@ -629,7 +626,7 @@ where
         let combined = challenge.combine_base_circuit(builder, &row);
         prod = builder.mul(prod, combined);
 
-        block_fields_without_beneficiary.map(|(field, target)| {
+        block_fields_without_beneficiary_and_basefee.map(|(field, target)| {
             let row = builder.add_virtual_targets(13);
             // is_read
             builder.connect(row[0], zero);
@@ -650,6 +647,32 @@ where
             let combined = challenge.combine_base_circuit(builder, &row);
             prod = builder.mul(prod, combined);
         });
+
+        // Include the block base fee.
+        let row = builder.add_virtual_targets(13);
+        // is_read
+        builder.connect(row[0], zero);
+        // context
+        builder.connect(row[1], zero);
+        // segment
+        builder.connect(row[2], segment);
+        // virtual
+        let field_target = builder.constant(F::from_canonical_usize(
+            GlobalMetadata::BlockBaseFee as usize,
+        ));
+        builder.connect(row[3], field_target);
+        // values
+        for j in 0..2 {
+            builder.connect(row[4 + j], public_values.block_metadata.block_base_fee[j]);
+        }
+        for j in 2..VALUE_LIMBS {
+            builder.connect(row[4 + j], zero);
+        }
+        // timestamp
+        builder.connect(row[12], one);
+
+        let combined = challenge.combine_base_circuit(builder, &row);
+        prod = builder.mul(prod, combined);
 
         // Add trie roots writes.
         let trie_fields = [
