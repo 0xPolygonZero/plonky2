@@ -30,7 +30,6 @@ use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
@@ -38,19 +37,16 @@ use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
-use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
-use crate::permutation::{
-    get_grand_product_challenge_set_target, GrandProductChallenge, GrandProductChallengeSet,
-};
+use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
     BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values, recursive_stark_circuit,
-    set_block_metadata_target, set_public_value_targets, set_trie_roots_target,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values,
+    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_metadata_target,
+    set_public_value_targets, set_trie_roots_target, PlonkWrapperCircuit, PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 
@@ -498,7 +494,7 @@ where
         // Memory
         let memory_looking_products = (0..stark_config.num_challenges)
             .map(|c| {
-                Self::get_memory_extra_looking_products_circuit(
+                get_memory_extra_looking_products_circuit(
                     &mut builder,
                     &public_values,
                     ctl_challenges.challenges[c],
@@ -559,172 +555,6 @@ where
             public_values,
             cyclic_vk,
         }
-    }
-
-    /// Recursive version of `get_memory_extra_looking_products`.
-    pub(crate) fn get_memory_extra_looking_products_circuit(
-        builder: &mut CircuitBuilder<F, D>,
-        public_values: &PublicValuesTarget,
-        challenge: GrandProductChallenge<Target>,
-    ) -> Target {
-        let mut prod = builder.constant(F::ONE);
-
-        // Add metadata writes.
-        let block_fields_without_beneficiary_and_basefee = [
-            (
-                GlobalMetadata::BlockTimestamp,
-                public_values.block_metadata.block_timestamp,
-            ),
-            (
-                GlobalMetadata::BlockNumber,
-                public_values.block_metadata.block_number,
-            ),
-            (
-                GlobalMetadata::BlockDifficulty,
-                public_values.block_metadata.block_difficulty,
-            ),
-            (
-                GlobalMetadata::BlockGasLimit,
-                public_values.block_metadata.block_gaslimit,
-            ),
-            (
-                GlobalMetadata::BlockChainId,
-                public_values.block_metadata.block_chain_id,
-            ),
-        ];
-
-        let zero = builder.constant(F::ZERO);
-        let one = builder.constant(F::ONE);
-        let segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
-
-        // Include the block beneficiary.
-        let row = builder.add_virtual_targets(13);
-        // is_read
-        builder.connect(row[0], zero);
-        // context
-        builder.connect(row[1], zero);
-        // segment
-        builder.connect(row[2], segment);
-        // virtual
-        let field_target = builder.constant(F::from_canonical_usize(
-            GlobalMetadata::BlockBeneficiary as usize,
-        ));
-        builder.connect(row[3], field_target);
-        // values
-        for j in 0..5 {
-            builder.connect(
-                row[4 + j],
-                public_values.block_metadata.block_beneficiary[j],
-            );
-        }
-        for j in 5..VALUE_LIMBS {
-            builder.connect(row[4 + j], zero);
-        }
-        // timestamp
-        builder.connect(row[12], one);
-
-        let combined = challenge.combine_base_circuit(builder, &row);
-        prod = builder.mul(prod, combined);
-
-        block_fields_without_beneficiary_and_basefee.map(|(field, target)| {
-            let row = builder.add_virtual_targets(13);
-            // is_read
-            builder.connect(row[0], zero);
-            // context
-            builder.connect(row[1], zero);
-            // segment
-            builder.connect(row[2], segment);
-            // virtual
-            let field_target = builder.constant(F::from_canonical_usize(field as usize));
-            builder.connect(row[3], field_target);
-            // These values only have one cell.
-            builder.connect(row[4], target);
-            for j in 1..VALUE_LIMBS {
-                builder.connect(row[4 + j], zero);
-            }
-            // timestamp
-            builder.connect(row[12], one);
-            let combined = challenge.combine_base_circuit(builder, &row);
-            prod = builder.mul(prod, combined);
-        });
-
-        // Include the block base fee.
-        let row = builder.add_virtual_targets(13);
-        // is_read
-        builder.connect(row[0], zero);
-        // context
-        builder.connect(row[1], zero);
-        // segment
-        builder.connect(row[2], segment);
-        // virtual
-        let field_target = builder.constant(F::from_canonical_usize(
-            GlobalMetadata::BlockBaseFee as usize,
-        ));
-        builder.connect(row[3], field_target);
-        // values
-        for j in 0..2 {
-            builder.connect(row[4 + j], public_values.block_metadata.block_base_fee[j]);
-        }
-        for j in 2..VALUE_LIMBS {
-            builder.connect(row[4 + j], zero);
-        }
-        // timestamp
-        builder.connect(row[12], one);
-
-        let combined = challenge.combine_base_circuit(builder, &row);
-        prod = builder.mul(prod, combined);
-
-        // Add trie roots writes.
-        let trie_fields = [
-            (
-                GlobalMetadata::StateTrieRootDigestBefore,
-                public_values.trie_roots_before.state_root,
-            ),
-            (
-                GlobalMetadata::TransactionTrieRootDigestBefore,
-                public_values.trie_roots_before.transactions_root,
-            ),
-            (
-                GlobalMetadata::ReceiptTrieRootDigestBefore,
-                public_values.trie_roots_before.receipts_root,
-            ),
-            (
-                GlobalMetadata::StateTrieRootDigestAfter,
-                public_values.trie_roots_after.state_root,
-            ),
-            (
-                GlobalMetadata::TransactionTrieRootDigestAfter,
-                public_values.trie_roots_after.transactions_root,
-            ),
-            (
-                GlobalMetadata::ReceiptTrieRootDigestAfter,
-                public_values.trie_roots_after.receipts_root,
-            ),
-        ];
-
-        trie_fields.map(|(field, targets)| {
-            let row = builder.add_virtual_targets(13);
-            // is_read
-            builder.connect(row[0], zero);
-            // context
-            builder.connect(row[1], zero);
-            // segment
-            builder.connect(row[2], segment);
-            // virtual
-            let field_target = builder.constant(F::from_canonical_usize(field as usize));
-            builder.connect(row[3], field_target);
-            // values
-            for j in 0..VALUE_LIMBS {
-                builder.connect(row[4 + j], targets[j]);
-            }
-            // timestamp
-            builder.connect(row[12], one);
-
-            let combined = challenge.combine_base_circuit(builder, &row);
-            prod = builder.mul(prod, combined);
-        });
-
-        prod
     }
 
     fn create_aggregation_circuit(
