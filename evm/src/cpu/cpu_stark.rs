@@ -281,7 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }

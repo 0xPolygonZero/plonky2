@@ -279,6 +279,7 @@ pub fn eval_packed<P: PackedField>(
 fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     filter: ExtensionTarget<D>,
     stack_behavior: StackBehavior,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -327,16 +328,17 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
             }
         }
 
-        // If you also push, you don't need to read the new top of the stack. You can constrain it
-        // directly in the op's constraints.
+        // If you also push, you don't need to read the new top of the stack.
         // If you don't:
         // - if the stack isn't empty after the pops, you read the new top from an extra pop.
         // - if not, the extra read is disabled.
         if !stack_behavior.pushes {
+            // If stack_len != N...
             let target_num_pops =
                 builder.constant_extension(F::from_canonical_usize(stack_behavior.num_pops).into());
             let len_diff = builder.sub_extension(lv.stack_len, target_num_pops);
             let new_filter = builder.mul_extension(filter, len_diff);
+            // Read an extra element.
             let channel = lv.mem_channels[stack_behavior.num_pops - 1];
 
             {
@@ -372,6 +374,15 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
                     new_filter,
                 );
                 yield_constr.constraint(builder, constr);
+            }
+            // This element is the new top of the stack.
+            // Doesn't apply to the last row!
+            {
+                for (limb_ch, limb_top) in channel.value.iter().zip(nv.stack_top.iter()) {
+                    let diff = builder.sub_extension(*limb_ch, *limb_top);
+                    let constr = builder.mul_extension(new_filter, diff);
+                    yield_constr.constraint_transition(builder, constr);
+                }
             }
         }
     }
@@ -412,6 +423,19 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
         }
     }
 
+    // Maybe constrain next stack_top.
+    if let Some(next_top_ch) = stack_behavior.new_top_stack_channel {
+        for (limb_ch, limb_top) in lv.mem_channels[next_top_ch]
+            .value
+            .iter()
+            .zip(nv.stack_top.iter())
+        {
+            let diff = builder.sub_extension(*limb_ch, *limb_top);
+            let constr = builder.mul_extension(filter, diff);
+            yield_constr.constraint(builder, constr);
+        }
+    }
+
     // Unused channels
     if stack_behavior.disable_other_channels {
         for i in stack_behavior.num_pops..NUM_GP_CHANNELS - (stack_behavior.pushes as usize) {
@@ -425,11 +449,12 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            eval_ext_circuit_one(builder, lv, op, stack_behavior, yield_constr);
+            eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }
