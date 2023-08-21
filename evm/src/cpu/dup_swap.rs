@@ -123,6 +123,8 @@ fn eval_packed_dup<P: PackedField>(
     channel_value_equal_packed(filter, in_channel, &lv.stack_top, yield_constr);
     constrain_channel_packed(false, filter, P::ONES, in_channel, lv, yield_constr);
 
+    // TODO: Warning: Make it a transition constraint? There's a chance this constraint fails
+    // if the last line of the trace is a DUP.
     channel_value_equal_packed(filter, out_channel, &nv.stack_top, yield_constr);
     constrain_channel_packed(true, filter, n + P::ONES, out_channel, lv, yield_constr);
 
