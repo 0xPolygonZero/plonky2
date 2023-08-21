@@ -118,39 +118,33 @@ pub fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let cycle_filter: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
-
     // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;
-    yield_constr.constraint(cycle_filter * kernel_mode * (kernel_mode - P::ONES));
+    yield_constr.constraint(kernel_mode * (kernel_mode - P::ONES));
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1.
     for bit in lv.opcode_bits {
-        yield_constr.constraint(cycle_filter * bit * (bit - P::ONES));
+        yield_constr.constraint(bit * (bit - P::ONES));
     }
 
     // Check that the instruction flags are valid.
     // First, check that they are all either 0 or 1.
     for (_, _, _, flag_col) in OPCODES {
         let flag = lv[flag_col];
-        yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
+        yield_constr.constraint(flag * (flag - P::ONES));
     }
     // Manually check the logic_op flag combining AND, OR and XOR.
-    // TODO: This would go away once cycle_filter is replaced by the sum
-    // of all CPU opcode flags.
     let flag = lv.op.logic_op;
-    yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
+    yield_constr.constraint(flag * (flag - P::ONES));
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
-    // TODO: This would go away once cycle_filter is replaced by the sum
-    // of all CPU opcode flags.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
         .sum::<P>()
         + lv.op.logic_op;
-    yield_constr.constraint(cycle_filter * flag_sum * (flag_sum - P::ONES));
+    yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
     for (oc, block_length, kernel_only, col) in OPCODES {
@@ -176,8 +170,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
         // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
         // correct mode.
-        let constr = lv[col] * (unavailable + opcode_mismatch);
-        yield_constr.constraint(cycle_filter * constr);
+        yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
     }
 }
 
@@ -188,20 +181,18 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let one = builder.one_extension();
 
-    let cycle_filter = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
+    // Note: The constraints below do not need to be restricted to CPU cycles.
 
     // Ensure that the kernel flag is valid (either 0 or 1).
     let kernel_mode = lv.is_kernel_mode;
     {
         let constr = builder.mul_sub_extension(kernel_mode, kernel_mode, kernel_mode);
-        let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
 
     // Ensure that the opcode bits are valid: each has to be either 0 or 1.
     for bit in lv.opcode_bits {
         let constr = builder.mul_sub_extension(bit, bit, bit);
-        let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
 
@@ -210,21 +201,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     for (_, _, _, flag_col) in OPCODES {
         let flag = lv[flag_col];
         let constr = builder.mul_sub_extension(flag, flag, flag);
-        let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
     // Manually check the logic_op flag combining AND, OR and XOR.
-    // TODO: This would go away once cycle_filter is replaced by the sum
-    // of all CPU opcode flags.
     let flag = lv.op.logic_op;
     let constr = builder.mul_sub_extension(flag, flag, flag);
-    let constr = builder.mul_extension(cycle_filter, constr);
     yield_constr.constraint(builder, constr);
 
     // Now check that they sum to 0 or 1.
     // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
-    // TODO: This would go away once cycle_filter is replaced by the sum
-    // of all CPU opcode flags.
     {
         let mut flag_sum = lv.op.logic_op;
         for (_, _, _, flag_col) in OPCODES {
@@ -232,7 +217,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             flag_sum = builder.add_extension(flag_sum, flag);
         }
         let constr = builder.mul_sub_extension(flag_sum, flag_sum, flag_sum);
-        let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
 
@@ -263,7 +247,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         // correct mode.
         let constr = builder.add_extension(unavailable, opcode_mismatch);
         let constr = builder.mul_extension(lv[col], constr);
-        let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
 }

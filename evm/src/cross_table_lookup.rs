@@ -399,7 +399,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
         consumer.constraint_first_row(*local_z - select(local_filter, combine(vars.local_values)));
         // Check `Z(gw) = combination * Z(w)`
         consumer.constraint_transition(
-            *next_z - *local_z * select(next_filter, combine(vars.next_values)),
+            *local_z * select(next_filter, combine(vars.next_values)) - *next_z,
         );
     }
 }
@@ -524,8 +524,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             .collect::<Vec<_>>();
         let combined_next = challenges.combine_circuit(builder, &next_columns_eval);
         let selected_next = select(builder, next_filter, combined_next);
-        let mut transition = builder.mul_extension(*local_z, selected_next);
-        transition = builder.sub_extension(*next_z, transition);
+        let transition = builder.mul_sub_extension(*local_z, selected_next, *next_z);
         consumer.constraint_transition(builder, transition);
     }
 }
