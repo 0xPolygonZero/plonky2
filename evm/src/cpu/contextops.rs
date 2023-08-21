@@ -8,7 +8,6 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 fn eval_packed_get<P: PackedField>(

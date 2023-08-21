@@ -245,6 +245,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     Ok(result)
 }
 
+#[allow(unused)]
 pub(crate) fn stack_push_log_and_fill<F: Field>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,

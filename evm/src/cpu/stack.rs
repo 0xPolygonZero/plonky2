@@ -5,13 +5,11 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use super::kernel::stack;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
 
 #[derive(Clone, Copy)]
 struct StackBehavior {

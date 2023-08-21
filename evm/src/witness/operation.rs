@@ -3,7 +3,7 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
-use super::util::{push_no_write, push_with_write, stack_peek, write_stack_top_registers};
+use super::util::{push_no_write, push_with_write};
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -22,7 +22,7 @@ use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::util::{
     keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
-    stack_pop_with_log_and_fill, stack_push_log_and_fill,
+    stack_pop_with_log_and_fill,
 };
 use crate::{arithmetic, logic};
 

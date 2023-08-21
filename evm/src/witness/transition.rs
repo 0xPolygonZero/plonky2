@@ -2,7 +2,7 @@ use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
 
-use super::util::{stack_peek, write_stack_top_registers};
+use super::util::write_stack_top_registers;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;

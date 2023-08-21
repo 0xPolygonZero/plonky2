@@ -5,7 +5,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
