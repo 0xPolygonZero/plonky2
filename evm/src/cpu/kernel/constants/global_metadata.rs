@@ -47,44 +47,47 @@ pub(crate) enum GlobalMetadata {
     BlockGasUsedBefore = 22,
     /// After current transactions block values.
     BlockGasUsedAfter = 23,
+    /// Current block header hash
+    BlockCurrentHash = 24,
+
     /// Gas to refund at the end of the transaction.
-    RefundCounter = 24,
+    RefundCounter = 25,
     /// Length of the addresses access list.
-    AccessedAddressesLen = 25,
+    AccessedAddressesLen = 26,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = 26,
+    AccessedStorageKeysLen = 27,
     /// Length of the self-destruct list.
-    SelfDestructListLen = 27,
+    SelfDestructListLen = 28,
     /// Length of the bloom entry buffer.
-    BloomEntryLen = 28,
+    BloomEntryLen = 29,
 
     /// Length of the journal.
-    JournalLen = 29,
+    JournalLen = 30,
     /// Length of the `JournalData` segment.
-    JournalDataLen = 30,
+    JournalDataLen = 31,
     /// Current checkpoint.
-    CurrentCheckpoint = 31,
-    TouchedAddressesLen = 32,
+    CurrentCheckpoint = 32,
+    TouchedAddressesLen = 33,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = 33,
+    AccessListDataCost = 34,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = 34,
+    AccessListRlpStart = 35,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = 35,
+    AccessListRlpLen = 36,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = 36,
-    IsPrecompileFromEoa = 37,
-    CallStackDepth = 38,
-    /// Transaction logs list length.
-    LogsLen = 39,
-    LogsDataLen = 40,
-    LogsPayloadLen = 41,
-    TxnNumberBefore = 42,
-    TxnNumberAfter = 43,
+    ContractCreation = 37,
+    IsPrecompileFromEoa = 38,
+    CallStackDepth = 39,
+    /// Transaction logs list length
+    LogsLen = 40,
+    LogsDataLen = 41,
+    LogsPayloadLen = 42,
+    TxnNumberBefore = 43,
+    TxnNumberAfter = 44,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 44;
+    pub(crate) const COUNT: usize = 45;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -130,6 +133,7 @@ impl GlobalMetadata {
             Self::LogsLen,
             Self::LogsDataLen,
             Self::LogsPayloadLen,
+            Self::BlockCurrentHash,
             Self::TxnNumberBefore,
             Self::TxnNumberAfter,
         ]
@@ -162,6 +166,7 @@ impl GlobalMetadata {
             Self::BlockGasUsed => "GLOBAL_METADATA_BLOCK_GAS_USED",
             Self::BlockGasUsedBefore => "GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE",
             Self::BlockGasUsedAfter => "GLOBAL_METADATA_BLOCK_GAS_USED_AFTER",
+            Self::BlockCurrentHash => "GLOBAL_METADATA_BLOCK_CURRENT_HASH",
             Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",

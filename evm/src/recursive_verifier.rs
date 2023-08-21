@@ -37,9 +37,10 @@ use crate::permutation::{
     PermutationCheckDataTarget,
 };
 use crate::proof::{
-    BlockMetadata, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
-    PublicValuesTarget, StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget,
-    StarkProofTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
+    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
+    TrieRootsTarget,
 };
 use crate::stark::Stark;
 use crate::util::u256_limbs;
@@ -587,6 +588,27 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
+    // Add block hashes writes.
+    product = add_data_write(
+        builder,
+        challenge,
+        product,
+        metadata_segment,
+        GlobalMetadata::BlockCurrentHash as usize,
+        &public_values.block_hashes.cur_hash,
+    );
+    let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
+    for i in 0..256 {
+        product = add_data_write(
+            builder,
+            challenge,
+            product,
+            block_hashes_segment,
+            i,
+            &public_values.block_hashes.prev_hashes[8 * i..8 * (i + 1)],
+        );
+    }
+
     // Add block bloom filters writes.
     let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
     for i in 0..8 {
@@ -598,28 +620,28 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             i,
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
         );
-    }
 
-    for i in 0..8 {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            bloom_segment,
-            i + 8,
-            &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
-        );
-    }
+        for i in 0..8 {
+            product = add_data_write(
+                builder,
+                challenge,
+                product,
+                bloom_segment,
+                i + 8,
+                &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
+            );
+        }
 
-    for i in 0..8 {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            bloom_segment,
-            i + 16,
-            &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
-        );
+        for i in 0..8 {
+            product = add_data_write(
+                builder,
+                challenge,
+                product,
+                bloom_segment,
+                i + 16,
+                &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
+            );
+        }
     }
 
     // Add trie roots writes.
@@ -729,11 +751,13 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
     let trie_roots_before = add_virtual_trie_roots(builder);
     let trie_roots_after = add_virtual_trie_roots(builder);
     let block_metadata = add_virtual_block_metadata(builder);
+    let block_hashes = add_virtual_block_hashes(builder);
     let extra_block_data = add_virtual_extra_block_data(builder);
     PublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
         block_metadata,
+        block_hashes,
         extra_block_data,
     }
 }
@@ -773,6 +797,17 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_base_fee,
         block_gas_used,
         block_bloom,
+    }
+}
+
+pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+) -> BlockHashesTarget {
+    let prev_hashes = builder.add_virtual_public_input_arr();
+    let cur_hash = builder.add_virtual_public_input_arr();
+    BlockHashesTarget {
+        prev_hashes,
+        cur_hash,
     }
 }
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
@@ -894,6 +929,11 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         &public_values_target.block_metadata,
         &public_values.block_metadata,
     );
+    set_block_hashes_target(
+        witness,
+        &public_values_target.block_hashes,
+        &public_values.block_hashes,
+    );
     set_extra_public_values_target(
         witness,
         &public_values_target.extra_block_data,
@@ -1006,6 +1046,31 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
     }
     witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
+}
+
+pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
+    witness: &mut W,
+    block_hashes_target: &BlockHashesTarget,
+    block_hashes: &BlockHashes,
+) where
+    F: RichField + Extendable<D>,
+    W: Witness<F>,
+{
+    for i in 0..256 {
+        let block_hash_limbs: [F; 8] =
+            u256_limbs::<F>(U256::from_big_endian(&block_hashes.prev_hashes[i].0))[..8]
+                .try_into()
+                .unwrap();
+        witness.set_target_arr(
+            &block_hashes_target.prev_hashes[8 * i..8 * (i + 1)],
+            &block_hash_limbs,
+        );
+    }
+    let cur_block_hash_limbs: [F; 8] =
+        u256_limbs::<F>(U256::from_big_endian(&block_hashes.cur_hash.0))[..8]
+            .try_into()
+            .unwrap();
+    witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
 }
 
 pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
