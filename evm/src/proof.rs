@@ -71,6 +71,7 @@ pub struct BlockMetadata {
     pub block_gaslimit: U256,
     pub block_chain_id: U256,
     pub block_base_fee: U256,
+    pub block_bloom: [U256; 8],
 }
 
 /// Memory values which are public.
@@ -90,9 +91,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_before,
         } = self.trie_roots_before;
 
-        buffer.write_target_vec(&state_root_before)?;
-        buffer.write_target_vec(&transactions_root_before)?;
-        buffer.write_target_vec(&receipts_root_before)?;
+        buffer.write_target_array(&state_root_before)?;
+        buffer.write_target_array(&transactions_root_before)?;
+        buffer.write_target_array(&receipts_root_before)?;
 
         let TrieRootsTarget {
             state_root: state_root_after,
@@ -100,9 +101,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_after,
         } = self.trie_roots_after;
 
-        buffer.write_target_vec(&state_root_after)?;
-        buffer.write_target_vec(&transactions_root_after)?;
-        buffer.write_target_vec(&receipts_root_after)?;
+        buffer.write_target_array(&state_root_after)?;
+        buffer.write_target_array(&transactions_root_after)?;
+        buffer.write_target_array(&receipts_root_after)?;
 
         let BlockMetadataTarget {
             block_beneficiary,
@@ -112,40 +113,43 @@ impl PublicValuesTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_bloom,
         } = self.block_metadata;
 
-        buffer.write_target_vec(&block_beneficiary)?;
+        buffer.write_target_array(&block_beneficiary)?;
         buffer.write_target(block_timestamp)?;
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
-        buffer.write_target_vec(&block_base_fee)?;
+        buffer.write_target_array(&block_base_fee)?;
+        buffer.write_target_array(&block_bloom)?;
 
         Ok(())
     }
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let trie_roots_after = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let block_metadata = BlockMetadataTarget {
-            block_beneficiary: buffer.read_target_vec()?.try_into().unwrap(),
+            block_beneficiary: buffer.read_target_array()?,
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
-            block_base_fee: buffer.read_target_vec()?.try_into().unwrap(),
+            block_base_fee: buffer.read_target_array()?,
+            block_bloom: buffer.read_target_array()?,
         };
 
         Ok(Self {
@@ -265,10 +269,11 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
+    pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 12;
+    const SIZE: usize = 76;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -278,6 +283,7 @@ impl BlockMetadataTarget {
         let block_gaslimit = pis[8];
         let block_chain_id = pis[9];
         let block_base_fee = pis[10..12].try_into().unwrap();
+        let block_bloom = pis[12..76].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -287,6 +293,7 @@ impl BlockMetadataTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_bloom,
         }
     }
 
@@ -312,6 +319,9 @@ impl BlockMetadataTarget {
             block_base_fee: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
             }),
+            block_bloom: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
+            }),
         }
     }
 
@@ -330,6 +340,9 @@ impl BlockMetadataTarget {
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
+        }
+        for i in 0..64 {
+            builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
         }
     }
 }

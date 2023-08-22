@@ -225,6 +225,15 @@ pub trait Read {
         Ok(ExtensionTarget(res))
     }
 
+    /// Reads an array of Target from `self`.
+    #[inline]
+    fn read_target_array<const N: usize>(&mut self) -> IoResult<[Target; N]> {
+        (0..N)
+            .map(|_| self.read_target())
+            .collect::<Result<Vec<_>, _>>()
+            .map(|v| v.try_into().unwrap())
+    }
+
     /// Reads a vector of Target from `self`.
     #[inline]
     fn read_target_vec(&mut self) -> IoResult<Vec<Target>> {
@@ -1307,6 +1316,16 @@ pub trait Write {
     #[inline]
     fn write_target_ext<const D: usize>(&mut self, x: ExtensionTarget<D>) -> IoResult<()> {
         for &elem in x.0.iter() {
+            self.write_target(elem)?;
+        }
+
+        Ok(())
+    }
+
+    /// Writes a vector of Target `v` to `self.`
+    #[inline]
+    fn write_target_array<const N: usize>(&mut self, v: &[Target; N]) -> IoResult<()> {
+        for &elem in v.iter() {
             self.write_target(elem)?;
         }
 

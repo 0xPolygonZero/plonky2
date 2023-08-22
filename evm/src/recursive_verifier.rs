@@ -683,6 +683,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_gaslimit = builder.add_virtual_public_input();
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
+    let block_bloom = builder.add_virtual_public_input_arr();
     BlockMetadataTarget {
         block_beneficiary,
         block_timestamp,
@@ -691,6 +692,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_gaslimit,
         block_chain_id,
         block_base_fee,
+        block_bloom,
     }
 }
 
@@ -892,4 +894,9 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
         block_metadata_target.block_base_fee[1],
         F::from_canonical_u32((block_metadata.block_base_fee.as_u64() >> 32) as u32),
     );
+    let mut block_bloom_limbs = [F::ZERO; 64];
+    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
+        limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
+    }
+    witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
 }

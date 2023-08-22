@@ -4,7 +4,7 @@
 // TODO: Save checkpoints in @CTX_METADATA_STATE_TRIE_CHECKPOINT_PTR and @SEGMENT_STORAGE_TRIE_CHECKPOINT_PTRS.
 
 // Pre stack: retdest
-// Post stack: (empty)
+// Post stack: success, leftover_gas
 global process_normalized_txn:
     // stack: retdest
     %compute_fees
@@ -29,16 +29,16 @@ global process_normalized_txn:
     // stack: sender, retdest
 
     // Check that txn nonce matches account nonce.
-     DUP1 %nonce
-     DUP1 %eq_const(@MAX_NONCE) %assert_zero(invalid_txn) // EIP-2681
+    DUP1 %nonce
+    DUP1 %eq_const(@MAX_NONCE) %assert_zero(invalid_txn_2) // EIP-2681
     // stack: sender_nonce, sender, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)
     // stack: tx_nonce, sender_nonce, sender, retdest
-    %assert_eq(invalid_txn)
+    %assert_eq(invalid_txn_1)
     // stack: sender, retdest
 
     // Assert sender has no code.
-    DUP1 %ext_code_empty %assert_nonzero(invalid_txn)
+    DUP1 %ext_code_empty %assert_nonzero(invalid_txn_1)
     // stack: sender, retdest
 
     // Assert sender balance >= gas_limit * gas_price + value.
@@ -182,40 +182,44 @@ global process_contract_creation_txn_after_code_loaded:
 
 global process_contract_creation_txn_after_constructor:
     // stack: success, leftover_gas, new_ctx, address, retdest
-    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    // We eventually return leftover_gas and success.
+    %stack (success, leftover_gas, new_ctx, address, retdest) -> (success, leftover_gas, new_ctx, address, retdest, success)
+
     ISZERO %jumpi(contract_creation_fault_3)
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
     PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(contract_creation_fault_3_zero_leftover)
 
-    // stack: leftover_gas, new_ctx, address, retdest
+    // stack: leftover_gas, new_ctx, address, retdest, success
     %returndatasize // Size of the code.
-    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    // stack: code_size, leftover_gas, new_ctx, address, retdest, success
     DUP1 %gt_const(@MAX_CODE_SIZE) %jumpi(contract_creation_fault_4)
-    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    // stack: code_size, leftover_gas, new_ctx, address, retdest, success
     %mul_const(@GAS_CODEDEPOSIT) SWAP1
-    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest, success
     DUP2 DUP2 LT %jumpi(contract_creation_fault_4)
-    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest
+    // stack: leftover_gas, codedeposit_cost, new_ctx, address, retdest, success
     SUB
 
     // Store the code hash of the new contract.
-    // stack: leftover_gas, new_ctx, address, retdest
+    // stack: leftover_gas, new_ctx, address, retdest, success
     GET_CONTEXT
     %returndatasize
     %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
     KECCAK_GENERAL
-    // stack: codehash, leftover_gas, new_ctx, address, retdest
+    // stack: codehash, leftover_gas, new_ctx, address, retdest, success
     %observe_new_contract
     DUP4
-    // stack: address, codehash, leftover_gas, new_ctx, address, retdest
+    // stack: address, codehash, leftover_gas, new_ctx, address, retdest, success
     %set_codehash
 
-    // stack: leftover_gas, new_ctx, address, retdest
+    %stack (leftover_gas, new_ctx, address, retdest, success) -> (leftover_gas, new_ctx, address, retdest, success, leftover_gas)
     %pay_coinbase_and_refund_sender
+    // stack: leftover_gas', new_ctx, address, retdest, success, leftover_gas
+    SWAP5 POP
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
-    // stack: new_ctx, address, retdest
+    // stack: new_ctx, address, retdest, success, leftover_gas
     POP
     POP
     JUMP
@@ -258,10 +262,17 @@ global process_message_txn_return:
     // stack: retdest
     // Since no code was executed, the leftover gas is the non-intrinsic gas.
     %non_intrinisic_gas
-    // stack: leftover_gas, retdest
+    DUP1
+    // stack: leftover_gas, leftover_gas, retdest
     %pay_coinbase_and_refund_sender
+    // stack: leftover_gas', leftover_gas, retdest
+    SWAP1 POP
     %delete_all_touched_addresses
-    // stack: retdest
+    // stack: leftover_gas', retdest
+    SWAP1
+    PUSH 1 // success
+    SWAP1
+    // stack: retdest, success, leftover_gas
     JUMP
 
 global process_message_txn_code_loaded:
@@ -291,19 +302,22 @@ process_message_txn_code_loaded_finish:
 
 global process_message_txn_after_call:
     // stack: success, leftover_gas, new_ctx, retdest
-    DUP1 POP // TODO: Success will go into the receipt when we support that.
+    // We will return leftover_gas and success.
+    %stack (success, leftover_gas, new_ctx, retdest) -> (success, leftover_gas, new_ctx, retdest, success, leftover_gas)
     ISZERO %jumpi(process_message_txn_fail)
 process_message_txn_after_call_contd:
-    // stack: leftover_gas, new_ctx, retdest
+    // stack: leftover_gas, new_ctx, retdest, success, leftover_gas
     %pay_coinbase_and_refund_sender
+    // stack: leftover_gas', new_ctx, retdest, success, leftover_gas
+    SWAP4 POP
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
-    // stack: new_ctx, retdest
+    // stack: new_ctx, retdest, success, leftover_gas
     POP
     JUMP
 
 process_message_txn_fail:
-    // stack: leftover_gas, new_ctx, retdest
+    // stack: leftover_gas, new_ctx, retdest, success, leftover_gas
     // Transfer value back to the caller.
     %mload_txn_field(@TXN_FIELD_VALUE) ISZERO %jumpi(process_message_txn_after_call_contd)
     %mload_txn_field(@TXN_FIELD_VALUE)
@@ -340,15 +354,16 @@ process_message_txn_fail:
     // stack: coinbase, used_gas_tip, leftover_gas'
     %add_eth
     // stack: leftover_gas'
+    DUP1
 
     // Refund gas to the origin.
     %mload_txn_field(@TXN_FIELD_COMPUTED_FEE_PER_GAS)
     MUL
-    // stack: leftover_gas_cost
+    // stack: leftover_gas_cost, leftover_gas'
     %mload_txn_field(@TXN_FIELD_ORIGIN)
-    // stack: origin, leftover_gas_cost
+    // stack: origin, leftover_gas_cost, leftover_gas'
     %add_eth
-    // stack: (empty)
+    // stack: leftover_gas'
 %endmacro
 
 // Sets @TXN_FIELD_MAX_FEE_PER_GAS and @TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS.
@@ -358,9 +373,9 @@ process_message_txn_fail:
     %mload_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
     // stack: max_fee, max_priority_fee, base_fee
-    DUP3 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= base_fee
+    DUP3 DUP2 %assert_ge(invalid_txn_3) // Assert max_fee >= base_fee
     // stack: max_fee, max_priority_fee, base_fee
-    DUP2 DUP2 %assert_ge(invalid_txn) // Assert max_fee >= max_priority_fee
+    DUP2 DUP2 %assert_ge(invalid_txn_3) // Assert max_fee >= max_priority_fee
     %stack (max_fee, max_priority_fee, base_fee) -> (max_fee, base_fee, max_priority_fee, base_fee)
     SUB
     // stack: max_fee - base_fee, max_priority_fee, base_fee
@@ -386,41 +401,73 @@ create_contract_account_fault:
     %revert_checkpoint
     // stack: address, retdest
     POP
-    PUSH 0 // leftover gas
+    PUSH 0 // leftover_gas
+    // stack: leftover_gas, retdest
     %pay_coinbase_and_refund_sender
+    // stack: leftover_gas', retdest
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
+    // stack: leftover_gas', retdest
+    SWAP1 PUSH 0 // success
+    // stack: success, retdest, leftover_gas
+    SWAP1
     JUMP
 
 contract_creation_fault_3:
     %revert_checkpoint
-    // stack: leftover_gas, new_ctx, address, retdest
-    %stack (leftover_gas, new_ctx, address, retdest) -> (leftover_gas, retdest)
+    %stack (leftover_gas, new_ctx, address, retdest, success) -> (leftover_gas, retdest, success)
     %pay_coinbase_and_refund_sender
+    // stack: leftover_gas', retdest, success
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
+    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
     JUMP
 
 contract_creation_fault_3_zero_leftover:
     %revert_checkpoint
-    // stack: leftover_gas, new_ctx, address, retdest
+    // stack: leftover_gas, new_ctx, address, retdest, success
     %pop3
     PUSH 0 // leftover gas
+    // stack: leftover_gas, retdest, success
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
+    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
     JUMP
 
 contract_creation_fault_4:
     %revert_checkpoint
-    // stack: code_size, leftover_gas, new_ctx, address, retdest
+    // stack: code_size/leftover_gas, leftover_gas/codedeposit_cost, new_ctx, address, retdest, success
     %pop4
     PUSH 0 // leftover gas
+    // stack: leftover_gas, retdest, success
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
+    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
     JUMP
 
 
 global invalid_txn:
-    %jump(txn_loop)
+    POP
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    PUSH 0
+    %jump(txn_loop_after)
+
+global invalid_txn_1:
+    %pop2
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    PUSH 0
+    %jump(txn_loop_after)
+
+global invalid_txn_2:
+    %pop3
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    PUSH 0
+    %jump(txn_loop_after)
+
+global invalid_txn_3:
+    %pop4
+    %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
+    PUSH 0
+    %jump(txn_loop_after)

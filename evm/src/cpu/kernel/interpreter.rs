@@ -225,6 +225,10 @@ impl<'a> Interpreter<'a> {
             .content = memory;
     }
 
+    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
+    }
+
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
         self.generation_state.memory.contexts[0].segments[segment as usize].content =
             memory.into_iter().map(U256::from).collect();
@@ -1020,7 +1024,8 @@ impl<'a> Interpreter<'a> {
     fn run_mload_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
-        let offset = self.pop().as_usize();
+        let offset_u256 = self.pop();
+        let offset = offset_u256.as_usize();
         let value = self
             .generation_state
             .memory
