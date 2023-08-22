@@ -15,11 +15,30 @@ fn eval_packed_get<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.get_context;
+    // If the opcode is GET_CONTEXT, then lv.opcode_bits[0] = 0
+    let filter = lv.op.context_op * (P::ONES - lv.opcode_bits[0]);
     let push_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
     yield_constr.constraint(filter * (push_channel.value[0] - lv.context));
     for &limb in &push_channel.value[1..] {
         yield_constr.constraint(filter * limb);
+    }
+
+    // Stack constraints
+    let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+    yield_constr.constraint(filter * (channel.used - P::ONES));
+    yield_constr.constraint(filter * channel.is_read);
+
+    yield_constr.constraint(filter * (channel.addr_context - lv.context));
+    yield_constr.constraint(
+        filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    );
+    let addr_virtual = lv.stack_len;
+    yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
+
+    // Unused channels
+    for i in 0..NUM_GP_CHANNELS - 1 {
+        let channel = lv.mem_channels[i];
+        yield_constr.constraint(filter * channel.used);
     }
 }
 
@@ -28,7 +47,11 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = lv.op.get_context;
+    let mut filter = lv.op.context_op;
+    let one = builder.one_extension();
+    let minus = builder.sub_extension(one, lv.opcode_bits[0]);
+    filter = builder.mul_extension(filter, minus);
+
     let push_channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
     {
         let diff = builder.sub_extension(push_channel.value[0], lv.context);
@@ -39,6 +62,45 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
+
+    // Stack constraints
+    let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+
+    {
+        let constr = builder.mul_sub_extension(filter, channel.used, filter);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, channel.is_read);
+        yield_constr.constraint(builder, constr);
+    }
+
+    {
+        let diff = builder.sub_extension(channel.addr_context, lv.context);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.arithmetic_extension(
+            F::ONE,
+            -F::from_canonical_u64(Segment::Stack as u64),
+            filter,
+            channel.addr_segment,
+            filter,
+        );
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
+        let constr = builder.arithmetic_extension(F::ONE, F::ZERO, filter, diff, filter);
+        yield_constr.constraint(builder, constr);
+    }
+
+    for i in 0..NUM_GP_CHANNELS - 1 {
+        let channel = lv.mem_channels[i];
+        let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 }
 
 fn eval_packed_set<P: PackedField>(
@@ -46,7 +108,7 @@ fn eval_packed_set<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.set_context;
+    let filter = lv.op.context_op * lv.opcode_bits[0];
     let pop_channel = lv.mem_channels[0];
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
@@ -94,7 +156,8 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = lv.op.set_context;
+    let mut filter = lv.op.context_op;
+    filter = builder.mul_extension(filter, lv.opcode_bits[0]);
     let pop_channel = lv.mem_channels[0];
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
