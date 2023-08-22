@@ -85,7 +85,7 @@ fn test_state_trie(
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.packed); // key
+    interpreter.push(k.try_into_u256().unwrap()); // key
     interpreter.run()?;
     assert_eq!(
         interpreter.stack().len(),
@@ -98,7 +98,7 @@ fn test_state_trie(
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = mpt_delete;
     interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(k.packed);
+    interpreter.push(k.try_into_u256().unwrap());
     interpreter.push(64.into());
     interpreter.push(state_trie_ptr);
     interpreter.run()?;
