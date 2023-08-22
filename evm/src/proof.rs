@@ -130,26 +130,26 @@ impl PublicValuesTarget {
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget {
-            state_root: buffer.read_target_array()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_array()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_array()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let trie_roots_after = TrieRootsTarget {
-            state_root: buffer.read_target_array()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_array()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_array()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let block_metadata = BlockMetadataTarget {
-            block_beneficiary: buffer.read_target_array()?.try_into().unwrap(),
+            block_beneficiary: buffer.read_target_array()?,
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
-            block_base_fee: buffer.read_target_array()?.try_into().unwrap(),
-            block_bloom: buffer.read_target_array()?.try_into().unwrap(),
+            block_base_fee: buffer.read_target_array()?,
+            block_bloom: buffer.read_target_array()?,
         };
 
         Ok(Self {
