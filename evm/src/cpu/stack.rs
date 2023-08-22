@@ -224,9 +224,12 @@ fn eval_packed_one<P: PackedField>(
                 yield_constr.constraint_transition(new_filter * (*limb_ch - *limb_top));
             }
             // Constrain `stack_inv_aux`.
-            yield_constr.constraint(filter * (len_diff * lv.stack_inv - lv.stack_inv_aux));
+            yield_constr.constraint(
+                filter
+                    * (len_diff * lv.general.stack().stack_inv - lv.general.stack().stack_inv_aux),
+            );
             // Disable channel if stack_len == N.
-            let empty_stack_filter = (P::ONES - lv.stack_inv_aux) * filter;
+            let empty_stack_filter = (P::ONES - lv.general.stack().stack_inv_aux) * filter;
             yield_constr.constraint(empty_stack_filter * channel.used);
         }
     }
@@ -389,15 +392,15 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
             }
             // Constrain `stack_inv_aux`.
             {
-                let prod = builder.mul_extension(len_diff, lv.stack_inv);
-                let diff = builder.sub_extension(prod, lv.stack_inv_aux);
+                let prod = builder.mul_extension(len_diff, lv.general.stack().stack_inv);
+                let diff = builder.sub_extension(prod, lv.general.stack().stack_inv_aux);
                 let constr = builder.mul_extension(filter, diff);
                 yield_constr.constraint(builder, constr);
             }
             // Disable channel if stack_len == N.
             {
                 let one = builder.one_extension();
-                let diff = builder.sub_extension(one, lv.stack_inv_aux);
+                let diff = builder.sub_extension(one, lv.general.stack().stack_inv_aux);
                 let empty_stack_filter = builder.mul_extension(diff, filter);
                 let constr = builder.mul_extension(empty_stack_filter, channel.used);
                 yield_constr.constraint(builder, constr);

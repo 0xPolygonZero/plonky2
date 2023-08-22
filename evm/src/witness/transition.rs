@@ -346,11 +346,8 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         let special_len = F::from_canonical_usize(special_len);
         let diff = row.stack_len - special_len;
         if let Some(inv) = diff.try_inverse() {
-            row.stack_inv = inv;
-            row.stack_inv_aux = F::ONE;
-        } else {
-            row.stack_inv = F::ZERO;
-            row.stack_inv_aux = F::ZERO;
+            row.general.stack_mut().stack_inv = inv;
+            row.general.stack_mut().stack_inv_aux = F::ONE;
         }
     }
 
