@@ -15,6 +15,6 @@ mod pc;
 mod push0;
 mod shift;
 pub(crate) mod simple_logic;
-mod stack;
+pub(crate) mod stack;
 pub(crate) mod stack_bounds;
 mod syscalls_exceptions;

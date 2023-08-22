@@ -12,9 +12,9 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 #[derive(Clone, Copy)]
-struct StackBehavior {
-    num_pops: usize,
-    pushes: bool,
+pub(crate) struct StackBehavior {
+    pub(crate) num_pops: usize,
+    pub(crate) pushes: bool,
     new_top_stack_channel: Option<usize>,
     disable_other_channels: bool,
 }
@@ -42,7 +42,7 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // will be). If it is set to `none`, the new top of the stack must be constrained manually by the
 // operation. Note that instructions which only pop also have it set to `None`, even if we constrain
 // the next top in this file: their logic is special and depends on stack_len.
-const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
+pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     add: BASIC_BINARY_OP,
     mul: BASIC_BINARY_OP,
     sub: BASIC_BINARY_OP,
@@ -204,8 +204,8 @@ fn eval_packed_one<P: PackedField>(
         // - if not, the extra read is disabled.
         if !stack_behavior.pushes {
             // If stack_len != N...
-            let new_filter =
-                (lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops)) * filter;
+            let len_diff = lv.stack_len - P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+            let new_filter = len_diff * filter;
             // Read an extra element.
             let channel = lv.mem_channels[stack_behavior.num_pops - 1];
             yield_constr.constraint(new_filter * (channel.used - P::ONES));
@@ -223,8 +223,11 @@ fn eval_packed_one<P: PackedField>(
             for (limb_ch, limb_top) in channel.value.iter().zip(nv.stack_top.iter()) {
                 yield_constr.constraint_transition(new_filter * (*limb_ch - *limb_top));
             }
-
-            // TODO: disable channel if stack_len == N.
+            // Constrain `stack_inv_aux`.
+            yield_constr.constraint(filter * (len_diff * lv.stack_inv - lv.stack_inv_aux));
+            // Disable channel if stack_len == N.
+            let empty_stack_filter = (P::ONES - lv.stack_inv_aux) * filter;
+            yield_constr.constraint(empty_stack_filter * channel.used);
         }
     }
     // If the op only pushes, you only need to constrain the top of the stack if the stack isn't empty.
@@ -383,6 +386,21 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
                     let constr = builder.mul_extension(new_filter, diff);
                     yield_constr.constraint_transition(builder, constr);
                 }
+            }
+            // Constrain `stack_inv_aux`.
+            {
+                let prod = builder.mul_extension(len_diff, lv.stack_inv);
+                let diff = builder.sub_extension(prod, lv.stack_inv_aux);
+                let constr = builder.mul_extension(filter, diff);
+                yield_constr.constraint(builder, constr);
+            }
+            // Disable channel if stack_len == N.
+            {
+                let one = builder.one_extension();
+                let diff = builder.sub_extension(one, lv.stack_inv_aux);
+                let empty_stack_filter = builder.mul_extension(diff, filter);
+                let constr = builder.mul_extension(empty_stack_filter, channel.used);
+                yield_constr.constraint(builder, constr);
             }
         }
     }

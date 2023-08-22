@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 use super::util::write_stack_top_registers;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::stack::STACK_BEHAVIORS;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -193,6 +194,64 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     } = F::ONE;
 }
 
+// Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
+fn get_op_special_length(op: Operation) -> Option<usize> {
+    let behavior_opt = match op {
+        Operation::Push(0) => STACK_BEHAVIORS.push0,
+        Operation::Push(1..) => STACK_BEHAVIORS.push,
+        Operation::Dup(_) => STACK_BEHAVIORS.dup,
+        Operation::Swap(_) => STACK_BEHAVIORS.swap,
+        Operation::Iszero => STACK_BEHAVIORS.iszero,
+        Operation::Not => STACK_BEHAVIORS.not,
+        Operation::Syscall(_, _, _) => STACK_BEHAVIORS.syscall,
+        Operation::Eq => STACK_BEHAVIORS.eq,
+        Operation::BinaryLogic(_) => STACK_BEHAVIORS.logic_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add) => STACK_BEHAVIORS.add,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => STACK_BEHAVIORS.mul,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => STACK_BEHAVIORS.sub,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => STACK_BEHAVIORS.div,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => STACK_BEHAVIORS.mod_,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt) => STACK_BEHAVIORS.lt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => STACK_BEHAVIORS.gt,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => STACK_BEHAVIORS.byte,
+        Operation::Shl => STACK_BEHAVIORS.shl,
+        Operation::Shr => STACK_BEHAVIORS.shr,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => {
+            STACK_BEHAVIORS.addfp254
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => {
+            STACK_BEHAVIORS.mulfp254
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => {
+            STACK_BEHAVIORS.subfp254
+        }
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => STACK_BEHAVIORS.addmod,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => STACK_BEHAVIORS.mulmod,
+        Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => STACK_BEHAVIORS.submod,
+        Operation::KeccakGeneral => STACK_BEHAVIORS.keccak_general,
+        Operation::ProverInput => STACK_BEHAVIORS.prover_input,
+        Operation::Pop => STACK_BEHAVIORS.pop,
+        Operation::Jump => STACK_BEHAVIORS.jump,
+        Operation::Jumpi => STACK_BEHAVIORS.jumpi,
+        Operation::Pc => STACK_BEHAVIORS.pc,
+        Operation::Jumpdest => STACK_BEHAVIORS.jumpdest,
+        Operation::GetContext => STACK_BEHAVIORS.get_context,
+        Operation::SetContext => STACK_BEHAVIORS.set_context,
+        Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
+        Operation::MloadGeneral => STACK_BEHAVIORS.mload_general,
+        Operation::MstoreGeneral => STACK_BEHAVIORS.mstore_general,
+    };
+    if let Some(behavior) = behavior_opt {
+        if behavior.num_pops > 0 && !behavior.pushes {
+            Some(behavior.num_pops)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
@@ -280,6 +339,18 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         } else {
             // This is a stack overflow that should have been caught earlier.
             return Err(ProgramError::InterpreterError);
+        }
+    }
+
+    if let Some(special_len) = get_op_special_length(op) {
+        let special_len = F::from_canonical_usize(special_len);
+        let diff = row.stack_len - special_len;
+        if let Some(inv) = diff.try_inverse() {
+            row.stack_inv = inv;
+            row.stack_inv_aux = F::ONE;
+        } else {
+            row.stack_inv = F::ZERO;
+            row.stack_inv_aux = F::ZERO;
         }
     }
 
