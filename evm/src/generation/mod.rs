@@ -21,7 +21,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
+use crate::proof::{BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::util::h2u;
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
@@ -38,6 +38,12 @@ use crate::witness::util::mem_write_log;
 /// Inputs needed for trace generation.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
+    pub txn_number_before: U256,
+    pub gas_used_before: U256,
+    pub block_bloom_before: [U256; 8],
+    pub gas_used_after: U256,
+    pub block_bloom_after: [U256; 8],
+
     pub signed_txns: Vec<Vec<u8>>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
@@ -94,6 +100,14 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
         (GlobalMetadata::BlockChainId, metadata.block_chain_id),
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
+        (GlobalMetadata::BlockGasUsed, metadata.block_gas_used),
+        (GlobalMetadata::BlockGasUsedBefore, inputs.gas_used_before),
+        (GlobalMetadata::BlockGasUsedAfter, inputs.gas_used_after),
+        (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
+        (
+            GlobalMetadata::TxnNumberAfter,
+            inputs.txn_number_before + inputs.signed_txns.len(),
+        ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
             h2u(tries.state_trie.hash()),
@@ -121,14 +135,52 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
-    let ops = fields.map(|(field, val)| {
+    let mut ops = fields
+        .map(|(field, val)| {
+            mem_write_log(
+                channel,
+                MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+                state,
+                val,
+            )
+        })
+        .to_vec();
+
+    // Write the block's final block bloom filter.
+    ops.extend((0..8).map(|i| {
         mem_write_log(
             channel,
-            MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+            MemoryAddress::new(0, Segment::GlobalBlockBloom, i),
             state,
-            val,
+            metadata.block_bloom[i],
         )
-    });
+    }));
+    // Write the block's bloom filter before the current transaction.
+    ops.extend(
+        (0..8)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 8),
+                    state,
+                    inputs.block_bloom_before[i],
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+    // Write the block's bloom filter after the current transaction.
+    ops.extend(
+        (0..8)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 16),
+                    state,
+                    inputs.block_bloom_after[i],
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
 
     state.memory.apply_ops(&ops);
     state.traces.memory_ops.extend(ops);
@@ -176,10 +228,23 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestAfter)),
     };
 
+    let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
+    let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
+
+    let extra_block_data = ExtraBlockData {
+        txn_number_before: inputs.txn_number_before,
+        txn_number_after,
+        gas_used_before: inputs.gas_used_before,
+        gas_used_after,
+        block_bloom_before: inputs.block_bloom_before,
+        block_bloom_after: inputs.block_bloom_after,
+    };
+
     let public_values = PublicValues {
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
+        extra_block_data,
     };
 
     let tables = timed!(

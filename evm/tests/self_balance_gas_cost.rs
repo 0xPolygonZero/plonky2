@@ -155,6 +155,11 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: gas_used.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
         addresses: vec![],
     };
 

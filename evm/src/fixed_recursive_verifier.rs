@@ -2,6 +2,8 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
+use ethereum_types::BigEndianHash;
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -39,16 +41,18 @@ use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
-    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
+    BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
+    StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values,
     get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_metadata_target,
-    set_public_value_targets, set_trie_roots_target, PlonkWrapperCircuit, PublicInputs,
-    StarkWrapperCircuit,
+    set_extra_public_values_target, set_public_value_targets, set_trie_roots_target,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+use crate::util::u256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -598,6 +602,13 @@ where
             rhs_public_values.trie_roots_before,
         );
 
+        Self::connect_extra_public_values(
+            &mut builder,
+            &public_values.extra_block_data,
+            &lhs_public_values.extra_block_data,
+            &rhs_public_values.extra_block_data,
+        );
+
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {
             builder.add_gate(NoopGate, vec![]);
@@ -610,6 +621,39 @@ where
             rhs,
             public_values,
             cyclic_vk,
+        }
+    }
+
+    fn connect_extra_public_values(
+        builder: &mut CircuitBuilder<F, D>,
+        pvs: &ExtraBlockDataTarget,
+        lhs: &ExtraBlockDataTarget,
+        rhs: &ExtraBlockDataTarget,
+    ) {
+        // Connect the transaction number in public values to the lhs and rhs values correctly.
+        builder.connect(pvs.txn_number_before, lhs.txn_number_before);
+        builder.connect(pvs.txn_number_after, rhs.txn_number_after);
+
+        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        builder.connect(lhs.txn_number_after, rhs.txn_number_before);
+
+        // Connect the gas used in public values to the lhs and rhs values correctly.
+        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
+        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+
+        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+
+        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
+        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
+            builder.connect(limb0, limb1);
+        }
+        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
+            builder.connect(limb0, limb1);
+        }
+        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
+            builder.connect(limb0, limb1);
         }
     }
 
@@ -651,6 +695,12 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
+        let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
+        let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+
+        // Make connections between block proofs, and check initial and final block values.
+        Self::connect_block_proof(&mut builder, &parent_pv, &agg_pv);
+
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
@@ -671,6 +721,88 @@ where
             agg_root_proof,
             public_values,
             cyclic_vk,
+        }
+    }
+
+    fn connect_block_proof(
+        builder: &mut CircuitBuilder<F, D>,
+        lhs: &PublicValuesTarget,
+        rhs: &PublicValuesTarget,
+    ) {
+        // Between blocks, we only connect state tries.
+        for (&limb0, limb1) in lhs
+            .trie_roots_after
+            .state_root
+            .iter()
+            .zip(rhs.trie_roots_before.state_root)
+        {
+            builder.connect(limb0, limb1);
+        }
+
+        // Connect block numbers.
+        let one = builder.one();
+        let prev_block_nb = builder.sub(rhs.block_metadata.block_number, one);
+        builder.connect(lhs.block_metadata.block_number, prev_block_nb);
+
+        // Check initial block values.
+        Self::connect_initial_values_block(builder, rhs);
+
+        // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handsidee block.
+        Self::connect_final_block_values_to_intermediary(builder, rhs);
+    }
+
+    fn connect_final_block_values_to_intermediary(
+        builder: &mut CircuitBuilder<F, D>,
+        x: &PublicValuesTarget,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        builder.connect(
+            x.block_metadata.block_gas_used,
+            x.extra_block_data.gas_used_after,
+        );
+
+        for (&limb0, &limb1) in x
+            .block_metadata
+            .block_bloom
+            .iter()
+            .zip(&x.extra_block_data.block_bloom_after)
+        {
+            builder.connect(limb0, limb1);
+        }
+    }
+
+    fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
+    where
+        F: RichField + Extendable<D>,
+    {
+        let zero = builder.constant(F::ZERO);
+        // The initial number of transactions is 0.
+        builder.connect(x.extra_block_data.txn_number_before, zero);
+        // The initial gas used is 0
+        builder.connect(x.extra_block_data.gas_used_before, zero);
+
+        // The initial bloom filter is all zeroes.
+        let initial_bloom = builder.constants(&[F::ZERO; 64]);
+        for i in 0..x.extra_block_data.block_bloom_before.len() {
+            builder.connect(x.extra_block_data.block_bloom_before[i], initial_bloom[i]);
+        }
+
+        // The transactions and receipts tries are empty at the beginning of the block.
+        let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
+
+        for (i, limb) in initial_trie.into_uint().0.into_iter().enumerate() {
+            let temp = builder.constant(F::from_canonical_u32(limb as u32));
+            builder.connect(x.trie_roots_before.transactions_root[2 * i], temp);
+            let temp2 = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
+            builder.connect(x.trie_roots_before.transactions_root[2 * i + 1], temp2);
+        }
+
+        for (i, limb) in initial_trie.into_uint().0.into_iter().enumerate() {
+            let temp = builder.constant(F::from_canonical_u32(limb as u32));
+            builder.connect(x.trie_roots_before.receipts_root[2 * i], temp);
+            let temp2 = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
+            builder.connect(x.trie_roots_before.receipts_root[2 * i + 1], temp2);
         }
     }
 
@@ -771,7 +903,11 @@ where
             &self.aggregation.public_values.trie_roots_after,
             &public_values.trie_roots_after,
         );
-
+        set_extra_public_values_target(
+            &mut agg_inputs,
+            &self.aggregation.public_values.extra_block_data,
+            &public_values.extra_block_data,
+        );
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
     }
@@ -804,12 +940,26 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
+            // Initialize state_root_after and the block number for correct connection between blocks.
+            let state_trie_root_keys = 24..32;
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            let mut nonzero_pis = HashMap::new();
+            for (key, &value) in state_trie_root_keys.zip_eq(&u256_limbs::<F>(
+                public_values.trie_roots_before.state_root.into_uint(),
+            )) {
+                nonzero_pis.insert(key, value);
+            }
+            nonzero_pis.insert(
+                block_number_key,
+                F::from_canonical_usize(public_values.block_metadata.block_number.as_usize())
+                    - F::ONE,
+            );
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(
                     &self.block.circuit.common,
                     &self.block.circuit.verifier_only,
-                    HashMap::new(),
+                    nonzero_pis,
                 ),
             );
         }
@@ -819,6 +969,11 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
+        set_extra_public_values_target(
+            &mut block_inputs,
+            &self.block.public_values.extra_block_data,
+            &public_values.extra_block_data,
+        );
         set_block_metadata_target(
             &mut block_inputs,
             &self.block.public_values.block_metadata,

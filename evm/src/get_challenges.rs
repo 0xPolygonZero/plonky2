@@ -79,6 +79,12 @@ fn observe_block_metadata<
     challenger.observe_element(F::from_canonical_u32(
         (block_metadata.block_base_fee.as_u64() >> 32) as u32,
     ));
+    challenger.observe_element(F::from_canonical_u32(
+        block_metadata.block_gas_used.as_u32(),
+    ));
+    for i in 0..8 {
+        challenger.observe_elements(&u256_limbs(block_metadata.block_bloom[i]));
+    }
 }
 
 fn observe_block_metadata_target<
@@ -98,6 +104,46 @@ fn observe_block_metadata_target<
     challenger.observe_element(block_metadata.block_gaslimit);
     challenger.observe_element(block_metadata.block_chain_id);
     challenger.observe_elements(&block_metadata.block_base_fee);
+    challenger.observe_element(block_metadata.block_gas_used);
+    challenger.observe_elements(&block_metadata.block_bloom);
+}
+
+fn observe_extra_block_data<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    challenger: &mut Challenger<F, C::Hasher>,
+    extra_data: &ExtraBlockData,
+) {
+    challenger.observe_element(F::from_canonical_u32(extra_data.txn_number_before.as_u32()));
+    challenger.observe_element(F::from_canonical_u32(extra_data.txn_number_after.as_u32()));
+    challenger.observe_element(F::from_canonical_u32(extra_data.gas_used_before.as_u32()));
+    challenger.observe_element(F::from_canonical_u32(extra_data.gas_used_after.as_u32()));
+    for i in 0..8 {
+        challenger.observe_elements(&u256_limbs(extra_data.block_bloom_before[i]));
+    }
+    for i in 0..8 {
+        challenger.observe_elements(&u256_limbs(extra_data.block_bloom_after[i]));
+    }
+}
+
+fn observe_extra_block_data_target<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+    extra_data: &ExtraBlockDataTarget,
+) where
+    C::Hasher: AlgebraicHasher<F>,
+{
+    challenger.observe_element(extra_data.txn_number_before);
+    challenger.observe_element(extra_data.txn_number_after);
+    challenger.observe_element(extra_data.gas_used_before);
+    challenger.observe_element(extra_data.gas_used_after);
+    challenger.observe_elements(&extra_data.block_bloom_before);
+    challenger.observe_elements(&extra_data.block_bloom_after);
 }
 
 pub(crate) fn observe_public_values<
@@ -111,6 +157,7 @@ pub(crate) fn observe_public_values<
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_before);
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_after);
     observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata);
+    observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data);
 }
 
 pub(crate) fn observe_public_values_target<
@@ -126,6 +173,7 @@ pub(crate) fn observe_public_values_target<
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_before);
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_after);
     observe_block_metadata_target::<F, C, D>(challenger, &public_values.block_metadata);
+    observe_extra_block_data_target::<F, C, D>(challenger, &public_values.extra_block_data);
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
