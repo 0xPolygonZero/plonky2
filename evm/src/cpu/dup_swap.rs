@@ -12,6 +12,8 @@ use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
 use crate::memory::segments::Segment;
 
 /// Constrain a channel to have a certain value.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channel_value_equal_packed<P: PackedField>(
     filter: P,
     ch: &MemoryChannelView<P>,
@@ -19,11 +21,13 @@ fn channel_value_equal_packed<P: PackedField>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (limb_ch, limb) in izip!(ch.value, val) {
-        yield_constr.constraint(filter * (limb_ch - *limb));
+        yield_constr.constraint_transition(filter * (limb_ch - *limb));
     }
 }
 
 /// Constrain a channel to have a certain value.
+/// Since it may involve the next row and can be called at the last row
+/// (if the last instruction is a DUP), we make it a transition constraint.
 fn channel_value_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     filter: ExtensionTarget<D>,
@@ -34,7 +38,7 @@ fn channel_value_equal_ext_circuit<F: RichField + Extendable<D>, const D: usize>
     for (limb_ch, limb) in izip!(ch.value, val) {
         let diff = builder.sub_extension(limb_ch, *limb);
         let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
+        yield_constr.constraint_transition(builder, constr);
     }
 }
 
@@ -123,8 +127,6 @@ fn eval_packed_dup<P: PackedField>(
     channel_value_equal_packed(filter, in_channel, &lv.stack_top, yield_constr);
     constrain_channel_packed(false, filter, P::ONES, in_channel, lv, yield_constr);
 
-    // TODO: Warning: Make it a transition constraint? There's a chance this constraint fails
-    // if the last line of the trace is a DUP.
     channel_value_equal_packed(filter, out_channel, &nv.stack_top, yield_constr);
     constrain_channel_packed(true, filter, n + P::ONES, out_channel, lv, yield_constr);
 
