@@ -48,7 +48,7 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>,
 }
 
 /// Memory values which are public.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
