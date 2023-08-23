@@ -6,7 +6,6 @@ use core::usize;
 
 use itertools::Itertools;
 use keccak_hash::keccak;
-use plonky2_util::ceil_div_usize;
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -17,7 +16,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
-use crate::iop::witness::{PartitionWitness, WitnessWrite};
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{
@@ -37,12 +36,10 @@ pub struct LookupTableGate {
     pub lut: LookupTable,
     /// The Keccak hash of the lookup table.
     lut_hash: [u8; 32],
-    /// First row of the lookup table.
-    last_lut_row: usize,
 }
 
 impl LookupTableGate {
-    pub fn new_from_table(config: &CircuitConfig, lut: LookupTable, last_lut_row: usize) -> Self {
+    pub fn new_from_table(config: &CircuitConfig, lut: LookupTable) -> Self {
         let table_bytes = lut
             .iter()
             .flat_map(|(input, output)| [input.to_le_bytes(), output.to_le_bytes()].concat())
@@ -52,7 +49,6 @@ impl LookupTableGate {
             num_slots: Self::num_slots(config),
             lut,
             lut_hash: keccak(table_bytes).0,
-            last_lut_row,
         }
     }
 
@@ -81,14 +77,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
     fn id(&self) -> String {
         // Custom implementation to not have the entire lookup table
         format!(
-            "LookupTableGate {{num_slots: {}, lut_hash: {:?}, last_lut_row: {}}}",
-            self.num_slots, self.lut_hash, self.last_lut_row
+            "LookupTableGate {{num_slots: {}, lut_hash: {:?}}}",
+            self.num_slots, self.lut_hash
         )
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_slots)?;
-        dst.write_usize(self.last_lut_row)?;
         for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
                 dst.write_usize(i)?;
@@ -101,7 +96,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
 
     fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_slots = src.read_usize()?;
-        let last_lut_row = src.read_usize()?;
         let lut_index = src.read_usize()?;
         let mut lut_hash = [0u8; 32];
         src.read_exact(&mut lut_hash)?;
@@ -110,7 +104,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
             num_slots,
             lut: common_data.luts[lut_index].clone(),
             lut_hash,
-            last_lut_row,
         })
     }
 
@@ -149,7 +142,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LookupTableGat
                         lut: self.lut.clone(),
                         slot_nb: i,
                         num_slots: self.num_slots,
-                        last_lut_row: self.last_lut_row,
                     }
                     .adapter(),
                 )
@@ -189,7 +181,6 @@ pub struct LookupTableGenerator {
     lut: LookupTable,
     slot_nb: usize,
     num_slots: usize,
-    last_lut_row: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LookupTableGenerator {
@@ -201,31 +192,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         vec![]
     }
 
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let first_row = self.last_lut_row + ceil_div_usize(self.lut.len(), self.num_slots) - 1;
-        let slot = (first_row - self.row) * self.num_slots + self.slot_nb;
-
-        let slot_input_target =
-            Target::wire(self.row, LookupTableGate::wire_ith_looked_inp(self.slot_nb));
-        let slot_output_target =
-            Target::wire(self.row, LookupTableGate::wire_ith_looked_out(self.slot_nb));
-
-        if slot < self.lut.len() {
-            let (input, output) = self.lut[slot];
-            out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize));
-            out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize));
-        } else {
-            // Pad with zeros.
-            out_buffer.set_target(slot_input_target, F::ZERO);
-            out_buffer.set_target(slot_output_target, F::ZERO);
-        }
-    }
+    fn run_once(&self, _witness: &PartitionWitness<F>, _out_buffer: &mut GeneratedValues<F>) {}
 
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_usize(self.slot_nb)?;
         dst.write_usize(self.num_slots)?;
-        dst.write_usize(self.last_lut_row)?;
         for (i, lut) in common_data.luts.iter().enumerate() {
             if lut == &self.lut {
                 return dst.write_usize(i);
@@ -239,7 +211,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         let row = src.read_usize()?;
         let slot_nb = src.read_usize()?;
         let num_slots = src.read_usize()?;
-        let last_lut_row = src.read_usize()?;
         let lut_index = src.read_usize()?;
 
         Ok(Self {
@@ -247,7 +218,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
             lut: common_data.luts[lut_index].clone(),
             slot_nb,
             num_slots,
-            last_lut_row,
         })
     }
 }

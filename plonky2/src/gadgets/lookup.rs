@@ -105,9 +105,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let num_lut_rows = (self.get_luts_idx_length(lut_index) - 1) / num_lut_entries + 1;
                 let num_lut_cells = num_lut_entries * num_lut_rows;
                 for _ in 0..num_lut_cells {
-                    let gate =
-                        LookupTableGate::new_from_table(&self.config, lut.clone(), last_lut_gate);
-                    self.find_slot(gate, &[], &[]);
+                    let gate = LookupTableGate::new_from_table(&self.config, lut.clone());
+                    self.find_slot(gate.clone(), &[], &[]);
                 }
 
                 let first_lut_gate = self.num_gates() - 1;

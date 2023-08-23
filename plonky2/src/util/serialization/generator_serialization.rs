@@ -103,7 +103,6 @@ pub mod default {
     use crate::gates::coset_interpolation::InterpolationGenerator;
     use crate::gates::exponentiation::ExponentiationGenerator;
     use crate::gates::lookup::LookupGenerator;
-    use crate::gates::lookup_table::LookupTableGenerator;
     use crate::gates::multiplication_extension::MulExtensionGenerator;
     use crate::gates::poseidon::PoseidonGenerator;
     use crate::gates::poseidon_mds::PoseidonMdsGenerator;
@@ -141,7 +140,6 @@ pub mod default {
             ExponentiationGenerator<F, D>,
             InterpolationGenerator<F, D>,
             LookupGenerator,
-            LookupTableGenerator,
             LowHighGenerator,
             MulExtensionGenerator<F, D>,
             NonzeroTestGenerator,

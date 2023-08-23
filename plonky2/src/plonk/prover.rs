@@ -92,17 +92,24 @@ pub fn set_lookup_wires<
             multiplicities[0] += 1;
         }
 
+        // Set all LUT wires.
         // We don't need to pad the last `LookupTableGate`; extra wires are set to 0 by default, which satisfies the constraints.
         for lut_entry in 0..lut_len {
             let row = first_lut_gate - lut_entry / num_lut_entries;
             let col = lut_entry % num_lut_entries;
 
             let mul_target = Target::wire(row, LookupTableGate::wire_ith_multiplicity(col));
+            let inp_target = Target::wire(row, LookupTableGate::wire_ith_looked_inp(col));
+            let out_target = Target::wire(row, LookupTableGate::wire_ith_looked_out(col));
 
             pw.set_target(
                 mul_target,
                 F::from_canonical_usize(multiplicities[lut_entry]),
             );
+
+            let (inp_value, out_value) = common_data.luts[lut_index][lut_entry];
+            pw.set_target(inp_target, F::from_canonical_u16(inp_value));
+            pw.set_target(out_target, F::from_canonical_u16(out_value));
         }
     }
 }
