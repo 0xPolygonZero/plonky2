@@ -136,6 +136,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xf5, _) => Ok(Operation::Syscall(opcode, 4, false)), // CREATE2
         (0xf6, true) => Ok(Operation::GetContext),
         (0xf7, true) => Ok(Operation::SetContext),
+        (0xf8, true) => Ok(Operation::Mload32Bytes),
         (0xf9, true) => Ok(Operation::ExitKernel),
         (0xfa, _) => Ok(Operation::Syscall(opcode, 6, false)), // STATICCALL
         (0xfb, true) => Ok(Operation::MloadGeneral),
@@ -183,6 +184,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
+        Operation::Mload32Bytes => &mut flags.mload_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral => &mut flags.mload_general,
         Operation::MstoreGeneral => &mut flags.mstore_general,
@@ -220,6 +222,7 @@ fn perform_op<F: Field>(
         Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
+        Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
