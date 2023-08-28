@@ -19,6 +19,7 @@ use crate::{arithmetic, keccak, logic};
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
     pub(self) arithmetic_len: usize,
+    pub(self) byte_packing_len: usize,
     pub(self) cpu_len: usize,
     pub(self) keccak_len: usize,
     pub(self) keccak_sponge_len: usize,
@@ -29,6 +30,7 @@ pub struct TraceCheckpoint {
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
+    pub(crate) byte_packing_ops: Vec<MemoryOp>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -40,6 +42,7 @@ impl<T: Copy> Traces<T> {
     pub fn new() -> Self {
         Traces {
             arithmetic_ops: vec![],
+            byte_packing_ops: vec![],
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
@@ -51,6 +54,7 @@ impl<T: Copy> Traces<T> {
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),
+            byte_packing_len: self.byte_packing_ops.len(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
@@ -61,6 +65,7 @@ impl<T: Copy> Traces<T> {
 
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
+        self.byte_packing_ops.truncate(checkpoint.byte_packing_len);
         self.cpu.truncate(checkpoint.cpu_len);
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
@@ -87,6 +92,10 @@ impl<T: Copy> Traces<T> {
 
     pub fn push_memory(&mut self, op: MemoryOp) {
         self.memory_ops.push(op);
+    }
+
+    pub fn push_byte_packing(&mut self, op: MemoryOp) {
+        self.byte_packing_ops.push(op);
     }
 
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
@@ -123,6 +132,7 @@ impl<T: Copy> Traces<T> {
         let cap_elements = config.fri_config.num_cap_elements();
         let Traces {
             arithmetic_ops,
+            byte_packing_ops,
             cpu,
             logic_ops,
             memory_ops,
@@ -171,7 +181,7 @@ impl<T: Copy> Traces<T> {
             "generate byte packing trace",
             all_stark
                 .byte_packing_stark
-                .generate_trace(memory_ops, timing)
+                .generate_trace(byte_packing_ops, timing)
         );
 
         [

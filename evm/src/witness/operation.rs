@@ -709,6 +709,11 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_read);
     state.traces.push_memory(log_out);
+    state.traces.push_byte_packing(log_in0);
+    state.traces.push_byte_packing(log_in1);
+    state.traces.push_byte_packing(log_in2);
+    state.traces.push_byte_packing(log_read);
+    state.traces.push_byte_packing(log_out);
     state.traces.push_cpu(row);
     Ok(())
 }

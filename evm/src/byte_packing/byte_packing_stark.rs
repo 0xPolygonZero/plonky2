@@ -23,8 +23,8 @@ use crate::memory::columns::{
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-use crate::witness::memory::MemoryOp;
 use crate::witness::memory::MemoryOpKind::Read;
+use crate::witness::memory::{MemoryAddress, MemoryOp};
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -166,7 +166,14 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     }
 
     fn pad_memory_ops(memory_ops: &mut Vec<MemoryOp>) {
-        let last_op = *memory_ops.last().expect("No memory ops?");
+        // TODO: change
+        let last_op = *memory_ops.last().unwrap_or(&MemoryOp {
+            filter: false,
+            timestamp: 0,
+            address: MemoryAddress::new(0, crate::memory::segments::Segment::AccessedAddresses, 0),
+            kind: Read,
+            value: U256::zero(),
+        });
 
         // We essentially repeat the last operation until our operation list has the desired size,
         // with a few changes:
@@ -179,7 +186,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         };
 
         let num_ops = memory_ops.len();
-        let num_ops_padded = num_ops.next_power_of_two();
+        let num_ops_padded = core::cmp::max(16, num_ops).next_power_of_two();
         for _ in num_ops..num_ops_padded {
             memory_ops.push(padding_op);
         }
