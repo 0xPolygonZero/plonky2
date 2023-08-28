@@ -277,6 +277,19 @@ where
             timing,
         )?
     );
+    let byte_packing_proof = timed!(
+        timing,
+        "prove byte packing STARK",
+        prove_single_table(
+            &all_stark.byte_packing_stark,
+            config,
+            &trace_poly_values[Table::BytePacking as usize],
+            &trace_commitments[Table::BytePacking as usize],
+            &ctl_data_per_table[Table::BytePacking as usize],
+            challenger,
+            timing,
+        )?
+    );
     Ok([
         arithmetic_proof,
         cpu_proof,
@@ -284,6 +297,7 @@ where
         keccak_sponge_proof,
         logic_proof,
         memory_proof,
+        byte_packing_proof,
     ])
 }
 

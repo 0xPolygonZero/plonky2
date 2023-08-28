@@ -6,11 +6,12 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::arithmetic::arithmetic_stark;
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::{self, BytePackingStark};
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
+use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
@@ -30,6 +31,7 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
+    pub byte_packing_stark: BytePackingStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
@@ -42,6 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
             keccak_sponge_stark: KeccakSpongeStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
+            byte_packing_stark: BytePackingStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
         }
     }
@@ -56,6 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.keccak_sponge_stark.num_permutation_batches(config),
             self.logic_stark.num_permutation_batches(config),
             self.memory_stark.num_permutation_batches(config),
+            self.byte_packing_stark.num_permutation_batches(config),
         ]
     }
 
@@ -67,6 +71,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.keccak_sponge_stark.permutation_batch_size(),
             self.logic_stark.permutation_batch_size(),
             self.memory_stark.permutation_batch_size(),
+            self.byte_packing_stark.permutation_batch_size(),
         ]
     }
 }
@@ -79,9 +84,10 @@ pub enum Table {
     KeccakSponge = 3,
     Logic = 4,
     Memory = 5,
+    BytePacking = 6,
 }
 
-pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
+pub(crate) const NUM_TABLES: usize = Table::BytePacking as usize + 1;
 
 impl Table {
     pub(crate) fn all() -> [Self; NUM_TABLES] {
@@ -92,6 +98,7 @@ impl Table {
             Self::KeccakSponge,
             Self::Logic,
             Self::Memory,
+            Self::BytePacking,
         ]
     }
 }
@@ -103,6 +110,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_keccak(),
         ctl_logic(),
         ctl_memory(),
+        ctl_byte_packing(),
     ]
 }
 
@@ -194,4 +202,19 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         Some(memory_stark::ctl_filter()),
     );
     CrossTableLookup::new(all_lookers, memory_looked)
+}
+
+// TODO: update this
+fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
+    let dummy_read = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_code_memory(),
+        Some(Column::zero()),
+    );
+    let byte_packing_looked = TableWithColumns::new(
+        Table::BytePacking,
+        byte_packing_stark::ctl_data(),
+        Some(Column::zero()),
+    );
+    CrossTableLookup::new(vec![dummy_read], byte_packing_looked)
 }

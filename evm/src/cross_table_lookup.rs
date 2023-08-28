@@ -536,10 +536,13 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for CrossTableLookup {
-        looking_tables,
-        looked_table,
-    } in cross_table_lookups.iter()
+    for (
+        index,
+        CrossTableLookup {
+            looking_tables,
+            looked_table,
+        },
+    ) in cross_table_lookups.iter().enumerate()
     {
         let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
         for c in 0..config.num_challenges {
@@ -552,7 +555,8 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
             let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
             ensure!(
                 looking_zs_prod == looked_z,
-                "Cross-table lookup verification failed."
+                "Cross-table lookup {:?} verification failed.",
+                index
             );
         }
     }

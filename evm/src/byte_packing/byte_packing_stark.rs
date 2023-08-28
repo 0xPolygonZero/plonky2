@@ -20,12 +20,11 @@ use crate::memory::columns::{
     COUNTER_PERMUTED, FILTER, IS_READ, NUM_COLUMNS, RANGE_CHECK, RANGE_CHECK_PERMUTED,
     SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
-use crate::memory::VALUE_LIMBS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryOp;
 use crate::witness::memory::MemoryOpKind::Read;
-use crate::witness::memory::{MemoryAddress, MemoryOp};
 
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
@@ -40,33 +39,8 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct MemoryStark<F, const D: usize> {
+pub struct BytePackingStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
-}
-
-impl MemoryOp {
-    /// Generate a row for a given memory operation. Note that this does not generate columns which
-    /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
-    /// It also does not generate columns such as `COUNTER`, which are generated later, after the
-    /// trace has been transposed into column-major form.
-    pub(crate) fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
-        let mut row = [F::ZERO; NUM_COLUMNS];
-        row[FILTER] = F::from_bool(self.filter);
-        row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);
-        row[IS_READ] = F::from_bool(self.kind == Read);
-        let MemoryAddress {
-            context,
-            segment,
-            virt,
-        } = self.address;
-        row[ADDR_CONTEXT] = F::from_canonical_usize(context);
-        row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
-        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
-        for j in 0..VALUE_LIMBS {
-            row[value_limb(j)] = F::from_canonical_u32((self.value >> (j * 32)).low_u32());
-        }
-        row
-    }
 }
 
 /// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
@@ -117,7 +91,7 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     /// Generate most of the trace rows. Excludes a few columns like `COUNTER`, which are generated
     /// later, after transposing to column-major form.
     fn generate_trace_row_major(&self, mut memory_ops: Vec<MemoryOp>) -> Vec<[F; NUM_COLUMNS]> {
@@ -237,7 +211,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingStark<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -465,7 +439,7 @@ pub(crate) mod tests {
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    use crate::memory::memory_stark::MemoryStark;
+    use crate::byte_packing::byte_packing_stark::BytePackingStark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -473,7 +447,7 @@ pub(crate) mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = MemoryStark<F, D>;
+        type S = BytePackingStark<F, D>;
 
         let stark = S {
             f: Default::default(),
@@ -486,7 +460,7 @@ pub(crate) mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = MemoryStark<F, D>;
+        type S = BytePackingStark<F, D>;
 
         let stark = S {
             f: Default::default(),

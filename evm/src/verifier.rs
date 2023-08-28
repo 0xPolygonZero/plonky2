@@ -2,6 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -58,6 +59,7 @@ where
         keccak_sponge_stark,
         logic_stark,
         memory_stark,
+        byte_packing_stark,
         cross_table_lookups,
     } = all_stark;
 
@@ -104,6 +106,13 @@ where
         config,
     )?;
     verify_stark_proof_with_challenges(
+        byte_packing_stark,
+        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &stark_challenges[Table::BytePacking as usize],
+        &ctl_vars_per_table[Table::BytePacking as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
         logic_stark,
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
@@ -113,18 +122,14 @@ where
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value
-    // Arithmetic, KeccakSponge, Keccak, Logic
-    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES - 1];
+    // Extra products to add to the looked last value.
+    // Only necessary for the Memory values.
+    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES];
 
     // Memory
-    extra_looking_products.push(Vec::new());
-    for c in 0..config.num_challenges {
-        extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
-            &public_values,
-            ctl_challenges.challenges[c],
-        ));
-    }
+    extra_looking_products[Table::Memory as usize] = (0..config.num_challenges)
+        .map(|i| get_memory_extra_looking_products(&public_values, ctl_challenges.challenges[i]))
+        .collect_vec();
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,

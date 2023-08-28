@@ -162,7 +162,16 @@ impl<T: Copy> Traces<T> {
         let memory_trace = timed!(
             timing,
             "generate memory trace",
-            all_stark.memory_stark.generate_trace(memory_ops, timing)
+            all_stark
+                .memory_stark
+                .generate_trace(memory_ops.clone(), timing)
+        );
+        let byte_packing_trace = timed!(
+            timing,
+            "generate byte packing trace",
+            all_stark
+                .byte_packing_stark
+                .generate_trace(memory_ops, timing)
         );
 
         [
@@ -172,6 +181,7 @@ impl<T: Copy> Traces<T> {
             keccak_sponge_trace,
             logic_trace,
             memory_trace,
+            byte_packing_trace,
         ]
     }
 }

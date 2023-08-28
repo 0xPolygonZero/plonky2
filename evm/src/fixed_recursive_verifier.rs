@@ -413,8 +413,23 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        let byte_packing = RecursiveCircuitsForTable::new(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[6].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
 
-        let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
+        let by_table = [
+            arithmetic,
+            cpu,
+            keccak,
+            keccak_sponge,
+            logic,
+            memory,
+            byte_packing,
+        ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
