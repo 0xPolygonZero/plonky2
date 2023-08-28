@@ -247,8 +247,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         pc::eval_packed(local_values, yield_constr);
         push0::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
-        simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, yield_constr);
+        simple_logic::eval_packed(local_values, next_values, yield_constr);
+        stack::eval_packed(local_values, next_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
         syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
     }
@@ -274,8 +274,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         pc::eval_ext_circuit(builder, local_values, yield_constr);
         push0::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }

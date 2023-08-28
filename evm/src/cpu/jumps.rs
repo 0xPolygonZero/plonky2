@@ -75,8 +75,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_jumpi = filter * lv.opcode_bits[0];
 
     // Stack constraints.
-    stack::eval_packed_one(lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
-    stack::eval_packed_one(lv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
@@ -151,10 +151,18 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let is_jumpi = builder.mul_extension(filter, lv.opcode_bits[0]);
 
     // Stack constraints.
-    stack::eval_ext_circuit_one(builder, lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
+        is_jump,
+        stack::JUMP_OP.unwrap(),
+        yield_constr,
+    );
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
         is_jumpi,
         stack::JUMPI_OP.unwrap(),
         yield_constr,
