@@ -12,6 +12,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -44,6 +45,7 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
 {
     let AllProofChallenges {
         stark_challenges,

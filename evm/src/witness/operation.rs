@@ -3,6 +3,7 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
+use super::util::byte_packing_log;
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -687,33 +688,39 @@ pub(crate) fn generate_mload_general<F: Field>(
     Ok(())
 }
 
-// TODO: Update this
+// Note: This should be used within `perform_mload_32bytes` only,
+// as spanning over several rows.
+// It returns the remaining byte length to be read to construct a packed value.
 pub(crate) fn generate_mload_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, log_in0), (segment, log_in1), (virt, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
+    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
+        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let len = len.as_usize();
 
-    let (val, log_read) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new_u256s(context, segment, virt)?,
-        state,
-        &mut row,
-    );
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let bytes = (0..len)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt.saturating_add(i),
+                ..base_address
+            };
+            let val = state.memory.get(address);
+            val.as_u32() as u8
+        })
+        .collect_vec();
 
-    let log_out = stack_push_log_and_fill(state, &mut row, val)?;
+    let packed_int = U256::from_big_endian(&bytes);
+    let log_out = stack_push_log_and_fill(state, &mut row, packed_int)?;
+
+    byte_packing_log(state, base_address, bytes);
 
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_read);
+    state.traces.push_memory(log_in3);
     state.traces.push_memory(log_out);
-    state.traces.push_byte_packing(log_in0);
-    state.traces.push_byte_packing(log_in1);
-    state.traces.push_byte_packing(log_in2);
-    state.traces.push_byte_packing(log_read);
-    state.traces.push_byte_packing(log_out);
     state.traces.push_cpu(row);
     Ok(())
 }

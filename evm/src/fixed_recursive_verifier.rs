@@ -29,6 +29,7 @@ use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
@@ -303,6 +304,7 @@ where
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
 {
     pub fn to_bytes(
         &self,

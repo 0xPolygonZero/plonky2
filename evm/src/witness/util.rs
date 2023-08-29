@@ -258,3 +258,25 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         input,
     });
 }
+
+pub(crate) fn byte_packing_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    inputs: Vec<u8>,
+) {
+    let clock = state.traces.clock();
+
+    let mut address = base_address;
+    for &byte in &inputs {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Read,
+            byte.into(),
+        ));
+        address.increment();
+    }
+
+    state.traces.push_byte_packing(inputs);
+}

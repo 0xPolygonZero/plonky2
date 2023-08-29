@@ -30,7 +30,7 @@ pub struct TraceCheckpoint {
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
-    pub(crate) byte_packing_ops: Vec<MemoryOp>,
+    pub(crate) byte_packing_ops: Vec<Vec<u8>>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -94,8 +94,8 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.push(op);
     }
 
-    pub fn push_byte_packing(&mut self, op: MemoryOp) {
-        self.byte_packing_ops.push(op);
+    pub fn push_byte_packing(&mut self, bytes: Vec<u8>) {
+        self.byte_packing_ops.push(bytes);
     }
 
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
@@ -181,7 +181,7 @@ impl<T: Copy> Traces<T> {
             "generate byte packing trace",
             all_stark
                 .byte_packing_stark
-                .generate_trace(byte_packing_ops, timing)
+                .generate_trace(byte_packing_ops, cap_elements, timing)
         );
 
         [
