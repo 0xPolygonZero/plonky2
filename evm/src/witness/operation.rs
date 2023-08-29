@@ -688,9 +688,6 @@ pub(crate) fn generate_mload_general<F: Field>(
     Ok(())
 }
 
-// Note: This should be used within `perform_mload_32bytes` only,
-// as spanning over several rows.
-// It returns the remaining byte length to be read to construct a packed value.
 pub(crate) fn generate_mload_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,

@@ -109,7 +109,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     swap: None,
     context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
     mload_32bytes: Some(StackBehavior {
-        num_pops: 3,
+        num_pops: 4,
         pushes: true,
         disable_other_channels: false,
     }),
