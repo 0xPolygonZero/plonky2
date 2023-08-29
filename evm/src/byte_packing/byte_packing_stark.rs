@@ -86,6 +86,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         for (i, &byte) in bytes.iter().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1);
             row[value_bytes(i)] = F::from_canonical_u8(byte);
+            row[value_limb(i / 4)] += F::from_canonical_u32((byte as u32) << (8 * (i % 4)));
 
             rows.push(row.into());
         }

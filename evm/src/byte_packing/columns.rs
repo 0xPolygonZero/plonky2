@@ -13,7 +13,7 @@ pub(crate) const REMAINING_LEN: usize = FILTER + 1;
 const BYTES_START: usize = REMAINING_LEN + 1;
 pub(crate) const fn value_bytes(i: usize) -> usize {
     debug_assert!(i < VALUE_BYTES);
-    VALUE_START + i
+    BYTES_START + i
 }
 
 // Eight 32-bit limbs hold a total of 256 bits, representing the big-endian
