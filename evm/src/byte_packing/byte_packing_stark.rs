@@ -12,6 +12,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
+use super::{VALUE_BYTES, VALUE_LIMBS};
 use crate::byte_packing::columns::{value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -111,7 +112,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         P: PackedField<Scalar = FE>,
     {
         let one = P::from(FE::ONE);
-        // TODO
+
+        // The filter must be boolean.
+        let filter = vars.local_values[FILTER];
+        yield_constr.constraint(filter * (filter - P::ONES));
+
+        // The remaining length of a byte sequence must decrease by one or be zero.
+        let current_remaining_length = vars.local_values[REMAINING_LEN];
+        let next_remaining_length = vars.local_values[REMAINING_LEN];
+        yield_constr.constraint_transition(
+            current_remaining_length * (current_remaining_length - next_remaining_length - one),
+        );
+
+        // The remaining length on the last row must be zero.
+        let final_remaining_length = vars.local_values[REMAINING_LEN];
+        yield_constr.constraint_last_row(final_remaining_length);
+
+        // Each byte must be zero or equal to the previous one when reading through a sequence.
+        for i in 0..VALUE_BYTES {
+            let current_byte = vars.local_values[value_bytes(i)];
+            let next_byte = vars.next_values[value_bytes(i)];
+            yield_constr.constraint_transition(next_byte * (next_byte - current_byte));
+        }
+
+        // Each limb must correspond to the big-endian u32 value of each chunk of 4 bytes.
+        for i in 0..VALUE_LIMBS {
+            let current_limb = vars.local_values[value_limb(i)];
+            let value = vars.local_values[value_bytes(4 * i)..value_bytes(4 * i + 4)]
+                .iter()
+                .enumerate()
+                .map(|(i, &v)| v * P::Scalar::from_canonical_usize(1 << (8 * (i % 4))))
+                .sum::<P>();
+            yield_constr.constraint(current_limb - value);
+        }
     }
 
     fn eval_ext_circuit(
