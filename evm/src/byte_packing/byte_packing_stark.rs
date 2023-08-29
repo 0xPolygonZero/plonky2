@@ -111,7 +111,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let one = P::from(FE::ONE);
+        let one = P::ONES;
 
         // The filter must be boolean.
         let filter = vars.local_values[FILTER];
@@ -154,7 +154,49 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let one = builder.one_extension();
-        // TODO
+
+        // The filter must be boolean.
+        let filter = vars.local_values[FILTER];
+        let constraint = builder.mul_sub_extension(filter, filter, filter);
+        yield_constr.constraint(builder, constraint);
+
+        // The remaining length of a byte sequence must decrease by one or be zero.
+        let current_remaining_length = vars.local_values[REMAINING_LEN];
+        let next_remaining_length = vars.local_values[REMAINING_LEN];
+        let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
+        let length_diff_minus_one = builder.add_const_extension(length_diff, F::NEG_ONE);
+        let constraint = builder.mul_extension(current_remaining_length, length_diff_minus_one);
+        yield_constr.constraint(builder, constraint);
+
+        // The remaining length on the last row must be zero.
+        let final_remaining_length = vars.local_values[REMAINING_LEN];
+        yield_constr.constraint_last_row(builder, final_remaining_length);
+
+        // Each byte must be zero or equal to the previous one when reading through a sequence.
+        for i in 0..VALUE_BYTES {
+            let current_byte = vars.local_values[value_bytes(i)];
+            let next_byte = vars.next_values[value_bytes(i)];
+            let byte_diff = builder.sub_extension(current_byte, next_byte);
+            let constraint = builder.mul_extension(next_byte, byte_diff);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // Each limb must correspond to the big-endian u32 value of each chunk of 4 bytes.
+        for i in 0..VALUE_LIMBS {
+            let current_limb = vars.local_values[value_limb(i)];
+            let mut value = vars.local_values[value_bytes(4 * i)];
+            for (i, &v) in vars.local_values[value_bytes(4 * i)..value_bytes(4 * i + 4)]
+                .iter()
+                .enumerate()
+                .skip(1)
+            {
+                let scaled_v =
+                    builder.mul_const_extension(F::from_canonical_usize(1 << (8 * (i % 4))), v);
+                value = builder.add_extension(value, scaled_v);
+            }
+            let byte_diff = builder.sub_extension(current_limb, value);
+            yield_constr.constraint(builder, constraint);
+        }
     }
 
     fn constraint_degree(&self) -> usize {
