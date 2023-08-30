@@ -128,11 +128,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(final_remaining_length);
 
-        // Each byte must be zero or equal to the previous one when reading through a sequence.
+        // Each next byte must equal the current one when reading through a sequence,
+        // or the current remaining length must be zero.
         for i in 0..VALUE_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
-            yield_constr.constraint_transition(next_byte * (next_byte - current_byte));
+            yield_constr
+                .constraint_transition(current_remaining_length * (next_byte - current_byte));
         }
 
         // Each limb must correspond to the big-endian u32 value of each chunk of 4 bytes.
@@ -172,12 +174,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(builder, final_remaining_length);
 
-        // Each byte must be zero or equal to the previous one when reading through a sequence.
+        // Each next byte must equal the current one when reading through a sequence,
+        // or the current remaining length must be zero.
         for i in 0..VALUE_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             let byte_diff = builder.sub_extension(current_byte, next_byte);
-            let constraint = builder.mul_extension(next_byte, byte_diff);
+            let constraint = builder.mul_extension(current_remaining_length, byte_diff);
             yield_constr.constraint(builder, constraint);
         }
 
