@@ -1,6 +1,3 @@
-// TODO: Remove
-#![allow(unused)]
-
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -12,7 +9,9 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
-use super::columns::{ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_START};
+use super::columns::{
+    ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, SEQUENCE_START, TIMESTAMP,
+};
 use super::{VALUE_BYTES, VALUE_LIMBS};
 use crate::byte_packing::columns::{value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -34,6 +33,20 @@ pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(FILTER)
 }
 
+/// Information about a byte packing operation needed for witness generation.
+#[derive(Clone, Debug)]
+pub(crate) struct BytePackingOp {
+    /// The base address at which inputs are read.
+    pub(crate) base_address: MemoryAddress,
+
+    /// The timestamp at which inputs are read.
+    pub(crate) timestamp: usize,
+
+    /// The byte sequence that was read and has to be packed.
+    /// Its length is expected to be at most 32.
+    pub(crate) bytes: Vec<u8>,
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct BytePackingStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
@@ -42,7 +55,7 @@ pub struct BytePackingStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        addr_and_bytes: Vec<(MemoryAddress, Vec<u8>)>,
+        ops: Vec<BytePackingOp>,
         min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
@@ -50,7 +63,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         let trace_rows = timed!(
             timing,
             "generate trace rows",
-            self.generate_trace_rows(addr_and_bytes, min_rows)
+            self.generate_trace_rows(ops, min_rows)
         );
 
         let trace_polys = timed!(
@@ -64,14 +77,14 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        addr_and_bytes: Vec<(MemoryAddress, Vec<u8>)>,
+        ops: Vec<BytePackingOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let base_len: usize = addr_and_bytes.iter().map(|(_, bytes)| bytes.len()).sum();
+        let base_len: usize = ops.iter().map(|op| op.bytes.len()).sum();
         let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
 
-        for (start_addr, bytes) in addr_and_bytes {
-            rows.extend(self.generate_rows_for_bytes(start_addr, bytes));
+        for op in ops {
+            rows.extend(self.generate_rows_for_op(op));
         }
 
         let padded_rows = rows.len().max(min_rows).next_power_of_two();
@@ -82,11 +95,13 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         rows
     }
 
-    fn generate_rows_for_bytes(
-        &self,
-        start_addr: MemoryAddress,
-        bytes: Vec<u8>,
-    ) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_rows_for_op(&self, op: BytePackingOp) -> Vec<[F; NUM_COLUMNS]> {
+        let BytePackingOp {
+            base_address,
+            timestamp,
+            bytes,
+        } = op;
+
         let mut rows = Vec::with_capacity(bytes.len());
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::ONE;
@@ -95,13 +110,15 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             context,
             segment,
             virt,
-        } = start_addr;
+        } = base_address;
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
+        row[TIMESTAMP] = F::from_canonical_usize(timestamp);
 
         for (i, &byte) in bytes.iter().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1);
+            row[SEQUENCE_END] = F::from_bool(bytes.len() == 1);
             row[value_bytes(i)] = F::from_canonical_u8(byte);
             row[value_limb(i / 4)] += F::from_canonical_u32((byte as u32) << (8 * (i % 4)));
 
@@ -152,6 +169,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // The sequence start flag column must start by one.
         yield_constr.constraint_first_row(sequence_start - one);
 
+        // The sequence end flag must be boolean
+        let sequence_end = vars.local_values[SEQUENCE_END];
+        yield_constr.constraint(sequence_end * (sequence_end - one));
+
+        // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
+        let next_sequence_start = vars.next_values[SEQUENCE_START];
+        yield_constr
+            .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
+
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
         let next_remaining_length = vars.local_values[REMAINING_LEN];
@@ -167,20 +193,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let next_sequence_start = vars.next_values[SEQUENCE_START];
         yield_constr.constraint_transition(current_remaining_length * (next_sequence_start - one));
 
-        // The context and segment fields must remain unchanged throughout a byte sequence.
+        // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must increment by one at each step of a sequence.
+        let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
         let current_segment = vars.local_values[ADDR_SEGMENT];
         let next_segment = vars.next_values[ADDR_SEGMENT];
         let current_virtual = vars.local_values[ADDR_VIRTUAL];
         let next_virtual = vars.next_values[ADDR_VIRTUAL];
-        let next_filter = vars.next_values[FILTER];
+        let current_timestamp = vars.local_values[TIMESTAMP];
+        let next_timestamp = vars.next_values[TIMESTAMP];
         yield_constr.constraint_transition(
             next_filter * (next_sequence_start - one) * (next_context - current_context),
         );
         yield_constr.constraint_transition(
             next_filter * (next_sequence_start - one) * (next_segment - current_segment),
+        );
+        yield_constr.constraint_transition(
+            next_filter * (next_sequence_start - one) * (next_timestamp - current_timestamp),
         );
         yield_constr.constraint_transition(
             next_filter * (next_sequence_start - one) * (next_virtual - current_virtual - one),
@@ -213,8 +244,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let one = builder.one_extension();
-
         // The filter must be boolean.
         let filter = vars.local_values[FILTER];
         let constraint = builder.mul_sub_extension(filter, filter, filter);
@@ -222,7 +251,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The filter column must start by one.
         let constraint = builder.add_const_extension(filter, F::NEG_ONE);
-        yield_constr.constraint_first_row(builder, filter);
+        yield_constr.constraint_first_row(builder, constraint);
 
         // Only padding rows have their filter turned off.
         let next_filter = vars.next_values[FILTER];
@@ -236,8 +265,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // The sequence start flag column must start by one.
-        let constraint = builder.add_const_extension(filter, F::NEG_ONE);
-        yield_constr.constraint_first_row(builder, filter);
+        let constraint = builder.add_const_extension(sequence_start, F::NEG_ONE);
+        yield_constr.constraint_first_row(builder, constraint);
+
+        // The sequence end flag must be boolean
+        let sequence_end = vars.local_values[SEQUENCE_END];
+        let constraint = builder.mul_sub_extension(sequence_end, sequence_end, sequence_end);
+        yield_constr.constraint(builder, constraint);
+
+        // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
+        let next_sequence_start = vars.local_values[SEQUENCE_START];
+        let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
+        let constraint = builder.mul_extension(next_filter, constraint);
+        yield_constr.constraint(builder, constraint);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
@@ -260,15 +300,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         );
         yield_constr.constraint_transition(builder, constraint);
 
-        // The context and segment fields must remain unchanged throughout a byte sequence.
+        // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must increment by one at each step of a sequence.
+        let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
         let current_segment = vars.local_values[ADDR_SEGMENT];
         let next_segment = vars.next_values[ADDR_SEGMENT];
         let current_virtual = vars.local_values[ADDR_VIRTUAL];
         let next_virtual = vars.next_values[ADDR_VIRTUAL];
-        let next_filter = vars.next_values[FILTER];
+        let current_timestamp = vars.local_values[TIMESTAMP];
+        let next_timestamp = vars.next_values[TIMESTAMP];
         let addr_filter = builder.mul_sub_extension(next_filter, next_sequence_start, next_filter);
         {
             let constraint = builder.sub_extension(next_context, current_context);
@@ -277,6 +319,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         }
         {
             let constraint = builder.sub_extension(next_segment, current_segment);
+            let constraint = builder.mul_extension(addr_filter, constraint);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+        {
+            let constraint = builder.sub_extension(next_timestamp, current_timestamp);
             let constraint = builder.mul_extension(addr_filter, constraint);
             yield_constr.constraint_transition(builder, constraint);
         }
@@ -309,7 +356,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
                     builder.mul_const_extension(F::from_canonical_usize(1 << (8 * (i % 4))), v);
                 value = builder.add_extension(value, scaled_v);
             }
-            let byte_diff = builder.sub_extension(current_limb, value);
+            let constraint = builder.sub_extension(current_limb, value);
             yield_constr.constraint(builder, constraint);
         }
     }

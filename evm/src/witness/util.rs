@@ -1,6 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
+use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -262,12 +263,12 @@ pub(crate) fn keccak_sponge_log<F: Field>(
 pub(crate) fn byte_packing_log<F: Field>(
     state: &mut GenerationState<F>,
     base_address: MemoryAddress,
-    inputs: Vec<u8>,
+    bytes: Vec<u8>,
 ) {
     let clock = state.traces.clock();
 
     let mut address = base_address;
-    for &byte in &inputs {
+    for &byte in &bytes {
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::Code,
             clock,
@@ -278,5 +279,9 @@ pub(crate) fn byte_packing_log<F: Field>(
         address.increment();
     }
 
-    state.traces.push_byte_packing(base_address, inputs);
+    state.traces.push_byte_packing(BytePackingOp {
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        bytes,
+    });
 }

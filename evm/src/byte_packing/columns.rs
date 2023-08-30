@@ -7,14 +7,18 @@ use crate::byte_packing::{VALUE_BYTES, VALUE_LIMBS};
 pub(crate) const FILTER: usize = 0;
 /// 1 if this is the beginning of a new sequence of bytes.
 pub(crate) const SEQUENCE_START: usize = FILTER + 1;
+/// 1 if this is the end of a sequence of bytes.
+/// This is also used as filter for the CTL.
+pub(crate) const SEQUENCE_END: usize = SEQUENCE_START + 1;
 
-pub(crate) const ADDR_CONTEXT: usize = SEQUENCE_START + 1;
+pub(crate) const ADDR_CONTEXT: usize = SEQUENCE_END + 1;
 pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
+pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 
 /// The remaining length of this pack of bytes.
 /// Expected to not be greater than 32.
-pub(crate) const REMAINING_LEN: usize = ADDR_VIRTUAL + 1;
+pub(crate) const REMAINING_LEN: usize = TIMESTAMP + 1;
 
 // 32 byte limbs hold a total of 256 bits.
 const BYTES_START: usize = REMAINING_LEN + 1;
