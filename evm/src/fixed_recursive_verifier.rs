@@ -4,6 +4,7 @@ use std::ops::Range;
 
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
+use log::{debug, warn};
 use plonky2::field::extension::Extendable;
 use plonky2::fri::FriParams;
 use plonky2::gates::constant::ConstantGate;
@@ -586,6 +587,18 @@ where
         }
     }
 
+    fn get_table_name_for_idx(t_idx: usize) -> &'static str {
+        match t_idx {
+            0 => "Arithmetic",
+            1 => "Cpu",
+            2 => "Keccak",
+            3 => "Keccak Sponge",
+            4 => "Logic",
+            5 => "Memory",
+            _ => panic!("No table index at {}!", t_idx),
+        }
+    }
+
     /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
     pub fn prove_root(
         &self,
@@ -597,10 +610,29 @@ where
         let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
         let mut root_inputs = PartialWitness::new();
 
+        let max_table_sizes = (0..NUM_TABLES)
+            .map(|table| {
+                let stark_proof = &all_proof.stark_proofs[table];
+                stark_proof.proof.recover_degree_bits(config)
+            })
+            .collect::<Vec<_>>();
+
+        debug!("Table sizes used for txn: {:?}", max_table_sizes);
+
         for table in 0..NUM_TABLES {
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
+
+            if !table_circuits
+                .by_stark_size
+                .contains_key(&original_degree_bits)
+            {
+                let table_name = Self::get_table_name_for_idx(table);
+                let actual_table_len = table_circuits.by_stark_size.keys().max().cloned().unwrap();
+                warn!("Table {} ({}) was not large enough (required to be at least {} but was only {}). About to crash...", table_name, table, original_degree_bits, actual_table_len);
+            }
+
             let shrunk_proof = table_circuits.by_stark_size[&original_degree_bits]
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;
             let index_verifier_data = table_circuits
