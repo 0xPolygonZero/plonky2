@@ -10,9 +10,9 @@ on:
     branches:
       - "**"
 
-jobs:  
+jobs:
   test:
-    name: Test Suite
+    name: Test on GitHub Runners
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
@@ -82,6 +82,157 @@ jobs:
           CARGO_INCREMENTAL: 1
           RUST_BACKTRACE: 1
 
+  test-aarch64:
+    name: Test Suite ARM
+    runs-on: [self-hosted, ARM64]
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    strategy:
+      matrix:
+        feature: [ "+neon", "-neon" ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        id: rustc-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2023-06-30
+          override: true
+          target: armv7-unknown-linux-gnueabihf
+
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Check in plonky2 subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path plonky2/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in starky subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path starky/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in evm subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path evm/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Ctarget-feature=${{ matrix.feature }}
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+  test-x86:
+    name: Test Suite x86
+    runs-on: [self-hosted, X64]
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    strategy:
+      matrix:
+        feature: [ "+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl", +avx2, "-avx2,-avx512bw,-avx512cd,-avx512dq,-avx512f,-avx512vl" ]
+        # feature: [ "-avx2,-avx512bw,-avx512cd,-avx512dq,-avx512f,-avx512vl" ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        id: rustc-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2023-06-30
+          override: true
+          target: x86_64-unknown-linux-gnu
+
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Check in plonky2 subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path plonky2/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in starky subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path starky/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in evm subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path evm/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Ctarget-feature=${{ matrix.feature }}
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
   lints:
     name: Formatting and Clippy
     runs-on: ubuntu-latest
@@ -125,4 +276,3 @@ jobs:
           args: --all-features --all-targets -- -D warnings -A incomplete-features
         env:
           CARGO_INCREMENTAL: 1
-
