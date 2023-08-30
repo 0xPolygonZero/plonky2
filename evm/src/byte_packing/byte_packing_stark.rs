@@ -12,6 +12,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
+use super::columns::{ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_START};
 use super::{VALUE_BYTES, VALUE_LIMBS};
 use crate::byte_packing::columns::{value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -19,6 +20,7 @@ use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::witness::memory::MemoryAddress;
 
 // TODO: change
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
@@ -40,7 +42,7 @@ pub struct BytePackingStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     pub(crate) fn generate_trace(
         &self,
-        grouped_bytes: Vec<Vec<u8>>,
+        addr_and_bytes: Vec<(MemoryAddress, Vec<u8>)>,
         min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
@@ -48,7 +50,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         let trace_rows = timed!(
             timing,
             "generate trace rows",
-            self.generate_trace_rows(grouped_bytes, min_rows)
+            self.generate_trace_rows(addr_and_bytes, min_rows)
         );
 
         let trace_polys = timed!(
@@ -62,27 +64,41 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
     fn generate_trace_rows(
         &self,
-        grouped_bytes: Vec<Vec<u8>>,
+        addr_and_bytes: Vec<(MemoryAddress, Vec<u8>)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let base_len: usize = grouped_bytes.iter().map(|bytes| bytes.len()).sum();
+        let base_len: usize = addr_and_bytes.iter().map(|(_, bytes)| bytes.len()).sum();
         let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
 
-        for bytes in grouped_bytes {
-            rows.extend(self.generate_rows_for_bytes(bytes));
+        for (start_addr, bytes) in addr_and_bytes {
+            rows.extend(self.generate_rows_for_bytes(start_addr, bytes));
         }
 
         let padded_rows = rows.len().max(min_rows).next_power_of_two();
         for _ in rows.len()..padded_rows {
             rows.push(self.generate_padding_row());
         }
+
         rows
     }
 
-    fn generate_rows_for_bytes(&self, bytes: Vec<u8>) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_rows_for_bytes(
+        &self,
+        start_addr: MemoryAddress,
+        bytes: Vec<u8>,
+    ) -> Vec<[F; NUM_COLUMNS]> {
         let mut rows = Vec::with_capacity(bytes.len());
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::ONE;
+        row[SEQUENCE_START] = F::ONE;
+        let MemoryAddress {
+            context,
+            segment,
+            virt,
+        } = start_addr;
+        row[ADDR_CONTEXT] = F::from_canonical_usize(context);
+        row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
+        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
 
         for (i, &byte) in bytes.iter().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1);
@@ -90,6 +106,11 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             row[value_limb(i / 4)] += F::from_canonical_u32((byte as u32) << (8 * (i % 4)));
 
             rows.push(row.into());
+            row[ADDR_VIRTUAL] += F::ONE;
+
+            if i == 0 {
+                row[SEQUENCE_START] = F::ZERO;
+            }
         }
 
         rows
@@ -115,7 +136,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The filter must be boolean.
         let filter = vars.local_values[FILTER];
-        yield_constr.constraint(filter * (filter - P::ONES));
+        yield_constr.constraint(filter * (filter - one));
+
+        // The filter column must start by one.
+        yield_constr.constraint_first_row(filter - one);
+
+        // Only padding rows have their filter turned off.
+        let next_filter = vars.next_values[FILTER];
+        yield_constr.constraint_transition(next_filter * (next_filter - filter));
+
+        // The sequence start flag must be boolean
+        let sequence_start = vars.local_values[SEQUENCE_START];
+        yield_constr.constraint(sequence_start * (sequence_start - one));
+
+        // The sequence start flag column must start by one.
+        yield_constr.constraint_first_row(sequence_start - one);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
@@ -127,6 +162,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // The remaining length on the last row must be zero.
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(final_remaining_length);
+
+        // If the current remaining length is zero, the next sequence start flag must be one.
+        let next_sequence_start = vars.next_values[SEQUENCE_START];
+        yield_constr.constraint_transition(current_remaining_length * (next_sequence_start - one));
+
+        // The context and segment fields must remain unchanged throughout a byte sequence.
+        // The virtual address must increment by one at each step of a sequence.
+        let current_context = vars.local_values[ADDR_CONTEXT];
+        let next_context = vars.next_values[ADDR_CONTEXT];
+        let current_segment = vars.local_values[ADDR_SEGMENT];
+        let next_segment = vars.next_values[ADDR_SEGMENT];
+        let current_virtual = vars.local_values[ADDR_VIRTUAL];
+        let next_virtual = vars.next_values[ADDR_VIRTUAL];
+        let next_filter = vars.next_values[FILTER];
+        yield_constr.constraint_transition(
+            next_filter * (next_sequence_start - one) * (next_context - current_context),
+        );
+        yield_constr.constraint_transition(
+            next_filter * (next_sequence_start - one) * (next_segment - current_segment),
+        );
+        yield_constr.constraint_transition(
+            next_filter * (next_sequence_start - one) * (next_virtual - current_virtual - one),
+        );
 
         // Each next byte must equal the current one when reading through a sequence,
         // or the current remaining length must be zero.
@@ -162,6 +220,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_sub_extension(filter, filter, filter);
         yield_constr.constraint(builder, constraint);
 
+        // The filter column must start by one.
+        let constraint = builder.add_const_extension(filter, F::NEG_ONE);
+        yield_constr.constraint_first_row(builder, filter);
+
+        // Only padding rows have their filter turned off.
+        let next_filter = vars.next_values[FILTER];
+        let constraint = builder.sub_extension(next_filter, filter);
+        let constraint = builder.mul_extension(next_filter, constraint);
+        yield_constr.constraint_transition(builder, constraint);
+
+        // The sequence start flag must be boolean
+        let sequence_start = vars.local_values[SEQUENCE_START];
+        let constraint = builder.mul_sub_extension(sequence_start, sequence_start, sequence_start);
+        yield_constr.constraint(builder, constraint);
+
+        // The sequence start flag column must start by one.
+        let constraint = builder.add_const_extension(filter, F::NEG_ONE);
+        yield_constr.constraint_first_row(builder, filter);
+
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
         let next_remaining_length = vars.local_values[REMAINING_LEN];
@@ -173,6 +250,41 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // The remaining length on the last row must be zero.
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(builder, final_remaining_length);
+
+        // If the current remaining length is zero, the next sequence start flag must be one.
+        let next_sequence_start = vars.next_values[SEQUENCE_START];
+        let constraint = builder.mul_sub_extension(
+            current_remaining_length,
+            next_sequence_start,
+            current_remaining_length,
+        );
+        yield_constr.constraint_transition(builder, constraint);
+
+        // The context and segment fields must remain unchanged throughout a byte sequence.
+        // The virtual address must increment by one at each step of a sequence.
+        let current_context = vars.local_values[ADDR_CONTEXT];
+        let next_context = vars.next_values[ADDR_CONTEXT];
+        let current_segment = vars.local_values[ADDR_SEGMENT];
+        let next_segment = vars.next_values[ADDR_SEGMENT];
+        let current_virtual = vars.local_values[ADDR_VIRTUAL];
+        let next_virtual = vars.next_values[ADDR_VIRTUAL];
+        let next_filter = vars.next_values[FILTER];
+        let addr_filter = builder.mul_sub_extension(next_filter, next_sequence_start, next_filter);
+        {
+            let constraint = builder.sub_extension(next_context, current_context);
+            let constraint = builder.mul_extension(addr_filter, constraint);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+        {
+            let constraint = builder.sub_extension(next_segment, current_segment);
+            let constraint = builder.mul_extension(addr_filter, constraint);
+            yield_constr.constraint_transition(builder, constraint);
+        }
+        {
+            let constraint = builder.sub_extension(next_virtual, current_virtual);
+            let constraint = builder.mul_sub_extension(addr_filter, constraint, addr_filter);
+            yield_constr.constraint_transition(builder, constraint);
+        }
 
         // Each next byte must equal the current one when reading through a sequence,
         // or the current remaining length must be zero.

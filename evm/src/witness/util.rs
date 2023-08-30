@@ -278,5 +278,5 @@ pub(crate) fn byte_packing_log<F: Field>(
         address.increment();
     }
 
-    state.traces.push_byte_packing(inputs);
+    state.traces.push_byte_packing(base_address, inputs);
 }

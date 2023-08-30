@@ -7,6 +7,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
+use super::memory::MemoryAddress;
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
@@ -30,7 +31,7 @@ pub struct TraceCheckpoint {
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
-    pub(crate) byte_packing_ops: Vec<Vec<u8>>,
+    pub(crate) byte_packing_ops: Vec<(MemoryAddress, Vec<u8>)>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -94,8 +95,8 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.push(op);
     }
 
-    pub fn push_byte_packing(&mut self, bytes: Vec<u8>) {
-        self.byte_packing_ops.push(bytes);
+    pub fn push_byte_packing(&mut self, address: MemoryAddress, bytes: Vec<u8>) {
+        self.byte_packing_ops.push((address, bytes));
     }
 
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
