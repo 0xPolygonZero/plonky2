@@ -115,6 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
+        row[SEQUENCE_LEN] = F::from_canonical_usize(bytes.len());
 
         for (i, &byte) in bytes.iter().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1);
@@ -184,6 +185,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint_transition(
             current_remaining_length * (current_remaining_length - next_remaining_length - one),
         );
+
+        // At the start of a sequence, the remaining length must be equal to the starting length minus one
+        let sequence_length = vars.local_values[SEQUENCE_LEN];
+        yield_constr
+            .constraint(sequence_start * (sequence_length - current_remaining_length - one));
 
         // The remaining length on the last row must be zero.
         let final_remaining_length = vars.local_values[REMAINING_LEN];
@@ -285,6 +291,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
         let length_diff_minus_one = builder.add_const_extension(length_diff, F::NEG_ONE);
         let constraint = builder.mul_extension(current_remaining_length, length_diff_minus_one);
+        yield_constr.constraint_transition(builder, constraint);
+
+        // At the start of a sequence, the remaining length must be equal to the starting length minus one
+        let sequence_length = vars.local_values[SEQUENCE_LEN];
+        let length_diff = builder.sub_extension(sequence_length, current_remaining_length);
+        let constraint = builder.mul_sub_extension(sequence_start, length_diff, sequence_start);
         yield_constr.constraint(builder, constraint);
 
         // The remaining length on the last row must be zero.

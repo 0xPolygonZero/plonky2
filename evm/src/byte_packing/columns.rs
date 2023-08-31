@@ -16,6 +16,9 @@ pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
 pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 
+/// The total length of this pack of bytes.
+/// Expected to not be greater than 32.
+pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
 /// The remaining length of this pack of bytes.
 /// Expected to not be greater than 32.
 pub(crate) const REMAINING_LEN: usize = TIMESTAMP + 1;
