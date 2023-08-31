@@ -509,7 +509,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let mut product = builder.one();
 
     // Add metadata writes.
-    let block_fields_without_arrays = [
+    let block_fields_scalars = [
         (
             GlobalMetadata::BlockTimestamp as usize,
             public_values.block_metadata.block_timestamp,
@@ -540,7 +540,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         &public_values.block_metadata.block_beneficiary,
     );
 
-    block_fields_without_arrays.map(|(field, target)| {
+    block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
         product = add_metadata_write(builder, challenge, product, field, &[target]);
     });
@@ -549,15 +549,16 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         builder,
         challenge,
         product,
-        GlobalMetadata::BlockBaseFee as usize,
-        &public_values.block_metadata.block_base_fee,
+        GlobalMetadata::BlockRandom as usize,
+        &public_values.block_metadata.block_random,
     );
+
     product = add_metadata_write(
         builder,
         challenge,
         product,
-        GlobalMetadata::BlockRandom as usize,
-        &public_values.block_metadata.block_random,
+        GlobalMetadata::BlockBaseFee as usize,
+        &public_values.block_metadata.block_base_fee,
     );
 
     // Add trie roots writes.
