@@ -91,6 +91,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockTimestamp, metadata.block_timestamp),
         (GlobalMetadata::BlockNumber, metadata.block_number),
         (GlobalMetadata::BlockDifficulty, metadata.block_difficulty),
+        (GlobalMetadata::BlockRandom, metadata.block_random),
         (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
         (GlobalMetadata::BlockChainId, metadata.block_chain_id),
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),

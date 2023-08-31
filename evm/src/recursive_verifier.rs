@@ -509,7 +509,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let mut product = builder.one();
 
     // Add metadata writes.
-    let block_fields_without_beneficiary_and_basefee = [
+    let block_fields_without_arrays = [
         (
             GlobalMetadata::BlockTimestamp as usize,
             public_values.block_metadata.block_timestamp,
@@ -540,7 +540,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         &public_values.block_metadata.block_beneficiary,
     );
 
-    block_fields_without_beneficiary_and_basefee.map(|(field, target)| {
+    block_fields_without_arrays.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
         product = add_metadata_write(builder, challenge, product, field, &[target]);
     });
@@ -551,6 +551,13 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         product,
         GlobalMetadata::BlockBaseFee as usize,
         &public_values.block_metadata.block_base_fee,
+    );
+    product = add_metadata_write(
+        builder,
+        challenge,
+        product,
+        GlobalMetadata::BlockRandom as usize,
+        &public_values.block_metadata.block_random,
     );
 
     // Add trie roots writes.
@@ -680,6 +687,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_timestamp = builder.add_virtual_public_input();
     let block_number = builder.add_virtual_public_input();
     let block_difficulty = builder.add_virtual_public_input();
+    let block_random = builder.add_virtual_public_input_arr();
     let block_gaslimit = builder.add_virtual_public_input();
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
@@ -689,6 +697,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_timestamp,
         block_number,
         block_difficulty,
+        block_random,
         block_gaslimit,
         block_chain_id,
         block_base_fee,

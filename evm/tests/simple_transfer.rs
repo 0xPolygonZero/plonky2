@@ -71,6 +71,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
+        block_random: 0x020000.into(),
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),

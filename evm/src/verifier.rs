@@ -161,6 +161,10 @@ where
             public_values.block_metadata.block_number,
         ),
         (
+            GlobalMetadata::BlockRandom,
+            public_values.block_metadata.block_random,
+        ),
+        (
             GlobalMetadata::BlockDifficulty,
             public_values.block_metadata.block_difficulty,
         ),
