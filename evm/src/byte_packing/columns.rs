@@ -21,7 +21,7 @@ pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
 /// The remaining length of this pack of bytes.
 /// Expected to not be greater than 32.
-pub(crate) const REMAINING_LEN: usize = TIMESTAMP + 1;
+pub(crate) const REMAINING_LEN: usize = SEQUENCE_LEN + 1;
 
 // 32 byte limbs hold a total of 256 bits.
 const BYTES_START: usize = REMAINING_LEN + 1;

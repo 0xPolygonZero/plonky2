@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -13,7 +12,9 @@ use super::columns::{
     ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, SEQUENCE_START, TIMESTAMP,
 };
 use super::{VALUE_BYTES, VALUE_LIMBS};
-use crate::byte_packing::columns::{value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN};
+use crate::byte_packing::columns::{
+    value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN, SEQUENCE_LEN,
+};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
@@ -21,15 +22,56 @@ use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
-// TODO: change
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res = Column::singles([FILTER, FILTER, FILTER, FILTER]).collect_vec();
-    res.extend(Column::singles((0..8).map(value_limb)));
-    res.push(Column::single(FILTER));
+pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+    let outputs = Column::singles((0..8).map(|i| value_limb(i)));
+
+    // We recover the initial ADDR_VIRTUAL from the sequence length.
+    let virt_initial = Column::linear_combination_with_constant(
+        [(ADDR_VIRTUAL, F::ONE), (SEQUENCE_LEN, F::NEG_ONE)],
+        F::ONE,
+    );
+
+    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT])
+        .chain([virt_initial])
+        .chain(Column::singles([SEQUENCE_LEN, TIMESTAMP]))
+        .chain(outputs)
+        .collect()
+}
+
+pub fn ctl_looked_filter<F: Field>() -> Column<F> {
+    // The CPU table is only interested in our sequence end rows,
+    // since those contain the final limbs of our packed int.
+    Column::single(SEQUENCE_END)
+}
+
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+
+    res.extend(Column::singles([ADDR_CONTEXT, ADDR_SEGMENT]));
+
+    // The address of the byte being read is `virt + total_len - remaining_len - 1 + i`.
+    res.push(Column::linear_combination_with_constant(
+        [
+            (ADDR_VIRTUAL, F::ONE),
+            (SEQUENCE_LEN, F::ONE),
+            (REMAINING_LEN, F::NEG_ONE),
+        ],
+        F::from_canonical_usize(i + 1),
+    ));
+
+    // The i'th input byte being read.
+    res.push(Column::single(value_bytes(i)));
+
+    // Since we're reading a single byte, the higher limbs must be zero.
+    res.extend((1..8).map(|_| Column::zero()));
+
+    res.push(Column::single(TIMESTAMP));
+
     res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
+/// CTL filter for reading the `i`th byte of the byte sequence from memory.
+pub(crate) fn ctl_looking_memory_filter<F: Field>() -> Column<F> {
     Column::single(FILTER)
 }
 

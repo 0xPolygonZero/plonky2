@@ -542,8 +542,7 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
             looking_tables,
             looked_table,
         },
-        // TODO: Fix extra product with new table
-    ) in cross_table_lookups.iter().enumerate().take(NUM_TABLES - 3)
+    ) in cross_table_lookups.iter().enumerate()
     {
         let extra_product_vec = &ctl_extra_looking_products[looked_table.table as usize];
         for c in 0..config.num_challenges {

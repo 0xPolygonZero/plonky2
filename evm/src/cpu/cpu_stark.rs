@@ -153,6 +153,14 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     )
 }
 
+pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
+    ctl_data_keccak_sponge()
+}
+
+pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.mload_32bytes)
+}
+
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 

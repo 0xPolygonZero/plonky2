@@ -11,7 +11,7 @@ use crate::config::StarkConfig;
 use crate::cpu::cpu_stark;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cross_table_lookup::{Column, CrossTableLookup, TableWithColumns};
+use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
 use crate::keccak::keccak_stark;
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::columns::KECCAK_RATE_BYTES;
@@ -106,11 +106,11 @@ impl Table {
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
         ctl_arithmetic(),
+        ctl_byte_packing(),
         ctl_keccak_sponge(),
         ctl_keccak(),
         ctl_logic(),
         ctl_memory(),
-        ctl_byte_packing(),
     ]
 }
 
@@ -192,9 +192,17 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
+    let byte_packing_reads = (0..32).map(|i| {
+        TableWithColumns::new(
+            Table::BytePacking,
+            byte_packing_stark::ctl_looking_memory(i),
+            Some(byte_packing_stark::ctl_looking_memory_filter()),
+        )
+    });
     let all_lookers = iter::once(cpu_memory_code_read)
         .chain(cpu_memory_gp_ops)
         .chain(keccak_sponge_reads)
+        .chain(byte_packing_reads)
         .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
@@ -204,17 +212,16 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(all_lookers, memory_looked)
 }
 
-// TODO: update this
 fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
-    let dummy_read = TableWithColumns::new(
+    let cpu_looking = TableWithColumns::new(
         Table::Cpu,
-        cpu_stark::ctl_data_code_memory(),
-        Some(Column::zero()),
+        cpu_stark::ctl_data_byte_packing(),
+        Some(cpu_stark::ctl_filter_byte_packing()),
     );
     let byte_packing_looked = TableWithColumns::new(
         Table::BytePacking,
-        byte_packing_stark::ctl_data(),
-        Some(Column::zero()),
+        byte_packing_stark::ctl_looked_data(),
+        Some(byte_packing_stark::ctl_looked_filter()),
     );
-    CrossTableLookup::new(vec![dummy_read], byte_packing_looked)
+    CrossTableLookup::new(vec![cpu_looking], byte_packing_looked)
 }
