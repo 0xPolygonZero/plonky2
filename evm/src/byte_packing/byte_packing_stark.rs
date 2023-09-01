@@ -249,11 +249,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             .constraint(sequence_start * (sequence_length - current_remaining_length - one));
 
         // The remaining length on the last row must be zero.
-        let final_remaining_length = vars.local_values[REMAINING_LEN];
-        yield_constr.constraint_last_row(final_remaining_length);
+        yield_constr.constraint_last_row(current_remaining_length);
 
         // If the current remaining length is zero, the end flag must be one.
-        yield_constr.constraint_transition(current_remaining_length * sequence_end);
+        yield_constr.constraint(current_remaining_length * sequence_end);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must increment by one at each step of a sequence.
@@ -280,12 +279,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         );
 
         // Each next byte must equal the current one when reading through a sequence,
-        // or the current remaining length must be zero.
+        // or the next byte index must be one.
         for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
-            yield_constr
-                .constraint_transition(current_remaining_length * (next_byte - current_byte));
+            let next_byte_index = vars.next_values[index_bytes(i)];
+            yield_constr.constraint_transition(next_byte_index * (next_byte - current_byte));
         }
     }
 
@@ -355,12 +354,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // The remaining length on the last row must be zero.
-        let final_remaining_length = vars.local_values[REMAINING_LEN];
-        yield_constr.constraint_last_row(builder, final_remaining_length);
+        yield_constr.constraint_last_row(builder, current_remaining_length);
 
         // If the current remaining length is zero, the end flag must be one.
         let constraint = builder.mul_extension(current_remaining_length, sequence_end);
-        yield_constr.constraint_transition(builder, constraint);
+        yield_constr.constraint(builder, constraint);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must increment by one at each step of a sequence.
@@ -396,12 +394,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         }
 
         // Each next byte must equal the current one when reading through a sequence,
-        // or the current remaining length must be zero.
+        // or the next byte index must be one.
         for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
+            let next_byte_index = vars.next_values[index_bytes(i)];
             let byte_diff = builder.sub_extension(current_byte, next_byte);
-            let constraint = builder.mul_extension(current_remaining_length, byte_diff);
+            let constraint = builder.mul_extension(next_byte_index, byte_diff);
             yield_constr.constraint(builder, constraint);
         }
     }

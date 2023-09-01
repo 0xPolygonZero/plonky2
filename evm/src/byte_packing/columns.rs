@@ -2,8 +2,7 @@
 
 use crate::byte_packing::NUM_BYTES;
 
-// Columns for memory operations, ordered by (addr, timestamp).
-/// 1 if this is an actual memory operation, or 0 if it's a padding row.
+/// 1 if this is an actual byte packing operation, or 0 if it's a padding row.
 pub(crate) const FILTER: usize = 0;
 /// 1 if this is the end of a sequence of bytes.
 /// This is also used as filter for the CTL.
@@ -25,6 +24,8 @@ pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
 /// The remaining length of this pack of bytes.
 /// Expected to not be greater than 32.
+// TODO: We should be able to remove this by leveraging `SEQUENCE_LEN` and the
+// byte indices.
 pub(crate) const REMAINING_LEN: usize = SEQUENCE_LEN + 1;
 
 // 32 byte limbs hold a total of 256 bits.
