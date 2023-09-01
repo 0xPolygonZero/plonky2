@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -11,10 +12,8 @@ use plonky2::util::timing::TimingTree;
 use super::columns::{
     index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, TIMESTAMP,
 };
-use super::{VALUE_BYTES, VALUE_LIMBS};
-use crate::byte_packing::columns::{
-    value_bytes, value_limb, FILTER, NUM_COLUMNS, REMAINING_LEN, SEQUENCE_LEN,
-};
+use super::NUM_BYTES;
+use crate::byte_packing::columns::{value_bytes, FILTER, NUM_COLUMNS, REMAINING_LEN, SEQUENCE_LEN};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::stark::Stark;
@@ -23,7 +22,17 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
-    let outputs = Column::singles((0..8).map(|i| value_limb(i)));
+    let outputs: Vec<Column<F>> = (0..8)
+        .map(|i| {
+            let range = (value_bytes(i * 4)..value_bytes((i + 1) * 4)).collect_vec();
+            Column::linear_combination(
+                range
+                    .iter()
+                    .enumerate()
+                    .map(|(j, &c)| (c, F::from_canonical_u64(1 << 8 * j))),
+            )
+        })
+        .collect();
 
     // We recover the initial ADDR_VIRTUAL from the sequence length.
     let virt_initial = Column::linear_combination_with_constant(
@@ -163,7 +172,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             row[SEQUENCE_END] = F::from_bool(bytes.len() == i + 1);
             row[value_bytes(i)] = F::from_canonical_u8(byte);
             row[index_bytes(i)] = F::ONE;
-            row[value_limb(i / 4)] += F::from_canonical_u32((byte as u32) << (8 * (i % 4)));
 
             rows.push(row.into());
             row[index_bytes(i)] = F::ZERO;
@@ -216,13 +224,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
 
         // Each byte index must be boolean.
-        for i in 0..VALUE_BYTES {
+        for i in 0..NUM_BYTES {
             let idx_i = vars.local_values[index_bytes(i)];
             yield_constr.constraint(idx_i * (idx_i - one));
         }
 
         // There must be only one byte index set to 1 per active row.
-        let sum_indices = vars.local_values[index_bytes(0)..index_bytes(0) + VALUE_BYTES]
+        let sum_indices = vars.local_values[index_bytes(0)..index_bytes(0) + NUM_BYTES]
             .iter()
             .copied()
             .sum::<P>();
@@ -273,22 +281,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // Each next byte must equal the current one when reading through a sequence,
         // or the current remaining length must be zero.
-        for i in 0..VALUE_BYTES {
+        for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             yield_constr
                 .constraint_transition(current_remaining_length * (next_byte - current_byte));
-        }
-
-        // Each limb must correspond to the big-endian u32 value of each chunk of 4 bytes.
-        for i in 0..VALUE_LIMBS {
-            let current_limb = vars.local_values[value_limb(i)];
-            let value = vars.local_values[value_bytes(4 * i)..value_bytes(4 * i + 4)]
-                .iter()
-                .enumerate()
-                .map(|(i, &v)| v * P::Scalar::from_canonical_usize(1 << (8 * (i % 4))))
-                .sum::<P>();
-            yield_constr.constraint(current_limb - value);
         }
     }
 
@@ -330,7 +327,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // Each byte index must be boolean.
-        for i in 0..VALUE_BYTES {
+        for i in 0..NUM_BYTES {
             let idx_i = vars.local_values[index_bytes(i)];
             let constraint = builder.mul_sub_extension(idx_i, idx_i, idx_i);
             yield_constr.constraint(builder, constraint);
@@ -338,7 +335,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // There must be only one byte index set to 1 per active row.
         let sum_indices = builder.add_many_extension(
-            vars.local_values[index_bytes(0)..index_bytes(0) + VALUE_BYTES].into_iter(),
+            vars.local_values[index_bytes(0)..index_bytes(0) + NUM_BYTES].into_iter(),
         );
         let constraint = builder.mul_sub_extension(filter, sum_indices, filter);
         yield_constr.constraint(builder, constraint);
@@ -400,28 +397,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // Each next byte must equal the current one when reading through a sequence,
         // or the current remaining length must be zero.
-        for i in 0..VALUE_BYTES {
+        for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             let byte_diff = builder.sub_extension(current_byte, next_byte);
             let constraint = builder.mul_extension(current_remaining_length, byte_diff);
-            yield_constr.constraint(builder, constraint);
-        }
-
-        // Each limb must correspond to the big-endian u32 value of each chunk of 4 bytes.
-        for i in 0..VALUE_LIMBS {
-            let current_limb = vars.local_values[value_limb(i)];
-            let mut value = vars.local_values[value_bytes(4 * i)];
-            for (i, &v) in vars.local_values[value_bytes(4 * i)..value_bytes(4 * i + 4)]
-                .iter()
-                .enumerate()
-                .skip(1)
-            {
-                let scaled_v =
-                    builder.mul_const_extension(F::from_canonical_usize(1 << (8 * (i % 4))), v);
-                value = builder.add_extension(value, scaled_v);
-            }
-            let constraint = builder.sub_extension(current_limb, value);
             yield_constr.constraint(builder, constraint);
         }
     }

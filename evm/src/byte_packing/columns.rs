@@ -1,6 +1,6 @@
 //! Byte packing registers.
 
-use crate::byte_packing::{VALUE_BYTES, VALUE_LIMBS};
+use crate::byte_packing::NUM_BYTES;
 
 // Columns for memory operations, ordered by (addr, timestamp).
 /// 1 if this is an actual memory operation, or 0 if it's a padding row.
@@ -11,11 +11,11 @@ pub(crate) const SEQUENCE_END: usize = FILTER + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
 pub(crate) const fn index_bytes(i: usize) -> usize {
-    debug_assert!(i < VALUE_BYTES);
+    debug_assert!(i < NUM_BYTES);
     BYTES_INDICES_START + i
 }
 
-pub(crate) const ADDR_CONTEXT: usize = BYTES_INDICES_START + VALUE_BYTES;
+pub(crate) const ADDR_CONTEXT: usize = BYTES_INDICES_START + NUM_BYTES;
 pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
 pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
@@ -30,16 +30,8 @@ pub(crate) const REMAINING_LEN: usize = SEQUENCE_LEN + 1;
 // 32 byte limbs hold a total of 256 bits.
 const BYTES_START: usize = REMAINING_LEN + 1;
 pub(crate) const fn value_bytes(i: usize) -> usize {
-    debug_assert!(i < VALUE_BYTES);
+    debug_assert!(i < NUM_BYTES);
     BYTES_START + i
 }
 
-// Eight 32-bit limbs hold a total of 256 bits, representing the big-endian
-// encoding of the previous byte sequence.
-const VALUE_START: usize = BYTES_START + VALUE_BYTES;
-pub(crate) const fn value_limb(i: usize) -> usize {
-    debug_assert!(i < VALUE_LIMBS);
-    VALUE_START + i
-}
-
-pub(crate) const NUM_COLUMNS: usize = VALUE_START + VALUE_LIMBS;
+pub(crate) const NUM_COLUMNS: usize = BYTES_START + NUM_BYTES;
