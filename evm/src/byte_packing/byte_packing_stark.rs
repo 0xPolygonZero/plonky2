@@ -9,7 +9,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use super::columns::{
-    ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, SEQUENCE_START, TIMESTAMP,
+    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, SEQUENCE_START, TIMESTAMP,
 };
 use super::{VALUE_BYTES, VALUE_LIMBS};
 use crate::byte_packing::columns::{
@@ -56,7 +56,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
             (SEQUENCE_LEN, F::ONE),
             (REMAINING_LEN, F::NEG_ONE),
         ],
-        F::from_canonical_usize(i + 1),
+        F::NEG_ONE,
     ));
 
     // The i'th input byte being read.
@@ -71,8 +71,8 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// CTL filter for reading the `i`th byte of the byte sequence from memory.
-pub(crate) fn ctl_looking_memory_filter<F: Field>() -> Column<F> {
-    Column::single(FILTER)
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
+    Column::single(index_bytes(i))
 }
 
 /// Information about a byte packing operation needed for witness generation.
@@ -163,9 +163,11 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1 - i);
             row[SEQUENCE_END] = F::from_bool(bytes.len() == i + 1);
             row[value_bytes(i)] = F::from_canonical_u8(byte);
+            row[index_bytes(i)] = F::ONE;
             row[value_limb(i / 4)] += F::from_canonical_u32((byte as u32) << (8 * (i % 4)));
 
             rows.push(row.into());
+            row[index_bytes(i)] = F::ZERO;
             row[ADDR_VIRTUAL] += F::ONE;
 
             if i == 0 {

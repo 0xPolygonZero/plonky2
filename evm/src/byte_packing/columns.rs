@@ -11,7 +11,13 @@ pub(crate) const SEQUENCE_START: usize = FILTER + 1;
 /// This is also used as filter for the CTL.
 pub(crate) const SEQUENCE_END: usize = SEQUENCE_START + 1;
 
-pub(crate) const ADDR_CONTEXT: usize = SEQUENCE_END + 1;
+pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
+pub(crate) const fn index_bytes(i: usize) -> usize {
+    debug_assert!(i < VALUE_BYTES);
+    BYTES_INDICES_START + i
+}
+
+pub(crate) const ADDR_CONTEXT: usize = BYTES_INDICES_START + VALUE_BYTES;
 pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
 pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;

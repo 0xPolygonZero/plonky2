@@ -196,7 +196,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         TableWithColumns::new(
             Table::BytePacking,
             byte_packing_stark::ctl_looking_memory(i),
-            Some(byte_packing_stark::ctl_looking_memory_filter()),
+            Some(byte_packing_stark::ctl_looking_memory_filter(i)),
         )
     });
     let all_lookers = iter::once(cpu_memory_code_read)
