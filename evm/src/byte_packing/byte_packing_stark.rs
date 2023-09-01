@@ -223,6 +223,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr
             .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
 
+        // Each byte index must be boolean.
+        for i in 0..VALUE_BYTES {
+            let idx_i = vars.local_values[index_bytes(i)];
+            yield_constr.constraint(idx_i * (idx_i - one));
+        }
+
+        // There must be only one byte index set to 1 per active row.
+        let sum_indices = vars.local_values[index_bytes(0)..index_bytes(0) + VALUE_BYTES]
+            .iter()
+            .copied()
+            .sum::<P>();
+        yield_constr.constraint(filter * (sum_indices - P::ONES));
+
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
         let next_remaining_length = vars.local_values[REMAINING_LEN];
@@ -327,6 +340,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let next_sequence_start = vars.local_values[SEQUENCE_START];
         let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
         let constraint = builder.mul_extension(next_filter, constraint);
+        yield_constr.constraint(builder, constraint);
+
+        // Each byte index must be boolean.
+        for i in 0..VALUE_BYTES {
+            let idx_i = vars.local_values[index_bytes(i)];
+            let constraint = builder.mul_sub_extension(idx_i, idx_i, idx_i);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // There must be only one byte index set to 1 per active row.
+        let sum_indices = builder.add_many_extension(
+            vars.local_values[index_bytes(0)..index_bytes(0) + VALUE_BYTES].into_iter(),
+        );
+        let constraint = builder.mul_sub_extension(filter, sum_indices, filter);
         yield_constr.constraint(builder, constraint);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
