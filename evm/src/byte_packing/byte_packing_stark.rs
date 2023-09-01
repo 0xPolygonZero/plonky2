@@ -9,7 +9,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use super::columns::{
-    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, SEQUENCE_START, TIMESTAMP,
+    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, TIMESTAMP,
 };
 use super::{VALUE_BYTES, VALUE_LIMBS};
 use crate::byte_packing::columns::{
@@ -147,7 +147,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         let mut rows = Vec::with_capacity(bytes.len());
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::ONE;
-        row[SEQUENCE_START] = F::ONE;
         let MemoryAddress {
             context,
             segment,
@@ -169,10 +168,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             rows.push(row.into());
             row[index_bytes(i)] = F::ZERO;
             row[ADDR_VIRTUAL] += F::ONE;
-
-            if i == 0 {
-                row[SEQUENCE_START] = F::ZERO;
-            }
         }
 
         rows
@@ -207,11 +202,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let next_filter = vars.next_values[FILTER];
         yield_constr.constraint_transition(next_filter * (next_filter - filter));
 
-        // The sequence start flag must be boolean
-        let sequence_start = vars.local_values[SEQUENCE_START];
-        yield_constr.constraint(sequence_start * (sequence_start - one));
-
         // The sequence start flag column must start by one.
+        let sequence_start = vars.local_values[index_bytes(0)];
         yield_constr.constraint_first_row(sequence_start - one);
 
         // The sequence end flag must be boolean
@@ -219,7 +211,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(sequence_end * (sequence_end - one));
 
         // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
-        let next_sequence_start = vars.next_values[SEQUENCE_START];
+        let next_sequence_start = vars.next_values[index_bytes(0)];
         yield_constr
             .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
 
@@ -252,9 +244,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(final_remaining_length);
 
-        // If the current remaining length is zero, the next sequence start flag must be one.
-        let next_sequence_start = vars.next_values[SEQUENCE_START];
-        yield_constr.constraint_transition(current_remaining_length * (next_sequence_start - one));
+        // If the current remaining length is zero, the end flag must be one.
+        yield_constr.constraint_transition(current_remaining_length * sequence_end);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must increment by one at each step of a sequence.
@@ -322,12 +313,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
 
-        // The sequence start flag must be boolean
-        let sequence_start = vars.local_values[SEQUENCE_START];
-        let constraint = builder.mul_sub_extension(sequence_start, sequence_start, sequence_start);
-        yield_constr.constraint(builder, constraint);
-
         // The sequence start flag column must start by one.
+        let sequence_start = vars.local_values[index_bytes(0)];
         let constraint = builder.add_const_extension(sequence_start, F::NEG_ONE);
         yield_constr.constraint_first_row(builder, constraint);
 
@@ -337,7 +324,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
-        let next_sequence_start = vars.local_values[SEQUENCE_START];
+        let next_sequence_start = vars.next_values[index_bytes(0)];
         let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint(builder, constraint);
@@ -374,13 +361,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let final_remaining_length = vars.local_values[REMAINING_LEN];
         yield_constr.constraint_last_row(builder, final_remaining_length);
 
-        // If the current remaining length is zero, the next sequence start flag must be one.
-        let next_sequence_start = vars.next_values[SEQUENCE_START];
-        let constraint = builder.mul_sub_extension(
-            current_remaining_length,
-            next_sequence_start,
-            current_remaining_length,
-        );
+        // If the current remaining length is zero, the end flag must be one.
+        let constraint = builder.mul_extension(current_remaining_length, sequence_end);
         yield_constr.constraint_transition(builder, constraint);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.

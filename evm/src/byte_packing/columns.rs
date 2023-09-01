@@ -5,11 +5,9 @@ use crate::byte_packing::{VALUE_BYTES, VALUE_LIMBS};
 // Columns for memory operations, ordered by (addr, timestamp).
 /// 1 if this is an actual memory operation, or 0 if it's a padding row.
 pub(crate) const FILTER: usize = 0;
-/// 1 if this is the beginning of a new sequence of bytes.
-pub(crate) const SEQUENCE_START: usize = FILTER + 1;
 /// 1 if this is the end of a sequence of bytes.
 /// This is also used as filter for the CTL.
-pub(crate) const SEQUENCE_END: usize = SEQUENCE_START + 1;
+pub(crate) const SEQUENCE_END: usize = FILTER + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
 pub(crate) const fn index_bytes(i: usize) -> usize {
