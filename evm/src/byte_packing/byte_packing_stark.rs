@@ -323,7 +323,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let next_sequence_start = vars.next_values[index_bytes(0)];
         let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
         let constraint = builder.mul_extension(next_filter, constraint);
-        yield_constr.constraint(builder, constraint);
+        yield_constr.constraint_transition(builder, constraint);
 
         // Each byte index must be boolean.
         for i in 0..NUM_BYTES {
@@ -399,9 +399,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             let next_byte_index = vars.next_values[index_bytes(i)];
-            let byte_diff = builder.sub_extension(current_byte, next_byte);
+            let byte_diff = builder.sub_extension(next_byte, current_byte);
             let constraint = builder.mul_extension(next_byte_index, byte_diff);
-            yield_constr.constraint(builder, constraint);
+            yield_constr.constraint_transition(builder, constraint);
         }
     }
 

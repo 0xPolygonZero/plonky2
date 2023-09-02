@@ -6,6 +6,8 @@ use crate::byte_packing::NUM_BYTES;
 pub(crate) const FILTER: usize = 0;
 /// 1 if this is the end of a sequence of bytes.
 /// This is also used as filter for the CTL.
+// TODO: We should be able to remove this by leveraging `SEQUENCE_LEN` and the
+// byte indices for the CTL filter.
 pub(crate) const SEQUENCE_END: usize = FILTER + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;

@@ -506,13 +506,13 @@ where
             }
         }
 
-        // Extra products to add to the looked last value
-        // Arithmetic, KeccakSponge, Keccak, Logic
+        // Extra products to add to the looked last value.
+        // Only necessary for the Memory values.
         let mut extra_looking_products =
-            vec![vec![builder.constant(F::ONE); stark_config.num_challenges]; NUM_TABLES - 1];
+            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        let memory_looking_products = (0..stark_config.num_challenges)
+        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_products_circuit(
                     &mut builder,
@@ -521,7 +521,6 @@ where
                 )
             })
             .collect_vec();
-        extra_looking_products.push(memory_looking_products);
 
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
