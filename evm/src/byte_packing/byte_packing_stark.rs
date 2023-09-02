@@ -34,14 +34,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         })
         .collect();
 
-    // We recover the initial ADDR_VIRTUAL from the sequence length.
-    let virt_initial = Column::linear_combination_with_constant(
-        [(ADDR_VIRTUAL, F::ONE), (SEQUENCE_LEN, F::NEG_ONE)],
-        F::ONE,
-    );
-
-    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT])
-        .chain([virt_initial])
+    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .chain(Column::singles([SEQUENCE_LEN, TIMESTAMP]))
         .chain(outputs)
         .collect()
@@ -56,17 +49,7 @@ pub fn ctl_looked_filter<F: Field>() -> Column<F> {
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let mut res = vec![Column::constant(F::ONE)]; // is_read
 
-    res.extend(Column::singles([ADDR_CONTEXT, ADDR_SEGMENT]));
-
-    // The address of the byte being read is `virt + total_len - remaining_len - 1 + i`.
-    res.push(Column::linear_combination_with_constant(
-        [
-            (ADDR_VIRTUAL, F::ONE),
-            (SEQUENCE_LEN, F::ONE),
-            (REMAINING_LEN, F::NEG_ONE),
-        ],
-        F::NEG_ONE,
-    ));
+    res.extend(Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]));
 
     // The i'th input byte being read.
     res.push(Column::single(value_bytes(i)));
@@ -163,11 +146,13 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         } = base_address;
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
-        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt);
+        // Because of the endianness, we start by the final virtual address value
+        // and decrement it at each step.
+        row[ADDR_VIRTUAL] = F::from_canonical_usize(virt + bytes.len() - 1);
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
         row[SEQUENCE_LEN] = F::from_canonical_usize(bytes.len());
 
-        for (i, &byte) in bytes.iter().enumerate() {
+        for (i, &byte) in bytes.iter().rev().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1 - i);
             if i == bytes.len() - 1 {
                 row[SEQUENCE_END] = F::ONE;
@@ -177,7 +162,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
             rows.push(row.into());
             row[index_bytes(i)] = F::ZERO;
-            row[ADDR_VIRTUAL] += F::ONE;
+            row[ADDR_VIRTUAL] -= F::ONE;
         }
 
         rows
@@ -257,7 +242,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(current_remaining_length * sequence_end);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
-        // The virtual address must increment by one at each step of a sequence.
+        // The virtual address must decrement by one at each step of a sequence.
         let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
@@ -277,7 +262,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             next_filter * (next_sequence_start - one) * (next_timestamp - current_timestamp),
         );
         yield_constr.constraint_transition(
-            next_filter * (next_sequence_start - one) * (next_virtual - current_virtual - one),
+            next_filter * (next_sequence_start - one) * (current_virtual - next_virtual - one),
         );
 
         // If not at the end of a sequence, each next byte must equal the current one
@@ -365,7 +350,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
-        // The virtual address must increment by one at each step of a sequence.
+        // The virtual address must decrement by one at each step of a sequence.
         let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
@@ -392,7 +377,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             yield_constr.constraint_transition(builder, constraint);
         }
         {
-            let constraint = builder.sub_extension(next_virtual, current_virtual);
+            let constraint = builder.sub_extension(current_virtual, next_virtual);
             let constraint = builder.mul_sub_extension(addr_filter, constraint, addr_filter);
             yield_constr.constraint_transition(builder, constraint);
         }
