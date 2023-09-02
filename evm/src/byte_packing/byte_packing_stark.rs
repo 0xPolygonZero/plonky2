@@ -169,7 +169,9 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
         for (i, &byte) in bytes.iter().enumerate() {
             row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1 - i);
-            row[SEQUENCE_END] = F::from_bool(bytes.len() == i + 1);
+            if i == bytes.len() - 1 {
+                row[SEQUENCE_END] = F::ONE;
+            }
             row[value_bytes(i)] = F::from_canonical_u8(byte);
             row[index_bytes(i)] = F::ONE;
 
@@ -238,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
-        let next_remaining_length = vars.local_values[REMAINING_LEN];
+        let next_remaining_length = vars.next_values[REMAINING_LEN];
         yield_constr.constraint_transition(
             current_remaining_length * (current_remaining_length - next_remaining_length - one),
         );
@@ -278,13 +280,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             next_filter * (next_sequence_start - one) * (next_virtual - current_virtual - one),
         );
 
-        // Each next byte must equal the current one when reading through a sequence,
-        // or the next byte index must be one.
+        // If not at the end of a sequence, each next byte must equal the current one
+        // when reading through the sequence, or the next byte index must be one.
         for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             let next_byte_index = vars.next_values[index_bytes(i)];
-            yield_constr.constraint_transition(next_byte_index * (next_byte - current_byte));
+            yield_constr.constraint_transition(
+                (sequence_end - one) * (next_byte_index - one) * (next_byte - current_byte),
+            );
         }
     }
 
@@ -341,7 +345,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
-        let next_remaining_length = vars.local_values[REMAINING_LEN];
+        let next_remaining_length = vars.next_values[REMAINING_LEN];
         let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
         let length_diff_minus_one = builder.add_const_extension(length_diff, F::NEG_ONE);
         let constraint = builder.mul_extension(current_remaining_length, length_diff_minus_one);
@@ -393,14 +397,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             yield_constr.constraint_transition(builder, constraint);
         }
 
-        // Each next byte must equal the current one when reading through a sequence,
-        // or the next byte index must be one.
+        // If not at the end of a sequence, each next byte must equal the current one
+        // when reading through the sequence, or the next byte index must be one.
         for i in 0..NUM_BYTES {
             let current_byte = vars.local_values[value_bytes(i)];
             let next_byte = vars.next_values[value_bytes(i)];
             let next_byte_index = vars.next_values[index_bytes(i)];
             let byte_diff = builder.sub_extension(next_byte, current_byte);
-            let constraint = builder.mul_extension(next_byte_index, byte_diff);
+            let constraint = builder.mul_sub_extension(byte_diff, next_byte_index, byte_diff);
+            let constraint = builder.mul_sub_extension(constraint, sequence_end, constraint);
             yield_constr.constraint_transition(builder, constraint);
         }
     }
