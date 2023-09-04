@@ -54,6 +54,18 @@ process_receipt_after_bloom:
     // Now we can write the receipt in MPT_TRIE_DATA.
     %get_trie_data_size
     // stack: receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
+    // Write transaction type if necessary. RLP_RAW contains, at index 0, the current transaction type.
+    PUSH 0
+    %mload_kernel(@SEGMENT_RLP_RAW)
+    DUP1
+    // stack: first_txn_byte, first_txn_byte, receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
+    %eq_const(1) %jumpi(receipt_nonzero_type)
+    DUP1 %eq_const(2) %jumpi(receipt_nonzero_type)
+    // If we are here, we are dealing with a legacy transaction, and we do not need to write the type.
+    POP
+
+process_receipt_after_type:
+    // stack: receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
     // Write payload_len.
     SWAP1
     %append_to_trie_data
@@ -206,6 +218,11 @@ process_receipt_after_write:
     %stack (new_cum_gas, txn_nb, retdest) -> (retdest, new_cum_gas, txn_nb)
     JUMP
     
+receipt_nonzero_type:
+    // stack: txn_type, receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
+    %append_to_trie_data
+    %jump(process_receipt_after_type)
+
 failed_receipt:
     // stack: status, new_cum_gas, txn_nb
     // It is the receipt of a failed transaction, so set num_logs to 0. This will also lead to Bloom filter = 0.
