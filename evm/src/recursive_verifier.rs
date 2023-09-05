@@ -1057,15 +1057,13 @@ pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     for i in 0..256 {
-        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i])
-            .try_into()
-            .unwrap();
+        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i]);
         witness.set_target_arr(
             &block_hashes_target.prev_hashes[8 * i..8 * (i + 1)],
             &block_hash_limbs,
         );
     }
-    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash).try_into().unwrap();
+    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash);
     witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
 }
 
