@@ -155,9 +155,9 @@ fn observe_block_hashes<
     block_hashes: &BlockHashes,
 ) {
     for i in 0..256 {
-        challenger.observe_elements(&h256_limbs::<F>(block_hashes.prev_hashes[i])[0..8]);
+        challenger.observe_elements(&h256_limbs::<F>(block_hashes.prev_hashes[i]));
     }
-    challenger.observe_elements(&h256_limbs::<F>(block_hashes.cur_hash)[0..8]);
+    challenger.observe_elements(&h256_limbs::<F>(block_hashes.cur_hash));
 }
 
 fn observe_block_hashes_target<

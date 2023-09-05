@@ -97,8 +97,7 @@ fn test_small_index_block_hash() -> Result<()> {
 }
 
 #[test]
-#[should_panic]
-fn test_block_hash_with_overflow() {
+fn test_block_hash_with_overflow() -> Result<()> {
     let blockhash_label = KERNEL.global_labels["blockhash"];
     let retdest = 0xDEADBEEFu32.into();
     let cur_block_number = 1;
@@ -111,5 +110,16 @@ fn test_block_hash_with_overflow() {
     interpreter.set_memory_segment(Segment::BlockHashes, hashes[0..256].to_vec());
     interpreter.set_global_metadata_field(GlobalMetadata::BlockCurrentHash, hashes[256]);
     interpreter.set_global_metadata_field(GlobalMetadata::BlockNumber, cur_block_number.into());
-    let _ = interpreter.run();
+    interpreter.run()?;
+
+    let result = interpreter.stack();
+    assert_eq!(
+        result[0],
+        0.into(),
+        "Resulting block hash {:?} different from expected hash {:?}",
+        result[0],
+        0
+    );
+
+    Ok(())
 }

@@ -1057,7 +1057,7 @@ pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     for i in 0..256 {
-        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i])[..8]
+        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i])
             .try_into()
             .unwrap();
         witness.set_target_arr(
@@ -1065,9 +1065,7 @@ pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
             &block_hash_limbs,
         );
     }
-    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash)[..8]
-        .try_into()
-        .unwrap();
+    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash).try_into().unwrap();
     witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
 }
 

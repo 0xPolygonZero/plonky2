@@ -247,9 +247,12 @@ global blockhash:
     // stack: block_number, retdest
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_NUMBER)
     // stack: cur_block_number, block_number, retdest
+    // Check for an overflow, since we're incrementing `block_number` afterwards.
+    DUP2 %eq_const(@U256_MAX) %jumpi(zero_hash)
+    // stack: cur_block_number, block_number, retdest
     DUP1 DUP3 %increment GT %jumpi(zero_hash) // if block_number >= cur_block_number
     // stack: cur_block_number, block_number, retdest
-    DUP2 PUSH 256 %add_or_fault
+    DUP2 PUSH 256 ADD
     // stack: block_number+256, cur_block_number, block_number, retdest
     DUP2 GT %jumpi(zero_hash) // if cur_block_number > block_number + 256
     // If we are here, the provided block number is correct
