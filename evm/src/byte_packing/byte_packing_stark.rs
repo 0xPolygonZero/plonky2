@@ -225,6 +225,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let sequence_end = vars.local_values[SEQUENCE_END];
         yield_constr.constraint(sequence_end * (sequence_end - one));
 
+        // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
+        let next_is_read = vars.next_values[IS_READ];
+        yield_constr.constraint_transition((sequence_end - one) * (next_is_read - is_read));
+
         // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
         let next_sequence_start = vars.next_values[index_bytes(0)];
         yield_constr
@@ -336,6 +340,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let sequence_end = vars.local_values[SEQUENCE_END];
         let constraint = builder.mul_sub_extension(sequence_end, sequence_end, sequence_end);
         yield_constr.constraint(builder, constraint);
+
+        // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
+        let next_is_read = vars.next_values[IS_READ];
+        let diff_is_read = builder.sub_extension(next_is_read, is_read);
+        let constraint = builder.mul_sub_extension(diff_is_read, sequence_end, diff_is_read);
+        yield_constr.constraint_transition(builder, constraint);
 
         // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
         let next_sequence_start = vars.next_values[index_bytes(0)];
