@@ -57,9 +57,8 @@ process_receipt_after_bloom:
     // Write transaction type if necessary. RLP_RAW contains, at index 0, the current transaction type.
     PUSH 0
     %mload_kernel(@SEGMENT_RLP_RAW)
-    DUP1
-    // stack: first_txn_byte, first_txn_byte, receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
-    %eq_const(1) %jumpi(receipt_nonzero_type)
+    // stack: first_txn_byte, receipt_ptr, payload_len, status, new_cum_gas, txn_nb, new_cum_gas, txn_nb, retdest
+    DUP1 %eq_const(1) %jumpi(receipt_nonzero_type)
     DUP1 %eq_const(2) %jumpi(receipt_nonzero_type)
     // If we are here, we are dealing with a legacy transaction, and we do not need to write the type.
     POP

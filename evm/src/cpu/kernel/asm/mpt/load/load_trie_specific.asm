@@ -37,7 +37,7 @@ global mpt_load_receipt_trie_value:
     PROVER_INPUT(mpt) DUP1 %append_to_trie_data
     // If the first byte is less than 3, then it is the transaction type, equal to either 1 or 2. 
     // In that case, we still need to load the payload length.
-    PUSH 3 GT %jumpi(mpt_load_payload_len)
+    %lt_const(3) %jumpi(mpt_load_payload_len)
     
 mpt_load_after_type:
     // Load status.

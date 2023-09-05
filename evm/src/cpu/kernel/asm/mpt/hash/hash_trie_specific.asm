@@ -108,9 +108,10 @@ global encode_receipt:
     // either RLP(RLP(receipt)) for Legacy transactions or RLP(txn_type||RLP(receipt)) for transactions of type 1 or 2.
     // First encode the wrapper prefix.
     DUP2 %mload_trie_data
-    // stack: first_byte, rlp_pos, value_ptr, retdest
-    // The first byte is either the transaction type or the first byte of the RLP encoding.
-    DUP1 PUSH 3 GT %jumpi(encode_nonzero_receipt_type)
+    // stack: first_value, rlp_pos, value_ptr, retdest
+    // The first value is either the transaction type or the payload length.
+    // Since the receipt contains at least the 256-bytes long bloom filter, payload_len > 3.
+    DUP1 %lt_const(3) %jumpi(encode_nonzero_receipt_type)
     // If we are here, then the first byte is the payload length.
     %rlp_list_len
     // stack: rlp_receipt_len, rlp_pos, value_ptr, retdest
@@ -254,10 +255,7 @@ encode_nonzero_receipt_type:
     %mstore_rlp
     %increment
     // stack: rlp_pos, txn_type, old_rlp_pos, value_ptr, retdest
-    SWAP1 POP
-    // stack: rlp_pos, old_rlp_pos, value_ptr, retdest
-    SWAP1 POP
-    // stack: rlp_pos, value_ptr, retdest
+    %stack (rlp_pos, txn_type, old_rlp_pos, value_ptr, retdest) -> (rlp_pos, value_ptr, retdest)
     // We replace `value_ptr` with `paylaod_len_ptr` so we can encode the rest of the data more easily
     SWAP1 %increment SWAP1
     // stack: rlp_pos, payload_len_ptr, retdest
