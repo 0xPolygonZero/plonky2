@@ -178,7 +178,7 @@ where
         ),
         (
             GlobalMetadata::BlockCurrentHash,
-            U256::from_big_endian(&public_values.block_hashes.cur_hash.0),
+            h2u(public_values.block_hashes.cur_hash),
         ),
         (
             GlobalMetadata::BlockGasUsed,

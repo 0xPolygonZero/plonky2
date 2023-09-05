@@ -13,7 +13,7 @@ use crate::permutation::{
     get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
-use crate::util::u256_limbs;
+use crate::util::{h256_limbs, u256_limbs};
 
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
@@ -155,12 +155,9 @@ fn observe_block_hashes<
     block_hashes: &BlockHashes,
 ) {
     for i in 0..256 {
-        challenger.observe_elements(
-            &u256_limbs::<F>(U256::from_big_endian(&block_hashes.prev_hashes[i].0))[0..8],
-        );
+        challenger.observe_elements(&h256_limbs::<F>(block_hashes.prev_hashes[i])[0..8]);
     }
-    challenger
-        .observe_elements(&u256_limbs::<F>(U256::from_big_endian(&block_hashes.cur_hash.0))[0..8])
+    challenger.observe_elements(&h256_limbs::<F>(block_hashes.cur_hash)[0..8])
 }
 
 fn observe_block_hashes_target<

@@ -76,7 +76,7 @@ fn test_small_index_block_hash() -> Result<()> {
     let block_number = rng.gen::<u8>() as usize;
     let initial_stack = vec![retdest, block_number.into()];
 
-    let hashes: Vec<U256> = (20..277).map(|elt| elt.into()).collect();
+    let hashes: Vec<U256> = vec![U256::from_big_endian(&thread_rng().gen::<H256>().0); 257];
 
     let mut interpreter = Interpreter::new_with_kernel(blockhash_label, initial_stack);
     interpreter.set_memory_segment(Segment::BlockHashes, hashes[0..256].to_vec());
@@ -94,4 +94,22 @@ fn test_small_index_block_hash() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+#[should_panic]
+fn test_block_hash_with_overflow() {
+    let blockhash_label = KERNEL.global_labels["blockhash"];
+    let retdest = 0xDEADBEEFu32.into();
+    let cur_block_number = 1;
+    let block_number = U256::MAX;
+    let initial_stack = vec![retdest, block_number];
+
+    let hashes: Vec<U256> = vec![U256::from_big_endian(&thread_rng().gen::<H256>().0); 257];
+
+    let mut interpreter = Interpreter::new_with_kernel(blockhash_label, initial_stack);
+    interpreter.set_memory_segment(Segment::BlockHashes, hashes[0..256].to_vec());
+    interpreter.set_global_metadata_field(GlobalMetadata::BlockCurrentHash, hashes[256]);
+    interpreter.set_global_metadata_field(GlobalMetadata::BlockNumber, cur_block_number.into());
+    let _ = interpreter.run();
 }

@@ -249,7 +249,7 @@ global blockhash:
     // stack: cur_block_number, block_number, retdest
     DUP1 DUP3 %increment GT %jumpi(zero_hash) // if block_number >= cur_block_number
     // stack: cur_block_number, block_number, retdest
-    DUP2 PUSH 256 ADD 
+    DUP2 PUSH 256 %add_or_fault
     // stack: block_number+256, cur_block_number, block_number, retdest
     DUP2 GT %jumpi(zero_hash) // if cur_block_number > block_number + 256
     // If we are here, the provided block number is correct

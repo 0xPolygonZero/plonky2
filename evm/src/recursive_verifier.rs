@@ -43,7 +43,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::u256_limbs;
+use crate::util::{h256_limbs, u256_limbs};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
@@ -1057,19 +1057,17 @@ pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
     W: Witness<F>,
 {
     for i in 0..256 {
-        let block_hash_limbs: [F; 8] =
-            u256_limbs::<F>(U256::from_big_endian(&block_hashes.prev_hashes[i].0))[..8]
-                .try_into()
-                .unwrap();
+        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i])[..8]
+            .try_into()
+            .unwrap();
         witness.set_target_arr(
             &block_hashes_target.prev_hashes[8 * i..8 * (i + 1)],
             &block_hash_limbs,
         );
     }
-    let cur_block_hash_limbs: [F; 8] =
-        u256_limbs::<F>(U256::from_big_endian(&block_hashes.cur_hash.0))[..8]
-            .try_into()
-            .unwrap();
+    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash)[..8]
+        .try_into()
+        .unwrap();
     witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
 }
 

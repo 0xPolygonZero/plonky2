@@ -104,7 +104,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
         (
             GlobalMetadata::BlockCurrentHash,
-            U256::from_big_endian(&inputs.block_hashes.cur_hash.0),
+            h2u(inputs.block_hashes.cur_hash),
         ),
         (GlobalMetadata::BlockGasUsed, metadata.block_gas_used),
         (GlobalMetadata::BlockGasUsedBefore, inputs.gas_used_before),
