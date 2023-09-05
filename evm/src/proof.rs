@@ -353,7 +353,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub trace_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
     pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of trace values.
+    /// Merkle cap of LDEs of quotient polynomial evaluations.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
