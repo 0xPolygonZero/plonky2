@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
-use ethereum_types::BigEndianHash;
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -52,7 +51,7 @@ use crate::recursive_verifier::{
     PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
-use crate::util::u256_limbs;
+use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -699,7 +698,7 @@ where
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
         // Make connections between block proofs, and check initial and final block values.
-        Self::connect_block_proof(&mut builder, &parent_pv, &agg_pv);
+        Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
@@ -726,6 +725,7 @@ where
 
     fn connect_block_proof(
         builder: &mut CircuitBuilder<F, D>,
+        has_parent_block: BoolTarget,
         lhs: &PublicValuesTarget,
         rhs: &PublicValuesTarget,
     ) {
@@ -747,8 +747,24 @@ where
         // Check initial block values.
         Self::connect_initial_values_block(builder, rhs);
 
-        // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handsidee block.
+        // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
         Self::connect_final_block_values_to_intermediary(builder, rhs);
+
+        // Chack that the genesis block number is 0.
+        let zero = builder.zero();
+        let has_not_parent_block = builder.sub(one, has_parent_block.target);
+        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
+        builder.connect(gen_block_constr, zero);
+
+        // Check that the genesis block has empty state trie.
+        let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
+
+        for (i, limb) in h256_limbs::<F>(initial_trie).into_iter().enumerate() {
+            let limb_target = builder.constant(limb);
+            let mut temp = builder.sub(rhs.trie_roots_before.state_root[i], limb_target);
+            temp = builder.mul(has_not_parent_block, temp);
+            builder.connect(temp, zero);
+        }
     }
 
     fn connect_final_block_values_to_intermediary(
@@ -783,26 +799,17 @@ where
         builder.connect(x.extra_block_data.gas_used_before, zero);
 
         // The initial bloom filter is all zeroes.
-        let initial_bloom = builder.constants(&[F::ZERO; 64]);
-        for i in 0..x.extra_block_data.block_bloom_before.len() {
-            builder.connect(x.extra_block_data.block_bloom_before[i], initial_bloom[i]);
+        for t in x.extra_block_data.block_bloom_before {
+            builder.connect(t, zero);
         }
 
         // The transactions and receipts tries are empty at the beginning of the block.
         let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
 
-        for (i, limb) in initial_trie.into_uint().0.into_iter().enumerate() {
-            let temp = builder.constant(F::from_canonical_u32(limb as u32));
-            builder.connect(x.trie_roots_before.transactions_root[2 * i], temp);
-            let temp2 = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
-            builder.connect(x.trie_roots_before.transactions_root[2 * i + 1], temp2);
-        }
-
-        for (i, limb) in initial_trie.into_uint().0.into_iter().enumerate() {
-            let temp = builder.constant(F::from_canonical_u32(limb as u32));
-            builder.connect(x.trie_roots_before.receipts_root[2 * i], temp);
-            let temp2 = builder.constant(F::from_canonical_u32((limb >> 32) as u32));
-            builder.connect(x.trie_roots_before.receipts_root[2 * i + 1], temp2);
+        for (i, limb) in h256_limbs::<F>(initial_trie).into_iter().enumerate() {
+            let limb_target = builder.constant(limb);
+            builder.connect(x.trie_roots_before.transactions_root[i], limb_target);
+            builder.connect(x.trie_roots_before.receipts_root[i], limb_target);
         }
     }
 
@@ -944,16 +951,12 @@ where
             let state_trie_root_keys = 24..32;
             let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
             let mut nonzero_pis = HashMap::new();
-            for (key, &value) in state_trie_root_keys.zip_eq(&u256_limbs::<F>(
-                public_values.trie_roots_before.state_root.into_uint(),
-            )) {
+            for (key, &value) in state_trie_root_keys
+                .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
+            {
                 nonzero_pis.insert(key, value);
             }
-            nonzero_pis.insert(
-                block_number_key,
-                F::from_canonical_usize(public_values.block_metadata.block_number.as_usize())
-                    - F::ONE,
-            );
+            nonzero_pis.insert(block_number_key, F::NEG_ONE);
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(

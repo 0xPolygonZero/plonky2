@@ -339,7 +339,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
         block_timestamp: 0x03e8.into(),
-        block_number: 1.into(),
+        block_number: 0.into(),
         block_difficulty: 0x020000.into(),
         block_gaslimit: 0x445566u32.into(),
         block_chain_id: 1.into(),
