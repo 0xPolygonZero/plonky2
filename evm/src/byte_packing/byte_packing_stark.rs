@@ -8,18 +8,21 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use plonky2::util::transpose;
 
-use super::columns::{
-    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, IS_READ, SEQUENCE_END, TIMESTAMP,
-};
 use super::NUM_BYTES;
-use crate::byte_packing::columns::{value_bytes, FILTER, NUM_COLUMNS, REMAINING_LEN, SEQUENCE_LEN};
+use crate::byte_packing::columns::{
+    index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, FILTER, IS_READ,
+    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, REMAINING_LEN, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
+};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
+use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
+
+const BYTE_RANGE_MAX: usize = 1usize << 8;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let outputs: Vec<Column<F>> = (0..8)
@@ -106,14 +109,12 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             "generate trace rows",
             self.generate_trace_rows(ops, min_rows)
         );
+        let trace_row_vecs: Vec<_> = trace_rows.into_iter().map(|row| row.to_vec()).collect();
 
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
+        let mut trace_cols = transpose(&trace_row_vecs);
+        self.generate_range_checks(&mut trace_cols);
 
-        trace_polys
+        trace_cols.into_iter().map(PolynomialValues::new).collect()
     }
 
     fn generate_trace_rows(
@@ -122,14 +123,14 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
         let base_len: usize = ops.iter().map(|op| op.bytes.len()).sum();
-        let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
+        let num_rows = core::cmp::max(base_len.max(BYTE_RANGE_MAX), min_rows).next_power_of_two();
+        let mut rows = Vec::with_capacity(num_rows);
 
         for op in ops {
             rows.extend(self.generate_rows_for_op(op));
         }
 
-        let padded_rows = rows.len().max(min_rows).next_power_of_two();
-        for _ in rows.len()..padded_rows {
+        for _ in rows.len()..num_rows {
             rows.push(self.generate_padding_row());
         }
 
@@ -183,6 +184,31 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {
         [F::ZERO; NUM_COLUMNS]
     }
+
+    /// Expects input in *column*-major layout
+    fn generate_range_checks(&self, cols: &mut Vec<Vec<F>>) {
+        debug_assert!(cols.len() == NUM_COLUMNS);
+
+        let n_rows = cols[0].len();
+        debug_assert!(cols.iter().all(|col| col.len() == n_rows));
+
+        for i in 0..BYTE_RANGE_MAX {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(i);
+        }
+        for i in BYTE_RANGE_MAX..n_rows {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(BYTE_RANGE_MAX - 1);
+        }
+
+        // For each column c in cols, generate the range-check
+        // permutations and put them in the corresponding range-check
+        // columns rc_c and rc_c+1.
+        for (i, rc_c) in (0..NUM_BYTES).zip(RC_COLS.step_by(2)) {
+            let c = value_bytes(i);
+            let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[RANGE_COUNTER]);
+            cols[rc_c].copy_from_slice(&col_perm);
+            cols[rc_c + 1].copy_from_slice(&table_perm);
+        }
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingStark<F, D> {
@@ -196,6 +222,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        // Range check all the columns
+        for col in RC_COLS.step_by(2) {
+            eval_lookups(vars, yield_constr, col, col + 1);
+        }
+
         let one = P::ONES;
 
         // The filter must be boolean.
@@ -307,6 +338,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
+        // Range check all the columns
+        for col in RC_COLS.step_by(2) {
+            eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
+        }
+
         // The filter must be boolean.
         let filter = vars.local_values[FILTER];
         let constraint = builder.mul_sub_extension(filter, filter, filter);
