@@ -42,40 +42,12 @@ global mload_packing_u64_LE:
 // Post stack: offset'
 global mstore_unpacking:
     // stack: context, segment, offset, value, len, retdest
-    // We will enumerate i in (32 - len)..32.
-    // That way BYTE(i, value) will give us the bytes we want.
-    DUP5 // len
-    PUSH 32
-    SUB
-
-mstore_unpacking_loop:
-    // stack: i, context, segment, offset, value, len, retdest
-    // If i == 32, finish.
-    DUP1
-    %eq_const(32)
-    %jumpi(mstore_unpacking_finish)
-
-    // stack: i, context, segment, offset, value, len, retdest
-    DUP5 // value
-    DUP2 // i
-    BYTE
-    // stack: value[i], i, context, segment, offset, value, len, retdest
-    DUP5 DUP5 DUP5 // context, segment, offset
-    // stack: context, segment, offset, value[i], i, context, segment, offset, value, len, retdest
-    MSTORE_GENERAL
-    // stack: i, context, segment, offset, value, len, retdest
-
-    // Increment offset.
-    SWAP3 %increment SWAP3
-    // Increment i.
-    %increment
-
-    %jump(mstore_unpacking_loop)
-
-mstore_unpacking_finish:
-    // stack: i, context, segment, offset, value, len, retdest
-    %pop3
-    %stack (offset, value, len, retdest) -> (retdest, offset)
+    %stack(context, segment, offset, value, len, retdest) -> (context, segment, offset, value, len, len, offset, retdest)
+    // stack: context, segment, offset, value, len, len, offset, retdest
+    MSTORE_32BYTES
+    // stack: len, offset, retdest
+    ADD SWAP1
+    // stack: retdest, offset'
     JUMP
 
 %macro mstore_unpacking

@@ -49,6 +49,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     dup: G_VERYLOW,
     swap: G_VERYLOW,
     context_op: KERNEL_ONLY_INSTR,
+    mstore_32bytes: KERNEL_ONLY_INSTR,
     mload_32bytes: KERNEL_ONLY_INSTR,
     exit_kernel: None,
     mload_general: KERNEL_ONLY_INSTR,

@@ -10,7 +10,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use super::columns::{
-    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, SEQUENCE_END, TIMESTAMP,
+    index_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, IS_READ, SEQUENCE_END, TIMESTAMP,
 };
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{value_bytes, FILTER, NUM_COLUMNS, REMAINING_LEN, SEQUENCE_LEN};
@@ -34,10 +34,15 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         })
         .collect();
 
-    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
-        .chain(Column::singles([SEQUENCE_LEN, TIMESTAMP]))
-        .chain(outputs)
-        .collect()
+    Column::singles([
+        ADDR_CONTEXT,
+        ADDR_SEGMENT,
+        ADDR_VIRTUAL,
+        SEQUENCE_LEN,
+        TIMESTAMP,
+    ])
+    .chain(outputs)
+    .collect()
 }
 
 pub fn ctl_looked_filter<F: Field>() -> Column<F> {
@@ -47,9 +52,8 @@ pub fn ctl_looked_filter<F: Field>() -> Column<F> {
 }
 
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
-    let mut res = vec![Column::constant(F::ONE)]; // is_read
-
-    res.extend(Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]));
+    let mut res =
+        Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
 
     // The i'th input byte being read.
     res.push(Column::single(value_bytes(i)));
@@ -70,13 +74,16 @@ pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
 /// Information about a byte packing operation needed for witness generation.
 #[derive(Clone, Debug)]
 pub(crate) struct BytePackingOp {
-    /// The base address at which inputs are read.
+    /// Whether this is a read (packing) or write (unpacking) operation.
+    pub(crate) is_read: bool,
+
+    /// The base address at which inputs are read/written.
     pub(crate) base_address: MemoryAddress,
 
-    /// The timestamp at which inputs are read.
+    /// The timestamp at which inputs are read/written.
     pub(crate) timestamp: usize,
 
-    /// The byte sequence that was read and has to be packed.
+    /// The byte sequence that was read/written.
     /// Its length is expected to be at most 32.
     pub(crate) bytes: Vec<u8>,
 }
@@ -131,24 +138,29 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
     fn generate_rows_for_op(&self, op: BytePackingOp) -> Vec<[F; NUM_COLUMNS]> {
         let BytePackingOp {
+            is_read,
             base_address,
             timestamp,
             bytes,
         } = op;
 
-        let mut rows = Vec::with_capacity(bytes.len());
-        let mut row = [F::ZERO; NUM_COLUMNS];
-        row[FILTER] = F::ONE;
         let MemoryAddress {
             context,
             segment,
             virt,
         } = base_address;
+
+        let mut rows = Vec::with_capacity(bytes.len());
+        let mut row = [F::ZERO; NUM_COLUMNS];
+        row[FILTER] = F::ONE;
+        row[IS_READ] = F::from_bool(is_read);
+
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         // Because of the endianness, we start by the final virtual address value
         // and decrement it at each step.
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt + bytes.len() - 1);
+
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
         row[SEQUENCE_LEN] = F::from_canonical_usize(bytes.len());
 
@@ -192,6 +204,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The filter column must start by one.
         yield_constr.constraint_first_row(filter - one);
+
+        // The is_read flag must be boolean.
+        let is_read = vars.local_values[IS_READ];
+        yield_constr.constraint(is_read * (is_read - one));
+
+        // If filter is off, is_read must be off.
+        let is_read = vars.local_values[IS_READ];
+        yield_constr.constraint((filter - one) * is_read);
 
         // Only padding rows have their filter turned off.
         let next_filter = vars.next_values[FILTER];
@@ -291,6 +311,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // The filter column must start by one.
         let constraint = builder.add_const_extension(filter, F::NEG_ONE);
         yield_constr.constraint_first_row(builder, constraint);
+
+        // The is_read flag must be boolean.
+        let is_read = vars.local_values[IS_READ];
+        let constraint = builder.mul_sub_extension(is_read, is_read, is_read);
+        yield_constr.constraint(builder, constraint);
+
+        // If filter is off, is_read must be off.
+        let constraint = builder.mul_sub_extension(is_read, filter, is_read);
+        yield_constr.constraint(builder, constraint);
 
         // Only padding rows have their filter turned off.
         let next_filter = vars.next_values[FILTER];

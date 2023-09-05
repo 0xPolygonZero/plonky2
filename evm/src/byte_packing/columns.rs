@@ -4,11 +4,13 @@ use crate::byte_packing::NUM_BYTES;
 
 /// 1 if this is an actual byte packing operation, or 0 if it's a padding row.
 pub(crate) const FILTER: usize = 0;
+/// 1 if this is a READ operation, and 0 if this is a WRITE operation.
+pub(crate) const IS_READ: usize = FILTER + 1;
 /// 1 if this is the end of a sequence of bytes.
 /// This is also used as filter for the CTL.
 // TODO: We should be able to remove this by leveraging `SEQUENCE_LEN` and the
 // byte indices for the CTL filter.
-pub(crate) const SEQUENCE_END: usize = FILTER + 1;
+pub(crate) const SEQUENCE_END: usize = IS_READ + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
 pub(crate) const fn index_bytes(i: usize) -> usize {

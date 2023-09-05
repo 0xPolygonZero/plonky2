@@ -113,6 +113,7 @@ pub fn get_opcode(mnemonic: &str) -> u8 {
         "LOG3" => 0xa3,
         "LOG4" => 0xa4,
         "PANIC" => 0xa5,
+        "MSTORE_32BYTES" => 0xee,
         "CREATE" => 0xf0,
         "CALL" => 0xf1,
         "CALLCODE" => 0xf2,
