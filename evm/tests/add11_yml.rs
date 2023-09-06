@@ -86,6 +86,7 @@ fn add11_yml() -> anyhow::Result<()> {
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
+        block_gas_used: 0xa868u64.into(),
         block_bloom: [0.into(); 8],
     };
 
@@ -148,6 +149,11 @@ fn add11_yml() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 0xa868u64.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
         addresses: vec![],
     };
 

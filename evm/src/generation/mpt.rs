@@ -123,15 +123,6 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
         &parse_receipts,
     );
 
-    // Temporary! The actual number of transactions in the trie cannot be known if the trie
-    // contains hash nodes.
-    let num_transactions = trie_inputs
-        .transactions_trie
-        .values()
-        .collect::<Vec<_>>()
-        .len();
-    prover_inputs.push(num_transactions.into());
-
     prover_inputs
 }
 

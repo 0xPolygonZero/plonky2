@@ -57,6 +57,11 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 0.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
         addresses: vec![],
     };
 

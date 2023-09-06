@@ -53,6 +53,7 @@ pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
+    pub extra_block_data: ExtraBlockData,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -71,7 +72,18 @@ pub struct BlockMetadata {
     pub block_gaslimit: U256,
     pub block_chain_id: U256,
     pub block_base_fee: U256,
+    pub block_gas_used: U256,
     pub block_bloom: [U256; 8],
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ExtraBlockData {
+    pub txn_number_before: U256,
+    pub txn_number_after: U256,
+    pub gas_used_before: U256,
+    pub gas_used_after: U256,
+    pub block_bloom_before: [U256; 8],
+    pub block_bloom_after: [U256; 8],
 }
 
 /// Memory values which are public.
@@ -81,6 +93,7 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
+    pub extra_block_data: ExtraBlockDataTarget,
 }
 
 impl PublicValuesTarget {
@@ -113,6 +126,7 @@ impl PublicValuesTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_gas_used,
             block_bloom,
         } = self.block_metadata;
 
@@ -123,7 +137,23 @@ impl PublicValuesTarget {
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
         buffer.write_target_array(&block_base_fee)?;
+        buffer.write_target(block_gas_used)?;
         buffer.write_target_array(&block_bloom)?;
+
+        let ExtraBlockDataTarget {
+            txn_number_before,
+            txn_number_after,
+            gas_used_before,
+            gas_used_after,
+            block_bloom_before,
+            block_bloom_after,
+        } = self.extra_block_data;
+        buffer.write_target(txn_number_before)?;
+        buffer.write_target(txn_number_after)?;
+        buffer.write_target(gas_used_before)?;
+        buffer.write_target(gas_used_after)?;
+        buffer.write_target_array(&block_bloom_before)?;
+        buffer.write_target_array(&block_bloom_after)?;
 
         Ok(())
     }
@@ -149,18 +179,36 @@ impl PublicValuesTarget {
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
             block_base_fee: buffer.read_target_array()?,
+            block_gas_used: buffer.read_target()?,
             block_bloom: buffer.read_target_array()?,
+        };
+
+        let extra_block_data = ExtraBlockDataTarget {
+            txn_number_before: buffer.read_target()?,
+            txn_number_after: buffer.read_target()?,
+            gas_used_before: buffer.read_target()?,
+            gas_used_after: buffer.read_target()?,
+            block_bloom_before: buffer.read_target_array()?,
+            block_bloom_after: buffer.read_target_array()?,
         };
 
         Ok(Self {
             trie_roots_before,
             trie_roots_after,
             block_metadata,
+            extra_block_data,
         })
     }
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        assert!(pis.len() > TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE - 1);
+        assert!(
+            pis.len()
+                > TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + ExtraBlockDataTarget::SIZE
+                    - 1
+        );
+
         Self {
             trie_roots_before: TrieRootsTarget::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]),
             trie_roots_after: TrieRootsTarget::from_public_inputs(
@@ -169,6 +217,12 @@ impl PublicValuesTarget {
             block_metadata: BlockMetadataTarget::from_public_inputs(
                 &pis[TrieRootsTarget::SIZE * 2
                     ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
+            ),
+            extra_block_data: ExtraBlockDataTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + ExtraBlockDataTarget::SIZE],
             ),
         }
     }
@@ -198,6 +252,12 @@ impl PublicValuesTarget {
                 pv0.block_metadata,
                 pv1.block_metadata,
             ),
+            extra_block_data: ExtraBlockDataTarget::select(
+                builder,
+                condition,
+                pv0.extra_block_data,
+                pv1.extra_block_data,
+            ),
         }
     }
 }
@@ -210,7 +270,7 @@ pub struct TrieRootsTarget {
 }
 
 impl TrieRootsTarget {
-    const SIZE: usize = 24;
+    pub const SIZE: usize = 24;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let state_root = pis[0..8].try_into().unwrap();
@@ -269,11 +329,12 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
+    pub block_gas_used: Target,
     pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 76;
+    const SIZE: usize = 77;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -283,7 +344,8 @@ impl BlockMetadataTarget {
         let block_gaslimit = pis[8];
         let block_chain_id = pis[9];
         let block_base_fee = pis[10..12].try_into().unwrap();
-        let block_bloom = pis[12..76].try_into().unwrap();
+        let block_gas_used = pis[12];
+        let block_bloom = pis[13..77].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -293,6 +355,7 @@ impl BlockMetadataTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_gas_used,
             block_bloom,
         }
     }
@@ -319,6 +382,7 @@ impl BlockMetadataTarget {
             block_base_fee: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
             }),
+            block_gas_used: builder.select(condition, bm0.block_gas_used, bm1.block_gas_used),
             block_bloom: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
             }),
@@ -343,6 +407,87 @@ impl BlockMetadataTarget {
         }
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub struct ExtraBlockDataTarget {
+    pub txn_number_before: Target,
+    pub txn_number_after: Target,
+    pub gas_used_before: Target,
+    pub gas_used_after: Target,
+    pub block_bloom_before: [Target; 64],
+    pub block_bloom_after: [Target; 64],
+}
+
+impl ExtraBlockDataTarget {
+    const SIZE: usize = 132;
+
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        let txn_number_before = pis[0];
+        let txn_number_after = pis[1];
+        let gas_used_before = pis[2];
+        let gas_used_after = pis[3];
+        let block_bloom_before = pis[4..68].try_into().unwrap();
+        let block_bloom_after = pis[68..132].try_into().unwrap();
+
+        Self {
+            txn_number_before,
+            txn_number_after,
+            gas_used_before,
+            gas_used_after,
+            block_bloom_before,
+            block_bloom_after,
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        ed0: Self,
+        ed1: Self,
+    ) -> Self {
+        Self {
+            txn_number_before: builder.select(
+                condition,
+                ed0.txn_number_before,
+                ed1.txn_number_before,
+            ),
+            txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
+            gas_used_before: builder.select(condition, ed0.gas_used_before, ed1.gas_used_before),
+            gas_used_after: builder.select(condition, ed0.gas_used_after, ed1.gas_used_after),
+            block_bloom_before: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.block_bloom_before[i],
+                    ed1.block_bloom_before[i],
+                )
+            }),
+            block_bloom_after: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.block_bloom_after[i],
+                    ed1.block_bloom_after[i],
+                )
+            }),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        ed0: Self,
+        ed1: Self,
+    ) {
+        builder.connect(ed0.txn_number_before, ed1.txn_number_before);
+        builder.connect(ed0.txn_number_after, ed1.txn_number_after);
+        builder.connect(ed0.gas_used_before, ed1.gas_used_before);
+        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        for i in 0..64 {
+            builder.connect(ed0.block_bloom_before[i], ed1.block_bloom_before[i]);
+        }
+        for i in 0..64 {
+            builder.connect(ed0.block_bloom_after[i], ed1.block_bloom_after[i]);
         }
     }
 }
