@@ -12,8 +12,8 @@ use plonky2::util::transpose;
 
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
-    index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, BYTE_INDICES_COLS, FILTER,
-    IS_READ, NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
+    index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, BYTE_INDICES_COLS, IS_READ,
+    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -153,7 +153,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
         let mut rows = Vec::with_capacity(bytes.len());
         let mut row = [F::ZERO; NUM_COLUMNS];
-        row[FILTER] = F::ONE;
         row[IS_READ] = F::from_bool(is_read);
 
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
@@ -229,8 +228,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         let one = P::ONES;
 
-        // The filter must be boolean.
-        let current_filter = vars.local_values[FILTER];
+        // We filter active columns by summing all the byte indices.
+        // Constraining each of them to be boolean is done later on below.
+        let current_filter = vars.local_values[BYTE_INDICES_COLS]
+            .iter()
+            .copied()
+            .sum::<P>();
         yield_constr.constraint(current_filter * (current_filter - one));
 
         // The filter column must start by one.
@@ -264,7 +267,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         );
 
         // Only padding rows have their filter turned off.
-        let next_filter = vars.next_values[FILTER];
+        let next_filter = vars.next_values[BYTE_INDICES_COLS]
+            .iter()
+            .copied()
+            .sum::<P>();
         yield_constr.constraint_transition(next_filter * (next_filter - current_filter));
 
         // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
@@ -277,13 +283,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint_transition(
             current_sequence_end * next_filter * (next_sequence_start - one),
         );
-
-        // There must be only one byte index set to 1 per active row.
-        let sum_indices = vars.local_values[BYTE_INDICES_COLS]
-            .iter()
-            .copied()
-            .sum::<P>();
-        yield_constr.constraint(current_filter * (sum_indices - P::ONES));
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
@@ -313,7 +312,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must decrement by one at each step of a sequence.
-        let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
         let current_segment = vars.local_values[ADDR_SEGMENT];
@@ -358,8 +356,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
         }
 
-        // The filter must be boolean.
-        let current_filter = vars.local_values[FILTER];
+        // We filter active columns by summing all the byte indices.
+        // Constraining each of them to be boolean is done later on below.
+        let current_filter = builder.add_many_extension(&vars.local_values[BYTE_INDICES_COLS]);
         let constraint = builder.mul_sub_extension(current_filter, current_filter, current_filter);
         yield_constr.constraint(builder, constraint);
 
@@ -402,7 +401,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // Only padding rows have their filter turned off.
-        let next_filter = vars.next_values[FILTER];
+        let next_filter = builder.add_many_extension(&vars.next_values[BYTE_INDICES_COLS]);
         let constraint = builder.sub_extension(next_filter, current_filter);
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
@@ -423,11 +422,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         );
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
-
-        // There must be only one byte index set to 1 per active row.
-        let sum_indices = builder.add_many_extension(&vars.local_values[BYTE_INDICES_COLS]);
-        let constraint = builder.mul_sub_extension(current_filter, sum_indices, current_filter);
-        yield_constr.constraint(builder, constraint);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
@@ -474,7 +468,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must decrement by one at each step of a sequence.
-        let next_filter = vars.next_values[FILTER];
         let current_context = vars.local_values[ADDR_CONTEXT];
         let next_context = vars.next_values[ADDR_CONTEXT];
         let current_segment = vars.local_values[ADDR_SEGMENT];

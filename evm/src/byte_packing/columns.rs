@@ -4,20 +4,18 @@ use core::ops::Range;
 
 use crate::byte_packing::NUM_BYTES;
 
-/// 1 if this is an actual byte packing operation, or 0 if it's a padding row.
-pub(crate) const FILTER: usize = 0;
 /// 1 if this is a READ operation, and 0 if this is a WRITE operation.
-pub(crate) const IS_READ: usize = FILTER + 1;
+pub(crate) const IS_READ: usize = 0;
 /// 1 if this is the end of a sequence of bytes.
 /// This is also used as filter for the CTL.
 pub(crate) const SEQUENCE_END: usize = IS_READ + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
 pub(crate) const fn index_bytes(i: usize) -> usize {
-    debug_assert!(i < NUM_BYTES);
     BYTES_INDICES_START + i
 }
 
+// Note: Those are used as filter for distinguishing active vs padding rows.
 pub(crate) const BYTE_INDICES_COLS: Range<usize> =
     BYTES_INDICES_START..BYTES_INDICES_START + NUM_BYTES;
 
