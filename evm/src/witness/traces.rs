@@ -173,9 +173,7 @@ impl<T: Copy> Traces<T> {
         let memory_trace = timed!(
             timing,
             "generate memory trace",
-            all_stark
-                .memory_stark
-                .generate_trace(memory_ops.clone(), timing)
+            all_stark.memory_stark.generate_trace(memory_ops, timing)
         );
         let byte_packing_trace = timed!(
             timing,

@@ -10,11 +10,10 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 
-use super::columns::BYTE_INDICES_COLS;
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
-    index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, FILTER, IS_READ,
-    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, REMAINING_LEN, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
+    index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, BYTE_INDICES_COLS, FILTER,
+    IS_READ, NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -33,7 +32,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
                 range
                     .iter()
                     .enumerate()
-                    .map(|(j, &c)| (c, F::from_canonical_u64(1 << 8 * j))),
+                    .map(|(j, &c)| (c, F::from_canonical_u64(1 << (8 * j)))),
             )
         })
         .collect();
@@ -168,7 +167,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row[SEQUENCE_LEN] = F::from_canonical_usize(bytes.len());
 
         for (i, &byte) in bytes.iter().rev().enumerate() {
-            row[REMAINING_LEN] = F::from_canonical_usize(bytes.len() - 1 - i);
             if i == bytes.len() - 1 {
                 row[SEQUENCE_END] = F::ONE;
             }
@@ -288,14 +286,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(current_filter * (sum_indices - P::ONES));
 
         // The remaining length of a byte sequence must decrease by one or be zero.
-        let current_remaining_length = vars.local_values[REMAINING_LEN];
-        let next_remaining_length = vars.next_values[REMAINING_LEN];
+        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
+        let current_remaining_length = current_sequence_length
+            - (0..NUM_BYTES)
+                .map(|i| vars.local_values[index_bytes(i)] * P::Scalar::from_canonical_usize(i + 1))
+                .sum::<P>();
+        let next_sequence_length = vars.next_values[SEQUENCE_LEN];
+        let next_remaining_length = next_sequence_length
+            - (0..NUM_BYTES)
+                .map(|i| vars.next_values[index_bytes(i)] * P::Scalar::from_canonical_usize(i + 1))
+                .sum::<P>();
         yield_constr.constraint_transition(
             current_remaining_length * (current_remaining_length - next_remaining_length - one),
         );
 
         // At the start of a sequence, the remaining length must be equal to the starting length minus one
-        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
         yield_constr.constraint(
             current_sequence_start * (current_sequence_length - current_remaining_length - one),
         );
@@ -425,8 +430,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint(builder, constraint);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
-        let current_remaining_length = vars.local_values[REMAINING_LEN];
-        let next_remaining_length = vars.next_values[REMAINING_LEN];
+        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
+        let mut current_remaining_length =
+            builder.sub_extension(current_sequence_length, vars.local_values[index_bytes(0)]);
+        let next_sequence_length = vars.next_values[SEQUENCE_LEN];
+        let mut next_remaining_length =
+            builder.sub_extension(next_sequence_length, vars.next_values[index_bytes(0)]);
+        for i in 1..NUM_BYTES {
+            current_remaining_length = builder.mul_const_add_extension(
+                F::from_canonical_usize(i + 1),
+                vars.local_values[index_bytes(i)],
+                current_remaining_length,
+            );
+            next_remaining_length = builder.mul_const_add_extension(
+                F::from_canonical_usize(i + 1),
+                vars.next_values[index_bytes(i)],
+                next_remaining_length,
+            );
+        }
         let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
         let length_diff_minus_one = builder.add_const_extension(length_diff, F::NEG_ONE);
         let constraint = builder.mul_extension(current_remaining_length, length_diff_minus_one);
