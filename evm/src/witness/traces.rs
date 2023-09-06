@@ -8,13 +8,14 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
+use crate::arithmetic::{BinaryOperator, Operation};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
-use crate::{arithmetic, keccak, logic};
+use crate::{arithmetic, keccak, keccak_sponge, logic};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
@@ -48,6 +49,47 @@ impl<T: Copy> Traces<T> {
         }
     }
 
+    /// Returns the actual trace lengths for each STARK module.
+    //  Uses a `TraceCheckPoint` as return object for convenience.
+    pub fn get_lengths(&self) -> TraceCheckpoint {
+        TraceCheckpoint {
+            arithmetic_len: self
+                .arithmetic_ops
+                .iter()
+                .map(|op| match op {
+                    Operation::TernaryOperation {
+                        operator: _,
+                        input0: _,
+                        input1: _,
+                        input2: _,
+                        result: _,
+                    } => 2,
+                    Operation::BinaryOperation {
+                        operator,
+                        input0: _,
+                        input1: _,
+                        result: _,
+                    } => match operator {
+                        BinaryOperator::Div | BinaryOperator::Mod => 2,
+                        _ => 1,
+                    },
+                })
+                .sum(),
+            cpu_len: self.cpu.len(),
+            keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
+            keccak_sponge_len: self
+                .keccak_sponge_ops
+                .iter()
+                .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
+                .sum(),
+            logic_len: self.logic_ops.len(),
+            // This is technically a lower-bound, as we may fill gaps,
+            // but this gives a relatively good estimate.
+            memory_len: self.memory_ops.len(),
+        }
+    }
+
+    /// Returns the number of operations for each STARK module.
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),

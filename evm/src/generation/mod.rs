@@ -159,7 +159,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     log::info!(
         "Trace lengths (before padding): {:?}",
-        state.traces.checkpoint()
+        state.traces.get_lengths()
     );
 
     let outputs = get_outputs(&mut state);
