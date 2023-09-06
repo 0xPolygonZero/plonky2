@@ -756,15 +756,7 @@ where
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
         builder.connect(gen_block_constr, zero);
 
-        // Check that the genesis block has empty state trie.
-        let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
-
-        for (i, limb) in h256_limbs::<F>(initial_trie).into_iter().enumerate() {
-            let limb_target = builder.constant(limb);
-            let mut temp = builder.sub(rhs.trie_roots_before.state_root[i], limb_target);
-            temp = builder.mul(has_not_parent_block, temp);
-            builder.connect(temp, zero);
-        }
+        // TODO: Check that the genesis block has a predetermined state trie root.
     }
 
     fn connect_final_block_values_to_intermediary(
