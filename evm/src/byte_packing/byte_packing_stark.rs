@@ -240,13 +240,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let is_read = vars.local_values[IS_READ];
         yield_constr.constraint(is_read * (is_read - one));
 
-        // If filter is off, is_read must be off.
-        let is_read = vars.local_values[IS_READ];
-        yield_constr.constraint((filter - one) * is_read);
-
-        // Only padding rows have their filter turned off.
-        let next_filter = vars.next_values[FILTER];
-        yield_constr.constraint_transition(next_filter * (next_filter - filter));
+        // Each byte index must be boolean.
+        for i in 0..NUM_BYTES {
+            let idx_i = vars.local_values[index_bytes(i)];
+            yield_constr.constraint(idx_i * (idx_i - one));
+        }
 
         // The sequence start flag column must start by one.
         let sequence_start = vars.local_values[index_bytes(0)];
@@ -256,6 +254,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let sequence_end = vars.local_values[SEQUENCE_END];
         yield_constr.constraint(sequence_end * (sequence_end - one));
 
+        // If filter is off, all flags and byte indices must be off.
+        let byte_indices = (0..NUM_BYTES)
+            .map(|i| vars.local_values[index_bytes(i)])
+            .sum::<P>();
+        yield_constr.constraint((filter - one) * (is_read + sequence_end + byte_indices));
+
+        // Only padding rows have their filter turned off.
+        let next_filter = vars.next_values[FILTER];
+        yield_constr.constraint_transition(next_filter * (next_filter - filter));
+
         // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
         let next_is_read = vars.next_values[IS_READ];
         yield_constr.constraint_transition((sequence_end - one) * (next_is_read - is_read));
@@ -264,12 +272,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let next_sequence_start = vars.next_values[index_bytes(0)];
         yield_constr
             .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
-
-        // Each byte index must be boolean.
-        for i in 0..NUM_BYTES {
-            let idx_i = vars.local_values[index_bytes(i)];
-            yield_constr.constraint(idx_i * (idx_i - one));
-        }
 
         // There must be only one byte index set to 1 per active row.
         let sum_indices = vars.local_values[index_bytes(0)..index_bytes(0) + NUM_BYTES]
@@ -357,15 +359,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_sub_extension(is_read, is_read, is_read);
         yield_constr.constraint(builder, constraint);
 
-        // If filter is off, is_read must be off.
-        let constraint = builder.mul_sub_extension(is_read, filter, is_read);
-        yield_constr.constraint(builder, constraint);
-
-        // Only padding rows have their filter turned off.
-        let next_filter = vars.next_values[FILTER];
-        let constraint = builder.sub_extension(next_filter, filter);
-        let constraint = builder.mul_extension(next_filter, constraint);
-        yield_constr.constraint_transition(builder, constraint);
+        // Each byte index must be boolean.
+        for i in 0..NUM_BYTES {
+            let idx_i = vars.local_values[index_bytes(i)];
+            let constraint = builder.mul_sub_extension(idx_i, idx_i, idx_i);
+            yield_constr.constraint(builder, constraint);
+        }
 
         // The sequence start flag column must start by one.
         let sequence_start = vars.local_values[index_bytes(0)];
@@ -376,6 +375,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let sequence_end = vars.local_values[SEQUENCE_END];
         let constraint = builder.mul_sub_extension(sequence_end, sequence_end, sequence_end);
         yield_constr.constraint(builder, constraint);
+
+        // If filter is off, all flags and byte indices must be off.
+        let byte_indices =
+            builder.add_many_extension((0..NUM_BYTES).map(|i| vars.local_values[index_bytes(i)]));
+        let constraint = builder.add_extension(sequence_end, byte_indices);
+        let constraint = builder.add_extension(constraint, is_read);
+        let constraint = builder.mul_sub_extension(constraint, filter, constraint);
+        yield_constr.constraint(builder, constraint);
+
+        // Only padding rows have their filter turned off.
+        let next_filter = vars.next_values[FILTER];
+        let constraint = builder.sub_extension(next_filter, filter);
+        let constraint = builder.mul_extension(next_filter, constraint);
+        yield_constr.constraint_transition(builder, constraint);
 
         // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
         let next_is_read = vars.next_values[IS_READ];
@@ -388,13 +401,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
-
-        // Each byte index must be boolean.
-        for i in 0..NUM_BYTES {
-            let idx_i = vars.local_values[index_bytes(i)];
-            let constraint = builder.mul_sub_extension(idx_i, idx_i, idx_i);
-            yield_constr.constraint(builder, constraint);
-        }
 
         // There must be only one byte index set to 1 per active row.
         let sum_indices = builder.add_many_extension(
