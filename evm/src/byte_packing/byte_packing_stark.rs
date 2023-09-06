@@ -431,11 +431,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let mut current_remaining_length =
-            builder.sub_extension(current_sequence_length, vars.local_values[index_bytes(0)]);
+        let mut current_remaining_length = vars.local_values[index_bytes(0)];
         let next_sequence_length = vars.next_values[SEQUENCE_LEN];
-        let mut next_remaining_length =
-            builder.sub_extension(next_sequence_length, vars.next_values[index_bytes(0)]);
+        let mut next_remaining_length = vars.next_values[index_bytes(0)];
         for i in 1..NUM_BYTES {
             current_remaining_length = builder.mul_const_add_extension(
                 F::from_canonical_usize(i + 1),
@@ -448,9 +446,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
                 next_remaining_length,
             );
         }
+        let current_remaining_length =
+            builder.sub_extension(current_sequence_length, current_remaining_length);
+        let next_remaining_length =
+            builder.sub_extension(next_sequence_length, next_remaining_length);
         let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
-        let length_diff_minus_one = builder.add_const_extension(length_diff, F::NEG_ONE);
-        let constraint = builder.mul_extension(current_remaining_length, length_diff_minus_one);
+        let constraint = builder.mul_sub_extension(
+            current_remaining_length,
+            length_diff,
+            current_remaining_length,
+        );
         yield_constr.constraint_transition(builder, constraint);
 
         // At the start of a sequence, the remaining length must be equal to the starting length minus one
