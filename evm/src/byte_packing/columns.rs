@@ -20,6 +20,9 @@ pub(crate) const fn index_bytes(i: usize) -> usize {
     BYTES_INDICES_START + i
 }
 
+pub(crate) const BYTE_INDICES_COLS: Range<usize> =
+    BYTES_INDICES_START..BYTES_INDICES_START + NUM_BYTES;
+
 pub(crate) const ADDR_CONTEXT: usize = BYTES_INDICES_START + NUM_BYTES;
 pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
@@ -35,10 +38,10 @@ pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
 pub(crate) const REMAINING_LEN: usize = SEQUENCE_LEN + 1;
 
 // 32 byte limbs hold a total of 256 bits.
-const BYTES_START: usize = REMAINING_LEN + 1;
+const BYTES_VALUES_START: usize = REMAINING_LEN + 1;
 pub(crate) const fn value_bytes(i: usize) -> usize {
     debug_assert!(i < NUM_BYTES);
-    BYTES_START + i
+    BYTES_VALUES_START + i
 }
 
 // We need one column for the table, then two columns for every value
@@ -46,7 +49,7 @@ pub(crate) const fn value_bytes(i: usize) -> usize {
 // namely the permutation of the column and the permutation of the range.
 // The two permutations associated to the byte in column i will be in
 // columns RC_COLS[2i] and RC_COLS[2i+1].
-pub(crate) const RANGE_COUNTER: usize = BYTES_START + NUM_BYTES;
+pub(crate) const RANGE_COUNTER: usize = BYTES_VALUES_START + NUM_BYTES;
 pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_BYTES;
 pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + NUM_RANGE_CHECK_COLS;
 

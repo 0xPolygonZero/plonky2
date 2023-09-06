@@ -10,6 +10,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 
+use super::columns::BYTE_INDICES_COLS;
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
     index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, FILTER, IS_READ,
@@ -58,7 +59,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
 
-    // The i'th input byte being read.
+    // The i'th input byte being read/written.
     res.push(Column::single(value_bytes(i)));
 
     // Since we're reading a single byte, the higher limbs must be zero.
@@ -69,7 +70,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
-/// CTL filter for reading the `i`th byte of the byte sequence from memory.
+/// CTL filter for reading/writing the `i`th byte of the byte sequence from/to memory.
 pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     Column::single(index_bytes(i))
 }
@@ -159,7 +160,8 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row[ADDR_CONTEXT] = F::from_canonical_usize(context);
         row[ADDR_SEGMENT] = F::from_canonical_usize(segment);
         // Because of the endianness, we start by the final virtual address value
-        // and decrement it at each step.
+        // and decrement it at each step. Similarly, we process the byte sequence
+        // in reverse order.
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt + bytes.len() - 1);
 
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
@@ -230,15 +232,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let one = P::ONES;
 
         // The filter must be boolean.
-        let filter = vars.local_values[FILTER];
-        yield_constr.constraint(filter * (filter - one));
+        let current_filter = vars.local_values[FILTER];
+        yield_constr.constraint(current_filter * (current_filter - one));
 
         // The filter column must start by one.
-        yield_constr.constraint_first_row(filter - one);
+        yield_constr.constraint_first_row(current_filter - one);
 
         // The is_read flag must be boolean.
-        let is_read = vars.local_values[IS_READ];
-        yield_constr.constraint(is_read * (is_read - one));
+        let current_is_read = vars.local_values[IS_READ];
+        yield_constr.constraint(current_is_read * (current_is_read - one));
 
         // Each byte index must be boolean.
         for i in 0..NUM_BYTES {
@@ -247,38 +249,43 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         }
 
         // The sequence start flag column must start by one.
-        let sequence_start = vars.local_values[index_bytes(0)];
-        yield_constr.constraint_first_row(sequence_start - one);
+        let current_sequence_start = vars.local_values[index_bytes(0)];
+        yield_constr.constraint_first_row(current_sequence_start - one);
 
         // The sequence end flag must be boolean
-        let sequence_end = vars.local_values[SEQUENCE_END];
-        yield_constr.constraint(sequence_end * (sequence_end - one));
+        let current_sequence_end = vars.local_values[SEQUENCE_END];
+        yield_constr.constraint(current_sequence_end * (current_sequence_end - one));
 
         // If filter is off, all flags and byte indices must be off.
-        let byte_indices = (0..NUM_BYTES)
-            .map(|i| vars.local_values[index_bytes(i)])
-            .sum::<P>();
-        yield_constr.constraint((filter - one) * (is_read + sequence_end + byte_indices));
-
-        // Only padding rows have their filter turned off.
-        let next_filter = vars.next_values[FILTER];
-        yield_constr.constraint_transition(next_filter * (next_filter - filter));
-
-        // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
-        let next_is_read = vars.next_values[IS_READ];
-        yield_constr.constraint_transition((sequence_end - one) * (next_is_read - is_read));
-
-        // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
-        let next_sequence_start = vars.next_values[index_bytes(0)];
-        yield_constr
-            .constraint_transition(sequence_end * next_filter * (next_sequence_start - one));
-
-        // There must be only one byte index set to 1 per active row.
-        let sum_indices = vars.local_values[index_bytes(0)..index_bytes(0) + NUM_BYTES]
+        let byte_indices = vars.local_values[BYTE_INDICES_COLS]
             .iter()
             .copied()
             .sum::<P>();
-        yield_constr.constraint(filter * (sum_indices - P::ONES));
+        yield_constr.constraint(
+            (current_filter - one) * (current_is_read + current_sequence_end + byte_indices),
+        );
+
+        // Only padding rows have their filter turned off.
+        let next_filter = vars.next_values[FILTER];
+        yield_constr.constraint_transition(next_filter * (next_filter - current_filter));
+
+        // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
+        let next_is_read = vars.next_values[IS_READ];
+        yield_constr
+            .constraint_transition((current_sequence_end - one) * (next_is_read - current_is_read));
+
+        // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
+        let next_sequence_start = vars.next_values[index_bytes(0)];
+        yield_constr.constraint_transition(
+            current_sequence_end * next_filter * (next_sequence_start - one),
+        );
+
+        // There must be only one byte index set to 1 per active row.
+        let sum_indices = vars.local_values[BYTE_INDICES_COLS]
+            .iter()
+            .copied()
+            .sum::<P>();
+        yield_constr.constraint(current_filter * (sum_indices - P::ONES));
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_remaining_length = vars.local_values[REMAINING_LEN];
@@ -288,15 +295,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         );
 
         // At the start of a sequence, the remaining length must be equal to the starting length minus one
-        let sequence_length = vars.local_values[SEQUENCE_LEN];
-        yield_constr
-            .constraint(sequence_start * (sequence_length - current_remaining_length - one));
+        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
+        yield_constr.constraint(
+            current_sequence_start * (current_sequence_length - current_remaining_length - one),
+        );
 
         // The remaining length on the last row must be zero.
         yield_constr.constraint_last_row(current_remaining_length);
 
         // If the current remaining length is zero, the end flag must be one.
-        yield_constr.constraint(current_remaining_length * sequence_end);
+        yield_constr.constraint(current_remaining_length * current_sequence_end);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must decrement by one at each step of a sequence.
@@ -329,7 +337,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             let next_byte = vars.next_values[value_bytes(i)];
             let next_byte_index = vars.next_values[index_bytes(i)];
             yield_constr.constraint_transition(
-                (sequence_end - one) * (next_byte_index - one) * (next_byte - current_byte),
+                (current_sequence_end - one) * (next_byte_index - one) * (next_byte - current_byte),
             );
         }
     }
@@ -346,17 +354,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         }
 
         // The filter must be boolean.
-        let filter = vars.local_values[FILTER];
-        let constraint = builder.mul_sub_extension(filter, filter, filter);
+        let current_filter = vars.local_values[FILTER];
+        let constraint = builder.mul_sub_extension(current_filter, current_filter, current_filter);
         yield_constr.constraint(builder, constraint);
 
         // The filter column must start by one.
-        let constraint = builder.add_const_extension(filter, F::NEG_ONE);
+        let constraint = builder.add_const_extension(current_filter, F::NEG_ONE);
         yield_constr.constraint_first_row(builder, constraint);
 
         // The is_read flag must be boolean.
-        let is_read = vars.local_values[IS_READ];
-        let constraint = builder.mul_sub_extension(is_read, is_read, is_read);
+        let current_is_read = vars.local_values[IS_READ];
+        let constraint =
+            builder.mul_sub_extension(current_is_read, current_is_read, current_is_read);
         yield_constr.constraint(builder, constraint);
 
         // Each byte index must be boolean.
@@ -367,46 +376,52 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         }
 
         // The sequence start flag column must start by one.
-        let sequence_start = vars.local_values[index_bytes(0)];
-        let constraint = builder.add_const_extension(sequence_start, F::NEG_ONE);
+        let current_sequence_start = vars.local_values[index_bytes(0)];
+        let constraint = builder.add_const_extension(current_sequence_start, F::NEG_ONE);
         yield_constr.constraint_first_row(builder, constraint);
 
         // The sequence end flag must be boolean
-        let sequence_end = vars.local_values[SEQUENCE_END];
-        let constraint = builder.mul_sub_extension(sequence_end, sequence_end, sequence_end);
+        let current_sequence_end = vars.local_values[SEQUENCE_END];
+        let constraint = builder.mul_sub_extension(
+            current_sequence_end,
+            current_sequence_end,
+            current_sequence_end,
+        );
         yield_constr.constraint(builder, constraint);
 
         // If filter is off, all flags and byte indices must be off.
-        let byte_indices =
-            builder.add_many_extension((0..NUM_BYTES).map(|i| vars.local_values[index_bytes(i)]));
-        let constraint = builder.add_extension(sequence_end, byte_indices);
-        let constraint = builder.add_extension(constraint, is_read);
-        let constraint = builder.mul_sub_extension(constraint, filter, constraint);
+        let byte_indices = builder.add_many_extension(&vars.local_values[BYTE_INDICES_COLS]);
+        let constraint = builder.add_extension(current_sequence_end, byte_indices);
+        let constraint = builder.add_extension(constraint, current_is_read);
+        let constraint = builder.mul_sub_extension(constraint, current_filter, constraint);
         yield_constr.constraint(builder, constraint);
 
         // Only padding rows have their filter turned off.
         let next_filter = vars.next_values[FILTER];
-        let constraint = builder.sub_extension(next_filter, filter);
+        let constraint = builder.sub_extension(next_filter, current_filter);
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
 
         // Unless the current sequence end flag is activated, the is_read filter must remain unchanged.
         let next_is_read = vars.next_values[IS_READ];
-        let diff_is_read = builder.sub_extension(next_is_read, is_read);
-        let constraint = builder.mul_sub_extension(diff_is_read, sequence_end, diff_is_read);
+        let diff_is_read = builder.sub_extension(next_is_read, current_is_read);
+        let constraint =
+            builder.mul_sub_extension(diff_is_read, current_sequence_end, diff_is_read);
         yield_constr.constraint_transition(builder, constraint);
 
         // If the sequence end flag is activated, the next row must be a new sequence or filter must be off.
         let next_sequence_start = vars.next_values[index_bytes(0)];
-        let constraint = builder.mul_sub_extension(sequence_end, next_sequence_start, sequence_end);
+        let constraint = builder.mul_sub_extension(
+            current_sequence_end,
+            next_sequence_start,
+            current_sequence_end,
+        );
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
 
         // There must be only one byte index set to 1 per active row.
-        let sum_indices = builder.add_many_extension(
-            vars.local_values[index_bytes(0)..index_bytes(0) + NUM_BYTES].into_iter(),
-        );
-        let constraint = builder.mul_sub_extension(filter, sum_indices, filter);
+        let sum_indices = builder.add_many_extension(&vars.local_values[BYTE_INDICES_COLS]);
+        let constraint = builder.mul_sub_extension(current_filter, sum_indices, current_filter);
         yield_constr.constraint(builder, constraint);
 
         // The remaining length of a byte sequence must decrease by one or be zero.
@@ -418,16 +433,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         yield_constr.constraint_transition(builder, constraint);
 
         // At the start of a sequence, the remaining length must be equal to the starting length minus one
-        let sequence_length = vars.local_values[SEQUENCE_LEN];
-        let length_diff = builder.sub_extension(sequence_length, current_remaining_length);
-        let constraint = builder.mul_sub_extension(sequence_start, length_diff, sequence_start);
+        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
+        let length_diff = builder.sub_extension(current_sequence_length, current_remaining_length);
+        let constraint =
+            builder.mul_sub_extension(current_sequence_start, length_diff, current_sequence_start);
         yield_constr.constraint(builder, constraint);
 
         // The remaining length on the last row must be zero.
         yield_constr.constraint_last_row(builder, current_remaining_length);
 
         // If the current remaining length is zero, the end flag must be one.
-        let constraint = builder.mul_extension(current_remaining_length, sequence_end);
+        let constraint = builder.mul_extension(current_remaining_length, current_sequence_end);
         yield_constr.constraint(builder, constraint);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
@@ -471,7 +487,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             let next_byte_index = vars.next_values[index_bytes(i)];
             let byte_diff = builder.sub_extension(next_byte, current_byte);
             let constraint = builder.mul_sub_extension(byte_diff, next_byte_index, byte_diff);
-            let constraint = builder.mul_sub_extension(constraint, sequence_end, constraint);
+            let constraint =
+                builder.mul_sub_extension(constraint, current_sequence_end, constraint);
             yield_constr.constraint_transition(builder, constraint);
         }
     }
