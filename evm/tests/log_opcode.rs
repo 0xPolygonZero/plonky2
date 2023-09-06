@@ -277,7 +277,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let code_hash = keccak(code);
 
     // First transaction.
-    let all_stark_first = AllStark::<F, D>::default();
+    let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
 
     let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
@@ -428,31 +428,25 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         addresses: vec![],
     };
 
-    let mut timing = TimingTree::new("prove first", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark_first, &config, inputs_first.clone(), &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
-    // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
-    let block_bloom_second = proof.public_values.extra_block_data.block_bloom_after;
-    let gas_used_second = proof.public_values.extra_block_data.gas_used_after;
-
-    verify_proof(&all_stark_first, proof, &config)?;
-
-    // Create the aggregation circuits.
-    let all_circuits_first = AllRecursiveCircuits::<F, C, D>::new(
-        &all_stark_first,
-        &[9..17, 9..19, 9..15, 9..11, 9..14, 9..21], // Minimal ranges to prove an empty list
+    // Preprocess all circuits.
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[16..17, 17..19, 14..15, 9..11, 12..13, 20..21],
         &config,
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, first_public_values) =
-        all_circuits_first.prove_root(&all_stark_first, &config, inputs_first, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
+
     timing.filter(Duration::from_millis(100)).print();
+    all_circuits.verify_root(root_proof_first.clone())?;
+
+    // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
+    let block_bloom_second = first_public_values.extra_block_data.block_bloom_after;
+    let gas_used_second = first_public_values.extra_block_data.gas_used_after;
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
-    let all_stark = AllStark::<F, D>::default();
-    let config = StarkConfig::standard_fast_config();
 
     let state_trie_before = expected_state_trie_after;
 
@@ -570,17 +564,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         block_bloom_after: block_bloom_final,
         addresses: vec![],
     };
-    let mut timing = TimingTree::new("prove second", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
 
-    verify_proof(&all_stark, proof, &config)?;
-    let config = StarkConfig::standard_fast_config();
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
-        &all_stark,
-        &[9..17, 9..19, 9..15, 9..11, 9..14, 9..21],
-        &config,
-    );
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
@@ -604,14 +588,14 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
-    let (agg_proof, updated_agg_public_values) = all_circuits_first.prove_aggregation(
+    let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
         false,
         &root_proof,
         agg_public_values,
     )?;
-    all_circuits_first.verify_aggregation(&agg_proof)?;
+    all_circuits.verify_aggregation(&agg_proof)?;
     let (block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
     all_circuits.verify_block(&block_proof)
