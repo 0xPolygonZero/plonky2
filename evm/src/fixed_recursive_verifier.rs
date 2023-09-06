@@ -299,12 +299,12 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
 {
     pub fn to_bytes(
         &self,
@@ -380,44 +380,44 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        let byte_packing = RecursiveCircuitsForTable::new(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[1].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[1].clone(),
+            degree_bits_ranges[2].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[2].clone(),
+            degree_bits_ranges[3].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[3].clone(),
+            degree_bits_ranges[4].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[4].clone(),
+            degree_bits_ranges[5].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[5].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        let byte_packing = RecursiveCircuitsForTable::new(
-            Table::BytePacking,
-            &all_stark.byte_packing_stark,
             degree_bits_ranges[6].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
@@ -425,12 +425,12 @@ where
 
         let by_table = [
             arithmetic,
+            byte_packing,
             cpu,
             keccak,
             keccak_sponge,
             logic,
             memory,
-            byte_packing,
         ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);

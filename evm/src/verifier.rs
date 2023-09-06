@@ -40,12 +40,12 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 ) -> Result<()>
 where
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
     [(); MemoryStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
 {
     let AllProofChallenges {
         stark_challenges,
@@ -56,12 +56,12 @@ where
 
     let AllStark {
         arithmetic_stark,
+        byte_packing_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
         logic_stark,
         memory_stark,
-        byte_packing_stark,
         cross_table_lookups,
     } = all_stark;
 
@@ -77,6 +77,13 @@ where
         &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        byte_packing_stark,
+        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &stark_challenges[Table::BytePacking as usize],
+        &ctl_vars_per_table[Table::BytePacking as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -101,24 +108,17 @@ where
         config,
     )?;
     verify_stark_proof_with_challenges(
-        memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize].proof,
-        &stark_challenges[Table::Memory as usize],
-        &ctl_vars_per_table[Table::Memory as usize],
-        config,
-    )?;
-    verify_stark_proof_with_challenges(
-        byte_packing_stark,
-        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
-        &stark_challenges[Table::BytePacking as usize],
-        &ctl_vars_per_table[Table::BytePacking as usize],
-        config,
-    )?;
-    verify_stark_proof_with_challenges(
         logic_stark,
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        memory_stark,
+        &all_proof.stark_proofs[Table::Memory as usize].proof,
+        &stark_challenges[Table::Memory as usize],
+        &ctl_vars_per_table[Table::Memory as usize],
         config,
     )?;
 
