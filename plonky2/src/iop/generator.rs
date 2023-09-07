@@ -16,7 +16,7 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
-pub(crate) fn generate_partial_witness<
+pub fn generate_partial_witness<
     'a,
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

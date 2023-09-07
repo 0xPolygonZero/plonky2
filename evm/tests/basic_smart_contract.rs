@@ -27,7 +27,7 @@ type C = KeccakGoldilocksConfig;
 
 /// Test a simple token transfer to a new address.
 #[test]
-#[ignore] // Too slow to run on CI.
+// #[ignore] // Too slow to run on CI.
 fn test_basic_smart_contract() -> anyhow::Result<()> {
     init_logger();
 

@@ -469,6 +469,51 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "mock")]
+    #[test]
+    fn test_circuit_build_mock() {
+        // This code is taken from examples/fibonacci.rs
+        use crate::field::types::Field;
+        use crate::iop::generator::generate_partial_witness;
+        use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
+        use crate::plonk::circuit_builder::CircuitBuilder;
+        use crate::plonk::circuit_data::CircuitConfig;
+        use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // The arithmetic circuit.
+        let initial_a = builder.add_virtual_target();
+        let initial_b = builder.add_virtual_target();
+        let mut prev_target = initial_a;
+        let mut cur_target = initial_b;
+        for _ in 0..99 {
+            let temp = builder.add(prev_target, cur_target);
+            prev_target = cur_target;
+            cur_target = temp;
+        }
+
+        // Public inputs are the two initial values (provided below) and the result (which is generated).
+        builder.register_public_input(initial_a);
+        builder.register_public_input(initial_b);
+        builder.register_public_input(cur_target);
+
+        // Provide initial values.
+        let mut pw = PartialWitness::new();
+        pw.set_target(initial_a, F::ZERO);
+        pw.set_target(initial_b, F::ONE);
+
+        let data = builder.build::<C>();
+        let partition_witness = generate_partial_witness(pw, &data.prover_only, &data.common);
+        let result = partition_witness.try_get_target(cur_target).unwrap();
+        assert_eq!(result, F::from_canonical_u64(3736710860384812976));
+    }
+
     fn init_logger() -> anyhow::Result<()> {
         let mut builder = env_logger::Builder::from_default_env();
         builder.format_timestamp(None);
