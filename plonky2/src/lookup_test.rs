@@ -469,12 +469,10 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "mock")]
     #[test]
     fn test_circuit_build_mock() {
         // This code is taken from examples/fibonacci.rs
         use crate::field::types::Field;
-        use crate::iop::generator::generate_partial_witness;
         use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
         use crate::plonk::circuit_builder::CircuitBuilder;
         use crate::plonk::circuit_data::CircuitConfig;
@@ -508,8 +506,8 @@ mod tests {
         pw.set_target(initial_a, F::ZERO);
         pw.set_target(initial_b, F::ONE);
 
-        let data = builder.build::<C>();
-        let partition_witness = generate_partial_witness(pw, &data.prover_only, &data.common);
+        let data = builder.mock_build::<C>();
+        let partition_witness = data.generate_witness(pw);
         let result = partition_witness.try_get_target(cur_target).unwrap();
         assert_eq!(result, F::from_canonical_u64(3736710860384812976));
     }

@@ -40,8 +40,8 @@ use crate::iop::generator::{
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
-    VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+    CircuitConfig, CircuitData, CommonCircuitData, MockCircuitData, ProverCircuitData,
+    ProverOnlyCircuitData, VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
@@ -916,7 +916,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
+    pub fn build_with_options<C: GenericConfig<D, F = F>>(
+        mut self,
+        commit_to_sigma: bool,
+    ) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
 
         #[cfg(feature = "std")]
@@ -1024,8 +1027,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let fft_root_table = fft_root_table(max_fft_points);
 
         let mut constants_sigmas_commitment = PolynomialBatch::<F, C, D>::default();
-        #[cfg(not(feature = "mock"))]
-        {
+        if commit_to_sigma {
             let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
             constants_sigmas_commitment = PolynomialBatch::<F, C, D>::from_values(
                 constants_sigmas_vecs,
@@ -1155,6 +1157,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
+        self.build_with_options(true)
+    }
+
+    pub fn mock_build<C: GenericConfig<D, F = F>>(self) -> MockCircuitData<F, C, D> {
+        let circuit_data = self.build_with_options(false);
+        MockCircuitData {
+            prover_only: circuit_data.prover_only,
+            common: circuit_data.common,
+        }
+    }
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
     pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
