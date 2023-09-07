@@ -1,8 +1,11 @@
+use plonky2_util::ceil_div_usize;
+
 use crate::field::extension::Extendable;
-use crate::gates::lookup::LookupGate;
+use crate::gates::lookup::{LookupGate, LookupGenerator};
 use crate::gates::lookup_table::{LookupTable, LookupTableGate};
 use crate::gates::noop::NoopGate;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -72,7 +75,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         looking_out
     }
 
-    /// We call this function at the end of circuit building right before the PI gate to add all `LookupTableGate` and `LookupGate`.
+    /// We call this function at the end of circuit building right before the PI gate to add all generators for `LookupGate` and to prepare rows for `LookupTableGate`.
+    /// We do not need to add the gates themselves since we know the corresponding rows, slots used and wires to connect. Moreover, `LookupTableGate` doesn't have any generators.
+    /// Those gates are, however, still useful, since we can use the associated methods to get the correct wires.
     /// It also updates `self.lookup_rows` accordingly.
     pub fn add_all_lookups(&mut self) {
         for lut_index in 0..self.num_luts() {
@@ -89,24 +94,57 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
                 let lookups = self.get_lut_lookups(lut_index).to_owned();
 
-                for (looking_in, looking_out) in lookups {
-                    let gate = LookupGate::new_from_table(&self.config, lut.clone());
-                    let (gate, i) =
-                        self.find_slot(gate, &[F::from_canonical_usize(lut_index)], &[]);
-                    let gate_in = Target::wire(gate, LookupGate::wire_ith_looking_inp(i));
-                    let gate_out = Target::wire(gate, LookupGate::wire_ith_looking_out(i));
-                    self.connect(gate_in, looking_in);
-                    self.connect(gate_out, looking_out);
+                let num_lu_rows =
+                    ceil_div_usize(lookups.len(), LookupGate::num_slots(&self.config));
+                let num_lookups_last_row = lookups.len() % LookupGate::num_slots(&self.config);
+
+                let mut lookup_generators = Vec::with_capacity(lookups.len());
+                for i in 0..num_lu_rows {
+                    // We add a `NoopGate` so that the trace has enough rows. The associated rows will later be correctly set by the prover.
+                    self.add_gate(NoopGate, vec![]);
+                    let num_slots_per_gate = LookupGate::num_slots(&self.config);
+                    let num_slots_in_row = if i == num_lu_rows - 1 {
+                        // The last row might be incomplete.
+                        num_lookups_last_row
+                    } else {
+                        LookupGate::num_slots(&self.config)
+                    };
+                    lookup_generators.extend(
+                        (0..num_slots_in_row)
+                            .map(|j| {
+                                let cur_row = i + last_lu_gate;
+                                // First, we connect wires.
+                                let (looking_in, looking_out) = lookups[i * num_slots_per_gate + j];
+                                let gate_in =
+                                    Target::wire(cur_row, LookupGate::wire_ith_looking_inp(j));
+                                let gate_out =
+                                    Target::wire(cur_row, LookupGate::wire_ith_looking_out(j));
+                                self.connect(gate_in, looking_in);
+                                self.connect(gate_out, looking_out);
+
+                                // Then, we add the generators.
+                                WitnessGeneratorRef::new(
+                                    LookupGenerator {
+                                        row: cur_row,
+                                        lut: lut.clone(),
+                                        slot_nb: j,
+                                    }
+                                    .adapter(),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    );
                 }
 
-                // Create LUT gates. Nothing is connected to them.
+                self.add_generators(lookup_generators);
+
+                // Prepare the LUT: we simply pad the trace with `NoopGate` so that the rows are available to be filled later.
                 let last_lut_gate = self.num_gates();
                 let num_lut_entries = LookupTableGate::num_slots(&self.config);
                 let num_lut_rows = (self.get_luts_idx_length(lut_index) - 1) / num_lut_entries + 1;
-                let num_lut_cells = num_lut_entries * num_lut_rows;
-                for _ in 0..num_lut_cells {
-                    let gate = LookupTableGate::new_from_table(&self.config, lut.clone());
-                    self.find_slot(gate.clone(), &[], &[]);
+
+                for _ in 0..num_lut_rows {
+                    self.add_gate(NoopGate, vec![]);
                 }
 
                 let first_lut_gate = self.num_gates() - 1;

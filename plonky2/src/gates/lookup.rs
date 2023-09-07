@@ -168,9 +168,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 
 #[derive(Clone, Debug, Default)]
 pub struct LookupGenerator {
-    row: usize,
-    lut: LookupTable,
-    slot_nb: usize,
+    pub row: usize,
+    pub lut: LookupTable,
+    pub slot_nb: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for LookupGenerator {
