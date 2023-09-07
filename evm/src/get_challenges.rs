@@ -13,7 +13,7 @@ use crate::permutation::{
     get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
-use crate::util::u256_limbs;
+use crate::util::{h256_limbs, u256_limbs};
 
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
@@ -146,6 +146,34 @@ fn observe_extra_block_data_target<
     challenger.observe_elements(&extra_data.block_bloom_after);
 }
 
+fn observe_block_hashes<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    challenger: &mut Challenger<F, C::Hasher>,
+    block_hashes: &BlockHashes,
+) {
+    for i in 0..256 {
+        challenger.observe_elements(&h256_limbs::<F>(block_hashes.prev_hashes[i]));
+    }
+    challenger.observe_elements(&h256_limbs::<F>(block_hashes.cur_hash));
+}
+
+fn observe_block_hashes_target<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+    block_hashes: &BlockHashesTarget,
+) where
+    C::Hasher: AlgebraicHasher<F>,
+{
+    challenger.observe_elements(&block_hashes.prev_hashes);
+    challenger.observe_elements(&block_hashes.cur_hash);
+}
+
 pub(crate) fn observe_public_values<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -157,6 +185,7 @@ pub(crate) fn observe_public_values<
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_before);
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_after);
     observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata);
+    observe_block_hashes::<F, C, D>(challenger, &public_values.block_hashes);
     observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data);
 }
 
@@ -173,6 +202,7 @@ pub(crate) fn observe_public_values_target<
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_before);
     observe_trie_roots_target::<F, C, D>(challenger, &public_values.trie_roots_after);
     observe_block_metadata_target::<F, C, D>(challenger, &public_values.block_metadata);
+    observe_block_hashes_target::<F, C, D>(challenger, &public_values.block_hashes);
     observe_extra_block_data_target::<F, C, D>(challenger, &public_values.extra_block_data);
 }
 

@@ -40,15 +40,15 @@ use crate::logic::LogicStark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
-    BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
     StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_metadata_target,
-    set_extra_public_values_target, set_public_value_targets, set_trie_roots_target,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_hashes_target,
+    set_block_metadata_target, set_extra_public_values_target, set_public_value_targets,
+    set_trie_roots_target, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -571,6 +571,17 @@ where
 
         let lhs_public_values = lhs.public_values(&mut builder);
         let rhs_public_values = rhs.public_values(&mut builder);
+        // Connect all block hash values
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            lhs_public_values.block_hashes,
+        );
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            rhs_public_values.block_hashes,
+        );
         // Connect all block metadata values.
         BlockMetadataTarget::connect(
             &mut builder,
@@ -694,6 +705,9 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
+        // Connect block hashes
+        Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
+
         let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
@@ -720,6 +734,29 @@ where
             agg_root_proof,
             public_values,
             cyclic_vk,
+        }
+    }
+
+    /// Connect the 256 block hashes between two blocks
+    pub fn connect_block_hashes(
+        builder: &mut CircuitBuilder<F, D>,
+        lhs: &ProofWithPublicInputsTarget<D>,
+        rhs: &ProofWithPublicInputsTarget<D>,
+    ) {
+        let lhs_public_values = PublicValuesTarget::from_public_inputs(&lhs.public_inputs);
+        let rhs_public_values = PublicValuesTarget::from_public_inputs(&rhs.public_inputs);
+        for i in 0..255 {
+            for j in 0..8 {
+                builder.connect(
+                    lhs_public_values.block_hashes.prev_hashes[8 * (i + 1) + j],
+                    rhs_public_values.block_hashes.prev_hashes[8 * i + j],
+                );
+            }
+        }
+        let expected_hash = lhs_public_values.block_hashes.cur_hash;
+        let prev_block_hash = &rhs_public_values.block_hashes.prev_hashes[255 * 8..256 * 8];
+        for i in 0..expected_hash.len() {
+            builder.connect(expected_hash[i], prev_block_hash[i]);
         }
     }
 
@@ -886,6 +923,11 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        set_block_hashes_target(
+            &mut agg_inputs,
+            &self.aggregation.public_values.block_hashes,
+            &public_values.block_hashes,
+        );
         set_block_metadata_target(
             &mut agg_inputs,
             &self.aggregation.public_values.block_metadata,
@@ -964,6 +1006,11 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
+        set_block_hashes_target(
+            &mut block_inputs,
+            &self.block.public_values.block_hashes,
+            &public_values.block_hashes,
+        );
         set_extra_public_values_target(
             &mut block_inputs,
             &self.block.public_values.extra_block_data,

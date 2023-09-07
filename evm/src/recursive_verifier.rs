@@ -37,12 +37,13 @@ use crate::permutation::{
     PermutationCheckDataTarget,
 };
 use crate::proof::{
-    BlockMetadata, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
-    PublicValuesTarget, StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget,
-    StarkProofTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
+    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
+    TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::u256_limbs;
+use crate::util::{h256_limbs, u256_limbs};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
@@ -509,7 +510,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let mut product = builder.one();
 
     // Add metadata writes.
-    let block_fields_without_beneficiary_and_basefee_and_bloom = [
+    let block_fields_scalars = [
         (
             GlobalMetadata::BlockTimestamp as usize,
             public_values.block_metadata.block_timestamp,
@@ -552,7 +553,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_base_fee_fields: [(usize, &[Target]); 2] = [
+    let beneficiary_base_fee_cur_hash_fields: [(usize, &[Target]); 3] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
@@ -561,10 +562,14 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             GlobalMetadata::BlockBaseFee as usize,
             &public_values.block_metadata.block_base_fee,
         ),
+        (
+            GlobalMetadata::BlockCurrentHash as usize,
+            &public_values.block_hashes.cur_hash,
+        ),
     ];
 
     let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
-    block_fields_without_beneficiary_and_basefee_and_bloom.map(|(field, target)| {
+    block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
         product = add_data_write(
             builder,
@@ -576,7 +581,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_base_fee_fields.map(|(field, targets)| {
+    beneficiary_base_fee_cur_hash_fields.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
@@ -586,6 +591,19 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             targets,
         );
     });
+
+    // Add block hashes writes.
+    let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
+    for i in 0..256 {
+        product = add_data_write(
+            builder,
+            challenge,
+            product,
+            block_hashes_segment,
+            i,
+            &public_values.block_hashes.prev_hashes[8 * i..8 * (i + 1)],
+        );
+    }
 
     // Add block bloom filters writes.
     let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
@@ -599,7 +617,6 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
         );
     }
-
     for i in 0..8 {
         product = add_data_write(
             builder,
@@ -729,11 +746,13 @@ pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: u
     let trie_roots_before = add_virtual_trie_roots(builder);
     let trie_roots_after = add_virtual_trie_roots(builder);
     let block_metadata = add_virtual_block_metadata(builder);
+    let block_hashes = add_virtual_block_hashes(builder);
     let extra_block_data = add_virtual_extra_block_data(builder);
     PublicValuesTarget {
         trie_roots_before,
         trie_roots_after,
         block_metadata,
+        block_hashes,
         extra_block_data,
     }
 }
@@ -773,6 +792,17 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_base_fee,
         block_gas_used,
         block_bloom,
+    }
+}
+
+pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+) -> BlockHashesTarget {
+    let prev_hashes = builder.add_virtual_public_input_arr();
+    let cur_hash = builder.add_virtual_public_input_arr();
+    BlockHashesTarget {
+        prev_hashes,
+        cur_hash,
     }
 }
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
@@ -894,6 +924,11 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         &public_values_target.block_metadata,
         &public_values.block_metadata,
     );
+    set_block_hashes_target(
+        witness,
+        &public_values_target.block_hashes,
+        &public_values.block_hashes,
+    );
     set_extra_public_values_target(
         witness,
         &public_values_target.extra_block_data,
@@ -1006,6 +1041,25 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
     }
     witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
+}
+
+pub(crate) fn set_block_hashes_target<F, W, const D: usize>(
+    witness: &mut W,
+    block_hashes_target: &BlockHashesTarget,
+    block_hashes: &BlockHashes,
+) where
+    F: RichField + Extendable<D>,
+    W: Witness<F>,
+{
+    for i in 0..256 {
+        let block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.prev_hashes[i]);
+        witness.set_target_arr(
+            &block_hashes_target.prev_hashes[8 * i..8 * (i + 1)],
+            &block_hash_limbs,
+        );
+    }
+    let cur_block_hash_limbs: [F; 8] = h256_limbs::<F>(block_hashes.cur_hash);
+    witness.set_target_arr(&block_hashes_target.cur_hash, &cur_block_hash_limbs);
 }
 
 pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(

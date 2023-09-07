@@ -21,7 +21,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::proof::{BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
+use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::util::h2u;
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
@@ -54,6 +54,8 @@ pub struct GenerationInputs {
     pub contract_code: HashMap<H256, Vec<u8>>,
 
     pub block_metadata: BlockMetadata,
+
+    pub block_hashes: BlockHashes,
 
     /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
     /// only state keys). This is only useful for debugging, so that we can return addresses in the
@@ -100,6 +102,10 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
         (GlobalMetadata::BlockChainId, metadata.block_chain_id),
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
+        (
+            GlobalMetadata::BlockCurrentHash,
+            h2u(inputs.block_hashes.cur_hash),
+        ),
         (GlobalMetadata::BlockGasUsed, metadata.block_gas_used),
         (GlobalMetadata::BlockGasUsedBefore, inputs.gas_used_before),
         (GlobalMetadata::BlockGasUsedAfter, inputs.gas_used_after),
@@ -181,6 +187,19 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             })
             .collect::<Vec<_>>(),
     );
+    // Write previous block hashes.
+    ops.extend(
+        (0..256)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::BlockHashes, i),
+                    state,
+                    h2u(inputs.block_hashes.prev_hashes[i]),
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
 
     state.memory.apply_ops(&ops);
     state.traces.memory_ops.extend(ops);
@@ -244,6 +263,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
+        block_hashes: inputs.block_hashes,
         extra_block_data,
     };
 
