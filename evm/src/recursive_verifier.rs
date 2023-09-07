@@ -510,7 +510,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let mut product = builder.one();
 
     // Add metadata writes.
-    let block_fields_without_beneficiary_and_basefee_and_bloom = [
+    let block_fields_scalars = [
         (
             GlobalMetadata::BlockTimestamp as usize,
             public_values.block_metadata.block_timestamp,
@@ -553,7 +553,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_base_fee_fields: [(usize, &[Target]); 2] = [
+    let beneficiary_base_fee_cur_hash_fields: [(usize, &[Target]); 3] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
@@ -562,10 +562,14 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             GlobalMetadata::BlockBaseFee as usize,
             &public_values.block_metadata.block_base_fee,
         ),
+        (
+            GlobalMetadata::BlockCurrentHash as usize,
+            &public_values.block_hashes.cur_hash,
+        ),
     ];
 
     let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
-    block_fields_without_beneficiary_and_basefee_and_bloom.map(|(field, target)| {
+    block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
         product = add_data_write(
             builder,
@@ -577,7 +581,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_base_fee_fields.map(|(field, targets)| {
+    beneficiary_base_fee_cur_hash_fields.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
@@ -589,14 +593,6 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     });
 
     // Add block hashes writes.
-    product = add_data_write(
-        builder,
-        challenge,
-        product,
-        metadata_segment,
-        GlobalMetadata::BlockCurrentHash as usize,
-        &public_values.block_hashes.cur_hash,
-    );
     let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
     for i in 0..256 {
         product = add_data_write(
@@ -620,28 +616,27 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             i,
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
         );
+    }
+    for i in 0..8 {
+        product = add_data_write(
+            builder,
+            challenge,
+            product,
+            bloom_segment,
+            i + 8,
+            &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
+        );
+    }
 
-        for i in 0..8 {
-            product = add_data_write(
-                builder,
-                challenge,
-                product,
-                bloom_segment,
-                i + 8,
-                &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
-            );
-        }
-
-        for i in 0..8 {
-            product = add_data_write(
-                builder,
-                challenge,
-                product,
-                bloom_segment,
-                i + 16,
-                &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
-            );
-        }
+    for i in 0..8 {
+        product = add_data_write(
+            builder,
+            challenge,
+            product,
+            bloom_segment,
+            i + 16,
+            &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
+        );
     }
 
     // Add trie roots writes.

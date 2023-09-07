@@ -257,7 +257,9 @@ impl PublicValuesTarget {
                         + BlockHashesTarget::BLOCK_HASHES_SIZE],
             ),
             extra_block_data: ExtraBlockDataTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                &pis[TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
                     ..TrieRootsTarget::SIZE * 2
                         + BlockMetadataTarget::SIZE
                         + BlockHashesTarget::BLOCK_HASHES_SIZE
