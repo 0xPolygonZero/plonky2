@@ -23,7 +23,7 @@ use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::util::h2u;
-use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp};
+use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
 pub mod mpt;
