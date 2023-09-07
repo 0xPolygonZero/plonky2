@@ -53,15 +53,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> D
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     PolynomialBatch<F, C, D>
 {
-    pub fn default() -> Self {
-        Self {
-            polynomials: Vec::new(),
-            merkle_tree: MerkleTree::default(),
-            degree_log: 0,
-            rate_bits: 0,
-            blinding: false,
-        }
-    }
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn from_values(
         values: Vec<PolynomialValues<F>>,
