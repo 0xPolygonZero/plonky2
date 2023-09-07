@@ -19,11 +19,21 @@ pub(crate) fn eval_round_flags<F: Field, P: PackedField<Scalar = F>>(
         yield_constr.constraint_first_row(vars.local_values[reg_step(i)]);
     }
 
+    // Flags should circularly increment, or be all zero for padding rows.
+    let next_all_flags = (0..NUM_ROUNDS)
+        .map(|i| vars.next_values[reg_step(i)])
+        .sum::<P>();
     for i in 0..NUM_ROUNDS {
         let current_round_flag = vars.local_values[reg_step(i)];
         let next_round_flag = vars.next_values[reg_step((i + 1) % NUM_ROUNDS)];
-        yield_constr.constraint_transition(next_round_flag - current_round_flag);
+        yield_constr.constraint_transition(next_all_flags * (next_round_flag - current_round_flag));
     }
+
+    // Padding rows should always be followed by padding rows.
+    let current_all_flags = (0..NUM_ROUNDS)
+        .map(|i| vars.local_values[reg_step(i)])
+        .sum::<P>();
+    yield_constr.constraint_transition(next_all_flags * (current_all_flags - F::ONE));
 }
 
 pub(crate) fn eval_round_flags_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -40,10 +50,20 @@ pub(crate) fn eval_round_flags_recursively<F: RichField + Extendable<D>, const D
         yield_constr.constraint_first_row(builder, vars.local_values[reg_step(i)]);
     }
 
+    // Flags should circularly increment, or be all zero for padding rows.
+    let next_all_flags =
+        builder.add_many_extension((0..NUM_ROUNDS).map(|i| vars.next_values[reg_step(i)]));
     for i in 0..NUM_ROUNDS {
         let current_round_flag = vars.local_values[reg_step(i)];
         let next_round_flag = vars.next_values[reg_step((i + 1) % NUM_ROUNDS)];
         let diff = builder.sub_extension(next_round_flag, current_round_flag);
-        yield_constr.constraint_transition(builder, diff);
+        let constraint = builder.mul_extension(next_all_flags, diff);
+        yield_constr.constraint_transition(builder, constraint);
     }
+
+    // Padding rows should always be followed by padding rows.
+    let current_all_flags =
+        builder.add_many_extension((0..NUM_ROUNDS).map(|i| vars.local_values[reg_step(i)]));
+    let constraint = builder.mul_sub_extension(next_all_flags, current_all_flags, next_all_flags);
+    yield_constr.constraint_transition(builder, constraint);
 }
