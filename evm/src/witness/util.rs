@@ -68,7 +68,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
 pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     val: U256,
 ) -> MemoryOp {
     MemoryOp::new(
@@ -96,7 +96,7 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> (U256, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
