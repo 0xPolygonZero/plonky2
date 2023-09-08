@@ -6,8 +6,6 @@ global main:
     %initialize_block_bloom
 
     // Second, load all MPT data from the prover.
-    PUSH 2 // number of nibbles of 0x80
-    PUSH 0x80 // rlp encoded txn_counter
     PUSH hash_initial_tries
     %jump(load_all_mpts)
 
@@ -22,12 +20,12 @@ global start_txns:
     // stack: txn_nb
     // If the txn trie is empty, we want to make sure that txn_nb is 0.
     DUP1 ISZERO ISZERO
-    // stack: txn_nb != 0, txn_nb, txn_counter, num_nibbles
+    // stack: txn_nb != 0, txn_nb
     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
     PUSH @EMPTY_NODE_HASH EQ
     // stack: txn_trie_hash == empty_hash, txn_nb != 0, txn_nb
     MUL
-    // stack: is_invalid_txn_nb, txn_nb, txn_counter, num_nibbles
+    // stack: is_invalid_txn_nb, txn_nb
     %jumpi(panic)
     // stack: txn_nb
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE)
@@ -71,7 +69,8 @@ global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
-    %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
+    DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
+    %pop3
     %check_metadata_block_bloom
     %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq

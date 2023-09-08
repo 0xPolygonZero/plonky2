@@ -114,7 +114,9 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
     );
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
-        rlp::decode_list(rlp)
+        let mut parsed_txn = vec![U256::from(rlp.len())];
+        parsed_txn.extend::<Vec<U256>>(rlp.into_iter().map(|&b| b.into()).collect());
+        parsed_txn
     });
 
     mpt_prover_inputs(

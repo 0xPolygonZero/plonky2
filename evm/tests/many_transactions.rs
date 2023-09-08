@@ -33,7 +33,7 @@ type C = PoseidonGoldilocksConfig;
 /// Test the validity of the validty of the state an transaction tries after processing
 /// four transactions, where only the first one is valid and other three abort.  
 #[test]
-#[ignore] // Too slow to run on CI.
+//#[ignore] // Too slow to run on CI.
 fn test_four_transactions() -> anyhow::Result<()> {
     init_logger();
 
@@ -197,7 +197,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
         logs: vec![],
     };
     let receipt_1 = LegacyReceiptRlp {
-        status: true,
+        status: false,
         cum_gas_used: gas_used.into(),
         bloom: [0x00; 256].to_vec().into(),
         logs: vec![],
@@ -247,7 +247,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
 
 /// Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
-#[ignore] // Too slow to run on CI.
+//#[ignore] // Too slow to run on CI.
 fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     init_logger();
 
@@ -431,11 +431,13 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs_first.clone(), &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
+    println!("first proof done");
 
     // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
     let block_bloom_second = proof.public_values.extra_block_data.block_bloom_after;
     let txn_second = proof.public_values.extra_block_data.txn_number_after;
     let gas_used_second = proof.public_values.extra_block_data.gas_used_after;
+    println!("gas used after {:?}", gas_used_second);
 
     verify_proof(&all_stark, proof.clone(), &config)?;
 
@@ -450,6 +452,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     let (root_proof_first, first_public_values) =
         all_circuits_first.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
+    println!("prove root done");
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
 
@@ -540,7 +543,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     );
 
     // Transaction which carries out two LOG opcodes.
-    let txn_2 = hex!("f860010a830186a094095e7baea6a6c7c4c2dfeb977efac326af552e89808025a04a223955b0bd3827e3740a9a427d0ea43beb5bafa44a0204bf0a3306c8219f7ba0502c32d78f233e9e7ce9f5df3b576556d5d49731e0678fd5a068cdf359557b5b");
+    let txn_2 = hex!("f860800a830186a094095e7baea6a6c7c4c2dfeb977efac326af552e89808025a04a223955b0bd3827e3740a9a427d0ea43beb5bafa44a0204bf0a3306c8219f7ba0502c32d78f233e9e7ce9f5df3b576556d5d49731e0678fd5a068cdf359557b5b");
     // Update transactions trie
     expected_transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_2.to_vec());
     expected_transactions_trie.insert(Nibbles::from_str("0x02").unwrap(), txn.to_vec());
@@ -552,7 +555,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     };
 
     let inputs = GenerationInputs {
-        signed_txns: vec![txn_2.to_vec()],
+        signed_txns: vec![txn_2.to_vec(), txn.to_vec()],
         tries: tries_before,
         trie_roots_after,
         contract_code,
@@ -567,7 +570,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs.clone(), &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
-
+    println!("second transaction proof done");
     verify_proof(&all_stark, proof, &config)?;
     let config = StarkConfig::standard_fast_config();
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
@@ -579,7 +582,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
     let (root_proof, public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
-
+    println!("second prove root done");
     all_circuits.verify_root(root_proof.clone())?;
 
     let aggreg_public_values = PublicValues {
@@ -603,6 +606,7 @@ fn test_aggreg_txns_and_receipts() -> anyhow::Result<()> {
         &root_proof,
         aggreg_public_values,
     )?;
+    println!("prove aggreg done");
     all_circuits_first.verify_aggregation(&agg_proof)?;
     let (block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, post_aggreg_public_values)?;
