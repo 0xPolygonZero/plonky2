@@ -50,7 +50,7 @@ fn test_log_2() -> Result<()> {
     let logs_entry = KERNEL.global_labels["log_n_entry"];
     let address: Address = thread_rng().gen();
     let num_topics = U256::from(2);
-    let topics = vec![4.into(), 5.into()];
+    let topics = [4.into(), 5.into()];
     let data_len = U256::from(3);
     let data_offset = U256::from(0);
 
