@@ -52,10 +52,12 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     pub xored_rate_u32s: [T; KECCAK_RATE_U32S],
 
     /// The entire state (rate + capacity) of the sponge, encoded as 32-bit chunks, after the
-    /// permutation is applied.
-    pub updated_state_u32s: [T; KECCAK_WIDTH_U32S],
+    /// permutation is applied, minus the first limbs where the digest is extracted from.
+    pub partial_updated_state_u32s: [T; KECCAK_WIDTH_U32S],
 
-    pub updated_state_bytes: [T; KECCAK_DIGEST_BYTES],
+    /// The first part of the state of the sponge, seen as bytes, after the permutation is applied.
+    /// This also represents the output digest of the Keccak sponge during the squeezing phase.
+    pub updated_digest_state_bytes: [T; KECCAK_DIGEST_BYTES],
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
