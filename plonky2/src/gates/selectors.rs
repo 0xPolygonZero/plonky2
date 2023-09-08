@@ -124,7 +124,6 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
         // We *want* `groups` to be a vector containing one Range (all gates are in one selector group),
         // but Clippy doesn't trust us.
         #[allow(clippy::single_range_in_vec_init)]
-
         return (
             vec![PolynomialValues::new(
                 instances
