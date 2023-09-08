@@ -5,10 +5,13 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 pub(crate) const KECCAK_WIDTH_BYTES: usize = 200;
 pub(crate) const KECCAK_WIDTH_U32S: usize = KECCAK_WIDTH_BYTES / 4;
+pub(crate) const KECCAK_WIDTH_MINUS_DIGEST_U32S: usize =
+    (KECCAK_WIDTH_BYTES - KECCAK_DIGEST_BYTES) / 4;
 pub(crate) const KECCAK_RATE_BYTES: usize = 136;
 pub(crate) const KECCAK_RATE_U32S: usize = KECCAK_RATE_BYTES / 4;
 pub(crate) const KECCAK_CAPACITY_BYTES: usize = 64;
 pub(crate) const KECCAK_CAPACITY_U32S: usize = KECCAK_CAPACITY_BYTES / 4;
+pub(crate) const KECCAK_DIGEST_U32S: usize = 8;
 pub(crate) const KECCAK_DIGEST_BYTES: usize = 32;
 
 #[repr(C)]
@@ -53,7 +56,9 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
 
     /// The entire state (rate + capacity) of the sponge, encoded as 32-bit chunks, after the
     /// permutation is applied, minus the first limbs where the digest is extracted from.
-    pub partial_updated_state_u32s: [T; KECCAK_WIDTH_U32S],
+    /// Those missing limbs can be recomputed from their corresponding bytes stored in
+    /// `updated_digest_state_bytes`.
+    pub partial_updated_state_u32s: [T; KECCAK_WIDTH_MINUS_DIGEST_U32S],
 
     /// The first part of the state of the sponge, seen as bytes, after the permutation is applied.
     /// This also represents the output digest of the Keccak sponge during the squeezing phase.
