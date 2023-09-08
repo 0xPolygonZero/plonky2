@@ -111,7 +111,7 @@ impl CircuitConfig {
     }
 }
 
-/// Circuit data required by the prover or the verifier.
+/// Mock circuit data to only do witness generation without generating a proof.
 #[derive(Eq, PartialEq, Debug)]
 pub struct MockCircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
