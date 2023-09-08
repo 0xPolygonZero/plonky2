@@ -266,7 +266,7 @@ fn add_data_write<F, const D: usize>(
 where
     F: RichField + Extendable<D>,
 {
-    let mut row = vec![F::ZERO; 13];
+    let mut row = [F::ZERO; 13];
     row[0] = F::ZERO; // is_read
     row[1] = F::ZERO; // context
     row[2] = segment;

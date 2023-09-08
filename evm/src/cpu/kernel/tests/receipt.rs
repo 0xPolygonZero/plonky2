@@ -423,7 +423,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
     }
 
     // stack: transaction_nb, value_ptr, retdest
-    let initial_stack = vec![retdest, cur_trie_data.len().into(), 0.into()];
+    let initial_stack = [retdest, cur_trie_data.len().into(), 0.into()];
     for i in 0..initial_stack.len() {
         interpreter.push(initial_stack[i]);
     }
@@ -487,7 +487,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
 
     // Get updated TrieData segment.
     cur_trie_data = interpreter.get_memory_segment(Segment::TrieData);
-    let initial_stack2 = vec![retdest, cur_trie_data.len().into(), 1.into()];
+    let initial_stack2 = [retdest, cur_trie_data.len().into(), 1.into()];
     for i in 0..initial_stack2.len() {
         interpreter.push(initial_stack2[i]);
     }
