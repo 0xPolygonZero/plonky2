@@ -120,7 +120,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: U256,
 ) -> MemoryOp {
