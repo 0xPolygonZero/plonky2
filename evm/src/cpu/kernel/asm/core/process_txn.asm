@@ -18,12 +18,12 @@ global process_normalized_txn:
     // Assert gas_limit >= intrinsic_gas.
     %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    %assert_ge(invalid_txn_pop1)
+    %assert_ge(invalid_txn)
 
     // Assert block gas limit >= txn gas limit.
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_LIMIT)
-    %assert_ge(invalid_txn_pop1)
+    %assert_ge(invalid_txn)
 
     %mload_txn_field(@TXN_FIELD_ORIGIN)
     // stack: sender, retdest
@@ -49,7 +49,7 @@ global process_normalized_txn:
     MUL
     %mload_txn_field(@TXN_FIELD_VALUE)
     ADD
-    %assert_le(invalid_txn_pop2)
+    %assert_le(invalid_txn)
     // stack: retdest
 
     // Assert chain ID matches block metadata
@@ -63,7 +63,7 @@ global process_normalized_txn:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_CHAIN_ID)
     MUL
     // stack: filtered_block_chain_id, filtered_tx_chain_id, retdest
-    %assert_eq(invalid_txn_pop3)
+    %assert_eq(invalid_txn)
     // stack: retdest
 
 global buy_gas:

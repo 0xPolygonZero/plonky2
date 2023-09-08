@@ -61,7 +61,7 @@ mpt_insert_receipt_trie_save:
     JUMP
 
 %macro mpt_insert_receipt_trie
-    %stack (key, value_ptr) -> (key, value_ptr, %%after)
+    %stack (num_nibbles, key, value_ptr) -> (num_nibbles, key, value_ptr, %%after)
     %jump(mpt_insert_receipt_trie)
 %%after:
 %endmacro

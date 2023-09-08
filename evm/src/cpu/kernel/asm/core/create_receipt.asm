@@ -177,7 +177,7 @@ process_receipt_data_loop:
     EQ
     // stack: j == data_len, j, data_len, data_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     %jumpi(process_receipt_data_end)
-    // stack: j, data_len, data_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, retdest
+    // stack: j, data_len, data_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     // Write j-th data byte.
     DUP3 DUP2
     ADD
@@ -200,8 +200,9 @@ process_receipt_after_write:
     // stack: receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     SWAP1
     // stack: txn_nb, receipt_ptr, new_cum_gas, txn_nb, num_nibbles, retdest
+    DUP5
     %mpt_insert_receipt_trie
-    // stack: new_cum_gas, txn_nb, retdest
+    // stack: new_cum_gas, txn_nb, num_nibbles, retdest
     // Now, we set the Bloom filter back to 0.
     PUSH 0
     %rep 256
