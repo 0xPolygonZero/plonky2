@@ -119,7 +119,7 @@ pub struct MockCircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub common: CommonCircuitData<F, D>,
 }
 
-impl<'a, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     MockCircuitData<F, C, D>
 {
     pub fn generate_witness(&self, inputs: PartialWitness<F>) -> PartitionWitness<F> {
