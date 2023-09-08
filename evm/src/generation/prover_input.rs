@@ -39,6 +39,7 @@ impl<F: Field> GenerationState<F> {
             "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
+            "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
             _ => panic!("Unrecognized prover input function."),
@@ -116,6 +117,10 @@ impl<F: Field> GenerationState<F> {
         self.rlp_prover_inputs
             .pop()
             .unwrap_or_else(|| panic!("Out of RLP data"))
+    }
+
+    fn run_current_hash(&mut self) -> U256 {
+        U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0)
     }
 
     /// Account code.
