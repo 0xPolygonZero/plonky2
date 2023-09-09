@@ -184,6 +184,10 @@ where
             public_values.block_metadata.block_base_fee,
         ),
         (
+            GlobalMetadata::BlockCurrentHash,
+            h2u(public_values.block_hashes.cur_hash),
+        ),
+        (
             GlobalMetadata::BlockGasUsed,
             public_values.block_metadata.block_gas_used,
         ),
@@ -249,6 +253,13 @@ where
         prod = add_data_write(challenge, bloom_segment, prod, index + 16, val);
     }
 
+    // Add Blockhashes writes.
+    let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
+    for index in 0..256 {
+        let val = h2u(public_values.block_hashes.prev_hashes[index]);
+        prod = add_data_write(challenge, block_hashes_segment, prod, index, val);
+    }
+
     prod
 }
 
@@ -262,7 +273,7 @@ fn add_data_write<F, const D: usize>(
 where
     F: RichField + Extendable<D>,
 {
-    let mut row = vec![F::ZERO; 13];
+    let mut row = [F::ZERO; 13];
     row[0] = F::ZERO; // is_read
     row[1] = F::ZERO; // context
     row[2] = segment;
@@ -274,6 +285,7 @@ where
     row[12] = F::ONE; // timestamp
     running_product * challenge.combine(row.iter())
 }
+
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

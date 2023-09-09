@@ -210,7 +210,7 @@ fn bigint_to_columns<const N: usize>(num: &BigInt) -> [i64; N] {
 /// NB: `operation` can set the higher order elements in its result to
 /// zero if they are not used.
 pub(crate) fn generate_modular_op<F: PrimeField64>(
-    lv: &mut [F],
+    lv: &[F],
     nv: &mut [F],
     filter: usize,
     pol_input: [i64; 2 * N_LIMBS - 1],

@@ -36,6 +36,20 @@ pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub blinding: bool,
 }
 
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Default
+    for PolynomialBatch<F, C, D>
+{
+    fn default() -> Self {
+        PolynomialBatch {
+            polynomials: Vec::new(),
+            merkle_tree: MerkleTree::default(),
+            degree_log: 0,
+            rate_bits: 0,
+            blinding: false,
+        }
+    }
+}
+
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     PolynomialBatch<F, C, D>
 {

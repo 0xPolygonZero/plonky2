@@ -8,7 +8,7 @@ use bytes::Bytes;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -19,7 +19,7 @@ use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -232,6 +232,10 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         block_bloom_before: [0.into(); 8],
         block_bloom_after,
 
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 
@@ -425,6 +429,10 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         gas_used_after: 21000u64.into(),
         block_bloom_before: [0.into(); 8],
         block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 
@@ -562,6 +570,10 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         gas_used_after: receipt.cum_gas_used,
         block_bloom_before: block_bloom_second,
         block_bloom_after: block_bloom_final,
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 
@@ -585,6 +597,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
             block_bloom_after: public_values.extra_block_data.block_bloom_after,
         },
         block_metadata: public_values.block_metadata,
+        block_hashes: public_values.block_hashes,
     };
 
     // We can duplicate the proofs here because the state hasn't mutated.
@@ -857,6 +870,10 @@ fn test_two_txn() -> anyhow::Result<()> {
         gas_used_after: 42000u64.into(),
         block_bloom_before: [0.into(); 8],
         block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 

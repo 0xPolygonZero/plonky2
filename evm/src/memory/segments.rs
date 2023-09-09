@@ -68,10 +68,12 @@ pub enum Segment {
     TouchedAddresses = 34,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
     ContextCheckpoints = 35,
+    /// List of 256 previous block hashes.
+    BlockHashes = 36,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 36;
+    pub(crate) const COUNT: usize = 37;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -111,6 +113,7 @@ impl Segment {
             Self::JournalCheckpoints,
             Self::TouchedAddresses,
             Self::ContextCheckpoints,
+            Self::BlockHashes,
         ]
     }
 
@@ -153,6 +156,7 @@ impl Segment {
             Segment::JournalCheckpoints => "SEGMENT_JOURNAL_CHECKPOINTS",
             Segment::TouchedAddresses => "SEGMENT_TOUCHED_ADDRESSES",
             Segment::ContextCheckpoints => "SEGMENT_CONTEXT_CHECKPOINTS",
+            Segment::BlockHashes => "SEGMENT_BLOCK_HASHES",
         }
     }
 
@@ -195,6 +199,7 @@ impl Segment {
             Segment::JournalCheckpoints => 256,
             Segment::TouchedAddresses => 256,
             Segment::ContextCheckpoints => 256,
+            Segment::BlockHashes => 256,
         }
     }
 }

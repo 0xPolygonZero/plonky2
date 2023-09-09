@@ -9,10 +9,6 @@ pub const fn reg_step(i: usize) -> usize {
     i
 }
 
-/// A register which indicates if a row should be included in the CTL. Should be 1 only for certain
-/// rows which are final steps, i.e. with `reg_step(23) = 1`.
-pub const REG_FILTER: usize = NUM_ROUNDS;
-
 /// Registers to hold permutation inputs.
 /// `reg_input_limb(2*i) -> input[i] as u32`
 /// `reg_input_limb(2*i+1) -> input[i] >> 32`
@@ -52,7 +48,7 @@ const R: [[u8; 5]; 5] = [
     [27, 20, 39, 8, 14],
 ];
 
-const START_PREIMAGE: usize = NUM_ROUNDS + 1;
+const START_PREIMAGE: usize = NUM_ROUNDS;
 /// Registers to hold the original input to a permutation, i.e. the input to the first round.
 pub(crate) const fn reg_preimage(x: usize, y: usize) -> usize {
     debug_assert!(x < 5);

@@ -13,21 +13,21 @@ edition = "2021"
 anyhow = "1.0.40"
 bytes = "1.4.0"
 env_logger = "0.10.0"
-eth_trie_utils = "0.6.0"
+eth_trie_utils = { git = "https://github.com/mir-protocol/eth_trie_utils.git", rev = "e9ec4ec2aa2ae976b7c699ef40c1ffc716d87ed5" }
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.4.1"
 itertools = "0.11.0"
 keccak-hash = "0.10.0"
 log = "0.4.14"
-plonky2_maybe_rayon = "0.1.1"
+plonky2_maybe_rayon = { path = "../maybe_rayon" }
 num = "0.4.0"
 num-bigint = "0.4.3"
 once_cell = "1.13.0"
 pest = "2.1.3"
 pest_derive = "2.1.0"
-plonky2 = { version = "0.1.4", default-features = false, features = ["timing"] }
-plonky2_util = { version = "0.1.1" }
+plonky2 = { path = "../plonky2", default-features = false, features = ["timing"] }
+plonky2_util = { path = "../util" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rlp = "0.5.1"

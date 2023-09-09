@@ -53,6 +53,7 @@ pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
+    pub block_hashes: BlockHashes,
     pub extra_block_data: ExtraBlockData,
 }
 
@@ -61,6 +62,22 @@ pub struct TrieRoots {
     pub state_root: H256,
     pub transactions_root: H256,
     pub receipts_root: H256,
+}
+
+// There should be 256 previous hashes stored, so the default should also contain 256 values.
+impl Default for BlockHashes {
+    fn default() -> Self {
+        Self {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockHashes {
+    pub prev_hashes: Vec<H256>,
+    pub cur_hash: H256,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -93,6 +110,7 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
+    pub block_hashes: BlockHashesTarget,
     pub extra_block_data: ExtraBlockDataTarget,
 }
 
@@ -140,6 +158,13 @@ impl PublicValuesTarget {
         buffer.write_target(block_gas_used)?;
         buffer.write_target_array(&block_bloom)?;
 
+        let BlockHashesTarget {
+            prev_hashes,
+            cur_hash,
+        } = self.block_hashes;
+        buffer.write_target_array(&prev_hashes)?;
+        buffer.write_target_array(&cur_hash)?;
+
         let ExtraBlockDataTarget {
             txn_number_before,
             txn_number_after,
@@ -183,6 +208,11 @@ impl PublicValuesTarget {
             block_bloom: buffer.read_target_array()?,
         };
 
+        let block_hashes = BlockHashesTarget {
+            prev_hashes: buffer.read_target_array()?,
+            cur_hash: buffer.read_target_array()?,
+        };
+
         let extra_block_data = ExtraBlockDataTarget {
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
@@ -196,6 +226,7 @@ impl PublicValuesTarget {
             trie_roots_before,
             trie_roots_after,
             block_metadata,
+            block_hashes,
             extra_block_data,
         })
     }
@@ -205,6 +236,7 @@ impl PublicValuesTarget {
             pis.len()
                 > TrieRootsTarget::SIZE * 2
                     + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
                     + ExtraBlockDataTarget::SIZE
                     - 1
         );
@@ -218,10 +250,19 @@ impl PublicValuesTarget {
                 &pis[TrieRootsTarget::SIZE * 2
                     ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
             ),
-            extra_block_data: ExtraBlockDataTarget::from_public_inputs(
+            block_hashes: BlockHashesTarget::from_public_inputs(
                 &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
                     ..TrieRootsTarget::SIZE * 2
                         + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::BLOCK_HASHES_SIZE],
+            ),
+            extra_block_data: ExtraBlockDataTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::BLOCK_HASHES_SIZE
                         + ExtraBlockDataTarget::SIZE],
             ),
         }
@@ -251,6 +292,12 @@ impl PublicValuesTarget {
                 condition,
                 pv0.block_metadata,
                 pv1.block_metadata,
+            ),
+            block_hashes: BlockHashesTarget::select(
+                builder,
+                condition,
+                pv0.block_hashes,
+                pv1.block_hashes,
             ),
             extra_block_data: ExtraBlockDataTarget::select(
                 builder,
@@ -407,6 +454,51 @@ impl BlockMetadataTarget {
         }
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub struct BlockHashesTarget {
+    pub prev_hashes: [Target; 2048],
+    pub cur_hash: [Target; 8],
+}
+
+impl BlockHashesTarget {
+    const BLOCK_HASHES_SIZE: usize = 2056;
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        Self {
+            prev_hashes: pis[0..2048].try_into().unwrap(),
+            cur_hash: pis[2048..2056].try_into().unwrap(),
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        bm0: Self,
+        bm1: Self,
+    ) -> Self {
+        Self {
+            prev_hashes: core::array::from_fn(|i| {
+                builder.select(condition, bm0.prev_hashes[i], bm1.prev_hashes[i])
+            }),
+            cur_hash: core::array::from_fn(|i| {
+                builder.select(condition, bm0.cur_hash[i], bm1.cur_hash[i])
+            }),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        bm0: Self,
+        bm1: Self,
+    ) {
+        for i in 0..2048 {
+            builder.connect(bm0.prev_hashes[i], bm1.prev_hashes[i]);
+        }
+        for i in 0..8 {
+            builder.connect(bm0.cur_hash[i], bm1.cur_hash[i]);
         }
     }
 }
