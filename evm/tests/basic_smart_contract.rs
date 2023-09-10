@@ -179,7 +179,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
-    let expected_transactions_trie: HashedPartialTrie = Node::Leaf {
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
         nibbles: Nibbles::from_str("0x80").unwrap(),
         value: txn.to_vec(),
     }
@@ -187,7 +187,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: expected_transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
