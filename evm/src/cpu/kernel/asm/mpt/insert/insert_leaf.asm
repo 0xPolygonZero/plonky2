@@ -57,7 +57,6 @@ global mpt_insert_leaf:
     SWAP4
     %add_const(2)
     %mload_trie_data
-
     SWAP4
     // stack: node_len, node_key, insert_len, insert_key, node_value_ptr, insert_value_ptr, retdest
 

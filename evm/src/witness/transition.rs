@@ -305,17 +305,12 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     };
     log::log!(
         level,
-        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}, rlp_memory={:?}",
+        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
         state.traces.clock(),
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
         state.stack(),
-        &state.memory.contexts[0].segments[Segment::RlpRaw as usize]
-            .content
-            .iter()
-            .take(10)
-            .collect::<Vec<_>>()
     );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);

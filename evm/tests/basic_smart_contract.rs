@@ -59,9 +59,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     };
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
-
         balance: eth_to_wei(100_000.into()),
-
         ..AccountRlp::default()
     };
     let to_account_before = AccountRlp {
@@ -78,13 +76,11 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-
             value: rlp::encode(&sender_account_before).to_vec(),
         }
         .into();
         children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: to_nibbles.truncate_n_nibbles_front(1),
-
             value: rlp::encode(&to_account_before).to_vec(),
         }
         .into();
@@ -98,9 +94,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
         transactions_trie: Node::Empty.into(),
-
         receipts_trie: Node::Empty.into(),
-
         storage_tries: vec![],
     };
 
@@ -145,19 +139,16 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
         children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-
             value: rlp::encode(&beneficiary_account_after).to_vec(),
         }
         .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-
             value: rlp::encode(&sender_account_after).to_vec(),
         }
         .into();
         children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: to_nibbles.truncate_n_nibbles_front(1),
-
             value: rlp::encode(&to_account_after).to_vec(),
         }
         .into();
