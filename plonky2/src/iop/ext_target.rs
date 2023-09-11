@@ -16,7 +16,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ExtensionTarget<const D: usize>(
     // Note: we have to use the `serde-big-array` crate here because the array size is potentially
-    // beyond what serde supports by default.
+    // beyond what serde supports by default. See: https://github.com/serde-rs/serde/issues/1937
     #[serde(with = "BigArray")] pub [Target; D],
 );
 
