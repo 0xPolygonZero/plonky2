@@ -74,10 +74,9 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_jumpi = filter * lv.opcode_bits[0];
 
     // Stack constraints.
-    // If stack_len != 1 if JUMP, 2 if JUMPI...
+    // If (JUMP and stack_len != 1) or (JUMPI and stack_len != 2)...
     let len_diff = lv.stack_len - P::ONES - lv.opcode_bits[0];
     let new_filter = len_diff * filter;
-    // yield_constr.constraint(is_jump * (lv.general.stack().stack_filter - len_diff));
     // Read an extra element.
     let channel = nv.mem_channels[0];
     yield_constr.constraint_transition(new_filter * (channel.used - P::ONES));
@@ -175,7 +174,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let is_jumpi = builder.mul_extension(filter, lv.opcode_bits[0]);
 
     // Stack constraints.
-    // If stack_len != 1 if JUMP, 2 if JUMPI...
+    // If (JUMP and stack_len != 1) or (JUMPI and stack_len != 2)...
     let len_diff = builder.sub_extension(lv.stack_len, one_extension);
     let len_diff = builder.sub_extension(len_diff, lv.opcode_bits[0]);
     let new_filter = builder.mul_extension(len_diff, filter);

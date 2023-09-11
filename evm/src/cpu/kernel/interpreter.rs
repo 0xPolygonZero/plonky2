@@ -330,12 +330,6 @@ impl<'a> Interpreter<'a> {
             .code()
             .get(self.generation_state.registers.program_counter)
             .byte(0);
-        // println!(
-        //     "Stack = {:?} + [{}], running {}",
-        //     self.stack(),
-        //     self.stack_top(),
-        //     get_mnemonic(opcode),
-        // );
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
 
