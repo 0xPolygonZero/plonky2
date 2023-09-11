@@ -261,6 +261,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         yield_constr.constraint(not_final_step * filter);
 
         // If this is not the final step, the local and next preimages must match.
+        // Also, if this is the first step, the preimage must match A.
+        let is_first_step = vars.local_values[reg_step(0)];
         for x in 0..5 {
             for y in 0..5 {
                 let reg_preimage_lo = reg_preimage(x, y);
@@ -271,6 +273,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                     vars.local_values[reg_preimage_hi] - vars.next_values[reg_preimage_hi];
                 yield_constr.constraint_transition(not_final_step * diff_lo);
                 yield_constr.constraint_transition(not_final_step * diff_hi);
+
+                let reg_a_lo = reg_a(x, y);
+                let reg_a_hi = reg_a_lo + 1;
+                let diff_lo = vars.local_values[reg_preimage_lo] - vars.local_values[reg_a_lo];
+                let diff_hi = vars.local_values[reg_preimage_hi] - vars.local_values[reg_a_hi];
+                yield_constr.constraint(is_first_step * diff_lo);
+                yield_constr.constraint(is_first_step * diff_hi);
             }
         }
 
@@ -436,6 +445,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         yield_constr.constraint(builder, constraint);
 
         // If this is not the final step, the local and next preimages must match.
+        // Also, if this is the first step, the preimage must match A.
+        let is_first_step = vars.local_values[reg_step(0)];
         for x in 0..5 {
             for y in 0..5 {
                 let reg_preimage_lo = reg_preimage(x, y);
@@ -452,6 +463,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 );
                 let constraint = builder.mul_extension(not_final_step, diff);
                 yield_constr.constraint_transition(builder, constraint);
+
+                let reg_a_lo = reg_a(x, y);
+                let reg_a_hi = reg_a_lo + 1;
+                let diff_lo = builder.sub_extension(
+                    vars.local_values[reg_preimage_lo],
+                    vars.local_values[reg_a_lo],
+                );
+                let constraint = builder.mul_extension(is_first_step, diff_lo);
+                yield_constr.constraint(builder, constraint);
+                let diff_hi = builder.sub_extension(
+                    vars.local_values[reg_preimage_hi],
+                    vars.local_values[reg_a_hi],
+                );
+                let constraint = builder.mul_extension(is_first_step, diff_hi);
+                yield_constr.constraint(builder, constraint);
             }
         }
 
