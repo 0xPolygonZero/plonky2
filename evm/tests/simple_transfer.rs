@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -12,9 +13,9 @@ use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::mpt::AccountRlp;
+use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -73,6 +74,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
+        block_gas_used: 21032.into(),
+        block_bloom: [0.into(); 8],
     };
 
     let mut contract_code = HashMap::new();
@@ -109,10 +112,23 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         }
         .into()
     };
+
+    let receipt_0 = LegacyReceiptRlp {
+        status: true,
+        cum_gas_used: 21032.into(),
+        bloom: vec![0; 256].into(),
+        logs: vec![],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(
+        Nibbles::from_str("0x80").unwrap(),
+        rlp::encode(&receipt_0).to_vec(),
+    );
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
         transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
-        receipts_root: tries_before.receipts_trie.hash(), // TODO: Fix this when we have receipts trie.
+        receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
@@ -120,6 +136,15 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 21032.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 

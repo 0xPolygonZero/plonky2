@@ -29,6 +29,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/create_addresses.asm"),
         include_str!("asm/core/create_contract_account.asm"),
         include_str!("asm/core/exception.asm"),
+        include_str!("asm/core/create_receipt.asm"),
         include_str!("asm/core/gas.asm"),
         include_str!("asm/core/intrinsic_gas.asm"),
         include_str!("asm/core/jumpdest_analysis.asm"),
@@ -158,6 +159,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/util/math.asm"),
         include_str!("asm/account_code.asm"),
         include_str!("asm/balance.asm"),
+        include_str!("asm/bloom_filter.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();

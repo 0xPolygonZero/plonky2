@@ -177,6 +177,30 @@ where
             public_values.block_metadata.block_base_fee,
         ),
         (
+            GlobalMetadata::BlockCurrentHash,
+            h2u(public_values.block_hashes.cur_hash),
+        ),
+        (
+            GlobalMetadata::BlockGasUsed,
+            public_values.block_metadata.block_gas_used,
+        ),
+        (
+            GlobalMetadata::TxnNumberBefore,
+            public_values.extra_block_data.txn_number_before,
+        ),
+        (
+            GlobalMetadata::TxnNumberAfter,
+            public_values.extra_block_data.txn_number_after,
+        ),
+        (
+            GlobalMetadata::BlockGasUsedBefore,
+            public_values.extra_block_data.gas_used_before,
+        ),
+        (
+            GlobalMetadata::BlockGasUsedAfter,
+            public_values.extra_block_data.gas_used_after,
+        ),
+        (
             GlobalMetadata::StateTrieRootDigestBefore,
             h2u(public_values.trie_roots_before.state_root),
         ),
@@ -201,26 +225,58 @@ where
             h2u(public_values.trie_roots_after.receipts_root),
         ),
     ];
-    let is_read = F::ZERO;
-    let context = F::ZERO;
+
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
-    let timestamp = F::ONE;
 
-    let mut row = vec![F::ZERO; 13];
-    fields.map(|(field, val)| {
-        row[0] = is_read;
-        row[1] = context;
-        row[2] = segment;
-        row[3] = F::from_canonical_usize(field as usize);
+    fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
 
-        for j in 0..VALUE_LIMBS {
-            row[j + 4] = F::from_canonical_u32((val >> (j * 32)).low_u32());
-        }
-        row[12] = timestamp;
-        prod *= challenge.combine(row.iter());
-    });
+    // Add block bloom writes.
+    let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
+    for index in 0..8 {
+        let val = public_values.block_metadata.block_bloom[index];
+        prod = add_data_write(challenge, bloom_segment, prod, index, val);
+    }
+
+    for index in 0..8 {
+        let val = public_values.extra_block_data.block_bloom_before[index];
+        prod = add_data_write(challenge, bloom_segment, prod, index + 8, val);
+    }
+    for index in 0..8 {
+        let val = public_values.extra_block_data.block_bloom_after[index];
+        prod = add_data_write(challenge, bloom_segment, prod, index + 16, val);
+    }
+
+    // Add Blockhashes writes.
+    let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
+    for index in 0..256 {
+        let val = h2u(public_values.block_hashes.prev_hashes[index]);
+        prod = add_data_write(challenge, block_hashes_segment, prod, index, val);
+    }
 
     prod
+}
+
+fn add_data_write<F, const D: usize>(
+    challenge: GrandProductChallenge<F>,
+    segment: F,
+    running_product: F,
+    index: usize,
+    val: U256,
+) -> F
+where
+    F: RichField + Extendable<D>,
+{
+    let mut row = [F::ZERO; 13];
+    row[0] = F::ZERO; // is_read
+    row[1] = F::ZERO; // context
+    row[2] = segment;
+    row[3] = F::from_canonical_usize(index);
+
+    for j in 0..VALUE_LIMBS {
+        row[j + 4] = F::from_canonical_u32((val >> (j * 32)).low_u32());
+    }
+    row[12] = F::ONE; // timestamp
+    running_product * challenge.combine(row.iter())
 }
 
 pub(crate) fn verify_stark_proof_with_challenges<

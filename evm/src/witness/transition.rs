@@ -182,8 +182,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,
-        Operation::GetContext => &mut flags.get_context,
-        Operation::SetContext => &mut flags.set_context,
+        Operation::GetContext | Operation::SetContext => &mut flags.context_op,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -281,7 +280,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     perform_op(state, op, row)
 }
 
-fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     // The logic below is a bit costly, so skip it if debug logs aren't enabled.
     if !log_enabled!(log::Level::Debug) {
         return;

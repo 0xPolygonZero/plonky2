@@ -111,9 +111,9 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     let one = builder.one_extension();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
-    let local_is_bootstrap = builder.add_many_extension(local_values.op.into_iter());
+    let local_is_bootstrap = builder.add_many_extension(local_values.op.iter());
     let local_is_bootstrap = builder.sub_extension(one, local_is_bootstrap);
-    let next_is_bootstrap = builder.add_many_extension(next_values.op.into_iter());
+    let next_is_bootstrap = builder.add_many_extension(next_values.op.iter());
     let next_is_bootstrap = builder.sub_extension(one, next_is_bootstrap);
     let constraint = builder.sub_extension(local_is_bootstrap, one);
     yield_constr.constraint_first_row(builder, constraint);

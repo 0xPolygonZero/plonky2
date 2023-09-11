@@ -40,9 +40,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub push: T,
     pub dup: T,
     pub swap: T,
-    // TODO: combine GET_CONTEXT and SET_CONTEXT into one flag
-    pub get_context: T,
-    pub set_context: T,
+    pub context_op: T,
     pub exit_kernel: T,
     pub m_op_general: T,
 

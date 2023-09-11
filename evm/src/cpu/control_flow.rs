@@ -37,8 +37,7 @@ const NATIVE_INSTRUCTIONS: [usize; 28] = [
     // not PUSH (need to increment by more than 1)
     COL_MAP.op.dup,
     COL_MAP.op.swap,
-    COL_MAP.op.get_context,
-    COL_MAP.op.set_context,
+    COL_MAP.op.context_op,
     // not EXIT_KERNEL (performs a jump)
     COL_MAP.op.m_op_general,
     // not SYSCALL (performs a jump)

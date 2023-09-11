@@ -49,18 +49,31 @@ pub enum Segment {
     AccessedStorageKeys = 24,
     /// List of addresses that have called SELFDESTRUCT in the current transaction.
     SelfDestructList = 25,
+    /// Contains the bloom filter of a transaction.
+    TxnBloom = 26,
+    /// Contains the computed bloom filter of a block.
+    BlockBloom = 27,
+    /// Contains the final block bloom, and the block bloom filters before and after the current transaction.
+    /// The first eight elements are `block_metadata.block_bloom`. The next eight are `block_bloom_before`,
+    /// and the last eight are `block_bloom_after.
+    GlobalBlockBloom = 28,
+    /// List of log pointers pointing to the LogsData segment.
+    Logs = 29,
+    LogsData = 30,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 26,
-    JournalData = 27,
-    JournalCheckpoints = 28,
+    Journal = 31,
+    JournalData = 32,
+    JournalCheckpoints = 33,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 29,
+    TouchedAddresses = 34,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 30,
+    ContextCheckpoints = 35,
+    /// List of 256 previous block hashes.
+    BlockHashes = 36,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 31;
+    pub(crate) const COUNT: usize = 37;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -90,11 +103,17 @@ impl Segment {
             Self::AccessedAddresses,
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
+            Self::TxnBloom,
+            Self::BlockBloom,
+            Self::GlobalBlockBloom,
+            Self::Logs,
+            Self::LogsData,
             Self::Journal,
             Self::JournalData,
             Self::JournalCheckpoints,
             Self::TouchedAddresses,
             Self::ContextCheckpoints,
+            Self::BlockHashes,
         ]
     }
 
@@ -127,11 +146,17 @@ impl Segment {
             Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
+            Segment::TxnBloom => "SEGMENT_TXN_BLOOM",
+            Segment::BlockBloom => "SEGMENT_BLOCK_BLOOM",
+            Segment::GlobalBlockBloom => "SEGMENT_GLOBAL_BLOCK_BLOOM",
+            Segment::Logs => "SEGMENT_LOGS",
+            Segment::LogsData => "SEGMENT_LOGS_DATA",
             Segment::Journal => "SEGMENT_JOURNAL",
             Segment::JournalData => "SEGMENT_JOURNAL_DATA",
             Segment::JournalCheckpoints => "SEGMENT_JOURNAL_CHECKPOINTS",
             Segment::TouchedAddresses => "SEGMENT_TOUCHED_ADDRESSES",
             Segment::ContextCheckpoints => "SEGMENT_CONTEXT_CHECKPOINTS",
+            Segment::BlockHashes => "SEGMENT_BLOCK_HASHES",
         }
     }
 
@@ -164,11 +189,17 @@ impl Segment {
             Segment::AccessedAddresses => 256,
             Segment::AccessedStorageKeys => 256,
             Segment::SelfDestructList => 256,
+            Segment::TxnBloom => 8,
+            Segment::GlobalBlockBloom => 256,
+            Segment::BlockBloom => 8,
+            Segment::Logs => 256,
+            Segment::LogsData => 256,
             Segment::Journal => 256,
             Segment::JournalData => 256,
             Segment::JournalCheckpoints => 256,
             Segment::TouchedAddresses => 256,
             Segment::ContextCheckpoints => 256,
+            Segment::BlockHashes => 256,
         }
     }
 }

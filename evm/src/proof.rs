@@ -48,11 +48,13 @@ pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>,
 }
 
 /// Memory values which are public.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     pub trie_roots_after: TrieRoots,
     pub block_metadata: BlockMetadata,
+    pub block_hashes: BlockHashes,
+    pub extra_block_data: ExtraBlockData,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -60,6 +62,22 @@ pub struct TrieRoots {
     pub state_root: H256,
     pub transactions_root: H256,
     pub receipts_root: H256,
+}
+
+// There should be 256 previous hashes stored, so the default should also contain 256 values.
+impl Default for BlockHashes {
+    fn default() -> Self {
+        Self {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockHashes {
+    pub prev_hashes: Vec<H256>,
+    pub cur_hash: H256,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -71,6 +89,18 @@ pub struct BlockMetadata {
     pub block_gaslimit: U256,
     pub block_chain_id: U256,
     pub block_base_fee: U256,
+    pub block_gas_used: U256,
+    pub block_bloom: [U256; 8],
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ExtraBlockData {
+    pub txn_number_before: U256,
+    pub txn_number_after: U256,
+    pub gas_used_before: U256,
+    pub gas_used_after: U256,
+    pub block_bloom_before: [U256; 8],
+    pub block_bloom_after: [U256; 8],
 }
 
 /// Memory values which are public.
@@ -80,6 +110,8 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     pub trie_roots_after: TrieRootsTarget,
     pub block_metadata: BlockMetadataTarget,
+    pub block_hashes: BlockHashesTarget,
+    pub extra_block_data: ExtraBlockDataTarget,
 }
 
 impl PublicValuesTarget {
@@ -90,9 +122,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_before,
         } = self.trie_roots_before;
 
-        buffer.write_target_vec(&state_root_before)?;
-        buffer.write_target_vec(&transactions_root_before)?;
-        buffer.write_target_vec(&receipts_root_before)?;
+        buffer.write_target_array(&state_root_before)?;
+        buffer.write_target_array(&transactions_root_before)?;
+        buffer.write_target_array(&receipts_root_before)?;
 
         let TrieRootsTarget {
             state_root: state_root_after,
@@ -100,9 +132,9 @@ impl PublicValuesTarget {
             receipts_root: receipts_root_after,
         } = self.trie_roots_after;
 
-        buffer.write_target_vec(&state_root_after)?;
-        buffer.write_target_vec(&transactions_root_after)?;
-        buffer.write_target_vec(&receipts_root_after)?;
+        buffer.write_target_array(&state_root_after)?;
+        buffer.write_target_array(&transactions_root_after)?;
+        buffer.write_target_array(&receipts_root_after)?;
 
         let BlockMetadataTarget {
             block_beneficiary,
@@ -112,51 +144,103 @@ impl PublicValuesTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_gas_used,
+            block_bloom,
         } = self.block_metadata;
 
-        buffer.write_target_vec(&block_beneficiary)?;
+        buffer.write_target_array(&block_beneficiary)?;
         buffer.write_target(block_timestamp)?;
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
-        buffer.write_target_vec(&block_base_fee)?;
+        buffer.write_target_array(&block_base_fee)?;
+        buffer.write_target(block_gas_used)?;
+        buffer.write_target_array(&block_bloom)?;
+
+        let BlockHashesTarget {
+            prev_hashes,
+            cur_hash,
+        } = self.block_hashes;
+        buffer.write_target_array(&prev_hashes)?;
+        buffer.write_target_array(&cur_hash)?;
+
+        let ExtraBlockDataTarget {
+            txn_number_before,
+            txn_number_after,
+            gas_used_before,
+            gas_used_after,
+            block_bloom_before,
+            block_bloom_after,
+        } = self.extra_block_data;
+        buffer.write_target(txn_number_before)?;
+        buffer.write_target(txn_number_after)?;
+        buffer.write_target(gas_used_before)?;
+        buffer.write_target(gas_used_after)?;
+        buffer.write_target_array(&block_bloom_before)?;
+        buffer.write_target_array(&block_bloom_after)?;
 
         Ok(())
     }
 
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let trie_roots_after = TrieRootsTarget {
-            state_root: buffer.read_target_vec()?.try_into().unwrap(),
-            transactions_root: buffer.read_target_vec()?.try_into().unwrap(),
-            receipts_root: buffer.read_target_vec()?.try_into().unwrap(),
+            state_root: buffer.read_target_array()?,
+            transactions_root: buffer.read_target_array()?,
+            receipts_root: buffer.read_target_array()?,
         };
 
         let block_metadata = BlockMetadataTarget {
-            block_beneficiary: buffer.read_target_vec()?.try_into().unwrap(),
+            block_beneficiary: buffer.read_target_array()?,
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
-            block_base_fee: buffer.read_target_vec()?.try_into().unwrap(),
+            block_base_fee: buffer.read_target_array()?,
+            block_gas_used: buffer.read_target()?,
+            block_bloom: buffer.read_target_array()?,
+        };
+
+        let block_hashes = BlockHashesTarget {
+            prev_hashes: buffer.read_target_array()?,
+            cur_hash: buffer.read_target_array()?,
+        };
+
+        let extra_block_data = ExtraBlockDataTarget {
+            txn_number_before: buffer.read_target()?,
+            txn_number_after: buffer.read_target()?,
+            gas_used_before: buffer.read_target()?,
+            gas_used_after: buffer.read_target()?,
+            block_bloom_before: buffer.read_target_array()?,
+            block_bloom_after: buffer.read_target_array()?,
         };
 
         Ok(Self {
             trie_roots_before,
             trie_roots_after,
             block_metadata,
+            block_hashes,
+            extra_block_data,
         })
     }
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        assert!(pis.len() > TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE - 1);
+        assert!(
+            pis.len()
+                > TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    + ExtraBlockDataTarget::SIZE
+                    - 1
+        );
+
         Self {
             trie_roots_before: TrieRootsTarget::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]),
             trie_roots_after: TrieRootsTarget::from_public_inputs(
@@ -165,6 +249,21 @@ impl PublicValuesTarget {
             block_metadata: BlockMetadataTarget::from_public_inputs(
                 &pis[TrieRootsTarget::SIZE * 2
                     ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
+            ),
+            block_hashes: BlockHashesTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::BLOCK_HASHES_SIZE],
+            ),
+            extra_block_data: ExtraBlockDataTarget::from_public_inputs(
+                &pis[TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::BLOCK_HASHES_SIZE
+                        + ExtraBlockDataTarget::SIZE],
             ),
         }
     }
@@ -194,6 +293,18 @@ impl PublicValuesTarget {
                 pv0.block_metadata,
                 pv1.block_metadata,
             ),
+            block_hashes: BlockHashesTarget::select(
+                builder,
+                condition,
+                pv0.block_hashes,
+                pv1.block_hashes,
+            ),
+            extra_block_data: ExtraBlockDataTarget::select(
+                builder,
+                condition,
+                pv0.extra_block_data,
+                pv1.extra_block_data,
+            ),
         }
     }
 }
@@ -206,7 +317,7 @@ pub struct TrieRootsTarget {
 }
 
 impl TrieRootsTarget {
-    const SIZE: usize = 24;
+    pub const SIZE: usize = 24;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let state_root = pis[0..8].try_into().unwrap();
@@ -265,10 +376,12 @@ pub struct BlockMetadataTarget {
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
+    pub block_gas_used: Target,
+    pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 12;
+    const SIZE: usize = 77;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -278,6 +391,8 @@ impl BlockMetadataTarget {
         let block_gaslimit = pis[8];
         let block_chain_id = pis[9];
         let block_base_fee = pis[10..12].try_into().unwrap();
+        let block_gas_used = pis[12];
+        let block_bloom = pis[13..77].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -287,6 +402,8 @@ impl BlockMetadataTarget {
             block_gaslimit,
             block_chain_id,
             block_base_fee,
+            block_gas_used,
+            block_bloom,
         }
     }
 
@@ -312,6 +429,10 @@ impl BlockMetadataTarget {
             block_base_fee: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
             }),
+            block_gas_used: builder.select(condition, bm0.block_gas_used, bm1.block_gas_used),
+            block_bloom: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
+            }),
         }
     }
 
@@ -331,6 +452,135 @@ impl BlockMetadataTarget {
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
         }
+        for i in 0..64 {
+            builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub struct BlockHashesTarget {
+    pub prev_hashes: [Target; 2048],
+    pub cur_hash: [Target; 8],
+}
+
+impl BlockHashesTarget {
+    const BLOCK_HASHES_SIZE: usize = 2056;
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        Self {
+            prev_hashes: pis[0..2048].try_into().unwrap(),
+            cur_hash: pis[2048..2056].try_into().unwrap(),
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        bm0: Self,
+        bm1: Self,
+    ) -> Self {
+        Self {
+            prev_hashes: core::array::from_fn(|i| {
+                builder.select(condition, bm0.prev_hashes[i], bm1.prev_hashes[i])
+            }),
+            cur_hash: core::array::from_fn(|i| {
+                builder.select(condition, bm0.cur_hash[i], bm1.cur_hash[i])
+            }),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        bm0: Self,
+        bm1: Self,
+    ) {
+        for i in 0..2048 {
+            builder.connect(bm0.prev_hashes[i], bm1.prev_hashes[i]);
+        }
+        for i in 0..8 {
+            builder.connect(bm0.cur_hash[i], bm1.cur_hash[i]);
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub struct ExtraBlockDataTarget {
+    pub txn_number_before: Target,
+    pub txn_number_after: Target,
+    pub gas_used_before: Target,
+    pub gas_used_after: Target,
+    pub block_bloom_before: [Target; 64],
+    pub block_bloom_after: [Target; 64],
+}
+
+impl ExtraBlockDataTarget {
+    const SIZE: usize = 132;
+
+    pub fn from_public_inputs(pis: &[Target]) -> Self {
+        let txn_number_before = pis[0];
+        let txn_number_after = pis[1];
+        let gas_used_before = pis[2];
+        let gas_used_after = pis[3];
+        let block_bloom_before = pis[4..68].try_into().unwrap();
+        let block_bloom_after = pis[68..132].try_into().unwrap();
+
+        Self {
+            txn_number_before,
+            txn_number_after,
+            gas_used_before,
+            gas_used_after,
+            block_bloom_before,
+            block_bloom_after,
+        }
+    }
+
+    pub fn select<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        ed0: Self,
+        ed1: Self,
+    ) -> Self {
+        Self {
+            txn_number_before: builder.select(
+                condition,
+                ed0.txn_number_before,
+                ed1.txn_number_before,
+            ),
+            txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
+            gas_used_before: builder.select(condition, ed0.gas_used_before, ed1.gas_used_before),
+            gas_used_after: builder.select(condition, ed0.gas_used_after, ed1.gas_used_after),
+            block_bloom_before: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.block_bloom_before[i],
+                    ed1.block_bloom_before[i],
+                )
+            }),
+            block_bloom_after: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.block_bloom_after[i],
+                    ed1.block_bloom_after[i],
+                )
+            }),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        ed0: Self,
+        ed1: Self,
+    ) {
+        builder.connect(ed0.txn_number_before, ed1.txn_number_before);
+        builder.connect(ed0.txn_number_after, ed1.txn_number_after);
+        builder.connect(ed0.gas_used_before, ed1.gas_used_before);
+        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        for i in 0..64 {
+            builder.connect(ed0.block_bloom_before[i], ed1.block_bloom_before[i]);
+        }
+        for i in 0..64 {
+            builder.connect(ed0.block_bloom_after[i], ed1.block_bloom_after[i]);
+        }
     }
 }
 
@@ -340,7 +590,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub trace_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
     pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of trace values.
+    /// Merkle cap of LDEs of quotient polynomial evaluations.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
