@@ -48,6 +48,8 @@ pub struct GenerationInputs {
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,
+    /// State trie root of the genesis block.
+    pub genesis_state_trie_root: H256,
 
     /// Mapping between smart contract code hashes and the contract byte code.
     /// All account smart contracts that are invoked will have an entry present.
@@ -251,6 +253,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
     let extra_block_data = ExtraBlockData {
+        genesis_state_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,
         txn_number_after,
         gas_used_before: inputs.gas_used_before,

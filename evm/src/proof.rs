@@ -95,6 +95,7 @@ pub struct BlockMetadata {
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
+    pub genesis_state_root: H256,
     pub txn_number_before: U256,
     pub txn_number_after: U256,
     pub gas_used_before: U256,
@@ -166,6 +167,7 @@ impl PublicValuesTarget {
         buffer.write_target_array(&cur_hash)?;
 
         let ExtraBlockDataTarget {
+            genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -173,6 +175,7 @@ impl PublicValuesTarget {
             block_bloom_before,
             block_bloom_after,
         } = self.extra_block_data;
+        buffer.write_target_array(&genesis_state_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
         buffer.write_target(gas_used_before)?;
@@ -214,6 +217,7 @@ impl PublicValuesTarget {
         };
 
         let extra_block_data = ExtraBlockDataTarget {
+            genesis_state_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target()?,
@@ -381,7 +385,7 @@ pub struct BlockMetadataTarget {
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 77;
+    pub const SIZE: usize = 77;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -465,7 +469,7 @@ pub struct BlockHashesTarget {
 }
 
 impl BlockHashesTarget {
-    const BLOCK_HASHES_SIZE: usize = 2056;
+    pub const BLOCK_HASHES_SIZE: usize = 2056;
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         Self {
             prev_hashes: pis[0..2048].try_into().unwrap(),
@@ -505,6 +509,7 @@ impl BlockHashesTarget {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct ExtraBlockDataTarget {
+    pub genesis_state_root: [Target; 8],
     pub txn_number_before: Target,
     pub txn_number_after: Target,
     pub gas_used_before: Target,
@@ -514,17 +519,19 @@ pub struct ExtraBlockDataTarget {
 }
 
 impl ExtraBlockDataTarget {
-    const SIZE: usize = 132;
+    const SIZE: usize = 140;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let txn_number_before = pis[0];
-        let txn_number_after = pis[1];
-        let gas_used_before = pis[2];
-        let gas_used_after = pis[3];
-        let block_bloom_before = pis[4..68].try_into().unwrap();
-        let block_bloom_after = pis[68..132].try_into().unwrap();
+        let genesis_state_root = pis[0..8].try_into().unwrap();
+        let txn_number_before = pis[8];
+        let txn_number_after = pis[9];
+        let gas_used_before = pis[10];
+        let gas_used_after = pis[11];
+        let block_bloom_before = pis[12..76].try_into().unwrap();
+        let block_bloom_after = pis[76..140].try_into().unwrap();
 
         Self {
+            genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -541,6 +548,13 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) -> Self {
         Self {
+            genesis_state_root: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.genesis_state_root[i],
+                    ed1.genesis_state_root[i],
+                )
+            }),
             txn_number_before: builder.select(
                 condition,
                 ed0.txn_number_before,
@@ -571,6 +585,9 @@ impl ExtraBlockDataTarget {
         ed0: Self,
         ed1: Self,
     ) {
+        for i in 0..8 {
+            builder.connect(ed0.genesis_state_root[i], ed1.genesis_state_root[i]);
+        }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
