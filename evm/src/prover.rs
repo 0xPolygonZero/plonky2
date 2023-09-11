@@ -433,7 +433,6 @@ where
         trace_commitment,
         &permutation_ctl_zs_commitment,
         &quotient_commitment,
-        degree_bits,
         stark.num_permutation_batches(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
@@ -448,7 +447,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, degree_bits, ctl_data.len(), config),
+            &stark.fri_instance(zeta, g, ctl_data.len(), config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
@@ -570,7 +569,8 @@ where
                     next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
                         [num_permutation_zs + i],
                     challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
+                    local_columns: &zs_columns.local_columns,
+                    next_columns: &zs_columns.next_columns,
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
@@ -688,7 +688,8 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
                     next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
                     challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
+                    local_columns: &zs_columns.local_columns,
+                    next_columns: &zs_columns.next_columns,
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();

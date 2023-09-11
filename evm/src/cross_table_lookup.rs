@@ -141,15 +141,22 @@ impl<F: Field> Column<F> {
 #[derive(Clone, Debug)]
 pub struct TableWithColumns<F: Field> {
     table: Table,
-    columns: Vec<Column<F>>,
+    local_columns: Vec<Column<F>>,
+    next_columns: Vec<Column<F>>,
     pub(crate) filter_column: Option<Column<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
-    pub fn new(table: Table, columns: Vec<Column<F>>, filter_column: Option<Column<F>>) -> Self {
+    pub fn new(
+        table: Table,
+        local_columns: Vec<Column<F>>,
+        next_columns: Vec<Column<F>>,
+        filter_column: Option<Column<F>>,
+    ) -> Self {
         Self {
             table,
-            columns,
+            local_columns,
+            next_columns,
             filter_column,
         }
     }
@@ -168,7 +175,8 @@ impl<F: Field> CrossTableLookup<F> {
     ) -> Self {
         assert!(looking_tables
             .iter()
-            .all(|twc| twc.columns.len() == looked_table.columns.len()));
+            .all(|twc| (twc.local_columns.len() + twc.next_columns.len())
+                == (looked_table.local_columns.len() + looked_table.next_columns.len())));
         Self {
             looking_tables,
             looked_table,
@@ -196,7 +204,8 @@ pub struct CtlData<F: Field> {
 pub(crate) struct CtlZData<F: Field> {
     pub(crate) z: PolynomialValues<F>,
     pub(crate) challenge: GrandProductChallenge<F>,
-    pub(crate) columns: Vec<Column<F>>,
+    pub(crate) local_columns: Vec<Column<F>>,
+    pub(crate) next_columns: Vec<Column<F>>,
     pub(crate) filter_column: Option<Column<F>>,
 }
 
@@ -233,14 +242,16 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
             let zs_looking = looking_tables.iter().map(|table| {
                 partial_products(
                     &trace_poly_values[table.table as usize],
-                    &table.columns,
+                    &table.local_columns,
+                    &table.next_columns,
                     &table.filter_column,
                     challenge,
                 )
             });
             let z_looked = partial_products(
                 &trace_poly_values[looked_table.table as usize],
-                &looked_table.columns,
+                &looked_table.local_columns,
+                &looked_table.next_columns,
                 &looked_table.filter_column,
                 challenge,
             );
@@ -250,7 +261,8 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                     .push(CtlZData {
                         z,
                         challenge,
-                        columns: table.columns.clone(),
+                        local_columns: table.local_columns.clone(),
+                        next_columns: table.next_columns.clone(),
                         filter_column: table.filter_column.clone(),
                     });
             }
@@ -259,7 +271,8 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 .push(CtlZData {
                     z: z_looked,
                     challenge,
-                    columns: looked_table.columns.clone(),
+                    local_columns: looked_table.local_columns.clone(),
+                    next_columns: looked_table.next_columns.clone(),
                     filter_column: looked_table.filter_column.clone(),
                 });
         }
@@ -269,23 +282,31 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
 
 fn partial_products<F: Field>(
     trace: &[PolynomialValues<F>],
-    columns: &[Column<F>],
+    local_columns: &[Column<F>],
+    next_columns: &[Column<F>],
     filter_column: &Option<Column<F>>,
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
-    for i in 0..degree {
+    for i in (0..degree).rev() {
         let filter = if let Some(column) = filter_column {
             column.eval_table(trace, i)
         } else {
             F::ONE
         };
         if filter.is_one() {
-            let evals = columns
+            let evals = local_columns
                 .iter()
                 .map(|c| c.eval_table(trace, i))
+                .chain(
+                    next_columns
+                        .iter()
+                        // The modulo is there to avoid out of bounds. For any CTL using next row
+                        // values, we expect the filter to be 0 at the last row.
+                        .map(|c| c.eval_table(trace, (i + 1) % degree)),
+                )
                 .collect::<Vec<_>>();
             partial_prod *= challenge.combine(evals.iter());
         } else {
@@ -293,6 +314,7 @@ fn partial_products<F: Field>(
         };
         res.push(partial_prod);
     }
+    res.reverse();
     res.into()
 }
 
@@ -306,7 +328,8 @@ where
     pub(crate) local_z: P,
     pub(crate) next_z: P,
     pub(crate) challenges: GrandProductChallenge<F>,
-    pub(crate) columns: &'a [Column<F>],
+    pub(crate) local_columns: &'a [Column<F>],
+    pub(crate) next_columns: &'a [Column<F>],
     pub(crate) filter_column: &'a Option<Column<F>>,
 }
 
@@ -343,7 +366,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         local_z: *looking_z,
                         next_z: *looking_z_next,
                         challenges,
-                        columns: &table.columns,
+                        local_columns: &table.local_columns,
+                        next_columns: &table.next_columns,
                         filter_column: &table.filter_column,
                     });
                 }
@@ -353,7 +377,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     local_z: *looked_z,
                     next_z: *looked_z_next,
                     challenges,
-                    columns: &looked_table.columns,
+                    local_columns: &looked_table.local_columns,
+                    next_columns: &looked_table.next_columns,
                     filter_column: &looked_table.filter_column,
                 });
             }
@@ -362,6 +387,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     }
 }
 
+/// CTL Z partial products are upside down: the complete product is on the first row, and
+/// the first term is on the last row. This allows the transition constraint to be:
+/// Z(w) = Z(gw) * combine(w) where combine is called on the local row
+/// and not the next. This enables CTLs across two rows.
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const D2: usize>(
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
@@ -377,30 +406,28 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             local_z,
             next_z,
             challenges,
-            columns,
+            local_columns,
+            next_columns,
             filter_column,
         } = lookup_vars;
-        let combine = |v: &[P]| -> P {
-            let evals = columns.iter().map(|c| c.eval(v)).collect::<Vec<_>>();
-            challenges.combine(evals.iter())
-        };
-        let filter = |v: &[P]| -> P {
-            if let Some(column) = filter_column {
-                column.eval(v)
-            } else {
-                P::ONES
-            }
-        };
-        let local_filter = filter(vars.local_values);
-        let next_filter = filter(vars.next_values);
-        let select = |filter, x| filter * x + P::ONES - filter;
 
-        // Check value of `Z(1)`
-        consumer.constraint_first_row(*local_z - select(local_filter, combine(vars.local_values)));
-        // Check `Z(gw) = combination * Z(w)`
-        consumer.constraint_transition(
-            *local_z * select(next_filter, combine(vars.next_values)) - *next_z,
-        );
+        let mut evals = local_columns
+            .iter()
+            .map(|c| c.eval(vars.local_values))
+            .collect::<Vec<_>>();
+        evals.extend(next_columns.iter().map(|c| c.eval(vars.next_values)));
+        let combined = challenges.combine(evals.iter());
+        let local_filter = if let Some(column) = filter_column {
+            column.eval(vars.local_values)
+        } else {
+            P::ONES
+        };
+        let select = local_filter * combined + P::ONES - local_filter;
+
+        // Check value of `Z(g^(n-1))`
+        consumer.constraint_last_row(*local_z - select);
+        // Check `Z(w) = combination * Z(gw)`
+        consumer.constraint_transition(*next_z * select - *local_z);
     }
 }
 
@@ -409,7 +436,8 @@ pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
     pub(crate) local_z: ExtensionTarget<D>,
     pub(crate) next_z: ExtensionTarget<D>,
     pub(crate) challenges: GrandProductChallenge<Target>,
-    pub(crate) columns: &'a [Column<F>],
+    pub(crate) local_columns: &'a [Column<F>],
+    pub(crate) next_columns: &'a [Column<F>],
     pub(crate) filter_column: &'a Option<Column<F>>,
 }
 
@@ -445,7 +473,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                             local_z: *looking_z,
                             next_z: *looking_z_next,
                             challenges,
-                            columns: &looking_table.columns,
+                            local_columns: &looking_table.local_columns,
+                            next_columns: &looking_table.next_columns,
                             filter_column: &looking_table.filter_column,
                         });
                     }
@@ -457,7 +486,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                         local_z: *looked_z,
                         next_z: *looked_z_next,
                         challenges,
-                        columns: &looked_table.columns,
+                        local_columns: &looked_table.local_columns,
+                        next_columns: &looked_table.next_columns,
                         filter_column: &looked_table.filter_column,
                     });
                 }
@@ -483,18 +513,14 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             local_z,
             next_z,
             challenges,
-            columns,
+            local_columns,
+            next_columns,
             filter_column,
         } = lookup_vars;
 
         let one = builder.one_extension();
         let local_filter = if let Some(column) = filter_column {
             column.eval_circuit(builder, vars.local_values)
-        } else {
-            one
-        };
-        let next_filter = if let Some(column) = filter_column {
-            column.eval_circuit(builder, vars.next_values)
         } else {
             one
         };
@@ -508,34 +534,35 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             builder.mul_add_extension(filter, x, tmp) // filter * x + 1 - filter
         }
 
-        // Check value of `Z(1)`
-        let local_columns_eval = columns
+        let mut evals = local_columns
             .iter()
             .map(|c| c.eval_circuit(builder, vars.local_values))
             .collect::<Vec<_>>();
-        let combined_local = challenges.combine_circuit(builder, &local_columns_eval);
-        let selected_local = select(builder, local_filter, combined_local);
-        let first_row = builder.sub_extension(*local_z, selected_local);
-        consumer.constraint_first_row(builder, first_row);
-        // Check `Z(gw) = combination * Z(w)`
-        let next_columns_eval = columns
-            .iter()
-            .map(|c| c.eval_circuit(builder, vars.next_values))
-            .collect::<Vec<_>>();
-        let combined_next = challenges.combine_circuit(builder, &next_columns_eval);
-        let selected_next = select(builder, next_filter, combined_next);
-        let transition = builder.mul_sub_extension(*local_z, selected_next, *next_z);
+        evals.extend(
+            next_columns
+                .iter()
+                .map(|c| c.eval_circuit(builder, vars.next_values)),
+        );
+
+        let combined = challenges.combine_circuit(builder, &evals);
+        let select = select(builder, local_filter, combined);
+
+        // Check value of `Z(g^(n-1))`
+        let last_row = builder.sub_extension(*local_z, select);
+        consumer.constraint_last_row(builder, last_row);
+        // Check `Z(w) = combination * Z(gw)`
+        let transition = builder.mul_sub_extension(*next_z, select, *local_z);
         consumer.constraint_transition(builder, transition);
     }
 }
 
 pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
-    ctl_zs_lasts: [Vec<F>; NUM_TABLES],
+    ctl_zs_first: [Vec<F>; NUM_TABLES],
     ctl_extra_looking_products: Vec<Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
-    let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
     for CrossTableLookup {
         looking_tables,
         looked_table,
@@ -564,11 +591,11 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
 pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    ctl_zs_lasts: [Vec<Target>; NUM_TABLES],
+    ctl_zs_first: [Vec<Target>; NUM_TABLES],
     ctl_extra_looking_products: Vec<Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
-    let mut ctl_zs_openings = ctl_zs_lasts.iter().map(|v| v.iter()).collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
     for CrossTableLookup {
         looking_tables,
         looked_table,
@@ -661,9 +688,15 @@ pub(crate) mod testutils {
             };
             if filter.is_one() {
                 let row = table
-                    .columns
+                    .local_columns
                     .iter()
                     .map(|c| c.eval_table(trace, i))
+                    .chain(
+                        table
+                            .next_columns
+                            .iter()
+                            .map(|c| c.eval_table(trace, (i + 1) % trace[0].len())),
+                    )
                     .collect::<Vec<_>>();
                 multiset.entry(row).or_default().push((table.table, i));
             } else {

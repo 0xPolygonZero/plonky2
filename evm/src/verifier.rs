@@ -128,7 +128,9 @@ where
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
-        all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
+        all_proof
+            .stark_proofs
+            .map(|p| p.proof.openings.ctl_zs_first),
         extra_looking_products,
         config,
     )
@@ -301,7 +303,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
@@ -367,8 +369,7 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            degree_bits,
-            ctl_zs_last.len(),
+            ctl_zs_first.len(),
             config,
         ),
         &proof.openings.to_fri_openings(),
@@ -408,7 +409,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = openings;
 
@@ -425,7 +426,7 @@ where
     ensure!(next_values.len() == S::COLUMNS);
     ensure!(permutation_ctl_zs.len() == num_zs);
     ensure!(permutation_ctl_zs_next.len() == num_zs);
-    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(ctl_zs_first.len() == num_ctl_zs);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())

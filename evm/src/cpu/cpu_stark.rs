@@ -118,6 +118,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         ctl_data_ternops(&OPS, false),
+        vec![],
         Some(Column::sum(OPS)),
     )
 }
@@ -149,6 +150,7 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         ctl_data_ternops(&OPS, true),
+        vec![],
         Some(Column::sum([COL_MAP.op.shl, COL_MAP.op.shr])),
     )
 }

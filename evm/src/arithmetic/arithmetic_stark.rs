@@ -81,6 +81,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Arithmetic,
         cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
+        vec![],
         Some(Column::sum(ARITH_OPS)),
     )
 }

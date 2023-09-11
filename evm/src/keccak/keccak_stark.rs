@@ -763,7 +763,8 @@ mod tests {
                 beta: F::ZERO,
                 gamma: F::ZERO,
             },
-            columns: vec![],
+            local_columns: vec![],
+            next_columns: vec![],
             filter_column: None,
         };
         let ctl_data = CtlData {
