@@ -64,8 +64,8 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     let next_values: &CpuColumnsView<_> = vars.next_values.borrow();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
-    let local_is_bootstrap = P::ONES - local_values.op.into_iter().sum::<P>();
-    let next_is_bootstrap = P::ONES - next_values.op.into_iter().sum::<P>();
+    let local_is_bootstrap = P::ONES - local_values.op.into_iter().sum::<P>() - local_values.null;
+    let next_is_bootstrap = P::ONES - next_values.op.into_iter().sum::<P>() - next_values.null;
     yield_constr.constraint_first_row(local_is_bootstrap - P::ONES);
     yield_constr.constraint_last_row(local_is_bootstrap);
     let delta_is_bootstrap = next_is_bootstrap - local_is_bootstrap;
@@ -111,9 +111,11 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     let one = builder.one_extension();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
-    let local_is_bootstrap = builder.add_many_extension(local_values.op.iter());
+    let local_is_bootstrap =
+        builder.add_many_extension(local_values.op.iter().chain(&[local_values.null]));
     let local_is_bootstrap = builder.sub_extension(one, local_is_bootstrap);
-    let next_is_bootstrap = builder.add_many_extension(next_values.op.iter());
+    let next_is_bootstrap =
+        builder.add_many_extension(next_values.op.iter().chain(&[next_values.null]));
     let next_is_bootstrap = builder.sub_extension(one, next_is_bootstrap);
     let constraint = builder.sub_extension(local_is_bootstrap, one);
     yield_constr.constraint_first_row(builder, constraint);

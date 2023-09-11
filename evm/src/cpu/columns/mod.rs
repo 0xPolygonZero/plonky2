@@ -72,6 +72,9 @@ pub struct CpuColumnsView<T: Copy> {
 
     pub(crate) clock: T,
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+
+    // Used for padding the CPU without incurring additional memory accesses.
+    pub null: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
