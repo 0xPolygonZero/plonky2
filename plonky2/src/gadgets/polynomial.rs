@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use serde::{Deserialize, Serialize};
+
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -7,7 +9,7 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsExtTarget<D> {

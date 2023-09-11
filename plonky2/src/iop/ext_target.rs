@@ -1,6 +1,9 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
+
 use crate::field::extension::algebra::ExtensionAlgebra;
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::types::Field;
@@ -9,8 +12,13 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// `Target`s representing an element of an extension field.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct ExtensionTarget<const D: usize>(pub [Target; D]);
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+
+pub struct ExtensionTarget<const D: usize>(
+    // Note: we have to use the `serde-big-array` crate here because the array size is potentially
+    // beyond what serde supports by default.
+    #[serde(with = "BigArray")] pub [Target; D],
+);
 
 impl<const D: usize> Default for ExtensionTarget<D> {
     fn default() -> Self {

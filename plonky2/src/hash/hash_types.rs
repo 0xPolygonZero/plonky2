@@ -112,7 +112,7 @@ impl<F: Field> Default for HashOut<F> {
 }
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct HashOutTarget {
     pub elements: [Target; NUM_HASH_OUT_ELTS],
 }
@@ -150,7 +150,7 @@ impl TryFrom<&[Target]> for HashOutTarget {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 
 /// Hash consisting of a byte array.
